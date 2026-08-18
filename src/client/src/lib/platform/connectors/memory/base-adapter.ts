@@ -11,6 +11,8 @@ import {
 	type MemoryAdapter,
 	type MemoryCapabilities,
 	emptyMemoryFilters,
+	type MemoryFeedback,
+	type MemoryFeedbackInput,
 	type MemoryFilterOptions,
 	type MemoryListFilter,
 	type MemoryRecord,
@@ -61,5 +63,9 @@ export abstract class BaseMemoryAdapter implements MemoryAdapter {
 
 	async delete(_id: string): Promise<void> {
 		this.unsupported("delete");
+	}
+
+	async feedback(_id: string, _input: MemoryFeedbackInput): Promise<MemoryFeedback> {
+		this.unsupported("feedback");
 	}
 }

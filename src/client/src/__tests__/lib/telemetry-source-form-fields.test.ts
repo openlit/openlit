@@ -11,6 +11,7 @@ import { applyHttpAuthCredentials } from "@/lib/platform/connectors/datasource/h
 import { tempoAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/tempo";
 import { lokiAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/loki";
 import { prometheusAdapterFactory } from "@/lib/platform/connectors/datasource/prometheus/adapter";
+import { claudeAdapterFactory } from "@/lib/platform/connectors/memory/claude/adapter";
 import { mem0AdapterFactory } from "@/lib/platform/connectors/memory/mem0/adapter";
 import { zepAdapterFactory } from "@/lib/platform/connectors/memory/zep/adapter";
 
@@ -106,7 +107,11 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 	});
 
 	it("exposes API-key credentials for memory connectors", () => {
-		for (const factory of [mem0AdapterFactory, zepAdapterFactory]) {
+		for (const factory of [
+			claudeAdapterFactory,
+			mem0AdapterFactory,
+			zepAdapterFactory,
+		]) {
 			const described = factory.describe();
 			expect(described.authStyle).toBe("api-key");
 			expect(described.configFields.find((field) => field.key === "apiKey")?.group).toBe(

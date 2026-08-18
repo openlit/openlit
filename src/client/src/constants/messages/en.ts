@@ -2096,6 +2096,21 @@ export const NO_CONNECTED_CONNECTORS = "No connectors are configured for the act
 export const CONNECTOR_CATALOG = "Connector catalog";
 export const CONNECTOR_CATALOG_DESCRIPTION = "Browse connector types and add more integrations to the active project.";
 export const ADD_CONNECTOR = "Add connector";
+export const CONNECTOR_SEARCH_PLACEHOLDER = "Search connectors";
+export const CONNECTOR_NO_MATCHES = "No connectors match your search.";
+export const CONNECTOR_FILTER_ALL_TYPES = "All types";
+export const CONNECTOR_FILTER_ALL_CATEGORIES = "All categories";
+export const CONNECTOR_FILTER_ALL_SIGNALS = "All signals";
+export const CONNECTOR_FILTER_TYPE = "Type";
+export const CONNECTOR_FILTER_CATEGORY = "Category";
+export const CONNECTOR_FILTER_SIGNAL = "Signal";
+export const CONNECTOR_TYPE_PLACEHOLDER = "Select a connector type";
+export const CONNECTOR_CATEGORY_DATASOURCE = "Data sources";
+export const CONNECTOR_CATEGORY_MEMORY = "Memory";
+export const DATA_SOURCE_TEST_UNSAVED =
+	"Save the connector before testing the connection.";
+export const DATA_SOURCE_EDIT_ACTION = "Edit connector";
+export const DATA_SOURCE_DELETE_ACTION = "Delete connector";
 export const CONNECTOR_PREMIUM = "Premium";
 export const CONNECTOR_LOCKED = "Requires a paid plan or license";
 export const CONNECTOR_LOCKED_ACTION = "License required";
@@ -2122,16 +2137,23 @@ export const MEMORY_CONNECTOR_FILTER_REQUIRED =
 	"A user, agent, or session is required to list memories.";
 export const MEMORY_CONNECTOR_INLINE_SECRET_REQUIRED =
 	"This memory connector must store its API key on the connector. Edit the connector and save the API key again.";
+export const MEMORY_CONNECTOR_CLAUDE_DESCRIPTION =
+	"Browse and edit memories in Anthropic Claude memory stores.";
 export const MEMORY_CONNECTOR_MEM0_DESCRIPTION =
 	"Store and search long-term agent memories with Mem0.";
 export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =
 	"Store and search session memory and a knowledge graph with Zep.";
 export const MEMORY_CONNECTOR_FIELD_ORG_ID = "Mem0 organization ID";
 export const MEMORY_CONNECTOR_FIELD_PROJECT_ID = "Mem0 project ID";
+export const MEMORY_CONNECTOR_FIELD_STORE_ID = "Memory store ID";
+export const MEMORY_CONNECTOR_AUTH_HELP_CLAUDE =
+	"Use an Anthropic API key. Memory store calls send x-api-key with the agent-memory beta header.";
 export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
 	"Use a Mem0 Platform API key. Self-hosted Mem0 can use a custom endpoint with the same Token authentication.";
 export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
 	"Use a Zep Cloud API key. Self-hosted Zep can use a custom endpoint with the same Api-Key authentication.";
+export const MEMORY_CONNECTOR_SETUP_CLAUDE_SUMMARY =
+	"Claude memory stores keep agent notes across Managed Agents sessions.";
 export const MEMORY_CONNECTOR_SETUP_MEM0_SUMMARY =
 	"Mem0 stores long-term memories that agents can search later.";
 export const MEMORY_CONNECTOR_SETUP_ZEP_SUMMARY =
@@ -2150,14 +2172,21 @@ export const MEMORY_ASK_HINT =
 	"Otter searches this connector and answers here.";
 export const MEMORY_ASK_SEND = "Ask Otter";
 export const MEMORY_ASK_OTTER_PROMPT =
-	"Answer this from the project's stored memories. Use search_memories or list_memories before answering.";
+	"Answer this from the project's stored memories. Use search_memories or list_memories before answering. Use add_memory, update_memory, or delete_memory only when the user asks to remember, change, or forget something.";
 export const MEMORY_REFRESH = "Load";
 export const MEMORY_GRAPH_TITLE = "Memory graph";
 export const MEMORY_LIST_TITLE = "Memories";
+export const MEMORY_PAGE_OF = (current: number, total: number) =>
+	`${current} of ${total}`;
+export const MEMORY_PAGE_PREVIOUS = "Previous page";
+export const MEMORY_PAGE_NEXT = "Next page";
 export const MEMORY_CONNECTOR_LABEL = "Memory connector";
 export const MEMORY_USER_FILTER = "User";
 export const MEMORY_SESSION_FILTER = "Session";
 export const MEMORY_AGENT_FILTER = "Agent";
+export const MEMORY_FILTER_ALL = "All";
+export const MEMORY_FILTER_USE_VALUE = (value: string) => `Use “${value}”`;
+export const MEMORY_FILTER_CUSTOM_HINT = "Type a value and press Enter.";
 export const MEMORY_SESSION_REQUIRED_HINT =
 	"Select a session to load memories from this connector.";
 export const MEMORY_FILTER_REQUIRED_HINT =
@@ -2174,12 +2203,32 @@ export const MEMORY_LOAD_FAILED = "Failed to load memories.";
 export const MEMORY_UNAVAILABLE_TITLE = "Memories are unavailable";
 export const MEMORY_UNAVAILABLE_DESCRIPTION =
 	"We couldn't load memories from this connector. Check the connector and try again.";
+export const MEMORY_AUTH_FAILED_HINT =
+	"This connector rejected the API key. Edit the connector, save a valid key, and try again.";
 export const MEMORY_RETRY = "Retry";
 export const MEMORY_UNKNOWN_USER = "Unknown user";
 export const MEMORY_NO_DATE = "—";
 export const MEMORY_LEGEND = "Legend";
+export const MEMORY_GRAPH_ENTITY_TYPES = "Entity types";
+export const MEMORY_GRAPH_SEARCH = "Search graph";
+export const MEMORY_GRAPH_TYPE_ALL = "All";
+export const MEMORY_GRAPH_ZOOM_IN = "Zoom in";
+export const MEMORY_GRAPH_ZOOM_OUT = "Zoom out";
+export const MEMORY_GRAPH_TYPE_FILTER = "Entity type";
+export const MEMORY_ENTITY = "Entity";
+export const MEMORY_EVENT = "Event";
+export const MEMORY_LOCATION = "Location";
+export const MEMORY_OBJECT = "Object";
+export const MEMORY_PREFERENCE = "Preference";
+export const MEMORY_TOPIC = "Topic";
+export const MEMORY_USER = "User";
 export const MEMORY_INVALID_FILTER = "A memory filter value is invalid.";
 export const MEMORY_INVALID_LIMIT = "Limit must be a number between 1 and 100.";
+export const MEMORY_INVALID_JSON = "Request body must be valid JSON.";
+export const MEMORY_FEEDBACK_INVALID =
+	"Feedback must be positive, negative, very negative, or empty to clear.";
+export const MEMORY_FEEDBACK_REASON_TOO_LONG =
+	"Feedback reason must be 1000 characters or fewer.";
 export const MEMORY_DETAIL_TITLE = "Memory";
 export const MEMORY_DETAIL_NOT_FOUND = "This memory could not be found.";
 export const MEMORY_DETAIL_LOAD_FAILED = "Failed to load memory details.";
@@ -2218,6 +2267,74 @@ export const MEMORY_DETAIL_OLD_MEMORY = "Previous";
 export const MEMORY_DETAIL_NEW_MEMORY = "Updated to";
 export const MEMORY_DETAIL_YES = "Yes";
 export const MEMORY_DETAIL_NO = "No";
+export const MEMORY_DETAIL_ITEM = (index: number) => `#${index}`;
+export const MEMORY_DETAIL_FEEDBACK = "Feedback";
+export const MEMORY_DETAIL_FEEDBACK_HELP =
+	"Tell the memory provider whether this memory is useful.";
+export const MEMORY_DETAIL_FEEDBACK_POSITIVE = "Positive";
+export const MEMORY_DETAIL_FEEDBACK_NEGATIVE = "Negative";
+export const MEMORY_DETAIL_FEEDBACK_VERY_NEGATIVE = "Very negative";
+export const MEMORY_DETAIL_FEEDBACK_REASON = "Reason";
+export const MEMORY_DETAIL_FEEDBACK_REASON_PLACEHOLDER =
+	"Why is this memory useful or not?";
+export const MEMORY_DETAIL_FEEDBACK_SUBMIT = "Save reason";
+export const MEMORY_DETAIL_FEEDBACK_CLEAR = "Clear feedback";
+export const MEMORY_DETAIL_FEEDBACK_SAVED = "Feedback saved";
+export const MEMORY_DETAIL_FEEDBACK_CLEARED = "Feedback cleared";
+export const MEMORY_DETAIL_FEEDBACK_SAVE_FAILED = "Failed to save memory feedback.";
+export const MEMORY_DETAIL_FEEDBACK_UNSUPPORTED =
+	"This connector does not support memory feedback.";
+export const MEMORY_ADD = "Add memory";
+export const MEMORY_ADD_TITLE = "Add memory";
+export const MEMORY_ADD_DESCRIPTION =
+	"Write a fact to the selected memory connector.";
+export const MEMORY_ADD_PLACEHOLDER = "What should this connector remember?";
+export const MEMORY_ADD_SAVE = "Save memory";
+export const MEMORY_ADD_SAVED = "Memory saved";
+export const MEMORY_ADD_FAILED = "Failed to add memory.";
+export const MEMORY_ADD_UNSUPPORTED =
+	"This connector does not support adding memories.";
+export const MEMORY_COPY = "Copy to connector";
+export const MEMORY_COPY_TITLE = "Copy memories";
+export const MEMORY_COPY_DESCRIPTION =
+	"Copy the loaded memories into another connector. OpenLIT stores a link back to the source memory.";
+export const MEMORY_COPY_TARGET = "Destination connector";
+export const MEMORY_COPY_SAVE = "Copy memories";
+export const MEMORY_COPY_SAVED = (copied: number, target: string) =>
+	copied === 1
+		? `Copied 1 memory to ${target}.`
+		: `Copied ${copied} memories to ${target}.`;
+export const MEMORY_COPY_PARTIAL = (copied: number, failed: number) =>
+	`Copied ${copied} ${copied === 1 ? "memory" : "memories"}, ${failed} failed.`;
+export const MEMORY_COPY_FAILED = "Failed to copy memories.";
+export const MEMORY_COPY_EMPTY = "Select memories to copy, or load a list first.";
+export const MEMORY_COPY_SAME_CONNECTOR =
+	"Choose a different destination connector.";
+export const MEMORY_COPY_TOO_MANY =
+	"Copy up to 50 memories at a time.";
+export const MEMORY_COPY_NO_TARGETS =
+	"Add another memory connector that can store memories to copy into.";
+export const MEMORY_COPY_SOURCE = "Copied from";
+export const MEMORY_COPY_OPEN_SOURCE = "Open source memory";
+export const MEMORY_EDIT = "Edit";
+export const MEMORY_EDIT_TITLE = "Edit memory";
+export const MEMORY_EDIT_SAVE = "Save changes";
+export const MEMORY_EDIT_SAVED = "Memory updated";
+export const MEMORY_EDIT_FAILED = "Failed to update memory.";
+export const MEMORY_EDIT_UNSUPPORTED =
+	"This connector does not support updating memories.";
+export const MEMORY_DELETE = "Delete";
+export const MEMORY_DELETE_TITLE = "Delete this memory?";
+export const MEMORY_DELETE_DESCRIPTION =
+	"This removes the memory from the connected store. This cannot be undone.";
+export const MEMORY_DELETE_CONFIRM = "Delete memory";
+export const MEMORY_DELETED = "Memory deleted";
+export const MEMORY_DELETE_FAILED = "Failed to delete memory.";
+export const MEMORY_DELETE_UNSUPPORTED =
+	"This connector does not support deleting memories.";
+export const MEMORY_CANCEL = "Cancel";
+export const MEMORY_CONTENT_TOO_LONG = "Memory content is too long.";
+export const MEMORY_INVALID_METADATA = "Memory metadata must be a JSON object.";
 export const DATA_SOURCE_BUILTIN_TITLE = "ClickHouse connector";
 export const DATA_SOURCE_BUILTIN_DERIVED =
 	"ClickHouse is optional for telemetry viewing. It becomes the execution target for evaluations, AI analysis, costing, and other features that require OpenLIT-managed storage.";
@@ -2232,6 +2349,7 @@ export const DATA_SOURCE_SIGNAL_ROUTING_DIALOG_FOOTER = (name: string, environme
 export const DATA_SOURCE_SIGNAL_TRACES = "Traces";
 export const DATA_SOURCE_SIGNAL_LOGS = "Logs";
 export const DATA_SOURCE_SIGNAL_METRICS = "Metrics";
+export const DATA_SOURCE_SIGNAL_INTELLIGENCE = "Intelligence";
 export const DATA_SOURCE_SIGNAL_BUILTIN_OPTION = "ClickHouse connector";
 export const DATA_SOURCE_SOURCES_TITLE = "External sources";
 export const DATA_SOURCE_SOURCES_DESCRIPTION =
@@ -2265,6 +2383,11 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		summary: "OpenLIT reads traces from the Jaeger Query Service.",
 		steps: ["Enter the Jaeger Query Service URL, commonly port 16686.", "Use the configured Basic/Bearer credentials if the query service is protected.", "Ensure the OpenLIT server can reach the query service over the network."],
 		docsUrl: "https://www.jaegertracing.io/docs/1.24/apis/",
+	},
+	claude: {
+		summary: "Connect OpenLIT to Claude memory stores.",
+		steps: ["Create an Anthropic API key with access to Memory Stores.", "Paste the API key into the credentials field.", "Optionally pin a memory store ID, or pick a store from the Memory page session filter, then test the connection."],
+		docsUrl: "https://platform.claude.com/docs/en/managed-agents/memory",
 	},
 	mem0: {
 		summary: "Connect OpenLIT to Mem0 for long-term agent memory.",

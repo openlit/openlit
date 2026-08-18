@@ -63,6 +63,8 @@ import {
 	healthCheckMemoryConnector,
 	isMemoryConnectorId,
 	listMemoryConnectors,
+	readRememberedMemoryFilters,
+	rememberMemoryFilters,
 	updateMemoryConnector,
 } from "@/lib/platform/connectors/memory/crud";
 
@@ -211,5 +213,49 @@ describe("memory connector CRUD", () => {
 		);
 		expect(listed[0]).not.toHaveProperty("secretRef");
 		expect(listed[0].hasSecret).toBe(true);
+	});
+
+	it("remembers typed user ids and omits them from public connector metadata", async () => {
+		mockFindFirst.mockResolvedValue(
+			row({
+				metadata: JSON.stringify({
+					category: "memory",
+					memoryFilters: { users: ["ada"] },
+				}),
+			})
+		);
+		mockUpdate.mockResolvedValue(row());
+		await rememberMemoryFilters("abc", { users: ["aman"] });
+		expect(JSON.parse(mockUpdate.mock.calls[0][0].data.metadata)).toEqual({
+			category: "memory",
+			memoryFilters: { users: ["ada", "aman"], sessions: [], agents: [] },
+		});
+
+		await expect(readRememberedMemoryFilters("abc")).resolves.toEqual({
+			users: ["ada"],
+			sessions: [],
+			agents: [],
+		});
+
+		mockFindMany.mockResolvedValue([
+			row({
+				metadata: JSON.stringify({
+					category: "memory",
+					memoryFilters: { users: ["aman"] },
+				}),
+			}),
+		]);
+		const listed = await listMemoryConnectors();
+		expect(JSON.parse(String(listed[0].metadata))).toEqual({ category: "memory" });
+	});
+
+	it("omits memory connectors whose adapter is no longer registered", async () => {
+		mockFindMany.mockResolvedValue([
+			row(),
+			row({ id: "memory:gone", type: "unknown-vendor", name: "retired vendor" }),
+		]);
+		mockHasMemoryAdapterFactory.mockImplementation((type: unknown) => type === "mem0");
+		const listed = await listMemoryConnectors();
+		expect(listed.map((item) => item.id)).toEqual(["memory:abc"]);
 	});
 });

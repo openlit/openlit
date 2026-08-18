@@ -10,10 +10,13 @@ import getMessage from "@/constants/messages";
 import type { ConnectorHealthResult } from "../../types";
 import type { ResolvedSecret } from "../../datasource/http/secret";
 import { BaseMemoryAdapter } from "../base-adapter";
-import { memoryHttpVendorFields } from "../config-fields";
+import { memoryHttpVendorFields, memoryPageFilters } from "../config-fields";
 import { memoryBaseUrl, memoryRequest } from "../http";
 import type {
 	MemoryCapabilities,
+	MemoryFeedback,
+	MemoryFeedbackInput,
+	MemoryFeedbackRating,
 	MemoryFilterChoice,
 	MemoryFilterOptions,
 	MemoryHistoryEvent,
@@ -29,6 +32,28 @@ import type {
 import { emptyMemoryFilters } from "../types";
 
 const DEFAULT_URL = "https://api.mem0.ai";
+
+const MEM0_CAPABILITIES = {
+	add: true,
+	search: true,
+	get: true,
+	list: true,
+	update: true,
+	delete: true,
+	feedback: true,
+} as const;
+
+const MEM0_FEEDBACK_TO_RATING: Record<string, MemoryFeedbackRating> = {
+	POSITIVE: "positive",
+	NEGATIVE: "negative",
+	VERY_NEGATIVE: "very_negative",
+};
+
+const RATING_TO_MEM0_FEEDBACK: Record<MemoryFeedbackRating, string> = {
+	positive: "POSITIVE",
+	negative: "NEGATIVE",
+	very_negative: "VERY_NEGATIVE",
+};
 
 function asRecord(value: unknown): Record<string, unknown> {
 	return value && typeof value === "object" && !Array.isArray(value)
@@ -56,6 +81,29 @@ function objectValue(value: unknown): Record<string, unknown> | undefined {
 
 function booleanValue(value: unknown): boolean | undefined {
 	return typeof value === "boolean" ? value : undefined;
+}
+
+function normalizeFeedback(raw: unknown): MemoryFeedback | undefined {
+	const row = asRecord(raw);
+	const nested = asRecord(row.data);
+	const token = (
+		stringValue(row.feedback) ||
+		stringValue(nested.feedback) ||
+		""
+	)
+		.trim()
+		.toUpperCase()
+		.replace(/[\s-]+/g, "_");
+	const rating = token ? MEM0_FEEDBACK_TO_RATING[token] : undefined;
+	const reason =
+		stringValue(row.feedback_reason) ||
+		stringValue(row.feedbackReason) ||
+		stringValue(nested.feedback_reason);
+	if (!rating && !reason) return undefined;
+	return {
+		...(rating ? { rating } : {}),
+		...(reason ? { reason } : {}),
+	};
 }
 
 function normalizeMessages(value: unknown): MemoryMessage[] {
@@ -161,6 +209,7 @@ function normalizeRecord(
 			booleanValue(row.synthesized) ?? booleanValue(nested.synthesized),
 		lifecycleState:
 			stringValue(row.lifecycle_state) || stringValue(nested.lifecycle_state),
+		feedback: normalizeFeedback(row) || normalizeFeedback(nested),
 	};
 }
 
@@ -303,14 +352,7 @@ export class Mem0Adapter extends BaseMemoryAdapter {
 	}
 
 	capabilities(): MemoryCapabilities {
-		return {
-			add: true,
-			search: true,
-			get: true,
-			list: true,
-			update: true,
-			delete: true,
-		};
+		return { ...MEM0_CAPABILITIES };
 	}
 
 	async healthCheck(): Promise<ConnectorHealthResult> {
@@ -432,6 +474,28 @@ export class Mem0Adapter extends BaseMemoryAdapter {
 			method: "DELETE",
 		});
 	}
+
+	async feedback(id: string, input: MemoryFeedbackInput): Promise<MemoryFeedback> {
+		const memoryId = id.trim();
+		if (!memoryId) throw new Error(getMessage().MEMORY_DETAIL_NOT_FOUND);
+		const body = await this.requestSlash("v1/feedback/", {
+			method: "POST",
+			body: {
+				memory_id: memoryId,
+				feedback: input.rating ? RATING_TO_MEM0_FEEDBACK[input.rating] : null,
+				feedback_reason: input.reason?.trim() || null,
+			},
+		});
+		return (
+			normalizeFeedback(body) ||
+			(input.rating || input.reason?.trim()
+				? {
+						...(input.rating ? { rating: input.rating } : {}),
+						...(input.reason?.trim() ? { reason: input.reason.trim() } : {}),
+					}
+				: {})
+		);
+	}
 }
 
 export const mem0AdapterFactory = {
@@ -441,14 +505,7 @@ export const mem0AdapterFactory = {
 		type: "mem0",
 		displayName: "Mem0",
 		description: getMessage().MEMORY_CONNECTOR_MEM0_DESCRIPTION,
-		capabilities: {
-			add: true,
-			search: true,
-			get: true,
-			list: true,
-			update: true,
-			delete: true,
-		},
+		capabilities: { ...MEM0_CAPABILITIES },
 		configFields: [
 			...memoryHttpVendorFields({ placeholder: DEFAULT_URL }),
 			{
@@ -464,6 +521,7 @@ export const mem0AdapterFactory = {
 				group: "settings",
 			},
 		],
+		filterFields: memoryPageFilters(["userId", "sessionId", "agentId"]),
 		authStyle: "api-key",
 		authHelp: getMessage().MEMORY_CONNECTOR_AUTH_HELP_MEM0,
 		docsUrl: "https://docs.mem0.ai/api-reference",

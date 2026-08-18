@@ -1,7 +1,7 @@
 /**
  * Neutral extension hook for additional memory connector adapters.
  *
- * CE memory vendors (Mem0, Zep) are registered via `bootstrap.ts`. This hook
+ * CE memory vendors (Claude, Mem0, Zep) are registered via `bootstrap.ts`. This hook
  * stays empty in CE so a private fork can contribute extra factories without
  * importing `@/ee/**` from shared code.
  */

@@ -5,6 +5,7 @@ const mockBindingFindUnique = jest.fn();
 const mockDatabaseConfigFindFirst = jest.fn();
 const mockGetDBConfigByUser = jest.fn();
 const mockGetDBConfigById = jest.fn();
+const mockGetDBConfigByIdInternal = jest.fn();
 const mockGetCurrentOrganisation = jest.fn();
 const mockGetCurrentProjectForOrganisation = jest.fn();
 
@@ -28,6 +29,8 @@ jest.mock("@/lib/prisma", () => ({
 jest.mock("@/lib/db-config", () => ({
 	getDBConfigByUser: (...args: unknown[]) => mockGetDBConfigByUser(...args),
 	getDBConfigById: (...args: unknown[]) => mockGetDBConfigById(...args),
+	getDBConfigByIdInternal: (...args: unknown[]) =>
+		mockGetDBConfigByIdInternal(...args),
 }));
 
 jest.mock("@/lib/organisation", () => ({
@@ -458,7 +461,7 @@ describe("getTelemetryAdapter fail-closed", () => {
 
 describe("getTelemetryAdapterForDbConfig", () => {
 	it("binds the materializer DatabaseConfig to an external source for vault access", async () => {
-		mockGetDBConfigById.mockResolvedValue({
+		mockGetDBConfigByIdInternal.mockResolvedValue({
 			...dbConfig,
 			environment: "production",
 		});
@@ -482,6 +485,32 @@ describe("getTelemetryAdapterForDbConfig", () => {
 			dbConfigId: "db-1",
 		});
 		expect(result.isBuiltIn).toBe(false);
+		expect(mockGetDBConfigByIdInternal).toHaveBeenCalledWith({ id: "db-1" });
+		expect(mockGetDBConfigById).not.toHaveBeenCalled();
+	});
+
+	it("resolves without an interactive session", async () => {
+		mockGetDBConfigById.mockRejectedValue(new Error("Unauthorized user!"));
+		mockGetDBConfigByIdInternal.mockResolvedValue({
+			...dbConfig,
+			environment: "production",
+		});
+		mockBindingFindUnique.mockResolvedValue({
+			source: srcRow({
+				id: "tempo-1",
+				type: "tempo",
+				signals: "traces",
+				secretRef: "vault-tempo",
+				environment: "production",
+			}),
+		});
+
+		await expect(
+			getTelemetryAdapterForDbConfig("db-1", "traces")
+		).resolves.toMatchObject({
+			isBuiltIn: false,
+			descriptor: { id: "tempo-1", dbConfigId: "db-1" },
+		});
 	});
 });
 

@@ -1,11 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import Image from "next/image";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { BrainCircuit, RefreshCw } from "lucide-react";
+import { BrainCircuit, Cable, Plus, RefreshCw, ArrowRightLeft } from "lucide-react";
+import { toast } from "sonner";
 import FeatureAccess from "@/components/rbac/feature-access";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import {
+	SourceFormDialog,
+	type TypeDescriptor,
+} from "@/components/(playground)/telemetry-source/data-sources-page";
 import { Button } from "@/components/ui/button";
 import {
 	Select,
@@ -15,19 +21,31 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import getMessage from "@/constants/messages";
 import { CLIENT_EVENTS } from "@/constants/events";
-import { getCurrentProject } from "@/selectors/project";
+import { getCurrentProject, getCurrentProjectEnvironment } from "@/selectors/project";
 import { useRootStore } from "@/store";
-import type { MemoryQueryResult } from "@/lib/platform/connectors/memory/read";
+import type {
+	MemoryListItem,
+	MemoryQueryResult,
+} from "@/lib/platform/connectors/memory/read";
 import { emptyMemoryStats } from "@/lib/platform/connectors/memory/graph";
 import {
 	emptyMemoryFilters,
 	type MemoryFilterChoice,
+	type MemoryFilterField,
+	type MemoryFilterKey,
 } from "@/lib/platform/connectors/memory/types";
+import { connectorIconPath } from "@/lib/platform/connectors/icons";
 import MemoryGraph from "./memory-graph";
 import MemoryList from "./memory-list";
 import MemoryDetailSheet from "./memory-detail-sheet";
+import MemoryWriteDialog from "./memory-write-dialog";
+import MemoryCopyDialog from "./memory-copy-dialog";
+import MemoryFilterCombobox, {
+	memoryFilterChoices,
+} from "./memory-filter-combobox";
 import AskOtterBar from "./ask-otter";
 
 type ConnectorOption = {
@@ -35,68 +53,129 @@ type ConnectorOption = {
 	name: string;
 	type: string;
 	environment?: string;
+	capabilities?: { add?: boolean } | null;
+	filterFields?: MemoryFilterField[];
 };
 
 export default function MemoryPage() {
 	const messages = getMessage();
 	const posthog = usePostHog();
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
 	const project = useRootStore(getCurrentProject);
-	const [connectorId, setConnectorId] = useState("");
+	const environment = useRootStore(getCurrentProjectEnvironment) || "production";
+	const selectedId = searchParams.get("id");
+	const [connectorId, setConnectorId] = useState(
+		() => searchParams.get("connectorId") || ""
+	);
 	const [userId, setUserId] = useState("");
 	const [sessionId, setSessionId] = useState("");
 	const [agentId, setAgentId] = useState("");
 	const [listSearch, setListSearch] = useState("");
-	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [result, setResult] = useState<MemoryQueryResult | null>(null);
+	const [addOpen, setAddOpen] = useState(false);
+	const [copyOpen, setCopyOpen] = useState(false);
+	const [copyIds, setCopyIds] = useState<string[] | undefined>();
+	const [addConnectorOpen, setAddConnectorOpen] = useState(false);
+	const [memoryDescriptors, setMemoryDescriptors] = useState<TypeDescriptor[]>(
+		[]
+	);
+	const [saving, setSaving] = useState(false);
 	const autoSelecting = useRef(false);
+	const loadSeq = useRef(0);
+	const pendingCreated = useRef<MemoryListItem[]>([]);
 
-	const connectors = (result?.connectors || []) as ConnectorOption[];
-	const filters = result?.filters || emptyMemoryFilters();
-	const sessionsForUser = useMemo(
-		() =>
-			filters.sessions.filter(
-				(session) => !userId || !session.userId || session.userId === userId
-			),
-		[filters.sessions, userId]
+	const replaceQuery = useCallback(
+		(patch: { id?: string | null; connectorId?: string | null }) => {
+			const params = new URLSearchParams(searchParams.toString());
+			if (patch.id) params.set("id", patch.id);
+			else if (patch.id === null) params.delete("id");
+			if (patch.connectorId) params.set("connectorId", patch.connectorId);
+			else if (patch.connectorId === null) params.delete("connectorId");
+			const query = params.toString();
+			router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+		},
+		[pathname, router, searchParams]
 	);
 
-	const loadMemories = useCallback(() => {
+	const selectMemory = useCallback(
+		(id: string | null) => {
+			if (id) {
+				replaceQuery({
+					id,
+					connectorId: connectorId || undefined,
+				});
+				return;
+			}
+			replaceQuery({ id: null });
+		},
+		[connectorId, replaceQuery]
+	);
+
+	const connectors = (result?.connectors || []) as ConnectorOption[];
+	const copyTargets = connectors.filter(
+		(connector) => connector.id !== connectorId && connector.capabilities?.add
+	);
+	const filters = result?.filters || emptyMemoryFilters();
+	const filterFields = result?.filterFields || [];
+
+	const loadMemories = useCallback((options?: { silent?: boolean }) => {
 		if (!project?.id) {
 			setLoading(false);
 			return;
 		}
-		setLoading(true);
+		if (!options?.silent) setLoading(true);
 		setLoadError(null);
+		const seq = ++loadSeq.current;
 		const params = new URLSearchParams();
 		if (connectorId) params.set("connectorId", connectorId);
 		if (userId.trim()) params.set("userId", userId.trim());
 		if (sessionId.trim()) params.set("sessionId", sessionId.trim());
 		if (agentId.trim()) params.set("agentId", agentId.trim());
+		params.set("limit", "100");
 		fetch(`/api/memory?${params.toString()}`)
 			.then(async (response) => {
 				const body = await response.json().catch(() => null);
 				if (!response.ok) {
-					throw new Error(messages.MEMORY_LOAD_FAILED);
+					throw new Error(apiError(body, messages.MEMORY_LOAD_FAILED));
 				}
 				return body as MemoryQueryResult;
 			})
 			.then((payload) => {
-				setResult(payload);
+				if (seq !== loadSeq.current) return;
+				const pending = pendingCreated.current.filter(
+					(memory) => !payload.memories.some((item) => item.id === memory.id)
+				);
+				pendingCreated.current = pending;
+				setResult(
+					pending.length
+						? {
+								...payload,
+								memories: prependMemories(pending, payload.memories),
+							}
+						: payload
+				);
 				const nextId = payload.connector?.id ? String(payload.connector.id) : "";
 				if (nextId && nextId !== connectorId) setConnectorId(nextId);
-				setSelectedId((current) =>
-					payload.memories.some((memory) => memory.id === current)
-						? current
-						: payload.memories[0]?.id || null
-				);
+				const nextFields = payload.filterFields || [];
 				const nextUsers = payload.filters?.users || [];
 				const nextSessions = payload.filters?.sessions || [];
-				if (!userId && nextUsers.length === 1) {
+				if (!fieldEnabled(nextFields, "userId") && userId) setUserId("");
+				if (!fieldEnabled(nextFields, "sessionId") && sessionId) setSessionId("");
+				if (!fieldEnabled(nextFields, "agentId") && agentId) setAgentId("");
+				const userField = nextFields.find((field) => field.key === "userId");
+				const sessionField = nextFields.find((field) => field.key === "sessionId");
+				if (userField?.required && !userId && nextUsers.length === 1) {
 					autoSelecting.current = true;
 					setUserId(nextUsers[0].id);
-				} else if (payload.hint === "session_required" && !sessionId) {
+				} else if (
+					sessionField?.required &&
+					!sessionId &&
+					(payload.hint === "session_required" || payload.hint === "filter_required")
+				) {
 					const onlySessions = nextSessions.filter(
 						(session) => !userId || !session.userId || session.userId === userId
 					);
@@ -106,20 +185,29 @@ export default function MemoryPage() {
 					}
 				}
 			})
-			.catch(() => {
-				setLoadError(messages.MEMORY_LOAD_FAILED);
+			.catch((caught: unknown) => {
+				if (seq !== loadSeq.current) return;
+				const message =
+					caught instanceof Error ? caught.message : messages.MEMORY_LOAD_FAILED;
+				setLoadError(
+					/invalid.*api key|authentication_error|authentication failed/i.test(
+						message
+					)
+						? messages.MEMORY_AUTH_FAILED_HINT
+						: messages.MEMORY_UNAVAILABLE_DESCRIPTION
+				);
 			})
 			.finally(() => {
-				if (autoSelecting.current) {
-					autoSelecting.current = false;
-					return;
-				}
+				if (seq !== loadSeq.current) return;
+				autoSelecting.current = false;
 				setLoading(false);
 			});
 	}, [
 		agentId,
 		connectorId,
+		messages.MEMORY_AUTH_FAILED_HINT,
 		messages.MEMORY_LOAD_FAILED,
+		messages.MEMORY_UNAVAILABLE_DESCRIPTION,
 		project?.id,
 		sessionId,
 		userId,
@@ -132,6 +220,23 @@ export default function MemoryPage() {
 	useEffect(() => {
 		loadMemories();
 	}, [loadMemories]);
+
+	useEffect(() => {
+		if (!addConnectorOpen) return;
+		fetch("/api/connectors/types")
+			.then(async (response) => {
+				const body = await response.json().catch(() => null);
+				if (!response.ok) return;
+				setMemoryDescriptors(
+					((body?.types || []) as TypeDescriptor[]).filter(
+						(descriptor) => descriptor.category === "memory"
+					)
+				);
+			})
+			.catch(() => {
+				setMemoryDescriptors([]);
+			});
+	}, [addConnectorOpen]);
 
 	const stats = result?.stats || emptyMemoryStats();
 	const statItems = useMemo(
@@ -147,15 +252,57 @@ export default function MemoryPage() {
 
 	const needsScope =
 		result?.hint === "filter_required" || result?.hint === "session_required";
+	const connectorError =
+		result?.hint === "auth_failed" || result?.hint === "unavailable";
 	const hasFilterOptions =
+		filterFields.some((field) => field.allowCustom !== false) ||
 		filters.users.length + filters.sessions.length + filters.agents.length > 0;
-	const showBrowse = !loadError && !needsScope && connectors.length > 0;
+	const showBrowse =
+		!loadError && !needsScope && !connectorError && connectors.length > 0;
 
 	function handleConnectorChange(nextId: string) {
 		setConnectorId(nextId);
 		setUserId("");
 		setSessionId("");
 		setAgentId("");
+		setResult((prev) =>
+			prev
+				? {
+						...prev,
+						memories: [],
+						filters: emptyMemoryFilters(),
+						filterFields: [],
+						graph: { nodes: [], edges: [] },
+						hint: undefined,
+						connector:
+							connectors.find((connector) => connector.id === nextId) ||
+							prev.connector,
+					}
+				: prev
+		);
+		replaceQuery({ id: null, connectorId: nextId || null });
+	}
+
+	function handleFilterChange(key: MemoryFilterKey, nextId: string) {
+		if (key === "userId") {
+			handleUserChange(nextId);
+			return;
+		}
+		if (key === "sessionId") {
+			setSessionId(nextId);
+			return;
+		}
+		setAgentId(nextId);
+	}
+
+	function filterValue(key: MemoryFilterKey): string {
+		if (key === "userId") return userId;
+		if (key === "sessionId") return sessionId;
+		return agentId;
+	}
+
+	function filterOptions(field: MemoryFilterField): MemoryFilterChoice[] {
+		return memoryFilterChoices(field, filters, userId);
 	}
 
 	function handleUserChange(nextId: string) {
@@ -171,29 +318,210 @@ export default function MemoryPage() {
 		}
 	}
 
+	function handleAdd(input: {
+		content: string;
+		userId?: string;
+		sessionId?: string;
+		agentId?: string;
+	}) {
+		if (saving) return;
+		setSaving(true);
+		fetch("/api/memory", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				connectorId: connectorId || undefined,
+				content: input.content,
+				userId: input.userId,
+				sessionId: input.sessionId,
+				agentId: input.agentId,
+			}),
+		})
+			.then(async (response) => {
+				const body = await response.json().catch(() => null);
+				if (!response.ok) {
+					throw new Error(apiError(body, messages.MEMORY_ADD_FAILED));
+				}
+				return body as { memories?: MemoryListItem[] };
+			})
+			.then((payload) => {
+				toast.success(messages.MEMORY_ADD_SAVED);
+				setAddOpen(false);
+				const nextUser = input.userId?.trim() || "";
+				const nextSession = input.sessionId?.trim() || "";
+				const nextAgent = input.agentId?.trim() || "";
+				const filtersChanged =
+					(nextUser && nextUser !== userId) ||
+					(nextSession && nextSession !== sessionId) ||
+					(nextAgent && nextAgent !== agentId);
+				if (nextUser) setUserId(nextUser);
+				if (nextSession) setSessionId(nextSession);
+				if (nextAgent) setAgentId(nextAgent);
+				const created = payload.memories || [];
+				if (created.length) {
+					pendingCreated.current = prependMemories(
+						created,
+						pendingCreated.current
+					);
+					setResult((prev) =>
+						prev
+							? {
+									...prev,
+									memories: prependMemories(created, prev.memories),
+									stats: {
+										...prev.stats,
+										total:
+											prev.stats.total +
+											created.filter(
+												(memory) =>
+													!prev.memories.some((item) => item.id === memory.id)
+											).length,
+									},
+								}
+							: prev
+					);
+				}
+				const createdId = created[0]?.id;
+				if (createdId) selectMemory(createdId);
+				if (!filtersChanged) loadMemories({ silent: true });
+			})
+			.catch((caught: unknown) => {
+				toast.error(
+					caught instanceof Error ? caught.message : messages.MEMORY_ADD_FAILED
+				);
+			})
+			.finally(() => setSaving(false));
+	}
+
+	function openCopy(ids?: string[]) {
+		setCopyIds(ids);
+		setCopyOpen(true);
+	}
+
+	function openSourceMemory(sourceConnectorId: string, sourceMemoryId: string) {
+		setConnectorId(sourceConnectorId);
+		replaceQuery({ id: sourceMemoryId, connectorId: sourceConnectorId });
+	}
+
+	function handleCopy(input: {
+		targetConnectorId: string;
+		userId?: string;
+		sessionId?: string;
+		agentId?: string;
+	}) {
+		if (saving) return;
+		setSaving(true);
+		fetch("/api/memory/copy", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				sourceConnectorId: connectorId || undefined,
+				targetConnectorId: input.targetConnectorId,
+				memoryIds: copyIds,
+				userId: userId || undefined,
+				sessionId: sessionId || undefined,
+				agentId: agentId || undefined,
+				targetUserId: input.userId,
+				targetSessionId: input.sessionId,
+				targetAgentId: input.agentId,
+			}),
+		})
+			.then(async (response) => {
+				const body = await response.json().catch(() => null);
+				if (!response.ok) {
+					throw new Error(apiError(body, messages.MEMORY_COPY_FAILED));
+				}
+				return body as {
+					copied?: number;
+					failed?: { id: string }[];
+					target?: { name?: string };
+				};
+			})
+			.then((payload) => {
+				const copied = payload.copied || 0;
+				const failed = payload.failed?.length || 0;
+				const targetName = payload.target?.name || messages.MEMORY_COPY_TARGET;
+				if (failed && copied) {
+					toast.success(messages.MEMORY_COPY_PARTIAL(copied, failed));
+				} else {
+					toast.success(messages.MEMORY_COPY_SAVED(copied, targetName));
+				}
+				setCopyOpen(false);
+				setConnectorId(input.targetConnectorId);
+				replaceQuery({ id: null, connectorId: input.targetConnectorId });
+			})
+			.catch((caught: unknown) => {
+				toast.error(
+					caught instanceof Error ? caught.message : messages.MEMORY_COPY_FAILED
+				);
+			})
+			.finally(() => setSaving(false));
+	}
+
 	return (
 		<div className="flex h-full min-h-0 w-full flex-col overflow-hidden text-stone-700 dark:text-stone-300">
 			<FeaturePageHeader
 				eyebrow={messages.SIDEBAR_DEVELOP}
 				title={messages.FEATURE_MEMORY}
-				description={messages.MEMORY_PAGE_DESCRIPTION}
 				icon={<BrainCircuit className="h-4 w-4" />}
 				tone="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/70 dark:bg-violet-950/40 dark:text-violet-300"
 				actions={
-					<Button
-						size="sm"
-						variant="outline"
-						className="h-8 gap-1.5"
-						onClick={loadMemories}
-						disabled={loading || !project?.id}
-					>
-						<RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-						{messages.MEMORY_REFRESH}
-					</Button>
+					<div className="flex items-center gap-1.5">
+						<FeatureAccess access="memory.create" hideWhenDenied>
+							{result?.capabilities?.add ? (
+								<Button
+									size="sm"
+									className="h-8 gap-1.5"
+									onClick={() => setAddOpen(true)}
+									disabled={loading || !project?.id || !connectorId}
+								>
+									<Plus className="size-3.5" />
+									{messages.MEMORY_ADD}
+								</Button>
+							) : null}
+							{copyTargets.length > 0 ? (
+								<Button
+									size="sm"
+									variant="outline"
+									className="h-8 gap-1.5"
+									onClick={() => {
+										setCopyIds(undefined);
+										setCopyOpen(true);
+									}}
+									disabled={loading || !project?.id || !connectorId || !result?.memories.length}
+								>
+									<ArrowRightLeft className="size-3.5" />
+									{messages.MEMORY_COPY}
+								</Button>
+							) : null}
+						</FeatureAccess>
+						<FeatureAccess access="connectors.create" hideWhenDenied>
+							<Button
+								size="sm"
+								variant="outline"
+								className="h-8 gap-1.5"
+								onClick={() => setAddConnectorOpen(true)}
+								disabled={!project?.id}
+							>
+								<Cable className="size-3.5" />
+								{messages.ADD_CONNECTOR}
+							</Button>
+						</FeatureAccess>
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-8 gap-1.5"
+							onClick={() => loadMemories()}
+							disabled={loading || !project?.id}
+						>
+							<RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+							{messages.MEMORY_REFRESH}
+						</Button>
+					</div>
 				}
 			/>
 
-			<FeatureAccess access="connectors.read" requireProject>
+			<FeatureAccess access="memory.read" requireProject>
 				<div className="flex min-h-0 flex-1 flex-col">
 					<div className="flex flex-wrap items-center gap-2 border-b border-stone-200 px-4 py-2 dark:border-stone-800">
 						<FilterSelect
@@ -204,34 +532,25 @@ export default function MemoryPage() {
 								label: connector.environment
 									? `${connector.name} · ${connector.environment}`
 									: connector.name,
+								icon: connectorIconPath(connector.type),
 							}))}
 							onChange={handleConnectorChange}
 							disabled={loading || connectors.length === 0}
-							widthClass="w-[220px]"
+							widthClass="w-[260px]"
 						/>
-						<FilterSelect
-							label={messages.MEMORY_USER_FILTER}
-							value={userId}
-							options={filters.users}
-							onChange={handleUserChange}
-							disabled={loading || filters.users.length === 0}
-						/>
-						<FilterSelect
-							label={messages.MEMORY_SESSION_FILTER}
-							value={sessionId}
-							options={sessionsForUser}
-							onChange={setSessionId}
-							disabled={loading || sessionsForUser.length === 0}
-						/>
-						{filters.agents.length > 0 ? (
-							<FilterSelect
-								label={messages.MEMORY_AGENT_FILTER}
-								value={agentId}
-								options={filters.agents}
-								onChange={setAgentId}
+						{filterFields.map((field) => (
+							<MemoryFilterCombobox
+								key={`${connectorId}-${field.key}`}
+								label={field.label}
+								value={filterValue(field.key)}
+								options={filterOptions(field)}
+								onChange={(next) => handleFilterChange(field.key, next)}
+								allowCustom={field.allowCustom !== false}
 								disabled={loading}
+								required={field.required}
+								widthClass="w-[240px]"
 							/>
-						) : null}
+						))}
 					</div>
 
 					{!loading && connectors.length === 0 ? (
@@ -239,17 +558,23 @@ export default function MemoryPage() {
 							title={messages.FEATURE_MEMORY}
 							description={messages.MEMORY_EMPTY_CONNECTORS}
 							action={
-								<Button asChild size="sm">
-									<Link href="/connectors">{messages.MEMORY_EMPTY_CONNECTORS_ACTION}</Link>
-								</Button>
+								<FeatureAccess access="connectors.create" hideWhenDenied>
+									<Button size="sm" onClick={() => setAddConnectorOpen(true)}>
+										{messages.MEMORY_EMPTY_CONNECTORS_ACTION}
+									</Button>
+								</FeatureAccess>
 							}
 						/>
-					) : loadError ? (
+					) : loadError || connectorError ? (
 						<EmptyPanel
 							title={messages.MEMORY_UNAVAILABLE_TITLE}
-							description={messages.MEMORY_UNAVAILABLE_DESCRIPTION}
+							description={
+								result?.hint === "auth_failed"
+									? messages.MEMORY_AUTH_FAILED_HINT
+									: loadError || messages.MEMORY_UNAVAILABLE_DESCRIPTION
+							}
 							action={
-								<Button size="sm" variant="outline" onClick={loadMemories}>
+								<Button size="sm" variant="outline" onClick={() => loadMemories()}>
 									{messages.MEMORY_RETRY}
 								</Button>
 							}
@@ -276,24 +601,38 @@ export default function MemoryPage() {
 											<StatCard key={item.label} {...item} />
 										))}
 							</div>
-							<div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden px-4 pb-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
-								<div className="flex min-h-0 flex-col">
-									<h2 className="mb-2 text-sm font-semibold text-stone-950 dark:text-stone-50">
+							<Tabs
+								defaultValue="graph"
+								className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-3"
+							>
+								<TabsList className="h-9 w-max justify-start rounded-md bg-stone-100 p-1 dark:bg-stone-900">
+									<TabsTrigger value="graph" className="shrink-0 px-3 py-1 text-xs">
 										{messages.MEMORY_GRAPH_TITLE}
-									</h2>
-									<div className="min-h-0 flex-1">
-										{loading ? (
-											<Skeleton className="h-full min-h-[280px] rounded-md" />
-										) : (
-											<MemoryGraph
-												graph={result?.graph || { nodes: [], edges: [] }}
-												selectedId={selectedId}
-												onSelect={setSelectedId}
-											/>
-										)}
-									</div>
-								</div>
-								<div className="min-h-0">
+									</TabsTrigger>
+									<TabsTrigger value="list" className="shrink-0 px-3 py-1 text-xs">
+										{messages.MEMORY_LIST_TITLE}
+									</TabsTrigger>
+								</TabsList>
+								<TabsContent
+									value="graph"
+									forceMount
+									className="mt-2 min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden data-[state=active]:flex data-[state=active]:flex-col"
+								>
+									{loading ? (
+										<Skeleton className="h-full min-h-[280px] rounded-md" />
+									) : (
+										<MemoryGraph
+											graph={result?.graph || { nodes: [], edges: [] }}
+											selectedId={selectedId}
+											onSelect={selectMemory}
+										/>
+									)}
+								</TabsContent>
+								<TabsContent
+									value="list"
+									forceMount
+									className="mt-2 min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden data-[state=active]:flex data-[state=active]:flex-col"
+								>
 									{loading ? (
 										<Skeleton className="h-full min-h-[280px] rounded-md" />
 									) : (
@@ -302,11 +641,11 @@ export default function MemoryPage() {
 											search={listSearch}
 											onSearchChange={setListSearch}
 											selectedId={selectedId}
-											onSelect={setSelectedId}
+											onSelect={selectMemory}
 										/>
 									)}
-								</div>
-							</div>
+								</TabsContent>
+							</Tabs>
 						</>
 					) : null}
 
@@ -319,16 +658,79 @@ export default function MemoryPage() {
 						memoryId={selectedId}
 						memoryIds={(result?.memories || []).map((memory) => memory.id)}
 						connectorId={connectorId}
+						capabilities={result?.capabilities}
 						preview={
 							result?.memories.find((memory) => memory.id === selectedId) || null
 						}
-						onSelect={setSelectedId}
-						onClose={() => setSelectedId(null)}
+						onSelect={selectMemory}
+						onClose={() => selectMemory(null)}
+						onChanged={() => loadMemories()}
+						onCopy={copyTargets.length ? (id) => openCopy([id]) : undefined}
+						onOpenSource={openSourceMemory}
 					/>
+					<MemoryWriteDialog
+						open={addOpen}
+						mode="add"
+						scope={{ userId, sessionId, agentId }}
+						filterFields={filterFields}
+						filters={filters}
+						saving={saving}
+						onOpenChange={setAddOpen}
+						onSubmit={handleAdd}
+					/>
+					<MemoryCopyDialog
+						open={copyOpen}
+						count={copyIds?.length || result?.memories.length || 0}
+						targets={copyTargets}
+						filters={filters}
+						saving={saving}
+						onOpenChange={setCopyOpen}
+						onSubmit={handleCopy}
+					/>
+					{addConnectorOpen ? (
+						<SourceFormDialog
+							source={null}
+							descriptors={memoryDescriptors}
+							initialType=""
+							initialEnvironment={environment}
+							showRouting={false}
+							onClose={() => setAddConnectorOpen(false)}
+							onSaved={() => {
+								setAddConnectorOpen(false);
+								loadMemories({ silent: true });
+							}}
+						/>
+					) : null}
 				</div>
 			</FeatureAccess>
 		</div>
 	);
+}
+
+function prependMemories(
+	incoming: MemoryListItem[],
+	existing: MemoryListItem[]
+): MemoryListItem[] {
+	if (!incoming.length) return existing;
+	const seen = new Set(incoming.map((memory) => memory.id));
+	return [...incoming, ...existing.filter((memory) => !seen.has(memory.id))];
+}
+
+function fieldEnabled(
+	fields: MemoryFilterField[],
+	key: MemoryFilterKey
+): boolean {
+	return fields.some((field) => field.key === key);
+}
+
+function apiError(body: unknown, fallback: string): string {
+	if (typeof body === "string" && body.trim()) return body;
+	if (body && typeof body === "object") {
+		const record = body as { err?: unknown; error?: unknown };
+		if (typeof record.err === "string" && record.err.trim()) return record.err;
+		if (typeof record.error === "string" && record.error.trim()) return record.error;
+	}
+	return fallback;
 }
 
 function FilterSelect({
@@ -341,21 +743,47 @@ function FilterSelect({
 }: {
 	label: string;
 	value: string;
-	options: MemoryFilterChoice[];
+	options: Array<MemoryFilterChoice & { icon?: string }>;
 	onChange: (value: string) => void;
 	disabled?: boolean;
 	widthClass?: string;
 }) {
-	const selected = options.some((option) => option.id === value) ? value : undefined;
+	const selected = options.find((option) => option.id === value);
 	return (
-		<Select value={selected} onValueChange={onChange} disabled={disabled}>
+		<Select value={selected?.id} onValueChange={onChange} disabled={disabled}>
 			<SelectTrigger className={`h-8 ${widthClass}`} aria-label={label}>
-				<SelectValue placeholder={label} />
+				<SelectValue placeholder={label}>
+					{selected ? (
+						<span className="flex min-w-0 items-center gap-2">
+							{selected.icon ? (
+								<Image
+									src={selected.icon}
+									alt=""
+									width={16}
+									height={16}
+									className="h-4 w-4 shrink-0 object-contain"
+								/>
+							) : null}
+							<span className="truncate">{selected.label}</span>
+						</span>
+					) : undefined}
+				</SelectValue>
 			</SelectTrigger>
 			<SelectContent>
 				{options.map((option) => (
 					<SelectItem key={option.id} value={option.id}>
-						{option.label}
+						<span className="flex min-w-0 items-center gap-2">
+							{option.icon ? (
+								<Image
+									src={option.icon}
+									alt=""
+									width={16}
+									height={16}
+									className="h-4 w-4 shrink-0 object-contain"
+								/>
+							) : null}
+							<span className="truncate">{option.label}</span>
+						</span>
 					</SelectItem>
 				))}
 			</SelectContent>

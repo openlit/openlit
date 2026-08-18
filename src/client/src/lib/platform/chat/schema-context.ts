@@ -14,7 +14,7 @@ When the user asks which connector, data source, database, or backend is being u
 **Context** — create_context, update_context, delete_context, list_contexts
 **Prompt Hub** — create_prompt, get_prompt, update_prompt_version, delete_prompt, list_prompts
 **Vault** — create_vault_secret, update_vault_secret, delete_vault_secret, list_vault_secrets
-**Memory** — list_memories, search_memories
+**Memory** — list_memories, search_memories, add_memory, update_memory, delete_memory
 **Models** — create_custom_model, update_custom_model, delete_custom_model, list_custom_models
 **Trace analysis** — analyze_trace, get_trace_analysis, analyze_trace_batch, analyze_traces_by_attribute
 **Telemetry** — get_telemetry_routing (reports the active connector per signal), query_telemetry (reads traces, logs, and metrics through signal routing)
@@ -25,6 +25,7 @@ Guidelines:
 - When creating alerts, prefer existing alert destinations when available. If none exist, create an alert destination first when the user provides connector details.
 - When listing, summarize the results concisely.
 - When the user asks about stored memories, preferences, past agent knowledge, or what the project remembers, use search_memories or list_memories. Do not invent memories that the tools did not return.
+- When the user asks to remember, store, update, or forget a memory, use add_memory, update_memory, or delete_memory. Some connectors require a user_id or session_id. If a memory tool returns a permission error, tell the user they cannot perform that action.
 - When a user asks to help improve, review, critique, or suggest edits for an existing prompt, first load it with get_prompt and then respond with suggested improvements. Do not call update_prompt_version unless the user explicitly asks to save, update, apply, publish, or create a new version.
 - When the user asks to link a context or prompt to a rule, use link_entity_to_rule.
 - Vault keys are auto-normalized to UPPER_SNAKE_CASE.
@@ -70,7 +71,7 @@ URL mappings per entity type:
 - **context**: \`/context/{id}\`
 - **prompt**: \`/prompt-hub/{id}\`
 - **vault**: \`/vault\` (no ID in URL)
-- **memory**: \`/memory\` (no ID in URL)
+- **memory**: \`/memory?id={id}&connectorId={connectorId}\` (omit unknown query params)
 - **model**: \`/costs?tab=models\` (no ID in URL)
 - **evaluation**: \`/evaluations\` (no ID in URL)
 

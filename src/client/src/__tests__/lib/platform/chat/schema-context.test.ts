@@ -45,6 +45,9 @@ describe('getChatSystemPrompt', () => {
     expect(prompt).toContain('create_custom_model');
     expect(prompt).toContain('list_memories');
     expect(prompt).toContain('search_memories');
+    expect(prompt).toContain('add_memory');
+    expect(prompt).toContain('update_memory');
+    expect(prompt).toContain('delete_memory');
   });
 
   it('includes entity links section', () => {
@@ -52,7 +55,7 @@ describe('getChatSystemPrompt', () => {
     expect(prompt).toContain('/rule-engine/{id}');
     expect(prompt).toContain('/context/{id}');
     expect(prompt).toContain('/prompt-hub/{id}');
-    expect(prompt).toContain('/memory');
+    expect(prompt).toContain('/memory?id={id}&connectorId={connectorId}');
   });
 
   it('includes dashboard generation section', () => {

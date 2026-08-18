@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+	Pagination,
+	PaginationContent,
+	PaginationItem,
+	PaginationNext,
+	PaginationPrevious,
+} from "@/components/ui/pagination";
 import getMessage from "@/constants/messages";
 import type { MemoryListItem } from "@/lib/platform/connectors/memory/read";
 import type { MemoryKind } from "@/lib/platform/connectors/memory/graph";
@@ -13,6 +20,8 @@ const KIND_DOT: Record<MemoryKind, string> = {
 	profile: "bg-orange-500",
 	summary: "bg-lime-500",
 };
+
+const PAGE_SIZE = 20;
 
 type MemoryListProps = {
 	memories: MemoryListItem[];
@@ -31,6 +40,8 @@ export default function MemoryList({
 }: MemoryListProps) {
 	const messages = getMessage();
 	const selectedRef = useRef<HTMLButtonElement | null>(null);
+	const jumpedForId = useRef<string | null>(null);
+	const [page, setPage] = useState(1);
 	const query = search.trim().toLowerCase();
 	const filtered = useMemo(() => {
 		if (!query) return memories;
@@ -40,10 +51,34 @@ export default function MemoryList({
 				.some((value) => String(value).toLowerCase().includes(query))
 		);
 	}, [memories, query]);
+	const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+	const currentPage = Math.min(page, totalPages);
+	const pageItems = filtered.slice(
+		(currentPage - 1) * PAGE_SIZE,
+		currentPage * PAGE_SIZE
+	);
 
 	useEffect(() => {
-		selectedRef.current?.scrollIntoView({ block: "nearest" });
-	}, [selectedId]);
+		jumpedForId.current = null;
+		setPage(1);
+	}, [query]);
+
+	useEffect(() => {
+		if (!selectedId) {
+			jumpedForId.current = null;
+			return;
+		}
+		const index = filtered.findIndex((memory) => memory.id === selectedId);
+		if (index < 0) return;
+		if (jumpedForId.current === selectedId) return;
+		jumpedForId.current = selectedId;
+		setPage(Math.floor(index / PAGE_SIZE) + 1);
+	}, [filtered, selectedId]);
+
+	useEffect(() => {
+		if (typeof selectedRef.current?.scrollIntoView !== "function") return;
+		selectedRef.current.scrollIntoView({ block: "nearest" });
+	}, [selectedId, currentPage]);
 
 	return (
 		<section className="flex h-full min-h-0 flex-col border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
@@ -68,7 +103,7 @@ export default function MemoryList({
 					</p>
 				) : (
 					<ul className="divide-y divide-stone-200 dark:divide-stone-800">
-						{filtered.map((memory) => {
+						{pageItems.map((memory) => {
 							const selected = memory.id === selectedId;
 							const kindLabel = kindMessage(messages, memory.kind);
 							return (
@@ -93,6 +128,13 @@ export default function MemoryList({
 												{" · "}
 												{formatDate(memory.createdAt || memory.updatedAt, messages.MEMORY_NO_DATE)}
 											</span>
+											{memory.port ? (
+												<span className="mt-0.5 block truncate text-[11px] text-violet-700 dark:text-violet-300">
+													{messages.MEMORY_COPY_SOURCE}
+													{" · "}
+													{memory.port.sourceConnectorName || memory.port.sourceConnectorId}
+												</span>
+											) : null}
 										</span>
 									</button>
 								</li>
@@ -101,6 +143,43 @@ export default function MemoryList({
 					</ul>
 				)}
 			</div>
+			{filtered.length > PAGE_SIZE ? (
+				<div className="flex shrink-0 items-center justify-end border-t border-stone-200 px-2 py-1.5 dark:border-stone-800">
+					<Pagination className="m-0 w-auto">
+						<PaginationContent className="gap-0.5">
+							<PaginationItem>
+								<PaginationPrevious
+									className={`h-7 px-2 py-1 ${
+										currentPage === 1
+											? "pointer-events-none cursor-not-allowed text-stone-400"
+											: "text-stone-950 dark:text-stone-100"
+									}`}
+									aria-label={messages.MEMORY_PAGE_PREVIOUS}
+									aria-disabled={currentPage === 1}
+									onClick={() => setPage((value) => Math.max(1, value - 1))}
+								/>
+							</PaginationItem>
+							<PaginationItem>
+								<div className="flex items-center whitespace-nowrap px-1 text-xs text-stone-950 dark:text-stone-100">
+									{messages.MEMORY_PAGE_OF(currentPage, totalPages)}
+								</div>
+							</PaginationItem>
+							<PaginationItem>
+								<PaginationNext
+									className={`h-7 px-2 py-1 ${
+										currentPage >= totalPages
+											? "pointer-events-none cursor-not-allowed text-stone-400"
+											: "text-stone-950 dark:text-stone-100"
+									}`}
+									aria-label={messages.MEMORY_PAGE_NEXT}
+									aria-disabled={currentPage >= totalPages}
+									onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+								/>
+							</PaginationItem>
+						</PaginationContent>
+					</Pagination>
+				</div>
+			) : null}
 		</section>
 	);
 }

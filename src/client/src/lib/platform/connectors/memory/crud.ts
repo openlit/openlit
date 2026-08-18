@@ -3,7 +3,8 @@
  *
  * Memory connectors persist on Prisma `ConnectorInstance`. API keys are
  * encrypted onto `secretRef` (same `enc:v1:` scheme as vault values) so adding
- * Mem0/Zep does not require ClickHouse. Raw keys never appear in API responses.
+ * Claude/Mem0/Zep does not require ClickHouse. Raw keys never appear in API
+ * responses.
  */
 
 import { randomUUID } from "crypto";
@@ -24,7 +25,7 @@ import {
 	hasMemoryAdapterFactory,
 	listMemoryTypeDescriptors,
 } from "./registry";
-import type { MemorySourceDescriptor } from "./types";
+import type { MemoryPortLink, MemorySourceDescriptor } from "./types";
 import { connectorDescription } from "../descriptions";
 import { connectorIconPath } from "../icons";
 import {
@@ -64,10 +65,11 @@ function sanitize(row: {
 	settings: string;
 	[key: string]: unknown;
 }) {
-	const { secretRef, ...rest } = row;
+	const { secretRef, metadata, ...rest } = row;
 	return {
 		...rest,
 		settings: row.settings,
+		metadata: publicConnectorMetadata(typeof metadata === "string" ? metadata : "{}"),
 		hasSecret: !!secretRef,
 		category: "memory" as const,
 		scope: "project" as const,
@@ -172,6 +174,163 @@ export function availableMemoryTypeDescriptors() {
 			connectorDescription(descriptor.type, descriptor.displayName),
 		icon: descriptor.icon || connectorIconPath(descriptor.type),
 	}));
+}
+
+function parseJsonObject(raw: string): Record<string, unknown> {
+	try {
+		const parsed = JSON.parse(raw || "{}");
+		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+			return parsed as Record<string, unknown>;
+		}
+	} catch {
+		/* keep empty */
+	}
+	return {};
+}
+
+function publicConnectorMetadata(raw: string): string {
+	const parsed = parseJsonObject(raw);
+	delete parsed.memoryPorts;
+	delete parsed.memoryFilters;
+	return JSON.stringify(parsed);
+}
+
+function asPortLink(value: unknown): MemoryPortLink | null {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+	const row = value as Record<string, unknown>;
+	const sourceConnectorId = String(row.sourceConnectorId || "").trim();
+	const sourceMemoryId = String(row.sourceMemoryId || "").trim();
+	if (!sourceConnectorId || !sourceMemoryId) return null;
+	return {
+		sourceConnectorId,
+		sourceConnectorType: String(row.sourceConnectorType || "") || undefined,
+		sourceConnectorName: String(row.sourceConnectorName || "") || undefined,
+		sourceMemoryId,
+		originConnectorId: String(row.originConnectorId || "") || undefined,
+		originMemoryId: String(row.originMemoryId || "") || undefined,
+		copiedAt: String(row.copiedAt || ""),
+		contentFingerprint: String(row.contentFingerprint || ""),
+		destMemoryId: String(row.destMemoryId || "") || undefined,
+	};
+}
+
+export async function readMemoryPortLinks(id: string): Promise<MemoryPortLink[]> {
+	const row = await getMemoryConnector(id);
+	const ports = parseJsonObject(row.metadata || "{}").memoryPorts;
+	if (!Array.isArray(ports)) return [];
+	return ports.map(asPortLink).filter((link): link is MemoryPortLink => !!link);
+}
+
+export async function recordMemoryPortLinks(
+	id: string,
+	links: MemoryPortLink[]
+): Promise<void> {
+	if (!links.length) return;
+	const { projectId } = await requireCurrentProject();
+	const instanceId = memoryConnectorId(id);
+	const existing = await prisma.connectorInstance.findFirst({
+		where: { id: instanceId, projectId, category: "memory" },
+	});
+	if (!existing) throw new Error(MEMORY_CONNECTOR_NOT_FOUND);
+	const metadata = parseJsonObject(existing.metadata || "{}");
+	const current = Array.isArray(metadata.memoryPorts) ? metadata.memoryPorts : [];
+	const merged = new Map<string, MemoryPortLink>();
+	for (const item of [...current, ...links]) {
+		const link = asPortLink(item);
+		if (!link) continue;
+		merged.set(`${link.sourceConnectorId}:${link.sourceMemoryId}`, link);
+	}
+	const next = Array.from(merged.values()).slice(-500);
+	await prisma.connectorInstance.update({
+		where: { id: instanceId },
+		data: { metadata: JSON.stringify({ ...metadata, memoryPorts: next }) },
+	});
+}
+
+const MAX_REMEMBERED_FILTERS = 100;
+
+export interface RememberedMemoryFilters {
+	users: string[];
+	sessions: string[];
+	agents: string[];
+}
+
+export function emptyRememberedMemoryFilters(): RememberedMemoryFilters {
+	return { users: [], sessions: [], agents: [] };
+}
+
+function uniqueFilterIds(values: unknown): string[] {
+	const seen = new Set<string>();
+	const next: string[] = [];
+	const rows = Array.isArray(values) ? values : [];
+	for (const value of rows) {
+		const id =
+			typeof value === "string"
+				? value.trim()
+				: value && typeof value === "object" && !Array.isArray(value)
+					? String((value as { id?: unknown }).id || "").trim()
+					: "";
+		if (!id || seen.has(id)) continue;
+		seen.add(id);
+		next.push(id);
+	}
+	return next.slice(-MAX_REMEMBERED_FILTERS);
+}
+
+function asRememberedFilters(raw: unknown): RememberedMemoryFilters {
+	const row =
+		raw && typeof raw === "object" && !Array.isArray(raw)
+			? (raw as Record<string, unknown>)
+			: {};
+	return {
+		users: uniqueFilterIds(row.users),
+		sessions: uniqueFilterIds(row.sessions),
+		agents: uniqueFilterIds(row.agents),
+	};
+}
+
+export async function readRememberedMemoryFilters(
+	id: string
+): Promise<RememberedMemoryFilters> {
+	const row = await getMemoryConnector(id);
+	return asRememberedFilters(parseJsonObject(row.metadata || "{}").memoryFilters);
+}
+
+export async function rememberMemoryFilters(
+	id: string,
+	patch: Partial<RememberedMemoryFilters>
+): Promise<void> {
+	const extra = asRememberedFilters(patch);
+	if (!extra.users.length && !extra.sessions.length && !extra.agents.length) {
+		return;
+	}
+	const { projectId } = await requireCurrentProject();
+	const instanceId = memoryConnectorId(id);
+	const existing = await prisma.connectorInstance.findFirst({
+		where: { id: instanceId, projectId, category: "memory" },
+	});
+	if (!existing) throw new Error(MEMORY_CONNECTOR_NOT_FOUND);
+	const metadata = parseJsonObject(existing.metadata || "{}");
+	const current = asRememberedFilters(metadata.memoryFilters);
+	const next = {
+		users: uniqueFilterIds([...current.users, ...extra.users]),
+		sessions: uniqueFilterIds([...current.sessions, ...extra.sessions]),
+		agents: uniqueFilterIds([...current.agents, ...extra.agents]),
+	};
+	if (
+		next.users.length === current.users.length &&
+		next.sessions.length === current.sessions.length &&
+		next.agents.length === current.agents.length &&
+		next.users.every((id, index) => id === current.users[index]) &&
+		next.sessions.every((id, index) => id === current.sessions[index]) &&
+		next.agents.every((id, index) => id === current.agents[index])
+	) {
+		return;
+	}
+	await prisma.connectorInstance.update({
+		where: { id: instanceId },
+		data: { metadata: JSON.stringify({ ...metadata, memoryFilters: next }) },
+	});
 }
 
 function parseSettings(settings: string): Record<string, unknown> {
@@ -321,12 +480,13 @@ export async function getMemoryConnector(id: string) {
 }
 
 export async function listMemoryConnectors() {
+	ensureMemoryAdaptersRegistered();
 	const { projectId } = await requireCurrentProject();
 	const rows = await prisma.connectorInstance.findMany({
 		where: { projectId, category: "memory" },
 		orderBy: [{ environment: "asc" }, { createdAt: "asc" }],
 	});
-	return rows.map(sanitize);
+	return rows.filter((row) => hasMemoryAdapterFactory(row.type)).map(sanitize);
 }
 
 export async function getMemoryRuntime(id?: string) {

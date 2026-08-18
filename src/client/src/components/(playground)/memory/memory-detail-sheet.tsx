@@ -1,18 +1,37 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, Copy, User, X } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Angry, ArrowRightLeft, ChevronDown, ChevronUp, Copy, Pencil, ThumbsDown, ThumbsUp, Trash2, User, X } from "lucide-react";
 import { toast } from "sonner";
+import FeatureAccess from "@/components/rbac/feature-access";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import getMessage from "@/constants/messages";
-import { formatBrowserDateTime } from "@/utils/date";
+import { formatBrowserDateTime, formatDatePartsValue } from "@/utils/date";
 import type { MemoryDetailResult, MemoryListItem } from "@/lib/platform/connectors/memory/read";
 import type { MemoryKind } from "@/lib/platform/connectors/memory/graph";
-import type { MemoryHistoryEvent, MemoryMessage } from "@/lib/platform/connectors/memory/types";
+import type {
+	MemoryCapabilities,
+	MemoryFeedback,
+	MemoryFeedbackRating,
+	MemoryHistoryEvent,
+	MemoryMessage,
+} from "@/lib/platform/connectors/memory/types";
+import MemoryWriteDialog from "./memory-write-dialog";
 
 const DETAIL_SHEET_CONTENT_CLASS =
 	"right-2 top-2 bottom-2 flex h-auto w-auto max-w-none flex-col gap-0 border-0 bg-transparent p-0 shadow-none focus-visible:outline-none sm:max-w-none";
@@ -37,9 +56,13 @@ type MemoryDetailSheetProps = {
 	memoryId: string | null;
 	memoryIds?: string[];
 	connectorId?: string;
+	capabilities?: MemoryCapabilities | null;
 	preview?: MemoryListItem | null;
 	onSelect?: (id: string) => void;
 	onClose: () => void;
+	onChanged?: () => void;
+	onCopy?: (id: string) => void;
+	onOpenSource?: (connectorId: string, memoryId: string) => void;
 };
 
 export default function MemoryDetailSheet({
@@ -47,9 +70,13 @@ export default function MemoryDetailSheet({
 	memoryId,
 	memoryIds = [],
 	connectorId,
+	capabilities,
 	preview,
 	onSelect,
 	onClose,
+	onChanged,
+	onCopy,
+	onOpenSource,
 }: MemoryDetailSheetProps) {
 	const messages = getMessage();
 	const [loading, setLoading] = useState(false);
@@ -57,12 +84,24 @@ export default function MemoryDetailSheet({
 	const [hint, setHint] = useState<MemoryDetailResult["hint"]>();
 	const [detail, setDetail] = useState<MemoryListItem | null>(preview || null);
 	const [connectorName, setConnectorName] = useState<string>("");
+	const [canFeedback, setCanFeedback] = useState(false);
+	const [canUpdate, setCanUpdate] = useState(!!capabilities?.update);
+	const [canDelete, setCanDelete] = useState(!!capabilities?.delete);
+	const [editOpen, setEditOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [saving, setSaving] = useState(false);
+	const suppressSheetDismissRef = useRef(false);
 
 	useEffect(() => {
 		if (!open || !memoryId) {
 			setError(null);
 			setHint(undefined);
 			setDetail(null);
+			setCanFeedback(false);
+			setCanUpdate(!!capabilities?.update);
+			setCanDelete(!!capabilities?.delete);
+			setEditOpen(false);
+			setDeleteOpen(false);
 			setLoading(false);
 			return;
 		}
@@ -85,6 +124,11 @@ export default function MemoryDetailSheet({
 						typeof body === "string"
 							? body
 							: body?.err || body?.error || messages.MEMORY_DETAIL_LOAD_FAILED;
+					const notFound =
+						response.status === 404 || message === messages.MEMORY_DETAIL_NOT_FOUND;
+					if (notFound && preview?.id === memoryId) {
+						return { memory: preview } as MemoryDetailResult;
+					}
 					throw new Error(message);
 				}
 				return body as MemoryDetailResult;
@@ -92,6 +136,9 @@ export default function MemoryDetailSheet({
 			.then((payload) => {
 				setHint(payload.hint);
 				setConnectorName(payload.connector?.name ? String(payload.connector.name) : "");
+				setCanFeedback(!!payload.capabilities?.feedback);
+				setCanUpdate(!!(payload.capabilities?.update ?? capabilities?.update));
+				setCanDelete(!!(payload.capabilities?.delete ?? capabilities?.delete));
 				if (payload.memory) setDetail(payload.memory);
 			})
 			.catch((caught: unknown) => {
@@ -102,7 +149,7 @@ export default function MemoryDetailSheet({
 			})
 			.finally(() => setLoading(false));
 		return () => controller.abort();
-	}, [connectorId, memoryId, messages.MEMORY_DETAIL_LOAD_FAILED, open, preview]);
+	}, [capabilities?.delete, capabilities?.update, connectorId, memoryId, messages.MEMORY_DETAIL_LOAD_FAILED, open, preview]);
 
 	const memory = detail || preview;
 	const title = memory?.content?.trim() || messages.MEMORY_DETAIL_TITLE;
@@ -113,13 +160,117 @@ export default function MemoryDetailSheet({
 	const inputCount = memory?.input?.length || 0;
 	const changelogCount = memory?.history?.length || 0;
 
+	function handleUpdate(input: { content: string }) {
+		if (!memoryId || saving) return;
+		setSaving(true);
+		const params = new URLSearchParams();
+		if (connectorId) params.set("connectorId", connectorId);
+		fetch(`/api/memory/${encodeURIComponent(memoryId)}?${params.toString()}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ content: input.content }),
+		})
+			.then(async (response) => {
+				const body = await response.json().catch(() => null);
+				if (!response.ok) {
+					throw new Error(apiError(body, messages.MEMORY_EDIT_FAILED));
+				}
+				return body as MemoryDetailResult;
+			})
+			.then((payload) => {
+				if (payload.memory) setDetail(payload.memory);
+				toast.success(messages.MEMORY_EDIT_SAVED);
+				setEditOpen(false);
+				onChanged?.();
+			})
+			.catch((caught: unknown) => {
+				toast.error(
+					caught instanceof Error ? caught.message : messages.MEMORY_EDIT_FAILED
+				);
+			})
+			.finally(() => setSaving(false));
+	}
+
+	function handleDelete() {
+		if (!memoryId || saving) return;
+		setSaving(true);
+		const params = new URLSearchParams();
+		if (connectorId) params.set("connectorId", connectorId);
+		fetch(`/api/memory/${encodeURIComponent(memoryId)}?${params.toString()}`, {
+			method: "DELETE",
+		})
+			.then(async (response) => {
+				const body = await response.json().catch(() => null);
+				if (!response.ok) {
+					throw new Error(apiError(body, messages.MEMORY_DELETE_FAILED));
+				}
+			})
+			.then(() => {
+				toast.success(messages.MEMORY_DELETED);
+				setDeleteOpen(false);
+				onClose();
+				onChanged?.();
+			})
+			.catch((caught: unknown) => {
+				toast.error(
+					caught instanceof Error ? caught.message : messages.MEMORY_DELETE_FAILED
+				);
+			})
+			.finally(() => setSaving(false));
+	}
+
+	function dismissBlocked() {
+		if (suppressSheetDismissRef.current || editOpen || deleteOpen) return true;
+		if (typeof document === "undefined") return false;
+		return (
+			document.querySelectorAll('[role="dialog"][data-state="open"]').length > 1 ||
+			!!document.querySelector('[role="alertdialog"][data-state="open"]')
+		);
+	}
+
+	function openNestedDialog(setter: (open: boolean) => void) {
+		suppressSheetDismissRef.current = true;
+		setter(true);
+	}
+
+	function onNestedOpenChange(
+		setter: (open: boolean) => void,
+		next: boolean
+	) {
+		setter(next);
+		if (next) {
+			suppressSheetDismissRef.current = true;
+			return;
+		}
+		window.setTimeout(() => {
+			suppressSheetDismissRef.current = false;
+		}, 50);
+	}
+
 	return (
-		<Sheet modal={false} open={open} onOpenChange={(next) => !next && onClose()}>
+		<>
+		<Sheet
+			modal={false}
+			open={open}
+			onOpenChange={(next) => {
+				if (!next && dismissBlocked()) return;
+				if (!next) onClose();
+			}}
+		>
 			<SheetContent
 				side="right"
 				className={DETAIL_SHEET_CONTENT_CLASS}
 				displayOverlay={false}
 				displayClose={false}
+				onPointerDownOutside={(event) => {
+					if (dismissBlocked()) event.preventDefault();
+				}}
+				onFocusOutside={(event) => {
+					if (dismissBlocked()) event.preventDefault();
+				}}
+				onInteractOutside={(event) => {
+					if (dismissBlocked()) event.preventDefault();
+				}}
 			>
 				<ResizableDetailSheet>
 					<div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
@@ -161,8 +312,80 @@ export default function MemoryDetailSheet({
 										</span>
 									</p>
 								) : null}
+								{memory?.port ? (
+									<p className="mt-2 text-xs text-violet-700 dark:text-violet-300">
+										<span>{messages.MEMORY_COPY_SOURCE}</span>
+										{" · "}
+										<button
+											type="button"
+											className="font-medium underline underline-offset-2"
+											onClick={() =>
+												onOpenSource?.(
+													memory.port!.sourceConnectorId,
+													memory.port!.sourceMemoryId
+												)
+											}
+										>
+											{memory.port.sourceConnectorName || memory.port.sourceConnectorId}
+										</button>
+									</p>
+								) : null}
 							</div>
 							<div className="flex shrink-0 items-center gap-1">
+								<FeatureAccess access="memory.create" hideWhenDenied>
+									{onCopy && memory?.id ? (
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-7 w-7 border-stone-200 bg-white p-0 text-stone-600 hover:bg-stone-100 hover:text-stone-950 disabled:opacity-40 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
+											onClick={(event) => {
+												event.preventDefault();
+												event.stopPropagation();
+												onCopy(memory.id);
+											}}
+											disabled={!memory || saving}
+											title={messages.MEMORY_COPY}
+										>
+											<ArrowRightLeft className="h-3.5 w-3.5" />
+										</Button>
+									) : null}
+								</FeatureAccess>
+								<FeatureAccess access="memory.update" hideWhenDenied>
+									{canUpdate ? (
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-7 w-7 border-stone-200 bg-white p-0 text-stone-600 hover:bg-stone-100 hover:text-stone-950 disabled:opacity-40 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50"
+											onClick={(event) => {
+												event.preventDefault();
+												event.stopPropagation();
+												openNestedDialog(setEditOpen);
+											}}
+											disabled={!memory || saving}
+											title={messages.MEMORY_EDIT}
+										>
+											<Pencil className="h-3.5 w-3.5" />
+										</Button>
+									) : null}
+								</FeatureAccess>
+								<FeatureAccess access="memory.delete" hideWhenDenied>
+									{canDelete ? (
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-7 w-7 border-stone-200 bg-white p-0 text-stone-600 hover:bg-stone-100 hover:text-error disabled:opacity-40 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-800"
+											onClick={(event) => {
+												event.preventDefault();
+												event.stopPropagation();
+												openNestedDialog(setDeleteOpen);
+											}}
+											disabled={!memoryId || saving}
+											title={messages.MEMORY_DELETE}
+										>
+											<Trash2 className="h-3.5 w-3.5" />
+										</Button>
+									) : null}
+								</FeatureAccess>
 								<Button
 									variant="outline"
 									size="sm"
@@ -222,27 +445,44 @@ export default function MemoryDetailSheet({
 										<TabsTrigger value="details" className="shrink-0 px-3 py-1 text-xs">
 											{messages.MEMORY_DETAIL_TAB_DETAILS}
 										</TabsTrigger>
-										<TabsTrigger value="input" className="shrink-0 px-3 py-1 text-xs">
-											{messages.MEMORY_DETAIL_TAB_INPUT}
-											{inputCount ? ` (${inputCount})` : ""}
-										</TabsTrigger>
-										<TabsTrigger value="changelog" className="shrink-0 px-3 py-1 text-xs">
-											{messages.MEMORY_DETAIL_TAB_CHANGELOG}
-											{changelogCount ? ` (${changelogCount})` : ""}
-										</TabsTrigger>
+										{inputCount ? (
+											<TabsTrigger value="input" className="shrink-0 px-3 py-1 text-xs">
+												{messages.MEMORY_DETAIL_TAB_INPUT}
+												{` (${inputCount})`}
+											</TabsTrigger>
+										) : null}
+										{changelogCount ? (
+											<TabsTrigger value="changelog" className="shrink-0 px-3 py-1 text-xs">
+												{messages.MEMORY_DETAIL_TAB_CHANGELOG}
+												{` (${changelogCount})`}
+											</TabsTrigger>
+										) : null}
 									</TabsList>
 									<TabsContent value="details" className="mt-3">
 										<MemoryDetailsTab
 											memory={memory}
 											connectorName={connectorName}
+											connectorId={connectorId}
+											canFeedback={canFeedback}
+											onFeedback={(feedback) =>
+												setDetail((current) =>
+													current
+														? { ...current, feedback }
+														: { ...memory, feedback }
+												)
+											}
 										/>
 									</TabsContent>
-									<TabsContent value="input" className="mt-3">
-										<MemoryInputTab messages={memory.input || []} />
-									</TabsContent>
-									<TabsContent value="changelog" className="mt-3">
-										<MemoryChangelogTab events={memory.history || []} />
-									</TabsContent>
+									{inputCount ? (
+										<TabsContent value="input" className="mt-3">
+											<MemoryInputTab messages={memory.input || []} />
+										</TabsContent>
+									) : null}
+									{changelogCount ? (
+										<TabsContent value="changelog" className="mt-3">
+											<MemoryChangelogTab events={memory.history || []} />
+										</TabsContent>
+									) : null}
 								</Tabs>
 							) : null}
 						</div>
@@ -250,15 +490,59 @@ export default function MemoryDetailSheet({
 				</ResizableDetailSheet>
 			</SheetContent>
 		</Sheet>
+			<MemoryWriteDialog
+				open={editOpen}
+				mode="edit"
+				content={memory?.content}
+				saving={saving}
+				onOpenChange={(next) => onNestedOpenChange(setEditOpen, next)}
+				onSubmit={handleUpdate}
+			/>
+			<AlertDialog
+				open={deleteOpen}
+				onOpenChange={(next) => onNestedOpenChange(setDeleteOpen, next)}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>{messages.MEMORY_DELETE_TITLE}</AlertDialogTitle>
+						<AlertDialogDescription>
+							{messages.MEMORY_DELETE_DESCRIPTION}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={saving} size="sm">
+							{messages.MEMORY_CANCEL}
+						</AlertDialogCancel>
+						<AlertDialogAction
+							disabled={saving}
+							variant="destructive"
+							size="sm"
+							onClick={(event) => {
+								event.preventDefault();
+								handleDelete();
+							}}
+						>
+							{messages.MEMORY_DELETE_CONFIRM}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	);
 }
 
 function MemoryDetailsTab({
 	memory,
 	connectorName,
+	connectorId,
+	canFeedback,
+	onFeedback,
 }: {
 	memory: MemoryListItem;
 	connectorName?: string;
+	connectorId?: string;
+	canFeedback?: boolean;
+	onFeedback?: (feedback: MemoryFeedback) => void;
 }) {
 	const messages = getMessage();
 	const kindLabel = kindMessage(messages, memory.kind);
@@ -272,6 +556,16 @@ function MemoryDetailsTab({
 					{memory.content}
 				</p>
 			</section>
+			{canFeedback ? (
+				<FeatureAccess access="memory.feedback" hideWhenDenied>
+					<MemoryFeedbackPanel
+						memoryId={memory.id}
+						connectorId={connectorId}
+						feedback={memory.feedback}
+						onFeedback={onFeedback}
+					/>
+				</FeatureAccess>
+			) : null}
 			{memory.categories?.length ? (
 				<section>
 					<h3 className="mb-1.5 text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
@@ -341,6 +635,173 @@ function MemoryDetailsTab({
 	);
 }
 
+function MemoryFeedbackPanel({
+	memoryId,
+	connectorId,
+	feedback,
+	onFeedback,
+}: {
+	memoryId: string;
+	connectorId?: string;
+	feedback?: MemoryFeedback;
+	onFeedback?: (feedback: MemoryFeedback) => void;
+}) {
+	const messages = getMessage();
+	const [reason, setReason] = useState(feedback?.reason || "");
+	const [saving, setSaving] = useState(false);
+
+	useEffect(() => {
+		setReason(feedback?.reason || "");
+	}, [memoryId, feedback?.reason]);
+
+	function submit(rating: MemoryFeedbackRating | null) {
+		if (saving) return;
+		setSaving(true);
+		const params = new URLSearchParams();
+		if (connectorId) params.set("connectorId", connectorId);
+		fetch(`/api/memory/${encodeURIComponent(memoryId)}/feedback?${params.toString()}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				rating,
+				reason: rating ? reason.trim() || null : null,
+			}),
+		})
+			.then(async (response) => {
+				const body = await response.json().catch(() => null);
+				if (!response.ok) {
+					const message =
+						typeof body === "string"
+							? body
+							: body?.err || body?.error || messages.MEMORY_DETAIL_FEEDBACK_SAVE_FAILED;
+					throw new Error(message);
+				}
+				return body as { feedback?: MemoryFeedback; memory?: MemoryListItem };
+			})
+			.then((payload) => {
+				const next = payload.memory?.feedback || payload.feedback || {};
+				onFeedback?.(next);
+				toast.success(
+					rating ? messages.MEMORY_DETAIL_FEEDBACK_SAVED : messages.MEMORY_DETAIL_FEEDBACK_CLEARED
+				);
+			})
+			.catch((caught: unknown) => {
+				toast.error(
+					caught instanceof Error
+						? caught.message
+						: messages.MEMORY_DETAIL_FEEDBACK_SAVE_FAILED
+				);
+			})
+			.finally(() => setSaving(false));
+	}
+
+	const selected = feedback?.rating;
+	const reasonDirty = reason.trim() !== (feedback?.reason || "");
+
+	return (
+		<section>
+			<h3 className="mb-1.5 text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
+				{messages.MEMORY_DETAIL_FEEDBACK}
+			</h3>
+			<div className="flex flex-wrap items-center gap-1.5">
+				<FeedbackRatingButton
+					active={selected === "positive"}
+					disabled={saving}
+					label={messages.MEMORY_DETAIL_FEEDBACK_POSITIVE}
+					onClick={() => submit(selected === "positive" ? null : "positive")}
+					icon={<ThumbsUp className="h-3.5 w-3.5" />}
+					activeClass="border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+				/>
+				<FeedbackRatingButton
+					active={selected === "negative"}
+					disabled={saving}
+					label={messages.MEMORY_DETAIL_FEEDBACK_NEGATIVE}
+					onClick={() => submit(selected === "negative" ? null : "negative")}
+					icon={<ThumbsDown className="h-3.5 w-3.5" />}
+					activeClass="border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+				/>
+				<FeedbackRatingButton
+					active={selected === "very_negative"}
+					disabled={saving}
+					label={messages.MEMORY_DETAIL_FEEDBACK_VERY_NEGATIVE}
+					onClick={() => submit(selected === "very_negative" ? null : "very_negative")}
+					icon={<Angry className="h-3.5 w-3.5" />}
+					activeClass="border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200"
+				/>
+				{selected || feedback?.reason ? (
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						className="h-7 border-stone-200 bg-white text-stone-600 hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300"
+						disabled={saving}
+						onClick={() => {
+							setReason("");
+							submit(null);
+						}}
+					>
+						{messages.MEMORY_DETAIL_FEEDBACK_CLEAR}
+					</Button>
+				) : null}
+			</div>
+			<div className="mt-2 flex items-center gap-1.5">
+				<Input
+					value={reason}
+					onChange={(event) => setReason(event.target.value)}
+					placeholder={messages.MEMORY_DETAIL_FEEDBACK_REASON_PLACEHOLDER}
+					maxLength={1000}
+					disabled={saving}
+					aria-label={messages.MEMORY_DETAIL_FEEDBACK_REASON}
+					className="h-8 min-w-0 flex-1 text-xs text-stone-900 placeholder:text-stone-400 dark:text-stone-100 dark:placeholder:text-stone-500"
+				/>
+				<Button
+					type="button"
+					size="sm"
+					className="h-8 shrink-0"
+					disabled={saving || !selected || !reasonDirty}
+					onClick={() => selected && submit(selected)}
+				>
+					{messages.MEMORY_DETAIL_FEEDBACK_SUBMIT}
+				</Button>
+			</div>
+		</section>
+	);
+}
+
+function FeedbackRatingButton({
+	active,
+	disabled,
+	label,
+	onClick,
+	icon,
+	activeClass,
+}: {
+	active: boolean;
+	disabled: boolean;
+	label: string;
+	onClick: () => void;
+	icon: ReactNode;
+	activeClass: string;
+}) {
+	return (
+		<Button
+			type="button"
+			size="sm"
+			variant="outline"
+			disabled={disabled}
+			onClick={onClick}
+			className={`h-7 gap-1.5 ${
+				active
+					? activeClass
+					: "border-stone-200 bg-white text-stone-600 hover:bg-stone-100 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300"
+			}`}
+		>
+			{icon}
+			{label}
+		</Button>
+	);
+}
+
 function MemoryInputTab({ messages: items }: { messages: MemoryMessage[] }) {
 	const copy = getMessage();
 	if (!items.length) {
@@ -355,7 +816,7 @@ function MemoryInputTab({ messages: items }: { messages: MemoryMessage[] }) {
 			{items.map((item, index) => (
 				<li
 					key={`${item.role}-${index}`}
-					className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 dark:border-stone-800 dark:bg-stone-900"
+					className={`rounded-md border px-3 py-2 ${inputBubbleClass(item.role)}`}
 				>
 					<p className="text-[11px] font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
 						{item.role}
@@ -414,34 +875,149 @@ function MemoryChangelogTab({ events }: { events: MemoryHistoryEvent[] }) {
 }
 
 function MemoryAttributeTable({ data }: { data: Record<string, unknown> }) {
-	const messages = getMessage();
-	const entries = Object.entries(data).filter(
-		([, value]) => value !== null && value !== undefined && value !== ""
-	);
+	const formatted = formatDatePartsValue(data);
+	if (formatted) {
+		return (
+			<p className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-200">
+				{formatted}
+			</p>
+		);
+	}
+	const entries = objectEntries(data);
 	if (!entries.length) return null;
 	return (
 		<div className="overflow-hidden rounded-md border border-stone-200 dark:border-stone-800">
-			<div className="divide-y divide-stone-200 dark:divide-stone-800">
-				{entries.map(([key, value], index) => (
+			<AttributeRows entries={entries} />
+		</div>
+	);
+}
+
+function AttributeRows({ entries }: { entries: Array<[string, unknown]> }) {
+	return (
+		<div className="divide-y divide-stone-200 dark:divide-stone-800">
+			{entries.map(([key, value], index) => (
+				<div
+					key={`${key}-${index}`}
+					className={`grid min-w-0 grid-cols-1 gap-1 px-3 py-2 sm:grid-cols-[minmax(140px,32%)_minmax(0,1fr)] sm:items-start sm:gap-3 ${
+						index % 2 === 0
+							? "bg-white dark:bg-stone-950"
+							: "bg-stone-50 dark:bg-stone-900/70"
+					}`}
+				>
+					<div className="text-xs font-medium text-stone-500 dark:text-stone-400">
+						{humanizeAttributeKey(key)}
+					</div>
+					<div className="min-w-0 break-words text-xs text-stone-900 dark:text-stone-100">
+						<AttributeValue value={value} />
+					</div>
+				</div>
+			))}
+		</div>
+	);
+}
+
+function AttributeValue({ value }: { value: unknown }) {
+	const messages = getMessage();
+	if (typeof value === "boolean") {
+		return (
+			<span
+				className={`inline-flex rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
+					value
+						? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+						: "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300"
+				}`}
+			>
+				{value ? messages.MEMORY_DETAIL_YES : messages.MEMORY_DETAIL_NO}
+			</span>
+		);
+	}
+	if (typeof value === "number") {
+		return <span className="font-medium">{String(value)}</span>;
+	}
+	if (typeof value === "string") {
+		const formatted = formatAttributeDate(value);
+		return (
+			<span className="whitespace-pre-wrap break-words">{formatted}</span>
+		);
+	}
+	if (Array.isArray(value)) {
+		if (!value.length) return null;
+		if (value.every((item) => isPrimitive(item))) {
+			return (
+				<div className="flex flex-wrap gap-1">
+					{value.map((item, index) => (
+						<span
+							key={`${String(item)}-${index}`}
+							className="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[11px] text-stone-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-200"
+						>
+							{typeof item === "boolean"
+								? item
+									? messages.MEMORY_DETAIL_YES
+									: messages.MEMORY_DETAIL_NO
+								: formatAttributeDate(String(item))}
+						</span>
+					))}
+				</div>
+			);
+		}
+		return (
+			<div className="space-y-2">
+				{value.map((item, index) => (
 					<div
-						key={key}
-						className={`grid min-w-0 grid-cols-1 gap-1 px-3 py-2 sm:grid-cols-[minmax(140px,32%)_minmax(0,1fr)] sm:items-start sm:gap-3 ${
-							index % 2 === 0
-								? "bg-white dark:bg-stone-950"
-								: "bg-stone-50 dark:bg-stone-900/70"
-						}`}
+						key={index}
+						className="overflow-hidden rounded-md border border-stone-200 dark:border-stone-800"
 					>
-						<div className="text-xs font-medium text-stone-500 dark:text-stone-400">
-							{humanizeAttributeKey(key)}
+						<div className="border-b border-stone-200 bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-stone-500 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400">
+							{messages.MEMORY_DETAIL_ITEM(index + 1)}
 						</div>
-						<div className="min-w-0 break-words text-xs text-stone-900 dark:text-stone-100">
-							{formatAttributeValue(value, messages)}
-						</div>
+						{isPlainObject(item) ? (
+							<AttributeRows entries={objectEntries(item)} />
+						) : (
+							<div className="px-2.5 py-1.5">
+								<AttributeValue value={item} />
+							</div>
+						)}
 					</div>
 				))}
 			</div>
-		</div>
+		);
+	}
+	if (isPlainObject(value)) {
+		const formatted = formatDatePartsValue(value);
+		if (formatted) {
+			return <span className="whitespace-pre-wrap break-words">{formatted}</span>;
+		}
+		const nested = objectEntries(value);
+		if (!nested.length) return null;
+		return (
+			<div className="overflow-hidden rounded-md border border-stone-200 dark:border-stone-800">
+				<AttributeRows entries={nested} />
+			</div>
+		);
+	}
+	return <span className="whitespace-pre-wrap break-words">{String(value)}</span>;
+}
+
+function objectEntries(data: unknown): Array<[string, unknown]> {
+	if (!isPlainObject(data)) return [];
+	return Object.entries(data).filter(([, value]) => !isEmptyAttribute(value));
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isPrimitive(value: unknown): boolean {
+	return (
+		value === null ||
+		typeof value === "string" ||
+		typeof value === "number" ||
+		typeof value === "boolean"
 	);
+}
+
+function isEmptyAttribute(value: unknown): boolean {
+	return value === null || value === undefined || value === "";
 }
 
 function humanizeAttributeKey(key: string): string {
@@ -450,21 +1026,20 @@ function humanizeAttributeKey(key: string): string {
 	return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
-function formatAttributeValue(
-	value: unknown,
-	messages: ReturnType<typeof getMessage>
-): string {
-	if (typeof value === "boolean") {
-		return value ? messages.MEMORY_DETAIL_YES : messages.MEMORY_DETAIL_NO;
+function formatAttributeDate(value: string): string {
+	if (!/^\d{4}-\d{2}-\d{2}(?:[T ]|$)/.test(value)) return value;
+	return formatBrowserDateTime(value, value);
+}
+
+function inputBubbleClass(role: string): string {
+	const key = role.trim().toLowerCase();
+	if (key === "assistant" || key === "ai" || key === "model") {
+		return "border-violet-200 bg-violet-50/70 dark:border-violet-900/70 dark:bg-violet-950/20";
 	}
-	if (typeof value === "number" || typeof value === "string") {
-		return String(value);
+	if (key === "system") {
+		return "border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950";
 	}
-	try {
-		return JSON.stringify(value);
-	} catch {
-		return String(value);
-	}
+	return "border-stone-200 bg-stone-50 dark:border-stone-800 dark:bg-stone-900";
 }
 
 function HeaderMeta({ label, value }: { label: string; value?: string }) {
@@ -534,6 +1109,16 @@ function copyMemoryId(id: string, copiedMessage: string) {
 		() => toast.success(copiedMessage),
 		() => undefined
 	);
+}
+
+function apiError(body: unknown, fallback: string): string {
+	if (typeof body === "string" && body.trim()) return body;
+	if (body && typeof body === "object") {
+		const record = body as { err?: unknown; error?: unknown };
+		if (typeof record.err === "string" && record.err.trim()) return record.err;
+		if (typeof record.error === "string" && record.error.trim()) return record.error;
+	}
+	return fallback;
 }
 
 function truncateId(id: string): string {

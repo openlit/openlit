@@ -85,8 +85,23 @@ jest.mock("@/lib/telemetry-source", () => ({
 }));
 
 const mockQueryProjectMemories = jest.fn();
+const mockAddProjectMemories = jest.fn();
+const mockUpdateProjectMemory = jest.fn();
+const mockDeleteProjectMemory = jest.fn();
+const mockRequireMemoryAccess = jest.fn().mockResolvedValue(undefined);
+const mockRecordMemoryMutationAudit = jest.fn().mockResolvedValue(undefined);
 jest.mock("@/lib/platform/connectors/memory/read", () => ({
 	queryProjectMemories: (...args: unknown[]) => mockQueryProjectMemories(...args),
+}));
+jest.mock("@/lib/platform/connectors/memory/write", () => ({
+	addProjectMemories: (...args: unknown[]) => mockAddProjectMemories(...args),
+	updateProjectMemory: (...args: unknown[]) => mockUpdateProjectMemory(...args),
+	deleteProjectMemory: (...args: unknown[]) => mockDeleteProjectMemory(...args),
+}));
+jest.mock("@/lib/access/memory-route", () => ({
+	requireMemoryAccess: (...args: unknown[]) => mockRequireMemoryAccess(...args),
+	recordMemoryMutationAudit: (...args: unknown[]) =>
+		mockRecordMemoryMutationAudit(...args),
 }));
 
 jest.mock("@/utils/sanitizer", () => ({
@@ -151,6 +166,8 @@ function ndjsonResponse(payload: string) {
 describe("getChatTools", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		mockRequireMemoryAccess.mockResolvedValue(undefined);
+		mockRecordMemoryMutationAudit.mockResolvedValue(undefined);
 	});
 
 	it("builds the expected tool set", () => {
@@ -174,6 +191,9 @@ describe("getChatTools", () => {
 				"query_telemetry",
 				"list_memories",
 				"search_memories",
+				"add_memory",
+				"update_memory",
+				"delete_memory",
 			])
 		);
 		expect(tools.create_rule.inputSchema.required).toEqual(["name"]);
@@ -1431,6 +1451,8 @@ describe("getChatTools", () => {
 		const listed = await tools.list_memories.execute({ user_id: "ada" });
 		expect(listed.success).toBe(true);
 		expect(listed.memories[0].content.endsWith("…")).toBe(true);
+		expect(listed.memories[0].url).toBe("/memory?id=m1&connectorId=memory%3Aabc");
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("read");
 		expect(mockQueryProjectMemories).toHaveBeenCalledWith(
 			expect.objectContaining({ userId: "ada" })
 		);
@@ -1440,5 +1462,84 @@ describe("getChatTools", () => {
 			expect.objectContaining({ query: "tracing" })
 		);
 		expect(tools.search_memories.inputSchema.required).toEqual(["query"]);
+	});
+
+	it("adds, updates, and deletes memories through the write facade", async () => {
+		mockAddProjectMemories.mockResolvedValue({
+			connector: { id: "memory:abc", name: "Prod Mem0", type: "mem0" },
+			memories: [{ id: "m1", content: "Prefers tabs", userId: "ada" }],
+		});
+		mockUpdateProjectMemory.mockResolvedValue({
+			connector: { id: "memory:abc" },
+			memory: { id: "m1", content: "Prefers spaces" },
+		});
+		mockDeleteProjectMemory.mockResolvedValue({
+			connector: { id: "memory:abc" },
+			ok: true,
+		});
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		const added = await tools.add_memory.execute({
+			content: "Prefers tabs",
+			user_id: "ada",
+		});
+		expect(added.success).toBe(true);
+		expect(added.url).toBe("/memory?id=m1&connectorId=memory%3Aabc");
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("create");
+		expect(mockAddProjectMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ content: "Prefers tabs", userId: "ada" })
+		);
+		expect(mockRecordMemoryMutationAudit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: "create",
+				targetId: "m1",
+				connectorId: "memory:abc",
+				userId: "ada",
+				contentLength: "Prefers tabs".length,
+				source: "chat",
+			})
+		);
+		expect(mockRecordMemoryMutationAudit.mock.calls[0][0]).not.toHaveProperty(
+			"content"
+		);
+		expect(tools.add_memory.inputSchema.required).toEqual(["content"]);
+
+		const updated = await tools.update_memory.execute({
+			id: "m1",
+			content: "Prefers spaces",
+		});
+		expect(updated.success).toBe(true);
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("update");
+		expect(mockUpdateProjectMemory).toHaveBeenCalledWith({
+			id: "m1",
+			content: "Prefers spaces",
+			connectorId: undefined,
+		});
+
+		const removed = await tools.delete_memory.execute({ id: "m1" });
+		expect(removed.success).toBe(true);
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("delete");
+		expect(mockDeleteProjectMemory).toHaveBeenCalledWith({
+			id: "m1",
+			connectorId: undefined,
+		});
+		expect(mockRecordMemoryMutationAudit).toHaveBeenCalledWith(
+			expect.objectContaining({ action: "delete", targetId: "m1", source: "chat" })
+		);
+	});
+
+	it("blocks Otter memory mutations when access is denied", async () => {
+		mockRequireMemoryAccess.mockRejectedValueOnce(
+			new Error("You do not have permission to perform this action.")
+		);
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		const added = await tools.add_memory.execute({ content: "secret" });
+		expect(added).toEqual({
+			success: false,
+			error: "You do not have permission to perform this action.",
+		});
+		expect(mockAddProjectMemories).not.toHaveBeenCalled();
+		expect(mockRecordMemoryMutationAudit).not.toHaveBeenCalled();
 	});
 });

@@ -1,9 +1,11 @@
 /**
- * Adapter bootstrap for CE memory connectors: Mem0 and Zep. Enterprise builds
- * may contribute additional factories through the neutral extension hook.
+ * Adapter bootstrap for CE memory connectors: Claude, Mem0, and Zep.
+ * Enterprise builds may contribute additional factories through the
+ * neutral extension hook.
  */
 
 import { getExternalMemoryAdapters } from "./enterprise";
+import { claudeAdapterFactory } from "./claude/adapter";
 import { mem0AdapterFactory } from "./mem0/adapter";
 import {
 	hasMemoryAdapterFactory,
@@ -12,7 +14,11 @@ import {
 import { zepAdapterFactory } from "./zep/adapter";
 import { registerMemoryConnectorTypes } from "./index";
 
-const VENDOR_FACTORIES = [mem0AdapterFactory, zepAdapterFactory];
+const VENDOR_FACTORIES = [
+	claudeAdapterFactory,
+	mem0AdapterFactory,
+	zepAdapterFactory,
+];
 
 let registered = false;
 
@@ -23,7 +29,12 @@ let registered = false;
  * marked itself registered, matching datasource bootstrap HMR behaviour.
  */
 export function ensureMemoryAdaptersRegistered(): void {
-	if (registered && hasMemoryAdapterFactory("mem0") && hasMemoryAdapterFactory("zep")) {
+	if (
+		registered &&
+		hasMemoryAdapterFactory("claude") &&
+		hasMemoryAdapterFactory("mem0") &&
+		hasMemoryAdapterFactory("zep")
+	) {
 		return;
 	}
 	registered = true;

@@ -9,6 +9,18 @@ import { MEMORY_UNKNOWN_USER } from "@/constants/messages/en";
 
 export type MemoryKind = "temporal" | "profile" | "summary";
 
+export const MEMORY_ENTITY_TYPES = [
+	"user",
+	"entity",
+	"event",
+	"location",
+	"object",
+	"preference",
+	"topic",
+] as const;
+
+export type MemoryEntityType = (typeof MEMORY_ENTITY_TYPES)[number];
+
 export interface MemoryStats {
 	total: number;
 	connections: number;
@@ -21,20 +33,24 @@ export interface MemoryStats {
 
 export interface MemoryGraphNode {
 	id: string;
-	type: "user" | "session" | "memory";
+	type: "user" | "session" | "memory" | "entity";
 	label: string;
 	memoryId?: string;
 	kind?: MemoryKind;
+	entityType?: MemoryEntityType;
 }
 
 export interface MemoryGraphEdge {
 	from: string;
 	to: string;
+	memoryId?: string;
+	label?: string;
 }
 
 export interface MemoryGraphModel {
 	nodes: MemoryGraphNode[];
 	edges: MemoryGraphEdge[];
+	kind?: "knowledge" | "tree";
 }
 
 export interface LaidOutMemoryNode extends MemoryGraphNode {
@@ -66,16 +82,22 @@ function metaString(record: MemoryRecord, keys: string[]): string {
 }
 
 export function classifyMemoryKind(record: MemoryRecord): MemoryKind {
-	const type = metaString(record, [
-		"memory_type",
-		"memoryType",
-		"category",
-		"type",
-		"kind",
-	]);
+	const type = [
+		metaString(record, [
+			"memory_type",
+			"memoryType",
+			"category",
+			"domain",
+			"type",
+			"kind",
+		]),
+		...(record.categories || []),
+	]
+		.join(" ")
+		.toLowerCase();
 	if (/(temporal|episodic|event)/.test(type)) return "temporal";
 	if (/(profile|identity|preference|user)/.test(type)) return "profile";
-	if (/(summary|semantic|general)/.test(type)) return "summary";
+	if (/(summary|semantic|general|original)/.test(type)) return "summary";
 
 	const content = String(record.content || "").toLowerCase();
 	if (/\b(yesterday|today|last week|on \d{4}|at \d{1,2}:\d{2})\b/.test(content)) {
@@ -113,11 +135,83 @@ function titleFromContent(content: string, fallback: string): string {
 	return line.length > 48 ? `${line.slice(0, 45).trimEnd()}…` : line;
 }
 
+export function classifyEntityType(types?: string[]): MemoryEntityType {
+	const labels = (types || [])
+		.map((value) => value.trim().toLowerCase())
+		.filter((value) => value && value !== "node");
+	for (const type of MEMORY_ENTITY_TYPES) {
+		if (type === "entity") continue;
+		if (labels.includes(type)) return type;
+	}
+	return "entity";
+}
+
 export function buildMemoryGraph(
 	records: MemoryRecord[],
 	options?: { maxMemories?: number }
 ): MemoryGraphModel {
 	const maxMemories = options?.maxMemories ?? MAX_GRAPH_MEMORIES;
+	const facts = records.filter((record) => !record.graphOnly).slice(0, maxMemories);
+	const extras = records.filter((record) => record.graphOnly);
+	if (facts.some((record) => record.relation?.source && record.relation?.target)) {
+		return buildKnowledgeGraph(facts, extras);
+	}
+	return buildSessionTreeGraph(facts);
+}
+
+function buildKnowledgeGraph(
+	facts: MemoryRecord[],
+	extras: MemoryRecord[]
+): MemoryGraphModel {
+	const nodes: MemoryGraphNode[] = [];
+	const edges: MemoryGraphEdge[] = [];
+	const seen = new Set<string>();
+
+	const pushEndpoint = (endpoint: {
+		id: string;
+		label: string;
+		types?: string[];
+	}) => {
+		const id = endpoint.id.trim();
+		if (!id || seen.has(id)) return;
+		seen.add(id);
+		const entityType = classifyEntityType(endpoint.types);
+		nodes.push({
+			id,
+			type: entityType === "user" ? "user" : "entity",
+			entityType,
+			label: endpoint.label.trim() || id,
+			memoryId: id,
+		});
+	};
+
+	for (const record of facts) {
+		const relation = record.relation;
+		if (!relation?.source?.id || !relation.target?.id) continue;
+		pushEndpoint(relation.source);
+		pushEndpoint(relation.target);
+		edges.push({
+			from: relation.source.id,
+			to: relation.target.id,
+			memoryId: record.id,
+			label: relation.name,
+		});
+	}
+
+	for (const record of extras) {
+		pushEndpoint({
+			id: record.id,
+			label:
+				(typeof record.metadata?.name === "string" && record.metadata.name) ||
+				titleFromContent(record.content, record.id),
+			types: record.categories,
+		});
+	}
+
+	return { nodes, edges, kind: "knowledge" };
+}
+
+function buildSessionTreeGraph(records: MemoryRecord[]): MemoryGraphModel {
 	const nodes: MemoryGraphNode[] = [];
 	const edges: MemoryGraphEdge[] = [];
 	const seen = new Set<string>();
@@ -128,7 +222,7 @@ export function buildMemoryGraph(
 		nodes.push(node);
 	};
 
-	for (const record of records.slice(0, maxMemories)) {
+	for (const record of records) {
 		const userKey = record.userId?.trim() || "";
 		const sessionKey = record.sessionId?.trim() || "";
 		const userId = userKey ? `user:${userKey}` : "user:unknown";
@@ -158,10 +252,112 @@ export function buildMemoryGraph(
 			memoryId: record.id,
 			kind: classifyMemoryKind(record),
 		});
-		edges.push({ from: parentId, to: memoryId });
+		edges.push({ from: parentId, to: memoryId, memoryId: record.id });
 	}
 
 	return { nodes, edges };
+}
+
+function hashUnit(value: string): number {
+	let hash = 2166136261;
+	for (let index = 0; index < value.length; index += 1) {
+		hash ^= value.charCodeAt(index);
+		hash = Math.imul(hash, 16777619);
+	}
+	return (hash >>> 0) / 4294967295;
+}
+
+function layoutKnowledgeGraph(
+	model: MemoryGraphModel,
+	width: number,
+	height: number
+): LaidOutMemoryNode[] {
+	if (model.nodes.length === 0) return [];
+	const cx = width / 2;
+	const cy = height / 2;
+	const users = model.nodes.filter(
+		(node) => node.entityType === "user" || node.type === "user"
+	);
+	const pinned = new Set(users.slice(0, 1).map((node) => node.id));
+	const pos = new Map<string, { x: number; y: number }>();
+	for (const node of model.nodes) {
+		if (pinned.has(node.id)) {
+			pos.set(node.id, { x: cx, y: cy });
+			continue;
+		}
+		const angle = hashUnit(node.id) * Math.PI * 2;
+		const radius = 90 + hashUnit(`${node.id}:r`) * 220;
+		pos.set(node.id, {
+			x: cx + radius * Math.cos(angle),
+			y: cy + radius * Math.sin(angle),
+		});
+	}
+
+	const ids = model.nodes.map((node) => node.id);
+	const iterations = Math.min(90, 40 + ids.length);
+	for (let iter = 0; iter < iterations; iter += 1) {
+		const disp = new Map(ids.map((id) => [id, { x: 0, y: 0 }]));
+		for (let i = 0; i < ids.length; i += 1) {
+			for (let j = i + 1; j < ids.length; j += 1) {
+				const a = pos.get(ids[i]);
+				const b = pos.get(ids[j]);
+				if (!a || !b) continue;
+				let dx = a.x - b.x;
+				let dy = a.y - b.y;
+				const dist = Math.hypot(dx, dy) || 0.01;
+				const force = 2800 / dist;
+				dx /= dist;
+				dy /= dist;
+				const da = disp.get(ids[i]);
+				const db = disp.get(ids[j]);
+				if (da) {
+					da.x += dx * force;
+					da.y += dy * force;
+				}
+				if (db) {
+					db.x -= dx * force;
+					db.y -= dy * force;
+				}
+			}
+		}
+		for (const edge of model.edges) {
+			const a = pos.get(edge.from);
+			const b = pos.get(edge.to);
+			if (!a || !b) continue;
+			let dx = b.x - a.x;
+			let dy = b.y - a.y;
+			const dist = Math.hypot(dx, dy) || 0.01;
+			const force = (dist - 118) * 0.06;
+			dx /= dist;
+			dy /= dist;
+			const da = disp.get(edge.from);
+			const db = disp.get(edge.to);
+			if (da) {
+				da.x += dx * force;
+				da.y += dy * force;
+			}
+			if (db) {
+				db.x -= dx * force;
+				db.y -= dy * force;
+			}
+		}
+		const cooling = 0.55 * (1 - iter / iterations);
+		for (const id of ids) {
+			if (pinned.has(id)) continue;
+			const current = pos.get(id);
+			const delta = disp.get(id);
+			if (!current || !delta) continue;
+			const mag = Math.hypot(delta.x, delta.y) || 1;
+			const step = Math.min(mag, 28) * cooling;
+			current.x += (delta.x / mag) * step;
+			current.y += (delta.y / mag) * step;
+		}
+	}
+
+	return model.nodes.map((node) => {
+		const point = pos.get(node.id) || { x: cx, y: cy };
+		return { ...node, x: point.x, y: point.y };
+	});
 }
 
 /**
@@ -173,6 +369,9 @@ export function layoutMemoryGraph(
 	width = 800,
 	height = 480
 ): LaidOutMemoryNode[] {
+	if (model.kind === "knowledge") {
+		return layoutKnowledgeGraph(model, width, height);
+	}
 	const cx = width / 2;
 	const cy = height / 2;
 	if (model.nodes.length === 0) return [];

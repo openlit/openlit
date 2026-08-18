@@ -4,12 +4,26 @@ const mockGetMemoryRuntime = jest.fn();
 jest.mock("@/lib/platform/connectors/memory/crud", () => ({
 	listMemoryConnectors: (...a: unknown[]) => mockListMemoryConnectors(...a),
 	getMemoryRuntime: (...a: unknown[]) => mockGetMemoryRuntime(...a),
+	readMemoryPortLinks: jest.fn().mockResolvedValue([]),
+	readRememberedMemoryFilters: jest.fn().mockResolvedValue({
+		users: [],
+		sessions: [],
+		agents: [],
+	}),
+	rememberMemoryFilters: jest.fn().mockResolvedValue(undefined),
+	emptyRememberedMemoryFilters: () => ({ users: [], sessions: [], agents: [] }),
 	memoryConnectorId: (id: string) =>
 		String(id).startsWith("memory:") ? id : `memory:${id}`,
 }));
 
-import { getProjectMemory, queryProjectMemories } from "@/lib/platform/connectors/memory/read";
-import { MEMORY_CONNECTOR_SESSION_REQUIRED, MEMORY_DETAIL_NOT_FOUND } from "@/constants/messages/en";
+import { getProjectMemory, queryProjectMemories, submitProjectMemoryFeedback } from "@/lib/platform/connectors/memory/read";
+import { readRememberedMemoryFilters } from "@/lib/platform/connectors/memory/crud";
+import {
+	MEMORY_CONNECTOR_FILTER_REQUIRED,
+	MEMORY_CONNECTOR_SESSION_REQUIRED,
+	MEMORY_DETAIL_FEEDBACK_UNSUPPORTED,
+	MEMORY_DETAIL_NOT_FOUND,
+} from "@/constants/messages/en";
 
 const connector = {
 	id: "memory:abc",
@@ -68,6 +82,7 @@ describe("queryProjectMemories", () => {
 		expect(result.stats.total).toBe(1);
 		expect(result.graph.nodes.some((node) => node.id === "memory:m1")).toBe(true);
 		expect(result.filters.users).toEqual([{ id: "ada", label: "ada" }]);
+		expect(result.filterFields.length).toBeGreaterThan(0);
 		expect(result.connector).not.toHaveProperty("secretRef");
 	});
 
@@ -161,6 +176,125 @@ describe("queryProjectMemories", () => {
 		expect(result.filters.users).toEqual([{ id: "ada", label: "ada@example.com" }]);
 		expect(result.filters.sessions[0].id).toBe("run-1");
 	});
+
+	it("includes the requested user in filters when the vendor cannot enumerate users", async () => {
+		mockListMemoryConnectors.mockResolvedValue([
+			{ ...connector, type: "mem0" },
+		]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector: { ...connector, type: "mem0" },
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: false,
+					list: true,
+					update: false,
+					delete: false,
+					feedback: false,
+				}),
+				listFilters: async () => ({ users: [], sessions: [], agents: [] }),
+				list: async () => [],
+				search: jest.fn(),
+			},
+		});
+
+		const result = await queryProjectMemories({
+			connectorId: "abc",
+			userId: "aman",
+		});
+		expect(result.filters.users).toEqual([{ id: "aman", label: "aman" }]);
+	});
+
+	it("includes remembered users when listing still needs a user filter", async () => {
+		(readRememberedMemoryFilters as jest.Mock).mockResolvedValueOnce({
+			users: ["aman"],
+			sessions: [],
+			agents: [],
+		});
+		mockListMemoryConnectors.mockResolvedValue([
+			{ ...connector, type: "mem0" },
+		]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector: { ...connector, type: "mem0" },
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: false,
+					list: true,
+					update: false,
+					delete: false,
+					feedback: false,
+				}),
+				listFilters: async () => ({ users: [], sessions: [], agents: [] }),
+				list: async () => {
+					throw new Error(MEMORY_CONNECTOR_FILTER_REQUIRED);
+				},
+				search: jest.fn(),
+			},
+		});
+
+		const result = await queryProjectMemories({ connectorId: "abc" });
+		expect(result.hint).toBe("filter_required");
+		expect(result.filters.users).toEqual([{ id: "aman", label: "aman" }]);
+	});
+
+	it("returns an auth hint when the vendor rejects the API key", async () => {
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: true,
+					list: true,
+					update: true,
+					delete: true,
+				}),
+				listFilters: async () => ({ users: [], sessions: [], agents: [] }),
+				list: async () => {
+					const error = new Error(
+						'Data source responded 401: {"error":{"message":"API key is invalid."}}'
+					) as Error & { status: number };
+					error.status = 401;
+					throw error;
+				},
+				search: jest.fn(),
+			},
+		});
+
+		const result = await queryProjectMemories();
+		expect(result.hint).toBe("auth_failed");
+		expect(result.memories).toEqual([]);
+		expect(result.connectors).toHaveLength(1);
+	});
+
+	it("returns an unavailable hint when the vendor list call fails", async () => {
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: true,
+					list: true,
+					update: true,
+					delete: true,
+				}),
+				list: async () => {
+					throw new Error("Data source responded 404: memory store not found");
+				},
+				search: jest.fn(),
+			},
+		});
+
+		const result = await queryProjectMemories();
+		expect(result.hint).toBe("unavailable");
+		expect(result.memories).toEqual([]);
+	});
 });
 
 describe("getProjectMemory", () => {
@@ -240,5 +374,77 @@ describe("getProjectMemory", () => {
 		await expect(getProjectMemory({ id: "missing" })).rejects.toThrow(
 			MEMORY_DETAIL_NOT_FOUND
 		);
+	});
+});
+
+describe("submitProjectMemoryFeedback", () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+	});
+
+	it("posts feedback through the adapter and refreshes the memory", async () => {
+		const feedback = jest.fn().mockResolvedValue({
+			rating: "positive",
+			reason: "Accurate",
+		});
+		const get = jest.fn().mockResolvedValue({
+			id: "mem-1",
+			content: "hello",
+			feedback: { rating: "positive", reason: "Accurate" },
+		});
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: true,
+					list: true,
+					update: true,
+					delete: true,
+					feedback: true,
+				}),
+				feedback,
+				get,
+			},
+		});
+
+		const result = await submitProjectMemoryFeedback({
+			id: "mem-1",
+			connectorId: "abc",
+			rating: "positive",
+			reason: "Accurate",
+		});
+		expect(feedback).toHaveBeenCalledWith("mem-1", {
+			rating: "positive",
+			reason: "Accurate",
+		});
+		expect(result.feedback.rating).toBe("positive");
+		expect(result.memory?.feedback?.rating).toBe("positive");
+		expect(result.connector).not.toHaveProperty("secretRef");
+	});
+
+	it("rejects feedback when the vendor does not support it", async () => {
+		mockListMemoryConnectors.mockResolvedValue([{ ...connector, type: "zep" }]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector: { ...connector, type: "zep" },
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: true,
+					list: true,
+					update: false,
+					delete: true,
+					feedback: false,
+				}),
+				feedback: jest.fn(),
+			},
+		});
+
+		await expect(
+			submitProjectMemoryFeedback({ id: "mem-1", rating: "negative" })
+		).rejects.toThrow(MEMORY_DETAIL_FEEDBACK_UNSUPPORTED);
 	});
 });

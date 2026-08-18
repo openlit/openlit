@@ -3,6 +3,7 @@ import { ensureMemoryAdaptersRegistered, __resetMemoryBootstrapForTests } from "
 import { __resetRegistryForTests, getAdapterFactory, listSourceTypeDescriptors } from "@/lib/platform/connectors/datasource/registry";
 import { __resetMemoryRegistryForTests, hasMemoryAdapterFactory } from "@/lib/platform/connectors/memory/registry";
 import { __resetConnectorRegistryForTests, listConnectorTypes } from "@/lib/platform/connectors/registry";
+import { connectorIconPath } from "@/lib/platform/connectors/icons";
 
 jest.mock("@/lib/session", () => ({ getCurrentUser: jest.fn() }));
 
@@ -35,11 +36,19 @@ describe("connector coverage", () => {
 
 	it("exposes memory connectors through the adapter and connector registries", () => {
 		ensureMemoryAdaptersRegistered();
+		expect(hasMemoryAdapterFactory("claude")).toBe(true);
 		expect(hasMemoryAdapterFactory("mem0")).toBe(true);
 		expect(hasMemoryAdapterFactory("zep")).toBe(true);
 		expect(listConnectorTypes("memory").map((item) => item.type).sort()).toEqual([
+			"claude",
 			"mem0",
 			"zep",
 		]);
+	});
+
+	it("maps memory vendors to local brand assets", () => {
+		expect(connectorIconPath("claude")).toBe("/images/connectors/claude.svg");
+		expect(connectorIconPath("mem0")).toBe("/images/connectors/mem0.svg");
+		expect(connectorIconPath("zep")).toBe("/images/connectors/zep.svg");
 	});
 });

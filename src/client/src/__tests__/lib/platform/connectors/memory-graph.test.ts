@@ -25,6 +25,9 @@ describe("memory graph helpers", () => {
 		expect(classifyMemoryKind(record({ content: "Alex likes dark mode" }))).toBe(
 			"profile"
 		);
+		expect(
+			classifyMemoryKind(record({ categories: ["profile"], metadata: { domain: "profile" } }))
+		).toBe("profile");
 		expect(classifyMemoryKind(record())).toBe("summary");
 	});
 
@@ -68,7 +71,7 @@ describe("memory graph helpers", () => {
 		]);
 		expect(graph.edges).toEqual([
 			{ from: "user:ada", to: "session:run-9" },
-			{ from: "session:run-9", to: "memory:mem-1" },
+			{ from: "session:run-9", to: "memory:mem-1", memoryId: "mem-1" },
 		]);
 	});
 
@@ -106,5 +109,69 @@ describe("memory graph helpers", () => {
 				(node) => Math.hypot(node.x - (user?.x || 0), node.y - (user?.y || 0)) > 40
 			)
 		).toBe(true);
+	});
+
+	it("builds an entity knowledge graph from relation endpoints", () => {
+		const graph = buildMemoryGraph([
+			record({
+				id: "e1",
+				content: "Sarah lives in Austin",
+				relation: {
+					source: {
+						id: "n-user",
+						label: "Sarah Smith",
+						types: ["User", "Node"],
+					},
+					target: {
+						id: "n-loc",
+						label: "Austin",
+						types: ["Location", "Node"],
+					},
+					name: "LIVES_IN",
+				},
+			}),
+			record({
+				id: "n-topic",
+				content: "Observability",
+				graphOnly: true,
+				categories: ["Topic", "Node"],
+				metadata: { name: "Observability" },
+			}),
+		]);
+		expect(graph.kind).toBe("knowledge");
+		expect(graph.nodes).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: "n-user",
+					type: "user",
+					entityType: "user",
+					label: "Sarah Smith",
+				}),
+				expect.objectContaining({
+					id: "n-loc",
+					entityType: "location",
+					label: "Austin",
+				}),
+				expect.objectContaining({
+					id: "n-topic",
+					entityType: "topic",
+					label: "Observability",
+				}),
+			])
+		);
+		expect(graph.edges).toEqual([
+			{
+				from: "n-user",
+				to: "n-loc",
+				memoryId: "e1",
+				label: "LIVES_IN",
+			},
+		]);
+		const laid = layoutMemoryGraph(graph);
+		const hub = laid.find((node) => node.id === "n-user");
+		expect(hub).toBeDefined();
+		expect(laid.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y))).toBe(
+			true
+		);
 	});
 });

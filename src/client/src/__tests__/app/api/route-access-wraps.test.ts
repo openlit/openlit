@@ -27,14 +27,29 @@ describe("new implementation route access wraps", () => {
 			"connectors/[id]/health/route.ts",
 			"connectors/bindings/route.ts",
 			"project/environment/route.ts",
-			"memory/route.ts",
-			"memory/[id]/route.ts",
 		];
 		for (const rel of files) {
 			const source = readFileSync(join(API_ROOT, rel), "utf8");
 			expect(source).toMatch(/withConnectorAccess/);
 			if (rel.includes("bindings") || rel.includes("[id]") || rel.includes("environment")) {
 				expect(source).toMatch(/withConnectorAudit|withConnectorAccess/);
+			}
+		}
+	});
+
+	it("wraps memory routes with memory access/audit hooks", () => {
+		const files = [
+			"memory/route.ts",
+			"memory/copy/route.ts",
+			"memory/[id]/route.ts",
+			"memory/[id]/feedback/route.ts",
+		];
+		for (const rel of files) {
+			const source = readFileSync(join(API_ROOT, rel), "utf8");
+			expect(source).toMatch(/withMemoryAccess/);
+			expect(source).not.toMatch(/"[a-z_]+:[a-z_]+"/);
+			if (rel.includes("[id]") || rel === "memory/route.ts" || rel === "memory/copy/route.ts") {
+				expect(source).toMatch(/withMemoryAudit/);
 			}
 		}
 	});

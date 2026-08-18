@@ -17,6 +17,34 @@ export interface MemoryCapabilities {
 	list: boolean;
 	update: boolean;
 	delete: boolean;
+	feedback: boolean;
+}
+
+export const MEMORY_FEEDBACK_RATINGS = [
+	"positive",
+	"negative",
+	"very_negative",
+] as const;
+
+export const MEMORY_CONTENT_MAX = 20_000;
+export const MEMORY_METADATA_JSON_MAX = 4_000;
+
+export type MemoryFeedbackRating = (typeof MEMORY_FEEDBACK_RATINGS)[number];
+
+export interface MemoryFeedback {
+	rating?: MemoryFeedbackRating;
+	reason?: string;
+}
+
+export interface MemoryFeedbackInput {
+	rating: MemoryFeedbackRating | null;
+	reason?: string | null;
+}
+
+export function isMemoryFeedbackRating(
+	value: unknown
+): value is MemoryFeedbackRating {
+	return MEMORY_FEEDBACK_RATINGS.includes(value as MemoryFeedbackRating);
 }
 
 export interface MemoryMessage {
@@ -52,6 +80,32 @@ export interface MemoryRecord {
 	structuredAttributes?: Record<string, unknown>;
 	synthesized?: boolean;
 	lifecycleState?: string;
+	feedback?: MemoryFeedback;
+	graphOnly?: boolean;
+	relation?: {
+		source: MemoryGraphEndpoint;
+		target: MemoryGraphEndpoint;
+		name?: string;
+	};
+	port?: MemoryPortLink;
+}
+
+export interface MemoryPortLink {
+	sourceConnectorId: string;
+	sourceConnectorType?: string;
+	sourceConnectorName?: string;
+	sourceMemoryId: string;
+	originConnectorId?: string;
+	originMemoryId?: string;
+	copiedAt: string;
+	contentFingerprint: string;
+	destMemoryId?: string;
+}
+
+export interface MemoryGraphEndpoint {
+	id: string;
+	label: string;
+	types?: string[];
 }
 
 export interface MemoryWriteInput {
@@ -90,13 +144,29 @@ export interface MemoryFilterChoice {
 	userId?: string;
 }
 
+export type MemoryFilterKey = "userId" | "sessionId" | "agentId";
+
+/** Memory page filter declared by a vendor `describe()`. */
+export interface MemoryFilterField {
+	key: MemoryFilterKey;
+	label: string;
+	required?: boolean;
+	/** Required when creating a memory, even if listing allows it to be empty. */
+	writeRequired?: boolean;
+	allowCustom?: boolean;
+}
+
 export interface MemoryFilterOptions {
 	users: MemoryFilterChoice[];
 	sessions: MemoryFilterChoice[];
 	agents: MemoryFilterChoice[];
 }
 
-export type MemoryQueryHint = "session_required" | "filter_required";
+export type MemoryQueryHint =
+	| "session_required"
+	| "filter_required"
+	| "auth_failed"
+	| "unavailable";
 
 export function emptyMemoryFilters(): MemoryFilterOptions {
 	return { users: [], sessions: [], agents: [] };
@@ -120,6 +190,8 @@ export interface MemoryTypeDescriptor {
 	icon?: string;
 	capabilities: MemoryCapabilities;
 	configFields: FieldDef[];
+	/** Memory page filters for this vendor. Empty means no user/session/agent bar. */
+	filterFields?: MemoryFilterField[];
 	authStyle: AuthStyle;
 	authHelp?: string;
 	docsUrl?: string;
@@ -136,6 +208,7 @@ export interface MemoryAdapter extends ConnectorRuntime {
 	listFilters(): Promise<MemoryFilterOptions>;
 	update(id: string, input: MemoryUpdateInput): Promise<MemoryRecord>;
 	delete(id: string): Promise<void>;
+	feedback(id: string, input: MemoryFeedbackInput): Promise<MemoryFeedback>;
 }
 
 export interface MemoryAdapterFactory {
