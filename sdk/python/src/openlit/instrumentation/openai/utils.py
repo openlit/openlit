@@ -750,6 +750,14 @@ def process_chat_chunk(scope, chunk):
         scope._cache_creation_input_tokens = (
             prompt_tokens_details.get("cache_write_tokens", 0) or 0
         )
+        # Reasoning tokens (subset of completion_tokens) from the final
+        # streaming chunk (stream_options={"include_usage": True}).
+        completion_tokens_details = usage.get("completion_tokens_details") or {}
+        if not isinstance(completion_tokens_details, dict):
+            completion_tokens_details = {}
+        scope._reasoning_tokens = (
+            completion_tokens_details.get("reasoning_tokens", 0) or 0
+        )
 
     scope._system_fingerprint = (
         chunked.get("system_fingerprint") or scope._system_fingerprint
@@ -1055,8 +1063,15 @@ def common_response_logic(
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
-    # Reasoning tokens
+    # Reasoning tokens. OTel: gen_ai.usage.reasoning.output_tokens is a subset
+    # of gen_ai.usage.output_tokens (already set above), so it is recorded as a
+    # separate attribute and never added on top of the output total.
     if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
+            scope._reasoning_tokens,
+        )
+        # OpenLIT legacy alias (pre-OTel naming), kept for backward compat.
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
             scope._reasoning_tokens,
@@ -1562,6 +1577,15 @@ def common_chat_logic(
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
+    # Reasoning tokens (OTel: gen_ai.usage.reasoning.output_tokens is a subset
+    # of gen_ai.usage.output_tokens above, so it is recorded separately and
+    # never added on top of the output total / token-usage metric).
+    if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
+            scope._reasoning_tokens,
+        )
+
     # OTel cached token attributes (set even when 0)
     if hasattr(scope, "_cache_read_input_tokens"):
         scope._span.set_attribute(
@@ -1782,6 +1806,18 @@ def process_chat_response(
     scope._response_model = response_dict.get("model", "")
     scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
     scope._output_tokens = response_dict.get("usage", {}).get("completion_tokens", 0)
+
+    # OpenAI chat completions report reasoning tokens under
+    # usage.completion_tokens_details.reasoning_tokens (o1/o3 family). These are
+    # a subset of completion_tokens, which already includes them.
+    completion_tokens_details = (
+        response_dict.get("usage", {}).get("completion_tokens_details", {}) or {}
+    )
+    if not isinstance(completion_tokens_details, dict):
+        completion_tokens_details = {}
+    scope._reasoning_tokens = (
+        completion_tokens_details.get("reasoning_tokens", 0) or 0
+    )
 
     # Extract cache tokens (OpenAI prompt caching)
     prompt_tokens_details = (
