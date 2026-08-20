@@ -310,6 +310,45 @@ describe("getTraceSpanRecord", () => {
 		expect(getSpan).not.toHaveBeenCalled();
 		expect(mockGetRequestViaSpanId).not.toHaveBeenCalled();
 	});
+
+	it("opens the Tempo root span when list reused the trace id as spanId", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const getSpan = jest.fn();
+		const getTraceSpans = jest.fn().mockResolvedValue([
+			{
+				traceId: "t1",
+				spanId: "root-span",
+				parentSpanId: "",
+				name: "root",
+				serviceName: "api",
+				timestamp: "2026-07-01T00:00:00.000Z",
+				durationNs: 1,
+				statusCode: "OK",
+				spanAttributes: {},
+				resourceAttributes: {},
+			},
+			{
+				traceId: "t1",
+				spanId: "child-span",
+				parentSpanId: "root-span",
+				name: "child",
+				serviceName: "api",
+				timestamp: "2026-07-01T00:00:01.000Z",
+				durationNs: 1,
+				statusCode: "OK",
+				spanAttributes: {},
+				resourceAttributes: {},
+			},
+		]);
+		mockGetAdapter.mockResolvedValue({ getSpan, getTraceSpans });
+
+		const res = await getTraceSpanRecord("t1", { traceId: "t1" });
+
+		expect(getTraceSpans).toHaveBeenCalledWith("t1");
+		expect(res.err).toBeNull();
+		expect(res.record).toMatchObject({ SpanId: "root-span", TraceId: "t1" });
+		expect(getSpan).not.toHaveBeenCalled();
+	});
 });
 
 describe("getTraceRecordByTraceId", () => {
