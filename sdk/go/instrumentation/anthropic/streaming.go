@@ -214,7 +214,7 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 		semconv.SetStringSliceAttribute(span, semconv.GenAIResponseFinishReasons, []string{stopReason})
 	}
 
-	if inputTokens > 0 || outputTokens > 0 {
+	if inputTokens > 0 || outputTokens > 0 || cacheReadInputTokens > 0 || cacheCreationInputTokens > 0 {
 		semconv.SetIntAttribute(span, semconv.GenAIUsageInputTokens, inputTokens)
 		semconv.SetIntAttribute(span, semconv.GenAIUsageOutputTokens, outputTokens)
 		semconv.SetIntAttribute(span, semconv.GenAIUsageTotalTokens, inputTokens+outputTokens+cacheReadInputTokens+cacheCreationInputTokens)
