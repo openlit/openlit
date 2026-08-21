@@ -104,6 +104,19 @@ def extract_reasoning_content(payload):
     return reasoning if isinstance(reasoning, str) else ""
 
 
+def extract_reasoning_tokens(usage, details_key):
+    """Return reasoning tokens (a subset of output tokens) from a usage dict.
+
+    Works for both chat completions (``completion_tokens_details``) and the
+    responses API (``output_tokens_details``) and falls back to 0 whenever the
+    details object is missing or not a dict.
+    """
+    details = (usage or {}).get(details_key) or {}
+    if not isinstance(details, dict):
+        details = {}
+    return details.get("reasoning_tokens", 0) or 0
+
+
 def format_content(messages):
     """
     Format the messages into a string for span events.
@@ -752,11 +765,8 @@ def process_chat_chunk(scope, chunk):
         )
         # Reasoning tokens (subset of completion_tokens) from the final
         # streaming chunk (stream_options={"include_usage": True}).
-        completion_tokens_details = usage.get("completion_tokens_details") or {}
-        if not isinstance(completion_tokens_details, dict):
-            completion_tokens_details = {}
-        scope._reasoning_tokens = (
-            completion_tokens_details.get("reasoning_tokens", 0) or 0
+        scope._reasoning_tokens = extract_reasoning_tokens(
+            usage, "completion_tokens_details"
         )
 
     scope._system_fingerprint = (
@@ -863,11 +873,8 @@ def process_response_chunk(scope, chunk):
         scope._output_tokens = usage.get("output_tokens", 0)
 
         # Handle reasoning tokens
-        output_tokens_details = usage.get("output_tokens_details", {}) or {}
-        if not isinstance(output_tokens_details, dict):
-            output_tokens_details = {}
-        scope._reasoning_tokens = (
-            output_tokens_details.get("reasoning_tokens", 0) or 0
+        scope._reasoning_tokens = extract_reasoning_tokens(
+            usage, "output_tokens_details"
         )
 
         # Cached tokens (OTel: gen_ai.usage.cache_read.input_tokens)
@@ -1353,11 +1360,8 @@ def process_response_response(
     scope._input_tokens = usage.get("input_tokens", 0)
     scope._output_tokens = usage.get("output_tokens", 0)
 
-    output_tokens_details = usage.get("output_tokens_details", {}) or {}
-    if not isinstance(output_tokens_details, dict):
-        output_tokens_details = {}
-    scope._reasoning_tokens = (
-        output_tokens_details.get("reasoning_tokens", 0) or 0
+    scope._reasoning_tokens = extract_reasoning_tokens(
+        usage, "output_tokens_details"
     )
 
     input_tokens_details = usage.get("input_tokens_details", {}) or {}
@@ -1823,13 +1827,8 @@ def process_chat_response(
     # OpenAI chat completions report reasoning tokens under
     # usage.completion_tokens_details.reasoning_tokens (o1/o3 family). These are
     # a subset of completion_tokens, which already includes them.
-    completion_tokens_details = (
-        response_dict.get("usage", {}).get("completion_tokens_details", {}) or {}
-    )
-    if not isinstance(completion_tokens_details, dict):
-        completion_tokens_details = {}
-    scope._reasoning_tokens = (
-        completion_tokens_details.get("reasoning_tokens", 0) or 0
+    scope._reasoning_tokens = extract_reasoning_tokens(
+        response_dict.get("usage", {}), "completion_tokens_details"
     )
 
     # Extract cache tokens (OpenAI prompt caching)
