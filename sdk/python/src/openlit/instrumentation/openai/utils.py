@@ -863,8 +863,12 @@ def process_response_chunk(scope, chunk):
         scope._output_tokens = usage.get("output_tokens", 0)
 
         # Handle reasoning tokens
-        output_tokens_details = usage.get("output_tokens_details", {})
-        scope._reasoning_tokens = output_tokens_details.get("reasoning_tokens", 0)
+        output_tokens_details = usage.get("output_tokens_details", {}) or {}
+        if not isinstance(output_tokens_details, dict):
+            output_tokens_details = {}
+        scope._reasoning_tokens = (
+            output_tokens_details.get("reasoning_tokens", 0) or 0
+        )
 
         # Cached tokens (OTel: gen_ai.usage.cache_read.input_tokens)
         # Cache writes (OTel: gen_ai.usage.cache_creation.input_tokens)
@@ -1349,8 +1353,12 @@ def process_response_response(
     scope._input_tokens = usage.get("input_tokens", 0)
     scope._output_tokens = usage.get("output_tokens", 0)
 
-    output_tokens_details = usage.get("output_tokens_details", {})
-    scope._reasoning_tokens = output_tokens_details.get("reasoning_tokens", 0)
+    output_tokens_details = usage.get("output_tokens_details", {}) or {}
+    if not isinstance(output_tokens_details, dict):
+        output_tokens_details = {}
+    scope._reasoning_tokens = (
+        output_tokens_details.get("reasoning_tokens", 0) or 0
+    )
 
     input_tokens_details = usage.get("input_tokens_details", {}) or {}
     if not isinstance(input_tokens_details, dict):
@@ -1583,6 +1591,11 @@ def common_chat_logic(
     if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
+            scope._reasoning_tokens,
+        )
+        # OpenLIT legacy alias (pre-OTel naming), kept for backward compat.
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
             scope._reasoning_tokens,
         )
 

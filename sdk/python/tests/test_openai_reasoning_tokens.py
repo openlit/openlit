@@ -79,6 +79,9 @@ def _assert_no_double_counting(attrs, metrics, output_tokens=1000, reasoning_tok
         attrs[SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS]
         == reasoning_tokens
     )
+    # OpenLIT legacy alias (pre-OTel naming) must stay populated for backward
+    # compatibility.
+    assert attrs[SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS] == reasoning_tokens
 
     # gen_ai.client.token.usage{token_type=output} must stay 1000, not 1700
     output_records = _output_token_usage_records(metrics)
@@ -293,3 +296,145 @@ def test_no_reasoning_tokens_omits_reasoning_attribute():
     assert output_records
     for value, _attrs in output_records:
         assert value == 1000
+
+
+def test_zero_reasoning_tokens_omits_reasoning_attribute():
+    """reasoning_tokens present but 0: no reasoning attrs, output intact."""
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _metrics_dict()
+    response = {
+        "id": "chatcmpl_zero",
+        "model": "gpt-4o",
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": "The answer is 42."},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 500,
+            "completion_tokens": 1000,
+            "completion_tokens_details": {"reasoning_tokens": 0, "text_tokens": 1000},
+        },
+    }
+
+    with tracer.start_as_current_span("chat gpt-4o zero") as span:
+        process_chat_response(
+            response,
+            request_model="gpt-4o",
+            pricing_info={},
+            server_port=443,
+            server_address="api.openai.com",
+            environment="test-env",
+            application_name="test-app",
+            metrics=metrics,
+            start_time=time.time(),
+            span=span,
+            capture_message_content=False,
+            disable_metrics=False,
+            version="test-version",
+            model="gpt-4o",
+            messages=[{"role": "user", "content": "hi"}],
+        )
+
+    attrs = exporter.get_finished_spans()[0].attributes
+    assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 1000
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS not in attrs
+
+    for value, _attrs in _output_token_usage_records(metrics):
+        assert value == 1000
+
+
+def _non_dict_details_chat_response():
+    """chat completion whose completion_tokens_details is not a dict."""
+    return {
+        "id": "chatcmpl_baddetails",
+        "model": "gpt-4o",
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": "The answer is 42."},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 500,
+            "completion_tokens": 1000,
+            "completion_tokens_details": "unavailable",
+        },
+    }
+
+
+def test_non_dict_completion_tokens_details_does_not_crash():
+    """Defensive casting: non-dict details fall back to {}, no exception."""
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _metrics_dict()
+
+    with tracer.start_as_current_span("chat bad details") as span:
+        process_chat_response(
+            _non_dict_details_chat_response(),
+            request_model="gpt-4o",
+            pricing_info={},
+            server_port=443,
+            server_address="api.openai.com",
+            environment="test-env",
+            application_name="test-app",
+            metrics=metrics,
+            start_time=time.time(),
+            span=span,
+            capture_message_content=False,
+            disable_metrics=False,
+            version="test-version",
+            model="gpt-4o",
+            messages=[{"role": "user", "content": "hi"}],
+        )
+
+    attrs = exporter.get_finished_spans()[0].attributes
+    assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 1000
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+
+
+def test_non_dict_output_tokens_details_does_not_crash():
+    """Responses API: non-dict output_tokens_details falls back to {}."""
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _metrics_dict()
+    response = {
+        "id": "resp_baddetails",
+        "model": "o3-mini",
+        "status": "completed",
+        "output": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "The answer is 42."}],
+            }
+        ],
+        "usage": {
+            "input_tokens": 500,
+            "output_tokens": 1000,
+            "output_tokens_details": None,
+        },
+    }
+
+    with tracer.start_as_current_span("responses bad details") as span:
+        process_response_response(
+            response,
+            request_model="o3-mini",
+            pricing_info={},
+            server_port=443,
+            server_address="api.openai.com",
+            environment="test-env",
+            application_name="test-app",
+            metrics=metrics,
+            start_time=time.time(),
+            span=span,
+            capture_message_content=False,
+            disable_metrics=False,
+            version="test-version",
+            model="o3-mini",
+            input="think step by step",
+        )
+
+    attrs = exporter.get_finished_spans()[0].attributes
+    assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 1000
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
