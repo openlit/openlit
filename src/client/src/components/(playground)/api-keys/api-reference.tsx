@@ -507,7 +507,7 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 								<div key={group} className="flex flex-col">
 									<button
 										onClick={() => toggleGroup(group)}
-										className="flex items-center justify-between w-full px-3 py-1.5 text-left text-[11px] font-semibold text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors uppercase tracking-wider"
+										className="flex items-center justify-between w-full px-3 py-1.5 text-left text-xs font-semibold text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors uppercase tracking-wider"
 									>
 										<span>{group}</span>
 										<ChevronRight
@@ -530,7 +530,7 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 												>
 													<Badge
 														variant="outline"
-														className={`mr-2.5 text-[9px] px-1 py-0 rounded font-bold shrink-0 ${getMethodColor(
+														className={`mr-2.5 text-xs px-1 py-0 rounded font-bold shrink-0 ${getMethodColor(
 															endpoint.method
 														)}`}
 													>
@@ -593,40 +593,40 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 									<table className="w-full text-left text-xs border-collapse">
 										<thead>
 											<tr className="border-b border-stone-200 dark:border-stone-800 text-stone-500 font-medium">
-												<th className="pb-2 pr-4 font-mono text-[10px]">Parameter</th>
-												<th className="pb-2 pr-4 font-mono text-[10px]">Type</th>
-												<th className="pb-2 pr-4 font-mono text-[10px]">Required</th>
+												<th className="pb-2 pr-4 font-mono text-xs">Parameter</th>
+												<th className="pb-2 pr-4 font-mono text-xs">Type</th>
+												<th className="pb-2 pr-4 font-mono text-xs">Required</th>
 												<th className="pb-2">Description</th>
 											</tr>
 										</thead>
 										<tbody>
 											{getParameterDocs(selectedEndpoint.id).map((doc) => (
 												<tr key={doc.name} className="border-b border-stone-100 dark:border-stone-900/40 last:border-0 hover:bg-stone-50/50 dark:hover:bg-stone-900/20">
-													<td className="py-2.5 pr-4 font-mono text-[11px] font-semibold text-stone-800 dark:text-stone-200">
+													<td className="py-2.5 pr-4 font-mono text-xs font-semibold text-stone-800 dark:text-stone-200">
 														{doc.name}
 													</td>
-													<td className="py-2.5 pr-4 font-mono text-[11px] text-stone-500">
+													<td className="py-2.5 pr-4 font-mono text-xs text-stone-500">
 														{doc.type}
 													</td>
 													<td className="py-2.5 pr-4">
 														{doc.required ? (
-															<Badge className="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border-red-100 dark:border-red-900/30 text-[9px] px-1.5 py-0 font-bold">Required</Badge>
+															<Badge className="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border-red-100 dark:border-red-900/30 text-xs px-1.5 py-0 font-bold">Required</Badge>
 														) : (
-															<span className="text-[10px] text-stone-400 font-medium">Optional</span>
+															<span className="text-xs text-stone-400 font-medium">Optional</span>
 														)}
 													</td>
-													<td className="py-2.5 text-stone-600 dark:text-stone-400 leading-relaxed text-[11px]">
+													<td className="py-2.5 text-stone-600 dark:text-stone-400 leading-relaxed text-xs">
 														<div>{doc.description}</div>
 														{doc.allowedValues && (
-															<div className="mt-1 text-[10px] text-stone-500 flex flex-wrap gap-1 items-center">
+															<div className="mt-1 text-xs text-stone-500 flex flex-wrap gap-1 items-center">
 																<span className="font-semibold text-stone-400">Allowed: </span>
-																{doc.allowedValues.map(val => <code key={val} className="bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded text-[10px] text-stone-600 dark:text-stone-300">{val}</code>)}
+																{doc.allowedValues.map(val => <code key={val} className="bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded text-xs text-stone-600 dark:text-stone-300">{val}</code>)}
 															</div>
 														)}
 														{doc.example && (
-															<div className="mt-1 text-[10px] text-stone-500">
+															<div className="mt-1 text-xs text-stone-500">
 																<span className="font-semibold text-stone-400">Example: </span>
-																<code className="bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded text-[10px] text-stone-600 dark:text-stone-300">{doc.example}</code>
+																<code className="bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded text-xs text-stone-600 dark:text-stone-300">{doc.example}</code>
 															</div>
 														)}
 													</td>
@@ -662,7 +662,7 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 								)}
 							</button>
 						</div>
-						<pre className="p-3 bg-stone-900 text-stone-200 rounded-md font-mono text-[11px] overflow-x-auto leading-relaxed border border-stone-800">
+						<pre className="p-3 bg-stone-900 text-stone-200 rounded-md font-mono text-xs overflow-x-auto leading-relaxed border border-stone-800">
 							{selectedEndpoint.curlExample(activeKey)}
 						</pre>
 					</div>
@@ -688,7 +688,7 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 										)}
 									</button>
 								</div>
-								<pre className="p-3 bg-stone-50 dark:bg-stone-900 text-stone-700 dark:text-stone-300 rounded-md font-mono text-[10px] overflow-x-auto border border-stone-200 dark:border-stone-800">
+								<pre className="p-3 bg-stone-50 dark:bg-stone-900 text-stone-700 dark:text-stone-300 rounded-md font-mono text-xs overflow-x-auto border border-stone-200 dark:border-stone-800">
 									{selectedEndpoint.requestBody}
 								</pre>
 							</div>
@@ -713,7 +713,7 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 										)}
 									</button>
 								</div>
-								<pre className="p-3 bg-stone-50 dark:bg-stone-900 text-stone-700 dark:text-stone-300 rounded-md font-mono text-[10px] overflow-x-auto border border-stone-200 dark:border-stone-800">
+								<pre className="p-3 bg-stone-50 dark:bg-stone-900 text-stone-700 dark:text-stone-300 rounded-md font-mono text-xs overflow-x-auto border border-stone-200 dark:border-stone-800">
 									{selectedEndpoint.responseBody}
 								</pre>
 							</div>
