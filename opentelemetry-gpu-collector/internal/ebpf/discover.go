@@ -5,6 +5,7 @@ package ebpf
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -176,8 +177,8 @@ func findCudaDriverLibsFromProc() []string {
 		if !ent.IsDir() {
 			continue
 		}
-		pid, err := strconv.Atoi(ent.Name())
-		if err != nil || pid <= 0 {
+		pid, _, ok := parseProcPID(ent.Name())
+		if !ok {
 			continue
 		}
 		if !isUserspacePID(pid) {
@@ -215,8 +216,8 @@ func cudartPIDs() []uint32 {
 		if !ent.IsDir() {
 			continue
 		}
-		pid, err := strconv.Atoi(ent.Name())
-		if err != nil || pid <= 0 {
+		pid, pid32, ok := parseProcPID(ent.Name())
+		if !ok {
 			continue
 		}
 		if !isUserspacePID(pid) {
@@ -224,7 +225,7 @@ func cudartPIDs() []uint32 {
 		}
 		hasCudart, _ := cudaMapsForPID(pid)
 		if hasCudart {
-			out = append(out, uint32(pid))
+			out = append(out, pid32)
 		}
 	}
 	return out
@@ -314,8 +315,8 @@ func findCudaLibsFromProc() []string {
 		if !ent.IsDir() {
 			continue
 		}
-		pid, err := strconv.Atoi(ent.Name())
-		if err != nil || pid <= 0 {
+		pid, _, ok := parseProcPID(ent.Name())
+		if !ok {
 			continue
 		}
 		// Kernel threads have an empty cmdline; skip before opening maps.
@@ -338,6 +339,18 @@ func findCudaLibsFromProc() []string {
 		}
 	}
 	return out
+}
+
+// parseProcPID parses a /proc directory name as a PID.
+// ParseUint bitSize 32 bounds the value so conversion to uint32 is safe
+// (CodeQL go/incorrect-integer-conversion). Values above MaxInt32 are
+// rejected so the signed int used for /proc paths cannot overflow.
+func parseProcPID(name string) (pid int, pid32 uint32, ok bool) {
+	n, err := strconv.ParseUint(name, 10, 32)
+	if err != nil || n == 0 || n > uint64(math.MaxInt32) {
+		return 0, 0, false
+	}
+	return int(n), uint32(n), true
 }
 
 func isUserspacePID(pid int) bool {

@@ -118,3 +118,22 @@ func TestIsCudaDriverPath(t *testing.T) {
 		}
 	}
 }
+
+func TestParseProcPID(t *testing.T) {
+	pid, pid32, ok := parseProcPID("1234")
+	if !ok || pid != 1234 || pid32 != 1234 {
+		t.Fatalf("got pid=%d pid32=%d ok=%v", pid, pid32, ok)
+	}
+	if _, _, ok := parseProcPID("0"); ok {
+		t.Fatal("pid 0 should be rejected")
+	}
+	if _, _, ok := parseProcPID("self"); ok {
+		t.Fatal("non-numeric name should be rejected")
+	}
+	if _, _, ok := parseProcPID("4294967296"); ok { // 2^32
+		t.Fatal("value above uint32 should be rejected")
+	}
+	if _, _, ok := parseProcPID("2147483648"); ok { // MaxInt32+1
+		t.Fatal("value above MaxInt32 should be rejected")
+	}
+}
