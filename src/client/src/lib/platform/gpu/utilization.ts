@@ -7,8 +7,15 @@ import {
 	OTEL_GPUS_TABLE_NAME,
 	dataCollector,
 } from "../common";
+import {
+	externalAverageUtilization,
+	externalUtilizationParamsPerTime,
+} from "./external";
 
 export async function getAverageUtilization(params: GPUMetricParams) {
+	const external = await externalAverageUtilization(params);
+	if (external) return external;
+
 	const query = `
 			SELECT
 				ROUND(AVG(Value), 2) as utilization
@@ -25,6 +32,9 @@ export async function getAverageUtilization(params: GPUMetricParams) {
 }
 
 export async function getUtilizationParamsPerTime(params: GPUMetricParams) {
+	const external = await externalUtilizationParamsPerTime(params);
+	if (external) return external;
+
 	const keys = ["utilization", "enc.utilization", "dec.utilization"];
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);

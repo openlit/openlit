@@ -1,10 +1,7 @@
-# Node.js builder - pinned to alpine 3.21 with digest
-FROM alpine:3.21@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709 AS builder
+# Node.js builder - Node 20 Alpine (OpenPlait adapters require >=20)
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS builder
 
-# Installing node and npm
-RUN apk add --no-cache nodejs npm
-
-# Installing extra packages (openssl needed for Prisma engine detection on Alpine 3.21+)
+# Installing extra packages (openssl needed for Prisma engine detection on Alpine)
 RUN apk add --no-cache rust cargo build-base openssl
 
 # Set the working directory in the container
@@ -82,9 +79,8 @@ RUN echo "Downloading binaries for architecture: ${TARGETARCH}" && \
     echo "opampsupervisor binary info:" && file opampsupervisor
 
 
-# Final runtime image - Use node:18-bullseye-slim pinned with digest
-# This replaces the unsafe `curl | bash` NodeSource install pattern
-FROM node:18-bullseye-slim@sha256:d69fb189fa7765636655db043a6a9e6be5ddf94bd1a8dc33fd0bcf4664606a9e
+# Final runtime image - Node 20 (OpenPlait adapters declare engines.node >=20)
+FROM node:20-bullseye-slim@sha256:65ef49f7d24aefd012a7fc6f9a2b734bcc19e424976a81f60c86b47266ef5b28
 
 # Accept build arguments to pass version and architecture info
 # TARGETARCH is automatically provided by Docker buildx based on --platform

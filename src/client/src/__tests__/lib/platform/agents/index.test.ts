@@ -2,10 +2,14 @@
  * Unified agent listing query + computeAgentKey helper.
  */
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: jest.fn(),
-	OTEL_TRACES_TABLE_NAME: "otel_traces",
-}));
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+		OTEL_TRACES_TABLE_NAME: "otel_traces",
+	};
+});
 jest.mock("@/lib/platform/agents/cache", () => ({
 	swr: jest.fn(<T,>(_key: string, _policy: unknown, loader: () => Promise<T>) =>
 		loader()
@@ -18,7 +22,7 @@ jest.mock("@/lib/platform/agents/cache", () => ({
 	POLICY_TOOLS: {},
 }));
 
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import {
 	computeAgentKey,
 	deploymentEnvironmentSqlPredicate,
@@ -29,7 +33,9 @@ import {
 } from "@/lib/platform/agents";
 import { invalidate as invalidateCache } from "@/lib/platform/agents/cache";
 
-const mockedDataCollector = dataCollector as jest.MockedFunction<typeof dataCollector>;
+const mockedDataCollector = intelligenceDataCollector as jest.MockedFunction<
+	typeof intelligenceDataCollector
+>;
 
 beforeEach(() => {
 	mockedDataCollector.mockReset();

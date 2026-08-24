@@ -37,17 +37,36 @@ jest.mock('@/lib/platform/chat/sql-validator', () => ({
   validateSQL: jest.fn(),
   extractSQLFromResponse: jest.fn(() => []),
 }));
-jest.mock('@/lib/platform/common', () => ({
-  dataCollector: jest.fn(),
-}));
+jest.mock('@/lib/platform/common', () => {
+  const collector = jest.fn();
+  return {
+    dataCollector: collector,
+    intelligenceDataCollector: collector,
+  };
+});
 jest.mock('@/lib/platform/chat/tools', () => ({
   getChatTools: jest.fn(() => ({})),
+}));
+jest.mock('@/lib/telemetry-source', () => ({
+  isNativeSqlChatAvailable: jest.fn().mockResolvedValue({
+    available: true,
+    sourceType: 'clickhouse',
+    sourceName: 'ClickHouse',
+    databaseConfigId: 'db1',
+  }),
+}));
+jest.mock('@/lib/platform/chat/telemetry-sql-routing', () => ({
+  authorizeTelemetrySQLRouting: jest.fn().mockResolvedValue({
+    allowed: true,
+    blockedSignals: [],
+  }),
 }));
 
 import { streamText, generateText } from 'ai';
 import { dataCollector } from '@/lib/platform/common';
 import { addMessage, getConversationMessages, updateConversation } from '@/lib/platform/chat/conversation';
 import { extractSQLFromResponse, validateSQL } from '@/lib/platform/chat/sql-validator';
+import { authorizeTelemetrySQLRouting } from '@/lib/platform/chat/telemetry-sql-routing';
 
 async function* streamParts(parts: any[]) {
   for (const part of parts) {
@@ -248,6 +267,35 @@ describe('streamChatMessage', () => {
       model: 'gpt-4o',
     });
   });
+
+	 it('does not execute generated ClickHouse telemetry SQL when signal routing blocks it', async () => {
+		 const response = '```sql\nSELECT * FROM otel_traces LIMIT 10\n```';
+		 (extractSQLFromResponse as jest.Mock).mockReturnValue(['SELECT * FROM otel_traces LIMIT 10']);
+		 (validateSQL as jest.Mock).mockReturnValue({ valid: true, query: 'SELECT * FROM otel_traces LIMIT 10' });
+		 (authorizeTelemetrySQLRouting as jest.Mock).mockResolvedValueOnce({
+			 allowed: false,
+			 blockedSignals: [{ signal: 'traces', sourceName: 'Tempo', sourceType: 'tempo' }],
+			 error: 'ClickHouse telemetry query blocked by signal routing: traces -> Tempo (tempo).',
+		 });
+		 (streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+			 onFinish({ text: response, usage: {}, steps: [] });
+			 return { fullStream: streamParts([{ type: 'text-delta', text: response }]) };
+		 });
+
+		 const result = await streamChatMessage({
+			 conversationId: 'c1',
+			 content: 'Show traces',
+			 provider: 'openai',
+			 apiKey: 'sk-test',
+			 model: 'gpt-4o',
+			 userId: 'u1',
+			 dbConfigId: 'db1',
+			 environment: 'production',
+		 });
+
+		 expect(dataCollector).not.toHaveBeenCalled();
+		 expect(result.responseText).toContain('blocked by signal routing');
+	 });
 
   it('saves a sanitized error response when streaming fails before text arrives', async () => {
     (streamText as jest.Mock).mockImplementation(({ onError }) => {

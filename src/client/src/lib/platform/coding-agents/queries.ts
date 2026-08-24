@@ -21,7 +21,7 @@
  *     value with the literal string 'low_cohort'.
  */
 
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import {
 	CODING_AGENT_AUDIT_LOG_TABLE,
 	CODING_AGENT_DISPUTES_TABLE,
@@ -676,7 +676,7 @@ const SESSION_BASE_COLUMNS = `
  *   - `ResourceAttributes['organization.id']` is the convention we
  *     plan to set in the materializer migration; for v1 we don't yet
  *     populate it, so the filter degrades into a per-database-config
- *     query (the dataCollector already scopes to the user's
+ *     query (the intelligence collector already scopes to the user's
  *     databaseConfigId via session). We still emit the WHERE so we
  *     don't have to migrate every consumer when v2 lights it up.
  *   - Span name in CODING_AGENT_SPAN_NAMES so unrelated traces don't
@@ -684,7 +684,7 @@ const SESSION_BASE_COLUMNS = `
  */
 // whereScope is the canonical WHERE block for every coding-agents
 // read query. Org isolation today happens at the ClickHouse layer
-// (one DB per org, picked by `dataCollector`), so we don't emit an
+// (one DB per org, picked by `intelligenceDataCollector`), so we don't emit an
 // `organization.id = ...` filter here unless the CLI has started
 // stamping the resource attribute AND the deployment has opted
 // into the extra filter via `OPENLIT_REQUIRE_ORG_FILTER=1`.
@@ -795,14 +795,14 @@ export async function listSessions(
 			LIMIT ${limit + 1}
 		`;
 
-	const dataPromise = dataCollector({ query: dataQuery });
+	const dataPromise = intelligenceDataCollector({ query: dataQuery }, "query", auth.dbConfigId);
 	const totalPromise = opts.withTotal
-		? dataCollector({
+		? intelligenceDataCollector({
 			query: `
 				${sessionsRawCte}
 				SELECT toInt64(count()) AS total FROM sessions_raw
 			`,
-		})
+		}, "query", auth.dbConfigId)
 		: Promise.resolve({ data: [] as Array<{ total: number }>, err: null });
 
 	const [{ data, err }, { data: totalData }] = await Promise.all([
@@ -1099,7 +1099,7 @@ export async function getCodingSessionDigest(
 		LIMIT 1
 	`;
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) throw err;
 	const row = (data as Array<Record<string, unknown>> | undefined)?.[0];
 	if (!row) return null;
@@ -1181,7 +1181,7 @@ async function countUserSessionsForCohort(
 			HAVING ${USER_EXPR} = '${safeUser}'
 		)
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// On error, fail closed: treat as below-floor for safety.
 		// A spurious 404 is preferable to leaking the digest.
@@ -1472,8 +1472,8 @@ export async function getCodingUserDigest(
 
 	const [{ data: digestData, err: digestErr }, { data: vendorsData }] =
 		await Promise.all([
-			dataCollector({ query: digestQuery }),
-			dataCollector({ query: vendorsQuery }),
+			intelligenceDataCollector({ query: digestQuery }, "query", auth.dbConfigId),
+			intelligenceDataCollector({ query: vendorsQuery }, "query", auth.dbConfigId),
 		]);
 	if (digestErr) throw digestErr;
 	const digestRow = (digestData as CodingUserDigest[] | undefined)?.[0];
@@ -1764,13 +1764,13 @@ export async function listCodingUsers(
 	`;
 
 	const totalPromise = opts.withTotal
-		? dataCollector({
+		? intelligenceDataCollector({
 			query: `SELECT toInt64(count()) AS total ${baseSubquery}`,
-		})
+		}, "query", auth.dbConfigId)
 		: Promise.resolve({ data: [] as Array<{ total: number }>, err: null });
 
 	const [{ data, err }, { data: totalData }] = await Promise.all([
-		dataCollector({ query: dataQuery }),
+		intelligenceDataCollector({ query: dataQuery }, "query", auth.dbConfigId),
 		totalPromise,
 	]);
 	if (err) throw err;
@@ -1856,7 +1856,7 @@ async function applyCohortFloor<T extends { user: string }>(
 		WHERE user IN (${inList})
 		GROUP BY user
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) throw err;
 	const counts = new Map<string, number>();
 	for (const row of (data || []) as { user: string; sessions: number }[]) {
@@ -1909,12 +1909,12 @@ export class DisputeError extends Error {
 
 // sessionExists checks whether the chat-id rolled-up
 // session is actually visible. Org scoping is enforced by
-// `dataCollector` picking the per-org ClickHouse database (see
+// `intelligenceDataCollector` picking the per-org ClickHouse database (see
 // `whereScope` for the explanation), so we don't need to wrap the
 // org id in the SQL. We do still constrain to coding-agent span
 // names so a request can't probe arbitrary trace ids.
 async function disputeSessionExists(
-	_auth: CodingAgentAuth,
+	auth: CodingAgentAuth,
 	sessionId: string
 ): Promise<boolean> {
 	const sid = escape(sessionId);
@@ -1929,7 +1929,7 @@ async function disputeSessionExists(
 			)
 		LIMIT 1
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// Treat lookup failure as "not present" — better to reject a
 		// dispute than to accept one that points at a non-existent
@@ -1961,7 +1961,7 @@ async function disputeAlreadyExists(
 			AND status = 'open'
 		LIMIT 1
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// Fail-closed: a lookup failure here means we can't tell if an
 		// open dispute already exists. The cost of a false-positive
@@ -1993,7 +1993,7 @@ async function disputeRateLimitExceeded(
 			AND action = 'coding_agent.classification.dispute'
 			AND created_at >= now() - INTERVAL ${DISPUTE_RATE_LIMIT_WINDOW_MIN} MINUTE
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// Fail-closed: a lookup failure must NOT degrade into "no rate
 		// limit applied" — that turns this guard into a bypass-on-error
@@ -2046,7 +2046,7 @@ export async function submitClassificationDispute(
 
 	const id = crypto.randomUUID();
 
-	const { err: disputeErr } = await dataCollector(
+	const { err: disputeErr } = await intelligenceDataCollector(
 		{
 			table: CODING_AGENT_DISPUTES_TABLE,
 			values: [
@@ -2062,7 +2062,7 @@ export async function submitClassificationDispute(
 				},
 			],
 		},
-		"insert"
+		"insert", auth.dbConfigId
 	);
 	if (disputeErr) throw disputeErr;
 
@@ -2083,7 +2083,7 @@ export async function writeAuditLog(
 	auth: CodingAgentAuth,
 	entry: { action: string; subject?: string; payload?: string }
 ): Promise<void> {
-	const { err } = await dataCollector(
+	const { err } = await intelligenceDataCollector(
 		{
 			table: CODING_AGENT_AUDIT_LOG_TABLE,
 			values: [
@@ -2096,7 +2096,7 @@ export async function writeAuditLog(
 				},
 			],
 		},
-		"insert"
+		"insert", auth.dbConfigId
 	);
 	if (err) {
 		// We don't throw on audit failure — the user-visible action
@@ -2106,4 +2106,3 @@ export async function writeAuditLog(
 		console.error("coding_agent.audit_log.insert_failed", err);
 	}
 }
-
