@@ -1,4 +1,7 @@
-jest.mock('@/lib/platform/common', () => ({ dataCollector: jest.fn() }));
+jest.mock('@/lib/platform/common', () => {
+  const collector = jest.fn();
+  return { dataCollector: collector, intelligenceDataCollector: collector };
+});
 jest.mock('@/lib/platform/chat/table-details', () => ({
   OPENLIT_CHAT_CONVERSATION_TABLE: 'openlit_chat_conversation',
   OPENLIT_CHAT_MESSAGE_TABLE: 'openlit_chat_message',

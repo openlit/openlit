@@ -270,26 +270,34 @@ function MetricRecord({
 			onClick={() => onOpen(row)}
 			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
-					? "border-emerald-500 bg-emerald-50 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-500 dark:bg-emerald-950/30 dark:ring-emerald-900"
-					: "border-stone-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/60 dark:border-stone-800 dark:bg-stone-950 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/20"
+					? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/20 dark:border-primary dark:bg-primary/15"
+					: "border-stone-200 bg-white hover:border-primary/50 hover:bg-primary/5 dark:border-stone-800 dark:bg-stone-950 dark:hover:border-primary/60 dark:hover:bg-primary/10"
 			}`}
 		>
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div className="min-w-0">
 					<div className="flex min-w-0 items-center gap-2">
-						<span className="h-2 w-2 rounded-full bg-emerald-500" />
+						<span className="h-2 w-2 shrink-0 rounded-full bg-sky-500" />
 						<h3 className="truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
 							{show("metricName") ? row.metricName : m.OBSERVABILITY_METRIC}
 						</h3>
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-1.5">
-						{show("metricType") && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-							{row.metricType}
-						</span>}
-						{show("serviceName") && <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300">
-							{row.serviceName || "all services"}
-						</span>}
-						{show("lastSeen") && <span className="text-xs text-stone-500 dark:text-stone-400">{formatDate(row.lastSeen)}</span>}
+						{show("metricType") && (
+							<span className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] font-medium text-stone-600 dark:bg-stone-900 dark:text-stone-300">
+								{row.metricType}
+							</span>
+						)}
+						{show("serviceName") && (
+							<span className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300">
+								{row.serviceName || "all services"}
+							</span>
+						)}
+						{show("lastSeen") && (
+							<span className="text-xs text-stone-500 dark:text-stone-400">
+								{formatDate(row.lastSeen)}
+							</span>
+						)}
 					</div>
 				</div>
 				<div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:justify-end">
@@ -328,7 +336,7 @@ function MetricRecord({
 			</div>
 			<div className="mt-3">
 				<div className="h-1.5 rounded-full bg-stone-100 dark:bg-stone-900">
-					<div className="h-full rounded-full bg-emerald-500" style={{ width }} />
+					<div className="h-full rounded-full bg-stone-400 dark:bg-stone-500" style={{ width }} />
 				</div>
 				<div className="mt-1 flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
 					<span>latest compared to max in this window</span>

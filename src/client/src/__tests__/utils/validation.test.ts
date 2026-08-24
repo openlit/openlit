@@ -61,6 +61,12 @@ describe("validateDatabaseHost", () => {
 		expect(validateDatabaseHost("metadata.google.internal").valid).toBe(false);
 	});
 
+	it("allows an explicitly configured local ClickHouse host", () => {
+		expect(validateDatabaseHost("127.0.0.1", { allowPrivateNetwork: true }).valid).toBe(true);
+		expect(validateDatabaseHost("localhost", { allowPrivateNetwork: true }).valid).toBe(true);
+		expect(validateDatabaseHost("169.254.169.254", { allowPrivateNetwork: true }).valid).toBe(false);
+	});
+
 	it("rejects private IPv6 and invalid host characters", () => {
 		expect(validateDatabaseHost("[::1]").valid).toBe(false);
 		expect(validateDatabaseHost("[fe80::1]").valid).toBe(false);
@@ -139,5 +145,12 @@ describe("sanitizeErrorMessage", () => {
 
 	it("keeps safe user-facing messages", () => {
 		expect(sanitizeErrorMessage("Invalid input")).toBe("Invalid input");
+		expect(
+			sanitizeErrorMessage(
+				'Error: A connector named "prod-loki" already exists in the production environment. Choose a different name.'
+			)
+		).toBe(
+			'A connector named "prod-loki" already exists in the production environment. Choose a different name.'
+		);
 	});
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ChatLayout from "@/components/(playground)/chat/chat-layout";
 import { RequestProvider } from "@/components/(playground)/request/request-context";
@@ -11,12 +11,7 @@ import {
 	getProjectIsLoading,
 	getProjectList,
 } from "@/selectors/project";
-import {
-	getDatabaseConfigList,
-	getDatabaseConfigListIsLoading,
-} from "@/selectors/database-config";
 import { fetchProjectList } from "@/helpers/client/project";
-import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
 import Loader from "@/components/common/loader";
 
 export default function ChatPage() {
@@ -27,22 +22,25 @@ export default function ChatPage() {
 	const projects = useRootStore(getProjectList);
 	const currentProject = useRootStore(getCurrentProject);
 	const isProjectLoading = useRootStore(getProjectIsLoading);
-	const databaseConfigs = useRootStore(getDatabaseConfigList);
-	const isDatabaseConfigLoading = useRootStore(getDatabaseConfigListIsLoading);
+	const [hasDbConfig, setHasDbConfig] = useState<boolean>();
 	const hasProject = Boolean(currentProject?.id && (projects?.length || 0) > 0);
-	const hasDbConfig = Boolean(databaseConfigs?.length);
 	const isSetupLoading =
 		isProjectLoading ||
-		isDatabaseConfigLoading ||
-		projects === undefined ||
-		(hasProject && databaseConfigs === undefined);
+		hasDbConfig === undefined ||
+		projects === undefined;
 
 	useEffect(() => {
 		if (currentOrg?.id) fetchProjectList(currentOrg.id);
 	}, [currentOrg?.id]);
 
 	useEffect(() => {
-		if (currentProject?.id) fetchDatabaseConfigList(() => {});
+		if (currentProject?.id) {
+			setHasDbConfig(undefined);
+			fetch("/api/connectors")
+				.then((response) => response.ok ? response.json() : { connectors: [] })
+				.then((body) => setHasDbConfig((body.connectors || []).some((connector: { type?: string }) => connector.type === "clickhouse")))
+				.catch(() => setHasDbConfig(false));
+		}
 	}, [currentProject?.id]);
 
 	useEffect(() => {

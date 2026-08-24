@@ -1,0 +1,549 @@
+const mockFindMany = jest.fn();
+const mockFindFirst = jest.fn();
+const mockCreate = jest.fn();
+const mockUpdate = jest.fn();
+const mockUpdateMany = jest.fn();
+const mockDelete = jest.fn();
+const mockConnectorUpsert = jest.fn();
+const mockGetCurrentOrganisation = jest.fn();
+const mockGetCurrentProjectForOrganisation = jest.fn();
+const mockHasAdapterFactory = jest.fn();
+const mockGetSourceTypeDescriptor = jest.fn();
+const mockListSourceTypeDescriptors = jest.fn();
+const mockCreateAdapter = jest.fn();
+
+const mockBindingFindMany = jest.fn();
+const mockBindingFindUnique = jest.fn();
+const mockBindingFindFirst = jest.fn();
+const mockBindingUpsert = jest.fn();
+const mockBindingDeleteMany = jest.fn();
+const mockUpsertSecret = jest.fn();
+const mockGetSecretById = jest.fn();
+
+const mockTxBindingUpsert = jest.fn();
+
+const txClient = {
+	telemetrySource: {
+		updateMany: (...a: unknown[]) => mockUpdateMany(...a),
+		create: (...a: unknown[]) => mockCreate(...a),
+		update: (...a: unknown[]) => mockUpdate(...a),
+		delete: (...a: unknown[]) => mockDelete(...a),
+	},
+	telemetrySourceBinding: {
+		upsert: (...a: unknown[]) => mockTxBindingUpsert(...a),
+	},
+	connectorInstance: {
+		upsert: (...a: unknown[]) => mockConnectorUpsert(...a),
+	},
+};
+
+jest.mock("@/lib/prisma", () => ({
+	__esModule: true,
+	default: {
+		telemetrySource: {
+			findMany: (...a: unknown[]) => mockFindMany(...a),
+			findFirst: (...a: unknown[]) => mockFindFirst(...a),
+			delete: (...a: unknown[]) => mockDelete(...a),
+		},
+		telemetrySourceBinding: {
+			findMany: (...a: unknown[]) => mockBindingFindMany(...a),
+			findUnique: (...a: unknown[]) => mockBindingFindUnique(...a),
+			findFirst: (...a: unknown[]) => mockBindingFindFirst(...a),
+			upsert: (...a: unknown[]) => mockBindingUpsert(...a),
+			deleteMany: (...a: unknown[]) => mockBindingDeleteMany(...a),
+		},
+		$transaction: (fn: (tx: unknown) => unknown) => fn(txClient),
+	},
+}));
+
+jest.mock("@/lib/organisation", () => ({
+	getCurrentOrganisation: (...a: unknown[]) => mockGetCurrentOrganisation(...a),
+	getCurrentProjectForOrganisation: (...a: unknown[]) =>
+		mockGetCurrentProjectForOrganisation(...a),
+}));
+
+jest.mock("@/lib/db-config", () => ({
+	getDBConfigByUser: jest.fn(),
+	getDBConfigById: jest.fn(),
+}));
+
+jest.mock("@/lib/platform/connectors/datasource/bootstrap", () => ({
+	ensureAdaptersRegistered: jest.fn(),
+}));
+
+jest.mock("@/lib/platform/connectors/datasource/registry", () => ({
+	hasAdapterFactory: (...a: unknown[]) => mockHasAdapterFactory(...a),
+	getSourceTypeDescriptor: (...a: unknown[]) => mockGetSourceTypeDescriptor(...a),
+	listSourceTypeDescriptors: (...a: unknown[]) =>
+		mockListSourceTypeDescriptors(...a),
+	createAdapter: (...a: unknown[]) => mockCreateAdapter(...a),
+}));
+
+jest.mock("@/lib/platform/vault", () => ({
+	upsertSecret: (...a: unknown[]) => mockUpsertSecret(...a),
+	getSecretById: (...a: unknown[]) => mockGetSecretById(...a),
+}));
+
+jest.mock("@/lib/platform/connectors/instances", () => ({
+	syncTelemetrySourceConnector: jest.fn().mockResolvedValue(undefined),
+	removeLegacyConnector: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock("@/lib/project-environment", () => ({
+	createProjectEnvironment: jest.fn().mockResolvedValue({ id: "env-1" }),
+}));
+
+jest.mock("@/utils/log", () => ({ consoleLog: jest.fn() }));
+
+import {
+	availableSourceTypes,
+	createTelemetrySource,
+	deleteTelemetrySource,
+	deleteTelemetrySourceBinding,
+	healthCheckTelemetrySource,
+	listTelemetrySources,
+	listTelemetrySourceBindings,
+	setTelemetrySourceBinding,
+	updateTelemetrySource,
+	validateTelemetrySourceAISignal,
+} from "@/lib/telemetry-source-crud";
+
+const row = (over: Record<string, unknown> = {}) => ({
+	id: "src-1",
+	projectId: "proj-1",
+	name: "Prod DD",
+	type: "datadog",
+	signals: "traces,logs,metrics",
+	settings: "{}",
+	secretRef: "vault-1",
+	isDefault: false,
+	createdAt: new Date(),
+	updatedAt: new Date(),
+	createdByUserId: "u1",
+	...over,
+});
+
+beforeEach(() => {
+	jest.clearAllMocks();
+	mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+	mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+	mockUpsertSecret.mockResolvedValue({ id: "vault-new" });
+	mockGetSecretById.mockResolvedValue({ data: [{ id: "vault-1" }] });
+	mockHasAdapterFactory.mockReturnValue(true);
+	mockFindFirst.mockResolvedValue(null);
+	mockBindingFindUnique.mockResolvedValue(null);
+	mockBindingFindFirst.mockResolvedValue(null);
+	mockConnectorUpsert.mockResolvedValue({});
+	mockGetSourceTypeDescriptor.mockImplementation((type: string) => ({
+		type,
+		displayName: type,
+		declaredSignals:
+			type === "tempo"
+				? ["traces"]
+				: type === "prometheus" || type === "loki"
+					? type === "loki"
+						? ["logs"]
+						: ["metrics"]
+					: ["traces", "logs", "metrics"],
+		capabilities: {
+			traceTree: true,
+			spanEvents: false,
+			serverAggregation: true,
+			spanMutation: false,
+			distinctValues: true,
+			crossTraceSession: false,
+			rawQuery: false,
+		},
+		correlation: { crossSignal: true, keys: ["traceId", "service"] },
+	}));
+	mockListSourceTypeDescriptors.mockImplementation(
+		(opts: { includeInternal?: boolean } = {}) => {
+			return [
+				{ type: "clickhouse" },
+				{ type: "tempo" },
+				{ type: "jaeger" },
+			];
+		}
+	);
+});
+
+describe("listTelemetrySources", () => {
+	it("scopes to the current project and strips the secret ref", async () => {
+		mockFindMany.mockResolvedValue([row(), row({ id: "src-2", secretRef: null })]);
+		const sources = await listTelemetrySources();
+		expect(mockFindMany).toHaveBeenCalledWith({
+			where: { projectId: "proj-1" },
+			orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+		});
+		expect(sources[0]).not.toHaveProperty("secretRef");
+		expect(sources[0].hasSecret).toBe(true);
+		expect(sources[1].hasSecret).toBe(false);
+	});
+
+	it("denies when the user has no current project (membership)", async () => {
+		mockGetCurrentProjectForOrganisation.mockResolvedValue(null);
+		await expect(listTelemetrySources()).rejects.toThrow();
+		expect(mockFindMany).not.toHaveBeenCalled();
+	});
+});
+
+describe("availableSourceTypes", () => {
+	it("returns the registered adapter types", () => {
+		expect(availableSourceTypes()).toEqual(["clickhouse", "tempo", "jaeger"]);
+	});
+});
+
+describe("createTelemetrySource", () => {
+	it("creates a project-scoped source and normalizes signals/settings", async () => {
+		mockCreate.mockResolvedValue(row());
+		await createTelemetrySource({
+			name: "Prod DD",
+			type: "datadog",
+			signals: ["traces", "logs"],
+			settings: { site: "datadoghq.com" },
+		});
+		const arg = mockCreate.mock.calls[0][0];
+		expect(arg.data).toMatchObject({
+			projectId: "proj-1",
+			name: "Prod DD",
+			type: "datadog",
+			signals: "traces,logs",
+			settings: '{"site":"datadoghq.com"}',
+			isDefault: false,
+		});
+	});
+
+	it("rejects a blank name", async () => {
+		await expect(
+			createTelemetrySource({ name: "  ", type: "datadog" })
+		).rejects.toThrow();
+		expect(mockCreate).not.toHaveBeenCalled();
+	});
+
+	it("rejects a duplicate name in the same environment", async () => {
+		mockFindFirst.mockResolvedValue({ id: "src-existing" });
+		await expect(
+			createTelemetrySource({
+				name: "prod-loki",
+				type: "loki",
+				environment: "production",
+			})
+		).rejects.toThrow(/already exists/);
+		expect(mockCreate).not.toHaveBeenCalled();
+	});
+
+	it("syncs the connector instance inside the create transaction", async () => {
+		mockCreate.mockResolvedValue(row({ id: "src-loki", type: "loki", name: "local-loki", signals: "logs" }));
+		await createTelemetrySource({
+			name: "local-loki",
+			type: "loki",
+			environment: "production",
+			settings: { url: "http://localhost:3100" },
+		});
+		expect(mockConnectorUpsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: "telemetry:src-loki" },
+				create: expect.objectContaining({
+					type: "loki",
+					name: "local-loki",
+				}),
+			})
+		);
+	});
+
+	it("normalizes collapsed endpoint URLs before persist", async () => {
+		mockCreate.mockResolvedValue(row({ id: "src-prom", type: "prometheus", name: "local-prometheus", signals: "metrics" }));
+		await createTelemetrySource({
+			name: "local-prometheus",
+			type: "prometheus",
+			environment: "production",
+			settings: { url: "http:/localhost:9090", allowPrivateNetwork: true },
+		});
+		expect(mockCreate.mock.calls[0][0].data.settings).toContain(
+			'"url":"http://localhost:9090"'
+		);
+	});
+
+	it("rejects an unknown source type", async () => {
+		mockHasAdapterFactory.mockReturnValue(false);
+		await expect(
+			createTelemetrySource({ name: "X", type: "splunk" })
+		).rejects.toThrow();
+	});
+
+	it("rejects non-object settings", async () => {
+		await expect(
+			createTelemetrySource({ name: "X", type: "datadog", settings: "[1,2]" })
+		).rejects.toThrow();
+	});
+
+	it("rejects a signal the source type cannot serve", async () => {
+		await expect(
+			createTelemetrySource({ name: "T", type: "tempo", signals: ["logs"] })
+		).rejects.toThrow();
+		expect(mockCreate).not.toHaveBeenCalled();
+	});
+
+	it("defaults to the type's declared signals when none are given", async () => {
+		mockCreate.mockResolvedValue(row({ type: "tempo", signals: "traces" }));
+		await createTelemetrySource({ name: "T", type: "tempo" });
+		expect(mockCreate.mock.calls[0][0].data.signals).toBe("traces");
+	});
+
+	it("persists inline credentials to the vault and stores only the secret id", async () => {
+		mockCreate.mockResolvedValue(row());
+		await createTelemetrySource({
+			name: "Prod DD",
+			type: "datadog",
+			credentials: { apiKey: "dd-key", appKey: "dd-app", empty: "  " },
+		});
+		expect(mockUpsertSecret).toHaveBeenCalledTimes(1);
+		const secretArg = mockUpsertSecret.mock.calls[0][0];
+		// Blank values are stripped; only real credentials are persisted.
+		expect(JSON.parse(secretArg.value)).toEqual({
+			apiKey: "dd-key",
+			appKey: "dd-app",
+		});
+		// The vault secret id is stored, never the raw credentials.
+		expect(mockCreate.mock.calls[0][0].data.secretRef).toBe("vault-new");
+	});
+
+	it("does not touch the vault when no non-empty credentials are given", async () => {
+		mockCreate.mockResolvedValue(row());
+		await createTelemetrySource({
+			name: "Prod DD",
+			type: "datadog",
+			credentials: { apiKey: "   " },
+			secretRef: "explicit-ref",
+		});
+		expect(mockUpsertSecret).not.toHaveBeenCalled();
+		expect(mockCreate.mock.calls[0][0].data.secretRef).toBe("explicit-ref");
+	});
+
+	it("rejects a vault secret that is not owned by the current user", async () => {
+		mockGetSecretById.mockResolvedValue({ data: [] });
+		await expect(
+			createTelemetrySource({
+				name: "Untrusted source",
+				type: "datadog",
+				secretRef: "secret-from-another-user",
+			})
+		).rejects.toThrow("not owned by the current user");
+		expect(mockCreate).not.toHaveBeenCalled();
+	});
+
+	it("unsets the previous default when creating a new default", async () => {
+		mockCreate.mockResolvedValue(row({ isDefault: true }));
+		await createTelemetrySource({
+			name: "Prod DD",
+			type: "datadog",
+			isDefault: true,
+		});
+		expect(mockUpdateMany).toHaveBeenCalledWith({
+			where: { projectId: "proj-1", isDefault: true },
+			data: { isDefault: false },
+		});
+	});
+});
+
+describe("updateTelemetrySource", () => {
+	it("denies updating a source outside the current project", async () => {
+		mockFindFirst.mockResolvedValue(null);
+		await expect(
+			updateTelemetrySource("src-other", { name: "hacked" })
+		).rejects.toThrow();
+		expect(mockUpdate).not.toHaveBeenCalled();
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { id: "src-other", projectId: "proj-1" },
+		});
+	});
+
+	it("updates only provided fields for an owned source", async () => {
+		mockFindFirst.mockResolvedValue(row());
+		mockUpdate.mockResolvedValue(row({ name: "Renamed" }));
+		await updateTelemetrySource("src-1", { name: "Renamed" });
+		expect(mockUpdate).toHaveBeenCalledWith({
+			where: { id: "src-1" },
+			data: { name: "Renamed" },
+		});
+	});
+
+	it("promotes to default and demotes siblings", async () => {
+		mockFindFirst.mockResolvedValue(row());
+		mockUpdate.mockResolvedValue(row({ isDefault: true }));
+		await updateTelemetrySource("src-1", { isDefault: true });
+		expect(mockUpdateMany).toHaveBeenCalledWith({
+			where: { projectId: "proj-1", isDefault: true, NOT: { id: "src-1" } },
+			data: { isDefault: false },
+		});
+		expect(mockUpdate.mock.calls[0][0].data.isDefault).toBe(true);
+	});
+});
+
+describe("deleteTelemetrySource", () => {
+	it("denies deleting a source outside the current project", async () => {
+		mockFindFirst.mockResolvedValue(null);
+		await expect(deleteTelemetrySource("src-other")).rejects.toThrow();
+		expect(mockDelete).not.toHaveBeenCalled();
+	});
+
+	it("deletes an owned source", async () => {
+		mockFindFirst.mockResolvedValue(row());
+		await deleteTelemetrySource("src-1");
+		expect(mockDelete).toHaveBeenCalledWith({ where: { id: "src-1" } });
+	});
+});
+
+describe("healthCheckTelemetrySource", () => {
+	it("binds the adapter and returns its health", async () => {
+		mockFindFirst.mockResolvedValue(row());
+		mockCreateAdapter.mockReturnValue({
+			healthCheck: jest.fn().mockResolvedValue({ ok: true }),
+		});
+		expect(await healthCheckTelemetrySource("src-1")).toEqual({ ok: true });
+	});
+
+	it("returns not-ok when no adapter is registered for the type", async () => {
+		mockFindFirst.mockResolvedValue(row({ type: "unknownvendor" }));
+		mockCreateAdapter.mockReturnValue(undefined);
+		const res = await healthCheckTelemetrySource("src-1");
+		expect(res.ok).toBe(false);
+	});
+});
+
+describe("validateTelemetrySourceAISignal", () => {
+	it("delegates to the adapter's validateAISignal", async () => {
+		mockFindFirst.mockResolvedValue(row());
+		mockCreateAdapter.mockReturnValue({
+			validateAISignal: jest
+				.fn()
+				.mockResolvedValue({ ok: true, sampleCount: 3, missingAttributes: [] }),
+		});
+		const res = await validateTelemetrySourceAISignal("src-1", {
+			start: new Date("2026-07-01"),
+			end: new Date("2026-07-02"),
+		});
+		expect(res).toMatchObject({ ok: true, sampleCount: 3, supported: true });
+	});
+
+	it("soft-succeeds when the adapter does not support AI validation", async () => {
+		const { UnsupportedCapabilityError } = jest.requireActual(
+			"@/lib/platform/connectors/datasource/types"
+		) as typeof import("@/lib/platform/connectors/datasource/types");
+		mockFindFirst.mockResolvedValue(row({ type: "loki" }));
+		mockCreateAdapter.mockReturnValue({
+			validateAISignal: jest
+				.fn()
+				.mockRejectedValue(new UnsupportedCapabilityError("loki", "validateAISignal")),
+		});
+		const res = await validateTelemetrySourceAISignal("src-1", {
+			start: new Date("2026-07-01"),
+			end: new Date("2026-07-02"),
+		});
+		expect(res.supported).toBe(false);
+		expect(res.ok).toBe(true);
+	});
+});
+
+describe("telemetry source bindings", () => {
+	it("lists the current project's bindings", async () => {
+		mockBindingFindMany.mockResolvedValue([
+			{
+				id: "b1",
+				signal: "traces",
+				sourceId: "src-1",
+				source: { name: "Prod DD", type: "datadog" },
+			},
+		]);
+		const bindings = await listTelemetrySourceBindings();
+		expect(mockBindingFindMany).toHaveBeenCalledWith({
+			where: { projectId: "proj-1", environment: "production" },
+			include: { source: true, databaseConfig: true },
+			orderBy: { signal: "asc" },
+		});
+		expect(bindings[0]).toMatchObject({
+			signal: "traces",
+			sourceId: "src-1",
+			sourceName: "Prod DD",
+			sourceType: "datadog",
+		});
+	});
+
+	it("binds a signal to a source that serves it (project-scoped)", async () => {
+		mockFindFirst.mockResolvedValue(row({ signals: "traces,logs,metrics" }));
+		mockBindingFindUnique.mockResolvedValue({
+			sourceId: "src-old",
+			databaseConfigId: null,
+		});
+		mockBindingUpsert.mockResolvedValue({
+			id: "b1",
+			signal: "traces",
+			sourceId: "src-1",
+			environment: "production",
+		});
+		const result = await setTelemetrySourceBinding("traces", "src-1");
+		expect(result).toMatchObject({
+			sourceId: "src-1",
+			previousSourceId: "src-old",
+			environment: "production",
+		});
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { id: "src-1", projectId: "proj-1" },
+		});
+		expect(mockBindingUpsert).toHaveBeenCalledWith({
+			where: { projectId_signal_environment: { projectId: "proj-1", signal: "traces", environment: "production" } },
+			create: { projectId: "proj-1", signal: "traces", environment: "production", sourceId: "src-1", databaseConfigId: null },
+			update: { sourceId: "src-1", databaseConfigId: null },
+		});
+	});
+
+	it("accepts connector-registry telemetry: prefixed source ids", async () => {
+		mockFindFirst.mockResolvedValue(row({ signals: "logs" }));
+		mockBindingUpsert.mockResolvedValue({
+			id: "b2",
+			signal: "logs",
+			sourceId: "src-1",
+		});
+		await setTelemetrySourceBinding("logs", "telemetry:src-1");
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { id: "src-1", projectId: "proj-1" },
+		});
+	});
+
+	it("rejects binding a signal the source does not serve", async () => {
+		mockFindFirst.mockResolvedValue(row({ signals: "metrics" }));
+		await expect(
+			setTelemetrySourceBinding("traces", "src-1")
+		).rejects.toThrow();
+		expect(mockBindingUpsert).not.toHaveBeenCalled();
+	});
+
+	it("rejects binding to a source outside the current project", async () => {
+		mockFindFirst.mockResolvedValue(null);
+		await expect(
+			setTelemetrySourceBinding("traces", "src-other")
+		).rejects.toThrow();
+	});
+
+	it("rejects an unknown signal", async () => {
+		await expect(
+			setTelemetrySourceBinding("bogus", "src-1")
+		).rejects.toThrow();
+	});
+
+	it("deletes a signal binding (project-scoped)", async () => {
+		mockBindingFindFirst.mockResolvedValue({
+			sourceId: "src-9",
+			databaseConfigId: null,
+		});
+		mockBindingDeleteMany.mockResolvedValue({ count: 1 });
+		await expect(deleteTelemetrySourceBinding("logs")).resolves.toEqual({
+			signal: "logs",
+			environment: "production",
+			previousSourceId: "src-9",
+		});
+		expect(mockBindingDeleteMany).toHaveBeenCalledWith({
+			where: { projectId: "proj-1", signal: "logs", environment: "production" },
+		});
+	});
+});

@@ -121,8 +121,13 @@ describe('getLastRunCronLogByCronId', () => {
       data: [{ startedAt: new Date('2024-01-15') }],
       err: null,
     });
-    const result = await getLastRunCronLogByCronId('cron-1');
+    const result = await getLastRunCronLogByCronId('cron-1', 'db-1');
     expect(result).toEqual(new Date('2024-01-15'));
+    expect(dataCollector).toHaveBeenCalledWith(
+      expect.objectContaining({ query: expect.stringContaining("cron_id = 'cron-1'") }),
+      'query',
+      'db-1'
+    );
   });
 
   it('returns null when data is null', async () => {
