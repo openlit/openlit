@@ -45,6 +45,16 @@ jest.mock("@/lib/telemetry-source", () => ({
 	getTelemetryAdapterForDbConfig: (...args: unknown[]) =>
 		mockGetTelemetryAdapterForDbConfig(...args),
 }));
+const mockGetDBConfigByIdInternal = jest.fn();
+jest.mock("@/lib/db-config", () => ({
+	getDBConfigByIdInternal: (...args: unknown[]) =>
+		mockGetDBConfigByIdInternal(...args),
+}));
+const mockResolveCodingAgentsClickHouseDbConfigId = jest.fn();
+jest.mock("@/lib/platform/coding-agents/source", () => ({
+	resolveCodingAgentsClickHouseDbConfigId: (...args: unknown[]) =>
+		mockResolveCodingAgentsClickHouseDbConfigId(...args),
+}));
 
 import { intelligenceDataCollector } from "@/lib/platform/common";
 import { materializeAgents } from "@/lib/platform/agents/materialize";
@@ -100,6 +110,14 @@ function queueDiscovery(
 beforeEach(() => {
 	mockedDC.mockReset();
 	mockGetTelemetryAdapterForDbConfig.mockReset();
+	mockGetDBConfigByIdInternal.mockReset();
+	mockGetDBConfigByIdInternal.mockResolvedValue({
+		id: "db-1",
+		projectId: "p1",
+		environment: "production",
+	});
+	mockResolveCodingAgentsClickHouseDbConfigId.mockReset();
+	mockResolveCodingAgentsClickHouseDbConfigId.mockResolvedValue("db-1");
 });
 
 describe("materializeAgents — connector routing purity", () => {
@@ -110,7 +128,53 @@ describe("materializeAgents — connector routing purity", () => {
 		await expect(materializeAgents({ dbConfigId: "db-1" })).rejects.toThrow(
 			"Tempo credentials unavailable"
 		);
-		expect(mockedDC).not.toHaveBeenCalled();
+		const sdkOrControllerQueries = mockedDC.mock.calls.filter(([cfg]) => {
+			const q = String(cfg?.query || "");
+			return (
+				q.includes("sdk_seen") || q.includes("openlit_controller_services")
+			);
+		});
+		expect(sdkOrControllerQueries).toHaveLength(0);
+	});
+
+	it("keeps coding-agent discovery on ClickHouse SQL when traces are bound to Tempo", async () => {
+		const sampleTracesForGraph = jest.fn();
+		mockGetTelemetryAdapterForDbConfig.mockResolvedValue({
+			isBuiltIn: false,
+			adapter: {
+				discoverServices: jest.fn().mockResolvedValue([]),
+				sampleTracesForGraph,
+				listSpans: jest.fn(),
+			},
+			descriptor: { type: "tempo" },
+		});
+		mockResolveCodingAgentsClickHouseDbConfigId.mockResolvedValue("db-intel");
+
+		const queries: string[] = [];
+		mockedDC.mockImplementation(async (config: any, op?: string) => {
+			if (op === "query" || op === undefined) {
+				queries.push(String(config.query || ""));
+				return { data: [] } as any;
+			}
+			return { data: [] } as any;
+		});
+
+		await materializeAgents({ dbConfigId: "db-intel" });
+
+		expect(sampleTracesForGraph).not.toHaveBeenCalled();
+		expect(queries.some((q) => q.includes("coding_agent.session.id"))).toBe(
+			true
+		);
+		expect(mockResolveCodingAgentsClickHouseDbConfigId).toHaveBeenCalledWith(
+			expect.objectContaining({
+				dbConfigId: "db-intel",
+				projectId: "p1",
+			})
+		);
+		const codingCall = mockedDC.mock.calls.find(([cfg]) =>
+			String(cfg?.query || "").includes("coding_agent.session.id")
+		);
+		expect(codingCall?.[2]).toBe("db-intel");
 	});
 });
 

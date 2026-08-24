@@ -26,10 +26,18 @@ export function isCodingAgentClickHouseSql(sql: string): boolean {
  */
 export async function resolveCodingAgentsClickHouseDbConfigId(options?: {
 	environment?: string | null;
+	/** Sessionless callers (cron / materializer) must pass project scope. */
+	projectId?: string | null;
+	dbConfigId?: string;
 }): Promise<string | null> {
 	const environment = options?.environment ?? undefined;
+	const sourceOptions = {
+		environment,
+		...(options?.projectId !== undefined ? { projectId: options.projectId } : {}),
+		...(options?.dbConfigId ? { dbConfigId: options.dbConfigId } : {}),
+	};
 
-	const traces = await resolveSignalSource("traces", { environment });
+	const traces = await resolveSignalSource("traces", sourceOptions);
 	if (
 		traces.hasSource &&
 		traces.descriptor.type === "clickhouse" &&
@@ -38,9 +46,7 @@ export async function resolveCodingAgentsClickHouseDbConfigId(options?: {
 		return traces.descriptor.dbConfigId;
 	}
 
-	const intelligence = await resolveSignalSource("intelligence", {
-		environment,
-	});
+	const intelligence = await resolveSignalSource("intelligence", sourceOptions);
 	if (
 		intelligence.hasSource &&
 		intelligence.descriptor.type === "clickhouse" &&

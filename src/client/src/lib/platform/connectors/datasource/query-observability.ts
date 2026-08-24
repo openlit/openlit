@@ -54,7 +54,7 @@ export function logQueryObservability(
 				: "",
 		].filter(Boolean);
 		// eslint-disable-next-line no-console
-		console.debug(`[telemetry-query] ${parts.join(" ")}`);
+		console.debug("[telemetry-query]", parts.join(" "));
 	} catch {
 		// Observability must never affect the read path.
 	}
