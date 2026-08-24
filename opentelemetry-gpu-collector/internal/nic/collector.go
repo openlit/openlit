@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -306,23 +307,33 @@ func (c *Collector) observeRDMA(
 
 	// port_*_data are in 4-byte units (InfiniBand lane width).
 	if v, ok := get("port_rcv_data"); ok {
-		o.ObserveInt64(rdmaIO, int64(v*rdmaLaneWidth), rxAttrs)
+		if n, ok := uint64ToInt64Scaled(v, rdmaLaneWidth); ok {
+			o.ObserveInt64(rdmaIO, n, rxAttrs)
+		}
 	}
 	if v, ok := get("port_xmit_data"); ok {
-		o.ObserveInt64(rdmaIO, int64(v*rdmaLaneWidth), txAttrs)
+		if n, ok := uint64ToInt64Scaled(v, rdmaLaneWidth); ok {
+			o.ObserveInt64(rdmaIO, n, txAttrs)
+		}
 	}
 	if v, ok := get("port_rcv_packets"); ok {
-		o.ObserveInt64(rdmaPkts, int64(v), rxAttrs)
+		if n, ok := uint64ToInt64(v); ok {
+			o.ObserveInt64(rdmaPkts, n, rxAttrs)
+		}
 	}
 	if v, ok := get("port_xmit_packets"); ok {
-		o.ObserveInt64(rdmaPkts, int64(v), txAttrs)
+		if n, ok := uint64ToInt64(v); ok {
+			o.ObserveInt64(rdmaPkts, n, txAttrs)
+		}
 	}
 
 	observeCong := func(keys []string, congType string) {
 		if v, ok := get(keys...); ok {
-			o.ObserveInt64(rdmaCong, int64(v), metric.WithAttributes(append(base,
-				attribute.String("hw.network.rdma.congestion.type", congType),
-			)...))
+			if n, ok := uint64ToInt64(v); ok {
+				o.ObserveInt64(rdmaCong, n, metric.WithAttributes(append(base,
+					attribute.String("hw.network.rdma.congestion.type", congType),
+				)...))
+			}
 		}
 	}
 	observeCong([]string{"NPCnpSent", "np_cnp_sent"}, "cnp_sent")
@@ -331,9 +342,11 @@ func (c *Collector) observeRDMA(
 
 	observeErr := func(keys []string, errType string) {
 		if v, ok := get(keys...); ok {
-			o.ObserveInt64(hwErrors, int64(v), metric.WithAttributes(append(base,
-				attribute.String("error.type", errType),
-			)...))
+			if n, ok := uint64ToInt64(v); ok {
+				o.ObserveInt64(hwErrors, n, metric.WithAttributes(append(base,
+					attribute.String("error.type", errType),
+				)...))
+			}
 		}
 	}
 	observeErr([]string{"symbol_error"}, "symbol")
@@ -359,4 +372,23 @@ func ethtoolErrorType(name string) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+// uint64ToInt64 converts v to int64 when it fits. OTel int64 instruments cannot
+// represent values above math.MaxInt64.
+func uint64ToInt64(v uint64) (int64, bool) {
+	if v > math.MaxInt64 {
+		return 0, false
+	}
+	return int64(v), true
+}
+
+func uint64ToInt64Scaled(v, scale uint64) (int64, bool) {
+	if scale == 0 {
+		return uint64ToInt64(v)
+	}
+	if v > math.MaxInt64/scale {
+		return 0, false
+	}
+	return int64(v * scale), true
 }

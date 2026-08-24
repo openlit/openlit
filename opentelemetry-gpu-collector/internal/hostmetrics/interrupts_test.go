@@ -73,3 +73,13 @@ func TestParseInterruptsEmpty(t *testing.T) {
 		t.Fatal("expected error for empty input")
 	}
 }
+
+func TestUint64ToInt64(t *testing.T) {
+	n, ok := uint64ToInt64(42)
+	if !ok || n != 42 {
+		t.Fatalf("got %d ok=%v", n, ok)
+	}
+	if _, ok := uint64ToInt64(^uint64(0)); ok {
+		t.Fatal("max uint64 should not fit in int64")
+	}
+}

@@ -17,10 +17,10 @@ const interruptsPath = "/proc/interrupts"
 
 // InterruptsCollector emits system.interrupt.count from /proc/interrupts.
 type InterruptsCollector struct {
-	logger  *slog.Logger
-	perCPU  bool
-	path    string
-	reg     []metric.Registration
+	logger *slog.Logger
+	perCPU bool
+	path   string
+	reg    []metric.Registration
 }
 
 // NewInterruptsCollector registers interrupt metrics. Soft-fails (returns nil error
@@ -89,7 +89,11 @@ func (c *InterruptsCollector) collect(o metric.Observer, irqCount metric.Int64Ob
 		name := s.DisplayName()
 		if c.perCPU {
 			for cpu, v := range s.PerCPU {
-				o.ObserveInt64(irqCount, int64(v),
+				n, ok := uint64ToInt64(v)
+				if !ok {
+					continue
+				}
+				o.ObserveInt64(irqCount, n,
 					metric.WithAttributes(
 						attribute.String("system.interrupt.name", name),
 						attribute.Int("cpu.logical_number", cpu),
@@ -98,9 +102,11 @@ func (c *InterruptsCollector) collect(o metric.Observer, irqCount metric.Int64Ob
 			}
 			continue
 		}
-		o.ObserveInt64(irqCount, int64(s.Total()),
-			metric.WithAttributes(attribute.String("system.interrupt.name", name)),
-		)
+		if n, ok := uint64ToInt64(s.Total()); ok {
+			o.ObserveInt64(irqCount, n,
+				metric.WithAttributes(attribute.String("system.interrupt.name", name)),
+			)
+		}
 	}
 }
 

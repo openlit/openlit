@@ -236,13 +236,17 @@ func (s *Server) SetOnDemand(jobID int64, pids []int, config string, limit int, 
 		s.Registry.SetConfig([]int{pid}, cfg)
 		confPath := filepath.Join(s.TraceDir, fmt.Sprintf("kineto_ondemand_%d.conf", pid))
 		if err := os.WriteFile(confPath, []byte(cfg), 0o644); err != nil {
-			s.Logger.Warn("kineto write ondemand conf failed", "pid", pid, "path", confPath, "error", err)
+			s.Logger.Warn("kineto write ondemand conf failed",
+				"pid", sanitizeLog(strconv.Itoa(pid)),
+				"path", sanitizeLog(confPath),
+				"error", err,
+			)
 		}
 	}
 	s.Logger.Info("kineto on-demand config set",
 		"matched", len(matched),
-		"job_id", jobID,
-		"paths", paths,
+		"job_id", sanitizeLog(strconv.FormatInt(jobID, 10)),
+		"paths", sanitizeLogStrings(paths),
 	)
 	return matched, paths
 }
@@ -254,4 +258,17 @@ func extractLogFile(config string) string {
 		}
 	}
 	return ""
+}
+
+func sanitizeLog(s string) string {
+	s = strings.ReplaceAll(s, "\n", "")
+	return strings.ReplaceAll(s, "\r", "")
+}
+
+func sanitizeLogStrings(in []string) []string {
+	out := make([]string, len(in))
+	for i, s := range in {
+		out[i] = sanitizeLog(s)
+	}
+	return out
 }

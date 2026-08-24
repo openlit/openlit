@@ -40,12 +40,12 @@ func TestNewCollectorRegisters(t *testing.T) {
 	}
 
 	want := map[string]bool{
-		"hw.network.io":                    false,
-		"hw.network.packets":               false,
-		"hw.network.up":                    false,
-		"hw.errors":                        false,
-		"hw.network.rdma.io":               false,
-		"hw.network.rdma.packets":          false,
+		"hw.network.io":                     false,
+		"hw.network.packets":                false,
+		"hw.network.up":                     false,
+		"hw.errors":                         false,
+		"hw.network.rdma.io":                false,
+		"hw.network.rdma.packets":           false,
 		"hw.network.rdma.congestion.events": false,
 	}
 	for _, sm := range rm.ScopeMetrics {
@@ -90,6 +90,23 @@ func TestObserveRDMALaneWidth(t *testing.T) {
 	}
 	if got := uint64(100) * rdmaLaneWidth; got != 400 {
 		t.Fatalf("scaled = %d", got)
+	}
+}
+
+func TestUint64ToInt64(t *testing.T) {
+	n, ok := uint64ToInt64(42)
+	if !ok || n != 42 {
+		t.Fatalf("got %d ok=%v", n, ok)
+	}
+	if _, ok := uint64ToInt64(^uint64(0)); ok {
+		t.Fatal("max uint64 should not fit in int64")
+	}
+	n, ok = uint64ToInt64Scaled(100, rdmaLaneWidth)
+	if !ok || n != 400 {
+		t.Fatalf("scaled got %d ok=%v", n, ok)
+	}
+	if _, ok := uint64ToInt64Scaled(^uint64(0)/2, rdmaLaneWidth); ok {
+		t.Fatal("overflowing scale should fail")
 	}
 }
 

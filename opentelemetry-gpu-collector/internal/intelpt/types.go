@@ -5,17 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
 // Defaults keep on-demand captures cheap.
 const (
-	DefaultMaxDurationMS   = 2000
-	DefaultMaxBufferPages  = 64 // 64 * 4KiB = 256KiB AUX per CPU (perf default page size)
-	DefaultMaxCPUs         = 4
-	HardMaxDurationMS      = 30000
-	HardMaxBufferPages     = 256
-	HardMaxCPUs            = 32
+	DefaultMaxDurationMS  = 2000
+	DefaultMaxBufferPages = 64 // 64 * 4KiB = 256KiB AUX per CPU (perf default page size)
+	DefaultMaxCPUs        = 4
+	HardMaxDurationMS     = 30000
+	HardMaxBufferPages    = 256
+	HardMaxCPUs           = 32
 )
 
 var (
@@ -70,6 +71,25 @@ func ClampOptions(opts Options) Options {
 		opts.OutputDir = os.TempDir()
 	}
 	return opts
+}
+
+// SanitizeOutputDir rejects path-traversal sequences and returns a cleaned
+// absolute directory. Relative paths are resolved under the process temp dir.
+func SanitizeOutputDir(dir string) (string, error) {
+	if dir == "" {
+		dir = os.TempDir()
+	}
+	if strings.Contains(dir, "..") {
+		return "", fmt.Errorf("intel pt output dir must not contain '..'")
+	}
+	cleaned := filepath.Clean(dir)
+	if !filepath.IsAbs(cleaned) {
+		cleaned = filepath.Join(os.TempDir(), cleaned)
+	}
+	if strings.Contains(cleaned, "..") {
+		return "", fmt.Errorf("intel pt output dir is invalid")
+	}
+	return cleaned, nil
 }
 
 func outputPath(dir string) string {

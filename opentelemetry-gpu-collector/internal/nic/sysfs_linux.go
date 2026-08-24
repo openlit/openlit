@@ -58,7 +58,7 @@ func readSysfsStat(ifname, name string) uint64 {
 	if err != nil {
 		return 0
 	}
-	v, err := strconv.ParseUint(strings.TrimSpace(string(raw)), 10, 64)
+	v, err := strconv.ParseUint(strings.TrimSpace(string(raw)), 10, 63)
 	if err != nil {
 		return 0
 	}

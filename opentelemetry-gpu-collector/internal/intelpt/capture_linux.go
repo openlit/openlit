@@ -42,6 +42,11 @@ func (c *linuxCapturer) Capture(opts Options) (Result, error) {
 	if !c.Available() {
 		return Result{}, ErrUnavailable
 	}
+	dir, err := SanitizeOutputDir(opts.OutputDir)
+	if err != nil {
+		return Result{}, err
+	}
+	opts.OutputDir = dir
 	if err := os.MkdirAll(opts.OutputDir, 0o755); err != nil {
 		return Result{}, err
 	}
@@ -58,6 +63,9 @@ func (c *linuxCapturer) Capture(opts Options) (Result, error) {
 	}
 
 	out := outputPath(opts.OutputDir)
+	if strings.Contains(out, "..") {
+		return Result{}, fmt.Errorf("intel pt output path is invalid")
+	}
 	cpuList := joinInts(cpus)
 	// Bounded on-demand capture via perf: idle cost is zero; AUX size capped by -m.
 	// -m sets mmap pages for AUX (powers of 2 preferred).
@@ -82,10 +90,10 @@ func (c *linuxCapturer) Capture(opts Options) (Result, error) {
 		return Result{}, fmt.Errorf("intel pt produced empty output")
 	}
 	c.logger.Info("intel pt capture complete",
-		"path", out,
-		"duration_ms", opts.DurationMS,
-		"cpus", cpuList,
-		"mmap_pages", mmapPages,
+		"path", sanitizeLog(out),
+		"duration_ms", sanitizeLog(strconv.FormatUint(opts.DurationMS, 10)),
+		"cpus", sanitizeLog(cpuList),
+		"mmap_pages", sanitizeLog(strconv.Itoa(mmapPages)),
 	)
 	return Result{
 		OutputPath: out,
@@ -98,12 +106,14 @@ func (c *linuxCapturer) Capture(opts Options) (Result, error) {
 func onlineCPUs(limit int) []int {
 	b, err := os.ReadFile("/sys/devices/system/cpu/online")
 	if err != nil {
-		n := limit
-		if n > 4 {
-			n = 4
+		const maxFallbackCPUs = 4
+		out := make([]int, maxFallbackCPUs)
+		n := maxFallbackCPUs
+		if limit > 0 && limit < maxFallbackCPUs {
+			n = limit
 		}
-		out := make([]int, n)
-		for i := range out {
+		out = out[:n]
+		for i := 0; i < n; i++ {
 			out[i] = i
 		}
 		return out
@@ -145,4 +155,9 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+func sanitizeLog(s string) string {
+	s = strings.ReplaceAll(s, "\n", "")
+	return strings.ReplaceAll(s, "\r", "")
 }

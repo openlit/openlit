@@ -4,16 +4,17 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 )
 
 // InterruptStat is one IRQ line from /proc/interrupts.
 type InterruptStat struct {
-	Name   string   // IRQ number or named interrupt (e.g. "NMI")
-	Info   string   // type/info field for numbered IRQs
-	Devices string  // device list
-	PerCPU []uint64 // counts per logical CPU
+	Name    string   // IRQ number or named interrupt (e.g. "NMI")
+	Info    string   // type/info field for numbered IRQs
+	Devices string   // device list
+	PerCPU  []uint64 // counts per logical CPU
 }
 
 // Total returns the sum of per-CPU counts.
@@ -69,7 +70,7 @@ func ParseInterrupts(r io.Reader) ([]InterruptStat, error) {
 			PerCPU: make([]uint64, cpuNum),
 		}
 		for i := 0; i < cpuNum; i++ {
-			v, err := strconv.ParseUint(parts[i], 10, 64)
+			v, err := strconv.ParseUint(parts[i], 10, 63)
 			if err != nil {
 				return nil, fmt.Errorf("interrupt %q cpu %d: %w", name, i, err)
 			}
@@ -91,4 +92,13 @@ func ParseInterrupts(r io.Reader) ([]InterruptStat, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// uint64ToInt64 converts v to int64 when it fits. OTel int64 instruments cannot
+// represent values above math.MaxInt64.
+func uint64ToInt64(v uint64) (int64, bool) {
+	if v > math.MaxInt64 {
+		return 0, false
+	}
+	return int64(v), true
 }

@@ -25,12 +25,12 @@ import (
 // following the OpenTelemetry semantic conventions for system metrics.
 // https://opentelemetry.io/docs/specs/semconv/system/system-metrics/
 type SystemCollector struct {
-	logger     *slog.Logger
-	fsExclude  map[string]bool // filesystem types excluded from system.filesystem.*
-	netAllow   map[string]bool // empty = all non-excluded
-	netExclude map[string]bool
+	logger      *slog.Logger
+	fsExclude   map[string]bool // filesystem types excluded from system.filesystem.*
+	netAllow    map[string]bool // empty = all non-excluded
+	netExclude  map[string]bool
 	skipNetwork bool // when NIC collector owns per-iface hw.network.*
-	reg        []metric.Registration
+	reg         []metric.Registration
 }
 
 // NewSystemCollector creates system-level metric instruments and registers callbacks.
@@ -434,18 +434,26 @@ func (sc *SystemCollector) collectPaging(_ context.Context, o metric.Observer,
 	// Faults / operations from /proc/vmstat when available (Linux).
 	// gopsutil SwapMemory multiplies these by page size; prefer raw counts.
 	if major, minor, pin, pout, ok := readPagingCounters(); ok {
-		o.ObserveInt64(faults, int64(major),
-			metric.WithAttributes(attribute.String("system.paging.fault.type", "major")),
-		)
-		o.ObserveInt64(faults, int64(minor),
-			metric.WithAttributes(attribute.String("system.paging.fault.type", "minor")),
-		)
-		o.ObserveInt64(ops, int64(pin),
-			metric.WithAttributes(attribute.String("system.paging.direction", "in")),
-		)
-		o.ObserveInt64(ops, int64(pout),
-			metric.WithAttributes(attribute.String("system.paging.direction", "out")),
-		)
+		if n, ok := uint64ToInt64(major); ok {
+			o.ObserveInt64(faults, n,
+				metric.WithAttributes(attribute.String("system.paging.fault.type", "major")),
+			)
+		}
+		if n, ok := uint64ToInt64(minor); ok {
+			o.ObserveInt64(faults, n,
+				metric.WithAttributes(attribute.String("system.paging.fault.type", "minor")),
+			)
+		}
+		if n, ok := uint64ToInt64(pin); ok {
+			o.ObserveInt64(ops, n,
+				metric.WithAttributes(attribute.String("system.paging.direction", "in")),
+			)
+		}
+		if n, ok := uint64ToInt64(pout); ok {
+			o.ObserveInt64(ops, n,
+				metric.WithAttributes(attribute.String("system.paging.direction", "out")),
+			)
+		}
 	}
 }
 

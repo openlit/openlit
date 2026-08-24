@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -159,11 +160,11 @@ func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 		intelPT = h.deps.IntelPT.Available()
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":           1,
-		"kineto":           h.deps.Kineto != nil,
-		"intel_pt":         intelPT,
-		"highres_cpu":      h.deps.HighResCPU != nil,
-		"dcgm_control":     h.deps.DCGMPause != nil,
+		"status":       1,
+		"kineto":       h.deps.Kineto != nil,
+		"intel_pt":     intelPT,
+		"highres_cpu":  h.deps.HighResCPU != nil,
+		"dcgm_control": h.deps.DCGMPause != nil,
 	})
 }
 
@@ -177,19 +178,19 @@ func (h *handler) version(w http.ResponseWriter, r *http.Request) {
 }
 
 type profileGPUBody struct {
-	PIDs             []int  `json:"pids"`
-	JobID            int64  `json:"job_id"`
+	PIDs             []int   `json:"pids"`
+	JobID            int64   `json:"job_id"`
 	DurationMS       *uint64 `json:"duration_ms"`
-	Iterations       *int64 `json:"iterations"`
-	IterationRoundup uint64 `json:"iteration_roundup"`
-	StartTimeMS      uint64 `json:"start_time_ms"`
-	LogFile          string `json:"log_file"`
-	ProcessLimit     int    `json:"process_limit"`
-	RecordShapes     bool   `json:"record_shapes"`
-	ProfileMemory    bool   `json:"profile_memory"`
-	WithStacks       bool   `json:"with_stacks"`
-	WithFlops        bool   `json:"with_flops"`
-	WithModules      bool   `json:"with_modules"`
+	Iterations       *int64  `json:"iterations"`
+	IterationRoundup uint64  `json:"iteration_roundup"`
+	StartTimeMS      uint64  `json:"start_time_ms"`
+	LogFile          string  `json:"log_file"`
+	ProcessLimit     int     `json:"process_limit"`
+	RecordShapes     bool    `json:"record_shapes"`
+	ProfileMemory    bool    `json:"profile_memory"`
+	WithStacks       bool    `json:"with_stacks"`
+	WithFlops        bool    `json:"with_flops"`
+	WithModules      bool    `json:"with_modules"`
 }
 
 func (h *handler) profileGPU(w http.ResponseWriter, r *http.Request) {
@@ -278,9 +279,9 @@ func (h *handler) profileGPU(w http.ResponseWriter, r *http.Request) {
 	}
 	h.recordProfile(profileType, result)
 	h.logger.Info("profile gpu request",
-		"matched", matched,
-		"paths", paths,
-		"job_id", body.JobID,
+		"matched", sanitizeLogInts(matched),
+		"paths", sanitizeLogStrings(paths),
+		"job_id", sanitizeLog(strconv.FormatInt(body.JobID, 10)),
 		"result", result,
 	)
 
@@ -350,10 +351,10 @@ func (h *handler) profileCPUPT(w http.ResponseWriter, r *http.Request) {
 	}
 	h.recordProfile("intel_pt", "ok")
 	writeJSON(w, http.StatusOK, map[string]any{
-		"output_path":  res.OutputPath,
-		"duration_ms":  res.DurationMS,
-		"cpus":         res.CPUs,
-		"backend":      res.Backend,
+		"output_path": res.OutputPath,
+		"duration_ms": res.DurationMS,
+		"cpus":        res.CPUs,
+		"backend":     res.Backend,
 	})
 }
 
@@ -448,4 +449,25 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func methodNotAllowed(w http.ResponseWriter) {
 	http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+}
+
+func sanitizeLog(s string) string {
+	s = strings.ReplaceAll(s, "\n", "")
+	return strings.ReplaceAll(s, "\r", "")
+}
+
+func sanitizeLogStrings(in []string) []string {
+	out := make([]string, len(in))
+	for i, s := range in {
+		out[i] = sanitizeLog(s)
+	}
+	return out
+}
+
+func sanitizeLogInts(in []int) []string {
+	out := make([]string, len(in))
+	for i, n := range in {
+		out[i] = sanitizeLog(strconv.Itoa(n))
+	}
+	return out
 }

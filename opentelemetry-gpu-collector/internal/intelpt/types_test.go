@@ -18,3 +18,27 @@ func TestClampOptions(t *testing.T) {
 		t.Fatalf("defaults: %+v", o)
 	}
 }
+
+func TestSanitizeOutputDir(t *testing.T) {
+	dir, err := SanitizeOutputDir("")
+	if err != nil || dir == "" {
+		t.Fatalf("empty dir: %q err=%v", dir, err)
+	}
+	got, err := SanitizeOutputDir("/tmp/intelpt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "/tmp/intelpt" {
+		t.Fatalf("got %q", got)
+	}
+	if _, err := SanitizeOutputDir("/tmp/foo/../etc"); err == nil {
+		t.Fatal("expected rejection of path containing '..'")
+	}
+	rel, err := SanitizeOutputDir("intelpt-out")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rel == "" || rel == "intelpt-out" {
+		t.Fatalf("relative path should be made absolute, got %q", rel)
+	}
+}

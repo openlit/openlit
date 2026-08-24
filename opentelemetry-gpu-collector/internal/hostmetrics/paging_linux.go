@@ -27,7 +27,7 @@ func readPagingCounters() (major, minor, pageIn, pageOut uint64, ok bool) {
 		if len(fields) < 2 {
 			continue
 		}
-		v, err := strconv.ParseUint(fields[1], 10, 64)
+		v, err := strconv.ParseUint(fields[1], 10, 63)
 		if err != nil {
 			continue
 		}

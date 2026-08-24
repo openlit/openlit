@@ -215,16 +215,17 @@ func cudartPIDs() []uint32 {
 		if !ent.IsDir() {
 			continue
 		}
-		pid, err := strconv.Atoi(ent.Name())
-		if err != nil || pid <= 0 {
+		u, err := strconv.ParseUint(ent.Name(), 10, 32)
+		if err != nil || u == 0 {
 			continue
 		}
+		pid := int(u)
 		if !isUserspacePID(pid) {
 			continue
 		}
 		hasCudart, _ := cudaMapsForPID(pid)
 		if hasCudart {
-			out = append(out, uint32(pid))
+			out = append(out, uint32(u))
 		}
 	}
 	return out
