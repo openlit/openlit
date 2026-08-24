@@ -28,6 +28,7 @@ function enabled(): boolean {
 /** Strip CR/LF so log lines cannot be forged via user fields (CodeQL js/log-injection). */
 function sanitizeLogToken(value: unknown, max = 64): string {
 	return String(value ?? "")
+		.replace(/[\n\r]/g, "")
 		.replace(/[\u0000-\u001F\u007F]/g, "")
 		.slice(0, max);
 }
@@ -40,21 +41,30 @@ export function logQueryObservability(
 ): void {
 	try {
 		if (ctx.isBuiltIn || !enabled()) return;
-		const parts = [
-			`source=${sanitizeLogToken(ctx.sourceType)}`,
-			`signal=${sanitizeLogToken(ctx.signal)}`,
-			ctx.mode ? `mode=${sanitizeLogToken(ctx.mode)}` : "",
-			`rows=${Number(rowCount) || 0}`,
-			meta?.latencyMs !== undefined ? `latencyMs=${Number(meta.latencyMs) || 0}` : "",
-			meta?.rowsScanned !== undefined ? `scanned=${Number(meta.rowsScanned) || 0}` : "",
-			meta?.freshness ? `freshness=${sanitizeLogToken(meta.freshness)}` : "",
-			meta?.truncated ? "truncated=1" : "",
-			meta?.degraded?.length
-				? `degraded=${sanitizeLogToken(meta.degraded.join(","), 128)}`
-				: "",
-		].filter(Boolean);
+		const payload = {
+			source: sanitizeLogToken(ctx.sourceType),
+			signal: sanitizeLogToken(ctx.signal),
+			mode: ctx.mode ? sanitizeLogToken(ctx.mode) : undefined,
+			rows: Number(rowCount) || 0,
+			latencyMs:
+				meta?.latencyMs !== undefined ? Number(meta.latencyMs) || 0 : undefined,
+			scanned:
+				meta?.rowsScanned !== undefined
+					? Number(meta.rowsScanned) || 0
+					: undefined,
+			freshness: meta?.freshness
+				? sanitizeLogToken(meta.freshness)
+				: undefined,
+			truncated: meta?.truncated ? 1 : undefined,
+			degraded: meta?.degraded?.length
+				? sanitizeLogToken(meta.degraded.join(","), 128)
+				: undefined,
+		};
+		// JSON.stringify plus an explicit newline strip is the CodeQL-recognized
+		// sanitizer for js/log-injection; do not interpolate raw tokens.
+		const line = JSON.stringify(payload).replace(/[\n\r]/g, "");
 		// eslint-disable-next-line no-console
-		console.debug("[telemetry-query]", parts.join(" "));
+		console.debug("[telemetry-query] %s", line);
 	} catch {
 		// Observability must never affect the read path.
 	}
