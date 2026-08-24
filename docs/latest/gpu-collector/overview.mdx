@@ -27,7 +27,7 @@ Resource identity models this process as a **GPU metrics agent** (host + acceler
     Per-process VRAM/util plus cmdline, OS state (zombie), owner, uptime, and LLM framework labels (`vllm`, `ollama`, …). Kubernetes pod name/namespace via PodResources
   </Card>
   <Card title="eBPF CUDA Tracing" icon="code">
-    Kernel launch counts, grid/block sizes, memory allocations, and memory copies via uprobes on libcudart (on by default on Linux; discovers libs from `/proc` with host PID — no CUDA mount)
+    Kernel launch counts, grid/block sizes, graph replays, memory allocations, and memory copies via uprobes on `libcudart.so` (runtime) and `libcuda.so` (driver) — covers llama.cpp/Ollama as well as PyTorch (on by default on Linux; discovers libs from `/proc` with host PID — no CUDA mount)
   </Card>
 </CardGroup>
 

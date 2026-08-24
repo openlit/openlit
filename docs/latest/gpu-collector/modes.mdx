@@ -93,7 +93,7 @@ export OTEL_GPU_COLLECTOR_MODE=light
 | NVLink / RDMA | Yes (mode-dependent) | — | — |
 | Multi-workload VRAM / util share | `process.gpu.*` | Per-PID artifacts | Request/tenant inside one process |
 | Kernel launches / splits (non-graph) | eBPF + `gpu.kernel.duration` | Timeline deep-dive | — |
-| CUDA graph breaks | Composite `cudaGraphLaunch` span (no per-node) | Strong timeline | Optional framework break reasons |
+| CUDA graph breaks | Composite `cudaGraphLaunch`/`cuGraphLaunch` span + `gpu.graph.launch.calls` (replays, not per-node kernels) | Strong timeline | Optional framework break reasons |
 | Input / tensor **shapes** | No | **Yes** (`record_shapes`) | Continuous request-level shapes |
 | FLOPs / stacks / modules / memory snapshot | No | **Yes** (profile flags) | Continuous budgets |
 | Dynamic batching queue wait vs exec | No | Weak / incidental | **Yes** (vLLM / Triton / SGLang) |

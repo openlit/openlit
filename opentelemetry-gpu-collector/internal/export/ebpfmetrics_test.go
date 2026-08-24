@@ -1,12 +1,73 @@
 package export
 
 import (
+	"context"
 	"testing"
+
+	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/cudaspans"
 	gpuebpf "github.com/openlit/openlit/opentelemetry-gpu-collector/internal/ebpf"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
 )
+
+func TestGraphLaunchDoesNotIncrementKernelCalls(t *testing.T) {
+	reader := metric.NewManualReader()
+	provider := metric.NewMeterProvider(metric.WithReader(reader))
+	defer func() { _ = provider.Shutdown(context.Background()) }()
+
+	em, err := NewEBPFMetrics(provider, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	kernel := &gpuebpf.KernelLaunchEvent{KernelName: "vector_add", GridX: 2, GridY: 1, GridZ: 1, BlockX: 32, BlockY: 1, BlockZ: 1}
+	kernel.PID = 42
+	kernel.TID = 43
+	em.HandleEvent(kernel)
+
+	graph := &gpuebpf.GraphLaunchEvent{}
+	graph.PID = 42
+	graph.TID = 43
+	em.HandleEvent(graph)
+
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &rm); err != nil {
+		t.Fatal(err)
+	}
+
+	kernelCalls := sumInt64Counter(t, rm, "gpu.kernel.launch.calls")
+	graphCalls := sumInt64Counter(t, rm, "gpu.graph.launch.calls")
+	if kernelCalls != 1 {
+		t.Fatalf("gpu.kernel.launch.calls = %d, want 1", kernelCalls)
+	}
+	if graphCalls != 1 {
+		t.Fatalf("gpu.graph.launch.calls = %d, want 1", graphCalls)
+	}
+}
+
+func sumInt64Counter(t *testing.T, rm metricdata.ResourceMetrics, name string) int64 {
+	t.Helper()
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != name {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			if !ok {
+				t.Fatalf("%s: unexpected data type %T", name, m.Data)
+			}
+			var total int64
+			for _, dp := range sum.DataPoints {
+				total += dp.Value
+			}
+			return total
+		}
+	}
+	t.Fatalf("metric %q not found", name)
+	return 0
+}
 
 func TestKernelMetricNameUsesStableFallback(t *testing.T) {
 	event := &gpuebpf.KernelLaunchEvent{KernelAddr: 0x7fff12345678}

@@ -41,6 +41,17 @@ func (f *SpanFanout) HandleEvent(ev gpuebpf.CUDAEvent) {
 			}
 		}
 
+	case *gpuebpf.GraphLaunchEvent:
+		if f.ebpf != nil {
+			f.ebpf.RecordGraphLaunch(ctx, e)
+		}
+		if f.occ != nil {
+			f.occ.HandleEvent(ev)
+			if f.ebpf != nil {
+				f.ebpf.RecordClosedSpans(ctx, f.occ.TakeClosedSpans())
+			}
+		}
+
 	case *gpuebpf.SyncEvent:
 		if f.occ != nil {
 			f.occ.HandleEvent(ev)

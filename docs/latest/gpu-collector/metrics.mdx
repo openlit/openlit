@@ -162,17 +162,18 @@ These attributes support views like zombie-process triage: filter `process.state
 
 ## eBPF CUDA Metrics
 
-Enable with `OTEL_GPU_EBPF_ENABLED` (on by default on Linux for `serving`+ / `all` modes; off in `light`). Soft-fails without caps. Discovers `libcudart.so*` from common install paths **and** from `/proc/*/maps` (with Docker `--pid=host` / Kubernetes `hostPID: true`), so fleet DaemonSets do not need a CUDA toolkit mount. Attaches uprobes/uretprobes for launches (`cudaLaunchKernel`, `cudaLaunchKernelExC`, cooperative, `cudaGraphLaunch`), alloc/free, memcpy, stream/device/event sync, and `cudaSetDevice`. Processes that map `libcuda` without `libcudart` also get driver hooks (`cuLaunchKernel` / sync / memcpy) to avoid double-counting runtime wrappers. AMD/Intel do not use this path — their per-process metrics come from DRM fdinfo.
+Enable with `OTEL_GPU_EBPF_ENABLED` (on by default on Linux for `serving`+ / `all` modes; off in `light`). Soft-fails without caps. Discovers `libcudart.so*` (CUDA runtime API) and `libcuda.so*` (CUDA driver API) from common install paths **and** from `/proc/*/maps` (with Docker `--pid=host` / Kubernetes `hostPID: true`), so fleet DaemonSets do not need a CUDA toolkit mount. Driver-API probes extend coverage to frameworks that never load `libcudart` (llama.cpp, Ollama). Attaches uprobes/uretprobes for launches (`cudaLaunchKernel`, `cudaLaunchKernelExC`, cooperative, `cuLaunchKernel`, `cuLaunchKernelEx`), graph replays (`cudaGraphLaunch`, `cuGraphLaunch`), alloc/free, memcpy, stream/device/event sync, and `cudaSetDevice`. PIDs that map `libcudart` skip driver launch/graph events so runtime wrappers are not double-counted. AMD/Intel do not use this path — their per-process metrics come from DRM fdinfo.
 
 ### Activity metrics
 
 | Metric | Type | Unit | Description | Attributes |
 |---|---|---|---|---|
-| `gpu.kernel.launch.calls` | Counter | `{call}` | CUDA kernel launch count | `process.pid`, `process.executable.name`, `cuda.kernel.name`, `hw.id` / `gpu.index` when known |
+| `gpu.kernel.launch.calls` | Counter | `{call}` | CUDA kernel launch count (runtime and driver APIs) | `process.pid`, `process.executable.name`, `cuda.kernel.name`, `hw.id` / `gpu.index` when known |
 | `gpu.kernel.grid.size` | Histogram | `{thread}` | Total threads in grid per launch | same |
 | `gpu.kernel.block.size` | Histogram | `{thread}` | Threads per block per launch | same |
 | `gpu.kernel.shared_memory` | Histogram | `By` | Dynamic shared memory per launch (`cudaLaunchKernel` sharedMem) | same |
 | `gpu.kernel.duration` | Histogram | `s` | Model estimate of launch→sync duration (shared store with occupancy; cardinality-capped names) | same + optional `cuda.launch.kind=graph` |
+| `gpu.graph.launch.calls` | Counter | `{call}` | CUDA graph **replay** invocations (`cudaGraphLaunch` / `cuGraphLaunch`). Counts replays, **not** the kernels executed inside each replay — that number is not observable at this API-tracing layer | `process.pid`, `process.executable.name`, `hw.id` / `gpu.index` when known |
 | `gpu.memory.allocations` | Counter | `By` | Bytes allocated via cudaMalloc | `process.pid`, `process.executable.name`, `hw.id` / `gpu.index` when known |
 | `gpu.memory.copies` | Histogram | `By` | Bytes per cudaMemcpyAsync | `process.pid`, `cuda.memcpy.kind`, `hw.id` / `gpu.index` when known |
 
@@ -191,7 +192,7 @@ These are **CPU-side model estimates**, not hardware SM occupancy (warps residen
 
 **Prefer** NVML `process.gpu.utilization` for sampled SM%. These estimates are **not** DCGM `hw.gpu.sm.utilization` / `hw.gpu.sm.occupancy`. Use them when NVML process util is unavailable or when correlating launch→sync activity with device util.
 
-**Known limits:** no GPU completion signal (late sync inflates usage); `cudaGraphLaunch` is one composite span (no per-node kernels); `cudaStreamWaitEvent` wait edges are not modeled; sync `cudaMemcpy` and default-stream sync are treated as device-wide (legacy default-stream semantics).
+**Known limits:** no GPU completion signal (late sync inflates usage); `cudaGraphLaunch` / `cuGraphLaunch` is one composite span and `gpu.graph.launch.calls` counts **replays, not kernels** (no per-node kernels inside a graph); `cudaStreamWaitEvent` wait edges are not modeled; sync `cudaMemcpy` and default-stream sync are treated as device-wide (legacy default-stream semantics).
 
 ---
 

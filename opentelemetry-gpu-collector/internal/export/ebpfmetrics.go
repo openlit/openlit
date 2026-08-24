@@ -30,6 +30,7 @@ type EBPFMetrics struct {
 	kernelBlockSize    metric.Float64Histogram
 	kernelSharedMemory metric.Float64Histogram
 	kernelDuration     metric.Float64Histogram
+	graphLaunchCalls   metric.Int64Counter
 	memoryAllocations  metric.Int64Counter
 	memoryCopies       metric.Float64Histogram
 
@@ -88,6 +89,14 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, devices *cudaspans.Device
 		return nil, fmt.Errorf("creating gpu.kernel.duration: %w", err)
 	}
 
+	graphCalls, err := meter.Int64Counter("gpu.graph.launch.calls",
+		metric.WithDescription("Number of CUDA graph replay invocations (cudaGraphLaunch/cuGraphLaunch). Counts replays, not the kernels executed inside each replay; that number is not observable at this API-tracing layer."),
+		metric.WithUnit("{call}"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating gpu.graph.launch.calls: %w", err)
+	}
+
 	memAlloc, err := meter.Int64Counter("gpu.memory.allocations",
 		metric.WithDescription("Total bytes allocated via cudaMalloc"),
 		metric.WithUnit("By"),
@@ -111,6 +120,7 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, devices *cudaspans.Device
 		kernelBlockSize:    blockSize,
 		kernelSharedMemory: sharedMem,
 		kernelDuration:     kernelDur,
+		graphLaunchCalls:   graphCalls,
 		memoryAllocations:  memAlloc,
 		memoryCopies:       memCopies,
 		devices:            devices,
@@ -270,9 +280,6 @@ func (em *EBPFMetrics) RecordClosedSpans(ctx context.Context, spans []cudaspans.
 func (em *EBPFMetrics) RecordLaunchActivity(ctx context.Context, e *gpuebpf.KernelLaunchEvent) {
 	kernelName := kernelMetricName(e)
 	extra := []attribute.KeyValue{attribute.String("cuda.kernel.name", kernelName)}
-	if e.LaunchKind == "graph" {
-		extra = append(extra, attribute.String("cuda.launch.kind", "graph"))
-	}
 	attrs := em.activityAttrs(e.PID, e.TID, extra...)
 
 	em.kernelLaunchCalls.Add(ctx, 1, attrs)
@@ -284,6 +291,10 @@ func (em *EBPFMetrics) RecordLaunchActivity(ctx context.Context, e *gpuebpf.Kern
 	em.kernelBlockSize.Record(ctx, blockTotal, attrs)
 
 	em.kernelSharedMemory.Record(ctx, float64(e.SharedMemBytes), attrs)
+}
+
+func (em *EBPFMetrics) RecordGraphLaunch(ctx context.Context, e *gpuebpf.GraphLaunchEvent) {
+	em.graphLaunchCalls.Add(ctx, 1, em.activityAttrs(e.PID, e.TID))
 }
 
 // HandleEvent processes activity-only events when used without SpanFanout.
@@ -299,6 +310,9 @@ func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 
 	case *gpuebpf.KernelLaunchEvent:
 		em.RecordLaunchActivity(ctx, e)
+
+	case *gpuebpf.GraphLaunchEvent:
+		em.RecordGraphLaunch(ctx, e)
 
 	case *gpuebpf.MallocEvent:
 		em.memoryAllocations.Add(ctx, int64(e.Size), em.activityAttrs(e.PID, e.TID))

@@ -24,8 +24,9 @@ import (
 // eBPF CUDA probes are NVIDIA/CUDA-only. AMD/Intel process GPU metrics use DRM
 // fdinfo/NVML alternatives and do not need libcudart.
 //
-// Driver API (libcuda) is attached separately via findDriverOnlyCudaLibs to avoid
-// double-counting processes that already load libcudart.
+// Driver API (libcuda) is attached separately via findCudaDriverLibs. Driver
+// launch/graph probes skip PIDs that map libcudart (see cudartPIDs) so runtime
+// wrappers are not double-counted.
 func findCudaLibs() []string {
 	seenPath := make(map[string]struct{})
 	seenInode := make(map[string]struct{})
@@ -69,10 +70,102 @@ func findCudaLibs() []string {
 	return out
 }
 
-// findDriverOnlyCudaLibs returns libcuda.so paths mapped by processes that do
-// not also map libcudart (driver-only workloads). Avoids double-counting when
-// runtime wrappers call into the driver.
-func findDriverOnlyCudaLibs() []string {
+// findCudaDriverLibs finds libcuda.so copies (driver API) to attach uprobes to.
+// Discovery order matches findCudaLibs: filesystem candidates/globs, then
+// /proc/*/maps, deduped by inode. Versioned names (libcuda.so.1, libcuda.so.550.*)
+// are included; libcudart is not.
+func findCudaDriverLibs() []string {
+	seenPath := make(map[string]struct{})
+	seenInode := make(map[string]struct{})
+	var out []string
+	add := func(path string) {
+		if path == "" {
+			return
+		}
+		fi, err := os.Stat(path)
+		if err != nil {
+			return
+		}
+		resolved := path
+		if !isProcMapFilesPath(path) {
+			if r, err := filepath.EvalSymlinks(path); err == nil {
+				resolved = r
+			}
+		}
+		if _, ok := seenPath[resolved]; ok {
+			return
+		}
+		if sys, ok := fi.Sys().(*syscall.Stat_t); ok {
+			key := inodeKey(sys.Dev, sys.Ino)
+			if _, ok := seenInode[key]; ok {
+				return
+			}
+			seenInode[key] = struct{}{}
+		}
+		seenPath[resolved] = struct{}{}
+		out = append(out, resolved)
+	}
+
+	for _, path := range findCudaDriverLibsFromFS() {
+		add(path)
+	}
+	for _, path := range findCudaDriverLibsFromProc() {
+		add(path)
+	}
+	return out
+}
+
+func findCudaDriverLibsFromFS() []string {
+	var out []string
+	add := func(path string) {
+		if path == "" {
+			return
+		}
+		if _, err := os.Stat(path); err == nil {
+			out = append(out, path)
+		}
+	}
+
+	candidates := []string{
+		"/usr/lib/x86_64-linux-gnu/libcuda.so",
+		"/usr/lib/aarch64-linux-gnu/libcuda.so",
+		"/usr/lib64/libcuda.so",
+		"/usr/lib/libcuda.so",
+		"/usr/lib/wsl/lib/libcuda.so",
+	}
+	if ldPath := os.Getenv("LD_LIBRARY_PATH"); ldPath != "" {
+		for _, dir := range strings.Split(ldPath, ":") {
+			candidates = append(candidates, filepath.Join(dir, "libcuda.so"))
+		}
+	}
+	for _, path := range candidates {
+		add(path)
+	}
+
+	globs := []string{
+		"/usr/lib/x86_64-linux-gnu/libcuda.so*",
+		"/usr/lib/aarch64-linux-gnu/libcuda.so*",
+		"/usr/lib64/libcuda.so*",
+		"/usr/lib/libcuda.so*",
+		"/usr/lib/wsl/lib/libcuda.so*",
+	}
+	for _, g := range globs {
+		matches, _ := filepath.Glob(g)
+		for _, m := range matches {
+			base := filepath.Base(m)
+			if !strings.Contains(base, ".so") || strings.HasSuffix(base, ".a") {
+				continue
+			}
+			if !isCudaDriverPath(m) {
+				continue
+			}
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func findCudaDriverLibsFromProc() []string {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil
@@ -90,10 +183,7 @@ func findDriverOnlyCudaLibs() []string {
 		if !isUserspacePID(pid) {
 			continue
 		}
-		hasCudart, drivers := cudaMapsForPID(pid)
-		if hasCudart {
-			continue
-		}
+		_, drivers := cudaMapsForPID(pid)
 		for _, path := range drivers {
 			fi, err := os.Stat(path)
 			if err != nil {
@@ -107,6 +197,34 @@ func findDriverOnlyCudaLibs() []string {
 				seenInode[key] = struct{}{}
 			}
 			out = append(out, path)
+		}
+	}
+	return out
+}
+
+// cudartPIDs returns userspace PIDs that currently map libcudart.so.
+// Used to skip driver launch/graph events for processes already traced via the
+// runtime API, so mixed nodes (vLLM + Ollama) are not double-counted.
+func cudartPIDs() []uint32 {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil
+	}
+	var out []uint32
+	for _, ent := range entries {
+		if !ent.IsDir() {
+			continue
+		}
+		pid, err := strconv.Atoi(ent.Name())
+		if err != nil || pid <= 0 {
+			continue
+		}
+		if !isUserspacePID(pid) {
+			continue
+		}
+		hasCudart, _ := cudaMapsForPID(pid)
+		if hasCudart {
+			out = append(out, uint32(pid))
 		}
 	}
 	return out

@@ -24,7 +24,7 @@ The collector is configured entirely via environment variables. All variables fo
 | `OTEL_SERVICE_NAME` | *(unset)* | Optional. Only set if your backend requires `service.name`. This agent is **not** an application service — product identity uses `telemetry.distro.name=opentelemetry-gpu-collector` and `telemetry.distro.version` |
 | `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Resource attributes (`key=val,...`). Prefer setting `host.name`, `k8s.*`, `cloud.provider`, `host.type`, `cloud.region` here — overrides auto-detect. Org tags such as `team` or `datacenter` are not auto-detected; set them here. |
 | `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds**. For self-hosted LLM hosts, `15000` is recommended |
-| `OTEL_GPU_EBPF_ENABLED` | mode-dependent (`true` on Linux for `serving`+) | eBPF CUDA activity tracing + stream-sync occupancy (Linux/NVIDIA only). Discovers `libcudart` via FS + `/proc` maps (fleet-friendly with host PID). Soft-fails without caps; set `false` to disable |
+| `OTEL_GPU_EBPF_ENABLED` | mode-dependent (`true` on Linux for `serving`+) | eBPF CUDA activity tracing + stream-sync occupancy (Linux/NVIDIA only). Discovers `libcudart` and `libcuda` via FS + `/proc` maps (fleet-friendly with host PID). Soft-fails without caps; set `false` to disable |
 | `OPENLIT_HOST_METRICS` | `true` | Collect system + collector-process host metrics. Set `false` for a GPU-only light footprint |
 | `OTEL_GPU_FS_TYPES_EXCLUDE` | `squashfs,erofs,iso9660,cramfs,romfs,cd9660,CDFS,UDF` | Filesystem types excluded from `system.filesystem.*` metrics (case-sensitive). Default skips image-based and optical filesystems that are 100% full by construction (e.g. snap mounts). Set to an empty string to report all types |
 | `OTEL_GPU_PROCESS_CMDLINE` | `true` | Export truncated `process.command_line` on GPU process metrics |
@@ -173,7 +173,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
 
 ### Disable eBPF CUDA tracing
 
-On Linux, eBPF CUDA tracing is **on by default**. It discovers `libcudart` from the filesystem and from `/proc/*/maps` (no CUDA volume mount required when Docker `--pid=host` / Kubernetes `hostPID: true` is set). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Containers typically also need `--ulimit memlock=-1:-1` so BPF maps can be created. Set `false` to skip:
+On Linux, eBPF CUDA tracing is **on by default**. It discovers `libcudart` and `libcuda` from the filesystem and from `/proc/*/maps` (no CUDA volume mount required when Docker `--pid=host` / Kubernetes `hostPID: true` is set). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Containers typically also need `--ulimit memlock=-1:-1` so BPF maps can be created. Set `false` to skip:
 
 ```bash
 OTEL_GPU_EBPF_ENABLED=false \

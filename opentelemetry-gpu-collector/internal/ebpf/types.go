@@ -9,6 +9,7 @@ const (
 	EventTypeSyncDevice   = 5
 	EventTypeSetDevice    = 6
 	EventTypeFree         = 7
+	EventTypeGraphLaunch  = 8
 )
 
 // CUDAEvent is the common interface for parsed ring buffer events.
@@ -18,10 +19,10 @@ type CUDAEvent interface {
 }
 
 type eventMeta struct {
-	PID      uint32
-	TID      uint32
-	StreamID uint64
-	KtimeNs  uint64
+	PID       uint32
+	TID       uint32
+	StreamID  uint64
+	KtimeNs   uint64
 	DeviceIdx uint16 // 0xffff = unknown
 }
 
@@ -36,10 +37,9 @@ type KernelLaunchEvent struct {
 	BlockZ         uint32
 	SharedMemBytes uint32
 	KernelName     string
-	LaunchKind     string // "kernel" (default) or "graph"
 }
 
-func (e *KernelLaunchEvent) EventType() uint8  { return EventTypeKernelLaunch }
+func (e *KernelLaunchEvent) EventType() uint8   { return EventTypeKernelLaunch }
 func (e *KernelLaunchEvent) ProcessPID() uint32 { return e.PID }
 
 type MallocEvent struct {
@@ -47,7 +47,7 @@ type MallocEvent struct {
 	Size uint64
 }
 
-func (e *MallocEvent) EventType() uint8  { return EventTypeMalloc }
+func (e *MallocEvent) EventType() uint8   { return EventTypeMalloc }
 func (e *MallocEvent) ProcessPID() uint32 { return e.PID }
 
 type MemcpyEvent struct {
@@ -56,7 +56,7 @@ type MemcpyEvent struct {
 	Kind uint8
 }
 
-func (e *MemcpyEvent) EventType() uint8  { return EventTypeMemcpy }
+func (e *MemcpyEvent) EventType() uint8   { return EventTypeMemcpy }
 func (e *MemcpyEvent) ProcessPID() uint32 { return e.PID }
 
 type SyncEvent struct {
@@ -77,15 +77,24 @@ type SetDeviceEvent struct {
 	Device int32
 }
 
-func (e *SetDeviceEvent) EventType() uint8  { return EventTypeSetDevice }
+func (e *SetDeviceEvent) EventType() uint8   { return EventTypeSetDevice }
 func (e *SetDeviceEvent) ProcessPID() uint32 { return e.PID }
 
 type FreeEvent struct {
 	eventMeta
 }
 
-func (e *FreeEvent) EventType() uint8  { return EventTypeFree }
+func (e *FreeEvent) EventType() uint8   { return EventTypeFree }
 func (e *FreeEvent) ProcessPID() uint32 { return e.PID }
+
+// GraphLaunchEvent is one CUDA graph replay (cudaGraphLaunch / cuGraphLaunch).
+// One call represents an unknown number of kernels; there is no grid/block data.
+type GraphLaunchEvent struct {
+	eventMeta
+}
+
+func (e *GraphLaunchEvent) EventType() uint8   { return EventTypeGraphLaunch }
+func (e *GraphLaunchEvent) ProcessPID() uint32 { return e.PID }
 
 // MemcpyKindString returns a human-readable string for cudaMemcpyKind.
 func MemcpyKindString(kind uint8) string {

@@ -72,6 +72,7 @@ DCP-only series always emit when DCGM is enabled. Overlapping series (`hw.gpu.io
 | `gpu.kernel.grid.size` / `block.size` | Histogram | `{thread}` | activity |
 | `gpu.kernel.shared_memory` | Histogram | `By` | activity |
 | `gpu.kernel.duration` | Histogram | `s` | launch→sync model; cardinality-capped `cuda.kernel.name` |
+| `gpu.graph.launch.calls` | Counter | `{call}` | graph **replay** invocations, not kernels inside the replay |
 | `gpu.memory.allocations` | Counter | `By` | activity |
 | `gpu.memory.copies` | Histogram | `By` | activity |
 | `process.gpu.core.usage` / `process.gpu.estimated.sm_active` | Gauge | `{cores}` / `1` | occupancy model (`gpu.measurement.source=ebpf_model`) |

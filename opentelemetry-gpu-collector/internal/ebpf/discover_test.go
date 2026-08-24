@@ -96,7 +96,12 @@ func TestIsCudartPath(t *testing.T) {
 }
 
 func TestIsCudaDriverPath(t *testing.T) {
-	yes := []string{"/usr/lib/libcuda.so.1", "/usr/lib64/libcuda.so"}
+	yes := []string{
+		"/usr/lib/libcuda.so.1",
+		"/usr/lib64/libcuda.so",
+		"/usr/lib/x86_64-linux-gnu/libcuda.so.550.90.07",
+		"/usr/lib/wsl/lib/libcuda.so.1",
+	}
 	no := []string{
 		"/usr/local/cuda/lib64/libcudart.so.12",
 		"/usr/lib/libcudart.so",

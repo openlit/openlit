@@ -77,6 +77,84 @@ func TestKernelDurationLaunchToSync(t *testing.T) {
 	}
 }
 
+func TestGraphDurationLaunchToSync(t *testing.T) {
+	fanout, reader, cleanup := newTestSpanFanout(t)
+	defer cleanup()
+
+	launch := &gpuebpf.GraphLaunchEvent{}
+	launch.PID = 10
+	launch.TID = 11
+	launch.StreamID = 7
+	launch.KtimeNs = 1_000_000_000
+	fanout.HandleEvent(launch)
+
+	sync := &gpuebpf.SyncEvent{}
+	sync.PID = 10
+	sync.TID = 11
+	sync.StreamID = 7
+	sync.KtimeNs = 1_500_000_000
+	fanout.HandleEvent(sync)
+
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &rm); err != nil {
+		t.Fatal(err)
+	}
+	foundDuration := false
+	foundGraphCalls := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			switch m.Name {
+			case "gpu.kernel.duration":
+				hist, ok := m.Data.(metricdata.Histogram[float64])
+				if !ok {
+					t.Fatalf("unexpected data type %T", m.Data)
+				}
+				for _, dp := range hist.DataPoints {
+					if dp.Count != 1 {
+						t.Fatalf("duration count = %d, want 1", dp.Count)
+					}
+					kind, _ := dp.Attributes.Value("cuda.launch.kind")
+					if kind.AsString() != "graph" {
+						t.Fatalf("cuda.launch.kind = %q, want graph", kind.AsString())
+					}
+					foundDuration = true
+				}
+			case "gpu.graph.launch.calls":
+				sum, ok := m.Data.(metricdata.Sum[int64])
+				if !ok {
+					t.Fatalf("unexpected data type %T", m.Data)
+				}
+				var total int64
+				for _, dp := range sum.DataPoints {
+					total += dp.Value
+				}
+				if total != 1 {
+					t.Fatalf("gpu.graph.launch.calls = %d, want 1", total)
+				}
+				foundGraphCalls = true
+			case "gpu.kernel.launch.calls":
+				sum, ok := m.Data.(metricdata.Sum[int64])
+				if !ok {
+					t.Fatalf("unexpected data type %T", m.Data)
+				}
+				var total int64
+				for _, dp := range sum.DataPoints {
+					total += dp.Value
+				}
+				if total != 0 {
+					t.Fatalf("gpu.kernel.launch.calls = %d, want 0", total)
+				}
+			}
+		}
+	}
+	if !foundDuration {
+		t.Fatal("gpu.kernel.duration not recorded for graph launch")
+	}
+	if !foundGraphCalls {
+		t.Fatal("gpu.graph.launch.calls not recorded")
+	}
+}
+
 func TestKernelDurationSkipsInvertedWindow(t *testing.T) {
 	fanout, reader, cleanup := newTestSpanFanout(t)
 	defer cleanup()
