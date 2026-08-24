@@ -12,7 +12,8 @@ import (
 type Tracer struct{}
 
 func NewTracer(_ *slog.Logger, _ EventHandler) (*Tracer, error) {
-	return nil, fmt.Errorf("eBPF CUDA tracing is not supported on %s/%s (supported: linux/amd64, linux/arm64)", runtime.GOOS, runtime.GOARCH)
+	return nil, fmt.Errorf("%w: eBPF CUDA tracing is not supported on %s/%s (supported: linux/amd64, linux/arm64)",
+		ErrUnsupported, runtime.GOOS, runtime.GOARCH)
 }
 
 func (t *Tracer) Run(_ context.Context) {}

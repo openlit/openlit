@@ -13,13 +13,14 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/cudaoccupancy"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/cudaspans"
 	gpuebpf "github.com/openlit/openlit/opentelemetry-gpu-collector/internal/ebpf"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/procname"
 	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/workload"
 )
 
-// OccupancyMetrics exports Datadog-parity stream-sync occupancy gauges.
+// OccupancyMetrics exports stream-sync occupancy gauges (launch→sync model).
 // These are model estimates (launch→sync), not hardware SM occupancy.
 type OccupancyMetrics struct {
 	logger *slog.Logger
@@ -36,6 +37,7 @@ type OccupancyMetrics struct {
 func NewOccupancyMetrics(
 	provider *sdkmetric.MeterProvider,
 	devices []gpu.Device,
+	resolver *cudaspans.DeviceResolver,
 	logger *slog.Logger,
 ) (*OccupancyMetrics, error) {
 	cores := make(map[string]uint64)
@@ -48,7 +50,10 @@ func NewOccupancyMetrics(
 			cores[info.UUID] = uint64(info.CoreCount)
 		}
 	}
-	engine := cudaoccupancy.NewEngine(cores)
+	if resolver == nil {
+		resolver = cudaspans.NewDeviceResolver(devices)
+	}
+	engine := cudaoccupancy.NewEngine(cores, resolver)
 	for _, d := range devices {
 		info := d.Info()
 		if info.Vendor == gpu.VendorNVIDIA {
@@ -74,28 +79,28 @@ func NewOccupancyMetrics(
 		return nil, fmt.Errorf("creating process.gpu.core.usage: %w", err)
 	}
 
-	procSMActive, err := meter.Float64ObservableGauge("process.gpu.sm_active",
+	procSMActive, err := meter.Float64ObservableGauge("process.gpu.estimated.sm_active",
 		metric.WithDescription("Model estimate: fraction of the interval with any launch→sync span for this process (0–1). Not hardware SM occupancy."),
 		metric.WithUnit("1"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("creating process.gpu.sm_active: %w", err)
+		return nil, fmt.Errorf("creating process.gpu.estimated.sm_active: %w", err)
 	}
 
-	coreLimit, err := meter.Float64ObservableGauge("gpu.core.limit",
+	coreLimit, err := meter.Float64ObservableGauge("hw.gpu.core.limit",
 		metric.WithDescription("NVML CUDA core count for the device"),
 		metric.WithUnit("{cores}"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("creating gpu.core.limit: %w", err)
+		return nil, fmt.Errorf("creating hw.gpu.core.limit: %w", err)
 	}
 
-	devSMActive, err := meter.Float64ObservableGauge("gpu.sm_active",
+	devSMActive, err := meter.Float64ObservableGauge("hw.gpu.estimated.sm_active",
 		metric.WithDescription("Model estimate: fraction of the interval with any launch→sync span on the device (0–1). Not hardware SM occupancy."),
 		metric.WithUnit("1"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("creating gpu.sm_active: %w", err)
+		return nil, fmt.Errorf("creating hw.gpu.estimated.sm_active: %w", err)
 	}
 
 	reg, err := meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
@@ -166,7 +171,9 @@ func splitKey(key string) (uuid, pid string, ok bool) {
 func occupancyProcessAttrs(pid uint32, uuid string, devices []gpu.Device) attribute.Set {
 	attrs := []attribute.KeyValue{
 		attribute.String("hw.id", uuid),
+		attribute.String("hw.type", "gpu"),
 		attribute.String("process.pid", strconv.FormatUint(uint64(pid), 10)),
+		attribute.String("gpu.measurement.source", "ebpf_model"),
 	}
 	// procname/workload APIs take int32; skip lookups for PIDs that would truncate.
 	if pid <= math.MaxInt32 {
@@ -192,7 +199,11 @@ func occupancyProcessAttrs(pid uint32, uuid string, devices []gpu.Device) attrib
 }
 
 func occupancyDeviceAttrs(uuid string, devices []gpu.Device) attribute.Set {
-	attrs := []attribute.KeyValue{attribute.String("hw.id", uuid)}
+	attrs := []attribute.KeyValue{
+		attribute.String("hw.id", uuid),
+		attribute.String("hw.type", "gpu"),
+		attribute.String("gpu.measurement.source", "ebpf_model"),
+	}
 	for _, d := range devices {
 		info := d.Info()
 		if info.UUID == uuid {
@@ -212,10 +223,22 @@ func occupancyDeviceAttrs(uuid string, devices []gpu.Device) attribute.Set {
 func (om *OccupancyMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 	switch e := ev.(type) {
 	case *gpuebpf.KernelLaunchEvent:
+		name := e.KernelName
+		if name == "" {
+			name = "unknown"
+		}
 		om.engine.HandleLaunch(cudaoccupancy.KernelLaunch{
 			PID: e.PID, TID: e.TID, StreamID: e.StreamID, KtimeNs: e.KtimeNs,
+			Name: name, Kind: cudaspans.LaunchKindKernel,
 			GridX: e.GridX, GridY: e.GridY, GridZ: e.GridZ,
 			BlockX: e.BlockX, BlockY: e.BlockY, BlockZ: e.BlockZ,
+		})
+	case *gpuebpf.GraphLaunchEvent:
+		om.engine.HandleLaunch(cudaoccupancy.KernelLaunch{
+			PID: e.PID, TID: e.TID, StreamID: e.StreamID, KtimeNs: e.KtimeNs,
+			Name: "graph", Kind: cudaspans.LaunchKindGraph,
+			GridX: 1, GridY: 1, GridZ: 1,
+			BlockX: 1, BlockY: 1, BlockZ: 1,
 		})
 	case *gpuebpf.SyncEvent:
 		om.engine.HandleSync(cudaoccupancy.SyncEvent{
@@ -231,9 +254,6 @@ func (om *OccupancyMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 		_ = e
 	}
 }
-
-// Engine exposes the underlying engine for tests.
-func (om *OccupancyMetrics) Engine() *cudaoccupancy.Engine { return om.engine }
 
 // Close unregisters callbacks.
 func (om *OccupancyMetrics) Close() {
