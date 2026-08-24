@@ -303,7 +303,7 @@ describe("Mem0 adapter", () => {
 });
 
 describe("Memcode adapter", () => {
-	it("describes ingest/search with a required user filter", () => {
+	it("describes list without a required user filter", () => {
 		const described = memcodeAdapterFactory.describe();
 		expect(described.type).toBe("memcode");
 		expect(described.capabilities).toEqual({
@@ -321,22 +321,22 @@ describe("Memcode adapter", () => {
 		expect(described.filterFields).toEqual([
 			expect.objectContaining({
 				key: "userId",
-				required: true,
+				required: false,
 				writeRequired: true,
 			}),
 		]);
 		expect(described.docsUrl).toBe("https://memcode.in/docs");
 	});
 
-	it("health-checks search with Bearer auth", async () => {
-		mockSafeFetch.mockResolvedValue({ status: "ok", data: { memory_results: [] } });
+	it("health-checks the v2 list route with Bearer auth", async () => {
+		mockSafeFetch.mockResolvedValue({ status: "ok", data: { items: [], total_memories: 0 } });
 		const adapter = new MemcodeAdapter(descriptor("memcode"));
 		await expect(adapter.healthCheck()).resolves.toEqual(
 			expect.objectContaining({ ok: true })
 		);
 		const [url, options] = mockSafeFetch.mock.calls[0];
-		expect(String(url)).toBe("https://memory.memcode.in/v2/memory/search");
-		expect(options.method).toBe("POST");
+		expect(String(url)).toBe("https://memory.memcode.in/v2/memory?limit=1&offset=0");
+		expect(options.method).toBe("GET");
 		expect(options.headers.Authorization).toBe("Bearer secret-key");
 	});
 
@@ -350,12 +350,16 @@ describe("Memcode adapter", () => {
 		);
 	});
 
-	it("requires a user id for search and list", async () => {
+	it("requires a user id for search but not list", async () => {
 		const adapter = new MemcodeAdapter(descriptor("memcode"));
 		await expect(adapter.search({ query: "berlin" })).rejects.toThrow(
 			/user|filter/i
 		);
-		await expect(adapter.list({})).rejects.toThrow(/user|filter/i);
+		mockSafeFetch.mockResolvedValue({
+			status: "ok",
+			data: { items: [], total_memories: 0, limit: 100, offset: 0, has_more: false },
+		});
+		await expect(adapter.list({})).resolves.toEqual([]);
 	});
 
 	it("searches v2 memory and maps domains onto records", async () => {
@@ -402,67 +406,81 @@ describe("Memcode adapter", () => {
 		);
 	});
 
-	it("lists by searching each memory domain for the user", async () => {
+	it("lists stored memories from GET /v2/memory without user_id", async () => {
 		mockSafeFetch.mockResolvedValue({
 			status: "ok",
 			data: {
-				memory_results: [
-					{ domain: "profile", content: "The user lives in Berlin.", score: 0.9 },
+				items: [
+					{
+						id: "mem_01K2",
+						domain: "profile",
+						content: "The user lives in Berlin.",
+						content_complete: true,
+						metadata: {},
+						created_at: "2026-08-17T09:30:04Z",
+						updated_at: "2026-08-17T09:30:04Z",
+					},
 				],
+				total_memories: 1,
+				limit: 100,
+				offset: 0,
+				has_more: false,
 			},
 		});
 		const adapter = new MemcodeAdapter(descriptor("memcode"));
-		const records = await adapter.list({ userId: "user_42", limit: 10 });
+		const records = await adapter.list({ limit: 10 });
 		expect(records).toEqual([
 			expect.objectContaining({
+				id: "mem_01K2",
 				content: "The user lives in Berlin.",
-				userId: "user_42",
+				categories: ["profile"],
+				createdAt: "2026-08-17T09:30:04Z",
+				updatedAt: "2026-08-17T09:30:04Z",
 			}),
 		]);
-		expect(mockSafeFetch).toHaveBeenCalledTimes(3);
-		expect(JSON.parse(mockSafeFetch.mock.calls[0][1].body)).toEqual(
-			expect.objectContaining({
-				user_id: "user_42",
-				domains: ["profile"],
-			})
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		const [url, options] = mockSafeFetch.mock.calls[0];
+		expect(String(url)).toBe(
+			"https://memory.memcode.in/v2/memory?limit=10&offset=0"
 		);
-		expect(JSON.parse(mockSafeFetch.mock.calls[0][1].body).query).not.toBe("*");
-		expect(JSON.parse(mockSafeFetch.mock.calls[1][1].body).domains).toEqual([
-			"temporal",
-		]);
-		expect(JSON.parse(mockSafeFetch.mock.calls[2][1].body).domains).toEqual([
-			"summary",
-		]);
+		expect(options.method).toBe("GET");
+		expect(options.body).toBeUndefined();
 	});
 
-	it("falls back to retrieve sources when search returns nothing", async () => {
-		mockSafeFetch.mockImplementation(async (url: string) => {
-			if (String(url).includes("/v2/memory/retrieve")) {
-				return {
-					status: "ok",
-					data: {
-						answer: "Schedule morning meetings.",
-						sources: [
-							{
-								domain: "profile",
-								content: "The user prefers morning meetings.",
-								score: 0.93,
-							},
-						],
-					},
-				};
-			}
-			return { status: "ok", data: { memory_results: [], original_chunks: [] } };
-		});
+	it("pages GET /v2/memory while has_more is true", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({
+				status: "ok",
+				data: {
+					items: [
+						{ id: "mem_1", domain: "profile", content: "Lives in Berlin." },
+					],
+					total_memories: 2,
+					limit: 1,
+					offset: 0,
+					has_more: true,
+				},
+			})
+			.mockResolvedValueOnce({
+				status: "ok",
+				data: {
+					items: [
+						{ id: "mem_2", domain: "temporal", content: "Prefers mornings." },
+					],
+					total_memories: 2,
+					limit: 1,
+					offset: 1,
+					has_more: false,
+				},
+			});
 		const adapter = new MemcodeAdapter(descriptor("memcode"));
-		await expect(adapter.list({ userId: "user_42" })).resolves.toEqual([
-			expect.objectContaining({
-				content: "The user prefers morning meetings.",
-				userId: "user_42",
-			}),
-		]);
-		expect(String(mockSafeFetch.mock.calls.at(-1)?.[0])).toBe(
-			"https://memory.memcode.in/v2/memory/retrieve"
+		const records = await adapter.list({ limit: 2 });
+		expect(records.map((record) => record.id)).toEqual(["mem_1", "mem_2"]);
+		expect(String(mockSafeFetch.mock.calls[0][0])).toBe(
+			"https://memory.memcode.in/v2/memory?limit=2&offset=0"
+		);
+		expect(String(mockSafeFetch.mock.calls[1][0])).toBe(
+			"https://memory.memcode.in/v2/memory?limit=1&offset=1"
 		);
 	});
 

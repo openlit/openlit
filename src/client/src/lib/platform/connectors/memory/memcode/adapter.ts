@@ -1,9 +1,10 @@
 /**
  * MemCode memory connector.
  *
- * Talks to Memory API v2 (`https://memory.memcode.in`): ingest, search, and
- * retrieve. Credentials stay on the connector (`enc:v1:`) and are sent as
- * `Authorization: Bearer <apiKey>`. Every route requires a stable `user_id`.
+ * Talks to Memory API v2 (`https://memory.memcode.in`): ingest, list, search,
+ * and retrieve. Credentials stay on the connector (`enc:v1:`) and are sent as
+ * `Authorization: Bearer <apiKey>`. The API key identifies the personal user,
+ * so list does not send `user_id`.
  *
  * @see https://memcode.in/docs
  */
@@ -29,20 +30,7 @@ import type {
 const DEFAULT_URL = "https://memory.memcode.in";
 const DOCS_URL = "https://memcode.in/docs";
 const MEMCODE_DOMAINS = ["profile", "temporal", "summary"] as const;
-const LIST_RECALLS = [
-	{
-		query: "Who is this user? What identity, preferences, and profile facts do you know?",
-		domains: ["profile"],
-	},
-	{
-		query: "What recent events, dates, and changes happened for this user?",
-		domains: ["temporal"],
-	},
-	{
-		query: "Summarize everything stored about this user.",
-		domains: ["summary"],
-	},
-] as const;
+const LIST_PAGE_MAX = 500;
 const POLL_DEADLINE_MS = 8_000;
 
 const MEMCODE_CAPABILITIES: MemoryCapabilities = {
@@ -142,6 +130,9 @@ function normalizeRecord(
 		stableId(domain, content, ctx.index || 0);
 	const categories = stringList(row.categories);
 	if (domain && !categories.includes(domain)) categories.unshift(domain);
+	if (row.content_complete === false) {
+		metadata.content_complete = false;
+	}
 	return {
 		id,
 		content,
@@ -175,6 +166,29 @@ function normalizeHits(raw: unknown, userId?: string): MemoryRecord[] {
 		records.push(record);
 	});
 	return records;
+}
+
+function listPageItems(data: Record<string, unknown>): unknown[] {
+	if (Array.isArray(data.items)) return data.items;
+	if (Array.isArray(data.memories)) return data.memories;
+	return [];
+}
+
+function normalizeListPage(
+	raw: unknown,
+	userId?: string
+): { records: MemoryRecord[]; hasMore: boolean; nextOffset: number } {
+	const data = unwrap(raw);
+	const items = listPageItems(data);
+	const records = items
+		.map((item, index) => normalizeRecord(item, { userId, index }))
+		.filter((record): record is MemoryRecord => !!record);
+	const offset = numberValue(data.offset) ?? 0;
+	const hasMore =
+		data.has_more === true ||
+		(typeof data.total_memories === "number" &&
+			offset + items.length < data.total_memories);
+	return { records, hasMore, nextOffset: offset + items.length };
 }
 
 function ingestPayload(input: MemoryWriteInput, userId: string) {
@@ -250,11 +264,7 @@ export class MemcodeAdapter extends BaseMemoryAdapter {
 	async healthCheck(): Promise<ConnectorHealthResult> {
 		const started = Date.now();
 		try {
-			await this.request("v2/memory/search", {
-				method: "POST",
-				body: { query: "health", user_id: "openlit-health" },
-				timeoutMs: 10_000,
-			});
+			await this.request("v2/memory?limit=1&offset=0", { timeoutMs: 10_000 });
 			return { ok: true, latencyMs: Date.now() - started };
 		} catch (error) {
 			const status = error instanceof SourceResponseError ? error.status : undefined;
@@ -339,29 +349,25 @@ export class MemcodeAdapter extends BaseMemoryAdapter {
 	}
 
 	async list(filter: MemoryListFilter): Promise<MemoryRecord[]> {
-		const userId = requireUserId(filter.userId);
-		const limit = Math.min(Math.max(filter.limit || 25, 1), 100);
-		const batches = await Promise.all(
-			LIST_RECALLS.map((recall) =>
-				this.searchMemories({
-					query: recall.query,
-					userId,
-					limit,
-					domains: [...recall.domains],
-				})
-			)
-		);
-		const seen = new Set<string>();
+		const wanted = Math.min(Math.max(filter.limit || 100, 1), LIST_PAGE_MAX);
 		const records: MemoryRecord[] = [];
-		for (const batch of batches) {
-			for (const record of batch) {
-				if (seen.has(record.id)) continue;
-				seen.add(record.id);
-				records.push(record);
-			}
+		let offset = 0;
+		while (records.length < wanted) {
+			const pageSize = Math.min(wanted - records.length, LIST_PAGE_MAX);
+			const params = new URLSearchParams({
+				limit: String(pageSize),
+				offset: String(offset),
+			});
+			const page = normalizeListPage(
+				await this.request(`v2/memory?${params.toString()}`),
+				filter.userId
+			);
+			records.push(...page.records);
+			if (!page.hasMore || page.records.length === 0) break;
+			if (page.nextOffset <= offset) break;
+			offset = page.nextOffset;
 		}
-		if (records.length) return records.slice(0, limit);
-		return this.retrieveSources(userId, limit);
+		return records.slice(0, wanted);
 	}
 
 	private async searchMemories(input: {
@@ -382,21 +388,6 @@ export class MemcodeAdapter extends BaseMemoryAdapter {
 			},
 		});
 		return normalizeHits(body, input.userId);
-	}
-
-	private async retrieveSources(
-		userId: string,
-		limit: number
-	): Promise<MemoryRecord[]> {
-		const body = await this.request("v2/memory/retrieve", {
-			method: "POST",
-			body: {
-				query: LIST_RECALLS[2].query,
-				user_id: userId,
-				top_k: Math.min(limit, 50),
-			},
-		});
-		return normalizeHits(body, userId).slice(0, limit);
 	}
 
 	private async pollIngest(
@@ -429,7 +420,7 @@ export const memcodeAdapterFactory = {
 		capabilities: { ...MEMCODE_CAPABILITIES },
 		configFields: memoryHttpVendorFields({ placeholder: DEFAULT_URL }),
 		filterFields: memoryPageFilters([
-			{ key: "userId", required: true, writeRequired: true },
+			{ key: "userId", required: false, writeRequired: true },
 		]),
 		authStyle: "api-key",
 		authHelp: getMessage().MEMORY_CONNECTOR_AUTH_HELP_MEMCODE,
