@@ -192,6 +192,11 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 	}
 
 	// NVML GetFanSpeed is percent (0–100), not RPM — omit FanSpeedRPM (AMD/Intel use hwmon RPM).
+	// Emit hw.fan.speed_ratio (OTel semconv) from the percentage.
+	if fan, ret := d.handle.GetFanSpeed(); ret == nvml.SUCCESS {
+		v := float64(fan) / 100.0
+		s.FanSpeedRatio = &v
+	}
 
 	if mem, ret := d.handle.GetMemoryInfo(); ret == nvml.SUCCESS {
 		total := int64(mem.Total)
@@ -200,6 +205,13 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 		s.MemoryTotalBytes = &total
 		s.MemoryUsedBytes = &used
 		s.MemoryFreeBytes = &free
+	}
+
+	if serial, ret := d.handle.GetSerial(); ret == nvml.SUCCESS && serial != "" {
+		s.SerialNumber = serial
+	}
+	if vbios, ret := d.handle.GetVbiosVersion(); ret == nvml.SUCCESS && vbios != "" {
+		s.FirmwareVersion = vbios
 	}
 
 	// NVML returns power in milliwatts
@@ -222,6 +234,11 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 	if clock, ret := d.handle.GetClockInfo(nvml.CLOCK_GRAPHICS); ret == nvml.SUCCESS {
 		v := float64(clock)
 		s.ClockGraphicsMHz = &v
+	}
+
+	if clock, ret := d.handle.GetClockInfo(nvml.CLOCK_SM); ret == nvml.SUCCESS {
+		v := float64(clock)
+		s.ClockSMMHz = &v
 	}
 
 	if clock, ret := d.handle.GetClockInfo(nvml.CLOCK_MEM); ret == nvml.SUCCESS {

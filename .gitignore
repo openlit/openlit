@@ -9,6 +9,11 @@ path/
 __pycache__/
 **bun.lockb
 logs/
+# Keep OpenLIT log-signal facade + API routes tracked (logs/ would ignore them).
+!src/client/src/lib/platform/logs/
+!src/client/src/lib/platform/logs/**
+!src/client/src/app/api/telemetry/logs/
+!src/client/src/app/api/telemetry/logs/**
 # Secrets / local env (never commit)
 .env
 **/.env
@@ -23,3 +28,4 @@ logs/
 **certs/index.txt
 **.csr
 sdk/typescript-test/
+tmp/

@@ -33,6 +33,12 @@ export interface CodingAgentAuth {
 	role: CodingAgentRole;
 	/** Underlying organisation_users.role; useful for finer-grained UI gating. */
 	rawRole: string;
+	/**
+	 * Env-routed ClickHouse id for coding-agents SQL. Set by API routes via
+	 * `resolveCodingAgentsDatabaseConfigId` so reads match traces/intelligence
+	 * signal routing instead of the session default DB.
+	 */
+	dbConfigId?: string;
 }
 
 export class CodingAgentUnauthorizedError extends Error {

@@ -12,6 +12,7 @@
 #define EVENT_GPU_SYNC_DEVICE   5
 #define EVENT_GPU_SET_DEVICE    6
 #define EVENT_GPU_FREE          7
+#define EVENT_GPU_GRAPH_LAUNCH  8
 
 #define CUDA_MEMCPY_HOST_TO_HOST     0
 #define CUDA_MEMCPY_HOST_TO_DEVICE   1
@@ -65,6 +66,10 @@ struct gpu_set_device_t {
     struct cuda_event_header_t hdr;
     __s32 device;
     __u32 pad;
+};
+
+struct gpu_graph_launch_t {
+    struct cuda_event_header_t hdr;
 };
 
 #endif /* __GPUEVENT_H__ */

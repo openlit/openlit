@@ -8,6 +8,7 @@ import { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import getMessage from "@/constants/messages";
 import {
 	Popover,
 	PopoverContent,
@@ -18,13 +19,16 @@ export function DatePickerWithRange({
 	className,
 	onCustomDateChange,
 	selectedDate,
+	maxRangeDays,
 }: React.HTMLAttributes<HTMLDivElement> & {
 	onCustomDateChange: (start: Date, end: Date) => void;
 	selectedDate?: {
 		start?: Date;
 		end?: Date;
 	};
+	maxRangeDays?: number;
 }) {
+	const m = getMessage();
 	const [date, setDate] = React.useState<DateRange | undefined>({
 		from: selectedDate?.start || addDays(new Date(), -15),
 		to: selectedDate?.end || new Date(),
@@ -68,9 +72,17 @@ export function DatePickerWithRange({
 					defaultMonth={date?.from}
 					selected={date}
 					onSelect={setDate}
+					max={maxRangeDays}
 					numberOfMonths={2}
 				/>
-				<div className="flex justify-end px-3 pb-3">
+				<div className="flex items-center justify-between gap-4 px-3 pb-3">
+					{maxRangeDays ? (
+						<p className="text-xs text-stone-500 dark:text-stone-400">
+							{m.DATA_SOURCE_MAX_TIME_RANGE_HINT(maxRangeDays)}
+						</p>
+					) : (
+						<span />
+					)}
 					<Button
 						className="w-20"
 						variant="default"

@@ -186,6 +186,9 @@ jobs:
     if: needs.prepare.outputs.tool == 'openlit'
     needs: [prepare, validate-source]
     uses: ./.github/workflows/ci-openlit.yml
+    permissions:
+      contents: read
+      pull-requests: write
     with:
       ref: ${{ needs.prepare.outputs.source_sha }}
 
@@ -397,6 +400,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      pull-requests: write
     with:
       tag: ${{ needs.prepare.outputs.tag }}
       release_sha: ${{ needs.bump.outputs.release_sha }}

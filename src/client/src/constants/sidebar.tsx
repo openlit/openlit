@@ -1,8 +1,10 @@
+import OpenTelemetrySvg from "@/components/svg/opentelemetry";
 import { getEnterpriseSidebarItems } from "@/features/sidebar";
 import getMessage from "@/constants/messages";
 import { SidebarItemProps } from "@/types/sidebar";
 import {
 	Activity,
+	Cable,
 	BookKey,
 	BookOpen,
 	BookText,
@@ -72,7 +74,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						link: "/costs",
 						type: "action",
 					},
-					...getEnterpriseSidebarItems("configuration", ICON_CLASSES),
+					{
+						icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
+						text: "Fleet Hub",
+						link: "/fleet-hub",
+						type: "action",
+					},
 				],
 			},
 			{
@@ -108,6 +115,18 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						link: "/openground",
 						type: "action",
 					},
+				],
+			},
+			{
+				title: "Configuration",
+				children: [
+					{
+						icon: <Cable className={ICON_CLASSES} />,
+						text: "Connectors",
+						link: "/connectors",
+						type: "action",
+					},
+					...getEnterpriseSidebarItems("configuration", ICON_CLASSES),
 				],
 			},
 		],

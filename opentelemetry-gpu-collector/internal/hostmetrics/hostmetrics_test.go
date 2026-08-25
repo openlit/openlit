@@ -8,6 +8,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/config"
 )
 
 func TestNewSystemCollectorInitializes(t *testing.T) {
@@ -65,15 +67,23 @@ func TestSystemCollectorInstrumentNames(t *testing.T) {
 
 	wantMetrics := []string{
 		"system.cpu.utilization",
+		"system.cpu.time",
 		"system.cpu.logical.count",
+		"system.cpu.physical.count",
+		"system.uptime",
 		"system.memory.usage",
 		"system.memory.utilization",
+		"system.paging.usage",
+		"system.paging.utilization",
 		"system.disk.io",
 		"system.disk.operations",
 		"system.filesystem.usage",
 		"system.filesystem.utilization",
 		"system.network.io",
 		"system.network.errors",
+		"system.network.packet.count",
+		"system.network.packet.dropped",
+		"system.process.count",
 	}
 	for _, name := range wantMetrics {
 		if !reported[name] {
@@ -83,8 +93,6 @@ func TestSystemCollectorInstrumentNames(t *testing.T) {
 }
 
 func TestSystemCollectorFSTypeExclude(t *testing.T) {
-	// reportedFSTypes collects the system.filesystem.type attribute values
-	// present in the system.filesystem.* metrics of a collection.
 	reportedFSTypes := func(rm *metricdata.ResourceMetrics) []string {
 		seen := map[string]bool{}
 		for _, sm := range rm.ScopeMetrics {
@@ -125,7 +133,7 @@ func TestSystemCollectorFSTypeExclude(t *testing.T) {
 		provider := metric.NewMeterProvider(metric.WithReader(reader))
 		defer provider.Shutdown(t.Context())
 
-		sc, err := NewSystemCollector(provider, slog.Default(), exclude)
+		sc, err := NewSystemCollector(provider, slog.Default(), &config.Config{FSTypesExclude: exclude})
 		if err != nil {
 			t.Fatalf("NewSystemCollector() error = %v", err)
 		}
@@ -138,23 +146,79 @@ func TestSystemCollectorFSTypeExclude(t *testing.T) {
 		return reportedFSTypes(&rm)
 	}
 
-	// With no exclusions, note which filesystem types this host reports.
 	all := collect(t, nil)
 	if len(all) == 0 {
 		t.Skip("host reports no system.filesystem.* metrics")
 	}
 	slices.Sort(all)
 
-	// Excluding every reported type must suppress all system.filesystem.* metrics.
 	if got := collect(t, all); len(got) != 0 {
 		t.Errorf("expected no filesystem types with all types excluded, got %v", got)
 	}
 
-	// Excluding an unknown type must not affect the reported set.
 	got := collect(t, []string{"no-such-fs"})
 	slices.Sort(got)
 	if !slices.Equal(got, all) {
 		t.Errorf("reported types changed by irrelevant exclusion: got %v, want %v", got, all)
+	}
+}
+
+func TestSystemCollectorNetInterfaceFilter(t *testing.T) {
+	collectIfaces := func(t *testing.T, cfg *config.Config) []string {
+		t.Helper()
+		reader := metric.NewManualReader()
+		provider := metric.NewMeterProvider(metric.WithReader(reader))
+		defer provider.Shutdown(t.Context())
+
+		sc, err := NewSystemCollector(provider, slog.Default(), cfg)
+		if err != nil {
+			t.Fatalf("NewSystemCollector() error = %v", err)
+		}
+		defer sc.Close()
+
+		var rm metricdata.ResourceMetrics
+		if err := reader.Collect(t.Context(), &rm); err != nil {
+			t.Fatalf("reader.Collect() error = %v", err)
+		}
+
+		seen := map[string]bool{}
+		for _, sm := range rm.ScopeMetrics {
+			for _, m := range sm.Metrics {
+				if m.Name != "system.network.io" {
+					continue
+				}
+				data, ok := m.Data.(metricdata.Sum[int64])
+				if !ok {
+					continue
+				}
+				for _, dp := range data.DataPoints {
+					if v, ok := dp.Attributes.Value(attribute.Key("network.interface.name")); ok {
+						seen[v.AsString()] = true
+					}
+				}
+			}
+		}
+		out := make([]string, 0, len(seen))
+		for n := range seen {
+			out = append(out, n)
+		}
+		slices.Sort(out)
+		return out
+	}
+
+	all := collectIfaces(t, &config.Config{})
+	if len(all) == 0 {
+		t.Skip("host reports no network interfaces")
+	}
+
+	excluded := collectIfaces(t, &config.Config{NetInterfaceExclude: all})
+	if len(excluded) != 0 {
+		t.Errorf("expected no interfaces when all excluded, got %v", excluded)
+	}
+
+	allow := collectIfaces(t, &config.Config{NetInterfaces: []string{all[0]}})
+	if !slices.Equal(allow, []string{all[0]}) {
+		t.Errorf("allow list = %v, want [%s]", allow, all[0])
 	}
 }
 
