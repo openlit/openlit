@@ -19,6 +19,18 @@ const AreaChartWidgetComponent: React.FC<AreaChartProps> = ({
 	widget,
 	data,
 }) => {
+	const updatedData = (data || []).map((item) => {
+		const next: Record<string, unknown> = {
+			...item,
+			[widget.properties.xAxis]: item[widget.properties.xAxis] ?? "",
+		};
+		for (const yAxis of widget.properties.yAxes || []) {
+			const n = Number(item[yAxis.key]);
+			next[yAxis.key] = Number.isFinite(n) ? n : 0;
+		}
+		return next;
+	});
+
 	return (
 		<div className="flex flex-col h-full">
 			<ResponsiveContainer width="100%" height="100%">
@@ -26,7 +38,7 @@ const AreaChartWidgetComponent: React.FC<AreaChartProps> = ({
 				<AreaChart
 					width={500}
 					height={400}
-					data={data || []}
+					data={updatedData}
 					margin={{
 						top: 10,
 						right: 30,
@@ -39,6 +51,8 @@ const AreaChartWidgetComponent: React.FC<AreaChartProps> = ({
 						dataKey={widget.properties.xAxis}
 						className="text-xs stroke-stone-300"
 						stroke="currentColor"
+						interval="preserveStartEnd"
+						minTickGap={24}
 					/>
 					<YAxis
 						className="text-xs stroke-stone-300"

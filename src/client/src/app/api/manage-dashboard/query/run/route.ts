@@ -1,24 +1,71 @@
+import { SERVER_EVENTS } from "@/constants/events";
+import getMessage from "@/constants/messages";
 import { requireRouteAccess } from "@/lib/access/route-access";
 import { runWidgetQuery } from "@/lib/platform/manage-dashboard/widget";
+import PostHogServer from "@/lib/posthog";
+import { getCurrentUser } from "@/lib/session";
 import asaw from "@/utils/asaw";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
-	const [permissionErr] = await asaw(
-		requireRouteAccess("dashboard.read")
-	);
+	const user = await getCurrentUser();
+	if (!user) return Response.json("Unauthorized", { status: 401 });
+
+	const [permissionErr] = await asaw(requireRouteAccess("dashboard.read"));
 	if (permissionErr) {
 		return Response.json({ err: String(permissionErr) }, { status: 403 });
 	}
 
-	const {
-		widgetId,
-		userQuery,
-		filter,
-	} = await request.json();
+	const messages = getMessage();
+	let body: {
+		widgetId?: string;
+		userQuery?: string;
+		filter?: unknown;
+		sourceId?: string | null;
+		signal?: string;
+		structuredQuery?: unknown;
+	};
+	try {
+		body = await request.json();
+	} catch {
+		return Response.json(
+			{ err: messages.MANAGE_MODELS_INVALID_JSON },
+			{ status: 400 }
+		);
+	}
+
+	const { widgetId, userQuery, filter, sourceId, signal, structuredQuery } = body;
+	if (!widgetId || typeof widgetId !== "string") {
+		return Response.json(
+			{ err: messages.WIDGET_FETCH_FAILED },
+			{ status: 400 }
+		);
+	}
+
+	const startTimestamp = Date.now();
+	const environment = request.headers?.get?.("x-openlit-environment") || undefined;
+	const routedFilter =
+		filter && typeof filter === "object"
+			? {
+					...(filter as Record<string, unknown>),
+					environment:
+						(filter as Record<string, unknown>).environment || environment,
+				}
+			: filter;
 	const res = await runWidgetQuery(widgetId, {
 		userQuery,
-		filter,
+		filter: routedFilter as Parameters<typeof runWidgetQuery>[1]["filter"],
+		sourceId,
+		signal: signal as Parameters<typeof runWidgetQuery>[1]["signal"],
+		structuredQuery: structuredQuery as Parameters<
+			typeof runWidgetQuery
+		>[1]["structuredQuery"],
+	});
+	PostHogServer.fireEvent({
+		event: res.err
+			? SERVER_EVENTS.DASHBOARD_QUERY_RUN_FAILURE
+			: SERVER_EVENTS.DASHBOARD_QUERY_RUN_SUCCESS,
+		startTimestamp,
 	});
 	return Response.json(res);
 }

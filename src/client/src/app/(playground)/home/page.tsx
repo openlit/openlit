@@ -15,12 +15,7 @@ import {
 	getProjectIsLoading,
 	getProjectList,
 } from "@/selectors/project";
-import {
-	getDatabaseConfigList,
-	getDatabaseConfigListIsLoading,
-} from "@/selectors/database-config";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
-import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
 import Loader from "@/components/common/loader";
 import { usePageHeader } from "@/selectors/page";
 import { usePostHog } from "posthog-js/react";
@@ -35,8 +30,7 @@ export default function DashboardPage() {
 	const projects = useRootStore(getProjectList);
 	const currentProject = useRootStore(getCurrentProject);
 	const isProjectLoading = useRootStore(getProjectIsLoading);
-	const databaseConfigs = useRootStore(getDatabaseConfigList);
-	const isDatabaseConfigLoading = useRootStore(getDatabaseConfigListIsLoading);
+	const [hasDbConfig, setHasDbConfig] = useState<boolean>();
 	const { fireRequest, isLoading } = useFetchWrapper();
 	const { fireRequest: fireRunQuery } = useFetchWrapper();
 	const [initialConfig, setInitialConfig] = useState<
@@ -47,16 +41,18 @@ export default function DashboardPage() {
 	const { setHeader } = usePageHeader();
 	const posthog = usePostHog();
 	const hasProject = Boolean(currentProject?.id && (projects?.length || 0) > 0);
-	const hasDbConfig = Boolean(databaseConfigs?.length);
 	const isSetupLoading =
 		isProjectLoading ||
-		isDatabaseConfigLoading ||
-		projects === undefined ||
-		(hasProject && databaseConfigs === undefined);
+		hasDbConfig === undefined ||
+		projects === undefined;
 
 	useEffect(() => {
 		if (currentProject?.id) {
-			fetchDatabaseConfigList(() => {});
+			setHasDbConfig(undefined);
+			fetch("/api/connectors")
+				.then((response) => response.ok ? response.json() : { connectors: [] })
+				.then((body) => setHasDbConfig((body.connectors || []).some((connector: { type?: string }) => connector.type === "clickhouse")))
+				.catch(() => setHasDbConfig(false));
 		}
 	}, [currentProject?.id]);
 

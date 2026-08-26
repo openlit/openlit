@@ -16,17 +16,18 @@ The collector monitors NVIDIA GPUs via [NVML](https://developer.nvidia.com/nvidi
 | Metric | Description |
 |---|---|
 | `hw.gpu.utilization` | Compute, encoder, and decoder utilization (0.0–1.0) via `hw.gpu.task` |
-| `hw.gpu.memory.utilization` | Memory controller utilization (0.0–1.0) |
+| `hw.gpu.memory.utilization` | Fraction of GPU memory used (usage / limit) |
+| `hw.gpu.memory.controller.utilization` | Memory controller busy fraction (extension) |
 | `hw.gpu.memory.limit` | Total VRAM (bytes) |
 | `hw.gpu.memory.usage` | Used VRAM (bytes) |
 | `hw.gpu.memory.free` | Free VRAM (bytes) |
-| `hw.gpu.temperature` | Die and memory temperature (°C) via `sensor` attribute |
-| `hw.gpu.fan_speed` | Fan speed (RPM) — not emitted; NVML reports percent only |
-| `hw.gpu.power.draw` | Current power draw (W) |
-| `hw.gpu.power.limit` | Power cap (W) |
-| `hw.gpu.energy.consumed` | Cumulative energy (J) |
-| `hw.gpu.clock.graphics` | Graphics/SM clock (MHz) |
-| `hw.gpu.clock.memory` | Memory clock (MHz) |
+| `hw.temperature` | Die and memory temperature (°C) via `hw.sensor_location` |
+| `hw.fan.speed_ratio` | Fan speed as fraction of max (NVML %; rpm not available) |
+| `hw.power` | Current power draw (W) |
+| `hw.power.limit` | Power cap (W) |
+| `hw.energy` | Cumulative energy (J) |
+| `hw.gpu.speed` | Clock frequency in Hz (`hw.gpu.clock_domain`=`graphics`/`sm`/`memory`) |
+| `hw.status` | Hardware status (`ok` / `degraded` / `failed`) |
 | `hw.errors` | ECC correctable/uncorrectable errors and PCIe replay errors |
 
 ## Docker

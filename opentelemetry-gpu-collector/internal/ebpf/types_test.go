@@ -12,6 +12,19 @@ func TestEventTypeConstants(t *testing.T) {
 	if EventTypeMemcpy != 3 {
 		t.Errorf("EventTypeMemcpy = %d, want 3", EventTypeMemcpy)
 	}
+	if EventTypeFree != 7 {
+		t.Errorf("EventTypeFree = %d, want 7", EventTypeFree)
+	}
+	if EventTypeGraphLaunch != 8 {
+		t.Errorf("EventTypeGraphLaunch = %d, want 8", EventTypeGraphLaunch)
+	}
+}
+
+func TestGraphLaunchEventType(t *testing.T) {
+	e := &GraphLaunchEvent{}
+	if e.EventType() != EventTypeGraphLaunch {
+		t.Errorf("GraphLaunchEvent.EventType() = %d, want %d", e.EventType(), EventTypeGraphLaunch)
+	}
 }
 
 func TestKernelLaunchEventType(t *testing.T) {
@@ -64,4 +77,5 @@ func TestCUDAEventInterface(t *testing.T) {
 	var _ CUDAEvent = (*SyncEvent)(nil)
 	var _ CUDAEvent = (*SetDeviceEvent)(nil)
 	var _ CUDAEvent = (*FreeEvent)(nil)
+	var _ CUDAEvent = (*GraphLaunchEvent)(nil)
 }

@@ -3,10 +3,14 @@ const mockGetVersion = jest.fn();
 const mockGetAgent = jest.fn();
 const mockLoggerError = jest.fn();
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: (...args: unknown[]) => mockDataCollector(...args),
-	OTEL_TRACES_TABLE_NAME: "otel_traces",
-}));
+jest.mock("@/lib/platform/common", () => {
+	const collector = (...args: unknown[]) => mockDataCollector(...args);
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+		OTEL_TRACES_TABLE_NAME: "otel_traces",
+	};
+});
 
 jest.mock("@/lib/platform/agents/cache", () => ({
 	POLICY_VERSIONS: { ttlMs: 1000, staleMs: 2000 },

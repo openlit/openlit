@@ -50,8 +50,22 @@ export async function GET(request: NextRequest) {
 		dbConfig.id
 	);
 
-	// Try to get table schema
-	const schemaQuery = `DESCRIBE TABLE ${OPENLIT_PROVIDER_MODELS_TABLE_NAME}`;
+	// Use a SELECT-based schema probe so the read stays inside OpenPlait's
+	// single-statement native-query safety policy.
+	const schemaQuery = `
+		SELECT
+			name,
+			type,
+			default_kind AS default_type,
+			default_expression,
+			comment,
+			compression_codec AS codec_expression,
+			ttl_expression
+		FROM system.columns
+		WHERE database = currentDatabase()
+			AND table = '${OPENLIT_PROVIDER_MODELS_TABLE_NAME}'
+		ORDER BY position
+	`;
 	const { data: schemaData, err: schemaErr } = await dataCollector(
 		{ query: schemaQuery },
 		"query",

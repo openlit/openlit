@@ -1,0 +1,138 @@
+name: CI / GPU Collector
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit SHA to validate
+        required: false
+        default: ''
+        type: string
+  push:
+    branches: ["main"]
+    paths:
+      - 'opentelemetry-gpu-collector/**'
+      - '.github/actions/setup-ebpf/**'
+      - '.github/workflows/ci-gpu-collector.yml'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'opentelemetry-gpu-collector/**'
+      - '.github/actions/setup-ebpf/**'
+      - '.github/workflows/ci-gpu-collector.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test-amd64:
+    name: Test / linux-amd64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: opentelemetry-gpu-collector/go.mod
+          cache-dependency-path: opentelemetry-gpu-collector/go.sum
+
+      - name: Set up eBPF toolchain
+        uses: ./.github/actions/setup-ebpf
+
+      - name: Generate eBPF objects
+        working-directory: opentelemetry-gpu-collector
+        run: make setup-bpf generate
+
+      - name: Run tests
+        working-directory: opentelemetry-gpu-collector
+        run: go test ./...
+
+      # Cross-compile matrix: confirm the collector builds for every supported
+      # GOOS/GOARCH after `make generate` has produced the per-arch eBPF
+      # bindings. CGO_ENABLED=0 keeps the cross-builds reproducible without
+      # installing arch-specific C toolchains; NVML/eBPF paths fall back to
+      # their build-tagged stubs on unsupported targets.
+      - name: Cross-compile linux/arm64 (eBPF path)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: arm64
+        run: go build ./...
+
+      - name: Cross-compile linux/riscv64 (stub fallback)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: riscv64
+        run: go build ./...
+
+      - name: Cross-compile linux/ppc64le (stub fallback)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: ppc64le
+        run: go build ./...
+
+      - name: Cross-compile darwin/amd64 (stub fallback)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: darwin
+          GOARCH: amd64
+        run: go build ./...
+
+      - name: Cross-compile darwin/arm64 (stub fallback)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: darwin
+          GOARCH: arm64
+        run: go build ./...
+
+      - name: Cross-compile windows/amd64 (GPU via NVML/DXGI/PDH, CGO=0)
+        working-directory: opentelemetry-gpu-collector
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+          GOARCH: amd64
+        run: go build ./...
+
+  # Native arm64 build. The above `Test` only cross-compiles arm64,
+  # so it never exercises arm64 eBPF generation: tracer.sh on an
+  # arm64 host dumps arm64 kernel BTF into vmlinux.h and compiles
+  # the BPF object against it. This job validates that path end to
+  # end on a native arm64 runner.
+  test-arm64:
+    name: Test / linux-arm64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: opentelemetry-gpu-collector/go.mod
+          cache-dependency-path: opentelemetry-gpu-collector/go.sum
+
+      - name: Set up eBPF toolchain
+        uses: ./.github/actions/setup-ebpf
+        with:
+          architecture: arm64
+
+      - name: Generate eBPF objects
+        working-directory: opentelemetry-gpu-collector
+        run: make setup-bpf generate
+
+      - name: Run tests
+        working-directory: opentelemetry-gpu-collector
+        run: go test ./...
+
+      - name: Build linux/arm64 (native eBPF path)
+        working-directory: opentelemetry-gpu-collector
+        run: go build ./...
