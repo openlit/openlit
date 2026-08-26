@@ -17,14 +17,18 @@
  */
 
 import {
-	dataCollector,
+	intelligenceDataCollector,
 	OTEL_TRACES_TABLE_NAME,
 } from "@/lib/platform/common";
 import { buildVersionWhereClause } from "./version-filter";
+import { deploymentEnvironmentSqlPredicate } from "./agent-key";
 import { agentsLogger } from "./logger";
 import type { VersionFilter } from "@/types/platform";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
-import { deploymentEnvironmentSqlPredicate } from "./index";
+import { resolveSignalReadContext } from "@/lib/platform/connectors/datasource/facade";
+import { buildAggregateDag } from "@/lib/platform/connectors/datasource/graph/aggregate-dag";
+import type { AggregateDag } from "@/lib/platform/connectors/datasource/graph/aggregate-dag";
+import type { OpenLITQuery } from "@/lib/platform/connectors/datasource/types";
 
 const escape = escapeClickHouseString;
 
@@ -71,9 +75,16 @@ export interface AggregateGraphParams {
 	dbConfigId?: string;
 	/** Cap aggregated traces. Higher = more accurate p50 but heavier query. */
 	maxTraces?: number;
+	/** Absolute window for external sampling (defaults to last 24h). */
+	timeRange?: { start: Date; end: Date };
 }
 
 const DEFAULT_MAX_TRACES = 500;
+/** External vendors download full OTLP per trace — keep this small. */
+const EXTERNAL_DEFAULT_MAX_TRACES = 30;
+const EXTERNAL_HARD_CAP = 40;
+/** Cap external DAG windows so version first→last doesn't scan months. */
+const EXTERNAL_MAX_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const HEALTHY_STATUS_VALUES = [
 	"STATUS_CODE_OK",
@@ -87,10 +98,151 @@ const HEALTHY_STATUS_VALUES = [
  * supplied the function falls back to a recent 24h window so the call-site
  * still has something to render.
  */
+/**
+ * Convert the vendor-agnostic `AggregateDag` (built in-process from sampled
+ * external traces) into the `AggregateGraph` shape the detail page renders.
+ * External trace backends lack ClickHouse's self-join, so we sample bounded
+ * full traces and reconstruct nodes/edges here (see `buildAggregateDag`).
+ */
+function dagToAggregateGraph(dag: AggregateDag): AggregateGraph {
+	const nodes: AggregateNode[] = dag.nodes.map((n) => ({
+		id: n.name,
+		spanName: n.name,
+		spanCount: n.count,
+		p50Ms: n.p50DurationMs,
+		errorRate: n.count ? n.errorCount / n.count : 0,
+		depth: 0,
+		kind: "span",
+	}));
+	const edges: AggregateEdge[] = dag.edges
+		.filter((e) => e.from !== e.to)
+		.map((e) => ({ from: e.from, to: e.to, count: e.count, p50Ms: 0, errorRate: 0 }));
+	assignDepths(nodes, edges);
+	const spanCount = nodes.reduce((s, n) => s + n.spanCount, 0);
+	return { nodes, edges, traceCount: dag.sampledTraces, spanCount };
+}
+
+/**
+ * External trace sources (Tempo, Jaeger, …) cannot express the ClickHouse
+ * self-join. When traces resolve to a non-built-in source, sample a bounded
+ * set of full traces via the adapter and reconstruct the DAG in-process.
+ * Returns `null` when the source is built-in (caller keeps the SQL path),
+ * when sampling fails, or when the sample is empty so the caller can fall
+ * back to ClickHouse (common when Tempo is bound but agent spans still live
+ * in the intelligence / vault ClickHouse).
+ */
+async function getExternalAggregateGraph(
+	params: AggregateGraphParams,
+	maxTraces: number
+): Promise<AggregateGraph | null> {
+	let adapter;
+	try {
+		const ctx = await resolveSignalReadContext("traces", {
+			environment: params.environment,
+		});
+		if (ctx.isBuiltIn) return null;
+		adapter = ctx.adapter;
+	} catch {
+		// Source resolution failed — keep the built-in ClickHouse SQL path.
+		return null;
+	}
+
+	let end =
+		params.timeRange?.end ||
+		(params.versionFilter?.lastSeen
+			? new Date(params.versionFilter.lastSeen)
+			: new Date());
+	let start =
+		params.timeRange?.start ||
+		(params.versionFilter?.firstSeen
+			? new Date(params.versionFilter.firstSeen)
+			: new Date(end.getTime() - EXTERNAL_MAX_WINDOW_MS));
+	if (end.getTime() - start.getTime() > EXTERNAL_MAX_WINDOW_MS) {
+		start = new Date(end.getTime() - EXTERNAL_MAX_WINDOW_MS);
+	}
+	const filters: OpenLITQuery["filters"] = [
+		{
+			target: "attribute",
+			scope: "resource",
+			key: "service.name",
+			op: "eq",
+			value: params.serviceName,
+		},
+	];
+	if (params.environment && params.environment !== "default") {
+		filters.push({
+			target: "attribute",
+			scope: "resource",
+			key: "deployment.environment",
+			op: "eq",
+			value: params.environment,
+		});
+	}
+	// Mirror ClickHouse hybrid version scoping: only require the stamped
+	// hash when the version is known to carry it. Otherwise the time window
+	// alone scopes the sample (historical / unstamped SDKs).
+	if (
+		params.versionFilter?.versionHash &&
+		params.versionFilter.hasAttributeSpans
+	) {
+		filters.push({
+			target: "attribute",
+			key: "openlit.agent.version_hash",
+			op: "eq",
+			value: params.versionFilter.versionHash,
+		});
+	}
+	const query: OpenLITQuery = {
+		signal: "traces",
+		timeRange: { start, end },
+		filters,
+		// Service is already pinned; the AI selector is optional enrichment
+		// and must not exclude non-heuristic agent spans for this surface.
+		aiSelector: false,
+	};
+	try {
+		const spans = await adapter.sampleTracesForGraph(query, maxTraces);
+		const graph = dagToAggregateGraph(buildAggregateDag(spans));
+		if (graph.traceCount === 0) return null;
+		return graph;
+	} catch (err) {
+		agentsLogger.error("aggregate_graph_external_failed", { err });
+		return null;
+	}
+}
+
+async function resolveAggregateGraphClickHouseId(
+	params: AggregateGraphParams
+): Promise<string | undefined> {
+	if (params.dbConfigId) return params.dbConfigId;
+	try {
+		const { resolveCodingAgentsClickHouseDbConfigId } = await import(
+			"@/lib/platform/coding-agents/source"
+		);
+		return (
+			(await resolveCodingAgentsClickHouseDbConfigId({
+				environment: params.environment,
+			})) ?? undefined
+		);
+	} catch {
+		return undefined;
+	}
+}
+
 export async function getAggregateGraph(
 	params: AggregateGraphParams
 ): Promise<AggregateGraph> {
+	// External path first with a tighter sample budget (full OTLP downloads).
+	const externalMax = Math.min(
+		params.maxTraces || EXTERNAL_DEFAULT_MAX_TRACES,
+		EXTERNAL_HARD_CAP
+	);
+	const external = await getExternalAggregateGraph(params, externalMax);
+	if (external) return external;
+
 	const maxTraces = Math.max(50, params.maxTraces || DEFAULT_MAX_TRACES);
+	const dbConfigId = await resolveAggregateGraphClickHouseId(params);
+
 	const envPredicate = deploymentEnvironmentSqlPredicate(
 		params.environment,
 		escape
@@ -204,10 +356,10 @@ export async function getAggregateGraph(
 		FROM sampled_traces
 	`;
 
-	const combinedRes = await dataCollector(
+	const combinedRes = await intelligenceDataCollector(
 		{ query: combinedQuery },
 		"query",
-		params.dbConfigId
+		dbConfigId
 	);
 	if (combinedRes.err) {
 		agentsLogger.error("aggregate_graph_query_failed", {

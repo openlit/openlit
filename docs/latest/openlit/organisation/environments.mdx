@@ -1,0 +1,79 @@
+---
+title: 'Environments'
+sidebarTitle: 'Environments'
+description: 'Project environments partition Database Configs, connectors, and signal routing — replacing a single global ClickHouse env-var connection'
+icon: 'layer-group'
+---
+
+An **environment** is a named partition inside a project (for example `production`, `staging`, or `development`). Database Configs, data-source connectors, and signal bindings are all scoped to an environment so you can point the same OpenLIT project at different backends without redeploying with new env vars.
+
+```text
+Organisation
+  └── Project
+        └── Environment  (production | staging | …)
+              ├── Database Config   (ClickHouse app store)
+              ├── Connectors        (Tempo, Loki, Prometheus, Jaeger, …)
+              └── Signal routing    (traces / logs / metrics bindings)
+```
+
+<Info>
+Day-2 connection changes happen in the UI under the selected environment — not by editing `INIT_DB_*` on the running container. See [Database Config](/latest/openlit/organisation/database-config).
+</Info>
+
+## Why environments exist
+
+| Before | After |
+| --- | --- |
+| One ClickHouse connection from deploy-time `INIT_DB_*` | Many Database Configs, each tagged with an **environment** |
+| Changing host meant redeploying OpenLIT | Edit or activate a Database Config for that environment |
+| Staging and production mixed in one connection | Switch environment in the header; routing and connectors follow |
+
+## Switch environment
+
+Use the **environment** control in the top navigation (next to organisation and project). Switching environment refreshes:
+
+- Available Database Configs for that environment  
+- Connectors created in that environment  
+- Signal bindings for traces, logs, and metrics  
+
+## Create or use an environment
+
+Environments are created when you add a Database Config or connector with a new environment name, or from project environment management in Organisation settings. Names must be lowercase letters, numbers, dots, hyphens, or underscores (for example `production`, `us-east.staging`).
+
+<Steps>
+  <Step title="Select project">
+    Choose the project in the header.
+  </Step>
+  <Step title="Pick or create environment">
+    Select an existing environment, or enter a new name when adding a Database Config / connector.
+  </Step>
+  <Step title="Attach resources">
+    Add a [Database Config](/latest/openlit/organisation/database-config) and optional [connectors](/latest/openlit/organisation/connectors) for that environment.
+  </Step>
+  <Step title="Bind signals">
+    Use [signal routing](/latest/openlit/organisation/signal-routing) so traces, logs, and metrics resolve to the right connector for this environment.
+  </Step>
+</Steps>
+
+## Relation to Database Config and connectors
+
+- **Database Config** — ClickHouse for this environment (app store + default telemetry). Seeded once from `INIT_DB_*`, then managed in the UI.  
+- **Connectors** — external backends (Tempo, Loki, Prometheus, Jaeger) also carry an environment.  
+- **Signal routing** — bindings are unique per **project + signal + environment**.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
+    Env vars → ClickHouse Database Config per environment.
+  </Card>
+  <Card title="Connectors" href="/latest/openlit/organisation/connectors" icon="plug">
+    Data-source connectors available in OpenLIT.
+  </Card>
+  <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
+    Bind traces, logs, and metrics per environment.
+  </Card>
+  <Card title="Projects" href="/latest/openlit/organisation/projects" icon="folder">
+    Project boundaries that own environments.
+  </Card>
+</CardGroup>

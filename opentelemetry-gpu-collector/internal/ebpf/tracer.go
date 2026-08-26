@@ -22,7 +22,7 @@ import (
 
 //go:generate ./tracer.sh
 
-// Tracer manages eBPF programs for CUDA runtime interception.
+// Tracer manages eBPF programs for CUDA runtime and driver API interception.
 type Tracer struct {
 	logger  *slog.Logger
 	objs    *gpueventObjects
@@ -35,12 +35,14 @@ type Tracer struct {
 	wg      sync.WaitGroup
 	dropped atomic.Uint64
 
-	mu            sync.Mutex
-	attachedInode map[string]struct{} // successfully attached, or permanently skipped
-	uprobes       map[string]*ebpf.Program
-	uretprobes    map[string]*ebpf.Program
-	stop          chan struct{}
-	runStarted    bool
+	mu               sync.Mutex
+	attachedInode    map[string]struct{} // successfully attached, or permanently skipped
+	uprobes          map[string]*ebpf.Program
+	uretprobes       map[string]*ebpf.Program
+	driverUprobes    map[string]*ebpf.Program
+	driverUretprobes map[string]*ebpf.Program
+	stop             chan struct{}
+	runStarted       bool
 }
 
 // NewTracer loads eBPF programs and attaches uprobes to CUDA libraries.
@@ -63,7 +65,7 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 
 	objs := new(gpueventObjects)
 	if err := spec.LoadAndAssign(objs, &ebpf.CollectionOptions{}); err != nil {
-		return nil, fmt.Errorf("loading eBPF objects: %w", err)
+		return nil, fmt.Errorf("%w: loading eBPF objects: %v", ErrUnsupported, err)
 	}
 
 	t := &Tracer{
@@ -74,13 +76,18 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 		attachedInode: make(map[string]struct{}),
 		stop:          make(chan struct{}),
 		uprobes: map[string]*ebpf.Program{
-			"cudaLaunchKernel":      objs.HandleCudaLaunch,
-			"__cudaGetKernel":       objs.HandleCudaGetKernelEnter,
-			"cudaMalloc":            objs.HandleCudaMallocEnter,
-			"cudaFree":              objs.HandleCudaFree,
-			"cudaMemcpyAsync":       objs.HandleCudaMemcpyAsync,
-			"cudaStreamSynchronize": objs.HandleCudaStreamSyncEnter,
-			"cudaSetDevice":         objs.HandleCudaSetDeviceEnter,
+			"cudaLaunchKernel":            objs.HandleCudaLaunch,
+			"cudaLaunchCooperativeKernel": objs.HandleCudaLaunch,
+			"cudaLaunchKernelExC":         objs.HandleCudaLaunchExc,
+			"cudaGraphLaunch":             objs.HandleCudaGraphLaunch,
+			"__cudaGetKernel":             objs.HandleCudaGetKernelEnter,
+			"cudaMalloc":                  objs.HandleCudaMallocEnter,
+			"cudaFree":                    objs.HandleCudaFree,
+			"cudaMemcpyAsync":             objs.HandleCudaMemcpyAsync,
+			"cudaStreamSynchronize":       objs.HandleCudaStreamSyncEnter,
+			"cudaEventRecord":             objs.HandleCudaEventRecordEnter,
+			"cudaEventSynchronize":        objs.HandleCudaEventSyncEnter,
+			"cudaSetDevice":               objs.HandleCudaSetDeviceEnter,
 		},
 		uretprobes: map[string]*ebpf.Program{
 			"__cudaGetKernel":       objs.HandleCudaGetKernelExit,
@@ -88,13 +95,39 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 			"cudaMemcpy":            objs.HandleCudaMemcpy,
 			"cudaStreamSynchronize": objs.HandleCudaStreamSync,
 			"cudaDeviceSynchronize": objs.HandleCudaDeviceSync,
+			"cudaEventRecord":       objs.HandleCudaEventRecordExit,
+			"cudaEventSynchronize":  objs.HandleCudaEventSyncExit,
 			"cudaSetDevice":         objs.HandleCudaSetDevice,
+		},
+		driverUprobes: map[string]*ebpf.Program{
+			"cuLaunchKernel":        objs.HandleCuLaunchKernel,
+			"cuLaunchKernel_ptsz":   objs.HandleCuLaunchKernel,
+			"cuLaunchKernelEx":      objs.HandleCuLaunchKernelEx,
+			"cuLaunchKernelEx_ptsz": objs.HandleCuLaunchKernelEx,
+			"cuGraphLaunch":         objs.HandleCuGraphLaunch,
+			"cuGraphLaunch_ptsz":    objs.HandleCuGraphLaunch,
+			"cuModuleGetFunction":   objs.HandleCuModuleGetFunctionEnter,
+			"cuStreamSynchronize":   objs.HandleCudaStreamSyncEnter,
+		},
+		driverUretprobes: map[string]*ebpf.Program{
+			"cuLaunchKernel":        objs.HandleCuLaunchKernelExit,
+			"cuLaunchKernel_ptsz":   objs.HandleCuLaunchKernelExit,
+			"cuLaunchKernelEx":      objs.HandleCuLaunchKernelExExit,
+			"cuLaunchKernelEx_ptsz": objs.HandleCuLaunchKernelExExit,
+			"cuGraphLaunch":         objs.HandleCuGraphLaunchExit,
+			"cuGraphLaunch_ptsz":    objs.HandleCuGraphLaunchExit,
+			"cuModuleGetFunction":   objs.HandleCuModuleGetFunctionExit,
+			"cuStreamSynchronize":   objs.HandleCudaStreamSync,
+			"cuCtxSynchronize":      objs.HandleCudaDeviceSync,
+			"cuMemcpyDtoH":          objs.HandleCudaMemcpy,
+			"cuMemcpyHtoD":          objs.HandleCudaMemcpy,
+			"cuMemcpyDtoD":          objs.HandleCudaMemcpy,
 		},
 	}
 
 	n := t.attachNewCudaLibs()
 	if n == 0 {
-		logger.Info("no CUDA runtime found yet; rescanning /proc for libcudart (Docker --pid=host / Kubernetes hostPID recommended)")
+		logger.Info("no CUDA runtime or driver library found yet; rescanning /proc for libcudart and libcuda (Docker --pid=host / Kubernetes hostPID recommended)")
 	}
 
 	t.reader, err = ringbuf.NewReader(objs.GpuEvents)
@@ -104,29 +137,60 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 		close(t.stop)
 		objs.Close()
 		t.objs = nil
-		return nil, fmt.Errorf("creating ring buffer reader: %w", err)
+		return nil, fmt.Errorf("%w: creating ring buffer reader: %v", ErrUnsupported, err)
 	}
 
 	return t, nil
 }
 
-// attachNewCudaLibs discovers libcudart copies and attaches probes to new inodes.
+// attachNewCudaLibs discovers libcudart and libcuda and attaches probes.
 // Returns the number of libraries newly attached.
 func (t *Tracer) attachNewCudaLibs() int {
 	if t.closed.Load() {
 		return 0
 	}
-	libs := findCudaLibs()
 	attached := 0
-	for _, cudaLib := range libs {
-		if t.attachCudaLib(cudaLib) {
+	for _, cudaLib := range findCudaLibs() {
+		if t.attachCudaLib(cudaLib, t.uprobes, t.uretprobes) {
 			attached++
 		}
 	}
+	for _, cudaLib := range findCudaDriverLibs() {
+		if t.attachCudaLib(cudaLib, t.driverUprobes, t.driverUretprobes) {
+			attached++
+		}
+	}
+	t.refreshCudartPIDs()
 	return attached
 }
 
-func (t *Tracer) attachCudaLib(cudaLib string) bool {
+func (t *Tracer) refreshCudartPIDs() {
+	if t.objs == nil || t.objs.CudartPids == nil {
+		return
+	}
+	want := make(map[uint32]struct{})
+	one := uint8(1)
+	for _, pid := range cudartPIDs() {
+		want[pid] = struct{}{}
+		p := pid
+		_ = t.objs.CudartPids.Put(&p, &one)
+	}
+	var stale []uint32
+	var key uint32
+	var val uint8
+	iter := t.objs.CudartPids.Iterate()
+	for iter.Next(&key, &val) {
+		if _, ok := want[key]; !ok {
+			stale = append(stale, key)
+		}
+	}
+	for _, pid := range stale {
+		p := pid
+		_ = t.objs.CudartPids.Delete(&p)
+	}
+}
+
+func (t *Tracer) attachCudaLib(cudaLib string, uprobes, uretprobes map[string]*ebpf.Program) bool {
 	if t.closed.Load() {
 		return false
 	}
@@ -165,7 +229,7 @@ func (t *Tracer) attachCudaLib(cudaLib string) bool {
 	}
 
 	var newLinks []link.Link
-	for sym, prog := range t.uprobes {
+	for sym, prog := range uprobes {
 		if prog == nil {
 			continue
 		}
@@ -177,7 +241,7 @@ func (t *Tracer) attachCudaLib(cudaLib string) bool {
 		newLinks = append(newLinks, l)
 		t.logger.Info("attached uprobe", "symbol", sym, "path", cudaLib)
 	}
-	for sym, prog := range t.uretprobes {
+	for sym, prog := range uretprobes {
 		if prog == nil {
 			continue
 		}
@@ -244,8 +308,8 @@ func (t *Tracer) Run(ctx context.Context) {
 
 	go func() {
 		defer t.wg.Done()
-		// Fast while waiting for the first libcudart; back off once attached so
-		// steady-state /proc scans stay cheap on busy nodes.
+		// Fast while waiting for the first libcudart/libcuda; back off once
+		// attached so steady-state /proc scans stay cheap on busy nodes.
 		interval := 30 * time.Second
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -311,6 +375,8 @@ func (t *Tracer) processRecord(data []byte) {
 		t.processSync(data, eventType == EventTypeSyncDevice)
 	case EventTypeSetDevice:
 		t.processSetDevice(data)
+	case EventTypeGraphLaunch:
+		t.processGraphLaunch(data)
 	default:
 		t.logger.Debug("unknown GPU event type", "type", eventType)
 	}
@@ -348,8 +414,44 @@ func (t *Tracer) processKernelLaunch(data []byte) {
 	ev.BlockY = binary.LittleEndian.Uint32(data[56:60])
 	ev.BlockZ = binary.LittleEndian.Uint32(data[60:64])
 	ev.SharedMemBytes = binary.LittleEndian.Uint32(data[64:68])
-	ev.KernelName = t.symbols.Resolve(ev.PID, ev.KernelAddr)
+	ev.KernelName = t.resolveDriverKernelName(ev.PID, ev.KernelAddr)
+	if ev.KernelName == "" {
+		ev.KernelName = t.symbols.Resolve(ev.PID, ev.KernelAddr)
+	}
 	t.handler(ev)
+}
+
+func (t *Tracer) resolveDriverKernelName(pid uint32, handle uint64) string {
+	if t.objs == nil || t.objs.CuFuncNames == nil || handle == 0 {
+		return ""
+	}
+	key := struct {
+		Pid    uint32
+		Pad    uint32
+		Handle uint64
+	}{Pid: pid, Handle: handle}
+	var name struct {
+		Name [64]byte
+	}
+	if err := t.objs.CuFuncNames.Lookup(&key, &name); err != nil {
+		return ""
+	}
+	n := 0
+	for n < len(name.Name) && name.Name[n] != 0 {
+		n++
+	}
+	if n == 0 {
+		return ""
+	}
+	return string(name.Name[:n])
+}
+
+func (t *Tracer) processGraphLaunch(data []byte) {
+	meta, ok := parseHeader(data)
+	if !ok {
+		return
+	}
+	t.handler(&GraphLaunchEvent{eventMeta: meta})
 }
 
 func (t *Tracer) processMalloc(data []byte, typ uint8) {

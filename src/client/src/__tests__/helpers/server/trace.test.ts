@@ -67,4 +67,26 @@ describe('buildHierarchy', () => {
     const result = buildHierarchy(data) as any;
     expect(result.SpanId).toBe('root');
   });
+
+  it('promotes orphan tops when the true root is missing', () => {
+    const data = [
+      { SpanId: 'a', ParentSpanId: 'missing', Timestamp: '2026-01-01T00:00:02.000Z' },
+      { SpanId: 'b', ParentSpanId: 'missing', Timestamp: '2026-01-01T00:00:01.000Z' },
+      { SpanId: 'c', ParentSpanId: 'a', Timestamp: '2026-01-01T00:00:03.000Z' },
+    ];
+    const result = buildHierarchy(data) as any;
+    expect(result.SpanId).toBe('b');
+    expect(result.children.map((child: any) => child.SpanId)).toEqual(['a']);
+    expect(result.children[0].children.map((child: any) => child.SpanId)).toEqual(['c']);
+  });
+
+  it('treats all-zero parent ids as roots', () => {
+    const data = [
+      { SpanId: 'root', ParentSpanId: '0000000000000000' },
+      { SpanId: 'child', ParentSpanId: 'root' },
+    ];
+    const result = buildHierarchy(data) as any;
+    expect(result.SpanId).toBe('root');
+    expect(result.children).toHaveLength(1);
+  });
 });
