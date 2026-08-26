@@ -20,12 +20,20 @@
     "@ai-sdk/mistral": "^3.0.4",
     "@ai-sdk/openai": "^3.0.4",
     "@anthropic-ai/sdk": "^0.21.1",
-    "@clickhouse/client": "^1.1.0",
+    "@clickhouse/client": "^1.23.1",
     "@dhmk/zustand-lens": "^4.0.0",
     "@kubernetes/client-node": "^1.4.0",
     "@mistralai/mistralai": "^0.4.0",
     "@monaco-editor/react": "^4.7.0",
     "@next-auth/prisma-adapter": "^1.0.7",
+    "@openplait/adapter-clickhouse": "1.0.0",
+    "@openplait/adapter-jaeger": "1.0.0",
+    "@openplait/adapter-loki": "1.0.0",
+    "@openplait/adapter-prometheus": "1.0.0",
+    "@openplait/adapter-sdk": "1.0.0",
+    "@openplait/adapter-tempo": "1.0.0",
+    "@openplait/core": "1.0.0",
+    "@openplait/runtime": "1.0.0",
     "@prisma/client": "^5.15.0",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -111,5 +119,8 @@
   },
   "prisma": {
     "seed": "node prisma/seed.js"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

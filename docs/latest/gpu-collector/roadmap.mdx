@@ -1,0 +1,135 @@
+---
+title: 'Collector Roadmap'
+description: 'Deep plans for upcoming OpenLIT GPU Collector work (collector-only, no app SDK)'
+icon: 'map'
+---
+
+Implemented optional features are documented under [Metrics](/latest/gpu-collector/metrics), [Configuration](/latest/gpu-collector/configuration), and [Semantic conventions](/latest/gpu-collector/semconv).
+
+Plans below are **collector-side only** — no application SDK, no framework instrumentation dependency. Correlation stays on `hw.id`, `process.pid`, time, cgroup/pod attrs, and control-plane artifacts.
+
+## Recently added
+
+| Item | How to enable | Notes |
+|---|---|---|
+| Collector modes | `OTEL_GPU_COLLECTOR_MODE` | See [Modes](/latest/gpu-collector/modes) |
+| Fail loud on faults | always on | Instrument / config faults stop startup; missing libs/caps/OS soft-skip |
+| Prefer blank fallback | `OTEL_GPU_DCGM_PREFER` | NVML fills overlap series until Prefer sample is healthy |
+| `gpu.kernel.duration` | eBPF (`serving`+) | Launch→sync histogram |
+| Uncore / IMC memory IO | PMU + `memory_bandwidth` | `hw.cpu.memory.io` |
+| On-demand Intel PT | control API | Caps on duration / CPUs / buffer |
+| Multi-node profile fan-out | `cmd/profile-fanout` | Default control port `1919` |
+
+## Deep plans (out of scope today)
+
+### 1. HIP / ROCm eBPF activity (AMD)
+
+**Goal:** Parity with CUDA eBPF for AMD — launch counts, grid/block, memcpy, stream sync occupancy estimates — without ROCm app SDK hooks.
+
+**Approach**
+1. Inventory stable userspace symbols in `libamdhip64.so` / `libhsa-runtime64.so` (launch, memcpy, stream sync, set-device).
+2. Reuse the existing uprobe tracer skeleton (`internal/ebpf`) with a HIP event ABI parallel to CUDA `EventRecord`.
+3. Device resolve via `/dev/kfd` + DRM minor → UUID/`hw.id` (same attr contract as NVML).
+4. Occupancy model: launch→sync thread-seconds clamped to device compute-unit count from sysfs/amdsmi (not DCGM SM fields).
+5. Soft attach policy: only when AMD GPUs present; missing HIP libs/caps soft-skip (instrument faults still fatal).
+
+**Non-goals:** Per-wavefront hardware occupancy; HIP graph per-node expand (phase 2 with CUDA graphs).
+
+**Milestones:** symbol map + stub tracer → single-GPU occupancy → multi-GPU set-device → docs + DaemonSet caps.
+
+### 2. True GPU completion (vs launch→sync estimates)
+
+**Goal:** End spans on device completion, not CPU sync return — without CUPTI/app SDK.
+
+**Options (pick one primary)**
+| Option | Mechanism | Pros | Cons |
+|---|---|---|---|
+| A. CUDA event polling | Inject/observe `cudaEventRecord` + `cudaEventQuery` via uprobes; poll in userspace | No kernel module | Still needs app/runtime to record events; partial |
+| B. Nouveau/DRM completion (research) | Fence / timeline signals in kernel | True completion | Driver-specific; not on proprietary NVIDIA |
+| C. NVML / DCGM activity edges | Infer idle transitions | Already have DCGM | Coarse; not per-kernel |
+| D. Proprietary ioctl trace (last resort) | Trace driver submit/complete | Accurate | Fragile across driver versions |
+
+**Recommended path:** A for CUDA when events exist; keep launch→sync as fallback labeled `gpu.measurement.source=ebpf_model`; never rename to imply hardware SM occupancy.
+
+**Exit criteria:** Histogram of `gpu.kernel.duration` with `completion=event|sync_fallback` attribute; documented error bars.
+
+### 3. CUDA Graph per-node kernels
+
+**Goal:** Expand `cudaGraphLaunch` composite span into per-node kernel spans.
+
+**Approach**
+1. Uprobe `cudaGraphGetNodes` / instantiate / launch paths; build node-id → kernel-name map at graph instantiate time.
+2. On launch, emit N child spans or N duration samples with `cuda.graph.id` + `cuda.graph.node_id`.
+3. Cardinality: hash node names; cap distinct nodes per process (same budget as kernel-name cap).
+4. Without stable instantiate hooks: keep composite span (current behavior).
+
+**Non-goals:** Replay/capture API coverage in v1; CUPTI graph callbacks.
+
+### 4. `cudaStreamWaitEvent` / cross-stream edges
+
+**Goal:** Model wait edges so occupancy does not count blocked wait time as SM-busy.
+
+**Approach**
+1. Uprobe wait-event + record-event; store event→stream edges in BPF map.
+2. Occupancy engine subtracts wait intervals from active thread-seconds.
+3. Attribute `cuda.wait.event` on duration samples when edge known.
+
+**Risk:** Map size under high event churn — bounded LRU + drop counter self-metric.
+
+### 5. Intel GPU util / memory without XPU Manager
+
+**Goal:** Close Intel util/memory gap using collector-only sources.
+
+**Approach**
+1. Probe `sysfs`/`hwmon` + DRM fdinfo (already used for process mem).
+2. Optional: dynamic load of Level Zero loader for engine utilization if present (dlopen; soft-skip when missing).
+3. Document engine util as extension `hw.gpu.engine.utilization` with `gpu.measurement.source=level0`.
+
+**Non-goals:** Shipping XPU Manager as a dependency.
+
+### 6. Broader AMD DF / UMC PMU encodings
+
+**Goal:** Stable `hw.cpu.memory.io` across EPYC SKUs beyond current `uncore_imc*` / `amd_umc*` sysfs discovery.
+
+**Approach:** Per-family event tables keyed by CPUID; discovery still prefers sysfs; tables fill gaps; self-metric when fallback used.
+
+### 7. Native Intel PT AUX (no `perf` binary)
+
+**Goal:** Capture PT without shelling out to `perf record`.
+
+**Approach:** `perf_event_open` + AUX mmap in `internal/intelpt`; keep duration/CPU/buffer caps; decode optional/offline. Fail-closed when PT enabled and open fails.
+
+### 8. Proprietary fleet warehouses
+
+**Goal:** Not in scope. Export is **OTLP** (and optional Prometheus). Fleet warehouses / custom backends stay with the customer’s collector pipeline.
+
+**Collector work:** Keep resource identity + `hw.id` joins solid; no proprietary export protocol.
+
+### 9. Process-side correlation without an SDK
+
+**Goal:** Richer join keys without instrumenting apps.
+
+**Approach (collector-only)**
+1. Read `/proc/<pid>/environ` for `TRACEPARENT` / `OTEL_RESOURCE_ATTRIBUTES` when present (best-effort, capped).
+2. Join GPU series to cgroup → pod via existing PodResources path.
+3. Optional: annotate on-demand profile artifacts with pid cmdline + container id only.
+
+**Non-goals:** Generating W3C trace IDs inside the collector; requiring OpenLIT SDK in training/serving jobs.
+
+## Tracked (smaller)
+
+| Item | Status | Notes |
+|---|---|---|
+| Broader AMD DF / UMC | Tracked | See plan §6 |
+| Native Intel PT AUX | Tracked | See plan §7 |
+
+## Feature failure policy
+
+Two outcomes at init — never conflated:
+
+| Outcome | Cause | Behavior |
+|---|---|---|
+| **Unavailable** | Missing vendor library, capability, platform, or hardware | Log `feature unavailable` (info); skip; process stays up |
+| **Fault** | OTel instrument registration bug, control addr misconfiguration, broken embedded BPF object | Log `feature fault` (error); **exit non-zero**; cannot be silenced |
+
+TPU scrape endpoint misses and DCGM/RDC blank samples are handled at scrape time (self-metrics), not as startup faults.

@@ -15,14 +15,19 @@ interface LineChartProps {
 	data?: any[];
 }
 
+function toFiniteNumber(value: unknown): number {
+	const n = typeof value === "number" ? value : parseFloat(String(value ?? ""));
+	return Number.isFinite(n) ? n : 0;
+}
+
 const LineChartWidgetComponent: React.FC<LineChartProps> = ({
 	widget,
 	data,
 }) => {
 	const updatedData = data?.map((item) => ({
 		...item,
-		[widget.properties.xAxis]: item[widget.properties.xAxis],
-		[widget.properties.yAxis]: parseFloat(item[widget.properties.yAxis]),
+		[widget.properties.xAxis]: item[widget.properties.xAxis] ?? "",
+		[widget.properties.yAxis]: toFiniteNumber(item[widget.properties.yAxis]),
 	})) || [];
 
 	return (
@@ -42,6 +47,8 @@ const LineChartWidgetComponent: React.FC<LineChartProps> = ({
 						dataKey={widget.properties.xAxis}
 						className="text-xs stroke-stone-300"
 						stroke="currentColor"
+						interval="preserveStartEnd"
+						minTickGap={24}
 					/>
 					<YAxis
 						dataKey={widget.properties.yAxis}

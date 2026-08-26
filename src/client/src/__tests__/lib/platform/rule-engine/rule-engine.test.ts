@@ -183,6 +183,12 @@ describe('createRule', () => {
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).toContain('INSERT INTO openlit_rules');
   });
+
+  it('routes creation to the selected database config', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: {} });
+    await createRule({ name: 'r' }, { databaseConfigId: 'db-2' });
+    expect(dataCollector).toHaveBeenCalledWith(expect.any(Object), 'exec', 'db-2');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -419,5 +425,10 @@ describe('getRuleEntities', () => {
     (dataCollector as jest.Mock).mockResolvedValue({ data: [{ id: 'e1' }], err: null });
     const result = await getRuleEntities({ rule_id: 'r1' });
     expect(result).toEqual({ data: [{ id: 'e1' }], err: null });
+  });
+
+  it('routes reads to the selected database config', async () => {
+    await getRuleEntities({ rule_id: 'r1' }, 'db-2');
+    expect(dataCollector).toHaveBeenCalledWith(expect.any(Object), 'query', 'db-2');
   });
 });

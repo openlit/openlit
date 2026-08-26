@@ -1,26 +1,27 @@
 "use client";
 
 import FormBuilder from "@/components/common/form-builder";
-import DatabaseConfigTabs from "@/components/(playground)/database-config/database-config-tabs";
+import Image from "next/image";
+import { Pencil, Trash2, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DatabaseConfig, DatabaseConfigWithActive } from "@/constants/dbConfig";
 import {
-	changeActiveDatabaseConfig,
 	deleteDatabaseConfig,
 	fetchDatabaseConfigList,
 } from "@/helpers/client/database-config";
 import {
 	getDatabaseConfigList,
-	getDatabaseConfigListIsLoading,
 } from "@/selectors/database-config";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { isNil, keyBy } from "lodash";
-import { MouseEventHandler, useCallback, useState } from "react";
+import { isNil } from "lodash";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
-import { DatabaseConfigTabItemProps } from "@/types/database-config";
 import { FormBuilderEvent } from "@/types/form";
 import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 import getMessage from "@/constants/messages";
@@ -29,14 +30,28 @@ function ModifyDatabaseConfig({
 	dbConfig,
 	canCreate = true,
 	canUpdate = true,
+	onSaved,
 }: {
 	dbConfig?: DatabaseConfigWithActive;
 	canCreate?: boolean;
 	canUpdate?: boolean;
+	onSaved?: () => void;
 }) {
 	const posthog = usePostHog();
+	const selectedEnvironment = useRootStore(getCurrentProjectEnvironment) || "production";
 	const { fireRequest, isLoading } = useFetchWrapper();
 	const messages = getMessage();
+	const [environments, setEnvironments] = useState<string[]>([
+		"production",
+		dbConfig?.environment || selectedEnvironment,
+	].filter((value, index, values) => values.indexOf(value) === index));
+
+	useEffect(() => {
+		fetch("/api/project/environment")
+			.then((response) => response.ok ? response.json() : { environments: [] })
+			.then((body) => setEnvironments(Array.from(new Set(["production", ...(body.environments || []).map((item: { name: string }) => item.name)]))))
+			.catch(() => undefined);
+	}, []);
 
 	const modifyDetails: FormBuilderEvent = useCallback(
 		(event) => {
@@ -77,6 +92,7 @@ function ModifyDatabaseConfig({
 						id: "db-config-details",
 					});
 					if (!dbConfig?.id) formElement.reset();
+					onSaved?.();
 					posthog?.capture(
 						payload.id
 							? CLIENT_EVENTS.DB_CONFIG_UPDATE_SUCCESS
@@ -95,7 +111,7 @@ function ModifyDatabaseConfig({
 				},
 			});
 		},
-		[dbConfig?.id]
+		[dbConfig?.id, onSaved]
 	);
 
 	const formFieldsDisabled = dbConfig?.id
@@ -121,12 +137,12 @@ function ModifyDatabaseConfig({
 				{
 					label: messages.DB_CONFIG_FIELD_ENVIRONMENT,
 					inputKey: `${dbConfig?.id}-environment`,
-					fieldType: "INPUT",
+					fieldType: "SELECT",
 					fieldTypeProps: {
-						type: "text",
 						name: "environment",
 						placeholder: "production",
-						defaultValue: dbConfig?.environment,
+						options: environments.map((environment) => ({ value: environment, label: environment })),
+						defaultValue: dbConfig?.environment || selectedEnvironment,
 						disabled: formFieldsDisabled,
 					},
 				},
@@ -205,13 +221,13 @@ function ModifyDatabaseConfig({
 			heading={
 				dbConfig?.id
 					? !dbConfig?.permissions?.canEdit
-						? messages.DATABASE_CONFIG
-						: messages.UPDATE_DB_CONFIG
-					: messages.ADD_DB_CONFIG
+						? messages.CLICKHOUSE_CONNECTOR_EDIT_TITLE
+						: messages.CLICKHOUSE_CONNECTOR_EDIT_TITLE
+					: messages.CLICKHOUSE_CONNECTOR_ADD_TITLE
 			}
 			subHeading={
 				!dbConfig?.id || dbConfig?.permissions?.canEdit
-					? ""
+					? `${messages.CLICKHOUSE_CONNECTOR_DESCRIPTION} ${messages.CLICKHOUSE_CONNECTOR_INSTRUCTIONS}`
 					: messages.DB_CONFIG_EDIT_PERMISSION_REQUIRED
 			}
 			subHeadingClass="text-error"
@@ -228,163 +244,135 @@ function ModifyDatabaseConfig({
 }
 function DatabaseList({
 	dbConfigs,
-	isLoadingList,
 	canCreate,
-	canSelect,
 	canUpdate,
 	canDelete,
 	canShare,
+	hideHeader,
+	openNew,
+	onOpenNewHandled,
+	hideEmpty,
 }: {
 	dbConfigs: DatabaseConfigWithActive[];
-	isLoadingList: boolean;
 	canCreate: boolean;
-	canSelect: boolean;
 	canUpdate: boolean;
 	canDelete: boolean;
 	canShare: boolean;
+	hideHeader?: boolean;
+	openNew?: boolean;
+	onOpenNewHandled?: () => void;
+	hideEmpty?: boolean;
 }) {
-	const posthog = usePostHog();
 	const messages = getMessage();
-	const [selectedDBConfigId, setSelectedDBConfigId] = useState<
-		string | undefined
-	>();
+	const selectedEnvironment = useRootStore(getCurrentProjectEnvironment) || "production";
+	const [editing, setEditing] = useState<DatabaseConfigWithActive | "new" | null>(null);
+	const [testingId, setTestingId] = useState<string | null>(null);
+	const visibleConfigs = useMemo(
+		() => dbConfigs.filter((config) => (config.environment || "production").toLowerCase() === selectedEnvironment.toLowerCase()),
+		[dbConfigs, selectedEnvironment]
+	);
+	useEffect(() => {
+		if (openNew) {
+			setEditing(visibleConfigs[0] || "new");
+			onOpenNewHandled?.();
+		}
+	}, [onOpenNewHandled, openNew, visibleConfigs.length]);
 
-	const dbConfigByKey = keyBy(dbConfigs, "id");
-
-	const onClickDB: MouseEventHandler<HTMLDivElement | HTMLButtonElement> = (
-		event
-	) => {
-		const parent = (event.target as HTMLElement).closest(
-			".item-element-card"
-		) as HTMLElement;
-		if (!parent) return null;
-		const { itemId = "" } = parent.dataset;
-		setSelectedDBConfigId(itemId);
+	const remove = (config: DatabaseConfigWithActive) => {
+		if (!canDelete || !config.permissions?.canDelete) return;
+		if (window.confirm(messages.DELETE_DATABASE_CONFIG_CONFIRMATION)) void deleteDatabaseConfig(config.id);
 	};
 
-	const onClickDelete: MouseEventHandler<SVGSVGElement> = (event) => {
-		event.stopPropagation();
-		const parent = (event.target as HTMLElement).closest(
-			".item-element-card"
-		) as HTMLElement;
-		if (!parent) return null;
-		const { itemId = "" } = parent.dataset;
-
-		if (itemId) deleteDatabaseConfig(itemId);
-	};
-
-	const onClickSetCurrent: MouseEventHandler<HTMLDivElement> = (event) => {
-		event.stopPropagation();
-		const parent = (event.target as HTMLElement).closest(
-			".item-element-card"
-		) as HTMLElement;
-		if (!parent) return null;
-		const { itemId = "" } = parent.dataset;
-
-		if (itemId) {
-			toast.loading(
-				messages.DB_CONFIG_SET_ACTIVE(dbConfigByKey[itemId].name),
-				{
-					id: "db-config-current",
-				}
-			);
-			changeActiveDatabaseConfig(itemId, () => {
-				posthog?.capture(CLIENT_EVENTS.DB_CONFIG_ACTION_CHANGE);
-			});
+	const testConnection = async (config: DatabaseConfigWithActive) => {
+		setTestingId(config.id);
+		toast.loading(messages.DATA_SOURCE_TESTING, { id: "db-config-test" });
+		try {
+			const response = await fetch("/api/clickhouse", { method: "POST" });
+			const body = await response.json().catch(() => ({}));
+			if (!response.ok || body?.err) throw new Error(body?.err || messages.DATA_SOURCE_SAVE_FAILED);
+			toast.success(messages.DATA_SOURCE_TEST_OK, { id: "db-config-test" });
+		} catch (error: any) {
+			toast.error(error?.message || messages.DATA_SOURCE_SAVE_FAILED, { id: "db-config-test" });
+		} finally {
+			setTestingId(null);
 		}
 	};
 
-	const items: DatabaseConfigTabItemProps[] = dbConfigs.map((dbConfig) => ({
-		id: dbConfig.id,
-		name: dbConfig.name,
-		badge: dbConfig.environment,
-		isCurrent: !!dbConfig.isCurrent,
-		canDelete: canDelete && !!dbConfig.permissions?.canDelete,
-		canEdit: canUpdate && !!dbConfig.permissions?.canEdit,
-		canShare: canShare && !!dbConfig.permissions?.canShare,
-		canSelect,
-	}));
-
 	return (
-		<div className="flex w-full flex-1 relative">
-			<DatabaseConfigTabs
-				addButton={canCreate}
-				items={items}
-				onClickTab={onClickDB}
-				selectedTabId={selectedDBConfigId || ""}
-				onClickItemChangeActive={onClickSetCurrent}
-				onClickItemDelete={onClickDelete}
-			/>
-			<div className="flex flex-1 w-full h-full overflow-hidden">
-				{selectedDBConfigId ? (
-					<ModifyDatabaseConfig
-						dbConfig={dbConfigByKey[selectedDBConfigId]}
-						canCreate={canCreate}
-						canUpdate={canUpdate}
-					/>
-				) : (
-					<div className="flex flex-1 items-center justify-center">
-						<div className="flex flex-col items-center gap-1 text-center">
-							<h3 className="text-2xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
-								{dbConfigs.length === 0
-									? messages.DB_CONFIG_EMPTY_TITLE
-									: messages.DB_CONFIG_NOT_SELECTED_TITLE}
-							</h3>
-							<p className="text-sm text-stone-700 dark:text-stone-300">
-								{dbConfigs.length === 0
-									? messages.DB_CONFIG_EMPTY_DESCRIPTION
-									: messages.DB_CONFIG_NOT_SELECTED_DESCRIPTION}
-							</p>
-							{dbConfigs.length !== 0 && canCreate && (
-								<Button
-									className="mt-4 item-element-card"
-									data-item-id={"ADD_NEW_ID"}
-									onClick={onClickDB}
-								>
-									{messages.ADD_DATABASE_CONFIG}
-								</Button>
-							)}
+		<div className={hideHeader ? "relative contents" : "relative w-full p-4"}>
+			{!hideHeader && <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">ClickHouse targets for {selectedEnvironment}</p>
+					<p className="mt-1 text-[11px] text-muted-foreground">Each target is a ClickHouse connector for this project environment.</p>
+				</div>
+				{canCreate && visibleConfigs.length === 0 && <Button size="sm" onClick={() => setEditing("new")}>+ {messages.ADD_DATABASE_CONFIG}</Button>}
+			</div>}
+			{visibleConfigs.length === 0 && hideEmpty ? null : visibleConfigs.length === 0 ? (
+				<div className="rounded-lg border border-dashed border-stone-300 p-8 text-center dark:border-stone-700">
+					<p className="text-sm font-medium text-stone-900 dark:text-stone-100">{messages.DB_CONFIG_EMPTY_TITLE}</p>
+					<p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">{messages.DB_CONFIG_EMPTY_DESCRIPTION}</p>
+					{canCreate && <Button size="sm" className="mt-4" onClick={() => setEditing("new")}>{messages.ADD_DATABASE_CONFIG}</Button>}
+				</div>
+			) : (
+				<div className={hideHeader ? "contents" : "grid gap-3 md:grid-cols-2"}>
+					{visibleConfigs.map((config) => (
+						<div key={config.id} className="flex min-h-[168px] flex-col justify-between rounded-lg border border-stone-200 bg-stone-50/70 p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] dark:border-stone-800 dark:bg-stone-900/50 dark:hover:border-primary/50">
+							<div className="flex items-start gap-3">
+								<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950"><Image src="/images/connectors/clickhouse.svg" alt="" width={24} height={24} className="h-6 w-6 object-contain" /></div>
+								<div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-stone-950 dark:text-stone-50">{config.name}</p><p className="mt-0.5 text-[11px] text-muted-foreground">ClickHouse connector</p></div>
+							</div>
+							<p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">Telemetry, dashboards, and derived features for this project environment.</p>
+							<div className="mt-2 flex flex-wrap gap-1"><Badge variant="secondary" className="text-[10px]">{config.environment || "production"}</Badge><Badge variant="outline" className="max-w-full truncate text-[10px]">{config.host}:{config.port}</Badge></div>
+							<div className="mt-3 flex items-center justify-end gap-1 border-t border-stone-200 pt-2 dark:border-stone-800"><Button size="sm" variant="ghost" onClick={() => testConnection(config)} disabled={testingId === config.id}><Wifi className="mr-1 h-3.5 w-3.5" />{messages.DATA_SOURCE_TEST}</Button><Button size="icon" variant="ghost" onClick={() => setEditing(config)} disabled={!canUpdate || !config.permissions?.canEdit} aria-label="Edit connector"><Pencil className="h-3.5 w-3.5" /></Button><Button size="icon" variant="ghost" onClick={() => remove(config)} disabled={!canDelete || !config.permissions?.canDelete} aria-label="Delete connector"><Trash2 className="h-3.5 w-3.5 text-error" /></Button></div>
 						</div>
-					</div>
-				)}
-			</div>
-			{isLoadingList && (
-				<div className="flex absolute w-full left-0 top-0 h-full animate-pulse z-10" />
+					))}
+				</div>
 			)}
+			{editing && <Dialog open onOpenChange={(open) => !open && setEditing(null)}><DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-3xl overflow-y-auto p-0"><ModifyDatabaseConfig dbConfig={editing === "new" ? undefined : editing} canCreate={canCreate} canUpdate={canUpdate} onSaved={() => setEditing(null)} /></DialogContent></Dialog>}
 		</div>
 	);
 }
 
 export default function Database({
 	canCreate = true,
-	canSelect = true,
 	canUpdate = true,
 	canDelete = true,
 	canShare = true,
+	hideHeader = false,
+	openNew = false,
+	onOpenNewHandled,
+	hideEmpty = false,
 }: {
 	canCreate?: boolean;
-	canSelect?: boolean;
 	canUpdate?: boolean;
 	canDelete?: boolean;
 	canShare?: boolean;
+	hideHeader?: boolean;
+	openNew?: boolean;
+	onOpenNewHandled?: () => void;
+	hideEmpty?: boolean;
 }) {
-	const messages = getMessage();
 	const databaseList = useRootStore(getDatabaseConfigList);
-	const databaseListIsLoading = useRootStore(getDatabaseConfigListIsLoading);
 
 	return isNil(databaseList) ? (
-		<div className="flex items-center justify-center w-full h-full animate-pulse dark:text-white">
-			{messages.OBSERVABILITY_LOADING}
+		<div className={hideHeader ? "contents" : "p-4"}>
+			<div className="flex min-h-[190px] flex-col gap-4 rounded-lg border border-stone-200 bg-stone-50/70 p-3 dark:border-stone-800 dark:bg-stone-900/50">
+				<div className="flex items-center gap-3"><div className="h-10 w-10 animate-pulse rounded-md bg-stone-200 dark:bg-stone-800" /><div className="space-y-2"><div className="h-3 w-32 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-24 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div></div>
+				<div className="space-y-2"><div className="h-2.5 w-full animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-3/4 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div>
+				<div className="mt-auto h-8 animate-pulse rounded bg-stone-200 dark:bg-stone-800" />
+			</div>
 		</div>
 	) : (
 		<DatabaseList
 			dbConfigs={(databaseList as DatabaseConfigWithActive[]) || []}
-			isLoadingList={databaseListIsLoading}
 			canCreate={canCreate}
-			canSelect={canSelect}
 			canUpdate={canUpdate}
 			canDelete={canDelete}
 			canShare={canShare}
+			hideHeader={hideHeader}
+			openNew={openNew}
+			onOpenNewHandled={onOpenNewHandled}
+			hideEmpty={hideEmpty}
 		/>
 	);
 }

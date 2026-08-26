@@ -1,4 +1,4 @@
-import { dataCollector } from "../common";
+import { intelligenceDataCollector } from "../common";
 import { OPENLIT_CHAT_CONFIG_TABLE } from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
 import { getSecretById } from "../vault";
@@ -27,7 +27,7 @@ export async function getChatConfig(
 		LIMIT 1
 	`;
 
-	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
+	const { data, err } = await intelligenceDataCollector({ query }, "query", databaseConfigId);
 
 	if (err) {
 		return { err };
@@ -91,7 +91,7 @@ export async function upsertChatConfig(
 	const sanitizedVaultId = Sanitizer.sanitizeValue(config.vaultId);
 	const sanitizedMeta = Sanitizer.sanitizeValue(config.meta || "{}");
 
-	const { err } = await dataCollector(
+	const { err } = await intelligenceDataCollector(
 		{
 			table: OPENLIT_CHAT_CONFIG_TABLE,
 			values: [

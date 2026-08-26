@@ -2,9 +2,10 @@ import { streamText } from "ai";
 import { createHash, randomUUID } from "crypto";
 import { getChatConfigWithApiKey } from "./config";
 import { OPENLIT_TRACE_ANALYSIS_TABLE } from "./table-details";
-import { dataCollector } from "../common";
+import { intelligenceDataCollector } from "../common";
 import { getModelInstance } from "./stream";
-import { getHeirarchyViaSpanId } from "../request";
+import { getTraceHierarchy } from "../traces/read";
+import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
 import { TraceHeirarchySpan, TraceRow } from "@/types/trace";
 import {
 	TRACE_ANALYSIS_DIMENSIONS,
@@ -215,7 +216,7 @@ export async function getTraceAnalysisRuns(
 			AND analysis_type = '${safeAnalysisType}'
 		ORDER BY run_number ASC
 	`;
-	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
+	const { data, err } = await intelligenceDataCollector({ query }, "query", databaseConfigId);
 	if (err) return { err };
 	return { data: (data as TraceAnalysisRun[]) || [] };
 }
@@ -251,7 +252,7 @@ export async function saveTraceAnalysisRun(
 	const analysisJson = JSON.stringify(analysis);
 	const worstSeverity = computeWorstSeverity(analysis);
 
-	const { err } = await dataCollector(
+	const { err } = await intelligenceDataCollector(
 		{
 			table: OPENLIT_TRACE_ANALYSIS_TABLE,
 			values: [
@@ -1326,10 +1327,12 @@ function buildAggregatedSummary(dimensionSummaries: Partial<Record<TraceAnalysis
 export async function getTraceImprovement(
 	spanId: string,
 	databaseConfigId?: string,
-	scope: TraceAnalysisScope = "trace"
+	scope: TraceAnalysisScope = "trace",
+	environment?: string,
+	traceId?: string
 ): Promise<{ data?: { rootSpanId: string; runs: TraceAnalysisRun[] }; err?: unknown }> {
-	logTraceAnalysis("get_start", { spanId, scope, databaseConfigId: databaseConfigId || "" });
-	const { record, err } = await getHeirarchyViaSpanId(spanId);
+	logTraceAnalysis("get_start", { spanId, traceId, scope, databaseConfigId: databaseConfigId || "" });
+	const { record, err } = await getTraceHierarchy(spanId, { traceId, environment });
 	const hierarchyRecord = record as TraceHeirarchySpan | undefined;
 	if (err || !hierarchyRecord?.SpanId) {
 		logTraceAnalysisError("get_hierarchy_failed", err || "Trace hierarchy not found", { spanId });
@@ -1338,8 +1341,21 @@ export async function getTraceImprovement(
 
 	const { analysisRoot, rootSpanId } = getAnalysisTarget(hierarchyRecord, spanId, scope);
 	const analysisType = analysisTypeForScope(scope);
+	const intelligenceSource = await isNativeSqlChatAvailable({
+		signal: "intelligence",
+		environment,
+	});
+	if (!intelligenceSource.available || !intelligenceSource.databaseConfigId) {
+		return {
+			err: `The intelligence connector is not configured for environment "${environment || "the active environment"}".`,
+		};
+	}
 
-	const { data: runs, err: runsErr } = await getTraceAnalysisRuns(rootSpanId, databaseConfigId, analysisType);
+	const { data: runs, err: runsErr } = await getTraceAnalysisRuns(
+		rootSpanId,
+		intelligenceSource.databaseConfigId,
+		analysisType
+	);
 	logTraceAnalysis("get_runs_loaded", {
 		spanId,
 		scope,
@@ -1384,9 +1400,11 @@ function createDebugEvent(
 export async function streamTraceImprovementAnalysis(
 	spanId: string,
 	databaseConfigId?: string,
-	scope: TraceAnalysisScope = "trace"
+	scope: TraceAnalysisScope = "trace",
+	environment?: string,
+	traceId?: string
 ) {
-	logTraceAnalysis("start", { spanId, scope, databaseConfigId: databaseConfigId || "" });
+	logTraceAnalysis("start", { spanId, traceId, scope, databaseConfigId: databaseConfigId || "" });
 	const { data: config, err: configErr } =
 		await getChatConfigWithApiKey(databaseConfigId);
 	if (configErr || !config) {
@@ -1404,7 +1422,7 @@ export async function streamTraceImprovementAnalysis(
 		hasApiKey: Boolean(config.apiKey),
 	});
 
-	const { record, err: hierarchyErr } = await getHeirarchyViaSpanId(spanId);
+	const { record, err: hierarchyErr } = await getTraceHierarchy(spanId, { traceId, environment });
 	const hierarchyRecord = record as TraceHeirarchySpan | undefined;
 	if (hierarchyErr || !hierarchyRecord?.SpanId) {
 		logTraceAnalysisError("hierarchy_failed", hierarchyErr || "Trace hierarchy not found", { spanId });
@@ -1413,7 +1431,21 @@ export async function streamTraceImprovementAnalysis(
 
 	const { analysisRoot, rootSpanId } = getAnalysisTarget(hierarchyRecord, spanId, scope);
 	const analysisType = analysisTypeForScope(scope);
-	const { data: existingRuns } = await getTraceAnalysisRuns(rootSpanId, databaseConfigId, analysisType);
+	const intelligenceSource = await isNativeSqlChatAvailable({
+		signal: "intelligence",
+		environment,
+	});
+	if (!intelligenceSource.available || !intelligenceSource.databaseConfigId) {
+		return {
+			err: `The intelligence connector is not configured for environment "${environment || "the active environment"}".`,
+		};
+	}
+	const intelligenceDatabaseConfigId = intelligenceSource.databaseConfigId;
+	const { data: existingRuns } = await getTraceAnalysisRuns(
+		rootSpanId,
+		intelligenceDatabaseConfigId,
+		analysisType
+	);
 	const runNumber = (existingRuns?.length || 0) + 1;
 
 	const summary = summarizeSpan(analysisRoot);
@@ -1421,7 +1453,7 @@ export async function streamTraceImprovementAnalysis(
 	const ruleContext = await getRuleContextForTraceHierarchy(
 		analysisRoot,
 		spanId,
-		databaseConfigId
+		intelligenceDatabaseConfigId
 	);
 	logTraceAnalysis("hierarchy_loaded", {
 		spanId,
@@ -1740,7 +1772,7 @@ export async function streamTraceImprovementAnalysis(
 						completionTokens: finishStats.completionTokens,
 						cost: finishStats.cost,
 					},
-					databaseConfigId
+					intelligenceDatabaseConfigId
 				);
 
 				if (saveErr || !savedRun) {

@@ -25,7 +25,7 @@ export default function Operations() {
 		fireRequest({
 			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
-			url: "/api/metrics/vector/operation",
+			url: "/api/telemetry/vector/operation",
 			responseDataKey: "data",
 		});
 	}, [filter]);

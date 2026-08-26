@@ -8,6 +8,7 @@ import DashboardImportCard from "./dashboard-import-card";
 import getMessage from "@/constants/messages";
 import { CheckCircle2, Circle, Coins, Clock, Database, Loader2, User, Bot } from "lucide-react";
 import { useRequest } from "@/components/(playground)/request/request-context";
+import { getRequestHeaders } from "@/utils/api";
 
 interface EntityLink {
 	type: string;
@@ -213,7 +214,9 @@ function TraceReferencePills({ refs }: { refs: TraceReference[] }) {
 			return;
 		}
 		try {
-			const res = await fetch(`/api/telemetry/trace/trace/${ref.id}`);
+			const res = await fetch(`/api/telemetry/request/trace/${ref.id}`, {
+				headers: getRequestHeaders(),
+			});
 			const result = await res.json();
 			const record = result?.record || result?.data?.record || result?.data;
 			const spanId = record?.SpanId || record?.spanId;

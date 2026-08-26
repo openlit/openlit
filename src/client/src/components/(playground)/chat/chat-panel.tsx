@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { usePostHog } from "posthog-js/react";
 import getMessage from "@/constants/messages";
+import { getRequestHeaders } from "@/utils/api";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { useRootStore } from "@/store";
 import {
@@ -187,7 +188,7 @@ export default function ChatPanel({
 
 				const res = await fetch("/api/chat/message", {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: getRequestHeaders({ "Content-Type": "application/json" }),
 					body: JSON.stringify({ conversationId: currentConvId, content }),
 					signal: controller.signal,
 				});

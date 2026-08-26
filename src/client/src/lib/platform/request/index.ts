@@ -82,7 +82,7 @@ export async function getRequestPerTime(params: MetricParams) {
 			request_time;
 		`;
 
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }
 
 export async function getTotalRequests(params: MetricParams) {
@@ -111,7 +111,7 @@ export async function getTotalRequests(params: MetricParams) {
 			current_data.start_date = previous_day.start_date;
 	`;
 
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }
 
 export async function getAverageRequestDuration(params: MetricParams) {
@@ -144,7 +144,7 @@ export async function getAverageRequestDuration(params: MetricParams) {
 			current_data.start_date = previous_day.start_date;
 	`;
 
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }
 
 export async function getRequestsConfig(params: MetricParams) {
@@ -260,7 +260,11 @@ export async function getRequests(params: MetricParams) {
 		LIMIT ${limit}
 		OFFSET ${offset}`;
 
-	const { data, err } = await dataCollector({ query }, "query", params.databaseConfigId);
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		params.databaseConfigId
+	);
 	return {
 		err,
 		records: data,
@@ -268,32 +272,32 @@ export async function getRequests(params: MetricParams) {
 	};
 }
 
-export async function getRequestViaSpanId(spanId: string, dbConfigId?: string) {
+export async function getRequestViaSpanId(spanId: string, databaseConfigId?: string) {
 	const safeSpanId = escapeClickHouseString(String(spanId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE SpanId='${safeSpanId}'`;
 
-	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
+	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
 	return {
 		err,
 		record: (data as unknown[])?.[0],
 	};
 }
 
-export async function getRequestViaTraceId(traceId: string, dbConfigId?: string) {
+export async function getRequestViaTraceId(traceId: string, databaseConfigId?: string) {
 	const safeTraceId = escapeClickHouseString(String(traceId ?? ""));
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} WHERE ${getTraceMappingKeyFullPath(
 		"id"
 	)}='${safeTraceId}'`;
 
-	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
+	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
 	return {
 		err,
 		record: (data as unknown[])?.[0],
 	};
 }
 
-export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string) {
+export async function getHeirarchyViaSpanId(spanId: string, databaseConfigId?: string) {
 	// Step 1: resolve the source span. We need:
 	//   - TraceId (the usual "show every span in the trace" path)
 	//   - coding_agent.session.id (so coding-agent sessions whose CLI
@@ -320,7 +324,7 @@ export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string)
 	const { data: sourceData, err: sourceErr } = await dataCollector(
 		{ query: sourceSpanQuery },
 		"query",
-		dbConfigId
+		databaseConfigId
 	);
 
 	if (sourceErr || !Array.isArray(sourceData) || sourceData.length === 0) {
@@ -415,7 +419,7 @@ export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string)
 	const { data: allSpansRaw, err: allSpansErr } = await dataCollector(
 		{ query: allSpansQuery },
 		"query",
-		dbConfigId
+		databaseConfigId
 	);
 
 	const allSpans = Array.isArray(allSpansRaw)
@@ -540,9 +544,9 @@ function buildCodingSessionHierarchy(spans: any[], sessionId: string) {
 	return root;
 }
 
-export async function getRequestExist() {
+export async function getRequestExist(databaseConfigId?: string) {
 	const query = `SELECT COUNT(*) AS total_requests FROM ${OTEL_TRACES_TABLE_NAME}`;
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", databaseConfigId);
 }
 
 export async function getAttributeKeys(params: MetricParams) {
@@ -563,8 +567,12 @@ export async function getAttributeKeys(params: MetricParams) {
 	`;
 
 	const [spanResult, resourceResult] = await Promise.all([
-		dataCollector({ query: spanKeysQuery }),
-		dataCollector({ query: resourceKeysQuery }),
+		dataCollector({ query: spanKeysQuery }, "query", params.databaseConfigId),
+		dataCollector(
+			{ query: resourceKeysQuery },
+			"query",
+			params.databaseConfigId
+		),
 	]);
 
 	return {
@@ -594,5 +602,5 @@ export async function getGroupedRequests(params: MetricParams, groupBy: string) 
 		GROUP BY group_value
 		ORDER BY count DESC
 	`;
-	return dataCollector({ query });
+	return dataCollector({ query }, "query", params.databaseConfigId);
 }

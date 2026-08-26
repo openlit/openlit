@@ -39,17 +39,12 @@ import {
 	getProjectList,
 } from "@/selectors/project";
 import {
-	getDatabaseConfigList,
-	getDatabaseConfigListIsLoading,
-} from "@/selectors/database-config";
-import {
 	acceptInvitation,
 	declineInvitation,
 	fetchOrganisationList,
 	fetchPendingInvitations,
 } from "@/helpers/client/organisation";
 import { fetchProjectList } from "@/helpers/client/project";
-import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
 import { postData } from "@/utils/api";
 import asaw from "@/utils/asaw";
 import getMessage from "@/constants/messages";
@@ -57,6 +52,7 @@ import { DEFAULT_LOGGED_IN_ROUTE } from "@/constants/route";
 import Link from "next/link";
 import Loader from "@/components/common/loader";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import ProjectEnvironmentSwitcher from "@/components/(playground)/organisation/project-environment-switcher";
 
 function TimelineStep({
 	active,
@@ -134,7 +130,6 @@ function TimelineStep({
 		</div>
 	);
 }
-
 export default function OnboardingPage() {
 	const posthog = usePostHog();
 	const { update: updateSession } = useSession();
@@ -147,6 +142,7 @@ export default function OnboardingPage() {
 	const [hasLoadedOrganisations, setHasLoadedOrganisations] = useState(false);
 	const [projectName, setProjectName] = useState("");
 	const [isCreatingProject, setIsCreatingProject] = useState(false);
+	const [onboardingEnvironment, setOnboardingEnvironment] = useState("production");
 	const pendingInvitations = useRootStore(getOrganisationPendingInvitations);
 	const organisationList = useRootStore(getOrganisationList);
 	const currentOrg = useRootStore(getCurrentOrganisation);
@@ -154,10 +150,9 @@ export default function OnboardingPage() {
 	const projects = useRootStore(getProjectList);
 	const currentProject = useRootStore(getCurrentProject);
 	const isProjectLoading = useRootStore(getProjectIsLoading);
-	const databaseConfigs = useRootStore(getDatabaseConfigList);
-	const isDatabaseConfigLoading = useRootStore(getDatabaseConfigListIsLoading);
+	const [connectorLoading, setConnectorLoading] = useState(false);
+	const [hasDbConfig, setHasDbConfig] = useState(false);
 	const hasProject = Boolean(currentProject?.id && (projects?.length || 0) > 0);
-	const hasDbConfig = Boolean(databaseConfigs?.length);
 	const isSetupComplete = Boolean(currentOrg?.id && hasProject && hasDbConfig);
 	const isInitialising =
 		!currentOrg?.id &&
@@ -185,7 +180,12 @@ export default function OnboardingPage() {
 
 	useEffect(() => {
 		if (currentProject?.id) {
-			fetchDatabaseConfigList(() => {});
+			setConnectorLoading(true);
+			fetch("/api/connectors")
+				.then((response) => response.ok ? response.json() : { connectors: [] })
+				.then((body) => setHasDbConfig((body.connectors || []).some((connector: { type?: string }) => connector.type === "clickhouse")))
+				.catch(() => setHasDbConfig(false))
+				.finally(() => setConnectorLoading(false));
 		}
 	}, [currentProject?.id]);
 
@@ -239,6 +239,21 @@ export default function OnboardingPage() {
 		return true;
 	};
 
+	const setCurrentOrgForSetup = async (orgId: string) => {
+		if (isCompleting) return false;
+		setIsCompleting(true);
+		const [setOrgErr] = await asaw(
+			postData({ url: `/api/organisation/current/${orgId}`, data: {} })
+		);
+		if (setOrgErr) {
+			setIsCompleting(false);
+			return false;
+		}
+		await updateSession();
+		window.location.href = "/onboarding";
+		return true;
+	};
+
 	const handleCreateOrganisation = async () => {
 		if (!orgName.trim() || isCompleting) return;
 
@@ -252,7 +267,7 @@ export default function OnboardingPage() {
 				return;
 			}
 
-			await setCurrentOrgAndComplete(result.id);
+			await setCurrentOrgForSetup(result.id);
 		} finally {
 			setIsCreating(false);
 		}
@@ -391,24 +406,50 @@ export default function OnboardingPage() {
 							>
 								{hasProject && !hasDbConfig && currentProject?.id ? (
 									<Button asChild size="sm" className="h-9">
-										<Link href={`/organisation/project/${currentProject.id}?tab=database`}>
+										<Link href={`/organisation/project/${currentProject.id}/connectors`}>
 											<Database className="mr-1.5 h-3.5 w-3.5" />
-											{isDatabaseConfigLoading
+											{connectorLoading
 												? messages.LOADING
 												: messages.ADD_NEW_CONFIG}
 										</Link>
 									</Button>
 								) : null}
 							</TimelineStep>
-							<TimelineStep
-								active={isSetupComplete}
-								complete={isSetupComplete}
-								description={messages.HOME_SETUP_READY_DESCRIPTION}
-								icon={<Sparkles className="h-4 w-4" />}
-								isLast
-								stepNumber={4}
-								title={messages.HOME_SETUP_READY_STEP}
-							/>
+			<TimelineStep
+				active={hasProject && hasDbConfig}
+				complete={isSetupComplete}
+				description="Choose the environment that owns this project's database and observability connectors."
+				icon={<FolderKanban className="h-4 w-4" />}
+				stepNumber={4}
+				title="Set up an environment"
+			>
+				{hasProject && hasDbConfig ? (
+					<div className="flex flex-wrap items-center gap-2">
+						<ProjectEnvironmentSwitcher value={onboardingEnvironment} onChange={setOnboardingEnvironment} />
+						<Button asChild size="sm" variant="outline" className="h-9">
+							<Link href={`/organisation/project/${currentProject?.id}/connectors`}>
+								<Plus className="mr-1.5 h-3.5 w-3.5" />
+								Add data connectors
+							</Link>
+						</Button>
+					</div>
+				) : null}
+			</TimelineStep>
+			<TimelineStep
+				active={isSetupComplete}
+				complete={isSetupComplete}
+				description="Telemetry, dashboards, evaluations, AI analysis, and costing will use this environment's signal routing."
+				icon={<Sparkles className="h-4 w-4" />}
+				isLast
+				stepNumber={5}
+				title={messages.HOME_SETUP_READY_STEP}
+			>
+				{isSetupComplete ? (
+					<Button size="sm" className="h-9" onClick={() => currentOrg?.id && setCurrentOrgAndComplete(currentOrg.id)} disabled={isCompleting}>
+						{isCompleting ? messages.LOADING : "Finish setup"}
+					</Button>
+				) : null}
+			</TimelineStep>
 						</CardContent>
 					</Card>
 				)}

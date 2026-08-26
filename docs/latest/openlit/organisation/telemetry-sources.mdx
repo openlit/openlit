@@ -1,0 +1,29 @@
+---
+title: 'Telemetry Sources'
+sidebarTitle: 'Telemetry Sources'
+description: 'Telemetry Sources is the earlier name for OpenLIT Connectors — atomic backends, signal bindings, and AI read paths'
+icon: 'plug'
+---
+
+**Telemetry Sources** is the same product surface as **Connectors**. Prefer the connectors and signal-routing guides below — they match the OpenLIT dashboard language (connectors, actions, and per-signal routing).
+
+<CardGroup cols={2}>
+  <Card title="Connectors" href="/latest/openlit/organisation/connectors" icon="plug">
+    Catalog of supported OpenLIT + OpenPlait data-source connectors and actions.
+  </Card>
+  <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
+    How traces, logs, and metrics are bound per project and environment.
+  </Card>
+  <Card title="Environments" href="/latest/openlit/organisation/environments" icon="layer-group">
+    How Database Configs and connectors are partitioned.
+  </Card>
+  <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
+    ClickHouse app store and how INIT_DB_* env vars became Database Config.
+  </Card>
+</CardGroup>
+
+## Quick summary
+
+OpenLIT reads raw traces, logs, and metrics from the built-in ClickHouse store by default. You can attach external backends supported in open-source OpenLIT — **Tempo**, **Loki**, **Prometheus**, and **Jaeger** — and bind each signal independently per [environment](/latest/openlit/organisation/environments). Derived intelligence always stays in ClickHouse via [Database Config](/latest/openlit/organisation/database-config).
+
+For auth tables, AI selectors, correlation limits, and reliability hardening, see the [Connectors](/latest/openlit/organisation/connectors) page — that document is the canonical reference.
