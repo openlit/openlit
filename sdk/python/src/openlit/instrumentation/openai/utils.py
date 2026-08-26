@@ -104,6 +104,19 @@ def extract_reasoning_content(payload):
     return reasoning if isinstance(reasoning, str) else ""
 
 
+def extract_reasoning_tokens(usage, details_key):
+    """Return reasoning tokens (a subset of output tokens) from a usage dict.
+
+    Works for both chat completions (``completion_tokens_details``) and the
+    responses API (``output_tokens_details``) and falls back to 0 whenever the
+    details object is missing or not a dict.
+    """
+    details = (usage or {}).get(details_key) or {}
+    if not isinstance(details, dict):
+        details = {}
+    return details.get("reasoning_tokens", 0) or 0
+
+
 def format_content(messages):
     """
     Format the messages into a string for span events.
@@ -750,6 +763,11 @@ def process_chat_chunk(scope, chunk):
         scope._cache_creation_input_tokens = (
             prompt_tokens_details.get("cache_write_tokens", 0) or 0
         )
+        # Reasoning tokens (subset of completion_tokens) from the final
+        # streaming chunk (stream_options={"include_usage": True}).
+        scope._reasoning_tokens = extract_reasoning_tokens(
+            usage, "completion_tokens_details"
+        )
 
     scope._system_fingerprint = (
         chunked.get("system_fingerprint") or scope._system_fingerprint
@@ -855,8 +873,9 @@ def process_response_chunk(scope, chunk):
         scope._output_tokens = usage.get("output_tokens", 0)
 
         # Handle reasoning tokens
-        output_tokens_details = usage.get("output_tokens_details", {})
-        scope._reasoning_tokens = output_tokens_details.get("reasoning_tokens", 0)
+        scope._reasoning_tokens = extract_reasoning_tokens(
+            usage, "output_tokens_details"
+        )
 
         # Cached tokens (OTel: gen_ai.usage.cache_read.input_tokens)
         # Cache writes (OTel: gen_ai.usage.cache_creation.input_tokens)
@@ -1055,8 +1074,15 @@ def common_response_logic(
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
-    # Reasoning tokens
+    # Reasoning tokens. OTel: gen_ai.usage.reasoning.output_tokens is a subset
+    # of gen_ai.usage.output_tokens (already set above), so it is recorded as a
+    # separate attribute and never added on top of the output total.
     if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
+            scope._reasoning_tokens,
+        )
+        # OpenLIT legacy alias (pre-OTel naming), kept for backward compat.
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
             scope._reasoning_tokens,
@@ -1334,8 +1360,9 @@ def process_response_response(
     scope._input_tokens = usage.get("input_tokens", 0)
     scope._output_tokens = usage.get("output_tokens", 0)
 
-    output_tokens_details = usage.get("output_tokens_details", {})
-    scope._reasoning_tokens = output_tokens_details.get("reasoning_tokens", 0)
+    scope._reasoning_tokens = extract_reasoning_tokens(
+        usage, "output_tokens_details"
+    )
 
     input_tokens_details = usage.get("input_tokens_details", {}) or {}
     if not isinstance(input_tokens_details, dict):
@@ -1562,6 +1589,20 @@ def common_chat_logic(
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
+    # Reasoning tokens (OTel: gen_ai.usage.reasoning.output_tokens is a subset
+    # of gen_ai.usage.output_tokens above, so it is recorded separately and
+    # never added on top of the output total / token-usage metric).
+    if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
+            scope._reasoning_tokens,
+        )
+        # OpenLIT legacy alias (pre-OTel naming), kept for backward compat.
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
+            scope._reasoning_tokens,
+        )
+
     # OTel cached token attributes (set even when 0)
     if hasattr(scope, "_cache_read_input_tokens"):
         scope._span.set_attribute(
@@ -1782,6 +1823,13 @@ def process_chat_response(
     scope._response_model = response_dict.get("model", "")
     scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
     scope._output_tokens = response_dict.get("usage", {}).get("completion_tokens", 0)
+
+    # OpenAI chat completions report reasoning tokens under
+    # usage.completion_tokens_details.reasoning_tokens (o1/o3 family). These are
+    # a subset of completion_tokens, which already includes them.
+    scope._reasoning_tokens = extract_reasoning_tokens(
+        response_dict.get("usage", {}), "completion_tokens_details"
+    )
 
     # Extract cache tokens (OpenAI prompt caching)
     prompt_tokens_details = (

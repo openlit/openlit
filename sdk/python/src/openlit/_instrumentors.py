@@ -83,20 +83,27 @@ MODULE_NAME_MAP = {
 }
 
 # Common aliases so users can pass intuitive names (e.g. "aiohttp") that
-# differ from the canonical hyphenated keys used in MODULE_NAME_MAP.
+# differ from the canonical keys used in MODULE_NAME_MAP.  The canonical keys
+# are not consistent about hyphens versus underscores, so every key whose
+# separator can be written the other way is aliased in both directions.
 INSTRUMENTOR_ALIASES = {
     "aiohttp": "aiohttp-client",
+    "aiohttp_client": "aiohttp-client",
     "oci_genai": "oci",
     "oci-genai": "oci",
     "openai_agents": "openai-agents",
     "google_ai_studio": "google-ai-studio",
     "azure_ai_inference": "azure-ai-inference",
     "reka": "reka-api",
+    "reka_api": "reka-api",
     "browser_use": "browser-use",
     "google_adk": "google-adk",
     "claude_agent_sdk": "claude-agent-sdk",
     "agent_framework": "agent-framework",
     "psycopg_pool": "psycopg-pool",
+    "llamaindex": "llama_index",
+    "llama-index": "llama_index",
+    "pydantic-ai": "pydantic_ai",
     "http": "httpx",
     "digitalocean": "pydo",
     "digital_ocean": "pydo",

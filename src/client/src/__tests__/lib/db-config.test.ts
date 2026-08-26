@@ -29,6 +29,10 @@ jest.mock('@/lib/prisma', () => ({
     user: {
       findUnique: jest.fn(),
     },
+    connectorInstance: {
+      upsert: jest.fn(),
+      deleteMany: jest.fn(),
+    },
   },
 }));
 jest.mock('@/lib/session', () => ({
@@ -69,6 +73,7 @@ import {
   getDBConfigById,
   getDBConfigByIdInternal,
   getDBConfigByIdForUser,
+  getDBConfigByIdForBackground,
   upsertDBConfig,
   deleteDBConfig,
   setCurrentDBConfig,
@@ -79,6 +84,7 @@ import prisma from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/session';
 import { getCurrentOrganisation, getCurrentProjectForOrganisation } from '../../lib/organisation';
 import asaw from '@/utils/asaw';
+import migrations from '@/clickhouse/migrations';
 
 const mockUser = { id: 'u1', email: 'user@example.com' };
 const mockOrg = { id: 'org1', name: 'Test Org' };
@@ -106,6 +112,8 @@ beforeEach(() => {
   (prisma.databaseConfig.findFirst as jest.Mock).mockResolvedValue(null);
   (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue(null);
   (prisma.databaseConfigUser.count as jest.Mock).mockResolvedValue(0);
+  (prisma.connectorInstance.upsert as jest.Mock).mockResolvedValue({});
+  (prisma.connectorInstance.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
 });
 
 describe('getDBConfigByUser', () => {
@@ -207,6 +215,33 @@ describe('getDBConfigByIdInternal', () => {
   });
 });
 
+describe('getDBConfigByIdForBackground', () => {
+  it('uses the internal lookup when there is no user session', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue(null);
+    (prisma.databaseConfig.findUnique as jest.Mock).mockResolvedValue(mockDbConfig);
+    const result = await getDBConfigByIdForBackground({ id: 'db1' });
+    expect(result).toEqual(mockDbConfig);
+    expect(prisma.databaseConfig.findUnique).toHaveBeenCalledWith({ where: { id: 'db1' } });
+    expect(prisma.databaseConfigUser.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('keeps user and project scoping when a session exists', async () => {
+    (prisma.databaseConfigUser.findFirst as jest.Mock).mockResolvedValue({
+      databaseConfig: mockDbConfig,
+    });
+    const result = await getDBConfigByIdForBackground({ id: 'db1' });
+    expect(result).toEqual(mockDbConfig);
+    expect(prisma.databaseConfigUser.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: 'u1',
+          databaseConfigId: 'db1',
+        }),
+      })
+    );
+  });
+});
+
 describe('getDBConfigByIdForUser', () => {
   it('returns null when the current organisation has no accessible project', async () => {
     (getCurrentProjectForOrganisation as jest.Mock).mockResolvedValue(null);
@@ -291,6 +326,7 @@ describe('upsertDBConfig', () => {
 
     const result = await upsertDBConfig(validConfig);
     expect(result).toBe('Added db details successfully');
+    expect(migrations).toHaveBeenCalledWith('new-db');
   });
 
   it('creates config without project (no-project create path)', async () => {

@@ -1,79 +1,76 @@
 # Contributing to OpenLIT
 
-We welcome contributions to the OpenLIT project and are grateful for every contribution from bug reports to new features. If you are looking to contribute to the codebase, improve documentation, report issues, or suggest new features, this document is a set of guidelines to help you get started.
+Thanks for helping improve OpenLIT. Contributions of code, documentation, bug
+reports, and integration feedback are all welcome.
 
-## Getting Started
+## Before you start
 
-Before you begin:
-- Ensure you have a [GitHub account](https://github.com/join).
-- Familiarize yourself with git commands in the [Git Documentation](https://git-scm.com/documentation).
-- Read the README for project setup instructions.
+- Read the [README](README.md) and the applicable component README for setup.
+- Read [AGENTS.md](AGENTS.md) for repository-wide engineering and CE/OSS
+  boundaries.
+- For a substantial change, open or discuss an issue first so maintainers can
+  confirm the scope. Small documentation fixes can go straight to a pull
+  request.
+- Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Contributing Workflow
+## Development workflow
 
-Here's how you can contribute to OpenLIT:
+1. Fork the repository and clone your fork.
 
-1. **Fork the Repository**
-   - Click the "Fork" button at the top right corner of the [OpenLIT repository](https://github.com/openlit/openlit).
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/openlit.git
+   cd openlit
+   ```
 
-2. **Clone the Forked Repository**
-   - Clone your fork to your local machine:
+2. Create a focused branch.
 
-     ```
-     git clone https://github.com/YOUR_USERNAME/openlit.git
-     ```
+   ```bash
+   git switch -c fix/short-description
+   ```
 
-3. **Create Your Feature Branch**
-   - Create a branch for your contribution:
+3. Make the change, including tests and documentation when they are relevant.
+   Keep unrelated formatting and refactors out of the pull request.
 
-     ```
-     git checkout -b feature/my-new-feature
-     ```
+4. Run the focused checks for the component you changed. For client changes,
+   run at least:
 
-4. **Make Your Changes**
-   - Make and test your changes locally. Make sure you adhere to the code style and guidelines of the project.
-   - For OpAMP-related development, refer to the [OpAMP Deployment Guide](OPAMP_DEPLOYMENT.md) for setup and configuration.
-   - For TLS certificate management in OpAMP, see the [Certificate Management Guide](src/opamp-server/CERTIFICATES.md).
+   ```bash
+   cd src/client
+   npm run lint
+   ```
 
-5. **Commit Your Changes**
-   - Commit your changes with a descriptive message:
+   The relevant README, package scripts, and CI workflow describe additional
+   component-specific checks.
 
-     ```
-     git commit -am 'Add some feature'
-     ```
+5. Commit with a clear subject, push your branch, and open a pull request
+   against `main`. PR titles must use Conventional Commit form, for example
+   `feat: add trace filters` or `fix(client): handle empty projects`.
 
-6. **Push to GitHub**
-   - Push your changes to your fork:
+   ```bash
+   git commit -m "fix: describe the change"
+   git push origin fix/short-description
+   ```
 
-     ```
-     git push origin feature/my-new-feature
-     ```
+## Pull requests
 
-7. **Submit a Pull Request**
-   - Go to your fork on GitHub, select your feature branch, and click on "Pull request" to send a pull request to the original repository.
-   - Ensure the description clearly describes the problem and solution. Include any relevant issue numbers in your pull request description.
+- Explain the problem and the solution; link the related issue when one exists.
+- Use a title in the form `type: concise lowercase summary` or
+  `type(scope): concise lowercase summary`. Allowed types are `feat`, `fix`,
+  `docs`, `chore`, `refactor`, `test`, `ci`, `build`, `perf`,
+  `style`, and `revert`.
+- Include tests for behavior changes and update user-facing documentation.
+- Rebase or merge the current `main` before requesting review if your branch is
+  behind.
+- Complete the pull-request template honestly. Maintainers may ask for changes
+  to keep a contribution safe, focused, and maintainable.
 
-## Reporting Issues
+## Issues and questions
 
-If you find a bug or have a suggestion for improvement:
-- Check the GitHub Issue Tracker to see if the issue has already been reported.
-- If the issue is new, click the "Issues" tab, and then click "New Issue" to submit your issue.
-- Provide as much information as possible to help us resolve the issue. This can include error messages, screenshots, and the steps to reproduce the issue.
+Search existing [issues](https://github.com/openlit/openlit/issues) before
+opening a new one. Bug reports should include reproducible steps, expected and
+actual behavior, and relevant non-sensitive logs. For feature ideas or general
+questions, use [GitHub Issues](https://github.com/openlit/openlit/issues) or
+the community links in the [README](README.md).
 
-## Pull Request Guidelines
-
-When submitting a pull request, please follow these guidelines for a smooth collaboration process:
-- Keep changes compact and well-documented to make the review process easier.
-- Rebase your feature branch with the latest changes from the main branch to stay up to date.
-- Add tests for new features to ensure they work as expected.
-- Update documentation if necessary.
-
-## Code of Conduct
-
-We are committed to fostering an open and welcoming environment. By participating, you are expected to uphold the [Code of Conduct](CODE_OF_CONDUCT.md).
-
-## Queries
-
-If you have any questions or need further clarification about contributing, feel free to open an issue for discussion or ask for help on a specific topic.
-
-Thank you for your interest in contributing to OpenLIT!
+Do not report security vulnerabilities in a public issue; follow
+[SECURITY.md](SECURITY.md) instead.

@@ -4,6 +4,7 @@ import {
 	_bucketPresets,
 } from "@/lib/platform/agents/snapshot";
 import { withCacheHeaders } from "../../../_cache";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 /**
  * GET /api/agents/[agentKey]/versions/timeline
@@ -20,7 +21,7 @@ import { withCacheHeaders } from "../../../_cache";
  * the most recent version whose `first_seen` <= bucket — see
  * `getVersionTimeline` for the hybrid attribution logic.
  */
-export async function GET(
+async function GETHandler(
 	request: Request,
 	{ params }: { params: Promise<{ agentKey: string }> }
 ) {
@@ -55,3 +56,5 @@ export async function GET(
 	);
 	return withCacheHeaders({ data }, "timeline");
 }
+
+export const GET = withRouteAccess("observability.read", GETHandler, { requireDbConfig: true });

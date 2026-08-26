@@ -1,0 +1,181 @@
+name: CI / OpenLIT
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit SHA to validate
+        required: false
+        default: ''
+        type: string
+  push:
+    branches: ["main"]
+    paths:
+      - 'src/client/**'
+      - '.github/workflows/ci-openlit.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/client/**'
+      - '.github/workflows/ci-openlit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test / Jest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      SQLITE_DATABASE_URL: file:./test.db
+    defaults:
+      run:
+        working-directory: src/client
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run Jest tests
+        run: npm test -- --coverage --ci --coverageReporters=json-summary --coverageReporters=text
+
+      - name: Post coverage comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = JSON.parse(
+              fs.readFileSync('src/client/coverage/coverage-summary.json', 'utf8')
+            );
+            const { statements, branches, functions, lines } = summary.total;
+
+            const overall = Math.min(
+              statements.pct, branches.pct, functions.pct, lines.pct
+            );
+
+            const icon        = overall > 90 ? '✅' : overall >= 80 ? '⚠️' : '❌';
+            const statusLabel = overall > 90 ? 'Great' : overall >= 80 ? 'Good' : 'Poor';
+
+            const fmt = (pct) =>
+              `${pct > 90 ? '✅' : pct >= 80 ? '⚠️' : '❌'} ${pct}%`;
+
+            const MARKER = '<!-- jest-coverage-report -->';
+            const body = [
+              MARKER,
+              `## ${icon} Jest Coverage — ${statusLabel} (${overall}%)`,
+              '',
+              '| Metric     | Coverage |',
+              '|------------|----------|',
+              `| Statements | ${fmt(statements.pct)} |`,
+              `| Branches   | ${fmt(branches.pct)} |`,
+              `| Functions  | ${fmt(functions.pct)} |`,
+              `| Lines      | ${fmt(lines.pct)} |`,
+              '',
+              '> ✅ **Great**: >90% &nbsp;|&nbsp; ⚠️ **Good**: 80–90% &nbsp;|&nbsp; ❌ **Poor**: <80%',
+              ...(overall < 80
+                ? ['', '🚫 **This PR is blocked from merging: coverage is below the 80% threshold.**']
+                : []),
+            ].join('\n');
+
+            const fromFork =
+              context.payload.pull_request?.head?.repo?.full_name !==
+              context.repo.owner + '/' + context.repo.repo;
+
+            if (!fromFork) {
+              try {
+                const { data: comments } = await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                });
+
+                const existing = comments.find((c) => c.body.includes(MARKER));
+                if (existing) {
+                  await github.rest.issues.updateComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: existing.id,
+                    body,
+                  });
+                } else {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.issue.number,
+                    body,
+                  });
+                }
+              } catch (error) {
+                core.warning(
+                  `Could not post coverage comment: ${error.message}`
+                );
+              }
+            } else {
+              core.info(
+                'Skipping PR coverage comment: fork PRs cannot write comments with GITHUB_TOKEN.'
+              );
+            }
+
+            if (overall < 80) {
+              core.setFailed(
+                `Test coverage ${overall}% is below the required 80% threshold.`
+              );
+            }
+
+  container:
+    name: Build / Container
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ inputs.ref || github.sha }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4.2.0
+
+    - name: Start Docker Compose
+      run: docker compose -f src/dev-docker-compose.yml up --build -d
+
+    - name: Wait for container to be running
+      run: |
+        echo "Waiting for the OpenLIT container to be running..."
+        while [ "$(docker inspect -f '{{.State.Running}}' openlit)" != "true" ]; do
+          if [ "$(docker inspect -f '{{.State.Running}}' openlit)" == "false" ]; then
+            echo "OpenLIT container failed to run, exiting..."
+            exit 1
+          fi
+          sleep 5
+        done
+        echo "OpenLIT container is running."
+
+    - name: Post Docker logs in case of failure
+      if: failure()
+      run: docker logs openlit
+
+    - name: Clean up Docker
+      if: always()
+      run: docker compose -f src/dev-docker-compose.yml down

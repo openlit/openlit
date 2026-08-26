@@ -302,6 +302,9 @@ export const OBSERVABILITY_AUTO = "Auto";
 export const OBSERVABILITY_METRIC_POINTS = "Metric points";
 export const OBSERVABILITY_LOG_EVENTS = "Log events";
 export const OBSERVABILITY_SPANS = "Spans";
+export const OBSERVABILITY_FRESHNESS_LIVE = "Live";
+export const OBSERVABILITY_FRESHNESS_SAMPLED = "Sampled";
+export const OBSERVABILITY_FRESHNESS_ACCELERATED = "Accelerated";
 export const OBSERVABILITY_TOTAL = "Total";
 export const OBSERVABILITY_PEAK = "Peak";
 export const OBSERVABILITY_SPAN_HIERARCHY = "Span Hierarchy";
@@ -358,6 +361,59 @@ export const BOARD_LAYOUT_UPDATED_SUCCESSFULLY =
 	"Board layout updated successfully!";
 export const WIDGET_FETCH_FAILED = "Widget fetch failed!";
 export const WIDGET_RUN_FAILED = "Widget run failed!";
+export const WIDGET_RAW_SQL_SOURCE_ONLY = (source: string) =>
+	`Raw SQL widgets run only on the built-in ClickHouse source. This widget targets "${source}", so configure a structured query instead.`;
+export const WIDGET_NO_STRUCTURED_QUERY =
+	"This widget has no structured query configured for its data source.";
+export const WIDGET_STRUCTURED_QUERY_FAILED = "Structured widget query failed.";
+export const WIDGET_SOURCE_SIGNAL_UNSUPPORTED = (signal: string, source: string) =>
+	`The data source "${source}" does not serve ${signal}.`;
+export const WIDGET_DATA_SOURCE_LABEL = "Data Source";
+export const WIDGET_DATA_SOURCE_BUILTIN = "ClickHouse";
+export const WIDGET_DATA_SOURCE_EMPTY =
+	"No data sources configured for this environment and signal.";
+export const WIDGET_DATA_SOURCE_HINT =
+	"Defaults to the project router for the selected signal. Change the signal to switch routers, or override for this panel only.";
+export const WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED =
+	"Raw SQL is available only on the built-in ClickHouse source. This source runs a structured query configured by its signal.";
+export const WIDGET_DATA_SOURCE_PROJECT_TRACES_HINT = (
+	name: string,
+	type: string
+) =>
+	`This widget stores ClickHouse SQL for compatibility. At query time it runs against your project traces source: ${name} (${type}).`;
+export const WIDGET_STRUCTURED_BUILDER_TITLE = "Structured Query";
+export const WIDGET_STRUCTURED_SIGNAL_LABEL = "Signal";
+export const WIDGET_STRUCTURED_MODE_LABEL = "Mode";
+export const WIDGET_STRUCTURED_MODE_LIST = "List rows";
+export const WIDGET_STRUCTURED_MODE_AGGREGATE = "Aggregate (group by)";
+export const WIDGET_STRUCTURED_MODE_TIMESERIES = "Time series";
+export const WIDGET_STRUCTURED_LIMIT_LABEL = "Row limit";
+export const WIDGET_STRUCTURED_INTERVAL_LABEL = "Interval (e.g. 1m, 1h)";
+export const WIDGET_STRUCTURED_GROUP_BY_LABEL = "Group by (attribute keys)";
+export const WIDGET_STRUCTURED_GROUP_BY_PLACEHOLDER =
+	"gen_ai.request.model, service.name";
+export const WIDGET_STRUCTURED_AGGREGATIONS_LABEL = "Aggregations";
+export const WIDGET_STRUCTURED_ADD_AGGREGATION = "Add aggregation";
+export const WIDGET_STRUCTURED_ADD_FILTER = "Add filter";
+export const WIDGET_STRUCTURED_FILTERS_LABEL = "Filters";
+export const WIDGET_STRUCTURED_FIELD_PLACEHOLDER = "field (optional for count)";
+export const WIDGET_STRUCTURED_ALIAS_PLACEHOLDER = "alias";
+export const WIDGET_STRUCTURED_KEY_PLACEHOLDER = "attribute key";
+export const WIDGET_STRUCTURED_VALUE_PLACEHOLDER = "value";
+export const WIDGET_STRUCTURED_AGGREGATION_UNSUPPORTED =
+	"This source cannot aggregate server-side. Use list mode, or pick a source that supports aggregation.";
+export const WIDGET_STRUCTURED_FILTER_TARGET_LABEL = "Target";
+export const WIDGET_STRUCTURED_SORT_LABEL = "Sort";
+export const WIDGET_STRUCTURED_SORT_FIELD_PLACEHOLDER = "sort field";
+export const WIDGET_STRUCTURED_SORT_ASC = "Ascending";
+export const WIDGET_STRUCTURED_SORT_DESC = "Descending";
+export const WIDGET_STRUCTURED_PREVIOUS_PERIOD_LABEL =
+	"Compare with previous period";
+export const WIDGET_STRUCTURED_DURATION_PLACEHOLDER = "nanoseconds";
+export const WIDGET_STRUCTURED_STATUS_PLACEHOLDER =
+	"STATUS_CODE_OK, STATUS_CODE_ERROR";
+export const WIDGET_STRUCTURED_SPAN_NAME_PLACEHOLDER = "span name";
+export const WIDGET_STRUCTURED_VIEW_GENERATED_QUERY = "View generated query";
 export const BOARD_DELETE_FAILED = "Board delete failed!";
 export const BOARD_DELETED_SUCCESSFULLY = "Board deleted successfully!";
 export const FOLDER_DELETE_FAILED =
@@ -367,6 +423,7 @@ export const MAIN_DASHBOARD_NOT_FOUND = "Main dashboard not found!";
 export const BOARD_CREATE_FAILED = "Board create failed!";
 export const BOARD_IMPORT_FAILED = "Board import failed!";
 export const BOARD_IMPORT_SUCCESSFULLY = "Board import successfully!";
+export const BOARD_IMPORT_INVALID_JSON = "Dashboard import file must be valid JSON.";
 export const NO_WIDGETS_YET = "No widgets yet!";
 export const NO_WIDGETS_YET_DESCRIPTION = "Create your first widget to start building your custom dashboard. Add charts, stats, and more to visualize your data.";
 export const NO_WIDGETS_YET_ACTION_BUTTON = "Add Your First Widget";
@@ -677,6 +734,14 @@ export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the insta
 
 // Trace-detail content-capture banner. Surfaces a one-liner the user
 // can run when prompts / responses are missing from a coding-agent
+// Coding Agents — env-routed ClickHouse resolution errors
+export const CODING_AGENTS_DB_NOT_IN_PROJECT =
+	"The selected ClickHouse datasource is not available in the current project.";
+export const CODING_AGENTS_REQUIRES_CLICKHOUSE =
+	"Coding Agents require a ClickHouse datasource for the selected environment's traces or intelligence routing.";
+export const OBSERVABILITY_LOG_NOT_FOUND =
+	"Log entry not found in the selected time range or data source.";
+// Shown when coding-agent sessions lack captured prompts / completions from the
 // trace (i.e. the CLI is in metadata_only or minimal mode). Tracks the
 // OPENLIT_CODING_CONTENT_CAPTURE flag used by the CLI.
 export const CODING_AGENT_CONTENT_CAPTURE_NOTE_TITLE = "Content capture is off";
@@ -1189,6 +1254,12 @@ export const DB_CONFIG_FIELD_DATABASE = "Database";
 export const DB_CONFIG_FIELD_QUERY_PARAMS = "Query params";
 export const UPDATE_DB_CONFIG = "Update Database config";
 export const ADD_DB_CONFIG = "Add Database config";
+export const CLICKHOUSE_CONNECTOR_ADD_TITLE = "Add ClickHouse connector";
+export const CLICKHOUSE_CONNECTOR_EDIT_TITLE = "Edit ClickHouse connector";
+export const CLICKHOUSE_CONNECTOR_DESCRIPTION =
+	"Connect this project environment to the ClickHouse database used by telemetry and derived features.";
+export const CLICKHOUSE_CONNECTOR_INSTRUCTIONS =
+	"Use the host, port, database, and credentials for the ClickHouse instance that belongs to this environment.";
 export const DB_CONFIG_EDIT_PERMISSION_REQUIRED =
 	"You don't have enough permissions to edit this database config";
 export const UPDATE = "Update";
@@ -1200,6 +1271,8 @@ export const DB_CONFIG_EMPTY_DESCRIPTION =
 export const DB_CONFIG_NOT_SELECTED_DESCRIPTION =
 	"Select a database config to update its details.";
 export const ADD_DATABASE_CONFIG = "Add database config";
+export const DELETE_DATABASE_CONFIG_CONFIRMATION =
+	"Delete this ClickHouse connector? This cannot be undone.";
 export const MARK_DB_CONFIG_ACTIVE = (name: string) =>
 	`Mark ${name} as the active database config`;
 export const SHARE_DATABASE_CONFIG = "Share Database config";
@@ -1223,6 +1296,7 @@ export const PROJECTS = "Projects";
 export const PROJECT_NAME = "Project Name";
 export const PROJECT_NAME_PLACEHOLDER = "Production";
 export const MANAGE_PROJECTS = "Manage Projects";
+export const MANAGE_DATA = "Manage Data";
 export const DEFAULT_PROJECT = "Default Project";
 export const PROJECT_NAME_REQUIRED = "Project name is required";
 export const PROJECT_NAME_LENGTH_ERROR = "Project name must be 120 characters or less";
@@ -1245,6 +1319,9 @@ export const BACK_TO_ORGANISATION = "Back to Organisation";
 export const PROJECT_DETAILS = "Project details";
 export const PROJECT_DETAILS_DESCRIPTION =
 	"Review project identity, current status, and database configuration.";
+export const PROJECT_ENVIRONMENT = "Environments";
+export const PROJECT_ID = "Project ID";
+export const PROJECT_CONNECTION_COUNT = "ClickHouse connections";
 export const PROJECT_DATABASE_CONFIGS = "Database configurations";
 export const PROJECT_DATABASE_CONFIGS_DESCRIPTION =
 	"Create, select, and update database configs scoped to this project.";
@@ -1935,3 +2012,216 @@ export const TRACE_AI_TOOL_MISUSE_EMPTY_DETAIL =
 export const TRACE_AI_TOKENS_SAVED = (tokens: number | string) =>
 	`${tokens} tokens saved`;
 export const TRACE_AI_USD_SAVED = (usd: number | string) => `$${usd} saved`;
+
+// Telemetry Sources (pluggable observability backends)
+export const TELEMETRY_SOURCE_BUILTIN_NAME = "ClickHouse";
+export const TELEMETRY_SOURCE_NOT_CONFIGURED =
+	"No telemetry source is configured for this project.";
+export const TELEMETRY_SOURCE_NOT_SUPPORTED_IN_CE =
+	"External telemetry sources are an enterprise feature. This deployment reads telemetry from the built-in ClickHouse source.";
+export const TELEMETRY_SOURCE_CAPABILITY_UNSUPPORTED = (
+	capability: string,
+	source: string
+) => `"${capability}" is not supported by the "${source}" data source.`;
+export const TELEMETRY_SOURCE_SIGNAL_UNSUPPORTED = (
+	signal: string,
+	source: string
+) => `This data source ("${source}") does not serve ${signal}.`;
+export const TELEMETRY_SOURCE_HEALTHCHECK_OK = "Data source is reachable.";
+export const TELEMETRY_SOURCE_HEALTHCHECK_FAILED = (reason: string) =>
+	`Data source is unreachable: ${reason}`;
+export const TELEMETRY_SOURCE_NO_AI_SIGNAL =
+	"No AI telemetry was found in the probe window for this data source. Confirm your apps emit gen_ai.* / coding_agent.* attributes or the OpenLIT SDK.";
+export const TELEMETRY_SOURCE_AI_VALIDATION_UNSUPPORTED = (type: string) =>
+	`AI signal validation is not applicable for "${type}" (logs/metrics sources). Connection health is enough for this source.`;
+export const TELEMETRY_SOURCE_CHAT_NATIVE_ONLY = (source: string) =>
+	`Natural-language SQL chat runs only on the built-in ClickHouse source. This project reads telemetry from "${source}", so use the Telemetry, trace, and dashboard views instead.`;
+export const DATA_SOURCE_AUTH_401_HINT =
+	"Authentication failed. For Grafana Cloud, use Basic auth: Username = instance ID, Password = access policy token (leave Bearer blank).";
+export const DATA_SOURCE_AUTH_TYPE = "Authentication type";
+export const DATA_SOURCE_AUTH_TYPE_BASIC = "Basic (username + password)";
+export const DATA_SOURCE_AUTH_TYPE_BEARER = "Bearer token";
+export const DATA_SOURCE_AUTH_TYPE_NONE = "No authentication";
+export const TELEMETRY_SOURCE_NAME_REQUIRED =
+	"A telemetry source name is required.";
+export const TELEMETRY_SOURCE_NAME_TAKEN = (name: string, environment: string) =>
+	`A connector named "${name}" already exists in the ${environment} environment. Choose a different name.`;
+export const TELEMETRY_SOURCE_TYPE_UNKNOWN = (type: string) =>
+	`Unknown telemetry source type "${type}".`;
+export const TELEMETRY_SOURCE_INVALID_JSON =
+	"Request body is not valid JSON.";
+export const TELEMETRY_SOURCE_NO_PROJECT =
+	"No current project is selected.";
+export const TELEMETRY_SOURCE_NOT_FOUND =
+	"Telemetry source not found in the current project.";
+export const TELEMETRY_SOURCE_INVALID_SETTINGS =
+	"Telemetry source settings must be a JSON object.";
+export const TELEMETRY_SOURCE_SIGNAL_NOT_IN_TYPE = (
+	signals: string,
+	type: string
+) => `Source type "${type}" cannot serve these signals: ${signals}.`;
+export const TELEMETRY_SOURCE_NO_SIGNALS =
+	"A telemetry source must serve at least one signal.";
+export const TELEMETRY_SOURCE_INVALID_SIGNAL = (signal: string) =>
+	`Unknown telemetry signal "${signal}". Expected one of traces, logs, metrics.`;
+export const TELEMETRY_SOURCE_BINDING_SIGNAL_UNSERVED = (
+	signal: string,
+	source: string
+) => `The bound source "${source}" does not serve ${signal}.`;
+export const TELEMETRY_SOURCE_BINDING_ENVIRONMENT_MISMATCH = (
+	source: string,
+	sourceEnvironment: string,
+	bindingEnvironment: string
+) =>
+	`Cannot bind "${source}" (${sourceEnvironment}) into the ${bindingEnvironment} routing slot. Pick a connector from the same environment.`;
+export const TELEMETRY_SOURCE_NO_SOURCE_FOR_SIGNAL = (signal: string) =>
+	`No connector is configured or routed for ${signal}. Add a connector for this environment and select it in Signal routing.`;
+export const TELEMETRY_SOURCE_ADAPTER_UNAVAILABLE = (type: string) =>
+	`No adapter is registered for telemetry source type "${type}".`;
+
+// ---- Data sources UI (project "Data sources" tab) ------------------------
+export const PROJECT_DATA_SOURCES = "Data sources";
+export const PROJECT_DATA_SOURCES_DESCRIPTION =
+	"Point each telemetry signal at the observability backend where it lives. OpenLIT reads raw traces, logs, and metrics from these sources and runs its intelligence on top.";
+export const PROJECT_CONNECTORS = "Connectors";
+export const PROJECT_ENVIRONMENTS = "Manage Environments";
+export const PROJECT_ENVIRONMENTS_DESCRIPTION =
+	"Select an environment, manage its ClickHouse targets and telemetry connectors, and route traces, logs, and metrics independently.";
+export const PROJECT_CONNECTORS_DESCRIPTION =
+	"Manage ClickHouse databases and external integrations for this project.";
+export const GLOBAL_CONNECTORS = "Connectors";
+export const CONNECTED_CONNECTORS = "Configured connectors";
+export const NO_CONNECTED_CONNECTORS = "No connectors are configured for the active project yet.";
+export const CONNECTOR_CATALOG = "Connector catalog";
+export const CONNECTOR_CATALOG_DESCRIPTION = "Browse connector types and add more integrations to the active project.";
+export const ADD_CONNECTOR = "Add connector";
+export const CONNECTOR_PREMIUM = "Premium";
+export const CONNECTOR_LOCKED = "Requires a paid plan or license";
+export const CONNECTOR_LOCKED_ACTION = "License required";
+export const NAV_FEATURE_LOCKED = "Locked";
+export const MANAGE_CONNECTORS = "Manage connectors";
+export const CONNECTOR_ENVIRONMENT = "Environment";
+export const CONNECTOR_ENVIRONMENT_PLACEHOLDER = "production";
+export const CONNECTOR_ENVIRONMENT_DESCRIPTION =
+	"Keep connector assignments separate for production, staging, and other environments.";
+export const DATA_SOURCE_BUILTIN_TITLE = "ClickHouse connector";
+export const DATA_SOURCE_BUILTIN_DERIVED =
+	"ClickHouse is optional for telemetry viewing. It becomes the execution target for evaluations, AI analysis, costing, and other features that require OpenLIT-managed storage.";
+export const DATA_SOURCE_BUILTIN_FIELD_LABEL = "Derived intelligence & evaluations";
+export const DATA_SOURCE_SIGNAL_ROUTING_TITLE = "Signal routing";
+export const DATA_SOURCE_SIGNAL_ROUTING_DESCRIPTION =
+	"Choose which connector serves each signal for this project. The ClickHouse connector correlates all signals; splitting signals across backends limits cross-signal features to best-effort.";
+export const DATA_SOURCE_SIGNAL_ROUTING_DIALOG_DESCRIPTION = (environment: string) =>
+	`Choose which connector serves each signal in ${environment}. Changes apply immediately.`;
+export const DATA_SOURCE_SIGNAL_ROUTING_DIALOG_FOOTER = (name: string, environment: string) =>
+	`${name} · routing is scoped to the ${environment} environment.`;
+export const DATA_SOURCE_SIGNAL_TRACES = "Traces";
+export const DATA_SOURCE_SIGNAL_LOGS = "Logs";
+export const DATA_SOURCE_SIGNAL_METRICS = "Metrics";
+export const DATA_SOURCE_SIGNAL_BUILTIN_OPTION = "ClickHouse connector";
+export const DATA_SOURCE_SOURCES_TITLE = "External sources";
+export const DATA_SOURCE_SOURCES_DESCRIPTION =
+	"Connect Grafana Tempo or Jaeger for external traces, or ClickHouse for OpenLIT-managed telemetry and intelligence.";
+export const DATA_SOURCE_ADD = "Add source";
+export const DATA_SOURCE_EDIT = "Edit source";
+export const DATA_SOURCE_DETAILS = "Connector details";
+export const DATA_SOURCE_CONNECTOR_SECTION = "Connector";
+export const DATA_SOURCE_CONNECTION_SECTION = "Connection details";
+export const DATA_SOURCE_SETTINGS_SECTION = "Connection settings";
+export const DATA_SOURCE_SIGNALS_SECTION = "Signals served";
+export const DATA_SOURCE_TYPE_LOCKED = "Connector type cannot be changed after creation.";
+export const DATA_SOURCE_VIEW_DETAILS = "View details";
+export const DATA_SOURCE_CONNECTOR_SECTION_DESCRIPTION = "Choose the integration and identify this connection.";
+export const DATA_SOURCE_CONNECTION_SECTION_DESCRIPTION = "Use a recognizable name and keep configuration isolated by environment.";
+export const DATA_SOURCE_SETTINGS_SECTION_DESCRIPTION = "Connection-specific options for this connector.";
+export const DATA_SOURCE_SETUP_TITLE = "How to connect";
+export const DATA_SOURCE_SETUP_DESCRIPTION = "Use these steps to prepare the endpoint and credentials before saving.";
+export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: string[]; docsUrl: string }> = {
+	clickhouse: {
+		summary: "Use the project database configuration for the ClickHouse store used by OpenLIT intelligence and evaluations.",
+		steps: ["Open the ClickHouse service's Connect menu and copy the HTTPS host, database, username, and password.", "Keep TLS enabled for hosted ClickHouse services.", "Save the connection in the project's database configuration, then test the connection."],
+		docsUrl: "https://clickhouse.com/integrations/clickhouse_client",
+	},
+	tempo: {
+		summary: "Grafana Cloud Tempo uses the stack endpoint with Basic authentication.",
+		steps: ["Copy the Tempo query URL from your Grafana Cloud stack, usually ending in /tempo.", "Use the Tempo instance ID as Username.", "Create a Grafana Cloud Access Policy token with traces:read and enter it as Password."],
+		docsUrl: "https://grafana.com/docs/grafana/latest/datasources/tempo/configure-tempo-data-source/",
+	},
+	jaeger: {
+		summary: "OpenLIT reads traces from the Jaeger Query Service.",
+		steps: ["Enter the Jaeger Query Service URL, commonly port 16686.", "Use the configured Basic/Bearer credentials if the query service is protected.", "Ensure the OpenLIT server can reach the query service over the network."],
+		docsUrl: "https://www.jaegertracing.io/docs/1.24/apis/",
+	},
+};
+export const DATA_SOURCE_EMPTY_TITLE = "No external sources yet";
+export const DATA_SOURCE_EMPTY_DESCRIPTION =
+	"Add a source to read telemetry from your existing observability backend. Until then, everything reads from the built-in ClickHouse.";
+export const DATA_SOURCE_FIELD_NAME = "Name";
+export const DATA_SOURCE_FIELD_TYPE = "Type";
+export const DATA_SOURCE_FIELD_SIGNALS = "Signals served";
+export const DATA_SOURCE_FIELD_DEFAULT = "Set as project default";
+export const DATA_SOURCE_FIELD_ENDPOINT = "Endpoint URL";
+export const DATA_SOURCE_FIELD_ENDPOINT_HELP =
+	"When OpenLIT runs in Docker, use http://host.docker.internal:<port> for services on the host, or the Compose service name (e.g. http://loki:3100) on the same network. localhost inside the container is not the host.";
+export const DATA_SOURCE_FIELD_ALLOW_HTTP = "Allow plain HTTP (self-hosted)";
+export const DATA_SOURCE_FIELD_ALLOW_PRIVATE_NETWORK = "Allow private or localhost endpoints";
+export const DATA_SOURCE_PRIVATE_NETWORK_BLOCKED = (host: string) =>
+	`Host "${host}" is not allowed. Enable "Allow private or localhost endpoints" on this data source to reach private or loopback addresses.`;
+export const DATA_SOURCE_RESPONSE_TOO_LARGE = (maxBytes: number) =>
+	`Data source response exceeded the ${Math.round(maxBytes / (1024 * 1024))} MiB safety limit.`;
+export const DATA_SOURCE_FIELD_SITE = "Datadog site";
+export const DATA_SOURCE_FIELD_REGION = "Region";
+export const DATA_SOURCE_FIELD_ACCOUNT_ID = "Account ID";
+export const DATA_SOURCE_FIELD_API_KEY = "API key";
+export const DATA_SOURCE_FIELD_APP_KEY = "Application key";
+export const DATA_SOURCE_FIELD_TOKEN = "Bearer token (optional)";
+export const DATA_SOURCE_FIELD_USERNAME = "Username / Instance ID";
+export const DATA_SOURCE_FIELD_USERNAME_PLACEHOLDER = "e.g. Grafana Cloud instance ID";
+export const DATA_SOURCE_FIELD_PASSWORD = "Password / Access policy token";
+export const DATA_SOURCE_FIELD_PASSWORD_PLACEHOLDER = "Basic-auth password or Cloud access policy token";
+export const DATA_SOURCE_FIELD_TENANT = "Tenant / Org ID";
+export const DATA_SOURCE_FIELD_TENANT_PLACEHOLDER = "X-Scope-OrgID or Victoria AccountID";
+export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS = "Maximum query window (days)";
+export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS_PLACEHOLDER = "30";
+export const DATA_SOURCE_MAX_TIME_RANGE_HINT = (days: number) =>
+	`Maximum ${days} day${days === 1 ? "" : "s"} for the selected data source.`;
+export const DATA_SOURCE_SECRET_UNAVAILABLE =
+	"The connector credentials could not be loaded from the OpenLIT vault. Check the selected ClickHouse connection and try again.";
+export const DATA_SOURCE_SECRET_NOT_FOUND =
+	"The connector credential is missing from the OpenLIT vault. Re-save the connector credentials.";
+export const DATA_SOURCE_SECRET_DECRYPT_FAILED =
+	"The connector credential could not be decrypted. Re-save it with the current vault encryption key.";
+export const DATA_SOURCE_AUTH_REQUIRED = (sourceName: string, authType: string) =>
+	`${sourceName} is configured for ${authType} authentication, but its credentials could not be resolved.`;
+export const DATA_SOURCE_CREDENTIALS_TITLE = "Credentials";
+export const DATA_SOURCE_AUTHENTICATION_SECTION = "Authentication";
+export const DATA_SOURCE_CREDENTIALS_HELP =
+	"Stored encrypted in the OpenLIT vault and only decrypted server-side. Leave blank to keep existing credentials.";
+export const DATA_SOURCE_AUTH_HELP_HTTP =
+	"Grafana Cloud query APIs use Basic auth (Instance ID + access policy token). Self-hosted LGTM often needs no auth, or Basic/Bearer via your reverse proxy. Fill Basic fields for Cloud; use Bearer only when your backend expects it.";
+export const DATA_SOURCE_AUTH_HELP_DATADOG =
+	"Datadog requires an API key and Application key for Spans, Logs, and Metrics APIs.";
+export const DATA_SOURCE_AUTH_HELP_NEWRELIC =
+	"New Relic uses a user or ingest API key with NerdGraph / NRQL access for the account.";
+export const DATA_SOURCE_CREDENTIALS_SET = "Credentials are set.";
+export const DATA_SOURCE_DOCS_LINK = "View connection docs";
+export const DATA_SOURCE_TEST = "Test connection";
+export const DATA_SOURCE_TESTING = "Testing connection…";
+export const DATA_SOURCE_TEST_OK = "Data source is reachable.";
+export const DATA_SOURCE_TEST_AI_OK = (count: number) =>
+	`Reachable, and ${count} AI telemetry record${count === 1 ? "" : "s"} found in the last hour.`;
+export const DATA_SOURCE_TEST_AI_NONE =
+	"Reachable, but no AI telemetry was found in the last hour.";
+export const DATA_SOURCE_TEST_VALIDATION_FAILED = (reason: string) =>
+	`Connection is reachable, but telemetry validation failed: ${reason}`;
+export const DATA_SOURCE_SAVED = "Data source saved.";
+export const DATA_SOURCE_SAVE_FAILED = "Failed to save data source.";
+export const DATA_SOURCE_DELETED = "Data source deleted.";
+export const DATA_SOURCE_DELETE_FAILED = "Failed to delete data source.";
+export const DATA_SOURCE_DELETE_CONFIRM = (name: string) =>
+	`Delete data source "${name}"? Signals bound to it will fall back to the built-in ClickHouse.`;
+export const DATA_SOURCE_BINDING_SAVED = "Signal routing updated.";
+export const DATA_SOURCE_BINDING_FAILED = "Failed to update signal routing.";
+export const DATA_SOURCE_LOAD_FAILED = "Failed to load data sources.";
+export const DATA_SOURCE_RETRY = "Try again";
+

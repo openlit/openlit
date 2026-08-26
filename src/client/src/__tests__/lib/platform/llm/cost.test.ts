@@ -19,6 +19,13 @@ jest.mock("@/helpers/server/trace", () => ({
 	getTraceMappingKeyFullPaths: jest.fn(() => ["gen_ai.provider.name", "gen_ai.system"]),
 }));
 
+jest.mock("@/lib/platform/llm/external", () => ({
+	externalTotalCost: jest.fn(async () => null),
+	externalAverageCost: jest.fn(async () => null),
+	externalCostByApplication: jest.fn(async () => null),
+	externalCostByEnvironment: jest.fn(async () => null),
+}));
+
 import { dataCollector } from "@/lib/platform/common";
 import {
 	getCostByApplication,
@@ -80,7 +87,7 @@ describe("llm cost analytics queries", () => {
 		await getCostPerTime(params);
 		expect(mockedDataCollector).toHaveBeenCalledWith(
 			expect.objectContaining({
-				query: expect.stringContaining("request_time"),
+				query: expect.stringContaining("AS request_time"),
 			})
 		);
 	});

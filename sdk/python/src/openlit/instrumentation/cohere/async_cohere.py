@@ -174,9 +174,7 @@ def async_chat_stream(
                 return chunk
             except StopAsyncIteration:
                 try:
-                    with tracer.start_as_current_span(
-                        self._span_name, kind=SpanKind.CLIENT
-                    ) as self._span:
+                    with self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,

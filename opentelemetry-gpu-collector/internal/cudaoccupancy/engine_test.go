@@ -2,6 +2,25 @@ package cudaoccupancy
 
 import "testing"
 
+func TestTakeClosedSpansOnSync(t *testing.T) {
+	e := NewEngine(map[string]uint64{"gpu-a": 64}, nil)
+	e.HandleLaunch(KernelLaunch{
+		PID: 1, TID: 1, StreamID: 9, DeviceUUID: "gpu-a", KtimeNs: 100,
+		Name: "k", GridX: 1, GridY: 1, GridZ: 1, BlockX: 32, BlockY: 1, BlockZ: 1,
+	})
+	e.HandleSync(SyncEvent{PID: 1, TID: 1, StreamID: 9, DeviceUUID: "gpu-a", KtimeNs: 200})
+	closed := e.TakeClosedSpans()
+	if len(closed) != 1 {
+		t.Fatalf("closed=%d", len(closed))
+	}
+	if closed[0].KernelName != "k" || closed[0].StartNs != 100 || closed[0].EndNs != 200 {
+		t.Fatalf("%#v", closed[0])
+	}
+	if len(e.TakeClosedSpans()) != 0 {
+		t.Fatal("expected empty after take")
+	}
+}
+
 func TestMergeIntervals(t *testing.T) {
 	if got := MergeIntervals(nil); got != 0 {
 		t.Fatalf("empty: %d", got)
@@ -32,7 +51,7 @@ func TestBuildKernelSpanAvgThreads(t *testing.T) {
 }
 
 func TestCoreUsageClampAndNormalize(t *testing.T) {
-	e := NewEngine(map[string]uint64{"gpu-a": 50})
+	e := NewEngine(map[string]uint64{"gpu-a": 50}, nil)
 	// Control time
 	var now uint64 = 1_000_000_000 // 1s
 	e.nowFn = func() uint64 { return now }
@@ -69,7 +88,7 @@ func TestCoreUsageClampAndNormalize(t *testing.T) {
 }
 
 func TestMultiProcessNormalization(t *testing.T) {
-	e := NewEngine(map[string]uint64{"gpu-a": 100})
+	e := NewEngine(map[string]uint64{"gpu-a": 100}, nil)
 	var now uint64 = 1_000_000_000
 	e.nowFn = func() uint64 { return now }
 	_ = e.GetAndFlush()
@@ -97,7 +116,7 @@ func TestMultiProcessNormalization(t *testing.T) {
 }
 
 func TestDeviceSyncFanOut(t *testing.T) {
-	e := NewEngine(map[string]uint64{"gpu-a": 64})
+	e := NewEngine(map[string]uint64{"gpu-a": 64}, nil)
 	var now uint64 = 100
 	e.nowFn = func() uint64 { return now }
 	_ = e.GetAndFlush()
@@ -124,7 +143,7 @@ func TestDeviceSyncFanOut(t *testing.T) {
 }
 
 func TestDeviceSyncWithoutSetDevice(t *testing.T) {
-	e := NewEngine(map[string]uint64{"gpu-a": 64})
+	e := NewEngine(map[string]uint64{"gpu-a": 64}, nil)
 	var now uint64 = 100
 	e.nowFn = func() uint64 { return now }
 	_ = e.GetAndFlush()
@@ -145,7 +164,7 @@ func TestDeviceSyncWithoutSetDevice(t *testing.T) {
 }
 
 func TestStreamLimitIsPerPID(t *testing.T) {
-	e := NewEngine(map[string]uint64{"gpu-a": 64})
+	e := NewEngine(map[string]uint64{"gpu-a": 64}, nil)
 	e.maxActiveStreams = 2
 	var now uint64 = 1
 	e.nowFn = func() uint64 { return now }
