@@ -3,6 +3,10 @@ jest.mock("ai", () => ({
 	jsonSchema: jest.fn((schema) => schema),
 }));
 
+const mockGetLogs = jest.fn();
+const mockListMetricRecords = jest.fn();
+const mockResolveSignalSource = jest.fn();
+
 import { TextDecoder, TextEncoder } from "util";
 
 Object.assign(global, { TextDecoder, TextEncoder });
@@ -56,8 +60,28 @@ jest.mock("@/lib/platform/chat/improvement", () => ({
 	streamTraceImprovementAnalysis: jest.fn(),
 }));
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: jest.fn(),
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+	};
+});
+
+jest.mock("@/lib/platform/traces/read", () => ({
+	listTraceRecords: jest.fn(),
+}));
+
+jest.mock("@/lib/platform/logs/read", () => ({
+	getLogs: (...args: unknown[]) => mockGetLogs(...args),
+}));
+
+jest.mock("@/lib/platform/metrics/read", () => ({
+	listMetricRecords: (...args: unknown[]) => mockListMetricRecords(...args),
+}));
+
+jest.mock("@/lib/telemetry-source", () => ({
+	resolveSignalSource: (...args: unknown[]) => mockResolveSignalSource(...args),
 }));
 
 jest.mock("@/utils/sanitizer", () => ({
@@ -95,6 +119,7 @@ import {
 	updateCustomModel,
 } from "@/lib/platform/providers/models-service";
 import { dataCollector } from "@/lib/platform/common";
+import { listTraceRecords } from "@/lib/platform/traces/read";
 import {
 	getTraceImprovement,
 	streamTraceImprovementAnalysis,
@@ -140,6 +165,8 @@ describe("getChatTools", () => {
 				"get_trace_analysis",
 				"analyze_trace_batch",
 				"analyze_traces_by_attribute",
+				"get_telemetry_routing",
+				"query_telemetry",
 			])
 		);
 		expect(tools.create_rule.inputSchema.required).toEqual(["name"]);
@@ -147,6 +174,50 @@ describe("getChatTools", () => {
 			"key",
 			"value",
 		]);
+	});
+
+	it("reads Otter trace telemetry through the selected-source facade", async () => {
+		(listTraceRecords as jest.Mock).mockResolvedValue({
+			err: null,
+			records: [{ TraceId: "tempo-trace", SpanId: "tempo-span" }],
+			total: 1,
+		});
+		const tools = getChatTools("user-1", "db-1", "production") as any;
+
+		const result = await tools.query_telemetry.execute({
+			signal: "traces",
+			limit: 5,
+		});
+
+		expect(result).toMatchObject({ success: true, signal: "traces", total: 1 });
+		expect(listTraceRecords).toHaveBeenCalledWith(
+			expect.objectContaining({ environment: "production", limit: 5 })
+		);
+		expect(dataCollector).not.toHaveBeenCalled();
+	});
+
+	it("reports Tempo as Otter's routed trace connector", async () => {
+		mockResolveSignalSource.mockImplementation(async (signal: string) => ({
+			hasSource: true,
+			via: "binding",
+			descriptor: {
+				name: signal === "traces" ? "Production Tempo" : "ClickHouse",
+				type: signal === "traces" ? "tempo" : "clickhouse",
+				isBuiltIn: signal !== "traces",
+				environment: "production",
+			},
+		}));
+		const tools = getChatTools("user-1", "db-1", "production") as any;
+
+		const result = await tools.get_telemetry_routing.execute({});
+
+		expect(result.routing).toContainEqual(
+			expect.objectContaining({
+				signal: "traces",
+				connector: "Production Tempo",
+				connectorType: "tempo",
+			})
+		);
 	});
 
 	it("creates a rule and adds condition groups when provided", async () => {
@@ -164,12 +235,15 @@ describe("getChatTools", () => {
 				message: "Rule created",
 			})
 		);
-		expect(createRule).toHaveBeenCalledWith({
-			name: "Latency rule",
-			description: "",
-			group_operator: "AND",
-			status: "ACTIVE",
-		});
+		expect(createRule).toHaveBeenCalledWith(
+			{
+				name: "Latency rule",
+				description: "",
+				group_operator: "AND",
+				status: "ACTIVE",
+			},
+			{ databaseConfigId: "db-1" }
+		);
 	});
 
 	it("returns rule operation errors without throwing", async () => {
@@ -289,17 +363,24 @@ describe("getChatTools", () => {
 			entities: [{ id: "entity-1" }],
 		});
 
-		expect(updateRule).toHaveBeenCalledWith("rule-1", {
-			name: "Updated",
-			description: undefined,
-			group_operator: undefined,
-			status: undefined,
-		});
-		expect(addRuleEntity).toHaveBeenCalledWith({
-			rule_id: "rule-1",
-			entity_type: "context",
-			entity_id: "ctx-1",
-		});
+		expect(updateRule).toHaveBeenCalledWith(
+			"rule-1",
+			{
+				name: "Updated",
+				description: undefined,
+				group_operator: undefined,
+				status: undefined,
+			},
+			{ databaseConfigId: "db-1" }
+		);
+		expect(addRuleEntity).toHaveBeenCalledWith(
+			{
+				rule_id: "rule-1",
+				entity_type: "context",
+				entity_id: "ctx-1",
+			},
+			{ databaseConfigId: "db-1" }
+		);
 	});
 
 	it("executes context tools and serializes tags", async () => {
@@ -627,8 +708,12 @@ describe("getChatTools", () => {
 	});
 
 	it("analyzes traces by span attribute and returns trace refs", async () => {
-		(dataCollector as jest.Mock).mockResolvedValue({
-			data: [{ traceId: "trace-abc", spanId: "span-abc", spanCount: 3 }],
+		(listTraceRecords as jest.Mock).mockResolvedValue({
+			records: [
+				{ TraceId: "trace-abc", SpanId: "span-abc" },
+				{ TraceId: "trace-abc", SpanId: "span-def" },
+				{ TraceId: "trace-abc", SpanId: "span-ghi" },
+			],
 			err: null,
 		});
 		(getTraceImprovement as jest.Mock).mockResolvedValue({
@@ -678,14 +763,11 @@ describe("getChatTools", () => {
 			attribute_value: "session-1",
 		});
 
-		expect(dataCollector).toHaveBeenCalledWith(
-			expect.objectContaining({
-				query: expect.stringContaining("SpanAttributes['session.id'] = 'session-1'"),
-				enable_readonly: true,
-			}),
-			"query",
-			"db-1"
-		);
+		expect(listTraceRecords).toHaveBeenCalledWith(expect.objectContaining({
+			selectedConfig: {
+				customFilters: [{ key: "session.id", value: "session-1", scope: "span" }],
+			},
+		}));
 		expect(result.success).toBe(true);
 		expect(result.details).toContain("```trace-refs");
 		expect(result.matchedTraceCount).toBe(1);
@@ -1126,7 +1208,7 @@ describe("getChatTools", () => {
 			error: "Attribute key and value are required",
 		});
 
-		(dataCollector as jest.Mock).mockResolvedValueOnce({ err: "query failed" });
+		(listTraceRecords as jest.Mock).mockResolvedValueOnce({ err: "query failed" });
 		await expect(
 			tools.analyze_traces_by_attribute.execute({
 				attribute_key: "session.id",
@@ -1134,8 +1216,8 @@ describe("getChatTools", () => {
 			})
 		).resolves.toEqual({ success: false, error: "query failed" });
 
-		(dataCollector as jest.Mock).mockResolvedValueOnce({
-			data: [{ traceId: "t1", spanId: null }],
+		(listTraceRecords as jest.Mock).mockResolvedValueOnce({
+			records: [{ TraceId: "t1", SpanId: null }],
 			err: null,
 		});
 		await expect(
@@ -1242,7 +1324,7 @@ describe("getChatTools", () => {
 			error: "Failed to run batch trace analysis",
 		});
 
-		(dataCollector as jest.Mock).mockRejectedValueOnce(emptyError);
+		(listTraceRecords as jest.Mock).mockRejectedValueOnce(emptyError);
 		await expect(
 			tools.analyze_traces_by_attribute.execute({
 				attribute_key: "k",

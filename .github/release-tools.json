@@ -1,6 +1,8 @@
 {
   "python": {
     "name": "Python SDK",
+    "display_name": "Python SDK",
+    "release_name": "python-sdk",
     "tag_prefix": "py-",
     "paths": ["sdk/python/**"],
     "version_strategy": "poetry",
@@ -12,6 +14,8 @@
   },
   "typescript": {
     "name": "TypeScript SDK",
+    "display_name": "TypeScript SDK",
+    "release_name": "typescript-sdk",
     "tag_prefix": "ts-",
     "paths": ["sdk/typescript/**"],
     "version_strategy": "npm",
@@ -26,6 +30,8 @@
   },
   "go": {
     "name": "Go SDK",
+    "display_name": "Go SDK",
+    "release_name": "go-sdk",
     "tag_prefix": "go-",
     "paths": ["sdk/go/**"],
     "version_strategy": "go-const",
@@ -35,6 +41,8 @@
   },
   "cli": {
     "name": "OpenLIT CLI",
+    "display_name": "CLI",
+    "release_name": "cli",
     "tag_prefix": "cli-",
     "paths": ["cli/**"],
     "version_strategy": "none",
@@ -44,6 +52,8 @@
   },
   "controller": {
     "name": "OpenLIT Controller",
+    "display_name": "Controller",
+    "release_name": "controller",
     "tag_prefix": "controller-",
     "paths": ["openlit-controller/**"],
     "version_strategy": "none",
@@ -53,6 +63,8 @@
   },
   "gpu-collector": {
     "name": "OpenTelemetry GPU Collector",
+    "display_name": "OTel GPU Collector",
+    "release_name": "otel-gpu-collector",
     "tag_prefix": "otel-gpu-collector-",
     "paths": ["opentelemetry-gpu-collector/**"],
     "version_strategy": "none",
@@ -62,6 +74,8 @@
   },
   "openlit": {
     "name": "OpenLIT",
+    "display_name": "OpenLIT",
+    "release_name": "openlit",
     "tag_prefix": "openlit-",
     "paths": ["src/**"],
     "version_strategy": "npm",

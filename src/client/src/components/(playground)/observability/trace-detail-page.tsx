@@ -32,6 +32,8 @@ import {
 	hasCodingAgentVendorIcon,
 } from "@/components/svg/coding-agents";
 import { toast } from "sonner";
+import { useRootStore } from "@/store";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
 
 // Mirror of `durationLabel` in observability/columns.tsx — kept local
 // so the top-card override for coding-agent sessions can format the
@@ -103,15 +105,18 @@ function Stat({ icon, label, value }: { icon: ReactNode; label: string; value?: 
 function CostStat({
 	costValue,
 	spanId,
+	traceId,
 	hasModel,
 	onRecalculated,
 }: {
 	costValue?: string;
 	spanId?: string;
+	traceId?: string;
 	hasModel: boolean;
 	onRecalculated: () => void;
 }) {
 	const m = getMessage();
+	const currentEnvironment = useRootStore(getCurrentProjectEnvironment);
 	const hasCost = !!costValue && costValue !== "-";
 	const canRecalculate = hasModel && !!spanId;
 	const { fireRequest, isLoading } = useFetchWrapper<{
@@ -125,7 +130,10 @@ function CostStat({
 		if (!spanId || isLoading) return;
 		fireRequest({
 			requestType: "POST",
-			url: `/api/pricing/${spanId}`,
+			url: `/api/pricing/${spanId}?${new URLSearchParams({
+				...(currentEnvironment ? { environment: currentEnvironment } : {}),
+				...(traceId ? { traceId } : {}),
+			})}`,
 			successCb: (response) => {
 				if (response?.success) {
 					toast.success(
@@ -311,6 +319,7 @@ export function TraceDetailView({
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const from = searchParams.get("from");
+	const urlTraceId = searchParams.get("traceId") || undefined;
 	const [selectedSpanId, setSelectedSpanId] = useState(spanId);
 	const [activeListSpanId, setActiveListSpanId] = useState(spanId);
 	// Per-session code-impact rollups (lines added / removed,
@@ -359,7 +368,7 @@ export function TraceDetailView({
 		total?: number;
 	} | null>(null);
 	const fromRef = useRef(from);
-	const listUrlRef = useRef(type === "exceptions" ? "/api/telemetry/exception" : "/api/telemetry/trace");
+	const listUrlRef = useRef(type === "exceptions" ? "/api/telemetry/exception" : "/api/telemetry/request");
 	const detailBasePathRef = useRef(
 		type === "exceptions" ? "/telemetry/exceptions" : "/telemetry/traces"
 	);
@@ -369,12 +378,27 @@ export function TraceDetailView({
 		fireRequest: fireListRequest,
 		isLoading: isListLoading,
 	} = useFetchWrapper<any>();
+	const listHintTraceId = useMemo(() => {
+		const row = (navigationRows || []).find(
+			(r: any) => r.spanId === selectedSpanId || r.spanId === activeListSpanId
+		);
+		return (
+			(row?.traceId as string | undefined) ||
+			(row?.id as string | undefined) ||
+			(row?.TraceId as string | undefined) ||
+			undefined
+		);
+	}, [navigationRows, selectedSpanId, activeListSpanId]);
+	const knownTraceId = urlTraceId || listHintTraceId;
 	const fetchData = useCallback(() => {
+		const qs = knownTraceId
+			? `?traceId=${encodeURIComponent(knownTraceId)}`
+			: "";
 		fireRequest({
 			requestType: "GET",
-			url: `/api/telemetry/trace/span/${selectedSpanId}`,
+			url: `/api/telemetry/request/span/${selectedSpanId}${qs}`,
 		});
-	}, [fireRequest, selectedSpanId]);
+	}, [fireRequest, selectedSpanId, knownTraceId]);
 
 	useEffect(() => {
 		hierarchySpanIdRef.current = spanId;
@@ -392,12 +416,15 @@ export function TraceDetailView({
 	}, [fetchData]);
 
 	const navigateToListSpan = useCallback(
-		(nextSpanId: string) => {
+		(nextSpanId: string, nextTraceId?: string) => {
 			hierarchySpanIdRef.current = nextSpanId;
 			setActiveListSpanId(nextSpanId);
 			setSelectedSpanId(nextSpanId);
 			const source = fromRef.current;
-			const qs = source ? `?from=${encodeURIComponent(source)}` : "";
+			const params = new URLSearchParams();
+			if (source) params.set("from", source);
+			if (nextTraceId) params.set("traceId", nextTraceId);
+			const qs = params.toString() ? `?${params.toString()}` : "";
 			if (variant === "page") {
 				router.replace(`${detailBasePathRef.current}/${nextSpanId}${qs}`, { scroll: false });
 			}
@@ -437,7 +464,7 @@ export function TraceDetailView({
 					const records = ((response as any)?.records || []).map(normalizeTrace);
 					const target =
 						direction === 1 ? records[0] : records[records.length - 1];
-					if (target?.spanId) {
+			if (target?.spanId) {
 						const nextSource = sourceWithOffset(fromRef.current, offset);
 						fromRef.current = nextSource;
 						setListOffset(offset);
@@ -447,7 +474,7 @@ export function TraceDetailView({
 							total: (response as any)?.total,
 						});
 						onNavigationPageChange?.(offset);
-						navigateToListSpan(target.spanId);
+				navigateToListSpan(target.spanId, target.id || target.traceId || target.TraceId);
 					}
 				},
 			});
@@ -647,6 +674,7 @@ export function TraceDetailView({
 					<RequestProvider syncUrl={false}>
 						<TraceAiAnalysisPanel
 							spanId={selectedSpanId}
+							traceId={knownTraceId || trace?.id}
 							scope="span"
 							description={m.TRACE_AI_IMPROVEMENT_SPAN_DESCRIPTION}
 						/>
@@ -661,7 +689,12 @@ export function TraceDetailView({
 					{
 						id: "evaluations",
 						label: "Evaluations",
-						content: <Evaluations trace={trace} surface="observability" />,
+						content: (
+							<Evaluations
+								trace={trace}
+								surface="observability"
+							/>
+						),
 					},
 			  ]
 			: []),
@@ -722,7 +755,8 @@ export function TraceDetailView({
 
 	const selectPrev = () => {
 		if (currentIndex > 0) {
-			navigateToListSpan(effectiveListRows[currentIndex - 1].spanId);
+			const previous = effectiveListRows[currentIndex - 1];
+			navigateToListSpan(previous.spanId, previous.id || previous.traceId || previous.TraceId);
 		} else if (effectiveListOffset > 0) {
 			fetchList(Math.max(0, effectiveListOffset - navigationLimit), -1);
 		}
@@ -730,7 +764,8 @@ export function TraceDetailView({
 
 	const selectNext = () => {
 		if (currentIndex >= 0 && currentIndex < effectiveListRows.length - 1) {
-			navigateToListSpan(effectiveListRows[currentIndex + 1].spanId);
+			const next = effectiveListRows[currentIndex + 1];
+			navigateToListSpan(next.spanId, next.id || next.traceId || next.TraceId);
 		} else if (effectiveListOffset + effectiveListRows.length < total) {
 			fetchList(effectiveListOffset + navigationLimit, 1);
 		}
@@ -812,6 +847,7 @@ export function TraceDetailView({
 						<CostStat
 							costValue={costValue}
 							spanId={trace.spanId}
+							traceId={knownTraceId}
 							hasModel={!!modelValue}
 							onRecalculated={fetchData}
 						/>
@@ -918,6 +954,7 @@ export function TraceDetailView({
 									<SpanHierarchyExplorer
 										hierarchySpanId={hierarchySpanIdRef.current}
 										selectedSpanId={selectedSpanId}
+										traceId={knownTraceId || trace?.id}
 										onSelectSpan={selectSpanInCurrentTrace}
 										fill
 									/>
@@ -939,6 +976,7 @@ export function TraceDetailView({
 						<SpanHierarchyExplorer
 							hierarchySpanId={hierarchySpanIdRef.current}
 							selectedSpanId={selectedSpanId}
+							traceId={knownTraceId || trace?.id}
 							onSelectSpan={selectSpanInCurrentTrace}
 						/>
 						<DetailObjectTabs

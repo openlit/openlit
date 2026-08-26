@@ -76,6 +76,27 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getTitle: () => "Home",
 		getBreadcrumbs: () => [],
 	},
+
+	// Costs
+	{
+		regex: /^\/costs$/,
+		getTitle: () => getMessage().COSTS_TITLE,
+		getBreadcrumbs: () => [],
+	},
+	{
+		regex: /^\/pricing$/,
+		getTitle: () => getMessage().COSTS_TAB_CONFIGURATION,
+		getBreadcrumbs: () => [
+			{ title: getMessage().COSTS_TITLE, href: "/costs" },
+		],
+	},
+	{
+		regex: /^\/manage-models$/,
+		getTitle: () => getMessage().OPENGROUND_MANAGE_MODELS,
+		getBreadcrumbs: () => [
+			{ title: getMessage().COSTS_TITLE, href: "/costs" },
+		],
+	},
 	
 	// Costs
 	{

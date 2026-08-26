@@ -6,6 +6,7 @@ import { streamChatMessage, formatStreamError } from "@/lib/platform/chat/stream
 import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
+import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 
 export async function POST(request: NextRequest) {
 	const startTimestamp = Date.now();
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
 
 	const [, dbConfig] = await asaw(getDBConfigByUser(true));
 	const dbConfigId = (dbConfig as any)?.id || "";
+	const environment = request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
 
 	try {
 		const encoder = new TextEncoder();
@@ -62,6 +64,7 @@ export async function POST(request: NextRequest) {
 						model: config.model,
 						userId: user.id,
 						dbConfigId,
+						environment,
 						onDelta: (text) => send({ type: "delta", text }),
 						onStep: (label, status = "active", detail) =>
 							send({ type: "step", status, label, detail }),

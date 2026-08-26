@@ -9,6 +9,36 @@ import {
 	escapeSingleQuotes,
 } from "@/helpers/server/widget";
 import { jsonStringify } from "@/utils/json";
+// NOTE: `@/lib/telemetry-source` is imported lazily inside `runWidgetQuery`
+// (see below). `widget.ts` sits in a pre-existing common <-> board <-> widget
+// import cycle; importing telemetry-source eagerly here would pull the
+// datasource adapter graph (-> clickhouse/adapter -> @/lib/platform/common and
+// -> observability) into that cycle's scope-hoisting group and reintroduce a
+// "Cannot access X before initialization" TDZ in production builds.
+import type {
+	DataFrameMeta,
+	DataSourceAdapter,
+	OpenLITQuery,
+	Signal,
+} from "@/lib/platform/connectors/datasource/types";
+import { UnsupportedCapabilityError } from "@/lib/platform/connectors/datasource/types";
+import { logQueryObservability } from "@/lib/platform/connectors/datasource/query-observability";
+import {
+	clampQueryBudget,
+	DEFAULT_QUERY_BUDGET,
+} from "@/lib/platform/connectors/datasource/http/limits";
+import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
+import {
+	executeInferredWidgetQuery,
+	inferStructuredFromClickHouseSql,
+	isLegacyOtelTracesSql,
+	stripSyntheticDefaultEnvironment,
+} from "@/lib/platform/manage-dashboard/widget-sql-bridge";
+import {
+	planAndAggregateSpans,
+	planAndSpanTimeSeries,
+} from "@/lib/platform/connectors/datasource/query-planner";
+import { shouldPreferRollup } from "@/lib/platform/connectors/datasource/rollup-policy";
 
 /**
  * Resolve a dotted path under the filter object (e.g. `timeLimit.start`).
@@ -306,8 +336,11 @@ function validateSafeQueryContent(value: string): { valid: boolean; error?: stri
 		return { valid: false, error: "Query contains disallowed functions" };
 	}
 
+	// Do not match bare `SYSTEM` — attribute keys like `gen_ai.system` are common
+	// in OTel SQL. ClickHouse admin commands are `SYSTEM <verb>`; system tables
+	// are already blocked by the `system.` check above.
 	const dangerousKeywords =
-		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE|SYSTEM)\b/i;
+		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE)\b|\bSYSTEM\s+\w+/i;
 	if (dangerousKeywords.test(scannable)) {
 		return { valid: false, error: "Query contains disallowed operations" };
 	}
@@ -337,26 +370,12 @@ function validateFilterValues(value: unknown): { valid: boolean; error?: string 
 	return { valid: true };
 }
 
-export async function runWidgetQuery(
-	widgetId: string,
-	{
-		userQuery,
-		filter,
-	}: {
-		userQuery?: string;
-		filter: MetricParams;
-	}
+/** Run raw ClickHouse SQL for a widget (built-in source path). */
+async function runRawClickHouseWidgetQuery(
+	query: string,
+	filter: MetricParams,
+	dbConfigId?: string
 ) {
-	const { data: widget, err: widgetErr } = await getWidgetById(widgetId);
-
-	if (widgetErr || !widget) {
-		return { err: getMessage().WIDGET_FETCH_FAILED };
-	}
-
-	const query = userQuery
-		? userQuery
-		: widget.config?.query || "";
-
 	const filterValidation = validateFilterValues(filter);
 	if (!filterValidation.valid) {
 		return { err: filterValidation.error || "Invalid filter" };
@@ -369,11 +388,252 @@ export async function runWidgetQuery(
 		return { err: validation.error || "Invalid query" };
 	}
 
-	const { data, err } = await dataCollector({ query: exactQuery, enable_readonly: true });
+	const { data, err } = await dataCollector(
+		{ query: exactQuery, enable_readonly: true },
+		"query",
+		dbConfigId
+	);
 
 	if (err) {
 		return { err: "Query execution failed" };
 	}
 
 	return { data };
+}
+
+/** Build an OpenLITQuery time range from the dashboard filter's time limit. */
+function timeRangeFromFilter(filter: MetricParams): { start: Date; end: Date } {
+	const limit = (filter as { timeLimit?: { start?: unknown; end?: unknown } })
+		?.timeLimit;
+	const end = limit?.end ? new Date(limit.end as string) : new Date();
+	const start = limit?.start
+		? new Date(limit.start as string)
+		: new Date(end.getTime() - 24 * 60 * 60 * 1000);
+	return { start, end };
+}
+
+/**
+ * Execute a structured widget query against an external adapter, dispatching by
+ * signal + mode. Returns the DataFrame rows in the flat array shape the widget
+ * renderers already consume.
+ */
+async function executeStructuredWidgetQuery(
+	adapter: DataSourceAdapter,
+	structured: NonNullable<Widget["config"]["structuredQuery"]>,
+	filter: MetricParams
+) {
+	const base = (structured.query || {}) as Partial<OpenLITQuery>;
+	const signal = (base.signal || "traces") as Signal;
+	const fromFilter = metricParamsToOpenLITQuery(filter, signal);
+	const rawQuery = stripSyntheticDefaultEnvironment({
+		...base,
+		signal,
+		timeRange: timeRangeFromFilter(filter),
+		filters: [...(fromFilter.filters || []), ...(base.filters || [])],
+		aiSelector: base.aiSelector ?? fromFilter.aiSelector,
+	} as OpenLITQuery);
+	// Enforce per-query budgets so a widget can never ask a vendor for an
+	// unbounded scan (max rows + max time range + the vendor's lookback window).
+	const maxLookbackMs =
+		typeof adapter.capabilities === "function"
+			? adapter.capabilities().maxLookbackMs
+			: undefined;
+	const { query } = clampQueryBudget(rawQuery, {
+		...DEFAULT_QUERY_BUDGET,
+		...(maxLookbackMs !== undefined ? { maxLookbackMs } : {}),
+	});
+
+	const mode = structured.mode || "timeseries";
+	const observe = (frame: { rows: unknown[]; meta?: DataFrameMeta }) => {
+		logQueryObservability(
+			{
+				sourceType: adapter.type,
+				signal,
+				mode,
+				isBuiltIn: adapter.type === "clickhouse",
+			},
+			frame.meta,
+			frame.rows.length
+		);
+		return { data: frame.rows };
+	};
+	try {
+		if (signal === "logs") {
+			const frame =
+				mode === "list"
+					? await adapter.listLogs(query)
+					: await adapter.logTimeSeries(query);
+			return observe(frame);
+		}
+		if (signal === "metrics") {
+			const frame = await adapter.metricTimeSeries(query);
+			return observe(frame);
+		}
+		// Traces: prefer QueryPlanner so agent/dashboard filters + L1/L2 apply.
+		if (mode === "list") {
+			const frame = await adapter.listSpans(query);
+			return observe(frame);
+		}
+		const preferRollup = shouldPreferRollup(filter);
+		const frame =
+			mode === "aggregate"
+				? await planAndAggregateSpans(adapter, query, { preferRollup })
+				: await planAndSpanTimeSeries(adapter, query, { preferRollup });
+		return observe(frame);
+	} catch (e) {
+		if (e instanceof UnsupportedCapabilityError) {
+			return { err: e.message };
+		}
+		return { err: getMessage().WIDGET_STRUCTURED_QUERY_FAILED };
+	}
+}
+
+/**
+ * Legacy SQL widgets with no sourceId still hit ClickHouse unless the project
+ * traces binding is external — then infer a structured query and run it there.
+ *
+ * Coding-agent seed widgets are an exception: their SQL depends on ClickHouse
+ * session-rollup semantics and must never go through the Tempo/Jaeger bridge
+ * (which collapses them to a generic count and invents huge % deltas).
+ */
+async function runLegacyWidgetQuery(sql: string, filter: MetricParams) {
+	if (!isLegacyOtelTracesSql(sql)) {
+		return runRawClickHouseWidgetQuery(sql, filter);
+	}
+
+	const {
+		isCodingAgentClickHouseSql,
+		resolveCodingAgentsClickHouseDbConfigId,
+	} = await import("@/lib/platform/coding-agents/source");
+
+	if (isCodingAgentClickHouseSql(sql)) {
+		const dbConfigId = await resolveCodingAgentsClickHouseDbConfigId({
+			environment: filter.environment,
+		});
+		if (!dbConfigId) {
+			return { err: getMessage().CODING_AGENTS_REQUIRES_CLICKHOUSE };
+		}
+		return runRawClickHouseWidgetQuery(sql, filter, dbConfigId);
+	}
+
+	const {
+		getTelemetryAdapter,
+		resolveTelemetrySourceDescriptor,
+		sourceSupportsNativeSql,
+	} = await import("@/lib/telemetry-source");
+
+	let descriptor;
+	try {
+		descriptor = await resolveTelemetrySourceDescriptor({ signal: "traces", environment: filter.environment });
+	} catch {
+		return runRawClickHouseWidgetQuery(sql, filter);
+	}
+
+	if (sourceSupportsNativeSql(descriptor)) {
+		return runRawClickHouseWidgetQuery(sql, filter, descriptor.dbConfigId);
+	}
+
+	const inferred = inferStructuredFromClickHouseSql(sql);
+	if (!inferred) {
+		return { err: getMessage().WIDGET_RAW_SQL_SOURCE_ONLY(descriptor.name) };
+	}
+
+	const adapter = await getTelemetryAdapter({ signal: "traces", environment: filter.environment });
+	return executeInferredWidgetQuery(adapter, inferred, filter);
+}
+
+export async function runWidgetQuery(
+	widgetId: string,
+	{
+		userQuery,
+		filter,
+		sourceId: sourceIdOverride,
+		signal: signalOverride,
+		structuredQuery: structuredOverride,
+	}: {
+		userQuery?: string;
+		filter: MetricParams;
+		sourceId?: string | null;
+		signal?: Signal;
+		structuredQuery?: Widget["config"]["structuredQuery"];
+	}
+): Promise<{ data?: unknown; err?: string }> {
+	const { data: widget, err: widgetErr } = await getWidgetById(widgetId);
+
+	if (widgetErr || !widget) {
+		return { err: getMessage().WIDGET_FETCH_FAILED };
+	}
+
+	const config = widget.config || {};
+	const structured = structuredOverride ?? config.structuredQuery;
+	const requestedSql = userQuery || config.query || "";
+	const signal = (
+		signalOverride ??
+		config.signal ??
+		structured?.query?.signal ??
+		(isLegacyOtelTracesSql(requestedSql) ? "traces" : undefined)
+	) as Signal | undefined;
+	// Prefer an explicit override (query-run body / panel config). When unset,
+	// signal widgets follow the project's current per-signal binding.
+	const sourceId =
+		sourceIdOverride !== undefined
+			? sourceIdOverride
+			: (config.sourceId ?? null);
+
+	// Legacy trace SQL also follows the current traces binding. Built-in
+	// ClickHouse keeps raw SQL; external bindings use the SQL→structured bridge.
+	if (!structured && isLegacyOtelTracesSql(requestedSql)) {
+		return runLegacyWidgetQuery(requestedSql, filter);
+	}
+
+	// Non-signal legacy widgets retain their raw ClickHouse path.
+	if (!sourceId && !signal && !structured) {
+		return runLegacyWidgetQuery(
+			requestedSql,
+			filter
+		);
+	}
+
+	// Lazy import breaks the common <-> board <-> widget cycle (see top-of-file
+	// note): the datasource graph is only pulled in at call time, off the
+	// static concatenation path.
+	const {
+		getTelemetryAdapter,
+		resolveTelemetrySourceDescriptor,
+		sourceSupportsNativeSql,
+	} = await import("@/lib/telemetry-source");
+
+	const descriptor = await resolveTelemetrySourceDescriptor({ sourceId, signal, environment: filter.environment });
+
+	// Built-in ClickHouse: prefer structured OpenLITQuery when present so the
+	// Grafana-style builder works natively; otherwise fall back to raw SQL.
+	if (sourceSupportsNativeSql(descriptor)) {
+		if (structured && !userQuery) {
+			const adapter = await getTelemetryAdapter({ sourceId, signal, environment: filter.environment });
+			return executeStructuredWidgetQuery(adapter, structured, filter);
+		}
+		const sql =
+			userQuery ||
+			config.query ||
+			(structured
+				? (
+						await import("./widget-sql-bridge")
+					).openLITQueryToClickHouseSql(
+						(structured.query || {}) as any,
+						structured.mode || "aggregate"
+					)
+				: "");
+		return runRawClickHouseWidgetQuery(sql, filter, descriptor.dbConfigId);
+	}
+
+	// External source: raw SQL is not supported; require a structured query.
+	if (userQuery || (config.query && !structured)) {
+		return { err: getMessage().WIDGET_RAW_SQL_SOURCE_ONLY(descriptor.name) };
+	}
+	if (!structured) {
+		return { err: getMessage().WIDGET_NO_STRUCTURED_QUERY };
+	}
+
+	const adapter = await getTelemetryAdapter({ sourceId, signal, environment: filter.environment });
+	return executeStructuredWidgetQuery(adapter, structured, filter);
 }

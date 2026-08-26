@@ -23,6 +23,7 @@ import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
 
 type RuleMutationOptions = {
 	emitAlert?: boolean;
+	databaseConfigId?: string;
 };
 
 function shouldEmitAlert(options?: RuleMutationOptions) {
@@ -109,7 +110,11 @@ export async function createRule(ruleInputParams: Partial<RuleInput>, options?: 
       ('${ruleId}', '${ruleInput.name}', '${ruleInput.description || ""}', '${ruleInput.group_operator || "AND"}', '${ruleInput.status || "ACTIVE"}', '${user!.email}');
   `;
 
-	const { err } = await dataCollector({ query: insertQuery }, "exec");
+	const { err } = await dataCollector(
+		{ query: insertQuery },
+		"exec",
+		options?.databaseConfigId
+	);
 
 	throwIfError(
 		!!err,
@@ -161,7 +166,11 @@ export async function updateRule(id: string, ruleInputParams: Partial<RuleInput>
     UPDATE ${updateValues.filter(Boolean).join(", ")}
     WHERE id = '${safeId}'`;
 
-	const { err, data } = await dataCollector({ query: updateQuery }, "exec");
+	const { err, data } = await dataCollector(
+		{ query: updateQuery },
+		"exec",
+		options?.databaseConfigId
+	);
 
 	throwIfError(
 		!!(err || !(data as { query_id: unknown })?.query_id),
@@ -202,19 +211,23 @@ export async function deleteRule(id: string, options?: RuleMutationOptions) {
 	const [ruleResult, groupsResult, conditionsResult, entitiesResult] = await Promise.all([
 		dataCollector(
 			{ query: `DELETE FROM ${OPENLIT_RULES_TABLE_NAME} WHERE id = '${safeId}';` },
-			"exec"
+			"exec",
+			options?.databaseConfigId
 		),
 		dataCollector(
 			{ query: `DELETE FROM ${OPENLIT_RULE_CONDITION_GROUPS_TABLE_NAME} WHERE rule_id = '${safeId}';` },
-			"exec"
+			"exec",
+			options?.databaseConfigId
 		),
 		dataCollector(
 			{ query: `DELETE FROM ${OPENLIT_RULE_CONDITIONS_TABLE_NAME} WHERE rule_id = '${safeId}';` },
-			"exec"
+			"exec",
+			options?.databaseConfigId
 		),
 		dataCollector(
 			{ query: `DELETE FROM ${OPENLIT_RULE_ENTITIES_TABLE_NAME} WHERE rule_id = '${safeId}';` },
-			"exec"
+			"exec",
+			options?.databaseConfigId
 		),
 	]);
 
@@ -259,11 +272,13 @@ export async function addConditionGroupsToRule(
 	await Promise.all([
 		dataCollector(
 			{ query: `DELETE FROM ${OPENLIT_RULE_CONDITION_GROUPS_TABLE_NAME} WHERE rule_id = '${safeRuleId}';` },
-			"exec"
+			"exec",
+			options?.databaseConfigId
 		),
 		dataCollector(
 			{ query: `DELETE FROM ${OPENLIT_RULE_CONDITIONS_TABLE_NAME} WHERE rule_id = '${safeRuleId}';` },
-			"exec"
+			"exec",
+			options?.databaseConfigId
 		),
 	]);
 
@@ -280,7 +295,11 @@ export async function addConditionGroupsToRule(
         ('${groupId}', '${safeRuleId}', '${sanitizedGroup.condition_operator || "AND"}');
     `;
 
-		const { err: groupErr } = await dataCollector({ query: insertGroupQuery }, "exec");
+		const { err: groupErr } = await dataCollector(
+			{ query: insertGroupQuery },
+			"exec",
+			options?.databaseConfigId
+		);
 		throwIfError(
 			!!groupErr,
 			typeof groupErr?.toString === "function"
@@ -305,7 +324,11 @@ export async function addConditionGroupsToRule(
           ${conditionValues};
       `;
 
-			const { err: condErr } = await dataCollector({ query: insertConditionsQuery }, "exec");
+			const { err: condErr } = await dataCollector(
+				{ query: insertConditionsQuery },
+				"exec",
+				options?.databaseConfigId
+			);
 			throwIfError(
 				!!condErr,
 				typeof condErr?.toString === "function"
@@ -355,7 +378,8 @@ export async function addRuleEntity(entityInputParams: Partial<RuleEntityInput>,
 				},
 			],
 		},
-		"insert"
+		"insert",
+		options?.databaseConfigId
 	);
 
 	throwIfError(
@@ -395,7 +419,8 @@ export async function deleteRuleEntity(id: string, options?: RuleMutationOptions
 
 	const { err } = await dataCollector(
 		{ query: `DELETE FROM ${OPENLIT_RULE_ENTITIES_TABLE_NAME} WHERE id = '${safeId}';` },
-		"exec"
+		"exec",
+		options?.databaseConfigId
 	);
 
 	if (err) {
@@ -425,7 +450,7 @@ export async function getRuleEntities(filters: {
 	entity_type?: string;
 	entity_id?: string;
 	id?: string;
-} = {}) {
+} = {}, databaseConfigId?: string) {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
@@ -449,5 +474,5 @@ export async function getRuleEntities(filters: {
     ORDER BY created_at DESC;
   `;
 
-	return await dataCollector({ query }, "query");
+	return await dataCollector({ query }, "query", databaseConfigId);
 }

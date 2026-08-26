@@ -1,4 +1,4 @@
-// Package cudaoccupancy implements Datadog-parity CUDA stream-sync occupancy.
+// Package cudaoccupancy implements CUDA stream-sync occupancy estimates.
 //
 // This is a CPU-side model: spans run from kernel launch to sync API return,
 // not true hardware SM occupancy. See package docs and metrics descriptions.
@@ -8,6 +8,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/cudaspans"
 )
 
 const (
@@ -24,6 +26,8 @@ type KernelLaunch struct {
 	StreamID               uint64
 	DeviceUUID             string
 	KtimeNs                uint64
+	Name                   string
+	Kind                   cudaspans.LaunchKind
 	GridX, GridY, GridZ    uint32
 	BlockX, BlockY, BlockZ uint32
 }
@@ -89,7 +93,6 @@ type streamHandler struct {
 	launches         []KernelLaunch
 	pending          []*kernelSpan
 	lastEventKtimeNs uint64
-	ended            bool
 }
 
 type aggregatorKey struct {
@@ -106,7 +109,8 @@ type aggregator struct {
 	isActive               bool
 }
 
-// Engine is the Datadog-style stream occupancy engine.
+// Engine is the stream occupancy engine and sole launch→sync buffer.
+// Closed per-launch spans (for gpu.kernel.duration) are produced on sync / forced sync.
 type Engine struct {
 	mu sync.Mutex
 
@@ -114,10 +118,11 @@ type Engine struct {
 	globalStreams map[streamKey]*streamHandler // stream_id==0 keyed by pid+uuid
 	aggregators   map[aggregatorKey]*aggregator
 
-	// tid -> last cudaSetDevice UUID
-	threadDevice map[uint64]string // pid<<32|tid
-	deviceCores  map[string]uint64 // uuid -> core count
-	deviceIndex  map[int]string    // cuda device index -> uuid
+	devices     *cudaspans.DeviceResolver
+	deviceCores map[string]uint64 // uuid -> core count
+
+	// closedSinceTake holds per-launch ClosedSpans since the last TakeClosedSpans.
+	closedSinceTake []cudaspans.ClosedSpan
 
 	lastFlushKtime uint64
 	nowFn          func() uint64
@@ -133,7 +138,8 @@ type Engine struct {
 }
 
 // NewEngine creates an occupancy engine. deviceCores maps GPU UUID -> CUDA core count.
-func NewEngine(deviceCores map[string]uint64) *Engine {
+// devices may be nil (UUID attribution falls back to "unknown").
+func NewEngine(deviceCores map[string]uint64, devices *cudaspans.DeviceResolver) *Engine {
 	cores := deviceCores
 	if cores == nil {
 		cores = map[string]uint64{}
@@ -142,9 +148,8 @@ func NewEngine(deviceCores map[string]uint64) *Engine {
 		streams:           make(map[streamKey]*streamHandler),
 		globalStreams:     make(map[streamKey]*streamHandler),
 		aggregators:       make(map[aggregatorKey]*aggregator),
-		threadDevice:      make(map[uint64]string),
+		devices:           devices,
 		deviceCores:       cores,
-		deviceIndex:       make(map[int]string),
 		nowFn:             monotonicNowNs,
 		maxActiveStreams:  DefaultMaxActiveStreams,
 		maxKernelLaunches: DefaultMaxKernelLaunches,
@@ -157,28 +162,41 @@ func NewEngine(deviceCores map[string]uint64) *Engine {
 func (e *Engine) SetDeviceIndexUUID(idx int, uuid string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.deviceIndex[idx] = uuid
+	if e.devices != nil {
+		e.devices.SetDeviceIndexUUID(idx, uuid)
+	}
 	if _, ok := e.deviceCores[uuid]; !ok {
 		e.deviceCores[uuid] = 0
 	}
 }
 
-func threadKey(pid, tid uint32) uint64 {
-	return uint64(pid)<<32 | uint64(tid)
-}
-
-// HandleSetDevice records the active device for a thread.
-func (e *Engine) HandleSetDevice(ev SetDeviceEvent) {
+// TakeClosedSpans returns and clears per-launch spans closed since the last take.
+func (e *Engine) TakeClosedSpans() []cudaspans.ClosedSpan {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	uuid := ev.DeviceUUID
-	if uuid == "" {
-		uuid = e.deviceIndex[ev.DeviceIdx]
-	}
-	if uuid == "" {
+	out := e.closedSinceTake
+	e.closedSinceTake = nil
+	return out
+}
+
+// HandleSetDevice records the active device for a thread via the shared resolver.
+func (e *Engine) HandleSetDevice(ev SetDeviceEvent) {
+	if e.devices == nil {
 		return
 	}
-	e.threadDevice[threadKey(ev.PID, ev.TID)] = uuid
+	e.devices.NoteSetDevice(ev.PID, ev.TID, ev.DeviceIdx)
+}
+
+func (e *Engine) resolveUUID(pid, tid uint32, explicit string) string {
+	if explicit != "" {
+		return explicit
+	}
+	if e.devices != nil {
+		if u := e.devices.ResolveUUID(pid, tid); u != "" {
+			return u
+		}
+	}
+	return ""
 }
 
 // HandleLaunch buffers a kernel launch on its stream.
@@ -186,21 +204,14 @@ func (e *Engine) HandleLaunch(ev KernelLaunch) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	uuid := ev.DeviceUUID
-	if uuid == "" {
-		uuid = e.threadDevice[threadKey(ev.PID, ev.TID)]
-	}
-	if uuid == "" {
-		// Fallback: first known device
-		for _, u := range e.deviceIndex {
-			uuid = u
-			break
-		}
-	}
+	uuid := e.resolveUUID(ev.PID, ev.TID, ev.DeviceUUID)
 	if uuid == "" {
 		uuid = "unknown"
 	}
 	ev.DeviceUUID = uuid
+	if ev.Kind == "" {
+		ev.Kind = cudaspans.LaunchKindKernel
+	}
 
 	h := e.getOrCreateStream(ev.PID, ev.StreamID, uuid, ev.KtimeNs)
 	if h == nil {
@@ -215,14 +226,12 @@ func (e *Engine) HandleLaunch(ev KernelLaunch) {
 }
 
 // HandleSync closes spans for a stream or all streams on a device.
+// Per-launch ClosedSpans are buffered for TakeClosedSpans (duration metrics).
 func (e *Engine) HandleSync(ev SyncEvent) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	uuid := ev.DeviceUUID
-	if uuid == "" {
-		uuid = e.threadDevice[threadKey(ev.PID, ev.TID)]
-	}
+	uuid := e.resolveUUID(ev.PID, ev.TID, ev.DeviceUUID)
 
 	if ev.DeviceWide || ev.StreamID == 0 {
 		e.fanOutDeviceSync(ev.PID, uuid, ev.KtimeNs)
@@ -238,9 +247,6 @@ func (e *Engine) HandleSync(ev SyncEvent) {
 }
 
 func (e *Engine) fanOutDeviceSync(pid uint32, uuid string, ts uint64) {
-	if uuid == "" {
-		uuid = e.threadDevice[threadKey(pid, 0)]
-	}
 	// No cudaSetDevice yet: close all streams for this PID so launches still complete.
 	if uuid == "" {
 		for _, h := range e.globalStreams {
@@ -327,7 +333,33 @@ func (e *Engine) markSynchronization(h *streamHandler, ts uint64) {
 			h.pending = append(h.pending, span)
 		}
 	}
-	// Keep launches at/after ts (Datadog uses >=)
+	// Per-launch closed spans for duration (same truth as occupancy close).
+	for _, l := range h.launches {
+		if l.KtimeNs >= ts {
+			continue
+		}
+		kind := l.Kind
+		if kind == "" {
+			kind = cudaspans.LaunchKindKernel
+		}
+		e.closedSinceTake = append(e.closedSinceTake, cudaspans.ClosedSpan{
+			StartNs:    l.KtimeNs,
+			EndNs:      ts,
+			PID:        l.PID,
+			TID:        l.TID,
+			StreamID:   l.StreamID,
+			DeviceUUID: l.DeviceUUID,
+			KernelName: l.Name,
+			Kind:       kind,
+			GridX:      l.GridX,
+			GridY:      l.GridY,
+			GridZ:      l.GridZ,
+			BlockX:     l.BlockX,
+			BlockY:     l.BlockY,
+			BlockZ:     l.BlockZ,
+		})
+	}
+	// Keep launches at/after ts
 	kept := h.launches[:0]
 	for _, l := range h.launches {
 		if l.KtimeNs >= ts {
@@ -557,16 +589,16 @@ func (e *Engine) cleanupInactive(now uint64) {
 		}
 		livePIDs[h.pid] = struct{}{}
 	}
-	// Drop aggregators and thread→device entries for PIDs with no live streams.
+	dead := make(map[uint32]struct{})
 	for key := range e.aggregators {
 		if _, ok := livePIDs[key.pid]; !ok {
+			dead[key.pid] = struct{}{}
 			delete(e.aggregators, key)
 		}
 	}
-	for tk := range e.threadDevice {
-		pid := uint32(tk >> 32)
-		if _, ok := livePIDs[pid]; !ok {
-			delete(e.threadDevice, tk)
+	for pid := range dead {
+		if e.devices != nil {
+			e.devices.ForgetPID(pid)
 		}
 	}
 }

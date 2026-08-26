@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { getRequestHeaders } from "@/utils/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -485,11 +486,15 @@ function FindingCard({
 
 export default function TraceImprovementView({
 	spanId,
+	traceId,
+	environment,
 	scope = "trace",
 	title,
 	description,
 }: {
 	spanId: string;
+	traceId?: string;
+	environment?: string;
 	scope?: "trace" | "span";
 	title?: string;
 	description?: string;
@@ -526,8 +531,13 @@ export default function TraceImprovementView({
 	) => {
 		try {
 			setIsLoading(true);
-			const scopeParam = targetScope === "span" ? "?scope=span" : "";
-			const res = await fetch(`/api/chat/improvement/${targetSpanId}${scopeParam}`);
+			const params = new URLSearchParams();
+			if (targetScope === "span") params.set("scope", "span");
+			if (traceId) params.set("traceId", traceId);
+			const query = params.toString() ? `?${params.toString()}` : "";
+			const res = await fetch(`/api/chat/improvement/${targetSpanId}${query}`, {
+				headers: getRequestHeaders(),
+			});
 			if (!res.ok) {
 				const err = await res.json();
 				throw new Error(typeof err === "string" ? err : m.TRACE_AI_LOAD_FAILED);
@@ -612,10 +622,14 @@ export default function TraceImprovementView({
 		const timeoutId = setTimeout(() => abortController.abort(), 120_000);
 
 		try {
-			const scopeParam = scope === "span" ? "?scope=span" : "";
-			const res = await fetch(`/api/chat/improvement/${spanId}${scopeParam}`, {
+			const params = new URLSearchParams();
+			if (scope === "span") params.set("scope", "span");
+			if (traceId) params.set("traceId", traceId);
+			const query = params.toString() ? `?${params.toString()}` : "";
+			const res = await fetch(`/api/chat/improvement/${spanId}${query}`, {
 				method: "POST",
 				signal: abortController.signal,
+				headers: getRequestHeaders(),
 			});
 			if (!res.ok || !res.body) {
 				const err = await res.json();
@@ -681,8 +695,7 @@ export default function TraceImprovementView({
 		setIsFetched(false);
 		setSteps([]);
 		if (spanId) fetchAnalysis(spanId, scope, requestKey);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [spanId, scope]);
+	}, [spanId, scope, traceId, environment]);
 
 	const persistedRuns = useMemo<AnalysisRun[]>(() => {
 		const runs = analysis?.data?.runs || [];

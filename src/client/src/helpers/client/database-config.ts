@@ -15,8 +15,9 @@ export const fetchDatabaseConfigList = async (
 		})
 	);
 
-	successCb(data || []);
-	useRootStore.getState().databaseConfig.setList(data || []);
+	const list = Array.isArray(data) ? data : [];
+	successCb(list);
+	useRootStore.getState().databaseConfig.setList(list);
 };
 
 export const pingActiveDatabaseConfig = async () => {
@@ -40,7 +41,8 @@ export const pingActiveDatabaseConfig = async () => {
 
 export const changeActiveDatabaseConfig = async (
 	databaseConfigId: string,
-	successCb: () => void
+	successCb: () => void,
+	options: { silent?: boolean } = {}
 ) => {
 	const [err, data] = await asaw(
 		getData({
@@ -64,9 +66,11 @@ export const changeActiveDatabaseConfig = async (
 		return acc;
 	}, []);
 	useRootStore.getState().databaseConfig.setList(updatedList);
-	toast.success(`Db config: set active successfully!`, {
-		id: "db-config-current",
-	});
+	if (!options.silent) {
+		toast.success(`Db config: set active successfully!`, {
+			id: "db-config-current",
+		});
+	}
 	pingActiveDatabaseConfig();
 };
 

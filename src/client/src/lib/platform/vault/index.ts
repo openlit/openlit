@@ -12,9 +12,11 @@ import Sanitizer from "@/utils/sanitizer";
 import { OPENLIT_VAULT_TABLE_NAME } from "./table-details";
 import { dataCollector } from "../common";
 import { jsonStringify } from "@/utils/json";
-import { getAPIKeyInfo } from "../api-keys";
+import { getAPIKeyInfo, type APIKeyInfo } from "../api-keys";
 import { decryptValue, encryptValue } from "@/utils/crypto";
 import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
+import prisma from "@/lib/prisma";
+import { invalidateSourceSecretCache } from "@/lib/platform/connectors/datasource/http/secret";
 
 function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -76,7 +78,21 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
-	const secretInput = Sanitizer.sanitizeObject(secretInputParams);
+	// Preserve the secret value before SQL sanitization. `sqlString.escape`
+	// turns JSON quotes into \" which survives encryption and then fails
+	// JSON.parse on read — adapters see empty credentials and Grafana returns
+	// "authentication error: no credentials provided".
+	const rawValue =
+		typeof secretInputParams.value === "string"
+			? secretInputParams.value
+			: undefined;
+	const secretInput = Sanitizer.sanitizeObject({
+		...secretInputParams,
+		value: undefined,
+	}) as Partial<SecretInput>;
+	if (rawValue !== undefined) {
+		secretInput.value = rawValue;
+	}
 
 	const verifiedSecretObj = verifySecretInput(secretInput);
 	throwIfError(!verifiedSecretObj.success, verifiedSecretObj.err!);
@@ -145,6 +161,7 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 			},
 		});
 
+		invalidateSourceSecretCache(secretInput.id);
 		return getMessage().SECRET_SAVED;
 	} else {
 		createdSecretId = randomUUID();
@@ -185,6 +202,8 @@ export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 		},
 	});
 
+	invalidateSourceSecretCache(createdSecretId);
+
 	return {
 		data: createdSecretId ? { id: createdSecretId } : {},
 		id: createdSecretId,
@@ -210,6 +229,8 @@ export async function deleteSecret(secretIdParam: string) {
 		return [getMessage().SECRET_NOT_DELETED];
 	}
 
+	invalidateSourceSecretCache(secretId);
+
 	emitManagementAlertSignalSafe({
 		triggerType: "vault_secret_change",
 		event: "vault_secret_deleted",
@@ -230,14 +251,17 @@ export async function getSecrets(
 	filters: SecretGetFilters,
 	{ selectValue }: { selectValue?: boolean } = {}
 ) {
-	let user: Awaited<ReturnType<typeof getCurrentUser>> | null = null;
-	if (!filters.databaseConfigId) {
-		user = await getCurrentUser();
-		throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+	const user = await getCurrentUser();
+	if (!user && !filters.createdBy) {
+		throwIfError(true, getMessage().UNAUTHORIZED_USER);
 	}
 
 	const filteredConditions: string[] = [
-		user ? getOwnerEmailCondition(user, "v") : "",
+		user
+			? getOwnerEmailCondition(user, "v")
+			: filters.createdBy
+				? `v.created_by = '${escapeClickHouseString(Sanitizer.sanitizeValue(filters.createdBy))}'`
+				: "",
 		filters.key
 			? "v.key = '" +
 				escapeClickHouseString(Sanitizer.sanitizeValue(filters.key)) +
@@ -288,10 +312,12 @@ export async function getSecretsFromDatabaseId(
 		err || getMessage().NO_API_KEY
 	);
 
+	const apiInfoForSecrets = apiInfo as APIKeyInfo | null | undefined;
 	const { err: secretErr, data: secretData } = await getSecrets(
 		{
 			...filters,
-			databaseConfigId: apiInfo.databaseConfigId,
+			databaseConfigId: apiInfoForSecrets?.databaseConfigId || undefined,
+			createdBy: apiInfoForSecrets?.createdByUser?.email,
 		},
 		{ selectValue: true }
 	);
@@ -308,11 +334,27 @@ export async function getSecretById(
 	id: string,
 	databaseConfigId?: string,
 	excludeVaultValue: boolean = true,
-	{ logDecryptErrors = true }: { logDecryptErrors?: boolean } = {}
+	{
+		logDecryptErrors = true,
+		projectId,
+	}: { logDecryptErrors?: boolean; projectId?: string } = {}
 ) {
+	const safeId = escapeClickHouseString(Sanitizer.sanitizeValue(id));
+	let ownerCondition = "";
+	if (projectId) {
+		const source = await prisma.telemetrySource.findFirst({
+			where: { secretRef: id, projectId },
+			select: { id: true },
+		});
+		if (!source) return { data: [] };
+	} else {
+		const user = await getCurrentUser();
+		throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+		ownerCondition = ` AND ${getOwnerEmailCondition(user!, "v")}`;
+	}
 	const query = `SELECT * ${
 		!!excludeVaultValue ? "EXCEPT value" : ""
-	} FROM ${OPENLIT_VAULT_TABLE_NAME} v WHERE v.id = '${id}';`;
+	} FROM ${OPENLIT_VAULT_TABLE_NAME} v WHERE v.id = '${safeId}'${ownerCondition};`;
 
 	const result = await dataCollector({ query }, "query", databaseConfigId);
 

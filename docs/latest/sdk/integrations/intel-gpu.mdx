@@ -16,12 +16,12 @@ Intel GPU support requires Linux with the **i915** or **Xe** kernel driver (kern
 
 | Metric | Description | Requirement |
 |---|---|---|
-| `hw.gpu.temperature` | Die temperature | hwmon `temp1_input` |
-| `hw.gpu.power.draw` | Current power draw (W) | hwmon `power1_average` |
-| `hw.gpu.power.limit` | Power cap (W) | hwmon `power1_max` |
-| `hw.gpu.energy.consumed` | Cumulative energy (J) | hwmon `energy1_input` |
-| `hw.gpu.clock.graphics` | Current graphics clock (MHz) | DRM `gt_cur_freq_mhz` |
-| `hw.gpu.fan_speed` | Fan speed (RPM) | hwmon `fan1_input`, kernel 6.16+ |
+| `hw.temperature` | Die temperature | hwmon `temp1_input` |
+| `hw.power` | Current power draw (W) | hwmon `power1_average` |
+| `hw.power.limit` | Power cap (W) | hwmon `power1_max` |
+| `hw.energy` | Cumulative energy (J) | hwmon `energy1_input` |
+| `hw.gpu.speed` | Graphics clock (Hz; `clock_domain=graphics`) | DRM `gt_cur_freq_mhz` |
+| `hw.fan.speed` | Fan speed (RPM) | hwmon `fan1_input`, kernel 6.16+ |
 
 ## Get started
 
