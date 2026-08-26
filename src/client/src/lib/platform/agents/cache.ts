@@ -57,16 +57,32 @@ export interface SWRPolicy {
 	staleMs: number;
 }
 
+export interface SWROptions<T> {
+	/** Override freshness from the loaded value (e.g. empty graphs). */
+	policyFor?: (value: T) => SWRPolicy;
+}
+
+function remember<T>(key: string, value: T, policy: SWRPolicy) {
+	store.set(key, {
+		value: value as unknown,
+		freshUntil: Date.now() + policy.freshMs,
+		staleUntil: Date.now() + policy.freshMs + policy.staleMs,
+	});
+	evictIfNeeded();
+}
+
 /**
  * Cache the result of `loader` under `key` with stale-while-revalidate.
  */
 export async function swr<T>(
 	key: string,
 	policy: SWRPolicy,
-	loader: () => Promise<T>
+	loader: () => Promise<T>,
+	options?: SWROptions<T>
 ): Promise<T> {
 	const now = Date.now();
 	const cached = store.get(key) as Entry<T> | undefined;
+	const policyForValue = (value: T) => options?.policyFor?.(value) ?? policy;
 
 	if (cached && now < cached.freshUntil) {
 		touch(key, cached);
@@ -78,12 +94,7 @@ export async function swr<T>(
 		touch(key, cached);
 		void singleFlight(key, loader)
 			.then((value) => {
-				store.set(key, {
-					value: value as unknown,
-					freshUntil: Date.now() + policy.freshMs,
-					staleUntil: Date.now() + policy.freshMs + policy.staleMs,
-				});
-				evictIfNeeded();
+				remember(key, value, policyForValue(value));
 			})
 			.catch(() => {
 				// Swallow background-refresh failures; next request will retry.
@@ -92,12 +103,7 @@ export async function swr<T>(
 	}
 
 	const value = await singleFlight(key, loader);
-	store.set(key, {
-		value: value as unknown,
-		freshUntil: Date.now() + policy.freshMs,
-		staleUntil: Date.now() + policy.freshMs + policy.staleMs,
-	});
-	evictIfNeeded();
+	remember(key, value, policyForValue(value));
 	return value as T;
 }
 
@@ -131,3 +137,5 @@ export const POLICY_LIST: SWRPolicy = { freshMs: 30_000, staleMs: 5 * 60_000 };
 export const POLICY_DETAIL: SWRPolicy = { freshMs: 30_000, staleMs: 5 * 60_000 };
 export const POLICY_VERSIONS: SWRPolicy = { freshMs: 5 * 60_000, staleMs: 60 * 60_000 };
 export const POLICY_TOOLS: SWRPolicy = { freshMs: 5 * 60_000, staleMs: 60 * 60_000 };
+/** Empty Tempo/Jaeger samples should not occupy the 5-minute tools window. */
+export const POLICY_EMPTY_GRAPH: SWRPolicy = { freshMs: 15_000, staleMs: 15_000 };

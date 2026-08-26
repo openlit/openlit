@@ -7,6 +7,7 @@ import { OPENLIT_EVALUATION_TABLE_NAME } from "./table-details";
 import { runEvaluation } from "./run-evaluation";
 import { getEvaluationConfig, getEvaluationConfigById } from "./config";
 import asaw from "@/utils/asaw";
+import { evaluateRules } from "@/lib/platform/rule-engine/evaluate";
 import {
 	AutoEvaluationConfig,
 	Evaluation,
@@ -15,13 +16,11 @@ import {
 	EvaluationResponse,
 } from "@/types/evaluation";
 import { consoleLog } from "@/utils/log";
-import { getRequestViaSpanId } from "../request";
+import { getTraceSpanRecord } from "../traces/read";
 import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import {
 	getContextFromRuleEngineForTrace,
 	getContextFromRulesWithPriority,
-	getContextFromFields,
-	getContextFromRulesWithPriorityForFields,
 } from "./rule-engine-context";
 import { TraceRow } from "@/types/trace";
 import { get } from "lodash";
@@ -47,60 +46,11 @@ import { differenceInSeconds } from "date-fns";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
 import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
 import { getChatModelCostPerM } from "@/lib/platform/pricing/chat-cost";
-import {
-	resolveEvaluationType,
-	type EvaluationTypeRef,
-} from "@/helpers/client/evaluation-type";
 
-/**
- * Collects rule links (with priority) across a set of enabled evaluation
- * types. Shared by the real-time/auto and offline evaluation paths so both
- * resolve rule-engine context identically for the same configured types.
- */
-function collectRulesWithPriority(
-	types: Array<{
-		rules?: Array<{ ruleId: string; priority: number }>;
-		ruleId?: string;
-		priority?: number;
-	}>
-): Array<{ ruleId: string; priority: number }> {
-	const rulesWithPriority: Array<{ ruleId: string; priority: number }> = [];
-	for (const t of types) {
-		if (t.rules?.length) {
-			rulesWithPriority.push(
-				...t.rules.filter((r) => r.ruleId && r.ruleId.trim())
-			);
-		} else if (t.ruleId) {
-			rulesWithPriority.push({
-				ruleId: t.ruleId,
-				priority: t.priority ?? 0,
-			});
-		}
-	}
-	return rulesWithPriority;
-}
-
-function applyPerTypeThresholds(
-	results: Evaluation[],
-	enabledTypes: Array<{ id: string; label?: string; thresholdScore?: number }>,
-	fallbackThreshold: number
-): Evaluation[] {
-	return results.map((evaluation) => {
-		const type = enabledTypes.find(
-			(t) =>
-				t.id.toLowerCase() === evaluation.evaluation.toLowerCase() ||
-				t.label?.toLowerCase() === evaluation.evaluation.toLowerCase()
-		);
-		const threshold =
-			typeof type?.thresholdScore === "number"
-				? type.thresholdScore
-				: fallbackThreshold;
-		return {
-			...evaluation,
-			verdict: evaluation.score > threshold ? "yes" : "no",
-		};
-	});
-}
+export type EvaluationTraceLookupOptions = {
+	traceId?: string;
+	environment?: string;
+};
 
 /**
  * Cost from Manage Models (`openlit_provider_models`) — same source as
@@ -145,28 +95,130 @@ async function estimateEvaluationCost(
 	}
 }
 
-/**
- * Remap judge output names to configured type labels when possible so
- * ClickHouse stores canonical names (Hallucination) instead of variants
- * or inventons that still resolve (e.g. "Hallucination evaluation context").
- * Unmapped labels (TypeA) are left as-is and filtered from analytics.
- */
-function normalizeEvaluationResults(
-	evaluation: Evaluation[],
-	customTypes: EvaluationTypeRef[] = []
-): Evaluation[] {
-	return evaluation.map((item) => {
-		const resolved = resolveEvaluationType(item.evaluation, customTypes);
-		if (!resolved) return item;
-		return { ...item, evaluation: resolved.label };
-	});
+/** Span ids already handled by auto-eval (evaluated or sampling-skipped). */
+async function loadAutoHandledSpanIds(
+	databaseConfigId: string
+): Promise<Set<string>> {
+	const autoHandledSources = AUTO_EVALUATION_HANDLED_SOURCES.map(
+		(source) => `'${source}'`
+	).join(", ");
+	const query = `
+		SELECT DISTINCT span_id
+		FROM ${OPENLIT_EVALUATION_TABLE_NAME}
+		WHERE meta['source'] IN (${autoHandledSources})
+	`;
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
+	if (err) return new Set();
+	return new Set(
+		((data as { span_id?: string }[]) || [])
+			.map((r) => r.span_id)
+			.filter((id): id is string => !!id)
+	);
 }
 
-export async function getEvaluationSummaryForSpanId(spanId: string, dbConfigId?: string) {
-	if (!dbConfigId) {
-		const user = await getCurrentUser();
-		if (!user) return null;
+/**
+ * Candidate spans for auto-evaluation. Built-in ClickHouse keeps the
+ * historical JOIN against otel_traces; external sources list via the
+ * traces adapter and exclude already-handled ids from the app-store eval table.
+ */
+async function fetchAutoEvalCandidateSpans({
+	databaseConfigId,
+	lastRunTime,
+}: {
+	databaseConfigId: string;
+	lastRunTime?: string | Date | null;
+}): Promise<{ data: TraceRow[]; err?: string }> {
+	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
+	const autoHandledSources = AUTO_EVALUATION_HANDLED_SOURCES.map(
+		(source) => `'${source}'`
+	).join(", ");
+	const lastRunIso =
+		lastRunTime instanceof Date
+			? lastRunTime.toISOString()
+			: lastRunTime || null;
+
+	try {
+		const { getTelemetryAdapterForDbConfig } = await import(
+			"@/lib/telemetry-source"
+		);
+		const { denormalizeSpanToTraceRow } = await import(
+			"@/lib/platform/connectors/datasource/clickhouse/normalize"
+		);
+		const resolved = await getTelemetryAdapterForDbConfig(
+			databaseConfigId,
+			"traces"
+		);
+		if (!resolved.isBuiltIn) {
+			const end = new Date();
+			const start = lastRunIso
+				? new Date(lastRunIso)
+				: new Date(end.getTime() - 24 * 60 * 60 * 1000);
+			const handled = await loadAutoHandledSpanIds(databaseConfigId);
+			const frame = await resolved.adapter.listSpans({
+				signal: "traces",
+				timeRange: { start, end },
+				aiSelector: true,
+				limit: 500,
+				filters: [
+					{
+						target: "attribute",
+						scope: "span",
+						key: "gen_ai.operation.name",
+						op: "in",
+						value: [...SUPPORTED_EVALUATION_OPERATIONS],
+					},
+				],
+			});
+			const rows = frame.rows
+				.filter((span) => !handled.has(span.spanId))
+				.map(
+					(span) =>
+						denormalizeSpanToTraceRow(span) as unknown as TraceRow
+				);
+			return { data: rows };
+		}
+	} catch (err) {
+		return {
+			data: [],
+			err: String((err as Error)?.message || err),
+		};
 	}
+
+	const query = `
+		SELECT t.*
+		FROM ${OTEL_TRACES_TABLE_NAME} AS t
+		LEFT JOIN (
+			SELECT span_id FROM ${OPENLIT_EVALUATION_TABLE_NAME}
+			WHERE meta['source'] IN (${autoHandledSources})
+		) AS e ON t.SpanId = e.span_id
+		WHERE ${keyPath} IN (${SUPPORTED_EVALUATION_OPERATIONS.map(
+		(operation) => `'${operation}'`
+	).join(", ")})
+		AND (e.span_id = '' OR e.span_id IS NULL)
+		${
+			lastRunIso
+				? `AND t.Timestamp >= parseDateTimeBestEffort('${lastRunIso}')`
+				: ""
+		}
+		ORDER BY t.Timestamp;
+	`;
+
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
+	if (err) return { data: [], err: String(err) };
+	return { data: (data as TraceRow[]) || [] };
+}
+
+export async function getEvaluationSummaryForSpanId(spanId: string) {
+	const user = await getCurrentUser();
+	if (!user) return null;
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
 	const query = `
@@ -178,7 +230,7 @@ export async function getEvaluationSummaryForSpanId(spanId: string, dbConfigId?:
 		WHERE span_id = '${sanitizedSpanId}' AND meta['source'] NOT IN ('${EVALUATION_SOURCE.MANUAL_FEEDBACK}', '${EVALUATION_SOURCE.AUTO_SKIPPED}');
 	`;
 
-	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
+	const { data, err } = await dataCollector({ query });
 	if (err || !(data as any[])?.[0]) return null;
 
 	const row = (data as any[])[0];
@@ -189,7 +241,15 @@ export async function getEvaluationSummaryForSpanId(spanId: string, dbConfigId?:
 	};
 }
 
-export async function getEvaluationsForSpanId(spanId: string) {
+export async function getEvaluationsForSpanId(
+	spanId: string,
+	opts?: EvaluationTraceLookupOptions
+) {
+	consoleLog("[evaluation] load span evaluations", {
+		spanId,
+		traceId: opts?.traceId || null,
+		environment: opts?.environment || null,
+	});
 	const user = await getCurrentUser();
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
@@ -217,6 +277,7 @@ export async function getEvaluationsForSpanId(spanId: string) {
 	const { data, err } = await dataCollector({ query });
 
 	if (err) {
+		consoleLog("[evaluation] evaluation store query failed", { spanId, error: String(err) });
 		return { err };
 	}
 
@@ -266,8 +327,15 @@ export async function getEvaluationsForSpanId(spanId: string) {
 		}
 
 		// Include rule context that would be applied (for UI to show before running)
-		const { record: traceRecord } = await getRequestViaSpanId(sanitizedSpanId);
-		const trace = traceRecord as TraceRow;
+		const traceResult = await getTraceSpanRecord(sanitizedSpanId, opts);
+		consoleLog("[evaluation] trace lookup for evaluation", {
+			spanId,
+			traceId: opts?.traceId || null,
+			found: !!traceResult.record,
+			error: traceResult.err || null,
+		});
+		const { record: traceRecord } = traceResult;
+		const trace = traceRecord as unknown as TraceRow;
 		let ruleContext: {
 			matchingRuleIds: string[];
 			contextApplied: boolean;
@@ -329,8 +397,8 @@ export async function getEvaluationsForSpanId(spanId: string) {
 		contextEntityIds: [],
 	};
 	if (!evaluationConfigErr && evaluationConfigTyped?.id) {
-		const { record: traceRecord } = await getRequestViaSpanId(sanitizedSpanId);
-		const trace = traceRecord as TraceRow;
+		const { record: traceRecord } = await getTraceSpanRecord(sanitizedSpanId, opts);
+		const trace = traceRecord as unknown as TraceRow;
 		if (trace?.SpanId) {
 			const { matchingRuleIds, contextEntityIds } =
 				await getContextFromRuleEngineForTrace(
@@ -368,12 +436,10 @@ async function storeEvaluation(
 	spanId: string,
 	evaluation: Evaluation[],
 	meta: any,
-	dbConfigId?: string,
-	customTypes: EvaluationTypeRef[] = []
+	dbConfigId?: string
 ) {
 	const now = new Date();
 	const createdAt = toClickHouseDateTime(now);
-	const normalized = normalizeEvaluationResults(evaluation, customTypes);
 	// Ensure meta values are strings (Map(LowCardinality(String), String))
 	const metaStrings =
 		meta && typeof meta === "object"
@@ -390,13 +456,13 @@ async function storeEvaluation(
 					span_id: spanId,
 					created_at: createdAt,
 					meta: metaStrings,
-					"evaluationData.evaluation": normalized.map((e) => e.evaluation),
-					"evaluationData.classification": normalized.map(
+					"evaluationData.evaluation": evaluation.map((e) => e.evaluation),
+					"evaluationData.classification": evaluation.map(
 						(e) => e.classification
 					),
-					"evaluationData.explanation": normalized.map((e) => e.explanation),
-					"evaluationData.verdict": normalized.map((e) => e.verdict),
-					scores: normalized.reduce((acc: Record<string, number>, e) => {
+					"evaluationData.explanation": evaluation.map((e) => e.explanation),
+					"evaluationData.verdict": evaluation.map((e) => e.verdict),
+					scores: evaluation.reduce((acc: Record<string, number>, e) => {
 						acc[e.evaluation] = e.score;
 						return acc;
 					}, {}),
@@ -419,6 +485,14 @@ async function storeAutoEvaluationSkip(
 	sampleRate: number,
 	dbConfigId: string
 ) {
+	const serviceName =
+		String(
+			trace.ServiceName ||
+				(trace.ResourceAttributes as Record<string, unknown> | undefined)?.[
+					"service.name"
+				] ||
+				""
+		) || "";
 	return storeEvaluation(
 		trace.SpanId,
 		[],
@@ -426,6 +500,7 @@ async function storeAutoEvaluationSkip(
 			source: EVALUATION_SOURCE.AUTO_SKIPPED,
 			traceTimeStamp: String(trace.Timestamp ?? ""),
 			sampleRate: String(sampleRate),
+			...(serviceName ? { "service.name": serviceName } : {}),
 		},
 		dbConfigId
 	);
@@ -435,14 +510,31 @@ export async function storeManualFeedback(
 	spanId: string,
 	rating: "positive" | "negative" | "neutral",
 	comment?: string,
-	dbConfigId?: string
+	dbConfigId?: string,
+	opts?: EvaluationTraceLookupOptions
 ) {
+	consoleLog("[evaluation] save manual feedback", {
+		spanId,
+		rating,
+		traceId: opts?.traceId || null,
+		environment: opts?.environment || null,
+	});
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
-	const { record: spanData } = await getRequestViaSpanId(sanitizedSpanId);
-	throwIfError(!(spanData as any).SpanId, getMessage().TRACE_NOT_FOUND);
+	const traceResult = await getTraceSpanRecord(sanitizedSpanId, opts);
+	consoleLog("[evaluation] feedback trace lookup", {
+		spanId,
+		traceId: opts?.traceId || null,
+		found: !!traceResult.record,
+		error: traceResult.err || null,
+	});
+	const { record: spanData } = traceResult;
+	throwIfError(
+		!(spanData as any)?.SpanId,
+		(typeof traceResult.err === "string" ? traceResult.err : getMessage().TRACE_NOT_FOUND)
+	);
 
 	const meta: Record<string, string> = {
 		source: "manual_feedback",
@@ -497,22 +589,40 @@ export async function storeManualFeedback(
 	);
 
 	if (err) {
-		consoleLog(err);
+		consoleLog("[evaluation] feedback insert failed", { spanId, error: String(err) });
 		return { err };
 	}
 	return { data: true };
 }
 
-export async function setEvaluationsForSpanId(spanId: string) {
+export async function setEvaluationsForSpanId(
+	spanId: string,
+	opts?: EvaluationTraceLookupOptions
+) {
+	consoleLog("[evaluation] run evaluation", {
+		spanId,
+		traceId: opts?.traceId || null,
+		environment: opts?.environment || null,
+	});
 	const user = await getCurrentUser();
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
-	let { record: spanData } = await getRequestViaSpanId(sanitizedSpanId);
-	const spanDataTyped = spanData as TraceRow;
+	const traceResult = await getTraceSpanRecord(sanitizedSpanId, opts);
+	consoleLog("[evaluation] run trace lookup", {
+		spanId,
+		traceId: opts?.traceId || null,
+		found: !!traceResult.record,
+		error: traceResult.err || null,
+	});
+	const { record: spanData } = traceResult;
+	const spanDataTyped = spanData as unknown as TraceRow;
 
-	throwIfError(!(spanData as any).SpanId, getMessage().TRACE_NOT_FOUND);
+	throwIfError(
+		!(spanData as any)?.SpanId,
+		(typeof traceResult.err === "string" ? traceResult.err : getMessage().TRACE_NOT_FOUND)
+	);
 
 	const evaluationConfig = await getEvaluationConfig(undefined, false);
 	return await getEvaluationConfigForTrace(
@@ -523,28 +633,75 @@ export async function setEvaluationsForSpanId(spanId: string) {
 	);
 }
 
+/**
+ * Extract prompt/completion for evaluation, attribute-first for portability.
+ *
+ * The trace-detail chat view reads prompt/completion from span *attributes*
+ * (`gen_ai.input.messages` / `gen_ai.output.messages` + legacy variants), but
+ * evals historically read them from OTel span *events*
+ * (`Events.Attributes[0]['gen_ai.prompt']` / `[1]['gen_ai.completion']`).
+ * External observability backends (Datadog, New Relic, ...) do not reliably
+ * expose OTel span events, so we prefer span attributes and fall back to
+ * events. This also makes evals consistent with what the chat view renders.
+ */
+export function extractEvalPromptCompletion(trace: unknown): {
+	prompt: string;
+	response: string;
+} {
+	const attrs =
+		((trace as { SpanAttributes?: Record<string, string> })?.SpanAttributes ||
+			{}) as Record<string, string>;
+	const firstNonEmpty = (keys: string[]): string => {
+		for (const k of keys) {
+			const v = attrs[k];
+			if (typeof v === "string" && v.trim() !== "") return v;
+		}
+		return "";
+	};
+	const promptFromAttr = firstNonEmpty([
+		"gen_ai.input.messages",
+		"gen_ai.prompt",
+		"gen_ai.content.prompt",
+		"gen_ai.request.input",
+	]);
+	const responseFromAttr = firstNonEmpty([
+		"gen_ai.output.messages",
+		"gen_ai.completion",
+		"gen_ai.content.completion",
+		"gen_ai.response.output",
+	]);
+	const promptFromEvent = get(
+		trace,
+		getTraceMappingKeyFullPath("prompt", true)
+	) as string | undefined;
+	const responseFromEvent = get(
+		trace,
+		getTraceMappingKeyFullPath("response", true)
+	) as string | undefined;
+	return {
+		prompt: promptFromAttr || promptFromEvent || "",
+		response: responseFromAttr || responseFromEvent || "",
+	};
+}
+
 async function getEvaluationConfigForTrace(
 	trace: TraceRow,
 	evaluationConfig: EvaluationConfigWithSecret,
 	dbConfigId?: string,
 	source: "manual" | "auto" = "auto"
 ) {
-	const response = get(trace, getTraceMappingKeyFullPath("response", true));
-	const prompt = get(trace, getTraceMappingKeyFullPath("prompt", true));
+	const { prompt, response } = extractEvalPromptCompletion(trace);
 
 	const dbConfig = dbConfigId ?? evaluationConfig.databaseConfigId;
-	const DEFAULT_THRESHOLD = 0.5;
 	const evaluationTypes =
 		((evaluationConfig as any).evaluationTypes || []) as Array<{
 			id: string;
 			enabled: boolean;
-			label?: string;
 			rules?: Array<{ ruleId: string; priority: number }>;
 			ruleId?: string;
 			priority?: number;
 			prompt?: string;
 			defaultPrompt?: string;
-			thresholdScore?: number;
 		}>;
 
 	// Default: Hallucination, Bias, Toxicity enabled
@@ -559,7 +716,19 @@ async function getEvaluationConfigForTrace(
 				).map((t) => ({ ...t, enabled: true }));
 
 	// Collect rules with priority from enabled types
-	const rulesWithPriority = collectRulesWithPriority(enabledTypes);
+	const rulesWithPriority: Array<{ ruleId: string; priority: number }> = [];
+	for (const t of enabledTypes) {
+		if (t.rules?.length) {
+			rulesWithPriority.push(
+				...t.rules.filter((r) => r.ruleId && r.ruleId.trim())
+			);
+		} else if (t.ruleId) {
+			rulesWithPriority.push({
+				ruleId: t.ruleId,
+				priority: t.priority ?? 0,
+			});
+		}
+	}
 
 	let contextContents: string[];
 	let matchingRuleIds: string[];
@@ -602,7 +771,7 @@ async function getEvaluationConfigForTrace(
 			prompt: prompt ?? "",
 			contexts: finalContextString,
 			response: response ?? "",
-			thresholdScore: DEFAULT_THRESHOLD,
+			thresholdScore: 0.5,
 		});
 
 
@@ -610,14 +779,14 @@ async function getEvaluationConfigForTrace(
 			return { success: false, error: data.error };
 		}
 
-		// Recompute verdicts with per-type thresholds, matching the offline
-		// path so dashboard/auto/manual and SDK runs honor the same config.
-		const evaluations = applyPerTypeThresholds(
-			data.result || [],
-			enabledTypes,
-			DEFAULT_THRESHOLD
-		);
-
+		const serviceName =
+			String(
+				trace.ServiceName ||
+					(trace.ResourceAttributes as Record<string, unknown> | undefined)?.[
+						"service.name"
+					] ||
+					""
+			) || "";
 		const metaBase: Record<string, string> = {
 			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
 			traceTimeStamp: String(trace.Timestamp ?? ""),
@@ -625,6 +794,7 @@ async function getEvaluationConfigForTrace(
 			contextIds: contextEntityIds.join(","),
 			contextApplied: contextContents.length > 0 ? "yes" : "no",
 			source,
+			...(serviceName ? { "service.name": serviceName } : {}),
 		};
 		if (data.usage) {
 			metaBase.promptTokens = String(data.usage.promptTokens);
@@ -641,10 +811,9 @@ async function getEvaluationConfigForTrace(
 
 		const storeResult = await storeEvaluation(
 			trace.SpanId,
-			evaluations,
+			data.result || [],
 			metaBase,
-			dbConfig,
-			evaluationTypes.map((t) => ({ id: t.id, label: (t as any).label || t.id }))
+			dbConfig
 		);
 		if (storeResult.err) {
 			consoleLog(storeResult.err);
@@ -689,40 +858,14 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 	}
 
 	const lastRunTime = await getLastRunCronLogByCronId(
-		autoEvaluationConfig.cronId
-	);
-
-	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
-
-	// Exclude spans already handled by auto evaluation (evaluated or sampling-skipped).
-	// Manual feedback does not block auto evaluation. Manual runs are always allowed.
-	const autoHandledSources = AUTO_EVALUATION_HANDLED_SOURCES.map(
-		(source) => `'${source}'`
-	).join(", ");
-	const query = `
-		SELECT t.*
-		FROM ${OTEL_TRACES_TABLE_NAME} AS t
-		LEFT JOIN (
-			SELECT span_id FROM ${OPENLIT_EVALUATION_TABLE_NAME}
-			WHERE meta['source'] IN (${autoHandledSources})
-		) AS e ON t.SpanId = e.span_id
-		WHERE ${keyPath} IN (${SUPPORTED_EVALUATION_OPERATIONS.map(
-		(operation) => `'${operation}'`
-	).join(", ")})
-		AND (e.span_id = '' OR e.span_id IS NULL)
-		${
-			lastRunTime
-				? `AND t.Timestamp >= parseDateTimeBestEffort('${lastRunTime}')`
-				: ""
-		}
-		ORDER BY t.Timestamp;
-	`;
-
-	const { data, err } = await dataCollector(
-		{ query },
-		"query",
+		autoEvaluationConfig.cronId,
 		databaseConfig.id
 	);
+
+	const { data, err } = await fetchAutoEvalCandidateSpans({
+		databaseConfigId: databaseConfig.id,
+		lastRunTime,
+	});
 
 	if (err) {
 		const finishedAt = new Date();
@@ -841,6 +984,22 @@ export async function getEvaluationDetectedByType(
 	const currentWhereParams = params;
 	const previousWhereParams = getFilterPreviousParams(currentWhereParams);
 
+	const serviceNames = Array.isArray(
+		(params.selectedConfig as { serviceNames?: unknown } | undefined)
+			?.serviceNames
+	)
+		? (
+				(params.selectedConfig as { serviceNames?: string[] }).serviceNames ||
+				[]
+			).filter((s): s is string => typeof s === "string" && s.length > 0)
+		: [];
+	const serviceScopeSql =
+		serviceNames.length > 0
+			? `AND meta['service.name'] IN (${serviceNames
+					.map((s) => `'${Sanitizer.sanitizeValue(s)}'`)
+					.join(", ")})`
+			: "";
+
 	const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			COUNT(DISTINCT span_id) AS total_evaluation_detected,
@@ -852,6 +1011,7 @@ export async function getEvaluationDetectedByType(
 			AND evaluationData.verdict = 'yes'
 			AND parseDateTimeBestEffort(meta['traceTimeStamp']) >= parseDateTimeBestEffort('${parameters.timeLimit.start}') 
 			AND parseDateTimeBestEffort(meta['traceTimeStamp']) <= parseDateTimeBestEffort('${parameters.timeLimit.end}')
+			${serviceScopeSql}
 	`;
 
 	const query = `
@@ -924,10 +1084,17 @@ export async function runOfflineEvaluation(
 		priority?: number;
 		prompt?: string;
 		defaultPrompt?: string;
-		thresholdScore?: number;
 	}>;
 
-	let enabledTypes: typeof allTypes;
+	let enabledTypes = requestedTypes?.length
+		? allTypes.filter((t) => requestedTypes.includes(t.id))
+		: allTypes.filter((t) => t.enabled);
+
+	if (enabledTypes.length === 0) {
+		enabledTypes = allTypes
+			.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
+			.map((t) => ({ ...t, enabled: true }));
+	}
 
 	if (requestedTypes?.length) {
 		const allTypeIds = new Set(allTypes.map((t) => t.id));
@@ -938,50 +1105,39 @@ export async function runOfflineEvaluation(
 				error: `Unknown eval types: ${unknown.join(", ")}`,
 			};
 		}
-
-		const disabled = requestedTypes.filter((id) => {
-			const type = allTypes.find((t) => t.id === id);
-			return type && !type.enabled;
-		});
-		if (disabled.length > 0) {
-			return {
-				success: false,
-				error: `Disabled eval types: ${disabled.join(", ")}`,
-			};
-		}
-
-		enabledTypes = allTypes.filter((t) => requestedTypes.includes(t.id));
-	} else {
-		enabledTypes = allTypes.filter((t) => t.enabled);
-
-		if (enabledTypes.length === 0) {
-			enabledTypes = allTypes
-				.filter((t) => ["hallucination", "bias", "toxicity"].includes(t.id))
-				.map((t) => ({ ...t, enabled: true }));
-		}
 	}
-
-	// Collect rules with priority from enabled types, same as the real-time/
-	// auto path, so offline evals resolve rule-engine context identically for
-	// the same configured evaluation types.
-	const rulesWithPriority = collectRulesWithPriority(enabledTypes);
 
 	let contextContents: string[] = [];
 	let matchingRuleIds: string[] = [];
 	let contextEntityIds: string[] = [];
 
 	if (attributes && Object.keys(attributes).length > 0) {
-		const result =
-			rulesWithPriority.length > 0
-				? await getContextFromRulesWithPriorityForFields(
-						attributes,
-						rulesWithPriority,
-						databaseConfigId
-					)
-				: await getContextFromFields(attributes, databaseConfigId);
-		contextContents = result.contextContents;
-		matchingRuleIds = result.matchingRuleIds;
-		contextEntityIds = result.contextEntityIds || [];
+		try {
+			const ruleResult = await evaluateRules(
+				{
+					fields: attributes,
+					entity_type: "context" as any,
+					include_entity_data: true,
+				},
+				databaseConfigId
+			);
+
+			matchingRuleIds = ruleResult.matchingRuleIds || [];
+
+			if (ruleResult.entity_data) {
+				for (const [key, entityData] of Object.entries(
+					ruleResult.entity_data
+				)) {
+					if (entityData?.content) {
+						contextContents.push(String(entityData.content));
+						const match = key.match(/^context:(.+)$/);
+						if (match) contextEntityIds.push(match[1]);
+					}
+				}
+			}
+		} catch (e) {
+			consoleLog("Rule engine evaluation failed for offline eval:", e);
+		}
 	}
 
 	const userContextsCount = userContexts?.length || 0;
@@ -1013,12 +1169,6 @@ export async function runOfflineEvaluation(
 			return { success: false, error: data.error };
 		}
 
-		const evaluations = applyPerTypeThresholds(
-			data.result || [],
-			enabledTypes,
-			thresholdScore
-		);
-
 		const metaBase: Record<string, string> = {
 			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
 			ruleIds: matchingRuleIds.join(","),
@@ -1049,16 +1199,11 @@ export async function runOfflineEvaluation(
 
 		if (storeResults) {
 			const spanId = `offline_${crypto.randomUUID()}`;
-			const customTypes = allTypes.map((t) => ({
-				id: t.id,
-				label: (t as any).label || t.id,
-			}));
 			const storeResult = await storeEvaluation(
 				spanId,
-				evaluations,
+				data.result || [],
 				metaBase,
-				databaseConfigId,
-				customTypes
+				databaseConfigId
 			);
 			if (storeResult?.err) {
 				consoleLog("Failed to store offline eval results:", storeResult.err);
@@ -1067,7 +1212,7 @@ export async function runOfflineEvaluation(
 
 		return {
 			success: true,
-			evaluations,
+			evaluations: data.result || [],
 			contextApplied: {
 				ruleMatched: matchingRuleIds.length > 0,
 				matchingRuleIds,

@@ -8,7 +8,8 @@ import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
 import { createWidget, getWidgets } from "./widget";
 import { pluck } from "lodash/fp";
-import { jsonParse, jsonStringify } from "@/utils/json";
+import { jsonStringify } from "@/utils/json";
+import { normalizeImportedDashboard } from "./board-format";
 
 export function getBoardById(id: string) {
 	const query = `
@@ -467,9 +468,8 @@ export async function getMainDashboard(layout?: boolean, databaseConfigId?: stri
 	return { data: (mainDashboardData as any[])[0], err: null };
 }
 
-// TODO: fix the type of data
 export async function importBoardLayout(
-	data: any,
+	data: unknown,
 	databaseConfigId?: string,
 	options?: {
 		// When true, widget ids from `data.widgets` are kept verbatim
@@ -492,35 +492,36 @@ export async function importBoardLayout(
 		preserveWidgetIds?: boolean;
 	}
 ) {
+	const normalized = normalizeImportedDashboard(data);
+	if ("err" in normalized) {
+		return { err: normalized.err };
+	}
+
 	const mainDashboard = await getMainDashboard(false, databaseConfigId);
+	const imported = normalized.data;
 
 	const boardData: Partial<Board> = {
-		title: data.title,
-		description: data.description,
-		isPinned: data.isPinned,
-		isMainDashboard: mainDashboard.data?.isMainDashboard ? false : data.isMainDashboard,
-		tags: data.tags ? jsonParse(data.tags) : [],
+		title: imported.title,
+		description: imported.description,
+		isPinned: imported.isPinned,
+		isMainDashboard: mainDashboard.data?.isMainDashboard
+			? false
+			: imported.isMainDashboard,
+		tags: imported.tags as unknown as string,
 	};
 
 	// Create the board first
 	const boardResult = await createBoard(boardData as Board, databaseConfigId);
 
-	if ('err' in boardResult) {
+	if ("err" in boardResult) {
 		return { err: boardResult.err };
 	}
 
 	const newBoardId = boardResult.data.id;
-
-	// Update the board layout with widgets and their positions
-	const layoutConfig = {
-		layouts: data.layouts,
-		widgets: data.widgets
-	};
-
 	const preserveWidgetIds = options?.preserveWidgetIds === true;
-	const widgetIdMap = new Map();
+	const widgetIdMap = new Map<string, string>();
 
-	const updatedWidgets = Object.values(layoutConfig.widgets).map((widget: any) => {
+	const updatedWidgets = Object.values(imported.widgets).map((widget) => {
 		const nextWidgetId = preserveWidgetIds
 			? widget.id
 			: crypto.randomUUID();
@@ -532,30 +533,41 @@ export async function importBoardLayout(
 		};
 	});
 
-	const updatedLayouts = layoutConfig.layouts.lg.map((layout: any) => {
-		return {
-			...layout,
-			i: widgetIdMap.get(layout.i)
-		}
-	});
+	const updatedLayouts = imported.layouts.lg
+		.map((layout) => {
+			const nextId = widgetIdMap.get(layout.i);
+			if (!nextId) return null;
+			return {
+				...layout,
+				i: nextId,
+			};
+		})
+		.filter((layout): layout is NonNullable<typeof layout> => !!layout);
 
-	await Promise.all(updatedWidgets.map(async (widget: any) => {
-		return await createWidget(widget, databaseConfigId);
-	}));
+	await Promise.all(
+		updatedWidgets.map(async (widget) => {
+			return await createWidget(widget, databaseConfigId);
+		})
+	);
 
 	const layoutConfigData = {
 		layouts: {
-			lg: updatedLayouts
+			lg: updatedLayouts,
 		},
-		widgets: updatedWidgets.reduce((acc: any, widget: any) => {
-			acc[widget.id] = widget;
-			return acc;
-		}, {}),
-	}
+		widgets: updatedWidgets.reduce(
+			(acc: Record<string, (typeof updatedWidgets)[number]>, widget) => {
+				acc[widget.id] = widget;
+				return acc;
+			},
+			{}
+		),
+	};
 
-
-	const { data: layoutData, err: layoutErr } = await updateBoardLayout(newBoardId, layoutConfigData, databaseConfigId);
-
+	const { data: layoutData, err: layoutErr } = await updateBoardLayout(
+		newBoardId,
+		layoutConfigData,
+		databaseConfigId
+	);
 
 	if (layoutData) {
 		return { data: boardResult.data };

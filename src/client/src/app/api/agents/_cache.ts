@@ -39,6 +39,8 @@ export const CACHE_HEADERS = {
 	 * shifts as new requests come in.
 	 */
 	graph: "private, max-age=15, s-maxage=60, stale-while-revalidate=300",
+	/** Empty DAGs (Tempo/Jaeger ingest lag) must not linger in the browser. */
+	graphEmpty: "private, max-age=5, s-maxage=5, stale-while-revalidate=0",
 	/**
 	 * Version timeline (bar chart). Stable per-version, refreshes on new
 	 * traffic.

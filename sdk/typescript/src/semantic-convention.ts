@@ -323,6 +323,31 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_MEM0 = 'mem0';
   static GEN_AI_SYSTEM_BROWSER_USE = 'browser_use';
   static GEN_AI_SYSTEM_FIRECRAWL = 'firecrawl';
+  static GEN_AI_SYSTEM_LETTA = 'letta';
+
+  // ----- Letta (agent platform) -----
+  // Operation type used for Letta list/memory/context workflow operations.
+  static GEN_AI_OPERATION_TYPE_WORKFLOW = 'workflow';
+
+  // Agent attributes (general, reusable)
+  static GEN_AI_AGENT_SLUG = 'gen_ai.agent.slug';
+  static GEN_AI_AGENT_INSTRUCTIONS = 'gen_ai.agent.instructions';
+  static GEN_AI_AGENT_STEP_MESSAGES = 'gen_ai.agent.step_messages';
+
+  // Model configuration attributes (general, reusable)
+  static GEN_AI_MODEL_HANDLE = 'gen_ai.model.handle';
+
+  // Additional request parameters (general, reusable across integrations)
+  static GEN_AI_REQUEST_CONTEXT_WINDOW = 'gen_ai.request.context_window';
+  static GEN_AI_REQUEST_ENABLE_REASONER = 'gen_ai.request.enable_reasoner';
+  static GEN_AI_REQUEST_ASYNC = 'gen_ai.request.async';
+  static GEN_AI_REQUEST_RETURN_SEQUENCE_NO = 'gen_ai.request.return_sequence_no';
+  static GEN_AI_REQUEST_INCLUDE_FINAL_MESSAGE = 'gen_ai.request.include_final_message';
+  static GEN_AI_REQUEST_MESSAGE_COUNT = 'gen_ai.request.message_count';
+
+  // Streaming attributes (general, reusable)
+  static GEN_AI_STREAMING_CHUNK_COUNT = 'gen_ai.streaming.chunk_count';
+  static GEN_AI_STREAMING_RESPONSE_COUNT = 'gen_ai.streaming.response_count';
 
   // ----- MCP (Model Context Protocol) -----
   // Operation types

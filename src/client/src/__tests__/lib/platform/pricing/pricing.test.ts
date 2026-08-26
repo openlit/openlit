@@ -17,6 +17,22 @@ jest.mock('@/lib/platform/common', () => ({
 jest.mock('@/lib/platform/request', () => ({
   getRequestViaSpanId: jest.fn(),
 }));
+jest.mock('@/lib/platform/traces/read', () => ({
+  getTraceSpanRecord: (...args: unknown[]) =>
+    require('@/lib/platform/request').getRequestViaSpanId(...args),
+}));
+jest.mock('@/lib/telemetry-source', () => ({
+  resolveTelemetrySourceDescriptor: jest.fn().mockResolvedValue({
+    type: 'clickhouse',
+    id: 'builtin:test',
+    isBuiltIn: true,
+  }),
+  getTelemetryAdapterForDbConfig: jest.fn().mockResolvedValue({
+    isBuiltIn: true,
+    descriptor: { type: 'clickhouse', isBuiltIn: true },
+    adapter: {},
+  }),
+}));
 jest.mock('@/lib/platform/providers/provider-registry', () => ({
   ProviderRegistry: {
     getModel: jest.fn(),
@@ -111,6 +127,18 @@ beforeEach(() => {
   // Re-apply prisma mock for setPricingForSpanId's dynamic import
   const prisma = require('@/lib/prisma').default;
   prisma.pricingConfigs.findFirst.mockResolvedValue({ databaseConfigId: 'db-1' });
+
+  const { resolveTelemetrySourceDescriptor, getTelemetryAdapterForDbConfig } = require('@/lib/telemetry-source');
+  (resolveTelemetrySourceDescriptor as jest.Mock).mockResolvedValue({
+    type: 'clickhouse',
+    id: 'builtin:test',
+    isBuiltIn: true,
+  });
+  (getTelemetryAdapterForDbConfig as jest.Mock).mockResolvedValue({
+    isBuiltIn: true,
+    descriptor: { type: 'clickhouse', isBuiltIn: true },
+    adapter: {},
+  });
 });
 
 describe('setPricingForSpanId', () => {
@@ -508,6 +536,59 @@ describe('autoUpdatePricing', () => {
     expect(insertCronLog).toHaveBeenCalledWith(
       expect.objectContaining({
         meta: expect.objectContaining({ totalSkipped: 1, totalUpdated: 0 }),
+      }),
+      'db-1'
+    );
+  });
+
+  it('reads candidates from the routed traces connector and does not write otel_traces', async () => {
+    const listSpans = jest.fn().mockResolvedValue({
+      rows: [
+        {
+          spanId: 'jaeger-span',
+          timestamp: '2026-01-01',
+          spanAttributes: {
+            'gen_ai.system': 'openai',
+            'gen_ai.request.model': 'gpt-4o',
+            'gen_ai.usage.input_tokens': '100',
+            'gen_ai.usage.output_tokens': '200',
+          },
+        },
+      ],
+    });
+    const { getTelemetryAdapterForDbConfig } = require('@/lib/telemetry-source');
+    (getTelemetryAdapterForDbConfig as jest.Mock).mockResolvedValue({
+      isBuiltIn: false,
+      descriptor: { type: 'jaeger', isBuiltIn: false },
+      adapter: { listSpans },
+    });
+    (getPricingConfigById as jest.Mock).mockResolvedValue({
+      id: 'pc-1',
+      databaseConfigId: 'db-1',
+    });
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    (ProviderRegistry.getModel as jest.Mock).mockResolvedValue({
+      id: 'gpt-4o',
+      inputPricePerMToken: 2.5,
+      outputPricePerMToken: 10.0,
+    });
+
+    const result = await autoUpdatePricing({
+      pricingConfigId: 'pc-1',
+      cronId: 'cron-1',
+    });
+
+    expect(result.success).toBe(true);
+    expect(listSpans).toHaveBeenCalled();
+    const writes = (dataCollector as jest.Mock).mock.calls.filter(
+      ([params, mode]) =>
+        mode === 'exec' ||
+        (typeof params?.query === 'string' && params.query.includes('ALTER TABLE'))
+    );
+    expect(writes).toHaveLength(0);
+    expect(insertCronLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({ totalUpdated: 0 }),
       }),
       'db-1'
     );

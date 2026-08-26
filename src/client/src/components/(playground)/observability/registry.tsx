@@ -69,15 +69,15 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		tone: "text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-900",
 		summary: m.OBSERVABILITY_TRACE_SUMMARY,
 		icon: Activity,
-		listUrl: "/api/telemetry/trace",
+		listUrl: "/api/telemetry/request",
 		summaryUrl: "/api/telemetry/summary/traces",
-		configUrl: "/api/metrics/request/config",
-		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		configUrl: "/api/telemetry/request/config",
+		attributeKeysUrl: "/api/telemetry/request/attribute-keys",
 		columns: traceColumns,
 		pageName: "request",
 		visibilityPage: "request",
 		supportGrouping: true,
-		groupedUrl: "/api/metrics/request/grouped",
+		groupedUrl: "/api/telemetry/request/grouped",
 		customAttributeTypes: ["SpanAttributes", "ResourceAttributes", "Field"],
 		normalize: normalizeTrace,
 		getRowId: (row) => row.spanId,
@@ -93,13 +93,13 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		icon: ShieldAlert,
 		listUrl: "/api/telemetry/exception",
 		summaryUrl: "/api/telemetry/summary/exceptions",
-		configUrl: "/api/metrics/request/config",
-		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		configUrl: "/api/telemetry/request/config",
+		attributeKeysUrl: "/api/telemetry/request/attribute-keys",
 		columns: exceptionColumns,
 		pageName: "exception",
 		visibilityPage: "exception",
 		supportGrouping: true,
-		groupedUrl: "/api/metrics/exception/grouped",
+		groupedUrl: "/api/telemetry/exception/grouped",
 		includeOnlySorting: ["Timestamp"],
 		customAttributeTypes: ["SpanAttributes", "ResourceAttributes", "Field"],
 		normalize: normalizeTrace,
@@ -159,8 +159,10 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 			"Field",
 		],
 		getRowId: (row) => String(row.rowId),
-		getDetailHref: (row, from) =>
-			`/telemetry/logs/${row.rowId}?from=${encodeURIComponent(from)}`,
+		getDetailHref: (row, from) => {
+			const ts = row.Timestamp ? `&ts=${encodeURIComponent(String(row.Timestamp))}` : "";
+			return `/telemetry/logs/${row.rowId}?from=${encodeURIComponent(from)}${ts}`;
+		},
 	},
 	{
 		// Coding-agent sessions live alongside the other signals so a
@@ -179,8 +181,8 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		// filter UI (span attribute / resource attribute keys); the
 		// underlying server query for sessions still scopes by
 		// `coding_agent.session.id` so unrelated traces never leak in.
-		configUrl: "/api/metrics/request/config",
-		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		configUrl: "/api/telemetry/request/config",
+		attributeKeysUrl: "/api/telemetry/request/attribute-keys",
 		columns: sessionsColumns,
 		pageName: "codingAgentSessions",
 		visibilityPage: "codingAgentSessions",
@@ -217,8 +219,8 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		// sessions page (vendor / user / classification live on
 		// otel_traces span attributes) so we can reuse the existing
 		// metrics/request config endpoints.
-		configUrl: "/api/metrics/request/config",
-		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		configUrl: "/api/telemetry/request/config",
+		attributeKeysUrl: "/api/telemetry/request/attribute-keys",
 		columns: codingUsersColumns,
 		pageName: "codingAgentSessions",
 		visibilityPage: "codingAgentSessions",

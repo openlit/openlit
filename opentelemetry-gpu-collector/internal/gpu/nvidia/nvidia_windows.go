@@ -24,6 +24,7 @@ const (
 	nvmlTempGPU                = 0
 	nvmlClockGraphics          = 0
 	nvmlClockMem               = 1
+	nvmlClockSM                = 2
 	nvmlMemoryErrorCorrected   = 0
 	nvmlMemoryErrorUncorrected = 1
 	nvmlVolatileECC            = 0
@@ -327,6 +328,10 @@ func (d *Device) Collect() (*gpu.Snapshot, error) {
 	if ret, _, _ := nvmlDeviceGetClockInfo.Call(h, nvmlClockGraphics, uintptr(unsafe.Pointer(&clock))); ret == nvmlSuccess {
 		v := float64(clock)
 		s.ClockGraphicsMHz = &v
+	}
+	if ret, _, _ := nvmlDeviceGetClockInfo.Call(h, nvmlClockSM, uintptr(unsafe.Pointer(&clock))); ret == nvmlSuccess {
+		v := float64(clock)
+		s.ClockSMMHz = &v
 	}
 	if ret, _, _ := nvmlDeviceGetClockInfo.Call(h, nvmlClockMem, uintptr(unsafe.Pointer(&clock))); ret == nvmlSuccess {
 		v := float64(clock)
