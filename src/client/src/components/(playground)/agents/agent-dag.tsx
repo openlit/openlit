@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import getMessage from "@/constants/messages";
+import { getData } from "@/utils/api";
 import DagCanvas, {
 	type DagEdgeInput,
 	type DagNodeInput,
@@ -39,10 +40,18 @@ export default function AgentDag({ agentKey, versionHash }: AgentDagProps) {
 				const params = versionHash
 					? `?versionHash=${encodeURIComponent(versionHash)}`
 					: "";
-				const res = await fetch(`/api/agents/${agentKey}/graph${params}`);
-				if (!res.ok) throw new Error(`HTTP ${res.status}`);
-				const body = await res.json();
+				const body = (await getData({
+					url: `/api/agents/${agentKey}/graph${params}`,
+					method: "GET",
+				})) as {
+					data?: { graph?: AggregateGraph };
+					err?: string;
+					error?: string;
+				};
 				if (cancelled) return;
+				if (body?.err || body?.error) {
+					throw new Error(String(body.err || body.error));
+				}
 				setGraph((body.data?.graph as AggregateGraph) || null);
 			} catch (e) {
 				if (!cancelled) setError(String(e));

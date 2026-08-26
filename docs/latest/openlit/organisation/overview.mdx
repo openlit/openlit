@@ -1,74 +1,58 @@
 ---
 title: 'Organisation Overview'
-description: 'Understand how organisations, projects, and database configurations fit together in OpenLIT'
+description: 'Organisation → Project → Environment → Database Config and connectors in OpenLIT'
 icon: 'building'
 ---
 
-An organisation in OpenLIT is a shared workspace for a team. It owns projects, and each project owns one or more ClickHouse database configurations - this three-level hierarchy is how OpenLIT separates teams, environments, and data without running separate installations.
+Organisations in OpenLIT are shared workspaces for teams. Inside an organisation, **projects** own everything you configure for telemetry backends: environments, Database Configs, connectors, and signal bindings.
 
-```mermaid
-flowchart TB;
-    Org[Organisation] -->|owns| Proj1[Project: production];
-    Org -->|owns| Proj2[Project: staging];
-    Proj1 -->|connects to| DB1[ClickHouse database config];
-    Proj2 -->|connects to| DB2[ClickHouse database config];
+```text
+Organisation
+  └── Project   ← create / select a project first
+        └── Environment
+              ├── Database Config (ClickHouse app store)
+              ├── Connectors (Tempo, Loki, Prometheus, Jaeger)
+              └── Signal routing (traces / logs / metrics)
 ```
 
-Use organisations as the membership boundary - who can log in and see this workspace at all. Use projects inside an organisation when you need separate database boundaries for the same team, such as production, staging, or per-customer environments.
+Use organisations for membership and workspace boundaries. Use [projects](/latest/openlit/organisation/projects) when you need separate data boundaries inside the same organisation. Database Config and Connectors are **project resources** — they appear in the sidebar as documentation topics, but in the product you create them under a project.
 
-## Creating an organisation
+## What belongs where
 
-New users are prompted to either create an organisation (just a name) or accept a pending invitation during onboarding. Skipping this step creates a personal organisation automatically, so every user always lands in exactly one organisation - onboarding never leaves you without a workspace.
+| Layer | Owns |
+| --- | --- |
+| **Organisation** | Workspace name, members, invitations; billing/licensing where applicable |
+| **Project** | Environments, Database Configs, connectors, bindings |
+| **Environment** | Partition for configs, connectors, and per-signal routing |
+| **Database Config** | ClickHouse connection on the project (seeded from `INIT_DB_*`, then managed in UI) |
+| **Connector** | External backend + credentials + actions on the project |
 
-Every organisation gets a default project the moment it's created, and existing installations are migrated into a default project automatically, so upgrading never breaks an existing database configuration.
-
-## Membership and roles
-
-Every organisation member has one of three roles:
-
-| Role | Description |
-|---|---|
-| **Owner** | The user who created the organisation. Owner status can't be reassigned or changed. |
-| **Admin** | Can invite members, manage projects, and change other members' roles (except the owner's). |
-| **Member** | Can use the organisation's projects and data; can't manage membership. |
-
-Invite teammates by email from the Organisation page - each invite is scoped to that organisation, and the invited user accepts or declines it from their own onboarding screen. Removing a member revokes their access to every project in that organisation immediately.
-
-## What belongs to an organisation
-
-- Organisation identity, such as the workspace name.
-- Members, their roles, and pending invitations.
-- Projects owned by the organisation, including the default project.
-- Billing and licensing state where applicable.
-
-## Switching and deleting organisations
-
-If you belong to multiple organisations, use the organisation selector in the top navigation to change the active workspace - project and database configuration selectors refresh to match the newly selected organisation. Deleting an organisation removes every project and database configuration that belongs to it, so it's only available to the owner.
+Every organisation has a default project. Existing installations are mapped to a default project and `production` environment so upgrades keep working.
 
 ## Common tasks
 
 <CardGroup cols={2}>
-  <Card title="Manage projects" href="/latest/openlit/organisation/projects" icon="folder">
-    Create projects, switch project context, and review project-level structure.
+  <Card title="Projects" href="/latest/openlit/organisation/projects" icon="folder">
+    Create a project first — Database Configs and connectors live here.
   </Card>
-  <Card title="Configure databases" href="/latest/openlit/organisation/database-config" icon="database">
-    Add, select, and update ClickHouse database configurations inside a project.
+  <Card title="Environments" href="/latest/openlit/organisation/environments" icon="layer-group">
+    Partition Database Configs and connectors by environment.
+  </Card>
+  <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
+    Add ClickHouse on a project (seeded from INIT_DB_* then managed in the UI).
+  </Card>
+  <Card title="Connectors" href="/latest/openlit/organisation/connectors" icon="plug">
+    Attach Tempo, Loki, Prometheus, or Jaeger on a project.
+  </Card>
+  <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
+    Bind traces, logs, and metrics independently per environment.
   </Card>
 </CardGroup>
 
-## Frequently asked questions
+<Frame>
+  <img src="/images/organisation/projects-list.png" alt="OpenLIT Organisation Projects tab — manage DB Config per project" />
+</Frame>
 
-<AccordionGroup>
-  <Accordion title="What's the difference between an organisation and a project?">
-    An organisation is the membership boundary - it controls who can access a workspace at all. A project is a database boundary inside an organisation - it controls which ClickHouse connection a given environment or team uses. One organisation can have many projects.
-  </Accordion>
-  <Accordion title="What happens if I skip creating an organisation during onboarding?">
-    OpenLIT creates a personal organisation for you automatically, with a default project already set up, so you're never left without a workspace.
-  </Accordion>
-  <Accordion title="Can I change who owns an organisation?">
-    No. The owner is permanently the user who created the organisation. Admins can manage members and projects, but ownership itself can't be reassigned.
-  </Accordion>
-  <Accordion title="What happens to my data if I delete an organisation?">
-    Deleting an organisation deletes every project and database configuration that belongs to it. Only the owner can delete an organisation.
-  </Accordion>
-</AccordionGroup>
+## Workspace switching
+
+If you belong to multiple organisations, use the organisation selector in the top navigation. Project, environment, database, and connector selectors update based on the selected organisation — the same pattern as the OpenLIT dashboard header.

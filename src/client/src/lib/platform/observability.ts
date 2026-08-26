@@ -57,7 +57,7 @@ function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
-function getSummaryBucket(params: MetricParams) {
+export function getSummaryBucket(params: MetricParams) {
 	const start = new Date(params.timeLimit.start as Date | string);
 	const end = new Date(params.timeLimit.end as Date | string);
 	const days = Math.max(1, (end.getTime() - start.getTime()) / 86400000);
@@ -118,8 +118,27 @@ function buildWhere(params: MetricParams, table: FilterTable) {
 	}
 
 	const selected = params.selectedConfig || {};
-	if (selected.services?.length) {
-		where.push(`ServiceName IN (${inList(selected.services)})`);
+	const serviceNames = Array.from(
+		new Set([
+			...(selected.services || []),
+			...(selected.serviceNames || []),
+			...(selected.applicationNames || []),
+		].map(String).filter(Boolean))
+	);
+	if (serviceNames.length) {
+		where.push(`ServiceName IN (${inList(serviceNames)})`);
+	}
+	const environments = (selected.environments || [])
+		.map(String)
+		.filter(Boolean);
+	// Synthetic OpenLIT "default" means unspecified — don't hard-filter.
+	if (
+		environments.length &&
+		!(environments.length === 1 && environments[0] === "default")
+	) {
+		where.push(
+			`ResourceAttributes['deployment.environment'] IN (${inList(environments)})`
+		);
 	}
 	if (table === "logs" && selected.severities?.length) {
 		const severities = selected.severities.map((severity: string) => severity.toLowerCase());
@@ -225,7 +244,7 @@ export async function getLogs(params: MetricParams) {
 	const { data: countData, err: countErr } = await dataCollector({ query: countQuery }, "query", params.databaseConfigId);
 	if (countErr) return { err: countErr };
 
-	const orderBy = params.sorting?.type && params.sorting?.direction
+	const orderBy = params.sorting?.type
 		? `${params.sorting.type.replace(/[^A-Za-z0-9_.]/g, "")} ${params.sorting.direction}`
 		: "Timestamp desc";
 	const query = `
@@ -258,7 +277,7 @@ export async function getSignalSummary(
 		const traceParams: MetricParams = {
 			...params,
 			...(signal === "exceptions"
-				? { statusCode: ["STATUS_CODE_ERROR", "Error"] }
+				? { statusCode: ["STATUS_CODE_ERROR", "Error", "ERROR"] }
 				: {}),
 		};
 		const where = getFilterWhereCondition(traceParams, true);
@@ -314,7 +333,7 @@ export async function getSignalSummary(
 	};
 }
 
-export async function getLogByRowId(rowId: string, dbConfigId?: string) {
+export async function getLogByRowId(rowId: string, databaseConfigId?: string) {
 	const safeRowId = rowId.replace(/[^0-9]/g, "");
 	const query = `
 		SELECT
@@ -324,7 +343,7 @@ export async function getLogByRowId(rowId: string, dbConfigId?: string) {
 		WHERE cityHash64(toString(Timestamp), TraceId, SpanId, SeverityText, Body) = ${safeRowId || "0"}
 		LIMIT 1
 	`;
-	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
+	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
 	return { err, record: (data as any[])?.[0] };
 }
 
@@ -423,6 +442,7 @@ export async function getMetricDetail(metricName: string, metricType?: string, s
 		...(serviceName ? { services: [serviceName] } : {}),
 	};
 	const effectiveParams: MetricParams = {
+		...params,
 		timeLimit: params?.timeLimit || {
 			type: "24H",
 			start: new Date(Date.now() - 24 * 60 * 60 * 1000),
@@ -454,8 +474,8 @@ export async function getMetricDetail(metricName: string, metricType?: string, s
 		LIMIT 100
 	`;
 	const [series, points] = await Promise.all([
-		dataCollector({ query: seriesQuery }, "query", params?.databaseConfigId),
-		dataCollector({ query: pointsQuery }, "query", params?.databaseConfigId),
+		dataCollector({ query: seriesQuery }, "query", effectiveParams.databaseConfigId),
+		dataCollector({ query: pointsQuery }, "query", effectiveParams.databaseConfigId),
 	]);
 	return {
 		err: series.err || points.err,

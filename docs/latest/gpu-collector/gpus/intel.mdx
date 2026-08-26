@@ -19,12 +19,12 @@ Intel GPU support provides thermal, power, energy, and clock metrics. Utilizatio
 
 | Metric | Source | Requirement |
 |---|---|---|
-| `hw.gpu.temperature` | hwmon `temp1_input` | kernel 5.10+ |
-| `hw.gpu.power.draw` | hwmon `power1_average` | kernel 5.10+ |
-| `hw.gpu.power.limit` | hwmon `power1_max` | kernel 5.10+ |
-| `hw.gpu.energy.consumed` | hwmon `energy1_input` | kernel 5.10+ |
-| `hw.gpu.clock.graphics` | DRM `gt_cur_freq_mhz` | Xe driver |
-| `hw.gpu.fan_speed` | hwmon `fan1_input` | kernel 6.16+ |
+| `hw.temperature` | hwmon `temp1_input` | kernel 5.10+ |
+| `hw.power` | hwmon `power1_average` | kernel 5.10+ |
+| `hw.power.limit` | hwmon `power1_max` | kernel 5.10+ |
+| `hw.energy` | hwmon `energy1_input` | kernel 5.10+ |
+| `hw.gpu.speed` (`clock_domain=graphics`) | DRM `gt_cur_freq_mhz` | Xe driver |
+| `hw.fan.speed` | hwmon `fan1_input` | kernel 6.16+ |
 
 ## Docker
 

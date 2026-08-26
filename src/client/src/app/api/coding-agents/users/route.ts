@@ -11,16 +11,14 @@
  * `low_cohort` aggregate for non-admin callers. See `listCodingUsers`.
  */
 
-import {
-	requireCodingAgentAuth,
-	CodingAgentUnauthorizedError,
-} from "@/lib/platform/coding-agents/auth";
-import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
+import { CodingAgentUnauthorizedError } from "@/lib/platform/coding-agents/auth";
+import { requireCodingAgentQueryContext } from "@/lib/platform/coding-agents/source";
 import {
 	listCodingUsers,
 	type CodingUsersSortBy,
 	type ListCodingUsersOptions,
 } from "@/lib/platform/coding-agents/queries";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 const VALID_SORT_BY: CodingUsersSortBy[] = [
 	"last_seen",
@@ -67,7 +65,7 @@ function defaultSince(): Date {
 async function GETHandler(request: Request) {
 	let auth;
 	try {
-		auth = await requireCodingAgentAuth();
+		auth = await requireCodingAgentQueryContext(request);
 	} catch (err) {
 		if (err instanceof CodingAgentUnauthorizedError) {
 			return Response.json({ error: err.message }, { status: 401 });
@@ -111,7 +109,7 @@ interface UsersListBody {
 async function POSTHandler(request: Request) {
 	let auth;
 	try {
-		auth = await requireCodingAgentAuth();
+		auth = await requireCodingAgentQueryContext(request);
 	} catch (err) {
 		if (err instanceof CodingAgentUnauthorizedError) {
 			return Response.json({ error: err.message }, { status: 401 });
@@ -159,5 +157,5 @@ async function POSTHandler(request: Request) {
 	}
 }
 
-export const GET = withCurrentOrganisationPermission("coding_agents:read", GETHandler);
-export const POST = withCurrentOrganisationPermission("coding_agents:read", POSTHandler);
+export const GET = withRouteAccess("coding_agents.read", GETHandler);
+export const POST = withRouteAccess("coding_agents.read", POSTHandler);

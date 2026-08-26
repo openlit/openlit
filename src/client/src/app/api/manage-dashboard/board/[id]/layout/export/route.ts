@@ -1,5 +1,6 @@
 import { SERVER_EVENTS } from "@/constants/events";
 import { getBoardLayout } from "@/lib/platform/manage-dashboard/board";
+import { toExportDashboardPayload } from "@/lib/platform/manage-dashboard/board-format";
 import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 
@@ -11,7 +12,9 @@ export async function GET(
 	const startTimestamp = Date.now();
 	const res = await getBoardLayout(id);
 	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.DASHBOARD_LAYOUT_EXPORT_FAILURE : SERVER_EVENTS.DASHBOARD_LAYOUT_EXPORT_SUCCESS,
+		event: res.err
+			? SERVER_EVENTS.DASHBOARD_LAYOUT_EXPORT_FAILURE
+			: SERVER_EVENTS.DASHBOARD_LAYOUT_EXPORT_SUCCESS,
 		startTimestamp,
 	});
 	if (res.err) {
@@ -20,12 +23,19 @@ export async function GET(
 			headers: { "Content-Type": "application/json" },
 		});
 	}
-	const json = JSON.stringify(res.data, null, 2);
+	const payload = toExportDashboardPayload(
+		res.data as unknown as Record<string, unknown>
+	);
+	const json = JSON.stringify(payload, null, 2);
+	const title =
+		typeof payload.title === "string" && payload.title
+			? payload.title
+			: id;
 	return new Response(json, {
 		status: 200,
 		headers: {
 			"Content-Type": "application/json",
-			"Content-Disposition": `attachment; filename=openlit-dashboard-${res.data!.title || res.data!.id}-layout.json`,
+			"Content-Disposition": `attachment; filename=openlit-dashboard-${title}-layout.json`,
 		},
 	});
 }

@@ -26,7 +26,7 @@ export default function RequestsPerTime() {
 		fireRequest({
 			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
-			url: "/api/metrics/request/time",
+			url: "/api/telemetry/request/time",
 			responseDataKey: "data",
 			failureCb: (err?: string) => {
 				toast.error(err || `Cannot connect to server!`, {
