@@ -50,19 +50,19 @@ def _tracer_with_exporter():
     return provider.get_tracer(__name__), exporter
 
 
-_COMMON_KWARGS = dict(
-    request_model="test-model",
-    pricing_info={},
-    server_port=443,
-    server_address="api.example.com",
-    environment="test",
-    application_name="regression-test",
-    metrics=None,
-    start_time=time.time(),
-    capture_message_content=False,
-    disable_metrics=True,
-    version="1.0.0",
-)
+_COMMON_KWARGS = {
+    "request_model": "test-model",
+    "pricing_info": {},
+    "server_port": 443,
+    "server_address": "api.example.com",
+    "environment": "test",
+    "application_name": "regression-test",
+    "metrics": None,
+    "start_time": time.time(),
+    "capture_message_content": False,
+    "disable_metrics": True,
+    "version": "1.0.0",
+}
 
 
 # ---------------------------------------------------------------------------
