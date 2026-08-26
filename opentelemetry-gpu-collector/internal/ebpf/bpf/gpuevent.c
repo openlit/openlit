@@ -8,6 +8,13 @@
 #include "bpf_tracing.h"
 #include "gpuevent.h"
 
+// libbpf historically defined PT_REGS_PARM1..5 only. x86-64 SysV passes the
+// 6th integer/pointer argument in r9. Keep this behind ifndef so newer
+// bpf_tracing.h (which does define PARM6) wins.
+#if defined(__TARGET_ARCH_x86) && !defined(PT_REGS_PARM6)
+#define PT_REGS_PARM6(x) ((x)->r9)
+#endif
+
 char LICENSE[] SEC("license") = "Dual MIT/GPL";
 
 struct {
