@@ -10,7 +10,22 @@ jest.mock("@/constants/messages", () => ({
 	default: jest.fn(() => ({
 		WIDGET_FETCH_FAILED: "Widget fetch failed",
 		WIDGET_RUN_FAILED: "Widget run failed",
+		WIDGET_STRUCTURED_QUERY_FAILED: "Structured widget query failed.",
+		WIDGET_NO_STRUCTURED_QUERY: "No structured query.",
+		WIDGET_RAW_SQL_SOURCE_ONLY: (source: string) => `raw-sql-only:${source}`,
 	})),
+}));
+const mockResolveDescriptor = jest.fn();
+const mockSourceSupportsNativeSql = jest.fn();
+const mockGetTelemetryAdapter = jest.fn();
+jest.mock("@/lib/telemetry-source", () => ({
+	resolveTelemetrySourceDescriptor: (...a: unknown[]) => mockResolveDescriptor(...a),
+	sourceSupportsNativeSql: (...a: unknown[]) => mockSourceSupportsNativeSql(...a),
+	getTelemetryAdapter: (...a: unknown[]) => mockGetTelemetryAdapter(...a),
+}));
+jest.mock("@/lib/platform/coding-agents/source", () => ({
+	isCodingAgentClickHouseSql: () => false,
+	resolveCodingAgentsClickHouseDbConfigId: jest.fn(),
 }));
 jest.mock("@/utils/sanitizer", () => ({
 	__esModule: true,
@@ -42,6 +57,12 @@ import { escapeSingleQuotes } from "@/helpers/server/widget";
 beforeEach(() => {
 	jest.clearAllMocks();
 	(dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+	mockResolveDescriptor.mockResolvedValue({
+		type: "clickhouse",
+		name: "Built-in",
+		isBuiltIn: true,
+	});
+	mockSourceSupportsNativeSql.mockReturnValue(true);
 });
 
 describe("runWidgetQuery", () => {
@@ -137,7 +158,9 @@ describe("runWidgetQuery", () => {
 
 		expect(result).toEqual({ data: [{ count: 1 }] });
 		expect(dataCollector).toHaveBeenLastCalledWith(
-			{ query: "SELECT count() FROM otel_traces", enable_readonly: true }
+			{ query: "SELECT count() FROM otel_traces", enable_readonly: true },
+			"query",
+			undefined
 		);
 	});
 
@@ -160,10 +183,14 @@ describe("runWidgetQuery", () => {
 		const result = await runWidgetQuery("w1", { filter: {} as any });
 
 		expect(result).toEqual({ data: [{ provider: "openai", count: 5 }] });
-		expect(dataCollector).toHaveBeenLastCalledWith({
-			query,
-			enable_readonly: true,
-		});
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{
+				query,
+				enable_readonly: true,
+			},
+			"query",
+			undefined
+		);
 	});
 
 	it("does not flag blocklisted keywords that appear only inside string literals", async () => {
@@ -250,10 +277,14 @@ describe("runWidgetQuery", () => {
 		});
 
 		expect(result).toEqual({ data: [{ n: 1 }] });
-		expect(dataCollector).toHaveBeenLastCalledWith({
-			query: "SELECT 1 WHERE ts >= '2024-01-01' AND env = 'prod'",
-			enable_readonly: true,
-		});
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{
+				query: "SELECT 1 WHERE ts >= '2024-01-01' AND env = 'prod'",
+				enable_readonly: true,
+			},
+			"query",
+			undefined
+		);
 	});
 
 	it("ignores non-filter mustache-like tags so they cannot run as code", async () => {
@@ -270,13 +301,200 @@ describe("runWidgetQuery", () => {
 		});
 
 		expect(result).toEqual({ data: [] });
-		expect(dataCollector).toHaveBeenLastCalledWith({
-			query: "SELECT '{{#evil}}{{/evil}}' AS x, 'safe' AS y",
-			enable_readonly: true,
-		});
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{
+				query: "SELECT '{{#evil}}{{/evil}}' AS x, 'safe' AS y",
+				enable_readonly: true,
+			},
+			"query",
+			undefined
+		);
 	});
 
 	it("mock escapeSingleQuotes escapes backslashes before quotes", () => {
 		expect(escapeSingleQuotes("a\\b'c")).toBe("a\\\\b\\'c");
+	});
+});
+
+describe("runWidgetQuery source routing", () => {
+	it("rejects raw SQL on an external source", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [
+				{
+					id: "w1",
+					config: JSON.stringify({
+						query: "SELECT name FROM system.tables",
+						sourceId: "src-dd",
+					}),
+				},
+			],
+			err: null,
+		});
+		mockResolveDescriptor.mockResolvedValue({ type: "datadog", name: "Prod DD" });
+		mockSourceSupportsNativeSql.mockReturnValue(false);
+
+		const result = await runWidgetQuery("w1", {
+			userQuery: "SELECT name FROM system.tables",
+			filter: {} as any,
+		});
+
+		expect(result).toEqual({ err: "raw-sql-only:Prod DD" });
+		// Only the widget fetch hit ClickHouse; no query execution.
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+	});
+
+	it("executes a structured query against the external adapter", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [
+				{
+					id: "w1",
+					config: JSON.stringify({
+						sourceId: "src-tempo",
+						structuredQuery: {
+							mode: "timeseries",
+							query: { signal: "traces" },
+						},
+					}),
+				},
+			],
+			err: null,
+		});
+		mockResolveDescriptor.mockResolvedValue({ type: "tempo", name: "Prod Tempo" });
+		mockSourceSupportsNativeSql.mockReturnValue(false);
+		const spanTimeSeries = jest
+			.fn()
+			.mockResolvedValue({ fields: [], rows: [{ bucket: "t0", agg0: 5 }] });
+		mockGetTelemetryAdapter.mockResolvedValue({
+			type: "tempo",
+			capabilities: () => ({ serverAggregation: true }),
+			spanTimeSeries,
+		});
+
+		const result = await runWidgetQuery("w1", {
+			filter: { timeLimit: { start: "2026-07-01", end: "2026-07-02" } } as any,
+		});
+
+		expect(result).toEqual({ data: [{ bucket: "t0", agg0: 5 }] });
+		expect(spanTimeSeries).toHaveBeenCalledTimes(1);
+		expect(mockResolveDescriptor).toHaveBeenCalledWith(
+			expect.objectContaining({ sourceId: "src-tempo", signal: "traces" })
+		);
+	});
+
+	it("follows project binding when a signal widget has no sourceId", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [
+				{
+					id: "w1",
+					config: JSON.stringify({
+						structuredQuery: {
+							mode: "timeseries",
+							query: { signal: "traces" },
+						},
+					}),
+				},
+			],
+			err: null,
+		});
+		mockResolveDescriptor.mockResolvedValue({ type: "tempo", name: "Prod Tempo" });
+		mockSourceSupportsNativeSql.mockReturnValue(false);
+		const spanTimeSeries = jest
+			.fn()
+			.mockResolvedValue({ fields: [], rows: [{ bucket: "t0", agg0: 5 }] });
+		mockGetTelemetryAdapter.mockResolvedValue({
+			type: "tempo",
+			capabilities: () => ({ serverAggregation: true }),
+			spanTimeSeries,
+		});
+
+		await runWidgetQuery("w1", {
+			filter: { timeLimit: { start: "2026-07-01", end: "2026-07-02" } } as any,
+		});
+
+		expect(mockResolveDescriptor).toHaveBeenCalledWith(
+			expect.objectContaining({ sourceId: null, signal: "traces" })
+		);
+	});
+
+	it("threads the resolved dbConfigId for a built-in source override", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [
+					{
+						id: "w1",
+						config: JSON.stringify({
+							query: "SELECT count() FROM otel_traces",
+							sourceId: "src-ch2",
+						}),
+					},
+				],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [{ count: 2 }], err: null });
+		mockResolveDescriptor.mockResolvedValue({
+			type: "clickhouse",
+			name: "Other CH",
+			dbConfigId: "db-9",
+		});
+		mockSourceSupportsNativeSql.mockReturnValue(true);
+
+		const result = await runWidgetQuery("w1", { filter: {} as any });
+
+		expect(result).toEqual({ data: [{ count: 2 }] });
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{ query: "SELECT count() FROM otel_traces", enable_readonly: true },
+			"query",
+			"db-9"
+		);
+	});
+
+	it("bridges legacy otel_traces SQL to the project external traces source", async () => {
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: [
+				{
+					id: "w1",
+					config: JSON.stringify({
+						query: `SELECT CAST(countIf(Timestamp >= start_time) AS INTEGER) AS total_request,
+							CAST(countIf(Timestamp >= prev_start_time) AS INTEGER) AS total_request_previous
+							FROM otel_traces WHERE 1=1`,
+					}),
+				},
+			],
+			err: null,
+		});
+		mockResolveDescriptor.mockResolvedValue({
+			type: "tempo",
+			name: "Grafana Tempo",
+			isBuiltIn: false,
+		});
+		mockSourceSupportsNativeSql.mockReturnValue(false);
+		const aggregateSpans = jest.fn().mockResolvedValue({
+			fields: [],
+			rows: [{ total_request: 12, count: 12 }],
+		});
+		mockGetTelemetryAdapter.mockResolvedValue({ aggregateSpans });
+
+		const result = await runWidgetQuery("w1", {
+			filter: {
+				timeLimit: {
+					start: "2026-07-01T00:00:00.000Z",
+					end: "2026-07-02T00:00:00.000Z",
+				},
+				selectedConfig: { serviceNames: ["demo-openai-app"] },
+			} as any,
+		});
+
+		expect(result.err).toBeUndefined();
+		expect(result.data).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					total_request: expect.any(Number),
+					total_request_previous: expect.any(Number),
+				}),
+			])
+		);
+		// Widget fetch only — no ClickHouse SQL execution for the metric.
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+		expect(mockGetTelemetryAdapter).toHaveBeenCalled();
 	});
 });

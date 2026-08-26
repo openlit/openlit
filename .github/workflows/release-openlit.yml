@@ -28,6 +28,9 @@ jobs:
   validate:
     name: Validate / Component CI
     uses: ./.github/workflows/ci-openlit.yml
+    permissions:
+      contents: read
+      pull-requests: write
     with:
       ref: ${{ inputs.release_sha }}
 
