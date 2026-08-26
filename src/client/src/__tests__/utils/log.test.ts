@@ -16,13 +16,20 @@ describe('consoleLog', () => {
     expect(consoleSpy).toHaveBeenCalled();
   });
 
-  it('calls console.log with multiple arguments wrapped in an array', () => {
+  it('serializes multiple arguments as a JSON array string', () => {
     consoleLog('a', 'b', 'c');
-    expect(consoleSpy).toHaveBeenCalledWith(['a', 'b', 'c']);
+    expect(consoleSpy).toHaveBeenCalledWith('["a","b","c"]');
   });
 
   it('calls console.log once per invocation', () => {
     consoleLog('test');
     expect(consoleSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back when arguments contain circular references', () => {
+    const circular: { self?: unknown } = {};
+    circular.self = circular;
+    expect(() => consoleLog(circular)).not.toThrow();
+    expect(consoleSpy).toHaveBeenCalled();
   });
 });

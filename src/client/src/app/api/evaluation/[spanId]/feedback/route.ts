@@ -3,6 +3,7 @@ import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { storeManualFeedback } from "@/lib/platform/evaluation";
 import { SERVER_EVENTS } from "@/constants/events";
 import PostHogServer from "@/lib/posthog";
+import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 
 async function POSTHandler(
 	request: Request,
@@ -23,10 +24,17 @@ async function POSTHandler(
 		);
 	}
 
+	const url = new URL(request.url);
+	const environment = request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
 	const res: any = await storeManualFeedback(
 		spanId,
 		rating,
-		comment?.trim() || undefined
+		comment?.trim() || undefined,
+		undefined,
+		{
+			traceId: url.searchParams.get("traceId") || undefined,
+			environment,
+		}
 	);
 
 	if (res?.err) {

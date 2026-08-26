@@ -117,14 +117,21 @@ export async function getCronLogs({
 	};
 }
 
-export async function getLastRunCronLogByCronId(cronId: string) {
+export async function getLastRunCronLogByCronId(
+	cronId: string,
+	databaseConfigId?: string
+) {
 	const query = `
 		SELECT * FROM ${OPENLIT_CRON_LOG_TABLE_NAME} WHERE cron_id = '${cronId}' AND run_status = '${CronRunStatus.SUCCESS}'
 		ORDER BY started_at DESC
 		LIMIT 1
 	`;
 
-	const { data, err } = await dataCollector({ query }, "query");
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
 
 	if (err || !data) {
 		return null;

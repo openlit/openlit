@@ -7,8 +7,15 @@ import {
 	OTEL_GPUS_TABLE_NAME,
 	GPUMetricParams,
 } from "../common";
+import {
+	externalAverageMemoryUsage,
+	externalMemoryParamsPerTime,
+} from "./external";
 
 export async function getMemoryParamsPerTime(params: GPUMetricParams) {
+	const external = await externalMemoryParamsPerTime(params);
+	if (external) return external;
+
 	const keys = [
 		"memory.available",
 		"memory.total",
@@ -59,6 +66,9 @@ export async function getMemoryParamsPerTime(params: GPUMetricParams) {
 }
 
 export async function getAverageMemoryUsage(params: GPUMetricParams) {
+	const external = await externalAverageMemoryUsage(params);
+	if (external) return external;
+
 	const query = `
 			SELECT
 				ROUND(AVG(Value), 2) as memory_used
