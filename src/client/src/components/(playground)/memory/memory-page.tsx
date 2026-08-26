@@ -22,6 +22,11 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+	ResizableHandle,
+	ResizablePanel,
+	ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import getMessage from "@/constants/messages";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { getCurrentProject, getCurrentProjectEnvironment } from "@/selectors/project";
@@ -118,6 +123,10 @@ export default function MemoryPage() {
 	const connectors = (result?.connectors || []) as ConnectorOption[];
 	const copyTargets = connectors.filter(
 		(connector) => connector.id !== connectorId && connector.capabilities?.add
+	);
+	const selectedMemory = useMemo(
+		() => result?.memories.find((memory) => memory.id === selectedId) || null,
+		[result?.memories, selectedId]
 	);
 	const filters = result?.filters || emptyMemoryFilters();
 	const filterFields = result?.filterFields || [];
@@ -553,115 +562,174 @@ export default function MemoryPage() {
 						))}
 					</div>
 
-					{!loading && connectors.length === 0 ? (
-						<EmptyPanel
-							title={messages.FEATURE_MEMORY}
-							description={messages.MEMORY_EMPTY_CONNECTORS}
-							action={
-								<FeatureAccess access="connectors.create" hideWhenDenied>
-									<Button size="sm" onClick={() => setAddConnectorOpen(true)}>
-										{messages.MEMORY_EMPTY_CONNECTORS_ACTION}
-									</Button>
-								</FeatureAccess>
-							}
-						/>
-					) : loadError || connectorError ? (
-						<EmptyPanel
-							title={messages.MEMORY_UNAVAILABLE_TITLE}
-							description={
-								result?.hint === "auth_failed"
-									? messages.MEMORY_AUTH_FAILED_HINT
-									: loadError || messages.MEMORY_UNAVAILABLE_DESCRIPTION
-							}
-							action={
-								<Button size="sm" variant="outline" onClick={() => loadMemories()}>
-									{messages.MEMORY_RETRY}
-								</Button>
-							}
-						/>
-					) : needsScope && !loading ? (
-						<EmptyPanel
-							title={messages.FEATURE_MEMORY}
-							description={
-								!hasFilterOptions
-									? messages.MEMORY_FILTER_EMPTY
-									: result?.hint === "session_required"
-										? messages.MEMORY_SESSION_REQUIRED_HINT
-										: messages.MEMORY_FILTER_REQUIRED_HINT
-							}
-						/>
-					) : showBrowse || loading ? (
-						<>
-							<div className="grid grid-cols-2 gap-2 px-4 py-3 sm:grid-cols-5">
-								{loading
-									? Array.from({ length: 5 }).map((_, index) => (
-											<Skeleton key={index} className="h-[58px] rounded-md" />
-										))
-									: statItems.map((item) => (
-											<StatCard key={item.label} {...item} />
-										))}
+					<ResizablePanelGroup
+						direction="horizontal"
+						autoSaveId="memory-page-split"
+						className="min-h-0 flex-1"
+					>
+						<ResizablePanel defaultSize={70} minSize={50}>
+							<div className="flex h-full min-h-0 flex-col overflow-hidden">
+								{!loading && connectors.length === 0 ? (
+									<EmptyPanel
+										title={messages.FEATURE_MEMORY}
+										description={messages.MEMORY_EMPTY_CONNECTORS}
+										action={
+											<FeatureAccess access="connectors.create" hideWhenDenied>
+												<Button size="sm" onClick={() => setAddConnectorOpen(true)}>
+													{messages.MEMORY_EMPTY_CONNECTORS_ACTION}
+												</Button>
+											</FeatureAccess>
+										}
+									/>
+								) : loadError || connectorError ? (
+									<EmptyPanel
+										title={messages.MEMORY_UNAVAILABLE_TITLE}
+										description={
+											result?.hint === "auth_failed"
+												? messages.MEMORY_AUTH_FAILED_HINT
+												: loadError || messages.MEMORY_UNAVAILABLE_DESCRIPTION
+										}
+										action={
+											<Button size="sm" variant="outline" onClick={() => loadMemories()}>
+												{messages.MEMORY_RETRY}
+											</Button>
+										}
+									/>
+								) : needsScope && !loading ? (
+									<EmptyPanel
+										title={messages.FEATURE_MEMORY}
+										description={
+											!hasFilterOptions
+												? messages.MEMORY_FILTER_EMPTY
+												: result?.hint === "session_required"
+													? messages.MEMORY_SESSION_REQUIRED_HINT
+													: messages.MEMORY_FILTER_REQUIRED_HINT
+										}
+									/>
+								) : showBrowse || loading ? (
+									<>
+										<div className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2 px-4 py-3">
+											{loading && !result
+												? Array.from({ length: 5 }).map((_, index) => (
+														<StatCardSkeleton key={index} />
+													))
+												: statItems.map((item) => (
+														<StatCard
+															key={item.label}
+															{...item}
+															dimmed={loading}
+														/>
+													))}
+										</div>
+										<Tabs
+											defaultValue="graph"
+											className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-3"
+										>
+											<TabsList className="h-9 w-max justify-start rounded-md bg-stone-100 p-1 dark:bg-stone-900">
+												<TabsTrigger value="graph" className="shrink-0 px-3 py-1 text-xs">
+													{messages.MEMORY_GRAPH_TITLE}
+												</TabsTrigger>
+												<TabsTrigger value="list" className="shrink-0 px-3 py-1 text-xs">
+													{messages.MEMORY_LIST_TITLE}
+												</TabsTrigger>
+											</TabsList>
+											<TabsContent
+												value="graph"
+												forceMount
+												className="mt-2 min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden data-[state=active]:flex data-[state=active]:flex-col"
+											>
+												{loading && !result ? (
+													<div className="flex h-full min-h-[280px] items-center justify-center rounded-md border border-dashed border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
+														<div className="flex flex-col items-center gap-2 px-4 text-center">
+															<Skeleton className="h-8 w-8 rounded-full" />
+															<Skeleton className="h-3 w-40" />
+															<Skeleton className="h-3 w-28" />
+														</div>
+													</div>
+												) : (
+													<div
+														className={`h-full min-h-0 ${
+															loading ? "pointer-events-none opacity-60" : ""
+														}`}
+													>
+														<MemoryGraph
+															graph={result?.graph || { nodes: [], edges: [] }}
+															selectedId={selectedId}
+															onSelect={selectMemory}
+														/>
+													</div>
+												)}
+											</TabsContent>
+											<TabsContent
+												value="list"
+												forceMount
+												className="mt-2 min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden data-[state=active]:flex data-[state=active]:flex-col"
+											>
+												{loading && !result ? (
+													<div className="flex h-full min-h-[280px] flex-col gap-2 rounded-md border border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-950">
+														<Skeleton className="h-8 w-full rounded-md" />
+														<Skeleton className="h-12 w-full rounded-md" />
+														<Skeleton className="h-12 w-full rounded-md" />
+														<Skeleton className="h-12 w-full rounded-md" />
+													</div>
+												) : (
+													<div
+														className={`h-full min-h-0 ${
+															loading ? "pointer-events-none opacity-60" : ""
+														}`}
+													>
+														<MemoryList
+															memories={result?.memories || []}
+															search={listSearch}
+															onSearchChange={setListSearch}
+															selectedId={selectedId}
+															onSelect={selectMemory}
+														/>
+													</div>
+												)}
+											</TabsContent>
+										</Tabs>
+									</>
+								) : null}
 							</div>
-							<Tabs
-								defaultValue="graph"
-								className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-3"
-							>
-								<TabsList className="h-9 w-max justify-start rounded-md bg-stone-100 p-1 dark:bg-stone-900">
-									<TabsTrigger value="graph" className="shrink-0 px-3 py-1 text-xs">
-										{messages.MEMORY_GRAPH_TITLE}
-									</TabsTrigger>
-									<TabsTrigger value="list" className="shrink-0 px-3 py-1 text-xs">
-										{messages.MEMORY_LIST_TITLE}
-									</TabsTrigger>
-								</TabsList>
-								<TabsContent
-									value="graph"
-									forceMount
-									className="mt-2 min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden data-[state=active]:flex data-[state=active]:flex-col"
-								>
-									{loading ? (
-										<Skeleton className="h-full min-h-[280px] rounded-md" />
-									) : (
-										<MemoryGraph
-											graph={result?.graph || { nodes: [], edges: [] }}
-											selectedId={selectedId}
-											onSelect={selectMemory}
-										/>
-									)}
-								</TabsContent>
-								<TabsContent
-									value="list"
-									forceMount
-									className="mt-2 min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden data-[state=active]:flex data-[state=active]:flex-col"
-								>
-									{loading ? (
-										<Skeleton className="h-full min-h-[280px] rounded-md" />
-									) : (
-										<MemoryList
-											memories={result?.memories || []}
-											search={listSearch}
-											onSearchChange={setListSearch}
-											selectedId={selectedId}
-											onSelect={selectMemory}
-										/>
-									)}
-								</TabsContent>
-							</Tabs>
-						</>
-					) : null}
-
-					<AskOtterBar
-						disabled={connectors.length === 0}
-						scope={{ connectorId, userId, sessionId, agentId }}
-					/>
+						</ResizablePanel>
+						<ResizableHandle
+							withHandle
+							aria-label={messages.MEMORY_SPLIT_RESIZE}
+						/>
+						<ResizablePanel defaultSize={30} minSize={22} maxSize={42}>
+							<div className="h-full min-h-0 overflow-hidden border-l border-stone-200 dark:border-stone-800">
+								<AskOtterBar
+									layout="fill"
+									disabled={connectors.length === 0}
+									scope={{
+										connectorId,
+										userId: fieldEnabled(filterFields, "userId")
+											? userId
+											: undefined,
+										sessionId: fieldEnabled(filterFields, "sessionId")
+											? sessionId
+											: undefined,
+										agentId: fieldEnabled(filterFields, "agentId")
+											? agentId
+											: undefined,
+										memoryId: selectedMemory?.id || selectedId || undefined,
+										memoryContent: selectedMemory?.content,
+										filterKeys: filterFields.map((field) => field.key),
+										canList: result?.capabilities?.list === true,
+										canSearch: result?.capabilities?.search === true,
+									}}
+								/>
+							</div>
+						</ResizablePanel>
+					</ResizablePanelGroup>
 					<MemoryDetailSheet
 						open={!!selectedId}
 						memoryId={selectedId}
 						memoryIds={(result?.memories || []).map((memory) => memory.id)}
 						connectorId={connectorId}
 						capabilities={result?.capabilities}
-						preview={
-							result?.memories.find((memory) => memory.id === selectedId) || null
-						}
+						preview={selectedMemory}
 						onSelect={selectMemory}
 						onClose={() => selectMemory(null)}
 						onChanged={() => loadMemories()}
@@ -813,13 +881,19 @@ function StatCard({
 	label,
 	value,
 	dot,
+	dimmed,
 }: {
 	label: string;
 	value: number;
 	dot?: string;
+	dimmed?: boolean;
 }) {
 	return (
-		<div className="rounded-md border border-stone-200 bg-white px-3 py-2 dark:border-stone-800 dark:bg-stone-950">
+		<div
+			className={`rounded-md border border-stone-200 bg-white px-3 py-2 dark:border-stone-800 dark:bg-stone-950 ${
+				dimmed ? "opacity-60" : ""
+			}`}
+		>
 			<p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
 				{dot ? <span className={`size-1.5 rounded-full ${dot}`} /> : null}
 				{label}
@@ -827,6 +901,15 @@ function StatCard({
 			<p className="mt-1 text-lg font-semibold tabular-nums text-stone-950 dark:text-stone-50">
 				{value}
 			</p>
+		</div>
+	);
+}
+
+function StatCardSkeleton() {
+	return (
+		<div className="rounded-md border border-stone-200 bg-white px-3 py-2 dark:border-stone-800 dark:bg-stone-950">
+			<Skeleton className="h-3 w-16" />
+			<Skeleton className="mt-2 h-6 w-10" />
 		</div>
 	);
 }

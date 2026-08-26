@@ -81,6 +81,10 @@ describe("Mem0 adapter", () => {
 			"sessionId",
 			"agentId",
 		]);
+		expect(described.filterFields?.[1]).toMatchObject({
+			key: "sessionId",
+			label: "Run",
+		});
 	});
 
 	it("health-checks entities and sends Token auth", async () => {
@@ -131,10 +135,46 @@ describe("Mem0 adapter", () => {
 		);
 	});
 
+	it("ORs multiple entity filters when searching", async () => {
+		mockSafeFetch.mockResolvedValue({ results: [] });
+		const adapter = new Mem0Adapter(descriptor("mem0"));
+		await adapter.search({ query: "tea", userId: "u1", agentId: "researcher" });
+		expect(JSON.parse(mockSafeFetch.mock.calls[0][1].body)).toEqual(
+			expect.objectContaining({
+				filters: { OR: [{ user_id: "u1" }, { agent_id: "researcher" }] },
+			})
+		);
+	});
+
 	it("does not list memories until a user, agent, or session is provided", async () => {
 		const adapter = new Mem0Adapter(descriptor("mem0"));
 		await expect(adapter.list({})).rejects.toThrow(/user, agent, or session/i);
 		expect(mockSafeFetch).not.toHaveBeenCalled();
+	});
+
+	it("lists memories through the v3 filters API", async () => {
+		mockSafeFetch.mockResolvedValue({
+			count: 1,
+			results: [{ id: "mem-1", memory: "likes tea", user_id: "u1", run_id: "run-9" }],
+		});
+		const adapter = new Mem0Adapter(descriptor("mem0"));
+		const records = await adapter.list({ userId: "u1", sessionId: "run-9", limit: 10 });
+		expect(records).toEqual([
+			expect.objectContaining({
+				id: "mem-1",
+				content: "likes tea",
+				userId: "u1",
+				sessionId: "run-9",
+			}),
+		]);
+		const [url, options] = mockSafeFetch.mock.calls[0];
+		expect(String(url)).toContain("/v3/memories/?page=1&page_size=10");
+		expect(options.method).toBe("POST");
+		expect(JSON.parse(options.body)).toEqual(
+			expect.objectContaining({
+				filters: { OR: [{ user_id: "u1" }, { run_id: "run-9" }] },
+			})
+		);
 	});
 
 	it("lists filter options from entities", async () => {
@@ -679,10 +719,9 @@ describe("Claude adapter", () => {
 			"credentials"
 		);
 		expect(described.filterFields?.map((field) => field.key)).toEqual([
-			"userId",
 			"sessionId",
 		]);
-		expect(described.filterFields?.[1]).toMatchObject({
+		expect(described.filterFields?.[0]).toMatchObject({
 			key: "sessionId",
 			required: true,
 		});
@@ -713,8 +752,8 @@ describe("Claude adapter", () => {
 		});
 		const adapter = new ClaudeAdapter(descriptor("claude"));
 		await expect(adapter.listFilters()).resolves.toEqual({
-			users: [{ id: "ada", label: "ada" }],
-			sessions: [{ id: "memstore_1", label: "User Preferences", userId: "ada" }],
+			users: [],
+			sessions: [{ id: "memstore_1", label: "User Preferences" }],
 			agents: [],
 		});
 	});

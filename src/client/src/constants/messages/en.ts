@@ -1798,6 +1798,7 @@ export const NO_DASH = "-";
 
 // Chat
 export const CHAT_TITLE = "Otter";
+export const CHAT_ASK_OTTER = "Ask Otter";
 export const CHAT_DESCRIPTION = "Ask questions about your observability data using natural language";
 export const CHAT_SETTINGS_TITLE = "Chat Settings";
 export const CHAT_SETTINGS_DESCRIPTION = "Configure the AI provider for the chat feature";
@@ -2145,7 +2146,7 @@ export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =
 	"Store and search session memory and a knowledge graph with Zep.";
 export const MEMORY_CONNECTOR_FIELD_ORG_ID = "Mem0 organization ID";
 export const MEMORY_CONNECTOR_FIELD_PROJECT_ID = "Mem0 project ID";
-export const MEMORY_CONNECTOR_FIELD_STORE_ID = "Memory store ID";
+export const MEMORY_CONNECTOR_FIELD_STORE_ID = "Memory store";
 export const MEMORY_CONNECTOR_AUTH_HELP_CLAUDE =
 	"Use an Anthropic API key. Memory store calls send x-api-key with the agent-memory beta header.";
 export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
@@ -2155,7 +2156,7 @@ export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
 export const MEMORY_CONNECTOR_SETUP_CLAUDE_SUMMARY =
 	"Claude memory stores keep agent notes across Managed Agents sessions.";
 export const MEMORY_CONNECTOR_SETUP_MEM0_SUMMARY =
-	"Mem0 stores long-term memories that agents can search later.";
+	"Mem0 stores long-term memories scoped by user, run, or agent.";
 export const MEMORY_CONNECTOR_SETUP_ZEP_SUMMARY =
 	"Zep stores session memory and a knowledge graph for agents.";
 export const MEMORY_PAGE_DESCRIPTION =
@@ -2167,12 +2168,26 @@ export const MEMORY_PROFILE = "Profile";
 export const MEMORY_SUMMARY = "Summary";
 export const MEMORY_SEARCH_PLACEHOLDER = "Search memories…";
 export const MEMORY_ASK_TITLE = "Ask Otter";
+export const MEMORY_ASK_EMPTY =
+	"Ask Otter about stored facts, users, or what to remember.";
 export const MEMORY_ASK_PLACEHOLDER = "Ask anything about your memories…";
 export const MEMORY_ASK_HINT =
 	"Otter searches this connector and answers here.";
 export const MEMORY_ASK_SEND = "Ask Otter";
 export const MEMORY_ASK_OTTER_PROMPT =
-	"Answer this from the project's stored memories. Use search_memories or list_memories before answering. Use add_memory, update_memory, or delete_memory only when the user asks to remember, change, or forget something.";
+	"Use add_memory / update_memory / delete_memory only when asked to remember, change, or forget something.";
+export const MEMORY_ASK_TOOLS_PROMPT =
+	"Memory page: fetch data with list_memories or search_memories (connector API). Prefer list_memories for inventory; search_memories for a specific fact. Do not invent memories.";
+export const MEMORY_ASK_FALLBACK_PROMPT =
+	"Memory page: this connector has no list/search API. Answer briefly from chat context only; say when you lack connector data.";
+export const MEMORY_ASK_REQUIRED_FILTERS = (filters: string) =>
+	`Pass these tool args when calling memory tools: ${filters}.`;
+export const MEMORY_ASK_SELECTED_CHIP = (summary: string) => `Selected: ${summary}`;
+export const MEMORY_ASK_SELECTED_PROMPT = (id: string, excerpt: string) =>
+	excerpt
+		? `Selected memory_id=${id}: ${excerpt}`
+		: `Selected memory_id=${id}.`;
+export const MEMORY_SPLIT_RESIZE = "Resize memories and Ask Otter panels";
 export const MEMORY_REFRESH = "Load";
 export const MEMORY_GRAPH_TITLE = "Memory graph";
 export const MEMORY_LIST_TITLE = "Memories";
@@ -2183,6 +2198,7 @@ export const MEMORY_PAGE_NEXT = "Next page";
 export const MEMORY_CONNECTOR_LABEL = "Memory connector";
 export const MEMORY_USER_FILTER = "User";
 export const MEMORY_SESSION_FILTER = "Session";
+export const MEMORY_RUN_FILTER = "Run";
 export const MEMORY_AGENT_FILTER = "Agent";
 export const MEMORY_FILTER_ALL = "All";
 export const MEMORY_FILTER_USE_VALUE = (value: string) => `Use “${value}”`;

@@ -298,6 +298,25 @@ function messagesForWrite(input: MemoryWriteInput) {
 	return [];
 }
 
+/**
+ * Mem0 scopes memories with user_id / agent_id / run_id (OpenLIT sessionId → run_id).
+ * Multiple entity filters AND together and often match nothing (e.g. user+agent when
+ * memories were written with only user_id), so OR when more than one is set.
+ */
+function mem0EntityFilters(scope: {
+	userId?: string;
+	agentId?: string;
+	sessionId?: string;
+}): Record<string, unknown> | undefined {
+	const parts: Record<string, string>[] = [];
+	if (scope.userId) parts.push({ user_id: scope.userId });
+	if (scope.agentId) parts.push({ agent_id: scope.agentId });
+	if (scope.sessionId) parts.push({ run_id: scope.sessionId });
+	if (!parts.length) return undefined;
+	if (parts.length === 1) return parts[0];
+	return { OR: parts };
+}
+
 export class Mem0Adapter extends BaseMemoryAdapter {
 	readonly type = "mem0";
 
@@ -393,15 +412,11 @@ export class Mem0Adapter extends BaseMemoryAdapter {
 	async search(query: MemorySearchQuery): Promise<MemoryRecord[]> {
 		const q = query.query.trim();
 		if (!q) throw new Error(getMessage().MEMORY_CONNECTOR_QUERY_REQUIRED);
-		const filters: Record<string, string> = {};
-		if (query.userId) filters.user_id = query.userId;
-		if (query.agentId) filters.agent_id = query.agentId;
-		if (query.sessionId) filters.run_id = query.sessionId;
 		const body = await this.request("v2/memories/search/", {
 			method: "POST",
 			body: {
 				query: q,
-				filters: Object.keys(filters).length ? filters : undefined,
+				filters: mem0EntityFilters(query),
 				top_k: query.limit || 10,
 				threshold: query.threshold,
 				...this.orgScope(),
@@ -428,13 +443,17 @@ export class Mem0Adapter extends BaseMemoryAdapter {
 		if (!filter.userId && !filter.agentId && !filter.sessionId) {
 			throw new Error(getMessage().MEMORY_CONNECTOR_FILTER_REQUIRED);
 		}
-		const params = new URLSearchParams();
-		if (filter.userId) params.set("user_id", filter.userId);
-		if (filter.agentId) params.set("agent_id", filter.agentId);
-		if (filter.sessionId) params.set("run_id", filter.sessionId);
-		params.set("page_size", String(filter.limit || 25));
-		const query = params.toString();
-		const body = await this.request(`v1/memories/${query ? `?${query}` : ""}`);
+		const pageSize = filter.limit || 25;
+		const body = await this.request(
+			`v3/memories/?page=1&page_size=${encodeURIComponent(String(pageSize))}`,
+			{
+				method: "POST",
+				body: {
+					filters: mem0EntityFilters(filter),
+					...this.orgScope(),
+				},
+			}
+		);
 		return normalizeList(body);
 	}
 
@@ -521,7 +540,11 @@ export const mem0AdapterFactory = {
 				group: "settings",
 			},
 		],
-		filterFields: memoryPageFilters(["userId", "sessionId", "agentId"]),
+		filterFields: memoryPageFilters([
+			"userId",
+			{ key: "sessionId", label: getMessage().MEMORY_RUN_FILTER },
+			"agentId",
+		]),
 		authStyle: "api-key",
 		authHelp: getMessage().MEMORY_CONNECTOR_AUTH_HELP_MEM0,
 		docsUrl: "https://docs.mem0.ai/api-reference",

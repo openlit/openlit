@@ -108,15 +108,6 @@ function pathCategories(path: string | undefined): string[] | undefined {
 	return segments.length ? segments : undefined;
 }
 
-function storeUserId(metadata: Record<string, unknown> | undefined): string | undefined {
-	if (!metadata) return undefined;
-	return (
-		stringValue(metadata.user_id) ||
-		stringValue(metadata.userId) ||
-		stringValue(metadata.user)
-	);
-}
-
 function actorId(raw: unknown): string | undefined {
 	const actor = asRecord(raw);
 	return (
@@ -272,16 +263,14 @@ export class ClaudeAdapter extends BaseMemoryAdapter {
 		return rows;
 	}
 
-	private async listStores(): Promise<
-		{ id: string; name: string; userId?: string }[]
-	> {
+	private async listStores(): Promise<{ id: string; name: string }[]> {
 		const rows = await this.collectPages((page) => {
 			const params = new URLSearchParams();
 			params.set("limit", "100");
 			if (page) params.set("page", page);
 			return `v1/memory_stores?${params.toString()}`;
 		});
-		const stores: { id: string; name: string; userId?: string }[] = [];
+		const stores: { id: string; name: string }[] = [];
 		for (const item of rows) {
 			const row = asRecord(item);
 			const id = stringValue(row.id);
@@ -289,7 +278,6 @@ export class ClaudeAdapter extends BaseMemoryAdapter {
 			stores.push({
 				id,
 				name: stringValue(row.name) || id,
-				userId: storeUserId(objectValue(row.metadata)),
 			});
 		}
 		return stores;
@@ -297,22 +285,15 @@ export class ClaudeAdapter extends BaseMemoryAdapter {
 
 	private async resolveStoreId(filter: {
 		sessionId?: string;
-		userId?: string;
 	}): Promise<string> {
 		const selected = stringValue(filter.sessionId) || this.configuredStoreId;
 		if (selected) return selected;
 		const stores = await this.listStores();
-		const scoped = filter.userId
-			? stores.filter((store) => store.userId === filter.userId)
-			: stores;
-		if (scoped.length === 1) return scoped[0].id;
+		if (stores.length === 1) return stores[0].id;
 		throw new Error(getMessage().MEMORY_CONNECTOR_FILTER_REQUIRED);
 	}
 
-	private async listMemories(
-		storeId: string,
-		extras: { userId?: string }
-	): Promise<MemoryRecord[]> {
+	private async listMemories(storeId: string): Promise<MemoryRecord[]> {
 		const rows = await this.collectPages((page) => {
 			const params = new URLSearchParams();
 			params.set("path_prefix", "/");
@@ -322,7 +303,7 @@ export class ClaudeAdapter extends BaseMemoryAdapter {
 			return `v1/memory_stores/${encodeURIComponent(storeId)}/memories?${params.toString()}`;
 		});
 		return rows
-			.map((row) => normalizeRecord(row, { storeId, userId: extras.userId }))
+			.map((row) => normalizeRecord(row, { storeId }))
 			.filter((row): row is MemoryRecord => !!row);
 	}
 
@@ -371,7 +352,7 @@ export class ClaudeAdapter extends BaseMemoryAdapter {
 				},
 			}
 		);
-		const record = normalizeRecord(body, { storeId, userId: input.userId });
+		const record = normalizeRecord(body, { storeId });
 		return record ? [record] : [];
 	}
 
@@ -407,7 +388,7 @@ export class ClaudeAdapter extends BaseMemoryAdapter {
 
 	async list(filter: MemoryListFilter): Promise<MemoryRecord[]> {
 		const storeId = await this.resolveStoreId(filter);
-		const records = await this.listMemories(storeId, { userId: filter.userId });
+		const records = await this.listMemories(storeId);
 		return records.slice(0, filter.limit || 50);
 	}
 
@@ -415,16 +396,11 @@ export class ClaudeAdapter extends BaseMemoryAdapter {
 		const filters = emptyMemoryFilters();
 		try {
 			const stores = await this.listStores();
-			const users = new Map<string, string>();
-			filters.sessions = stores.map((store) => {
-				if (store.userId) users.set(store.userId, store.userId);
-				return {
-					id: store.id,
-					label: store.name,
-					userId: store.userId,
-				};
-			});
-			filters.users = [...users.entries()].map(([id, label]) => ({ id, label }));
+			// Claude memory is store-scoped; there is no first-class user id.
+			filters.sessions = stores.map((store) => ({
+				id: store.id,
+				label: store.name,
+			}));
 		} catch {
 			return emptyMemoryFilters();
 		}
@@ -475,7 +451,6 @@ export const claudeAdapterFactory = {
 		capabilities: { ...CLAUDE_CAPABILITIES },
 		configFields: [...memoryHttpVendorFields({ placeholder: DEFAULT_URL })],
 		filterFields: memoryPageFilters([
-			"userId",
 			{
 				key: "sessionId",
 				label: getMessage().MEMORY_CONNECTOR_FIELD_STORE_ID,

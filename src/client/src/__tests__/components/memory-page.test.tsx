@@ -107,7 +107,27 @@ jest.mock("@/components/(playground)/memory/memory-detail-sheet", () => ({
 
 jest.mock("@/components/(playground)/memory/ask-otter", () => ({
 	__esModule: true,
-	default: () => null,
+	default: ({
+		scope,
+	}: {
+		scope?: { memoryId?: string; memoryContent?: string };
+	}) => (
+		<div
+			data-testid="ask-otter"
+			data-memory-id={scope?.memoryId || ""}
+			data-memory-content={scope?.memoryContent || ""}
+		/>
+	),
+}));
+
+jest.mock("@/components/ui/resizable", () => ({
+	ResizablePanelGroup: ({ children }: { children: ReactNode }) => (
+		<div data-testid="memory-split">{children}</div>
+	),
+	ResizablePanel: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	ResizableHandle: ({ "aria-label": label }: { "aria-label"?: string }) => (
+		<div role="separator" aria-label={label} />
+	),
 }));
 
 jest.mock("@/components/(playground)/memory/memory-copy-dialog", () => ({
@@ -199,6 +219,9 @@ describe("MemoryPage URL selection", () => {
 		await waitFor(() => expect(screen.getByTestId("graph-select")).toBeInTheDocument());
 		expect(screen.getByTestId("detail-sheet")).toHaveAttribute("data-open", "false");
 		expect(screen.getByTestId("detail-sheet")).toHaveAttribute("data-id", "");
+		expect(screen.getByTestId("memory-split")).toBeInTheDocument();
+		expect(screen.getByRole("separator", { name: "Resize memories and Ask Otter panels" })).toBeInTheDocument();
+		expect(screen.getByTestId("ask-otter")).toBeInTheDocument();
 	});
 
 	it("opens the detail sheet from ?id=", async () => {
@@ -206,6 +229,13 @@ describe("MemoryPage URL selection", () => {
 		render(<MemoryPage />);
 		await waitFor(() => expect(screen.getByTestId("detail-sheet")).toHaveAttribute("data-open", "true"));
 		expect(screen.getByTestId("detail-sheet")).toHaveAttribute("data-id", "mem-1");
+		await waitFor(() => {
+			expect(screen.getByTestId("ask-otter")).toHaveAttribute("data-memory-id", "mem-1");
+			expect(screen.getByTestId("ask-otter")).toHaveAttribute(
+				"data-memory-content",
+				"User visited New York"
+			);
+		});
 	});
 
 	it("writes the memory id into the URL when a memory is selected", async () => {
