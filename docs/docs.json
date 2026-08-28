@@ -80,6 +80,17 @@
           {
             "group": "Observability",
             "pages": [
+              {
+                "group": "Telemetry",
+                "icon": "wave-pulse",
+                "pages": [
+                  "latest/openlit/observability/telemetry/overview",
+                  "latest/openlit/observability/telemetry/traces",
+                  "latest/openlit/observability/telemetry/ai-analysis",
+                  "latest/openlit/observability/telemetry/metrics",
+                  "latest/openlit/observability/telemetry/logs"
+                ]
+              },
               "latest/openlit/observability/tracing",
               "latest/openlit/observability/metrics",
               "latest/openlit/observability/error",
