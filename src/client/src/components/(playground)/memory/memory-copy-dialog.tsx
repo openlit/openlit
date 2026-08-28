@@ -19,6 +19,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import getMessage from "@/constants/messages";
+import { getRequestHeaders } from "@/utils/api";
 import {
 	emptyMemoryFilters,
 	type MemoryCapabilities,
@@ -101,7 +102,10 @@ export default function MemoryCopyDialog({
 			connectorId: targetId,
 			limit: "1",
 		});
-		fetch(`/api/memory?${params.toString()}`, { signal: controller.signal })
+		fetch(`/api/memory?${params.toString()}`, {
+			signal: controller.signal,
+			headers: getRequestHeaders(),
+		})
 			.then(async (response) => {
 				const body = await response.json().catch(() => null);
 				if (!response.ok) {

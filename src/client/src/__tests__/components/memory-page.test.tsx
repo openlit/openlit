@@ -19,6 +19,10 @@ jest.mock("@/store", () => ({
 	useRootStore: (selector: (state: unknown) => unknown) => selector({}),
 }));
 
+jest.mock("@/utils/api", () => ({
+	getRequestHeaders: (headers?: Record<string, string>) => headers || {},
+}));
+
 jest.mock("@/selectors/project", () => ({
 	getCurrentProject: () => ({ id: "proj-1" }),
 	getCurrentProjectEnvironment: () => "production",

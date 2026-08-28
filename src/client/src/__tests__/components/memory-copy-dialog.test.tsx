@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import MemoryCopyDialog from "@/components/(playground)/memory/memory-copy-dialog";
 
+jest.mock("@/utils/api", () => ({
+	getRequestHeaders: (headers?: Record<string, string>) => headers || {},
+}));
+
 class ResizeObserverMock {
 	observe() {}
 	unobserve() {}

@@ -32,6 +32,12 @@ jest.mock("@/lib/project-environment", () => ({
 	createProjectEnvironment: jest.fn().mockResolvedValue({ id: "env-1" }),
 }));
 
+jest.mock("next/headers", () => ({
+	headers: jest.fn(async () => ({
+		get: () => null,
+	})),
+}));
+
 jest.mock("@/utils/crypto", () => ({
 	encryptValue: (value: string) => `enc:v1:${value}`,
 	decryptValue: (value: string) => String(value).replace(/^enc:v1:/, ""),
@@ -203,16 +209,36 @@ describe("memory connector CRUD", () => {
 		});
 	});
 
-	it("lists project-scoped memory connectors without secretRef", async () => {
+	it("lists environment-scoped memory connectors without secretRef", async () => {
 		mockFindMany.mockResolvedValue([row()]);
 		const listed = await listMemoryConnectors();
 		expect(mockFindMany).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { projectId: "proj-1", category: "memory" },
+				where: {
+					projectId: "proj-1",
+					category: "memory",
+					environment: "production",
+				},
 			})
 		);
 		expect(listed[0]).not.toHaveProperty("secretRef");
 		expect(listed[0].hasSecret).toBe(true);
+	});
+
+	it("lists connectors for an explicit environment", async () => {
+		mockFindMany.mockResolvedValue([
+			row({ id: "memory:dev", name: "Dev Mem0", environment: "development" }),
+		]);
+		await listMemoryConnectors("development");
+		expect(mockFindMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: {
+					projectId: "proj-1",
+					category: "memory",
+					environment: "development",
+				},
+			})
+		);
 	});
 
 	it("remembers typed user ids and omits them from public connector metadata", async () => {

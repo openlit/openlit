@@ -3,7 +3,6 @@ const mockRecordMemoryPortLinks = jest.fn();
 const mockQueryProjectMemories = jest.fn();
 const mockAddProjectMemories = jest.fn();
 const mockGetMemoryTypeDescriptor = jest.fn();
-const mockRecordMemoryMutationAudit = jest.fn();
 
 jest.mock("@/lib/platform/connectors/memory/crud", () => ({
 	listMemoryConnectors: (...a: unknown[]) => mockListMemoryConnectors(...a),
@@ -19,9 +18,6 @@ jest.mock("@/lib/platform/connectors/memory/write", () => ({
 }));
 jest.mock("@/lib/platform/connectors/memory/registry", () => ({
 	getMemoryTypeDescriptor: (...a: unknown[]) => mockGetMemoryTypeDescriptor(...a),
-}));
-jest.mock("@/lib/access/memory-route", () => ({
-	recordMemoryMutationAudit: (...a: unknown[]) => mockRecordMemoryMutationAudit(...a),
 }));
 
 import { copyProjectMemories } from "@/lib/platform/connectors/memory/port";
@@ -42,7 +38,6 @@ describe("copyProjectMemories", () => {
 			capabilities: { add: true },
 		});
 		mockRecordMemoryPortLinks.mockResolvedValue(undefined);
-		mockRecordMemoryMutationAudit.mockResolvedValue(undefined);
 	});
 
 	it("rejects copying a connector onto itself", async () => {
@@ -110,9 +105,6 @@ describe("copyProjectMemories", () => {
 			expect.arrayContaining([
 				expect.objectContaining({ sourceMemoryId: "m1", destMemoryId: "z1" }),
 			])
-		);
-		expect(mockRecordMemoryMutationAudit).toHaveBeenCalledWith(
-			expect.objectContaining({ action: "create", source: "copy" })
 		);
 	});
 

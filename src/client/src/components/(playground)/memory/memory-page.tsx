@@ -43,6 +43,7 @@ import {
 	type MemoryFilterKey,
 } from "@/lib/platform/connectors/memory/types";
 import { connectorIconPath } from "@/lib/platform/connectors/icons";
+import { getRequestHeaders } from "@/utils/api";
 import MemoryGraph from "./memory-graph";
 import MemoryList from "./memory-list";
 import MemoryDetailSheet from "./memory-detail-sheet";
@@ -92,6 +93,7 @@ export default function MemoryPage() {
 	const autoSelecting = useRef(false);
 	const loadSeq = useRef(0);
 	const pendingCreated = useRef<MemoryListItem[]>([]);
+	const previousEnvironment = useRef(environment);
 
 	const replaceQuery = useCallback(
 		(patch: { id?: string | null; connectorId?: string | null }) => {
@@ -145,7 +147,9 @@ export default function MemoryPage() {
 		if (sessionId.trim()) params.set("sessionId", sessionId.trim());
 		if (agentId.trim()) params.set("agentId", agentId.trim());
 		params.set("limit", "100");
-		fetch(`/api/memory?${params.toString()}`)
+		fetch(`/api/memory?${params.toString()}`, {
+			headers: getRequestHeaders(),
+		})
 			.then(async (response) => {
 				const body = await response.json().catch(() => null);
 				if (!response.ok) {
@@ -214,6 +218,7 @@ export default function MemoryPage() {
 	}, [
 		agentId,
 		connectorId,
+		environment,
 		messages.MEMORY_AUTH_FAILED_HINT,
 		messages.MEMORY_LOAD_FAILED,
 		messages.MEMORY_UNAVAILABLE_DESCRIPTION,
@@ -227,12 +232,23 @@ export default function MemoryPage() {
 	}, [posthog]);
 
 	useEffect(() => {
+		if (previousEnvironment.current === environment) return;
+		previousEnvironment.current = environment;
+		setConnectorId("");
+		setUserId("");
+		setSessionId("");
+		setAgentId("");
+		setResult(null);
+		replaceQuery({ connectorId: null, id: null });
+	}, [environment, replaceQuery]);
+
+	useEffect(() => {
 		loadMemories();
 	}, [loadMemories]);
 
 	useEffect(() => {
 		if (!addConnectorOpen) return;
-		fetch("/api/connectors/types")
+		fetch("/api/connectors/types", { headers: getRequestHeaders() })
 			.then(async (response) => {
 				const body = await response.json().catch(() => null);
 				if (!response.ok) return;
@@ -337,7 +353,7 @@ export default function MemoryPage() {
 		setSaving(true);
 		fetch("/api/memory", {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: getRequestHeaders({ "Content-Type": "application/json" }),
 			body: JSON.stringify({
 				connectorId: connectorId || undefined,
 				content: input.content,
@@ -422,7 +438,7 @@ export default function MemoryPage() {
 		setSaving(true);
 		fetch("/api/memory/copy", {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: getRequestHeaders({ "Content-Type": "application/json" }),
 			body: JSON.stringify({
 				sourceConnectorId: connectorId || undefined,
 				targetConnectorId: input.targetConnectorId,
@@ -538,9 +554,7 @@ export default function MemoryPage() {
 							value={connectorId}
 							options={connectors.map((connector) => ({
 								id: connector.id,
-								label: connector.environment
-									? `${connector.name} · ${connector.environment}`
-									: connector.name,
+								label: connector.name,
 								icon: connectorIconPath(connector.type),
 							}))}
 							onChange={handleConnectorChange}
