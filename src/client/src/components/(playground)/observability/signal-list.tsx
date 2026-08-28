@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { ObservabilitySignalConfig } from "./registry";
 import SignalSummary from "./signal-summary";
 import SignalRecords from "./signal-records";
+import GenerationHealthBar from "./generation-health-bar";
 import { TraceDetailView } from "./trace-detail-page";
 import { MetricDetailView } from "./metric-detail-page";
 import { LogDetailView } from "./log-detail-page";
@@ -291,6 +292,25 @@ export default function ObservabilitySignalList({
 		if (!isTraceSignal && !isSessionSignal) setPreviewSpanId(null);
 	}, [isTraceSignal, isSessionSignal, previewSpanId, selectedParam]);
 
+	useEffect(() => {
+		if (!isTraceSignal || isLoading || !isFetched || !selectedParam) return;
+		const visible = rows.some(
+			(row: any) => config.getRowId(row) === selectedParam
+		);
+		if (visible) return;
+		skipSelectedHydrationRef.current = true;
+		setPreviewSpanId(null);
+		setSelectedInUrl(null);
+	}, [
+		config,
+		isFetched,
+		isLoading,
+		isTraceSignal,
+		rows,
+		selectedParam,
+		setSelectedInUrl,
+	]);
+
 	const selectedMetricRow = useMemo(() => {
 		if (!isMetricSignal || !selectedParam) return null;
 		return (
@@ -409,12 +429,13 @@ export default function ObservabilitySignalList({
 
 	return (
 		<>
-			<div className="mb-3">
+			<div className="mb-3 flex flex-col gap-2">
 				<SignalSummary
 					key={`summary-${config.key}`}
 					config={config}
 					data={summaryData as any}
 					isLoading={isSummaryLoading || pingStatus === "pending"}
+					footer={config.key === "traces" ? <GenerationHealthBar /> : null}
 				/>
 			</div>
 			<TracesFilter

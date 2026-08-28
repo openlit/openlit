@@ -1,15 +1,52 @@
 ---
 title: "Traces & Exceptions"
-description: "Filter and group traces, then drill into a five-view trace detail explorer with span attributes, chat view, timeline, and DAG"
+description: "Filter and group traces, spot generation issues, then drill into a five-view trace detail explorer with span attributes, chat view, timeline, and DAG"
 ---
 
 Navigate to **Telemetry > Traces** (`/telemetry`) to view all distributed traces from your AI applications with detailed span analysis and execution flow. You can also create custom trace widgets in your dashboards to monitor specific trace metrics, latency trends, and performance insights alongside other observability data.
 
 ## Filtering
 
-The Traces list supports filtering by Models, Providers, Max Cost, Span Names, Environments, and Services, plus a time range and result limit. You can also filter on custom attributes - Span Attributes, Resource Attributes, or any top-level trace Field.
+The Traces list supports filtering by Models, Providers, Max Cost, Span Names, Environments, Services, and **Generation issues**, plus a time range and result limit. You can also filter on custom attributes - Span Attributes, Resource Attributes, or any top-level trace Field.
 
-The trace table shows, per row: Span/Trace ID, Time, Span Name, Duration, Service Name, Application Name, Cost, Total Tokens, Model, Provider, and Vector Count. Clicking a row opens the trace detail view in a resizable side sheet, with a **Full Screen** button that opens the same view at `/telemetry/traces/<id>`.
+The trace table shows, per row: Span/Trace ID, Time, Span Name, Duration, Service Name, Application Name, Cost, Total Tokens, Model, Provider, and Vector Count. Rows with a generation issue also show a **Truncated**, **Filtered**, **Empty**, or **Model swapped** badge. Clicking a row opens the trace detail view in a resizable side sheet, with a **Full Screen** button that opens the same view at `/telemetry/traces/<id>`.
+
+## Generation issues
+
+The **Generation issues** bar sits under the traces volume chart. Each chip is `{count}/{eligible}` for the current time window — unique traces, not individual spans — so retries and nested generations do not inflate the totals.
+
+<Frame>
+  <img src="/images/traces-generation-issues.png" alt="Generation issues chips on the Traces page: Truncated, Filtered, Empty, and Model swapped" />
+</Frame>
+
+| Chip | Meaning |
+| --- | --- |
+| **Truncated** | The reply stopped because the model hit its token limit (`length`, `max_tokens`, or `max_length`). |
+| **Filtered** | A content or safety filter blocked the reply (`content_filter`, `content_filtered`, or `safety`). |
+| **Empty** | The model returned no completion tokens. Tool-call finishes are not counted as empty. |
+| **Model swapped** | The provider served a different model than the one requested (`gen_ai.request.model` vs `gen_ai.response.model`). Provider prefixes such as `openai/` are ignored. |
+
+Percentages use the **eligible** set: traces that recorded the attributes needed for that check (finish reason, output tokens, or both model names). Hover a chip for the meaning, the count in this window, and whether clicking will filter or clear.
+
+<Frame>
+  <img src="/images/traces-generation-issues-tooltip.png" alt="Tooltip on the Truncated chip explaining token-limit stops and that clicking filters the list" />
+</Frame>
+
+Click a chip to show only matching traces. The chip turns amber, the list updates, and matching rows keep the issue badge. Click the same chip again to show all traces.
+
+<Frame>
+  <img src="/images/traces-generation-issues-filtered.png" alt="Traces list filtered to Truncated generations, with Truncated badges on openai.chat.completions rows" />
+</Frame>
+
+Open a matching trace to see a warning on the detail header — for example, truncated generations suggest raising `max_tokens` or shortening the prompt.
+
+<Frame>
+  <img src="/images/traces-generation-issue-detail.png" alt="Trace detail warning that generation stopped because the model hit max tokens" />
+</Frame>
+
+<Info>
+Generation issues work on every traces connector OpenLIT can list — built-in ClickHouse plus Tempo, Jaeger, and other OpenPlait adapters. ClickHouse counts the full window. External backends sample traces in the window, so chip totals there describe the sample rather than every trace in storage.
+</Info>
 
 ## Group traces
 

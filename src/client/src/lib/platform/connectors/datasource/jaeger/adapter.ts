@@ -46,6 +46,11 @@ import {
 } from "../l1-compute";
 import { spanFieldValue } from "../graph/sample-aggregate";
 import { mapPool } from "../graph/map-pool";
+import {
+	firstSpanMatchingGenerationHealth,
+	GENERATION_HEALTH_SAMPLE_MAX,
+	spanMatchesAnyGenerationHealthChip,
+} from "@/lib/platform/generation-health/classify";
 
 const TTL_MS = 30_000;
 const MAX_SERVICES = 50;
@@ -53,6 +58,8 @@ const MAX_QUERY_SERVICES = 24;
 const SERVICE_TRACE_TIMEOUT_MS = 15_000;
 const SERVICE_TRACE_CONCURRENCY = 8;
 const SPAN_INDEX_MAX = 5_000;
+/** Same budget as `countTraces` / list pagination so health counts see the traces the user can page to. */
+const TRACE_SEARCH_BUDGET = 200;
 const ZERO_PARENT = new Set(["", "0".repeat(16), "0".repeat(32)]);
 
 const spanIndexBySource = new Map<string, Map<string, NormalizedSpan>>();
@@ -494,6 +501,18 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				);
 				if (!anyMatch) continue;
 			}
+			if (query.generationHealth?.length) {
+				const anyMatch = spans.some((span) =>
+					spanMatchesAnyGenerationHealthChip(
+						{
+							...span.resourceAttributes,
+							...span.spanAttributes,
+						},
+						query.generationHealth
+					)
+				);
+				if (!anyMatch) continue;
+			}
 			const root = pickRootSpan(spans);
 			const startMs = root?.timestamp
 				? new Date(root.timestamp).getTime()
@@ -537,18 +556,31 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		const start = Date.now();
 		const pageSize = Math.min(query.limit || 25, 200);
 		const offset = Math.max(0, query.offset || 0);
-		const traces = await this.collectTraces(query, offset + pageSize);
-		const roots = traces
-			.map((trace) => pickRootSpan(flattenJaegerTraces([trace]).map(toNormalizedSpan)))
+		const budget = query.generationHealth?.length
+			? Math.max(offset + pageSize, 200)
+			: offset + pageSize;
+		const traces = await this.collectTraces(query, budget);
+		const rows = traces
+			.map((trace) => {
+				const spans = flattenJaegerTraces([trace]).map(toNormalizedSpan);
+				if (query.generationHealth?.length) {
+					const hit = firstSpanMatchingGenerationHealth(
+						spans,
+						query.generationHealth
+					);
+					if (hit) return hit;
+				}
+				return pickRootSpan(spans);
+			})
 			.filter((span): span is NormalizedSpan => !!span);
 		rememberSpans(this.descriptor.id, this.spansFromTraces(traces));
-		const rows = roots.slice(offset, offset + pageSize);
+		const page = rows.slice(offset, offset + pageSize);
 		return {
 			fields: [],
-			rows,
+			rows: page,
 			meta: {
 				latencyMs: Date.now() - start,
-				truncated: roots.length >= offset + pageSize,
+				truncated: rows.length >= offset + pageSize,
 				degraded: ["serverAggregation"],
 			},
 		};
@@ -557,8 +589,11 @@ export class JaegerAdapter extends BaseExternalAdapter {
 	async countTraces(
 		query: OpenLITQuery
 	): Promise<{ total: number; truncated: boolean }> {
-		const traces = await this.collectTraces(query, 200);
-		return { total: traces.length, truncated: traces.length >= 200 };
+		const traces = await this.collectTraces(query, TRACE_SEARCH_BUDGET);
+		return {
+			total: traces.length,
+			truncated: traces.length >= TRACE_SEARCH_BUDGET,
+		};
 	}
 
 	/**
@@ -624,7 +659,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 	): Promise<NormalizedSpan[]> {
 		const traces = await this.collectTraces(
 			query,
-			Math.min(maxTraces || 100, 100)
+			Math.min(Math.max(1, maxTraces || 100), GENERATION_HEALTH_SAMPLE_MAX)
 		);
 		// Cap flattened spans so one Cursor session cannot explode L1 memory.
 		return this.spansFromTraces(traces).slice(0, 5_000);

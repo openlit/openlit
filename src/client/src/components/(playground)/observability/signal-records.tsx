@@ -19,6 +19,15 @@ import {
 	hasCodingAgentVendorIcon,
 } from "@/components/svg/coding-agents";
 import getMessage from "@/constants/messages";
+import {
+	classifyFromNormalizedTrace,
+	matchesGenerationHealthChip,
+	type GenerationHealthChip,
+} from "@/lib/platform/generation-health/classify";
+import {
+	fillTemplate,
+	generationHealthChipLabel,
+} from "@/lib/platform/generation-health/format";
 
 const m = getMessage();
 
@@ -109,6 +118,29 @@ function MiniMeta({
 	);
 }
 
+function HealthBadge({
+	chip,
+	title,
+}: {
+	chip: GenerationHealthChip;
+	title?: string;
+}) {
+	const tone =
+		chip === "swapped"
+			? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+			: chip === "filtered"
+				? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+				: "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-200";
+	return (
+		<span
+			title={title || generationHealthChipLabel(chip)}
+			className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${tone}`}
+		>
+			{generationHealthChipLabel(chip)}
+		</span>
+	);
+}
+
 function TraceRecord({
 	row,
 	config,
@@ -123,6 +155,16 @@ function TraceRecord({
 	onOpen: (row: any) => void;
 }) {
 	const show = (key: string) => visibilityColumns[key] !== false;
+	const health = classifyFromNormalizedTrace(row);
+	const healthChips: GenerationHealthChip[] = (
+		["truncated", "filtered", "empty", "swapped"] as GenerationHealthChip[]
+	).filter((chip) => matchesGenerationHealthChip(health, chip));
+	const swapTitle = health.modelSwap
+		? fillTemplate(m.GENERATION_HEALTH_BADGE_SWAPPED_TITLE, {
+				requested: health.requestedModel,
+				served: health.servedModel,
+			})
+		: undefined;
 	return (
 		<button
 			type="button"
@@ -136,10 +178,21 @@ function TraceRecord({
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div className="min-w-0">
 					<div className="flex min-w-0 items-center gap-2">
-						<span className={`h-2 w-2 rounded-full ${config.key === "exceptions" ? "bg-rose-500" : "bg-sky-500"}`} />
-						<h3 className="truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
+						<span className={`h-2 w-2 shrink-0 rounded-full ${config.key === "exceptions" ? "bg-rose-500" : "bg-sky-500"}`} />
+						<h3 className="min-w-0 truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
 							{show("spanName") ? row.spanName || row.id : row.id}
 						</h3>
+						{healthChips.length ? (
+							<span className="flex shrink-0 flex-wrap items-center gap-1">
+								{healthChips.map((chip) => (
+									<HealthBadge
+										key={chip}
+										chip={chip}
+										title={chip === "swapped" ? swapTitle : undefined}
+									/>
+								))}
+							</span>
+						) : null}
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400">
 						{show("time") && <span>{row.time}</span>}
@@ -778,7 +831,7 @@ export default function SignalRecords({
 						row={row}
 						config={config}
 						visibilityColumns={visibilityColumns}
-						isSelected={selectedId === row.spanId}
+						isSelected={selectedId === config.getRowId(row)}
 						onOpen={onOpen}
 					/>
 				)

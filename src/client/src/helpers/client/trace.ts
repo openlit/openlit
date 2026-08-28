@@ -146,7 +146,7 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 		}
 	}
 
-	return normalizedTrace;
+	return Object.assign(normalizedTrace, { SpanAttributes: spanAttrs });
 };
 
 function normalizeMappingPath(pathConfig: TraceMappingPathType) {

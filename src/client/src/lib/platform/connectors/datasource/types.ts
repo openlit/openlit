@@ -155,6 +155,12 @@ export interface OpenLITQuery {
 	 */
 	aiSelector?: boolean;
 	/**
+	 * In-process filter on listed spans (truncation, refusal, empty completion,
+	 * silent model swap). ClickHouse evaluates this in SQL; other trace
+	 * adapters sample full traces and apply the same classifier.
+	 */
+	generationHealth?: import("@/lib/platform/generation-health/classify").GenerationHealthChip[];
+	/**
 	 * Optional time-bucket size for time-series requests, e.g. "1m", "1h".
 	 * Adapters map this to their native bucketing.
 	 */

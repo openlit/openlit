@@ -59,6 +59,7 @@ import {
 } from "../l1-compute";
 import { bucketSpansByInterval } from "../graph/sample-aggregate";
 import { clampQueryToSource } from "../http/limits";
+import { GENERATION_HEALTH_SAMPLE_MAX } from "@/lib/platform/generation-health/classify";
 
 const TTL_MS = 30_000;
 const MAX_TRACE_FETCH = 200;
@@ -1091,8 +1092,8 @@ export class TempoAdapter extends BaseExternalAdapter {
 		// collapse the list. Grafana Cloud can return a valid search hit whose
 		// full OTLP payload exceeds its per-trace response limit (HTTP 422).
 		const candidateLimit = Math.min(
-			MAX_TRACE_FETCH,
-			Math.max(maxTraces, maxTraces * 2)
+			Math.max(MAX_TRACE_FETCH, maxTraces * 2),
+			GENERATION_HEALTH_SAMPLE_MAX
 		);
 		const ids = await this.searchTraceIds(query, candidateLimit);
 		const perTrace = await mapPool(
@@ -1155,7 +1156,10 @@ export class TempoAdapter extends BaseExternalAdapter {
 		// Stratification (multi-service fan-out) lives in shared
 		// `fetchSpansForAggregation` so all L1 backends benefit. Per-service
 		// calls land here with a single service.name filter.
-		return this.fetchSampledSpans(query, Math.min(maxTraces, MAX_TRACE_FETCH));
+		return this.fetchSampledSpans(
+			query,
+			Math.min(maxTraces, GENERATION_HEALTH_SAMPLE_MAX)
+		);
 	}
 
 	/**

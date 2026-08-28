@@ -45,6 +45,7 @@ describe('validateMetricsRequest', () => {
       'GENERATION_BY_APPLICATION',
       'GET_TOTAL_EVALUATION_DETECTED',
       'GET_EVALUATION_ANALYTICS',
+      'GENERATION_HEALTH',
     ] as const;
 
     timeLimitTypes.forEach((type) => {
@@ -358,6 +359,18 @@ describe('getFilterWhereCondition', () => {
       true
     );
     expect(result).toContain("= 'it\\'s'");
+  });
+
+  it('adds generation health predicates for truncated and swapped chips', () => {
+    const result = getFilterWhereCondition(
+      { timeLimit, selectedConfig: { generationHealth: ['truncated', 'swapped'] } } as any,
+      true
+    );
+    expect(result).toContain('gen_ai.response.finish_reasons');
+    expect(result).toContain('length');
+    expect(result).toContain('gen_ai.request.model');
+    expect(result).toContain('gen_ai.response.model');
+    expect(result).toContain(' OR ');
   });
 
   it('adds notOrEmpty conditions', () => {
