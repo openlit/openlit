@@ -48,24 +48,6 @@ describe("resolveSourceSecret", () => {
 		expect(getSecretById).not.toHaveBeenCalled();
 	});
 
-	it("decrypts inline connector secrets without querying ClickHouse vault", async () => {
-		process.env.OPENLIT_VAULT_ENCRYPTION_KEY = "test-vault-key";
-		const { encryptValue } = await import("@/utils/crypto");
-		const secretRef = encryptValue(JSON.stringify({ apiKey: "m0-key" }));
-		const secret = await resolveSourceSecret(secretRef, undefined, "project-1");
-		expect(secret.credentials).toEqual({ apiKey: "m0-key" });
-		expect(getSecretById).not.toHaveBeenCalled();
-	});
-
-	it("does not query ClickHouse vault when clickHouseVault is disabled", async () => {
-		await expect(
-			resolveSourceSecret("vault-uuid", undefined, "project-1", {
-				clickHouseVault: false,
-			})
-		).rejects.toThrow(/could not be loaded from the OpenLIT vault/i);
-		expect(getSecretById).not.toHaveBeenCalled();
-	});
-
 	it("forwards the background database and project scope to the vault lookup", async () => {
 		(getSecretById as jest.Mock).mockResolvedValue({
 			data: [{ value: '{"token":"abc"}' }],

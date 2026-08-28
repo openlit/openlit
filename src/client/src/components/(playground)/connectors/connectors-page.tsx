@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Cable, Lock, Plug, Search } from "lucide-react";
+import { ArrowRight, Cable, CheckCircle2, Lock, Plug, Search } from "lucide-react";
 import FeatureAccess from "@/components/rbac/feature-access";
 import DataSourcesPage from "@/components/(playground)/telemetry-source/data-sources-page";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
@@ -23,6 +23,15 @@ import { getCurrentOrganisation } from "@/selectors/organisation";
 import { getCurrentProject, getProjectList } from "@/selectors/project";
 import { useRootStore } from "@/store";
 import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
+
+type ConnectorSummary = {
+	id: string;
+	name: string;
+	type: string;
+	environment?: string;
+	category?: string;
+	icon?: string;
+};
 
 type ConnectorType = {
 	type: string;
@@ -47,6 +56,7 @@ export default function ConnectorsPage() {
 			projects[0],
 		[currentProject, projects]
 	);
+	const [connected, setConnected] = useState<ConnectorSummary[]>([]);
 	const [types, setTypes] = useState<ConnectorType[]>([]);
 	const [requestedType, setRequestedType] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -91,11 +101,17 @@ export default function ConnectorsPage() {
 		if (!project?.id) return;
 		setLoading(true);
 		setLoadError(null);
+		setConnected([]);
 		setTypes([]);
-		fetch("/api/connectors/types")
-			.then(async (typeResponse) => {
+		Promise.all([fetch("/api/connectors"), fetch("/api/connectors/types")])
+			.then(async ([connectorResponse, typeResponse]) => {
+				if (!connectorResponse.ok) throw new Error("Failed to list connected connectors");
 				if (!typeResponse.ok) throw new Error("Failed to list connector types");
-				const typeData = await typeResponse.json();
+				const [connectorData, typeData] = await Promise.all([
+					connectorResponse.json(),
+					typeResponse.json(),
+				]);
+				setConnected((connectorData.connectors || []).filter((connector: ConnectorSummary) => isVisibleConnectorType(connector.type)));
 				setTypes((typeData.types || []).filter((type: ConnectorType) => isVisibleConnectorType(type.type)));
 			})
 			.catch((error: unknown) => setLoadError(error instanceof Error ? error.message : messages.DATA_SOURCE_LOAD_FAILED))
@@ -127,7 +143,7 @@ export default function ConnectorsPage() {
 							size="sm"
 							className="gap-1.5"
 							disabled={loading || types.length === 0}
-							onClick={() => setRequestedType("")}
+							onClick={() => setRequestedType(types[0]?.type || null)}
 						>
 							<Cable className="h-3.5 w-3.5" />
 							{messages.ADD_CONNECTOR}
@@ -139,6 +155,12 @@ export default function ConnectorsPage() {
 			<FeatureAccess access="connectors.read" requireProject>
 				<main className="flex flex-col gap-4 p-4">
 					{loadError && <div className="rounded-lg border border-error/30 bg-error/5 p-4 dark:bg-error/10"><p className="text-sm font-semibold text-error">{messages.DATA_SOURCE_LOAD_FAILED}</p><p className="mt-1 text-xs text-muted-foreground">{loadError}</p><Button size="sm" variant="outline" className="mt-3" onClick={loadConnectors}>{messages.DATA_SOURCE_RETRY}</Button></div>}
+					<ConnectedConnectorsSection
+						connected={connected}
+						loading={loading}
+						projectName={project?.name || messages.NO_PROJECT}
+						messages={messages}
+					/>
 
 					<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
 							<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -307,3 +329,79 @@ export default function ConnectorsPage() {
 	);
 }
 
+function ConnectedConnectorsSection({
+	connected,
+	loading,
+	projectName,
+	messages,
+}: {
+	connected: ConnectorSummary[];
+	loading: boolean;
+	projectName: string;
+	messages: ReturnType<typeof getMessage>;
+}) {
+	return (
+		<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
+			<div className="mb-4 flex items-center justify-between gap-3">
+				<div>
+					<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">
+						{messages.CONNECTED_CONNECTORS}
+					</h2>
+					<p className="mt-1 text-xs text-muted-foreground">{projectName}</p>
+				</div>
+				{loading ? (
+					<Skeleton className="h-5 w-8 rounded-full" />
+				) : (
+					<Badge variant="outline">{connected.length}</Badge>
+				)}
+			</div>
+
+			{loading ? (
+				<div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+					{Array.from({ length: 3 }).map((_, index) => (
+						<div
+							key={index}
+							className="flex items-center gap-3 rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/60"
+						>
+							<Skeleton className="h-7 w-7 rounded" />
+							<div className="flex-1 space-y-2">
+								<Skeleton className="h-3 w-3/5" />
+								<Skeleton className="h-2.5 w-2/5" />
+							</div>
+						</div>
+					))}
+				</div>
+			) : connected.length ? (
+				<div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+					{connected.map((connector) => (
+						<div
+							key={connector.id}
+							className="flex items-center justify-between gap-2 rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/60"
+						>
+							<Image
+								src={connector.icon || "/images/connect.svg"}
+								alt=""
+								width={28}
+								height={28}
+								className="h-7 w-7 shrink-0 object-contain"
+							/>
+							<div className="min-w-0">
+								<p className="truncate text-sm font-medium text-stone-950 dark:text-stone-50">
+									{connector.name}
+								</p>
+								<p className="text-xs text-muted-foreground">
+									{connector.type} · {connector.environment || "production"}
+								</p>
+							</div>
+							<CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-emerald-600" />
+						</div>
+					))}
+				</div>
+			) : (
+				<p className="text-sm text-muted-foreground">
+					{messages.NO_CONNECTED_CONNECTORS}
+				</p>
+			)}
+		</section>
+	);
+}

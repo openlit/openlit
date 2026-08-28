@@ -485,8 +485,9 @@ export async function getTelemetryAdapterForDbConfig(
 	isBuiltIn: boolean;
 }> {
 	ensureAdaptersRegistered();
-	// Cron / materializer has no interactive session. Look up the config by id
-	// instead of getDBConfigById, which throws Unauthorized user! without one.
+	// Cron / job callers have a DatabaseConfig id but no user session.
+	// `getDBConfigById` requires getCurrentUser() and throws UNAUTHORIZED_USER,
+	// which aborted every materializer tick before Jaeger/Tempo was reached.
 	const dbConfig = await getDBConfigByIdInternal({ id: dbConfigId });
 	const projectId = dbConfig?.projectId ?? null;
 	const resolution = await resolveSignalSource(signal, {

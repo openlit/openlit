@@ -489,7 +489,7 @@ describe("getTelemetryAdapterForDbConfig", () => {
 		expect(mockGetDBConfigById).not.toHaveBeenCalled();
 	});
 
-	it("resolves without an interactive session", async () => {
+	it("resolves without a user session so cron materializer ticks can run", async () => {
 		mockGetDBConfigById.mockRejectedValue(new Error("Unauthorized user!"));
 		mockGetDBConfigByIdInternal.mockResolvedValue({
 			...dbConfig,
@@ -497,10 +497,10 @@ describe("getTelemetryAdapterForDbConfig", () => {
 		});
 		mockBindingFindUnique.mockResolvedValue({
 			source: srcRow({
-				id: "tempo-1",
-				type: "tempo",
+				id: "jaeger-1",
+				type: "jaeger",
 				signals: "traces",
-				secretRef: "vault-tempo",
+				secretRef: "vault-jaeger",
 				environment: "production",
 			}),
 		});
@@ -509,8 +509,9 @@ describe("getTelemetryAdapterForDbConfig", () => {
 			getTelemetryAdapterForDbConfig("db-1", "traces")
 		).resolves.toMatchObject({
 			isBuiltIn: false,
-			descriptor: { id: "tempo-1", dbConfigId: "db-1" },
+			descriptor: { id: "jaeger-1", type: "jaeger", dbConfigId: "db-1" },
 		});
+		expect(mockGetDBConfigById).not.toHaveBeenCalled();
 	});
 });
 

@@ -28,6 +28,8 @@ import {
 import getMessage from "@/constants/messages";
 import { consoleLog } from "@/utils/log";
 import { AdapterError } from "@openplait/adapter-sdk";
+import { pickRootSpan } from "@/lib/platform/connectors/datasource/graph/sample-fetch";
+import { normalizeOtlpId } from "@/lib/platform/connectors/datasource/otlp-json";
 
 async function resolveTracesAdapter(sourceId?: string, environment?: string) {
 	const { adapter, descriptor } = await resolveSignalReadContext("traces", {
@@ -124,6 +126,27 @@ export async function listTraceRecords(params: MetricParams) {
 	}
 }
 
+/**
+ * Tempo list rows reuse `traceId` as `spanId` because search summaries have no
+ * cheap real span id. Treat that sentinel as "open the trace root".
+ */
+function findSpanInTrace(
+	spans: NormalizedSpan[],
+	spanId: string,
+	traceId: string
+): NormalizedSpan | null {
+	const wantedSpan = normalizeOtlpId(spanId) || spanId;
+	const wantedTrace = normalizeOtlpId(traceId) || traceId;
+	const exact =
+		spans.find((span) => (normalizeOtlpId(span.spanId) || span.spanId) === wantedSpan) ||
+		null;
+	if (exact) return exact;
+	if (wantedSpan && wantedSpan === wantedTrace) {
+		return pickRootSpan(spans) || spans[0] || null;
+	}
+	return null;
+}
+
 /** Single span by id (same shape as `getRequestViaSpanId`). */
 export async function getTraceSpanRecord(
 	spanId: string,
@@ -159,9 +182,7 @@ export async function getTraceSpanRecord(
 				spanCount: spans.length,
 				matched: spans.some((s) => s.spanId === spanId),
 			});
-			span =
-				spans.find((s) => s.spanId === spanId) ||
-				null;
+			span = findSpanInTrace(spans, spanId, opts.traceId);
 			if (!span) {
 				return {
 					err: "Span not found in the selected trace and telemetry source",

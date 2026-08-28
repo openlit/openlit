@@ -236,6 +236,76 @@ describe("TempoAdapter", () => {
 		);
 	});
 
+	it("retries Tempo 400s that report a range ceiling without the word duration", async () => {
+		const wideAdapter = new TempoAdapter({
+			...descriptor,
+			id: "src-tempo-range-wording",
+			settings: {
+				...descriptor.settings,
+				maxTimeRangeDays: 31,
+			},
+		});
+		const end = new Date("2026-08-06T11:24:17.901Z");
+		const start = new Date(end.getTime() - 31 * 24 * 60 * 60 * 1000);
+		mockSafeFetch
+			.mockRejectedValueOnce(
+				new SourceResponseError(
+					400,
+					"range specified by start and end exceeds 168h0m0s"
+				)
+			)
+			.mockResolvedValueOnce({
+				traces: [{
+					traceID: TRACE_1,
+					rootServiceName: "svc",
+					rootTraceName: "chat",
+					startTimeUnixNano: "1719792000000000000",
+					durationMs: 1000,
+				}],
+			});
+
+		const frame = await wideAdapter.listSpans({
+			signal: "traces",
+			timeRange: { start, end },
+			aiSelector: false,
+			limit: 1,
+		});
+
+		expect(frame.rows).toHaveLength(1);
+		expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+		const retriedSearch = new URL(mockSafeFetch.mock.calls[1][0] as string);
+		expect(Number(retriedSearch.searchParams.get("start"))).toBe(
+			Math.ceil(end.getTime() / 1000) - 7 * 24 * 60 * 60
+		);
+	});
+
+	it("caps unconfigured Tempo searches at 7 days before the first request", async () => {
+		const end = new Date("2026-08-06T11:24:17.901Z");
+		const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+		mockSafeFetch.mockResolvedValueOnce({
+			traces: [{
+				traceID: TRACE_1,
+				rootServiceName: "svc",
+				rootTraceName: "chat",
+				startTimeUnixNano: "1719792000000000000",
+				durationMs: 1000,
+			}],
+		});
+
+		await adapter.listSpans({
+			signal: "traces",
+			timeRange: { start, end },
+			aiSelector: false,
+			limit: 1,
+		});
+
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		const search = new URL(mockSafeFetch.mock.calls[0][0] as string);
+		expect(Number(search.searchParams.get("start"))).toBe(
+			Math.ceil(end.getTime() / 1000) - 7 * 24 * 60 * 60
+		);
+	});
+
 	it("does not retry a generic Tempo 400 by weakening the query", async () => {
 		mockSafeFetch.mockRejectedValueOnce(
 			new SourceResponseError(

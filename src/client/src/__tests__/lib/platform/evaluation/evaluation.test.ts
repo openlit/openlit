@@ -46,6 +46,14 @@ jest.mock('@/lib/platform/cron-log', () => ({
 }));
 jest.mock('@/lib/db-config', () => ({
   getDBConfigById: jest.fn(),
+  getDBConfigByIdInternal: jest.fn(),
+}));
+jest.mock('@/lib/telemetry-source', () => ({
+  getTelemetryAdapterForDbConfig: jest.fn().mockResolvedValue({
+    isBuiltIn: true,
+    descriptor: { type: 'clickhouse', isBuiltIn: true },
+    adapter: {},
+  }),
 }));
 jest.mock('@/lib/platform/request', () => ({
   getRequestViaSpanId: jest.fn(),
@@ -87,6 +95,7 @@ import { getCurrentUser } from '@/lib/session';
 import { getEvaluationConfig, getEvaluationConfigById } from '@/lib/platform/evaluation/config';
 import { getLastRunCronLogByCronId, getLastFailureCronLogBySpanId, insertCronLog } from '@/lib/platform/cron-log';
 import { getDBConfigById } from '@/lib/db-config';
+import { getTelemetryAdapterForDbConfig } from '@/lib/telemetry-source';
 import { getRequestViaSpanId } from '@/lib/platform/request';
 import asaw from '@/utils/asaw';
 import { runEvaluation } from '@/lib/platform/evaluation/run-evaluation';
@@ -104,6 +113,11 @@ beforeEach(() => {
   (insertCronLog as jest.Mock).mockResolvedValue({ err: null });
   (getLastRunCronLogByCronId as jest.Mock).mockResolvedValue(null);
   (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: { SpanId: 'span-1' } });
+  (getTelemetryAdapterForDbConfig as jest.Mock).mockResolvedValue({
+    isBuiltIn: true,
+    descriptor: { type: 'clickhouse', isBuiltIn: true },
+    adapter: {},
+  });
   // Default runEvaluation success
   (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
 });
@@ -555,6 +569,43 @@ describe('autoEvaluate', () => {
 
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).toContain("meta['source'] IN ('auto', 'auto_skipped')");
+  });
+
+  it('does not fall back to otel_traces when the traces adapter cannot be resolved', async () => {
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: {} }])
+      .mockResolvedValueOnce([null, { id: 'db-1' }]);
+    (getTelemetryAdapterForDbConfig as jest.Mock).mockRejectedValue(
+      new Error('Unauthorized user!')
+    );
+
+    const result = await autoEvaluate(autoEvalConfig as any);
+    expect(result.success).toBe(false);
+    expect(String(result.err)).toContain('Unauthorized user!');
+    expect(dataCollector).not.toHaveBeenCalled();
+  });
+
+  it('lists candidate spans from the routed traces connector', async () => {
+    const listSpans = jest.fn().mockResolvedValue({
+      rows: [{ spanId: 'jaeger-span', spanAttributes: {}, resourceAttributes: {} }],
+    });
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, { id: 'eval-cfg-1', databaseConfigId: 'db-1', provider: 'openai', model: 'gpt-4', secret: {} }])
+      .mockResolvedValueOnce([null, { id: 'db-1' }]);
+    (getTelemetryAdapterForDbConfig as jest.Mock).mockResolvedValue({
+      isBuiltIn: false,
+      descriptor: { type: 'jaeger', isBuiltIn: false },
+      adapter: { listSpans },
+    });
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+
+    const result = await autoEvaluate(autoEvalConfig as any);
+    expect(result.success).toBe(true);
+    expect(listSpans).toHaveBeenCalled();
+    const otelQueries = (dataCollector as jest.Mock).mock.calls.filter(
+      ([params]) => typeof params?.query === 'string' && params.query.includes('otel_traces')
+    );
+    expect(otelQueries).toHaveLength(0);
   });
 });
 

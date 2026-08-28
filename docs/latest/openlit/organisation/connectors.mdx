@@ -14,7 +14,7 @@ Open the connectors experience from **Organisation → Project → Connectors** 
 </Frame>
 
 <Info>
-Connectors are the long-term integration point in OpenLIT: **data-source connectors** for telemetry, **memory connectors** for agent memory providers, with the same registry model expanding to notifications and other action types over time. Several read paths use portable [@openplait](https://github.com/openlit/openplait) adapters so query behavior stays consistent across backends.
+Connectors are the long-term integration point in OpenLIT: **data-source connectors** today, with the same registry model expanding to notifications and other action types over time. Several read paths use portable [@openplait](https://github.com/openlit/openplait) adapters so query behavior stays consistent across backends.
 </Info>
 
 ## Mental model
@@ -77,17 +77,6 @@ Prometheus-compatible APIs (for example Grafana Mimir’s PromQL endpoint) use t
 
 \* Aggregate graphs are reconstructed in-process from a bounded sample of full traces when the backend cannot aggregate server-side.
 
-### Memory connectors
-
-Memory connectors store and search long-term agent memory. They use the same catalog, vault, and health-check actions as data-source connectors, but they are not bound to traces, logs, or metrics.
-
-| Connector | What it’s for | Auth |
-| --- | --- | --- |
-| **Mem0** | Hosted or self-hosted Mem0 memories (`add`, `search`, `get`, `list`, `update`, `delete`) | API key (`Authorization: Token …`) |
-| **Zep** | Zep Cloud or self-hosted session memory and graph search | API key (`Authorization: Api-Key …`) |
-
-To add a memory connector: open **Connectors**, choose **Mem0** or **Zep** from the catalog, set the endpoint (or keep the hosted default), paste the API key, and test the connection. Credentials are stored in Vault and never returned to the browser.
-
 ## Add a Jaeger connector in OpenLIT
 
 <Frame>
@@ -123,7 +112,7 @@ Enterprise audit logs record connector create/update/delete/test plus bind/unbin
 
 ### Future connector categories
 
-The same registry will grow beyond datasources and memory (for example notification and workflow connectors). Each new category still follows: **atomic connector → credentials → actions → optional bindings**. Data-source connectors remain the foundation for telemetry reads.
+The same registry will grow beyond datasources (for example notification and workflow connectors). Each new category still follows: **atomic connector → credentials → actions → optional bindings**. Data-source connectors remain the foundation for telemetry reads.
 
 ## How OpenLIT finds AI telemetry
 
@@ -141,8 +130,6 @@ Backends hold all telemetry — not only AI. OpenLIT applies a layered **AI sele
 | --- | --- |
 | **Grafana Cloud** (Tempo / Loki) | Basic: instance ID + access policy token (`traces:read` / `logs:read`). Use **query** URLs from the Cloud Portal. |
 | **Self-hosted Tempo / Loki / Prometheus / Jaeger** | None, Basic, or Bearer; optional tenant / `X-Scope-OrgID` |
-| **Mem0** | API key as `Authorization: Token <key>` |
-| **Zep** | API key as `Authorization: Api-Key <key>` |
 | **ClickHouse** | Username / password on the Database Config |
 
 ## Security and reliability

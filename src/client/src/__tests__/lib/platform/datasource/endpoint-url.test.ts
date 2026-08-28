@@ -1,39 +1,9 @@
 import {
-	canonicalizeFetchUrl,
 	isEnabledSetting,
-	joinDatasourceRequestUrl,
 	normalizeDatasourceEndpointUrl,
 	rewriteLoopbackEndpointForDocker,
 } from "@/lib/platform/connectors/datasource/http/endpoint-url";
 import { selfHostedNetworkOptions } from "@/lib/platform/connectors/datasource/http/safe-fetch";
-
-describe("canonicalizeFetchUrl", () => {
-	it("repairs collapsed authority slashes without stripping the path", () => {
-		expect(canonicalizeFetchUrl("https:/api.example.com/v1/memories/abc/")).toBe(
-			"https://api.example.com/v1/memories/abc/"
-		);
-	});
-});
-
-describe("joinDatasourceRequestUrl", () => {
-	it("preserves a trailing slash on the request path", () => {
-		expect(
-			joinDatasourceRequestUrl("https://api.mem0.ai", "v1/memories/abc/")
-		).toBe("https://api.mem0.ai/v1/memories/abc/");
-		expect(
-			joinDatasourceRequestUrl("https://api.mem0.ai/", "/v1/memories/abc/")
-		).toBe("https://api.mem0.ai/v1/memories/abc/");
-	});
-
-	it("joins query strings without dropping the memories path", () => {
-		expect(
-			joinDatasourceRequestUrl(
-				"https://api.mem0.ai",
-				"v1/memories/?user_id=alex"
-			)
-		).toBe("https://api.mem0.ai/v1/memories/?user_id=alex");
-	});
-});
 
 describe("normalizeDatasourceEndpointUrl", () => {
 	it("repairs collapsed http:/ authority slashes", () => {
@@ -62,12 +32,6 @@ describe("rewriteLoopbackEndpointForDocker", () => {
 				enabled: true,
 			})
 		).toBe("http://host.docker.internal:3100/loki");
-		expect(
-			rewriteLoopbackEndpointForDocker(
-				"http://localhost:8000/v1/memories/abc/",
-				{ enabled: true }
-			)
-		).toBe("http://host.docker.internal:8000/v1/memories/abc/");
 	});
 
 	it("leaves non-loopback hosts unchanged", () => {

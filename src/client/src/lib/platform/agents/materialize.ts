@@ -560,52 +560,41 @@ export async function recomputeCodingAgentsForWindow(
 	return discoverCodingAgents(dbConfigId, window);
 }
 
+/**
+ * Coding-agent rollups are ClickHouse SQL (`coding_agent.*`, `greatest()`).
+ * Tempo/Jaeger sampling drops session/cost/edit stats and diverges from
+ * `/coding-agents`. SDK/controller discovery may still use the traces adapter.
+ */
+async function resolveCodingClickHouseDbConfigId(
+	dbConfigId?: string
+): Promise<string | undefined> {
+	if (!dbConfigId) return undefined;
+	try {
+		const { getDBConfigByIdInternal } = await import("@/lib/db-config");
+		const dbConfig = await getDBConfigByIdInternal({ id: dbConfigId });
+		const { resolveCodingAgentsClickHouseDbConfigId } = await import(
+			"@/lib/platform/coding-agents/source"
+		);
+		const routed = await resolveCodingAgentsClickHouseDbConfigId({
+			environment: dbConfig?.environment,
+			projectId: dbConfig?.projectId ?? null,
+			dbConfigId,
+		});
+		return routed || dbConfigId;
+	} catch (err) {
+		agentsLogger.error("materializer_coding_db_resolve_failed", {
+			err,
+			dbConfigId,
+		});
+		return dbConfigId;
+	}
+}
+
 async function discoverCodingAgents(
 	dbConfigId?: string,
 	window?: CodingAgentDiscoveryWindow
 ): Promise<DiscoveredAgent[]> {
-	const externalAdapter = await resolveExternalTracesAdapter(dbConfigId);
-	if (externalAdapter) {
-		const { discoverCodingRowsFromAdapter } = await import(
-			"./external-discovery"
-		);
-		const rows = await discoverCodingRowsFromAdapter(externalAdapter);
-		return rows.map((row) => {
-			const vendor = row.vendor;
-			const cluster = "coding";
-			const env = "default";
-			const serviceName = vendor;
-			const key = computeAgentKey(cluster, env, serviceName);
-			return {
-				agent_key: key,
-				service_name: serviceName,
-				environment: env,
-				cluster_id: cluster,
-				workload_key: "",
-				source: "coding" as const,
-				controller_service_id: "",
-				controller_instance_id: "",
-				sdk_version: row.client_version || "",
-				sdk_language: "",
-				first_seen: row.first_seen,
-				last_seen: row.last_seen,
-				instrumentation_status: "instrumented",
-				controller_llm_providers: [],
-				coding_agent_vendor: vendor,
-				coding_session_count_24h: row.session_count_24h,
-				coding_cost_usd_24h: row.cost_usd_24h,
-				coding_active_users_24h: row.active_users_24h,
-				coding_lines_added_24h: row.lines_added_24h,
-				coding_lines_removed_24h: row.lines_removed_24h,
-				coding_lines_accepted_24h: row.lines_accepted_24h,
-				coding_lines_rejected_24h: row.lines_rejected_24h,
-				coding_edit_accept_24h: row.edit_accept_24h,
-				coding_edit_reject_24h: row.edit_reject_24h,
-				coding_commit_count_24h: row.commit_count_24h,
-				coding_pr_count_24h: row.pr_count_24h,
-			};
-		});
-	}
+	const codingDbConfigId = await resolveCodingClickHouseDbConfigId(dbConfigId);
 
 	// Cost rollup notes:
 	//   * `coding_agent.session.cost_usd` is only stamped on the
@@ -792,7 +781,11 @@ async function discoverCodingAgents(
 		HAVING vendor != ''
 	`;
 
-	const res = await intelligenceDataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector(
+		{ query },
+		"query",
+		codingDbConfigId
+	);
 	if (res.err) {
 		agentsLogger.error("materializer_coding_discovery_failed", {
 			err: res.err,

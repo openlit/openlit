@@ -71,6 +71,13 @@ const TRACE_FETCH_CONCURRENCY = 4;
 /** Cap how many span ids we remember for detail/hierarchy lookups. */
 const SPAN_INDEX_MAX = 5_000;
 const DEFAULT_TEMPO_METRICS_WINDOW_MS = 24 * 60 * 60 * 1_000;
+/**
+ * Conservative search ceiling when the source has no configured max and Tempo
+ * has not yet reported one. Self-hosted Tempo commonly sets
+ * `query_frontend.max_duration` to 168h; probing 7D/1M without a cap guarantees
+ * a 400 on those instances.
+ */
+const DEFAULT_TEMPO_SEARCH_RANGE_MS = 7 * 24 * 60 * 60 * 1_000;
 const TEMPO_PROFILE_TTL_MS = 10 * 60 * 1000;
 
 type CachedTempoProfile = TempoServerCapabilities & { expiresAt: number };
@@ -144,9 +151,24 @@ function goDurationMs(value: string): number | undefined {
 	return matched === value.length && total > 0 ? total : undefined;
 }
 
+/** True when a Tempo 400 is a search-window ceiling, not a generic query error. */
+function isSearchRangeLimitMessage(body: string): boolean {
+	if (
+		/(?:max(?:imum)?|limit).{0,40}duration|duration.{0,40}(?:max(?:imum)?|limit)/i.test(
+			body
+		)
+	) {
+		return true;
+	}
+	// query-frontend: "range specified by start and end exceeds 168h0m0s"
+	return /(?:range|exceed(?:s|ed)?).{0,80}\d+(?:\.\d+)?(?:ms|h|m|s)|\d+(?:\.\d+)?(?:ms|h|m|s).{0,80}(?:range|exceed(?:s|ed)?)/i.test(
+		body
+	);
+}
+
 /** Extract a Tempo-reported search ceiling without guessing from generic 400s. */
 function reportedMaxDurationMs(body: string): number | undefined {
-	if (!/(?:max(?:imum)?|limit).{0,40}duration|duration.{0,40}(?:max(?:imum)?|limit)/i.test(body)) {
+	if (!isSearchRangeLimitMessage(body)) {
 		return undefined;
 	}
 	const candidates: string[] = [];
@@ -659,6 +681,9 @@ export class TempoAdapter extends BaseExternalAdapter {
 	private get maxTimeRangeMs(): number | undefined {
 		const configured = this.configuredMaxTimeRangeMs;
 		const learned = learnedSearchRangeBySource.get(this.descriptor.id);
+		if (configured === undefined && learned === undefined) {
+			return DEFAULT_TEMPO_SEARCH_RANGE_MS;
+		}
 		if (configured === undefined) return learned;
 		return learned === undefined ? configured : Math.min(configured, learned);
 	}
@@ -825,6 +850,15 @@ export class TempoAdapter extends BaseExternalAdapter {
 	): Promise<Record<string, unknown>[]> {
 		const requestLimit = this.searchResultLimit(limit);
 		const adapter = await this.openPlaitAdapter();
+		const maxMs = this.maxTimeRangeMs;
+		const rangeMs = timeRange.end.getTime() - timeRange.start.getTime();
+		const searchRange =
+			maxMs !== undefined && rangeMs > maxMs
+				? {
+						start: new Date(timeRange.end.getTime() - maxMs),
+						end: timeRange.end,
+					}
+				: timeRange;
 		const resource: NativeQuery = {
 			apiVersion: OPENPLAIT_API_VERSION,
 			kind: "Query",
@@ -839,8 +873,8 @@ export class TempoAdapter extends BaseExternalAdapter {
 				extensions: {
 					"io.openplait.tempo": {
 						timeRange: {
-							from: timeRange.start.toISOString(),
-							to: timeRange.end.toISOString(),
+							from: searchRange.start.toISOString(),
+							to: searchRange.end.toISOString(),
 						},
 						limit: requestLimit,
 						spansPerSpanSet: 100,
@@ -856,7 +890,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 			});
 			return openPlaitFramesToRows(result.frames);
 		} catch (error) {
-			const rangeMs = timeRange.end.getTime() - timeRange.start.getTime();
 			const status = adapterErrorStatus(error);
 			const body = adapterErrorBody(error);
 			const reportedMaxResults =
@@ -900,14 +933,12 @@ export class TempoAdapter extends BaseExternalAdapter {
 			if (
 				compatibility.range !== false &&
 				reportedMaxMs !== undefined &&
-				rangeMs > reportedMaxMs
+				searchRange.end.getTime() - searchRange.start.getTime() > reportedMaxMs
 			) {
 				learnedSearchRangeBySource.set(this.descriptor.id, reportedMaxMs);
 				const compatibleRange = {
-					start: new Date(
-						timeRange.end.getTime() - reportedMaxMs
-					),
-					end: timeRange.end,
+					start: new Date(searchRange.end.getTime() - reportedMaxMs),
+					end: searchRange.end,
 				};
 				return this.openPlaitTraceSearchRows(
 					traceql,
@@ -1025,7 +1056,8 @@ export class TempoAdapter extends BaseExternalAdapter {
 		// made after the list query. Keep the span-only fallback aligned with
 		// the normal observability lookback.
 		const end = new Date();
-		const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1_000);
+		const lookbackMs = this.maxTimeRangeMs ?? 30 * 24 * 60 * 60 * 1_000;
+		const start = new Date(end.getTime() - lookbackMs);
 		const traceql = `{ span:id = ${traceqlValue(id)} }`;
 		try {
 			const traceIds = await this.openPlaitTraceSearch(

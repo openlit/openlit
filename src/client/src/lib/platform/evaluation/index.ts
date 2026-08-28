@@ -24,7 +24,7 @@ import {
 } from "./rule-engine-context";
 import { TraceRow } from "@/types/trace";
 import { get } from "lodash";
-import { getDBConfigById } from "@/lib/db-config";
+import { getDBConfigByIdInternal } from "@/lib/db-config";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
 import {
 	AUTO_EVALUATION_HANDLED_SOURCES,
@@ -182,11 +182,10 @@ async function fetchAutoEvalCandidateSpans({
 			return { data: rows };
 		}
 	} catch (err) {
-		consoleLog(
-			`fetchAutoEvalCandidateSpans: external path failed (${String(
-				(err as Error)?.message || err
-			)}); trying ClickHouse`
-		);
+		return {
+			data: [],
+			err: String((err as Error)?.message || err),
+		};
 	}
 
 	const query = `
@@ -848,7 +847,7 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 	}
 
 	const [databaseConfigErr, databaseConfig] = await asaw(
-		getDBConfigById({ id: evaluationConfig.databaseConfigId })
+		getDBConfigByIdInternal({ id: evaluationConfig.databaseConfigId })
 	);
 
 	if (databaseConfigErr || !databaseConfig.id) {
@@ -859,7 +858,8 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 	}
 
 	const lastRunTime = await getLastRunCronLogByCronId(
-		autoEvaluationConfig.cronId
+		autoEvaluationConfig.cronId,
+		databaseConfig.id
 	);
 
 	const { data, err } = await fetchAutoEvalCandidateSpans({
