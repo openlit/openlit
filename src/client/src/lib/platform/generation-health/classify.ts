@@ -237,7 +237,7 @@ export function listedSpansMatchingGenerationHealth<
 		else grouped.set(key, [span]);
 	});
 	const listed: T[] = [];
-	for (const group of grouped.values()) {
+	for (const group of Array.from(grouped.values())) {
 		const hit = firstSpanMatchingGenerationHealth(group, chips);
 		if (hit) listed.push(hit);
 	}

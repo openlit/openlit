@@ -219,7 +219,7 @@ export function summarizeGenerationHealthFromSpans(
 	let emptyEligible = 0;
 	let swapEligible = 0;
 	let llmTraces = 0;
-	for (const group of grouped.values()) {
+	for (const group of Array.from(grouped.values())) {
 		const llm = group.filter((span) => isLlmSpan(healthAttrs(span)));
 		if (!llm.length) continue;
 		llmTraces += 1;
