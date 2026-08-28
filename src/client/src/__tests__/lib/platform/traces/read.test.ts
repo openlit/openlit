@@ -233,6 +233,103 @@ describe("listTraceRecords", () => {
 		});
 	});
 
+	it("expands the sample until a later generation-health page can be filled", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const swappedSpan = (index: number) => ({
+			traceId: `t-${index}`,
+			spanId: `s-${index}`,
+			parentSpanId: "",
+			name: "openai.chat.completions",
+			serviceName: "api",
+			timestamp: "2026-07-01T00:00:00.000Z",
+			durationNs: 1,
+			statusCode: "OK",
+			spanAttributes: {
+				"gen_ai.request.model": "gpt-4o",
+				"gen_ai.response.model": "gpt-4o-mini",
+			},
+			resourceAttributes: {},
+		});
+		const sampleTracesForGraph = jest
+			.fn()
+			.mockImplementation(async (_query: unknown, maxTraces: number) =>
+				Array.from({ length: maxTraces }, (_, index) => swappedSpan(index))
+			);
+		mockGetAdapter.mockResolvedValue({ sampleTracesForGraph, listSpans: jest.fn() });
+
+		const res = await listTraceRecords({
+			...params,
+			limit: 10,
+			offset: 200,
+			selectedConfig: { generationHealth: ["swapped"] },
+		} as never);
+
+		expect(sampleTracesForGraph.mock.calls.map((call) => call[1])).toEqual([
+			210,
+		]);
+		const records = (res as { records?: Array<Record<string, unknown>> }).records;
+		expect(res).toMatchObject({ err: null, freshness: "sampled" });
+		expect(records).toHaveLength(10);
+		expect(records?.[0]).toMatchObject({ TraceId: "t-200", SpanId: "s-200" });
+		expect(records?.[9]).toMatchObject({ TraceId: "t-209" });
+	});
+
+	it("keeps sampling when the first budget cannot fill the requested health page", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const swappedSpan = (index: number) => ({
+			traceId: `t-swap-${index}`,
+			spanId: `s-${index}`,
+			parentSpanId: "",
+			name: "openai.chat.completions",
+			serviceName: "api",
+			timestamp: "2026-07-01T00:00:00.000Z",
+			durationNs: 1,
+			statusCode: "OK",
+			spanAttributes: {
+				"gen_ai.request.model": "gpt-4o",
+				"gen_ai.response.model": "gpt-4o-mini",
+			},
+			resourceAttributes: {},
+		});
+		const httpSpan = (index: number) => ({
+			traceId: `t-http-${index}`,
+			spanId: `h-${index}`,
+			parentSpanId: "",
+			name: "GET /health",
+			serviceName: "api",
+			timestamp: "2026-07-01T00:00:00.000Z",
+			durationNs: 1,
+			statusCode: "OK",
+			spanAttributes: { "http.method": "GET" },
+			resourceAttributes: {},
+		});
+		const sampleTracesForGraph = jest
+			.fn()
+			.mockImplementation(async (_query: unknown, maxTraces: number) => {
+				const swapped = maxTraces >= 400 ? 50 : 10;
+				return [
+					...Array.from({ length: swapped }, (_, index) => swappedSpan(index)),
+					...Array.from({ length: maxTraces - swapped }, (_, index) =>
+						httpSpan(index)
+					),
+				];
+			});
+		mockGetAdapter.mockResolvedValue({ sampleTracesForGraph, listSpans: jest.fn() });
+
+		const res = await listTraceRecords({
+			...params,
+			limit: 50,
+			offset: 0,
+			selectedConfig: { generationHealth: ["swapped"] },
+		} as never);
+
+		expect(sampleTracesForGraph.mock.calls.map((call) => call[1])).toEqual([
+			200, 400,
+		]);
+		expect((res as { records?: unknown[] }).records).toHaveLength(50);
+		expect(res).toMatchObject({ freshness: "sampled" });
+	});
+
 	it("uses the backend trace count so pagination total does not grow with offset", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		let releaseCount!: () => void;

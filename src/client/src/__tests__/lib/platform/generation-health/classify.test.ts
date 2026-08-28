@@ -8,6 +8,7 @@ import {
 	percentOfEligible,
 	listedSpansMatchingGenerationHealth,
 	spanMatchesAnyGenerationHealthChip,
+	uniqueTraceCount,
 } from "@/lib/platform/generation-health/classify";
 import { generationHealthWhereSql } from "@/lib/platform/generation-health/sql";
 
@@ -204,6 +205,16 @@ describe("helpers", () => {
 		expect(listed[0]?.spanAttributes?.["gen_ai.response.model"]).toBe(
 			"gpt-4o-mini"
 		);
+	});
+
+	it("counts distinct traces", () => {
+		expect(
+			uniqueTraceCount([
+				{ traceId: "t-1" },
+				{ traceId: "t-1" },
+				{ traceId: "t-2" },
+			])
+		).toBe(2);
 	});
 
 	it("returns 0% when the eligible set is empty", () => {

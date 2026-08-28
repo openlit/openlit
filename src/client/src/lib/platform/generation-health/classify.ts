@@ -246,6 +246,17 @@ export function listedSpansMatchingGenerationHealth<
 
 /** Same budget as Jaeger/Tempo list sampling so chip filters can fill a page. */
 export const GENERATION_HEALTH_SAMPLE_TRACES = 200;
+/** Hard ceiling when expanding the sample to fill a later filtered page. */
+export const GENERATION_HEALTH_SAMPLE_MAX = 1000;
+
+export function uniqueTraceCount(spans: Array<{ traceId?: string }>): number {
+	const ids = new Set<string>();
+	for (const span of spans) {
+		const id = String(span.traceId || "").trim();
+		if (id) ids.add(id);
+	}
+	return ids.size || spans.length;
+}
 
 export function percentOfEligible(count: number, eligible: number): number {
 	if (!eligible || eligible <= 0) return 0;

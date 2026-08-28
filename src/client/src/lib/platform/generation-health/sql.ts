@@ -60,6 +60,11 @@ export const IS_MODEL_SWAP_SQL = `(${HAS_BOTH_MODELS_SQL} AND ${normalizeModelSq
 
 export const HAS_LLM_SPAN_SQL = `(notEmpty(SpanAttributes['${REQUEST_MODEL_KEY}']) OR notEmpty(SpanAttributes['gen_ai.operation.name']) OR ${HAS_FINISH_REASON_SQL} OR notEmpty(${modelRawSql(RESPONSE_MODEL_KEY)}))`;
 
+/** Count traces, not spans, so chip totals match the traces list. */
+export function uniqTraceIfSql(predicate: string): string {
+	return `uniqExactIf(TraceId, ${predicate})`;
+}
+
 const CHIP_PREDICATE: Record<GenerationHealthChip, string> = {
 	truncated: `(${HAS_FINISH_REASON_SQL} AND ${IS_TRUNCATED_SQL})`,
 	filtered: `(${HAS_FINISH_REASON_SQL} AND ${IS_FILTERED_SQL})`,

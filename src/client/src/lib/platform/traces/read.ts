@@ -32,9 +32,10 @@ import { AdapterError } from "@openplait/adapter-sdk";
 import { pickRootSpan } from "@/lib/platform/connectors/datasource/graph/sample-fetch";
 import { normalizeOtlpId } from "@/lib/platform/connectors/datasource/otlp-json";
 import {
-	firstSpanMatchingGenerationHealth,
+	GENERATION_HEALTH_SAMPLE_MAX,
 	GENERATION_HEALTH_SAMPLE_TRACES,
 	listedSpansMatchingGenerationHealth,
+	uniqueTraceCount,
 } from "@/lib/platform/generation-health/classify";
 
 async function resolveTracesAdapter(sourceId?: string, environment?: string) {
@@ -69,25 +70,67 @@ function usesSqlGenerationHealth(descriptor: { isBuiltIn: boolean; type: string 
 	return descriptor.isBuiltIn || descriptor.type === "clickhouse";
 }
 
-async function hydrateGenerationHealthRows(
+async function listedSpansForHealthSample(
 	adapter: DataSourceAdapter,
 	listed: NormalizedSpan[],
 	chips: NonNullable<OpenLITQuery["generationHealth"]>
 ): Promise<NormalizedSpan[]> {
-	const attributed = listedSpansMatchingGenerationHealth(listed, chips);
-	if (attributed.length) return attributed;
-	if (typeof adapter.getTraceSpans !== "function") return [];
+	if (!listed.length) return [];
+	if (listedSpansMatchingGenerationHealth(listed, chips).length) return listed;
+	if (typeof adapter.getTraceSpans !== "function") return listed;
 	const seen = new Set<string>();
-	const hits: NormalizedSpan[] = [];
+	const trees: NormalizedSpan[] = [];
 	for (const row of listed) {
 		const traceId = String(row.traceId || "").trim();
 		if (!traceId || seen.has(traceId)) continue;
 		seen.add(traceId);
 		const tree = await adapter.getTraceSpans(traceId);
-		const hit = firstSpanMatchingGenerationHealth(tree, chips);
-		if (hit) hits.push(hit);
+		if (tree.length) trees.push(...tree);
+		else trees.push(row);
 	}
-	return hits;
+	return trees;
+}
+
+async function collectMatchingGenerationHealthRows(
+	fetchSpans: (budget: number) => Promise<NormalizedSpan[]>,
+	chips: NonNullable<OpenLITQuery["generationHealth"]>,
+	needed: number
+): Promise<{ matched: NormalizedSpan[]; truncated: boolean }> {
+	let budget = Math.max(GENERATION_HEALTH_SAMPLE_TRACES, needed);
+	let matched: NormalizedSpan[] = [];
+	let truncated = false;
+	while (budget <= GENERATION_HEALTH_SAMPLE_MAX) {
+		const spans = await fetchSpans(budget);
+		matched = listedSpansMatchingGenerationHealth(spans, chips);
+		const unique = uniqueTraceCount(spans);
+		truncated = unique >= budget;
+		if (matched.length >= needed || !truncated) break;
+		const next = Math.min(budget * 2, GENERATION_HEALTH_SAMPLE_MAX);
+		if (next <= budget) break;
+		budget = next;
+	}
+	return { matched, truncated };
+}
+
+function sampledHealthListResult(
+	matched: NormalizedSpan[],
+	offset: number,
+	pageSize: number,
+	truncated: boolean
+) {
+	const page = matched.slice(offset, offset + pageSize);
+	const total = truncated
+		? Math.max(
+				matched.length,
+				offset + page.length + (page.length === pageSize ? 1 : 0)
+			)
+		: matched.length;
+	return {
+		err: null,
+		records: page.map((row) => denormalizeSpanToTraceRow(row)),
+		total,
+		freshness: "sampled" as const,
+	};
 }
 
 async function listGenerationHealthRecords(
@@ -96,43 +139,34 @@ async function listGenerationHealthRecords(
 	params: MetricParams
 ) {
 	const chips = query.generationHealth || [];
-	const pageSize = Math.min(params.limit || 25, GENERATION_HEALTH_SAMPLE_TRACES);
+	const pageSize = Math.min(params.limit || 25, GENERATION_HEALTH_SAMPLE_MAX);
 	const offset = Math.max(0, params.offset || 0);
+	const needed = offset + pageSize;
 	if (typeof adapter.sampleTracesForGraph === "function") {
 		try {
-			const sampled = await adapter.sampleTracesForGraph(
-				query,
-				GENERATION_HEALTH_SAMPLE_TRACES
+			const { matched, truncated } = await collectMatchingGenerationHealthRows(
+				(budget) => adapter.sampleTracesForGraph!(query, budget),
+				chips,
+				needed
 			);
-			const matched = listedSpansMatchingGenerationHealth(sampled, chips);
-			const page = matched.slice(offset, offset + pageSize);
-			return {
-				err: null,
-				records: page.map((row) => denormalizeSpanToTraceRow(row)),
-				total: matched.length,
-				freshness: "sampled" as const,
-			};
+			return sampledHealthListResult(matched, offset, pageSize, truncated);
 		} catch (err) {
 			if (!(err instanceof UnsupportedCapabilityError)) throw err;
 		}
 	}
-	const frame = await adapter.listSpans({
-		...query,
-		limit: Math.max(pageSize, GENERATION_HEALTH_SAMPLE_TRACES),
-		offset: 0,
-	});
-	const matched = await hydrateGenerationHealthRows(
-		adapter,
-		frame.rows || [],
-		chips
+	const { matched, truncated } = await collectMatchingGenerationHealthRows(
+		async (budget) => {
+			const frame = await adapter.listSpans({
+				...query,
+				limit: budget,
+				offset: 0,
+			});
+			return listedSpansForHealthSample(adapter, frame.rows || [], chips);
+		},
+		chips,
+		needed
 	);
-	const page = matched.slice(offset, offset + pageSize);
-	return {
-		err: null,
-		records: page.map((row) => denormalizeSpanToTraceRow(row)),
-		total: matched.length,
-		freshness: "sampled" as const,
-	};
+	return sampledHealthListResult(matched, offset, pageSize, truncated);
 }
 
 function asErrorMessage(err: unknown): string {

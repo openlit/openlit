@@ -93,7 +93,9 @@ describe("getGenerationHealth", () => {
 		expect(query).toContain("finish_eligible");
 		expect(query).toContain("swap_eligible");
 		expect(query).toContain("empty_eligible");
-		expect(query).toContain("countIf");
+		expect(query).toContain("uniqExactIf");
+		expect(query).toContain("TraceId");
+		expect(query).not.toContain("countIf");
 		expect(query).not.toContain("operationType");
 	});
 

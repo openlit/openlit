@@ -48,6 +48,7 @@ import { spanFieldValue } from "../graph/sample-aggregate";
 import { mapPool } from "../graph/map-pool";
 import {
 	firstSpanMatchingGenerationHealth,
+	GENERATION_HEALTH_SAMPLE_MAX,
 	spanMatchesAnyGenerationHealthChip,
 } from "@/lib/platform/generation-health/classify";
 
@@ -658,7 +659,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 	): Promise<NormalizedSpan[]> {
 		const traces = await this.collectTraces(
 			query,
-			Math.min(Math.max(1, maxTraces || 100), TRACE_SEARCH_BUDGET)
+			Math.min(Math.max(1, maxTraces || 100), GENERATION_HEALTH_SAMPLE_MAX)
 		);
 		// Cap flattened spans so one Cursor session cannot explode L1 memory.
 		return this.spansFromTraces(traces).slice(0, 5_000);

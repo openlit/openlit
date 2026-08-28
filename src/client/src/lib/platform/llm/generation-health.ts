@@ -12,6 +12,7 @@ import {
 	IS_FILTERED_SQL,
 	IS_MODEL_SWAP_SQL,
 	IS_TRUNCATED_SQL,
+	uniqTraceIfSql,
 } from "@/lib/platform/generation-health/sql";
 import {
 	classifyGenerationHealth,
@@ -309,14 +310,14 @@ function windowQuery(params: MetricParams) {
 	const scoped = paramsWithoutHealthChips(params);
 	return `
 		SELECT
-			countIf(${HAS_LLM_SPAN_SQL}) AS llm_spans,
-			countIf(${HAS_FINISH_REASON_SQL}) AS finish_eligible,
-			countIf(${HAS_FINISH_REASON_SQL} AND ${IS_TRUNCATED_SQL}) AS truncated,
-			countIf(${HAS_FINISH_REASON_SQL} AND ${IS_FILTERED_SQL}) AS filtered,
-			countIf(${HAS_OUTPUT_TOKENS_SQL}) AS empty_eligible,
-			countIf(${IS_EMPTY_SQL}) AS empty,
-			countIf(${HAS_BOTH_MODELS_SQL}) AS swap_eligible,
-			countIf(${IS_MODEL_SWAP_SQL}) AS swapped
+			${uniqTraceIfSql(HAS_LLM_SPAN_SQL)} AS llm_spans,
+			${uniqTraceIfSql(HAS_FINISH_REASON_SQL)} AS finish_eligible,
+			${uniqTraceIfSql(`${HAS_FINISH_REASON_SQL} AND ${IS_TRUNCATED_SQL}`)} AS truncated,
+			${uniqTraceIfSql(`${HAS_FINISH_REASON_SQL} AND ${IS_FILTERED_SQL}`)} AS filtered,
+			${uniqTraceIfSql(HAS_OUTPUT_TOKENS_SQL)} AS empty_eligible,
+			${uniqTraceIfSql(IS_EMPTY_SQL)} AS empty,
+			${uniqTraceIfSql(HAS_BOTH_MODELS_SQL)} AS swap_eligible,
+			${uniqTraceIfSql(IS_MODEL_SWAP_SQL)} AS swapped
 		FROM ${OTEL_TRACES_TABLE_NAME}
 		WHERE ${getFilterWhereCondition(scoped, true)}
 	`;
