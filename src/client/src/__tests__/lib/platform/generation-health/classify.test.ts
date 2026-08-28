@@ -8,6 +8,7 @@ import {
 	percentOfEligible,
 	listedSpansMatchingGenerationHealth,
 	spanMatchesAnyGenerationHealthChip,
+	hasGenerationHealthFilter,
 	uniqueTraceCount,
 } from "@/lib/platform/generation-health/classify";
 import { generationHealthWhereSql } from "@/lib/platform/generation-health/sql";
@@ -156,6 +157,9 @@ describe("helpers", () => {
 		expect(parseGenerationHealthChips(["truncated", "nope", "swapped"])).toEqual(
 			["truncated", "swapped"]
 		);
+		expect(hasGenerationHealthFilter(["truncated"])).toBe(true);
+		expect(hasGenerationHealthFilter(["nope"])).toBe(false);
+		expect(hasGenerationHealthFilter(undefined)).toBe(false);
 	});
 
 	it("matches any selected chip against span attributes", () => {

@@ -66,6 +66,10 @@ export function parseGenerationHealthChips(
 	return values.filter(isGenerationHealthChip);
 }
 
+export function hasGenerationHealthFilter(values: unknown): boolean {
+	return parseGenerationHealthChips(values).length > 0;
+}
+
 function firstAttr(
 	attrs: Record<string, unknown> | undefined,
 	keys: string[]
