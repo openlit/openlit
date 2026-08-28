@@ -12,6 +12,7 @@ import { getFilterPreviousParams } from "@/helpers/server/platform";
 import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
 import { denormalizeSpanToTraceRow } from "@/lib/platform/connectors/datasource/clickhouse/normalize";
 import type {
+	DataSourceAdapter,
 	NormalizedSpan,
 	OpenLITQuery,
 } from "@/lib/platform/connectors/datasource/types";
@@ -30,6 +31,11 @@ import { consoleLog } from "@/utils/log";
 import { AdapterError } from "@openplait/adapter-sdk";
 import { pickRootSpan } from "@/lib/platform/connectors/datasource/graph/sample-fetch";
 import { normalizeOtlpId } from "@/lib/platform/connectors/datasource/otlp-json";
+import {
+	firstSpanMatchingGenerationHealth,
+	GENERATION_HEALTH_SAMPLE_TRACES,
+	listedSpansMatchingGenerationHealth,
+} from "@/lib/platform/generation-health/classify";
 
 async function resolveTracesAdapter(sourceId?: string, environment?: string) {
 	const { adapter, descriptor } = await resolveSignalReadContext("traces", {
@@ -59,6 +65,76 @@ function externalTraceQuery(params: MetricParams, opts?: { aiSelector?: boolean 
 	return { ...query, filters: filters?.length ? filters : undefined };
 }
 
+function usesSqlGenerationHealth(descriptor: { isBuiltIn: boolean; type: string }) {
+	return descriptor.isBuiltIn || descriptor.type === "clickhouse";
+}
+
+async function hydrateGenerationHealthRows(
+	adapter: DataSourceAdapter,
+	listed: NormalizedSpan[],
+	chips: NonNullable<OpenLITQuery["generationHealth"]>
+): Promise<NormalizedSpan[]> {
+	const attributed = listedSpansMatchingGenerationHealth(listed, chips);
+	if (attributed.length) return attributed;
+	if (typeof adapter.getTraceSpans !== "function") return [];
+	const seen = new Set<string>();
+	const hits: NormalizedSpan[] = [];
+	for (const row of listed) {
+		const traceId = String(row.traceId || "").trim();
+		if (!traceId || seen.has(traceId)) continue;
+		seen.add(traceId);
+		const tree = await adapter.getTraceSpans(traceId);
+		const hit = firstSpanMatchingGenerationHealth(tree, chips);
+		if (hit) hits.push(hit);
+	}
+	return hits;
+}
+
+async function listGenerationHealthRecords(
+	adapter: DataSourceAdapter,
+	query: OpenLITQuery,
+	params: MetricParams
+) {
+	const chips = query.generationHealth || [];
+	const pageSize = Math.min(params.limit || 25, GENERATION_HEALTH_SAMPLE_TRACES);
+	const offset = Math.max(0, params.offset || 0);
+	if (typeof adapter.sampleTracesForGraph === "function") {
+		try {
+			const sampled = await adapter.sampleTracesForGraph(
+				query,
+				GENERATION_HEALTH_SAMPLE_TRACES
+			);
+			const matched = listedSpansMatchingGenerationHealth(sampled, chips);
+			const page = matched.slice(offset, offset + pageSize);
+			return {
+				err: null,
+				records: page.map((row) => denormalizeSpanToTraceRow(row)),
+				total: matched.length,
+				freshness: "sampled" as const,
+			};
+		} catch (err) {
+			if (!(err instanceof UnsupportedCapabilityError)) throw err;
+		}
+	}
+	const frame = await adapter.listSpans({
+		...query,
+		limit: Math.max(pageSize, GENERATION_HEALTH_SAMPLE_TRACES),
+		offset: 0,
+	});
+	const matched = await hydrateGenerationHealthRows(
+		adapter,
+		frame.rows || [],
+		chips
+	);
+	const page = matched.slice(offset, offset + pageSize);
+	return {
+		err: null,
+		records: page.map((row) => denormalizeSpanToTraceRow(row)),
+		total: matched.length,
+		freshness: "sampled" as const,
+	};
+}
+
 function asErrorMessage(err: unknown): string {
 	if (err instanceof UnsupportedCapabilityError) return err.message;
 	if (err instanceof AdapterError) {
@@ -79,6 +155,12 @@ export async function listTraceRecords(params: MetricParams) {
 
 	try {
 		const query = externalTraceQuery(params, { aiSelector: false });
+		if (
+			query.generationHealth?.length &&
+			!usesSqlGenerationHealth(descriptor)
+		) {
+			return await listGenerationHealthRecords(adapter, query, params);
+		}
 		// Interactive lists always query the selected adapter directly. Sampling
 		// caches are reserved for aggregate/intelligence computation.
 		// Run list + count in parallel: Tempo/Jaeger count paths are often

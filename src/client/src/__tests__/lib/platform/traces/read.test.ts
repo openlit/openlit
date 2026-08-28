@@ -179,6 +179,60 @@ describe("listTraceRecords", () => {
 		expect(mockGetRequests).not.toHaveBeenCalled();
 	});
 
+	it("filters Tempo traces by generation-health chips from a full-trace sample", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const sampleTracesForGraph = jest.fn().mockResolvedValue([
+			{
+				traceId: "t-http",
+				spanId: "root",
+				parentSpanId: "",
+				name: "GET /health",
+				serviceName: "api",
+				timestamp: "2026-07-01T00:00:00.000Z",
+				durationNs: 1,
+				statusCode: "OK",
+				spanAttributes: { "http.method": "GET" },
+				resourceAttributes: {},
+			},
+			{
+				traceId: "t-swap",
+				spanId: "child",
+				parentSpanId: "root",
+				name: "openai.chat.completions",
+				serviceName: "api",
+				timestamp: "2026-07-01T00:00:01.000Z",
+				durationNs: 1,
+				statusCode: "OK",
+				spanAttributes: {
+					"gen_ai.request.model": "gpt-4o",
+					"gen_ai.response.model": "gpt-4o-mini",
+				},
+				resourceAttributes: {},
+			},
+		]);
+		const listSpans = jest.fn();
+		mockGetAdapter.mockResolvedValue({ sampleTracesForGraph, listSpans });
+
+		const res = await listTraceRecords({
+			...params,
+			selectedConfig: { generationHealth: ["swapped"] },
+		} as never);
+
+		expect(sampleTracesForGraph).toHaveBeenCalled();
+		expect(listSpans).not.toHaveBeenCalled();
+		expect(res).toMatchObject({
+			err: null,
+			total: 1,
+			freshness: "sampled",
+			records: [
+				expect.objectContaining({
+					TraceId: "t-swap",
+					SpanId: "child",
+				}),
+			],
+		});
+	});
+
 	it("uses the backend trace count so pagination total does not grow with offset", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		let releaseCount!: () => void;

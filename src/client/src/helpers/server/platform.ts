@@ -12,6 +12,8 @@ import {
 } from "../server/trace";
 import { FilterWhereConditionType } from "@/types/platform";
 import { buildVersionWhereClause } from "@/lib/platform/agents/version-where";
+import { parseGenerationHealthChips } from "@/lib/platform/generation-health/classify";
+import { generationHealthWhereSql } from "@/lib/platform/generation-health/sql";
 
 function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -89,6 +91,7 @@ export const validateMetricsRequestType = {
 	// evaluation
 	GET_TOTAL_EVALUATION_DETECTED: "GET_TOTAL_EVALUATION_DETECTED",
 	GET_EVALUATION_ANALYTICS: "GET_EVALUATION_ANALYTICS",
+	GENERATION_HEALTH: "GENERATION_HEALTH",
 };
 
 export const validateMetricsRequest = (
@@ -142,6 +145,7 @@ export const validateMetricsRequest = (
 		// Evaluation
 		case validateMetricsRequestType.GET_TOTAL_EVALUATION_DETECTED:
 		case validateMetricsRequestType.GET_EVALUATION_ANALYTICS:
+		case validateMetricsRequestType.GENERATION_HEALTH:
 			if (!params.timeLimit?.start || !params.timeLimit?.end) {
 				return {
 					success: false,
@@ -324,6 +328,14 @@ export const getFilterWhereCondition = (
 				whereArray.push(
 					`(ResourceAttributes['deployment.environment'] IN (${envList}) OR SpanAttributes['gen_ai.environment'] IN (${envList}))`
 				);
+			}
+
+			const generationHealth = parseGenerationHealthChips(
+				filter.selectedConfig.generationHealth
+			);
+			if (generationHealth.length) {
+				const healthClause = generationHealthWhereSql(generationHealth);
+				if (healthClause) whereArray.push(healthClause);
 			}
 
 			if (filter.selectedConfig.customFilters?.length) {

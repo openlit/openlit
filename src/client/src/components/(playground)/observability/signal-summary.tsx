@@ -9,6 +9,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import type { ReactNode } from "react";
 import { ObservabilitySignalConfig } from "./registry";
 import getMessage from "@/constants/messages";
 
@@ -45,10 +46,12 @@ export default function SignalSummary({
 	config,
 	data,
 	isLoading,
+	footer,
 }: {
 	config: ObservabilitySignalConfig;
 	data?: SummaryData;
 	isLoading?: boolean;
+	footer?: ReactNode;
 }) {
 	const buckets = data?.buckets || [];
 	const metricLabel =
@@ -103,6 +106,7 @@ export default function SignalSummary({
 					</ResponsiveContainer>
 				</div>
 			</div>
+			{footer}
 		</section>
 	);
 }
