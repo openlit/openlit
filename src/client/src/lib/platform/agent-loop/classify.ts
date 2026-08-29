@@ -28,7 +28,7 @@ const CONVERSATION_KEYS = [
 	"gen_ai.conversation.id",
 	"gen_ai.conversation_id",
 ];
-const SESSION_KEYS = ["coding_agent.session.id"];
+const SESSION_KEYS = ["coding_agent.session.id", "session.id"];
 const TOOL_NAME_KEYS = ["gen_ai.tool.name", "gen_ai.tool.call.name", "tool.name"];
 const TOOL_ARGS_KEYS = [
 	"gen_ai.tool.args",
@@ -106,6 +106,23 @@ export function conversationGroupKey(
 	if (session) return `s:${session}`;
 	const id = String(traceId || "").trim();
 	return id ? `t:${id}` : "";
+}
+
+/** Attribute used to find sibling traces of a conversation or session. */
+export function loopGroupIdentity(
+	attrs: Record<string, unknown> | undefined
+): { key: string; value: string } | undefined {
+	const conversation = firstAttr(attrs, CONVERSATION_KEYS);
+	if (conversation) {
+		return { key: "gen_ai.conversation.id", value: conversation };
+	}
+	const codingSession = firstAttr(attrs, ["coding_agent.session.id"]);
+	if (codingSession) {
+		return { key: "coding_agent.session.id", value: codingSession };
+	}
+	const session = firstAttr(attrs, ["session.id"]);
+	if (session) return { key: "session.id", value: session };
+	return undefined;
 }
 
 export function toolNameOf(attrs: Record<string, unknown> | undefined): string {

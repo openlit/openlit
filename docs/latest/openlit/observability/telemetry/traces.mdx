@@ -65,7 +65,7 @@ Loop detection uses attributes you already emit:
 Coding-agent **Sessions** rows get the same **Loop** badge when that session is stuck.
 
 <Info>
-ClickHouse counts the full window. Tempo, Jaeger, and other OpenPlait adapters sample traces in the window, so the Loop chip there describes the sample rather than every trace in storage.
+Agent loops work on every traces connector OpenLIT can list — built-in ClickHouse plus Tempo, Jaeger, and other OpenPlait adapters. ClickHouse counts the full window. External backends sample traces in the window, so the Loop chip there describes the sample rather than every trace in storage.
 </Info>
 
 ## Group traces

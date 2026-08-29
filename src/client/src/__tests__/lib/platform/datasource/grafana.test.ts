@@ -785,6 +785,75 @@ describe("TempoAdapter", () => {
 		expect(spans[0]).toMatchObject({ traceId: TRACE_2, spanId: SPAN_2 });
 	});
 
+	it("lists the looping tool span when the agent-loop chip is on", async () => {
+		const loopTrace = {
+			batches: [
+				{
+					resource: otlpTrace.batches[0].resource,
+					scopeSpans: [
+						{
+							spans: [
+								{
+									...otlpTrace.batches[0].scopeSpans[0].spans[0],
+									traceId: TRACE_1,
+								},
+								...["aaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbb", "cccccccccccccccc"].map(
+									(spanId, index) => ({
+										traceId: TRACE_1,
+										spanId,
+										parentSpanId: SPAN_1,
+										name: "execute_tool search",
+										startTimeUnixNano: String(1719792000000000000 + index),
+										endTimeUnixNano: String(1719792001000000000 + index),
+										status: { code: 1 },
+										attributes: [
+											{
+												key: "gen_ai.tool.name",
+												value: { stringValue: "search" },
+											},
+											{
+												key: "gen_ai.tool.args",
+												value: { stringValue: '{"q":"orders"}' },
+											},
+											{
+												key: "gen_ai.conversation.id",
+												value: { stringValue: "chat-1" },
+											},
+										],
+									})
+								),
+							],
+						},
+					],
+				},
+			],
+		};
+		mockSafeFetch
+			.mockResolvedValueOnce({
+				traces: [{ traceID: TRACE_1 }, { traceID: TRACE_2 }],
+			})
+			.mockResolvedValueOnce(loopTrace)
+			.mockResolvedValueOnce(otlpForTrace(TRACE_2, SPAN_2));
+
+		const frame = await adapter.listSpans({
+			signal: "traces",
+			timeRange: window,
+			limit: 25,
+			aiSelector: false,
+			agentLoop: true,
+		});
+
+		expect(frame.rows).toHaveLength(1);
+		expect(frame.rows[0]).toMatchObject({
+			traceId: TRACE_1,
+			name: "execute_tool search",
+			agentLoop: expect.objectContaining({
+				toolName: "search",
+				count: 3,
+			}),
+		});
+	});
+
 	it("getSpan resolves via TraceQL search then a single OTLP download", async () => {
 		mockSafeFetch
 			.mockResolvedValueOnce({ traces: [{ traceID: TRACE_1 }] })

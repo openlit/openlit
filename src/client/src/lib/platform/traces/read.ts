@@ -40,9 +40,12 @@ import {
 import {
 	detectAgentLoops,
 	listedSpansMatchingAgentLoop,
+	loopGroupIdentity,
 	loopHitsByTraceId,
+	spanLoopAttrs,
 	worstLoop,
 } from "@/lib/platform/agent-loop/classify";
+import { mapPool } from "@/lib/platform/connectors/datasource/graph/map-pool";
 
 async function resolveTracesAdapter(sourceId?: string, environment?: string) {
 	const { adapter, descriptor } = await resolveSignalReadContext("traces", {
@@ -117,6 +120,123 @@ function attachLoopToRow(
 ): Record<string, unknown> {
 	const hit = worstLoop(detectAgentLoops(spans));
 	return hit ? { ...row, agentLoop: hit } : row;
+}
+
+/** Tempo Explore rows reuse TraceId as SpanId and carry no attributes. */
+function isTraceSummaryRow(span: NormalizedSpan): boolean {
+	const attrs = span.spanAttributes || {};
+	return (
+		Boolean(span.traceId) &&
+		span.spanId === span.traceId &&
+		Object.keys(attrs).length === 0
+	);
+}
+
+async function treesForListedTraces(
+	adapter: DataSourceAdapter,
+	listed: NormalizedSpan[]
+): Promise<NormalizedSpan[]> {
+	if (!listed.length || typeof adapter.getTraceSpans !== "function") {
+		return listed;
+	}
+	const ids = Array.from(
+		new Set(listed.map((span) => String(span.traceId || "").trim()).filter(Boolean))
+	);
+	const trees = await mapPool(ids, 4, async (traceId) => {
+		try {
+			const tree = await adapter.getTraceSpans!(traceId);
+			return tree.length ? tree : [];
+		} catch {
+			return [];
+		}
+	});
+	const spans = trees.flat();
+	return spans.length ? spans : listed;
+}
+
+const DETAIL_LOOP_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function attachLoopForDetail(
+	adapter: DataSourceAdapter,
+	descriptor: { isBuiltIn: boolean; type: string; dbConfigId?: string },
+	row: Record<string, unknown>,
+	spans: NormalizedSpan[]
+): Promise<Record<string, unknown>> {
+	const fromTree = attachLoopToRow(row, spans);
+	if (fromTree.agentLoop) return fromTree;
+
+	const traceId = String(row.TraceId || spans[0]?.traceId || "").trim();
+	if (usesSqlIssueFilters(descriptor) && traceId) {
+		try {
+			const { getFilterWhereCondition } = await import(
+				"@/helpers/server/platform"
+			);
+			const { fetchLoopHitsByTraceIds } = await import(
+				"@/lib/platform/agent-loop/clickhouse"
+			);
+			const timestamp = String(row.Timestamp || spans[0]?.timestamp || "");
+			const at = timestamp ? new Date(timestamp) : new Date();
+			const start = new Date(at.getTime() - DETAIL_LOOP_LOOKBACK_MS);
+			const end = new Date(at.getTime() + 60 * 60 * 1000);
+			const baseWhere = getFilterWhereCondition(
+				{
+					timeLimit: {
+						start: start.toISOString(),
+						end: end.toISOString(),
+						type: "CUSTOM",
+					},
+					databaseConfigId: descriptor.dbConfigId,
+					selectedConfig: {},
+				} as MetricParams,
+				true
+			);
+			const hits = await fetchLoopHitsByTraceIds(
+				baseWhere,
+				[traceId],
+				descriptor.dbConfigId
+			);
+			const hit = hits.get(traceId);
+			if (hit) return { ...row, agentLoop: hit };
+		} catch {
+			// Detail still renders without the loop note.
+		}
+		return row;
+	}
+
+	const identity = loopGroupIdentity(
+		spanLoopAttrs(spans.find((span) => span.spanId === row.SpanId) || spans[0] || {})
+	);
+	if (!identity || typeof adapter.sampleTracesForGraph !== "function") {
+		return row;
+	}
+	try {
+		const timestamp = String(row.Timestamp || spans[0]?.timestamp || "");
+		const at = timestamp ? new Date(timestamp) : new Date();
+		const extra = await adapter.sampleTracesForGraph(
+			{
+				signal: "traces",
+				timeRange: {
+					start: new Date(at.getTime() - DETAIL_LOOP_LOOKBACK_MS),
+					end: new Date(at.getTime() + 60 * 60 * 1000),
+				},
+				aiSelector: false,
+				filters: [
+					{
+						target: "attribute",
+						scope: "span",
+						key: identity.key,
+						op: "eq",
+						value: identity.value,
+					},
+				],
+				limit: 50,
+			},
+			50
+		);
+		return attachLoopToRow(row, extra.length ? extra : spans);
+	} catch {
+		return row;
+	}
 }
 
 async function listedSpansForIssueSample(
@@ -303,6 +423,9 @@ export async function listTraceRecords(params: MetricParams) {
 		let records = spans.map((row) => denormalizeSpanToTraceRow(row));
 		if (usesSqlIssueFilters(descriptor)) {
 			records = await attachClickHouseLoopHits(params, records);
+		} else if (spans.some(isTraceSummaryRow)) {
+			const trees = await treesForListedTraces(adapter, spans);
+			records = withLoopHits(records, trees);
 		} else {
 			records = withLoopHits(records, spans);
 		}
@@ -403,7 +526,12 @@ export async function getTraceSpanRecord(
 			}
 			return {
 				err: null,
-				record: attachLoopToRow(denormalizeSpanToTraceRow(span), spans),
+				record: await attachLoopForDetail(
+					adapter,
+					descriptor,
+					denormalizeSpanToTraceRow(span),
+					spans
+				),
 			};
 		}
 		if (!opts?.traceId) span = await adapter.getSpan(spanId);
@@ -427,10 +555,18 @@ export async function getTraceSpanRecord(
 		if (span.traceId && typeof adapter.getTraceSpans === "function") {
 			try {
 				const tree = await adapter.getTraceSpans(span.traceId);
-				if (tree.length) record = attachLoopToRow(record, tree);
+				if (tree.length) {
+					record = await attachLoopForDetail(adapter, descriptor, record, tree);
+				} else {
+					record = await attachLoopForDetail(adapter, descriptor, record, [
+						span,
+					]);
+				}
 			} catch {
-				// Detail still renders without the loop note.
+				record = await attachLoopForDetail(adapter, descriptor, record, [span]);
 			}
+		} else {
+			record = await attachLoopForDetail(adapter, descriptor, record, [span]);
 		}
 		return { err: null, record };
 	} catch (err) {
@@ -448,7 +584,7 @@ export async function getTraceSpanRecord(
 
 /** First span for a trace id (same shape as `getRequestViaTraceId`). */
 export async function getTraceRecordByTraceId(traceId: string, environment?: string) {
-	const { adapter } = await resolveTracesAdapter(undefined, environment);
+	const { adapter, descriptor } = await resolveTracesAdapter(undefined, environment);
 
 	try {
 		const spans = await adapter.getTraceSpans(traceId);
@@ -456,7 +592,12 @@ export async function getTraceRecordByTraceId(traceId: string, environment?: str
 		if (!first) return { err: null, record: undefined };
 		return {
 			err: null,
-			record: attachLoopToRow(denormalizeSpanToTraceRow(first), spans),
+			record: await attachLoopForDetail(
+				adapter,
+				descriptor,
+				denormalizeSpanToTraceRow(first),
+				spans
+			),
 		};
 	} catch (err) {
 		rethrowIfSourceFailure(err);

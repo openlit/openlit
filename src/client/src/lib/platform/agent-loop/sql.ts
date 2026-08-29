@@ -32,7 +32,7 @@ const RAW_ARGS_SQL = firstNonEmptySql(TOOL_ARGS_KEYS);
 export const ARGS_FINGERPRINT_SQL = `replaceRegexpAll(trim(BOTH ' ' FROM ${RAW_ARGS_SQL}), '\\\\s+', ' ')`;
 
 const CONVERSATION_SQL = `coalesce(nullIf(SpanAttributes['${CONVERSATION_SPAN}'], ''), nullIf(ResourceAttributes['${CONVERSATION_RESOURCE}'], ''), '')`;
-const SESSION_SQL = `coalesce(nullIf(SpanAttributes['${SESSION_SPAN}'], ''), nullIf(ResourceAttributes['${SESSION_RESOURCE}'], ''), '')`;
+const SESSION_SQL = `coalesce(nullIf(SpanAttributes['${SESSION_SPAN}'], ''), nullIf(ResourceAttributes['${SESSION_RESOURCE}'], ''), nullIf(SpanAttributes['session.id'], ''), nullIf(ResourceAttributes['session.id'], ''), '')`;
 
 export const GROUP_KEY_SQL = `concat(if(notEmpty(${CONVERSATION_SQL}), 'c:', if(notEmpty(${SESSION_SQL}), 's:', 't:')), if(notEmpty(${CONVERSATION_SQL}), ${CONVERSATION_SQL}, if(notEmpty(${SESSION_SQL}), ${SESSION_SQL}, TraceId)))`;
 

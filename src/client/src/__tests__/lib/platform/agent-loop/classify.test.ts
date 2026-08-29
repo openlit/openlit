@@ -63,6 +63,9 @@ describe("conversationGroupKey", () => {
 		expect(
 			conversationGroupKey({ "coding_agent.session.id": "sess-1" }, "t-1")
 		).toBe("s:sess-1");
+		expect(conversationGroupKey({ "session.id": "native-1" }, "t-1")).toBe(
+			"s:native-1"
+		);
 		expect(conversationGroupKey({}, "t-1")).toBe("t:t-1");
 	});
 });
@@ -188,6 +191,7 @@ describe("agentLoopWhereSql", () => {
 		expect(sql).toContain("gen_ai.tool.name");
 		expect(sql).toContain("gen_ai.conversation.id");
 		expect(sql).toContain("coding_agent.session.id");
+		expect(sql).toContain("session.id");
 		expect(sql).toContain("HAVING count() >= 3");
 		expect(sql).toContain("notEmpty(args_fp)");
 		expect(sql).toContain("Timestamp >= now() - 1");

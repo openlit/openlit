@@ -96,6 +96,67 @@ describe("getAgentLoop", () => {
 		expect(result.data?.[0]?.unsupported).toBe(true);
 		expect(mockedDataCollector).not.toHaveBeenCalled();
 	});
+
+	it("classifies sampled spans for any traces adapter with sampleTracesForGraph", async () => {
+		mockedResolve.mockResolvedValue({
+			isBuiltIn: false,
+			type: "tempo",
+		} as any);
+		const { resolveSignalReadContext } = await import(
+			"@/lib/platform/connectors/datasource/facade"
+		);
+		const { metricParamsToOpenLITQuery } = await import(
+			"@/lib/platform/connectors/datasource/clickhouse/query-map"
+		);
+		const sampleTracesForGraph = jest.fn(async () => [
+			{
+				traceId: "t-loop",
+				spanAttributes: {
+					"gen_ai.conversation.id": "chat-1",
+					"gen_ai.tool.name": "search",
+					"gen_ai.tool.args": '{"q":"orders"}',
+				},
+			},
+			{
+				traceId: "t-loop",
+				spanAttributes: {
+					"gen_ai.conversation.id": "chat-1",
+					"gen_ai.tool.name": "search",
+					"gen_ai.tool.args": '{"q":"orders"}',
+				},
+			},
+			{
+				traceId: "t-loop",
+				spanAttributes: {
+					"gen_ai.conversation.id": "chat-1",
+					"gen_ai.tool.name": "search",
+					"gen_ai.tool.args": '{"q":"orders"}',
+				},
+			},
+			{
+				traceId: "t-ok",
+				spanAttributes: {
+					"gen_ai.tool.name": "search",
+					"gen_ai.tool.args": '{"q":"once"}',
+				},
+			},
+		]);
+		(resolveSignalReadContext as jest.Mock).mockResolvedValue({
+			adapter: { sampleTracesForGraph },
+			descriptor: { type: "tempo" },
+		});
+		const result = await getAgentLoop(params);
+		const row = result.data?.[0];
+		expect(row?.unsupported).toBeFalsy();
+		expect(row?.tool_traces).toBe(2);
+		expect(row?.loops).toBe(1);
+		expect(mockedDataCollector).not.toHaveBeenCalled();
+		expect(sampleTracesForGraph).toHaveBeenCalledWith(expect.anything(), 200);
+		expect(metricParamsToOpenLITQuery).toHaveBeenCalledWith(
+			expect.anything(),
+			"traces"
+		);
+	});
 });
 
 describe("summarizeAgentLoopFromSpans", () => {
