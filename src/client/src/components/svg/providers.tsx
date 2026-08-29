@@ -387,6 +387,38 @@ export function CustomGatewaySvg({ className }: SvgProps) {
 	);
 }
 
+export function OrcaRouterSvg({ className }: SvgProps) {
+	return (
+		<svg
+			viewBox="0 0 48 48"
+			xmlns="http://www.w3.org/2000/svg"
+			className={className}
+		>
+			<circle cx="24" cy="24" r="24" fill="#0B1B3A" />
+			{/* orca body */}
+			<path
+				d="M8 22c5 0 9 2 14 7 4-5 9-7 16-7 2 0 3 1 3 2 0 3-3 7-6 9-3 2-7 3-11 3s-8-1-11-3c-3-2-5-5-5-8 0-2 0-3 0-3z"
+				fill="white"
+			/>
+			{/* dorsal fin */}
+			<path d="M21 22c1-6 3-9 6-10-1 4-1 7-1 10h-5z" fill="#0B1B3A" />
+			{/* saddle patch */}
+			<path d="M17 27c-1 1-1 2 0 3s2 1 3 0 1-2 0-3-2-1-3 0z" fill="#7A8AA8" />
+			{/* eye */}
+			<circle cx="13" cy="25" r="1.3" fill="#0B1B3A" />
+			{/* route dash */}
+			<path
+				d="M30 20c4 0 7 1 8 3"
+				fill="none"
+				stroke="#22D3EE"
+				strokeWidth="1.6"
+				strokeLinecap="round"
+				strokeDasharray="2.5 2"
+			/>
+		</svg>
+	);
+}
+
 const PROVIDER_ICON_MAP: Record<string, React.FC<SvgProps>> = {
 	openai: OpenAISvg,
 	anthropic: AnthropicSvg,
@@ -394,6 +426,7 @@ const PROVIDER_ICON_MAP: Record<string, React.FC<SvgProps>> = {
 	cohere: CohereSvg,
 	mistral: MistralSvg,
 	groq: GroqSvg,
+	orcarouter: OrcaRouterSvg,
 	azure_openai: AzureSvg,
 	azure_inference: AzureSvg,
 	bedrock: BedrockSvg,

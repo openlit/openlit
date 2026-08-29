@@ -135,6 +135,14 @@ export const DEFAULT_PROVIDERS: DefaultProviderEntry[] = [
 			topP: { min: 0, max: 1, step: 0.01, default: 0.9, description: "Nucleus sampling threshold" },
 		},
 	},
+	{
+		providerId: "orcarouter", displayName: "OrcaRouter", description: "AI gateway with adaptive routing across 150+ models", requiresVault: true,
+		configSchema: {
+			temperature: { min: 0, max: 2, step: 0.1, default: 1, description: "Sampling temperature" },
+			maxTokens: { min: 1, max: 32768, step: 1, default: 1000, description: "Maximum tokens to generate" },
+			topP: { min: 0, max: 1, step: 0.1, default: 1, description: "Nucleus sampling threshold" },
+		},
+	},
 ];
 
 export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
@@ -1071,6 +1079,44 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			inputPricePerMToken: 0.3,
 			outputPricePerMToken: 1.0,
 			capabilities: ["streaming"],
+		},
+	],
+	orcarouter: [
+		{
+			id: "orcarouter/auto",
+			displayName: "Auto Router",
+			contextWindow: 200000,
+			inputPricePerMToken: 0.15,
+			outputPricePerMToken: 0.6,
+			cacheReadPricePerMToken: 0.075,
+			capabilities: ["function-calling", "streaming"],
+		},
+		{
+			id: "openai/gpt-5.5",
+			displayName: "GPT-5.5",
+			contextWindow: 400000,
+			inputPricePerMToken: 1.25,
+			outputPricePerMToken: 10.0,
+			cacheReadPricePerMToken: 0.125,
+			capabilities: ["function-calling", "vision", "streaming"],
+		},
+		{
+			id: "anthropic/claude-opus-4.8",
+			displayName: "Claude Opus 4.8",
+			contextWindow: 200000,
+			inputPricePerMToken: 15.0,
+			outputPricePerMToken: 75.0,
+			cacheReadPricePerMToken: 1.5,
+			capabilities: ["function-calling", "streaming"],
+		},
+		{
+			id: "google/gemini-3.5-flash",
+			displayName: "Gemini 3.5 Flash",
+			contextWindow: 1000000,
+			inputPricePerMToken: 0.1,
+			outputPricePerMToken: 0.4,
+			cacheReadPricePerMToken: 0.025,
+			capabilities: ["function-calling", "vision", "streaming"],
 		},
 	],
 };

@@ -15,6 +15,7 @@
 #define PROVIDER_TOGETHER   8
 #define PROVIDER_FIREWORKS  9
 #define PROVIDER_CUSTOM     13
+#define PROVIDER_ORCAROUTER 14
 
 /* Key for the llm_endpoints map: destination IPv4 (network byte order) plus
  * destination port (host byte order). Keying on IP+port lets us match

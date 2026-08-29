@@ -99,10 +99,15 @@ describe('getModelInstance', () => {
     expect(instance).toBeDefined();
   });
 
-  it('supports all 14 providers', () => {
+  it('supports orcarouter via OpenAI-compatible endpoint', () => {
+    const instance = getModelInstance('orcarouter', 'sk-orca-test', 'orcarouter/auto');
+    expect(instance).toBeDefined();
+  });
+
+  it('supports all 15 providers', () => {
     const providers = [
       'openai', 'anthropic', 'google', 'mistral', 'cohere',
-      'groq', 'perplexity', 'azure', 'together', 'fireworks',
+      'groq', 'orcarouter', 'perplexity', 'azure', 'together', 'fireworks',
       'deepseek', 'xai', 'huggingface', 'replicate',
     ];
     for (const p of providers) {

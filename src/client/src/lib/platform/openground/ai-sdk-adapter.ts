@@ -39,6 +39,10 @@ export class AISdkAdapter {
 			baseURL: 'https://api.groq.com/openai/v1',
 			apiKey
 		}),
+		orcarouter: (apiKey: string) => createOpenAI({
+			baseURL: 'https://api.orcarouter.ai/v1',
+			apiKey
+		}),
 		perplexity: (apiKey: string) => createOpenAI({
 			baseURL: 'https://api.perplexity.ai',
 			apiKey
@@ -84,7 +88,7 @@ export class AISdkAdapter {
 		// Explicit allowlist of valid provider IDs
 		const validProviders = [
 			'openai', 'anthropic', 'google', 'mistral', 'cohere',
-			'groq', 'perplexity', 'azure', 'together', 'fireworks',
+			'groq', 'orcarouter', 'perplexity', 'azure', 'together', 'fireworks',
 			'deepseek', 'xai', 'huggingface', 'replicate'
 		];
 		

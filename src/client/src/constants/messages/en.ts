@@ -1101,6 +1101,7 @@ export const AGENTS_PROVIDER_GEMINI = "Gemini";
 export const AGENTS_PROVIDER_COHERE = "Cohere";
 export const AGENTS_PROVIDER_MISTRAL = "Mistral";
 export const AGENTS_PROVIDER_GROQ = "Groq";
+export const AGENTS_PROVIDER_ORCAROUTER = "OrcaRouter";
 export const AGENTS_PROVIDER_DEEPSEEK = "DeepSeek";
 export const AGENTS_PROVIDER_TOGETHER = "Together AI";
 export const AGENTS_PROVIDER_FIREWORKS = "Fireworks AI";

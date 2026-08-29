@@ -27,6 +27,7 @@ const providerFactories: Record<string, ProviderFactory> = {
 	mistral: (apiKey) => createMistral({ apiKey }),
 	cohere: (apiKey) => createCohere({ apiKey }),
 	groq: (apiKey) => createOpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey }),
+	orcarouter: (apiKey) => createOpenAI({ baseURL: "https://api.orcarouter.ai/v1", apiKey }),
 	perplexity: (apiKey) => createOpenAI({ baseURL: "https://api.perplexity.ai", apiKey }),
 	azure: (apiKey) => createOpenAI({
 		baseURL: process.env.AZURE_OPENAI_ENDPOINT || "https://your-resource.openai.azure.com",
