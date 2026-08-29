@@ -27,6 +27,7 @@ jest.mock("@/lib/platform/request", () => ({
 jest.mock("@/helpers/server/platform", () => ({
 	getFilterPreviousParams: (p: unknown) => p,
 	dateTruncGroupingLogic: () => "hour",
+	getFilterWhereCondition: () => "1 = 1",
 }));
 
 jest.mock("@/lib/platform/observability", () => ({
@@ -49,6 +50,11 @@ jest.mock("@/lib/platform/connectors/datasource/http/cache", () => ({
 	cacheKey: (...parts: unknown[]) => parts.join(":"),
 	cachedQuery: (_key: string, _ttl: number, loader: () => unknown) => loader(),
 	__clearCache: jest.fn(),
+}));
+
+jest.mock("@/lib/platform/agent-loop/clickhouse", () => ({
+	fetchLoopHitsByTraceIds: jest.fn(async () => new Map()),
+	fetchLoopHitsByGroupIds: jest.fn(async () => new Map()),
 }));
 
 jest.mock("@/lib/platform/telemetry/rollups", () => ({
@@ -272,6 +278,67 @@ describe("listTraceRecords", () => {
 		expect(records).toHaveLength(10);
 		expect(records?.[0]).toMatchObject({ TraceId: "t-200", SpanId: "s-200" });
 		expect(records?.[9]).toMatchObject({ TraceId: "t-209" });
+	});
+
+	it("filters Tempo traces by stuck-agent loops from a full-trace sample", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const loopSpan = (index: number) => ({
+			traceId: "t-loop",
+			spanId: `tool-${index}`,
+			parentSpanId: "",
+			name: "execute_tool",
+			serviceName: "agent",
+			timestamp: `2026-07-01T00:00:0${index}.000Z`,
+			durationNs: 1,
+			statusCode: "OK",
+			spanAttributes: {
+				"gen_ai.conversation.id": "chat-1",
+				"gen_ai.tool.name": "search",
+				"gen_ai.tool.args": '{"q":"orders"}',
+			},
+			resourceAttributes: {},
+		});
+		const sampleTracesForGraph = jest.fn().mockResolvedValue([
+			{
+				traceId: "t-ok",
+				spanId: "root",
+				parentSpanId: "",
+				name: "GET /health",
+				serviceName: "api",
+				timestamp: "2026-07-01T00:00:00.000Z",
+				durationNs: 1,
+				statusCode: "OK",
+				spanAttributes: { "http.method": "GET" },
+				resourceAttributes: {},
+			},
+			loopSpan(0),
+			loopSpan(1),
+			loopSpan(2),
+		]);
+		const listSpans = jest.fn();
+		mockGetAdapter.mockResolvedValue({ sampleTracesForGraph, listSpans });
+
+		const res = await listTraceRecords({
+			...params,
+			selectedConfig: { agentLoop: true },
+		} as never);
+
+		expect(sampleTracesForGraph).toHaveBeenCalled();
+		expect(listSpans).not.toHaveBeenCalled();
+		expect(res).toMatchObject({
+			err: null,
+			total: 1,
+			freshness: "sampled",
+			records: [
+				expect.objectContaining({
+					TraceId: "t-loop",
+					agentLoop: expect.objectContaining({
+						toolName: "search",
+						count: 3,
+					}),
+				}),
+			],
+		});
 	});
 
 	it("keeps sampling when the first budget cannot fill the requested health page", async () => {

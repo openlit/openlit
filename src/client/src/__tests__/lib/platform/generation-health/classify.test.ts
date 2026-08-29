@@ -224,6 +224,8 @@ describe("helpers", () => {
 	it("returns 0% when the eligible set is empty", () => {
 		expect(percentOfEligible(4, 0)).toBe(0);
 		expect(percentOfEligible(4, 8)).toBe(50);
+		expect(percentOfEligible(NaN, 8)).toBe(0);
+		expect(percentOfEligible(4, NaN)).toBe(0);
 	});
 });
 

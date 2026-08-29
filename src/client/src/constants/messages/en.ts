@@ -311,6 +311,22 @@ export const GENERATION_HEALTH_DETAIL_SWAPPED =
 	"Requested {requested} but the provider served {served}.";
 export const GENERATION_HEALTH_BADGE_SWAPPED_TITLE =
 	"Requested {requested} → served {served}";
+export const AGENT_LOOP_CHIP = "Loop";
+export const AGENT_LOOP_CHIP_GROUP = "Agent loops";
+export const AGENT_LOOP_CLICK_TO_FILTER = "Click to show only looping traces";
+export const AGENT_LOOP_CLICK_TO_CLEAR =
+	"Showing looping traces — click to show all";
+export const AGENT_LOOP_TIP =
+	"The same tool was called with the same arguments at least {threshold} times in one conversation or session.";
+export const AGENT_LOOP_TIP_COUNT =
+	"{count} of {eligible} traces with tool calls in this window";
+export const AGENT_LOOP_TIP_NONE =
+	"None of {eligible} traces with tool calls in this window";
+export const AGENT_LOOP_TIP_NO_ELIGIBLE =
+	"No traces in this window recorded tool calls.";
+export const AGENT_LOOP_BADGE_TITLE = "{tool} × {count}";
+export const AGENT_LOOP_DETAIL =
+	"{tool} repeated {count} times — {tokens} tokens / ${cost} wasted.";
 export const OBSERVABILITY_TIME = "Time";
 export const OBSERVABILITY_SEVERITY = "Severity";
 export const OBSERVABILITY_BODY = "Body";

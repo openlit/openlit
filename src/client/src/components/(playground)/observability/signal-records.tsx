@@ -28,6 +28,8 @@ import {
 	fillTemplate,
 	generationHealthChipLabel,
 } from "@/lib/platform/generation-health/format";
+import { asAgentLoopHit } from "@/lib/platform/agent-loop/classify";
+import { agentLoopBadgeTitle } from "@/lib/platform/agent-loop/format";
 
 const m = getMessage();
 
@@ -118,6 +120,22 @@ function MiniMeta({
 	);
 }
 
+function LoopBadge({
+	title,
+}: {
+	title?: string;
+}) {
+	const m = getMessage();
+	return (
+		<span
+			title={title || m.AGENT_LOOP_CHIP}
+			className="inline-flex items-center rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-800 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-200"
+		>
+			{m.AGENT_LOOP_CHIP}
+		</span>
+	);
+}
+
 function HealthBadge({
 	chip,
 	title,
@@ -159,6 +177,7 @@ function TraceRecord({
 	const healthChips: GenerationHealthChip[] = (
 		["truncated", "filtered", "empty", "swapped"] as GenerationHealthChip[]
 	).filter((chip) => matchesGenerationHealthChip(health, chip));
+	const loopHit = asAgentLoopHit(row.agentLoop);
 	const swapTitle = health.modelSwap
 		? fillTemplate(m.GENERATION_HEALTH_BADGE_SWAPPED_TITLE, {
 				requested: health.requestedModel,
@@ -182,7 +201,7 @@ function TraceRecord({
 						<h3 className="min-w-0 truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
 							{show("spanName") ? row.spanName || row.id : row.id}
 						</h3>
-						{healthChips.length ? (
+						{healthChips.length || loopHit ? (
 							<span className="flex shrink-0 flex-wrap items-center gap-1">
 								{healthChips.map((chip) => (
 									<HealthBadge
@@ -191,6 +210,9 @@ function TraceRecord({
 										title={chip === "swapped" ? swapTitle : undefined}
 									/>
 								))}
+								{loopHit ? (
+									<LoopBadge title={agentLoopBadgeTitle(loopHit)} />
+								) : null}
 							</span>
 						) : null}
 					</div>
@@ -563,6 +585,7 @@ function SessionRecord({
 		: "";
 	const branchName = (row.branch || "").trim();
 	const folderLabel = (row.working_dir_label || "").trim();
+	const loopHit = asAgentLoopHit(row.agentLoop);
 	return (
 		<button
 			type="button"
@@ -584,6 +607,11 @@ function SessionRecord({
 					>
 						{sessionId}
 					</h3>
+					{loopHit ? (
+						<div className="mt-1">
+							<LoopBadge title={agentLoopBadgeTitle(loopHit)} />
+						</div>
+					) : null}
 					<div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
 						{show("user") && row.user && (
 							<span className="truncate text-xs text-stone-500 dark:text-stone-400">

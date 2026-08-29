@@ -300,6 +300,20 @@ describe("metricParamsToOpenLITQuery", () => {
 			"swapped",
 		]);
 	});
+
+	it("round-trips agentLoop on the ClickHouse path", () => {
+		const query = metricParamsToOpenLITQuery({
+			timeLimit: {
+				start: new Date("2026-07-01T00:00:00.000Z"),
+				end: new Date("2026-07-01T01:00:00.000Z"),
+				type: "CUSTOM",
+			},
+			selectedConfig: { agentLoop: true },
+		} as any);
+		expect(query.agentLoop).toBe(true);
+		const back = toMetricParams(query);
+		expect(back.selectedConfig.agentLoop).toBe(true);
+	});
 });
 
 describe("denormalizeSpanToTraceRow", () => {

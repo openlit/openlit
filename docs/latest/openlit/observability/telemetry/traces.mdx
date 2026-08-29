@@ -1,15 +1,15 @@
 ---
 title: "Traces & Exceptions"
-description: "Filter and group traces, spot generation issues, then drill into a five-view trace detail explorer with span attributes, chat view, timeline, and DAG"
+description: "Filter and group traces, spot generation issues and stuck-agent loops, then drill into a five-view trace detail explorer with span attributes, chat view, timeline, and DAG"
 ---
 
 Navigate to **Telemetry > Traces** (`/telemetry`) to view all distributed traces from your AI applications with detailed span analysis and execution flow. You can also create custom trace widgets in your dashboards to monitor specific trace metrics, latency trends, and performance insights alongside other observability data.
 
 ## Filtering
 
-The Traces list supports filtering by Models, Providers, Max Cost, Span Names, Environments, Services, and **Generation issues**, plus a time range and result limit. You can also filter on custom attributes - Span Attributes, Resource Attributes, or any top-level trace Field.
+The Traces list supports filtering by Models, Providers, Max Cost, Span Names, Environments, Services, **Generation issues**, and **Agent loops**, plus a time range and result limit. You can also filter on custom attributes - Span Attributes, Resource Attributes, or any top-level trace Field.
 
-The trace table shows, per row: Span/Trace ID, Time, Span Name, Duration, Service Name, Application Name, Cost, Total Tokens, Model, Provider, and Vector Count. Rows with a generation issue also show a **Truncated**, **Filtered**, **Empty**, or **Model swapped** badge. Clicking a row opens the trace detail view in a resizable side sheet, with a **Full Screen** button that opens the same view at `/telemetry/traces/<id>`.
+The trace table shows, per row: Span/Trace ID, Time, Span Name, Duration, Service Name, Application Name, Cost, Total Tokens, Model, Provider, and Vector Count. Rows with a generation issue also show a **Truncated**, **Filtered**, **Empty**, or **Model swapped** badge. Stuck-agent loops show a **Loop** badge. Clicking a row opens the trace detail view in a resizable side sheet, with a **Full Screen** button that opens the same view at `/telemetry/traces/<id>`.
 
 ## Generation issues
 
@@ -46,6 +46,26 @@ Open a matching trace to see a warning on the detail header — for example, tru
 
 <Info>
 Generation issues work on every traces connector OpenLIT can list — built-in ClickHouse plus Tempo, Jaeger, and other OpenPlait adapters. ClickHouse counts the full window. External backends sample traces in the window, so chip totals there describe the sample rather than every trace in storage.
+</Info>
+
+## Agent loops
+
+The **Agent loops** bar sits under Generation issues. A **Loop** chip is `{count}/{eligible}` for the current time window — unique traces that called a tool at least once. The numerator is traces that belong to a conversation or session where the **same tool** was called with the **same arguments** at least three times.
+
+That is the agent equivalent of a crash loop: `search`, `get_order`, or `read_file` repeating until the budget dies. The waterfall looks busy; the badge names the stuck tool.
+
+Hover the chip for the meaning and whether clicking will filter or clear. Click it to list only looping traces. Matching rows show a **Loop** badge (`search × 7`). Open the trace to see wasted tokens and cost on the detail header.
+
+Loop detection uses attributes you already emit:
+
+- Group key, in order: `gen_ai.conversation.id`, then `coding_agent.session.id`, then `TraceId`
+- Tool identity: `gen_ai.tool.name` (or `gen_ai.tool.call.name`)
+- Arguments: `gen_ai.tool.args` / `gen_ai.tool.call.arguments`, compared after collapsing whitespace (no embeddings)
+
+Coding-agent **Sessions** rows get the same **Loop** badge when that session is stuck.
+
+<Info>
+ClickHouse counts the full window. Tempo, Jaeger, and other OpenPlait adapters sample traces in the window, so the Loop chip there describes the sample rather than every trace in storage.
 </Info>
 
 ## Group traces

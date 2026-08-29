@@ -12,6 +12,7 @@ import {
 	getFilterWhereCondition,
 } from "@/helpers/server/platform";
 import { hasGenerationHealthFilter } from "@/lib/platform/generation-health/classify";
+import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
 
 const PREDEFINED_GROUP_BY: Record<string, string> = {
 	model: `SpanAttributes['gen_ai.request.model']`,
@@ -233,9 +234,9 @@ export async function getRequestsConfig(params: MetricParams) {
 
 export async function getRequests(params: MetricParams) {
 	const { limit = 10, offset = 0 } = params;
-	const oneRowPerTrace = hasGenerationHealthFilter(
-		params.selectedConfig?.generationHealth
-	);
+	const oneRowPerTrace =
+		hasGenerationHealthFilter(params.selectedConfig?.generationHealth) ||
+		hasAgentLoopFilter(params.selectedConfig?.agentLoop);
 	const totalExpr = oneRowPerTrace
 		? "CAST(uniqExact(TraceId) AS INTEGER)"
 		: "CAST(COUNT(*) AS INTEGER)";

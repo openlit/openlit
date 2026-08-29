@@ -259,6 +259,91 @@ describe("JaegerAdapter", () => {
 		expect(frame.rows.map((row) => row.traceId).sort()).toEqual(["fat", "thin"]);
 	});
 
+	it("lists the looping tool span when the agent-loop chip is on", async () => {
+		const tool = (spanID: string, copy: number) => ({
+			traceID: "loop",
+			spanID,
+			operationName: "execute_tool search",
+			references: [{ refType: "CHILD_OF", spanID: "root" }],
+			startTime: 1782864000000000 + copy,
+			duration: 20,
+			processID: "p1",
+			tags: [
+				{ key: "gen_ai.tool.name", value: "search" },
+				{ key: "gen_ai.tool.args", value: '{"q":"orders"}' },
+				{ key: "gen_ai.conversation.id", value: "chat-1" },
+			],
+		});
+		mockSafeFetch.mockResolvedValue({
+			data: [
+				{
+					traceID: "loop",
+					processes: { p1: { serviceName: "svc", tags: [] } },
+					spans: [
+						{
+							traceID: "loop",
+							spanID: "root",
+							operationName: "openai.chat.completions",
+							references: [],
+							startTime: 1782864000000000,
+							duration: 5000,
+							processID: "p1",
+							tags: [{ key: "gen_ai.request.model", value: "gpt-4" }],
+						},
+						tool("t1", 1),
+						tool("t2", 2),
+						tool("t3", 3),
+					],
+				},
+				{
+					traceID: "ok",
+					processes: { p1: { serviceName: "svc", tags: [] } },
+					spans: [
+						{
+							traceID: "ok",
+							spanID: "ok-root",
+							operationName: "openai.chat.completions",
+							references: [],
+							startTime: 1782864100000000,
+							duration: 100,
+							processID: "p1",
+							tags: [{ key: "gen_ai.request.model", value: "gpt-4" }],
+						},
+						{
+							traceID: "ok",
+							spanID: "ok-tool",
+							operationName: "execute_tool search",
+							references: [{ refType: "CHILD_OF", spanID: "ok-root" }],
+							startTime: 1782864100000100,
+							duration: 20,
+							processID: "p1",
+							tags: [
+								{ key: "gen_ai.tool.name", value: "search" },
+								{ key: "gen_ai.tool.args", value: '{"q":"once"}' },
+							],
+						},
+					],
+				},
+			],
+		});
+		const frame = await adapter.listSpans({
+			signal: "traces",
+			timeRange: window,
+			limit: 25,
+			aiSelector: false,
+			agentLoop: true,
+		});
+		expect(frame.rows).toHaveLength(1);
+		expect(frame.rows[0]).toMatchObject({
+			traceId: "loop",
+			name: "execute_tool search",
+			agentLoop: expect.objectContaining({
+				toolName: "search",
+				count: 3,
+			}),
+		});
+	});
+
 	it("loads span names from Jaeger operations API", async () => {
 		mockSafeFetch.mockImplementation(async (url: string) => {
 			if (String(url).includes("/operations")) {

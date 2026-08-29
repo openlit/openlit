@@ -22,6 +22,8 @@ import {
 	matchesGenerationHealthChip,
 } from "@/lib/platform/generation-health/classify";
 import { fillTemplate } from "@/lib/platform/generation-health/format";
+import { asAgentLoopHit } from "@/lib/platform/agent-loop/classify";
+import { agentLoopDetailLine } from "@/lib/platform/agent-loop/format";
 import Evaluations from "@/components/(playground)/request/components/evaluations";
 import { RequestProvider } from "@/components/(playground)/request/request-context";
 import TraceAiAnalysisPanel from "@/components/(playground)/request/components/trace-ai-analysis-panel";
@@ -59,6 +61,16 @@ function formatSessionDurationMs(ms: number): string {
 // non-`full` content-capture mode (CLI flag OPENLIT_CODING_CONTENT_CAPTURE).
 // We surface the one command that flips it on; everything else (modes,
 // scope, scrubbing guarantees) lives in the docs to keep this terse.
+function AgentLoopNote({ hit }: { hit: ReturnType<typeof asAgentLoopHit> }) {
+	if (!hit) return null;
+	return (
+		<div className="flex items-start gap-2 rounded-md border border-violet-200 bg-violet-50 px-2 py-1.5 text-[11px] text-violet-900 dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200">
+			<AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+			<span>{agentLoopDetailLine(hit)}</span>
+		</div>
+	);
+}
+
 function GenerationHealthNote({
 	spanAttributes,
 }: {
@@ -991,6 +1003,7 @@ export function TraceDetailView({
 						<ContentCaptureNote />
 					)}
 					<GenerationHealthNote spanAttributes={spanAttributes} />
+					<AgentLoopNote hit={asAgentLoopHit(raw?.agentLoop)} />
 					<div className="hidden h-[min(860px,calc(100vh-12rem))] min-h-[620px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
 						<ResizablePanelGroup direction="horizontal" className="h-full">
 							<ResizablePanel defaultSize={48} minSize={32} maxSize={68}>
