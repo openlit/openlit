@@ -13,6 +13,7 @@ import {
 	DATA_SOURCE_SECRET_NOT_FOUND,
 	DATA_SOURCE_SECRET_UNAVAILABLE,
 } from "@/constants/messages/en";
+import { decryptValue, isEncrypted } from "@/utils/crypto";
 
 export interface ResolvedSecret {
 	/** Raw decrypted secret string. */
@@ -72,16 +73,28 @@ export function __resetSourceSecretCacheForTests(): void {
 export async function resolveSourceSecret(
 	secretRef: string | null | undefined,
 	dbConfigId?: string,
-	projectId?: string | null
+	projectId?: string | null,
+	options: { clickHouseVault?: boolean } = {}
 ): Promise<ResolvedSecret> {
-	if (!secretRef) return { raw: "", credentials: {} };
-	const cacheKey = sourceSecretCacheKey(secretRef, dbConfigId, projectId);
+	const ref = String(secretRef || "").trim();
+	if (!ref) return { raw: "", credentials: {} };
+	const cacheKey = sourceSecretCacheKey(ref, dbConfigId, projectId);
 	const cached = sourceSecretCache.get(cacheKey);
 	if (cached && cached.expiresAt > Date.now()) return cached.value;
 
+	if (isEncrypted(ref)) {
+		const raw = decryptValue(ref, { logErrors: false });
+		if (isEncrypted(raw)) throw new Error(DATA_SOURCE_SECRET_DECRYPT_FAILED);
+		return cacheResolvedSecret(cacheKey, parseSecretPayload(raw));
+	}
+
+	if (options.clickHouseVault === false) {
+		throw new Error(DATA_SOURCE_SECRET_UNAVAILABLE);
+	}
+
 	let result: Awaited<ReturnType<typeof getSecretById>>;
 	try {
-		result = await getSecretById(secretRef, dbConfigId, false, {
+		result = await getSecretById(ref, dbConfigId, false, {
 			logDecryptErrors: false,
 			projectId: projectId || undefined,
 		});
@@ -97,12 +110,16 @@ export async function resolveSourceSecret(
 	const raw = typeof row?.value === "string" ? row.value : "";
 	if (!row || !raw) throw new Error(DATA_SOURCE_SECRET_NOT_FOUND);
 
+	if (isEncrypted(raw)) {
+		throw new Error(DATA_SOURCE_SECRET_DECRYPT_FAILED);
+	}
+
+	return cacheResolvedSecret(cacheKey, parseSecretPayload(raw));
+}
+
+function parseSecretPayload(raw: string): ResolvedSecret {
 	let credentials: Record<string, string> = {};
 	if (raw) {
-		// decryptValue returns the ciphertext unchanged when decryption fails.
-		if (raw.startsWith("enc:v1:")) {
-			throw new Error(DATA_SOURCE_SECRET_DECRYPT_FAILED);
-		}
 		try {
 			const parsed = JSON.parse(raw);
 			if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -111,12 +128,13 @@ export async function resolveSourceSecret(
 				);
 			}
 		} catch {
-			// A manually selected vault value may be a single opaque bearer token.
 			credentials = { token: raw };
 		}
 	}
+	return { raw, credentials };
+}
 
-	const value = { raw, credentials };
+function cacheResolvedSecret(cacheKey: string, value: ResolvedSecret): ResolvedSecret {
 	sourceSecretCache.set(cacheKey, {
 		value,
 		expiresAt: Date.now() + SOURCE_SECRET_CACHE_TTL_MS,

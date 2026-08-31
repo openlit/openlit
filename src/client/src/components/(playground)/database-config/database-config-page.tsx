@@ -252,6 +252,10 @@ function DatabaseList({
 	openNew,
 	onOpenNewHandled,
 	hideEmpty,
+	hideList,
+	editing: controlledEditing,
+	onEditingChange,
+	onConfigSaved,
 }: {
 	dbConfigs: DatabaseConfigWithActive[];
 	canCreate: boolean;
@@ -262,10 +266,16 @@ function DatabaseList({
 	openNew?: boolean;
 	onOpenNewHandled?: () => void;
 	hideEmpty?: boolean;
+	hideList?: boolean;
+	editing?: DatabaseConfigWithActive | "new" | null;
+	onEditingChange?: (next: DatabaseConfigWithActive | "new" | null) => void;
+	onConfigSaved?: () => void;
 }) {
 	const messages = getMessage();
 	const selectedEnvironment = useRootStore(getCurrentProjectEnvironment) || "production";
-	const [editing, setEditing] = useState<DatabaseConfigWithActive | "new" | null>(null);
+	const [internalEditing, setInternalEditing] = useState<DatabaseConfigWithActive | "new" | null>(null);
+	const editing = controlledEditing !== undefined ? controlledEditing : internalEditing;
+	const setEditing = onEditingChange || setInternalEditing;
 	const [testingId, setTestingId] = useState<string | null>(null);
 	const visibleConfigs = useMemo(
 		() => dbConfigs.filter((config) => (config.environment || "production").toLowerCase() === selectedEnvironment.toLowerCase()),
@@ -298,6 +308,24 @@ function DatabaseList({
 		}
 	};
 
+	const dialog = editing ? (
+		<Dialog open onOpenChange={(open) => !open && setEditing(null)}>
+			<DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-3xl overflow-y-auto p-0">
+				<ModifyDatabaseConfig
+					dbConfig={editing === "new" ? undefined : editing}
+					canCreate={canCreate}
+					canUpdate={canUpdate}
+					onSaved={() => {
+						setEditing(null);
+						onConfigSaved?.();
+					}}
+				/>
+			</DialogContent>
+		</Dialog>
+	) : null;
+
+	if (hideList) return dialog;
+
 	return (
 		<div className={hideHeader ? "relative contents" : "relative w-full p-4"}>
 			{!hideHeader && <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -328,7 +356,7 @@ function DatabaseList({
 					))}
 				</div>
 			)}
-			{editing && <Dialog open onOpenChange={(open) => !open && setEditing(null)}><DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-3xl overflow-y-auto p-0"><ModifyDatabaseConfig dbConfig={editing === "new" ? undefined : editing} canCreate={canCreate} canUpdate={canUpdate} onSaved={() => setEditing(null)} /></DialogContent></Dialog>}
+			{dialog}
 		</div>
 	);
 }
@@ -342,6 +370,10 @@ export default function Database({
 	openNew = false,
 	onOpenNewHandled,
 	hideEmpty = false,
+	hideList = false,
+	editing,
+	onEditingChange,
+	onConfigSaved,
 }: {
 	canCreate?: boolean;
 	canUpdate?: boolean;
@@ -351,8 +383,30 @@ export default function Database({
 	openNew?: boolean;
 	onOpenNewHandled?: () => void;
 	hideEmpty?: boolean;
+	hideList?: boolean;
+	editing?: DatabaseConfigWithActive | "new" | null;
+	onEditingChange?: (next: DatabaseConfigWithActive | "new" | null) => void;
+	onConfigSaved?: () => void;
 }) {
 	const databaseList = useRootStore(getDatabaseConfigList);
+
+	if (isNil(databaseList) && hideList) {
+		return (
+			<DatabaseList
+				dbConfigs={[]}
+				canCreate={canCreate}
+				canUpdate={canUpdate}
+				canDelete={canDelete}
+				canShare={canShare}
+				hideHeader
+				hideEmpty
+				hideList
+				editing={editing}
+				onEditingChange={onEditingChange}
+				onConfigSaved={onConfigSaved}
+			/>
+		);
+	}
 
 	return isNil(databaseList) ? (
 		<div className={hideHeader ? "contents" : "p-4"}>
@@ -373,6 +427,10 @@ export default function Database({
 			openNew={openNew}
 			onOpenNewHandled={onOpenNewHandled}
 			hideEmpty={hideEmpty}
+			hideList={hideList}
+			editing={editing}
+			onEditingChange={onEditingChange}
+			onConfigSaved={onConfigSaved}
 		/>
 	);
 }

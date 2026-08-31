@@ -23,9 +23,10 @@ import { toast } from "sonner";
 interface ChatLayoutProps {
 	initialConversationId: string | null;
 	initialView?: "chat" | "usage" | "settings";
+	initialPrompt?: string | null;
 }
 
-export default function ChatLayout({ initialConversationId, initialView = "chat" }: ChatLayoutProps) {
+export default function ChatLayout({ initialConversationId, initialView = "chat", initialPrompt }: ChatLayoutProps) {
 	const m = getMessage();
 	const router = useRouter();
 	const posthog = usePostHog();
@@ -147,6 +148,7 @@ export default function ChatLayout({ initialConversationId, initialView = "chat"
 						hasConfig={hasConfig && !loadingConfig}
 						configInfo={configInfo}
 						onNewConversation={handleNewConversation}
+						initialPrompt={initialPrompt}
 					/>
 				)}
 			</div>

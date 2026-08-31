@@ -240,6 +240,13 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getBreadcrumbs: () => [],
 	},
 
+	// Memory
+	{
+		regex: /^\/memory$/,
+		getTitle: () => getMessage().FEATURE_MEMORY,
+		getBreadcrumbs: () => [],
+	},
+
 	// Rule Engine
 	{
 		regex: /^\/rule-engine$/,

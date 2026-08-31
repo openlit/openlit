@@ -5,15 +5,46 @@
  * (single slash). `URL` can still parse that, but we store the canonical form.
  */
 
-import { existsSync } from "fs";
-
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 
-/** Fix `http:/host` / `https:/host` and trim trailing slashes. */
+/** Resolve `fs.existsSync` only at call time so client bundles never import `fs`. */
+function defaultExists(path: string): boolean {
+	try {
+		// Keep Node `fs` out of client bundles; resolve only when `require` exists.
+		if (typeof require !== "function") return false;
+		// eslint-disable-next-line
+		const fs = require("fs") as {
+			existsSync?: (filePath: string) => boolean;
+		};
+		return Boolean(fs.existsSync?.(path));
+	} catch {
+		return false;
+	}
+}
+
+/** Repair `http:/host` / `https:/host` (single slash) without changing the path. */
+export function canonicalizeFetchUrl(raw: string): string {
+	return String(raw || "").trim().replace(/^(https?:)\/(?!\/)/i, "$1//");
+}
+
+/**
+ * Join a stored endpoint base with a request path. Preserves a trailing slash
+ * on the path — `new URL(path, base)` is safe for the join itself, but callers
+ * that later normalize the result must not strip resource slashes (Mem0 get
+ * requires `/v1/memories/{id}/`).
+ */
+export function joinDatasourceRequestUrl(baseUrl: string, path: string): string {
+	const base = String(baseUrl || "").replace(/\/+$/, "");
+	const suffix = String(path || "").replace(/^\//, "");
+	if (!base) return suffix;
+	if (!suffix) return base;
+	return `${base}/${suffix}`;
+}
+
+/** Fix `http:/host` / `https:/host` and trim trailing slashes on stored endpoint bases. */
 export function normalizeDatasourceEndpointUrl(raw: string): string {
-	const trimmed = String(raw || "").trim();
-	if (!trimmed) return trimmed;
-	const withAuthority = trimmed.replace(/^(https?:)\/(?!\/)/i, "$1//");
+	const withAuthority = canonicalizeFetchUrl(raw);
+	if (!withAuthority) return withAuthority;
 	try {
 		const url = new URL(withAuthority);
 		if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -27,7 +58,7 @@ export function normalizeDatasourceEndpointUrl(raw: string): string {
 
 /** True when the OpenLIT process is running inside a Docker container. */
 export function isRunningInDocker(
-	exists: (path: string) => boolean = existsSync
+	exists: (path: string) => boolean = defaultExists
 ): boolean {
 	try {
 		return exists("/.dockerenv");
@@ -51,14 +82,17 @@ export function rewriteLoopbackEndpointForDocker(
 ): string {
 	const enabled = options.enabled ?? isRunningInDocker();
 	if (!enabled) return rawUrl;
-	const normalized = normalizeDatasourceEndpointUrl(rawUrl);
-	if (!normalized) return rawUrl;
+	const repaired = canonicalizeFetchUrl(rawUrl);
+	if (!repaired) return rawUrl;
 	try {
-		const url = new URL(normalized);
+		const url = new URL(repaired);
 		const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-		if (!LOOPBACK_HOSTNAMES.has(hostname)) return normalized;
+		if (!LOOPBACK_HOSTNAMES.has(hostname)) return repaired;
 		url.hostname = options.dockerHost || "host.docker.internal";
-		return url.toString().replace(/\/+$/, "");
+		const rewritten = url.toString();
+		const originalPath = repaired.split("?")[0].split("#")[0];
+		if (originalPath.endsWith("/")) return rewritten;
+		return rewritten.replace(/\/+$/, "");
 	} catch {
 		return rawUrl;
 	}

@@ -41,6 +41,17 @@ import { listTraceRecords } from "../traces/read";
 import { getLogs } from "../logs/read";
 import { listMetricRecords } from "../metrics/read";
 import { resolveSignalSource } from "@/lib/telemetry-source";
+import {
+	recordMemoryMutationAudit,
+	requireMemoryAccess,
+	type MemoryMutationAuditInput,
+} from "@/lib/access/memory-route";
+import { queryProjectMemories } from "@/lib/platform/connectors/memory/read";
+import {
+	addProjectMemories,
+	deleteProjectMemory,
+	updateProjectMemory,
+} from "@/lib/platform/connectors/memory/write";
 import Sanitizer from "@/utils/sanitizer";
 import {
 	createAlertDestinationTool,
@@ -923,6 +934,196 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 			},
 		}),
 
+		// ==================== MEMORY ====================
+
+		list_memories: tool<any, any>({
+			description:
+				"List stored agent memories from the project's memory connectors. Prefer this for inventory questions (who are the users, what is remembered, summarize memories). Pass connector_id and user_id/session_id/agent_id when the user or Memory page provided them. The result includes memories[].userId and filters.users.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					connector_id: { type: "string", description: "Memory connector id (memory:…)" },
+					user_id: { type: "string" },
+					agent_id: { type: "string" },
+					session_id: { type: "string", description: "Session, store, or run id when the connector requires one" },
+					limit: { type: "number", description: "Max memories to return (1-100)" },
+				},
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireMemoryAccess("read");
+					const result = await queryProjectMemories({
+						connectorId: params.connector_id,
+						userId: params.user_id,
+						agentId: params.agent_id,
+						sessionId: params.session_id,
+						limit: params.limit,
+					});
+					return summarizeMemoryToolResult(result);
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to list memories" };
+				}
+			},
+		}),
+
+		search_memories: tool<any, any>({
+			description:
+				"Semantic search over stored agent memories. Use for a specific fact lookup, not for listing users or browsing everything. If search returns count=0, call list_memories with the same connector_id/user_id before saying nothing is stored. Always pass connector_id and user_id when provided.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					query: { type: "string", description: "Natural-language search query" },
+					connector_id: { type: "string" },
+					user_id: { type: "string" },
+					agent_id: { type: "string" },
+					session_id: { type: "string" },
+					limit: { type: "number" },
+				},
+				required: ["query"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireMemoryAccess("read");
+					const result = await queryProjectMemories({
+						query: params.query,
+						connectorId: params.connector_id,
+						userId: params.user_id,
+						agentId: params.agent_id,
+						sessionId: params.session_id,
+						limit: params.limit,
+					});
+					return summarizeMemoryToolResult(result);
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to search memories" };
+				}
+			},
+		}),
+
+		add_memory: tool<any, any>({
+			description: "Create a stored memory on the project's memory connector. Use this when the user asks to remember a fact.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					content: { type: "string", description: "Memory text to store" },
+					connector_id: { type: "string" },
+					user_id: { type: "string" },
+					agent_id: { type: "string" },
+					session_id: { type: "string", description: "Required for some connectors such as Zep" },
+				},
+				required: ["content"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireMemoryAccess("create");
+					const result = await addProjectMemories({
+						content: params.content,
+						connectorId: params.connector_id,
+						userId: params.user_id,
+						agentId: params.agent_id,
+						sessionId: params.session_id,
+					});
+					const first = result.memories[0];
+					await auditMemoryToolMutation({
+						action: "create",
+						targetId: first?.id,
+						connectorId: result.connector?.id,
+						userId: params.user_id,
+						agentId: params.agent_id,
+						sessionId: params.session_id,
+						contentLength: typeof params.content === "string" ? params.content.length : undefined,
+					});
+					return {
+						success: true,
+						message: "Memory saved",
+						url: memoryEntityUrl(first?.id, result.connector?.id),
+						connector: result.connector
+							? { id: result.connector.id, name: result.connector.name, type: result.connector.type }
+							: null,
+						memories: result.memories.map((memory) => ({
+							id: memory.id,
+							content: memory.content,
+							userId: memory.userId,
+							sessionId: memory.sessionId,
+							agentId: memory.agentId,
+							url: memoryEntityUrl(memory.id, result.connector?.id),
+						})),
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to add memory" };
+				}
+			},
+		}),
+
+		update_memory: tool<any, any>({
+			description: "Update the text of an existing stored memory. Use list_memories or search_memories first to get the id.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					id: { type: "string", description: "Memory id" },
+					content: { type: "string", description: "Replacement memory text" },
+					connector_id: { type: "string" },
+				},
+				required: ["id", "content"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireMemoryAccess("update");
+					const result = await updateProjectMemory({
+						id: params.id,
+						content: params.content,
+						connectorId: params.connector_id,
+					});
+					await auditMemoryToolMutation({
+						action: "update",
+						targetId: result.memory.id,
+						connectorId: result.connector?.id || params.connector_id,
+						contentLength: typeof params.content === "string" ? params.content.length : undefined,
+					});
+					return {
+						success: true,
+						message: "Memory updated",
+						url: memoryEntityUrl(result.memory.id, result.connector?.id),
+						memory: {
+							id: result.memory.id,
+							content: result.memory.content,
+							url: memoryEntityUrl(result.memory.id, result.connector?.id),
+						},
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to update memory" };
+				}
+			},
+		}),
+
+		delete_memory: tool<any, any>({
+			description: "Delete a stored memory by id. Confirm the id with the user when possible.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					id: { type: "string", description: "Memory id" },
+					connector_id: { type: "string" },
+				},
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireMemoryAccess("delete");
+					const result = await deleteProjectMemory({
+						id: params.id,
+						connectorId: params.connector_id,
+					});
+					await auditMemoryToolMutation({
+						action: "delete",
+						targetId: params.id,
+						connectorId: result.connector?.id || params.connector_id,
+					});
+					return { success: true, message: "Memory deleted", id: params.id };
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to delete memory" };
+				}
+			},
+		}),
+
 		// ==================== CUSTOM MODELS ====================
 
 		create_custom_model: tool<any, any>({
@@ -1339,5 +1540,67 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 			},
 		}),
 
+	};
+}
+
+function memoryEntityUrl(id?: string, connectorId?: string) {
+	const params = new URLSearchParams();
+	if (id) params.set("id", id);
+	if (connectorId) params.set("connectorId", connectorId);
+	const query = params.toString();
+	return query ? `/memory?${query}` : "/memory";
+}
+
+async function auditMemoryToolMutation(input: MemoryMutationAuditInput) {
+	try {
+		await recordMemoryMutationAudit({ ...input, source: input.source || "chat" });
+	} catch {
+		// HTTP audit also fails open so a logging outage cannot block the write.
+	}
+}
+
+function summarizeMemoryToolResult(result: Awaited<ReturnType<typeof queryProjectMemories>>) {
+	const memories = result.memories.slice(0, 25).map((memory) => ({
+		id: memory.id,
+		content:
+			memory.content.length > 280
+				? `${memory.content.slice(0, 277).trimEnd()}…`
+				: memory.content,
+		userId: memory.userId,
+		agentId: memory.agentId,
+		sessionId: memory.sessionId,
+		kind: memory.kind,
+		createdAt: memory.createdAt,
+		score: memory.score,
+		url: memoryEntityUrl(memory.id, result.connector?.id),
+	}));
+	const knownUserIds = Array.from(
+		new Set(
+			[
+				...(result.filters?.users || []),
+				...memories.map((memory) => memory.userId).filter(Boolean),
+			].map((value) => String(value))
+		)
+	);
+	return {
+		success: true,
+		hint: result.hint,
+		connector: result.connector
+			? {
+					id: result.connector.id,
+					name: result.connector.name,
+					type: result.connector.type,
+					environment: result.connector.environment,
+				}
+			: null,
+		count: result.memories.length,
+		stats: result.stats,
+		filters: result.filters,
+		knownUserIds,
+		guidance:
+			result.memories.length === 0 && knownUserIds.length > 0
+				? "No memory rows matched this query, but knownUserIds lists users present on this connector. Call list_memories (without a semantic query) with connector_id/user_id to load their memories."
+				: undefined,
+		memories,
 	};
 }
