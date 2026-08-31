@@ -50,6 +50,7 @@ export type CustomFilter = {
  * `VersionFilter` from either path now points at the same interface.
  */
 import type { VersionFilter } from "@/types/platform";
+import type { GenerationHealthChip } from "@/lib/platform/generation-health/classify";
 export type { VersionFilter };
 
 export interface FilterConfig {
@@ -68,6 +69,10 @@ export interface FilterConfig {
 	metricNames: string[];
 	metricTypes: string[];
 	customFilters?: CustomFilter[];
+	/** Truncated / filtered / empty / model-swapped chips on traces. */
+	generationHealth?: GenerationHealthChip[];
+	/** Stuck-tool loop chip on traces (same tool + args ≥ N times). */
+	agentLoop?: boolean;
 	/** Locked agent version scope used by the agent detail page. */
 	versionFilter?: VersionFilter;
 }

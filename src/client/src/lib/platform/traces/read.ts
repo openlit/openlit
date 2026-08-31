@@ -12,6 +12,7 @@ import { getFilterPreviousParams } from "@/helpers/server/platform";
 import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
 import { denormalizeSpanToTraceRow } from "@/lib/platform/connectors/datasource/clickhouse/normalize";
 import type {
+	DataSourceAdapter,
 	NormalizedSpan,
 	OpenLITQuery,
 } from "@/lib/platform/connectors/datasource/types";
@@ -30,6 +31,21 @@ import { consoleLog } from "@/utils/log";
 import { AdapterError } from "@openplait/adapter-sdk";
 import { pickRootSpan } from "@/lib/platform/connectors/datasource/graph/sample-fetch";
 import { normalizeOtlpId } from "@/lib/platform/connectors/datasource/otlp-json";
+import {
+	GENERATION_HEALTH_SAMPLE_MAX,
+	GENERATION_HEALTH_SAMPLE_TRACES,
+	listedSpansMatchingGenerationHealth,
+	uniqueTraceCount,
+} from "@/lib/platform/generation-health/classify";
+import {
+	detectAgentLoops,
+	listedSpansMatchingAgentLoop,
+	loopGroupIdentity,
+	loopHitsByTraceId,
+	spanLoopAttrs,
+	worstLoop,
+} from "@/lib/platform/agent-loop/classify";
+import { mapPool } from "@/lib/platform/connectors/datasource/graph/map-pool";
 
 async function resolveTracesAdapter(sourceId?: string, environment?: string) {
 	const { adapter, descriptor } = await resolveSignalReadContext("traces", {
@@ -59,6 +75,314 @@ function externalTraceQuery(params: MetricParams, opts?: { aiSelector?: boolean 
 	return { ...query, filters: filters?.length ? filters : undefined };
 }
 
+function usesSqlIssueFilters(descriptor: { isBuiltIn: boolean; type: string }) {
+	return descriptor.isBuiltIn || descriptor.type === "clickhouse";
+}
+
+function needsSampledIssueList(query: OpenLITQuery): boolean {
+	return Boolean(query.generationHealth?.length || query.agentLoop);
+}
+
+function applyInProcessIssueFilters(
+	spans: NormalizedSpan[],
+	query: OpenLITQuery
+): NormalizedSpan[] {
+	const health = query.generationHealth || [];
+	if (query.agentLoop && health.length) {
+		const looping = loopHitsByTraceId(spans);
+		return listedSpansMatchingGenerationHealth(spans, health).filter((span) =>
+			looping.has(span.traceId)
+		);
+	}
+	if (query.agentLoop) return listedSpansMatchingAgentLoop(spans, true);
+	if (health.length) {
+		return listedSpansMatchingGenerationHealth(spans, health);
+	}
+	return spans;
+}
+
+function withLoopHits(
+	records: Record<string, unknown>[],
+	spans: NormalizedSpan[]
+): Record<string, unknown>[] {
+	const hits = loopHitsByTraceId(spans);
+	if (!hits.size) return records;
+	return records.map((row) => {
+		const id = String(row.TraceId || "").trim();
+		const hit = (id && hits.get(id)) || undefined;
+		return hit ? { ...row, agentLoop: hit } : row;
+	});
+}
+
+function attachLoopToRow(
+	row: Record<string, unknown>,
+	spans: NormalizedSpan[]
+): Record<string, unknown> {
+	const hit = worstLoop(detectAgentLoops(spans));
+	return hit ? { ...row, agentLoop: hit } : row;
+}
+
+/** Tempo Explore rows reuse TraceId as SpanId and carry no attributes. */
+function isTraceSummaryRow(span: NormalizedSpan): boolean {
+	const attrs = span.spanAttributes || {};
+	return (
+		Boolean(span.traceId) &&
+		span.spanId === span.traceId &&
+		Object.keys(attrs).length === 0
+	);
+}
+
+async function treesForListedTraces(
+	adapter: DataSourceAdapter,
+	listed: NormalizedSpan[]
+): Promise<NormalizedSpan[]> {
+	if (!listed.length || typeof adapter.getTraceSpans !== "function") {
+		return listed;
+	}
+	const ids = Array.from(
+		new Set(listed.map((span) => String(span.traceId || "").trim()).filter(Boolean))
+	);
+	const trees = await mapPool(ids, 4, async (traceId) => {
+		try {
+			const tree = await adapter.getTraceSpans!(traceId);
+			return tree.length ? tree : [];
+		} catch {
+			return [];
+		}
+	});
+	const spans = trees.flat();
+	return spans.length ? spans : listed;
+}
+
+const DETAIL_LOOP_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function attachLoopForDetail(
+	adapter: DataSourceAdapter,
+	descriptor: { isBuiltIn: boolean; type: string; dbConfigId?: string },
+	row: Record<string, unknown>,
+	spans: NormalizedSpan[]
+): Promise<Record<string, unknown>> {
+	const fromTree = attachLoopToRow(row, spans);
+	if (fromTree.agentLoop) return fromTree;
+
+	const traceId = String(row.TraceId || spans[0]?.traceId || "").trim();
+	if (usesSqlIssueFilters(descriptor) && traceId) {
+		try {
+			const { getFilterWhereCondition } = await import(
+				"@/helpers/server/platform"
+			);
+			const { fetchLoopHitsByTraceIds } = await import(
+				"@/lib/platform/agent-loop/clickhouse"
+			);
+			const timestamp = String(row.Timestamp || spans[0]?.timestamp || "");
+			const at = timestamp ? new Date(timestamp) : new Date();
+			const start = new Date(at.getTime() - DETAIL_LOOP_LOOKBACK_MS);
+			const end = new Date(at.getTime() + 60 * 60 * 1000);
+			const baseWhere = getFilterWhereCondition(
+				{
+					timeLimit: {
+						start: start.toISOString(),
+						end: end.toISOString(),
+						type: "CUSTOM",
+					},
+					databaseConfigId: descriptor.dbConfigId,
+					selectedConfig: {},
+				} as MetricParams,
+				true
+			);
+			const hits = await fetchLoopHitsByTraceIds(
+				baseWhere,
+				[traceId],
+				descriptor.dbConfigId
+			);
+			const hit = hits.get(traceId);
+			if (hit) return { ...row, agentLoop: hit };
+		} catch {
+			// Detail still renders without the loop note.
+		}
+		return row;
+	}
+
+	const identity = loopGroupIdentity(
+		spanLoopAttrs(spans.find((span) => span.spanId === row.SpanId) || spans[0] || {})
+	);
+	if (!identity || typeof adapter.sampleTracesForGraph !== "function") {
+		return row;
+	}
+	try {
+		const timestamp = String(row.Timestamp || spans[0]?.timestamp || "");
+		const at = timestamp ? new Date(timestamp) : new Date();
+		const extra = await adapter.sampleTracesForGraph(
+			{
+				signal: "traces",
+				timeRange: {
+					start: new Date(at.getTime() - DETAIL_LOOP_LOOKBACK_MS),
+					end: new Date(at.getTime() + 60 * 60 * 1000),
+				},
+				aiSelector: false,
+				filters: [
+					{
+						target: "attribute",
+						scope: "span",
+						key: identity.key,
+						op: "eq",
+						value: identity.value,
+					},
+				],
+				limit: 50,
+			},
+			50
+		);
+		return attachLoopToRow(row, extra.length ? extra : spans);
+	} catch {
+		return row;
+	}
+}
+
+async function listedSpansForIssueSample(
+	adapter: DataSourceAdapter,
+	listed: NormalizedSpan[],
+	query: OpenLITQuery
+): Promise<NormalizedSpan[]> {
+	if (!listed.length) return [];
+	if (applyInProcessIssueFilters(listed, query).length) return listed;
+	if (typeof adapter.getTraceSpans !== "function") return listed;
+	const seen = new Set<string>();
+	const trees: NormalizedSpan[] = [];
+	for (const row of listed) {
+		const traceId = String(row.traceId || "").trim();
+		if (!traceId || seen.has(traceId)) continue;
+		seen.add(traceId);
+		const tree = await adapter.getTraceSpans(traceId);
+		if (tree.length) trees.push(...tree);
+		else trees.push(row);
+	}
+	return trees;
+}
+
+async function collectMatchingIssueRows(
+	fetchSpans: (budget: number) => Promise<NormalizedSpan[]>,
+	query: OpenLITQuery,
+	needed: number
+): Promise<{ matched: NormalizedSpan[]; sampled: NormalizedSpan[]; truncated: boolean }> {
+	let budget = Math.max(GENERATION_HEALTH_SAMPLE_TRACES, needed);
+	let matched: NormalizedSpan[] = [];
+	let sampled: NormalizedSpan[] = [];
+	let truncated = false;
+	while (budget <= GENERATION_HEALTH_SAMPLE_MAX) {
+		sampled = await fetchSpans(budget);
+		matched = applyInProcessIssueFilters(sampled, query);
+		const unique = uniqueTraceCount(sampled);
+		truncated = unique >= budget;
+		if (matched.length >= needed || !truncated) break;
+		const next = Math.min(budget * 2, GENERATION_HEALTH_SAMPLE_MAX);
+		if (next <= budget) break;
+		budget = next;
+	}
+	return { matched, sampled, truncated };
+}
+
+function sampledIssueListResult(
+	matched: NormalizedSpan[],
+	sampled: NormalizedSpan[],
+	offset: number,
+	pageSize: number,
+	truncated: boolean
+) {
+	const page = matched.slice(offset, offset + pageSize);
+	const total = truncated
+		? Math.max(
+				matched.length,
+				offset + page.length + (page.length === pageSize ? 1 : 0)
+			)
+		: matched.length;
+	return {
+		err: null,
+		records: withLoopHits(
+			page.map((row) => denormalizeSpanToTraceRow(row)),
+			sampled
+		),
+		total,
+		freshness: "sampled" as const,
+	};
+}
+
+async function listSampledIssueRecords(
+	adapter: DataSourceAdapter,
+	query: OpenLITQuery,
+	params: MetricParams
+) {
+	const pageSize = Math.min(params.limit || 25, GENERATION_HEALTH_SAMPLE_MAX);
+	const offset = Math.max(0, params.offset || 0);
+	const needed = offset + pageSize;
+	if (typeof adapter.sampleTracesForGraph === "function") {
+		try {
+			const { matched, sampled, truncated } = await collectMatchingIssueRows(
+				(budget) => adapter.sampleTracesForGraph!(query, budget),
+				query,
+				needed
+			);
+			return sampledIssueListResult(matched, sampled, offset, pageSize, truncated);
+		} catch (err) {
+			if (!(err instanceof UnsupportedCapabilityError)) throw err;
+		}
+	}
+	const { matched, sampled, truncated } = await collectMatchingIssueRows(
+		async (budget) => {
+			const frame = await adapter.listSpans({
+				...query,
+				limit: budget,
+				offset: 0,
+			});
+			return listedSpansForIssueSample(adapter, frame.rows || [], query);
+		},
+		query,
+		needed
+	);
+	return sampledIssueListResult(matched, sampled, offset, pageSize, truncated);
+}
+
+async function attachClickHouseLoopHits(
+	params: MetricParams,
+	records: Record<string, unknown>[]
+): Promise<Record<string, unknown>[]> {
+	const ids = Array.from(
+		new Set(
+			records
+				.map((row) => String(row.TraceId || "").trim())
+				.filter(Boolean)
+		)
+	);
+	if (!ids.length) return records;
+	try {
+		const { getFilterWhereCondition } = await import(
+			"@/helpers/server/platform"
+		);
+		const { fetchLoopHitsByTraceIds } = await import(
+			"@/lib/platform/agent-loop/clickhouse"
+		);
+		const selectedConfig = { ...(params.selectedConfig || {}) };
+		delete selectedConfig.agentLoop;
+		delete selectedConfig.generationHealth;
+		const baseWhere = getFilterWhereCondition(
+			{ ...params, selectedConfig },
+			true
+		);
+		const hits = await fetchLoopHitsByTraceIds(
+			baseWhere,
+			ids,
+			params.databaseConfigId
+		);
+		if (!hits.size) return records;
+		return records.map((row) => {
+			const hit = hits.get(String(row.TraceId || "").trim());
+			return hit ? { ...row, agentLoop: hit } : row;
+		});
+	} catch {
+		return records;
+	}
+}
+
 function asErrorMessage(err: unknown): string {
 	if (err instanceof UnsupportedCapabilityError) return err.message;
 	if (err instanceof AdapterError) {
@@ -79,6 +403,9 @@ export async function listTraceRecords(params: MetricParams) {
 
 	try {
 		const query = externalTraceQuery(params, { aiSelector: false });
+		if (needsSampledIssueList(query) && !usesSqlIssueFilters(descriptor)) {
+			return await listSampledIssueRecords(adapter, query, params);
+		}
 		// Interactive lists always query the selected adapter directly. Sampling
 		// caches are reserved for aggregate/intelligence computation.
 		// Run list + count in parallel: Tempo/Jaeger count paths are often
@@ -93,7 +420,15 @@ export async function listTraceRecords(params: MetricParams) {
 		const spans = frame.rows || [];
 		const truncated =
 			!!frame.meta?.truncated || spans.length >= (params.limit || 25);
-		const records = spans.map((row) => denormalizeSpanToTraceRow(row));
+		let records = spans.map((row) => denormalizeSpanToTraceRow(row));
+		if (usesSqlIssueFilters(descriptor)) {
+			records = await attachClickHouseLoopHits(params, records);
+		} else if (spans.some(isTraceSummaryRow)) {
+			const trees = await treesForListedTraces(adapter, spans);
+			records = withLoopHits(records, trees);
+		} else {
+			records = withLoopHits(records, spans);
+		}
 		let total = truncated
 			? records.length + (params.offset || 0) + 1
 			: records.length + (params.offset || 0);
@@ -189,6 +524,15 @@ export async function getTraceSpanRecord(
 					record: undefined,
 				};
 			}
+			return {
+				err: null,
+				record: await attachLoopForDetail(
+					adapter,
+					descriptor,
+					denormalizeSpanToTraceRow(span),
+					spans
+				),
+			};
 		}
 		if (!opts?.traceId) span = await adapter.getSpan(spanId);
 		if (!span) {
@@ -207,7 +551,24 @@ export async function getTraceSpanRecord(
 			traceId: span.traceId,
 			elapsedMs: Date.now() - startedAt,
 		});
-		return { err: null, record: denormalizeSpanToTraceRow(span) };
+		let record = denormalizeSpanToTraceRow(span);
+		if (span.traceId && typeof adapter.getTraceSpans === "function") {
+			try {
+				const tree = await adapter.getTraceSpans(span.traceId);
+				if (tree.length) {
+					record = await attachLoopForDetail(adapter, descriptor, record, tree);
+				} else {
+					record = await attachLoopForDetail(adapter, descriptor, record, [
+						span,
+					]);
+				}
+			} catch {
+				record = await attachLoopForDetail(adapter, descriptor, record, [span]);
+			}
+		} else {
+			record = await attachLoopForDetail(adapter, descriptor, record, [span]);
+		}
+		return { err: null, record };
 	} catch (err) {
 		rethrowIfSourceFailure(err);
 		consoleLog("[traces] span detail failed", {
@@ -223,13 +584,21 @@ export async function getTraceSpanRecord(
 
 /** First span for a trace id (same shape as `getRequestViaTraceId`). */
 export async function getTraceRecordByTraceId(traceId: string, environment?: string) {
-	const { adapter } = await resolveTracesAdapter(undefined, environment);
+	const { adapter, descriptor } = await resolveTracesAdapter(undefined, environment);
 
 	try {
 		const spans = await adapter.getTraceSpans(traceId);
 		const first = spans[0];
 		if (!first) return { err: null, record: undefined };
-		return { err: null, record: denormalizeSpanToTraceRow(first) };
+		return {
+			err: null,
+			record: await attachLoopForDetail(
+				adapter,
+				descriptor,
+				denormalizeSpanToTraceRow(first),
+				spans
+			),
+		};
 	} catch (err) {
 		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err), record: undefined };

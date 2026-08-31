@@ -17,6 +17,13 @@ import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Clock, Copy, Cpu, 
 import SpanHierarchyExplorer from "./span-hierarchy-explorer";
 import { Button } from "@/components/ui/button";
 import getMessage from "@/constants/messages";
+import {
+	classifyGenerationHealth,
+	matchesGenerationHealthChip,
+} from "@/lib/platform/generation-health/classify";
+import { fillTemplate } from "@/lib/platform/generation-health/format";
+import { asAgentLoopHit } from "@/lib/platform/agent-loop/classify";
+import { agentLoopDetailLine } from "@/lib/platform/agent-loop/format";
 import Evaluations from "@/components/(playground)/request/components/evaluations";
 import { RequestProvider } from "@/components/(playground)/request/request-context";
 import TraceAiAnalysisPanel from "@/components/(playground)/request/components/trace-ai-analysis-panel";
@@ -54,6 +61,54 @@ function formatSessionDurationMs(ms: number): string {
 // non-`full` content-capture mode (CLI flag OPENLIT_CODING_CONTENT_CAPTURE).
 // We surface the one command that flips it on; everything else (modes,
 // scope, scrubbing guarantees) lives in the docs to keep this terse.
+function AgentLoopNote({ hit }: { hit: ReturnType<typeof asAgentLoopHit> }) {
+	if (!hit) return null;
+	return (
+		<div className="flex items-start gap-2 rounded-md border border-violet-200 bg-violet-50 px-2 py-1.5 text-[11px] text-violet-900 dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200">
+			<AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+			<span>{agentLoopDetailLine(hit)}</span>
+		</div>
+	);
+}
+
+function GenerationHealthNote({
+	spanAttributes,
+}: {
+	spanAttributes: Record<string, unknown>;
+}) {
+	const m = getMessage();
+	const health = classifyGenerationHealth(spanAttributes);
+	const notes: string[] = [];
+	if (matchesGenerationHealthChip(health, "truncated")) {
+		notes.push(m.GENERATION_HEALTH_DETAIL_TRUNCATED);
+	}
+	if (matchesGenerationHealthChip(health, "filtered")) {
+		notes.push(m.GENERATION_HEALTH_DETAIL_FILTERED);
+	}
+	if (matchesGenerationHealthChip(health, "empty")) {
+		notes.push(m.GENERATION_HEALTH_DETAIL_EMPTY);
+	}
+	if (health.modelSwap) {
+		notes.push(
+			fillTemplate(m.GENERATION_HEALTH_DETAIL_SWAPPED, {
+				requested: health.requestedModel,
+				served: health.servedModel,
+			})
+		);
+	}
+	if (!notes.length) return null;
+	return (
+		<div className="flex flex-col gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+			{notes.map((note) => (
+				<div key={note} className="flex items-start gap-2">
+					<AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+					<span>{note}</span>
+				</div>
+			))}
+		</div>
+	);
+}
+
 function ContentCaptureNote() {
 	const m = getMessage();
 	const command = m.CODING_AGENT_CONTENT_CAPTURE_NOTE_COMMAND;
@@ -947,6 +1002,8 @@ export function TraceDetailView({
 					{showContentCaptureNote && (
 						<ContentCaptureNote />
 					)}
+					<GenerationHealthNote spanAttributes={spanAttributes} />
+					<AgentLoopNote hit={asAgentLoopHit(raw?.agentLoop)} />
 					<div className="hidden h-[min(860px,calc(100vh-12rem))] min-h-[620px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
 						<ResizablePanelGroup direction="horizontal" className="h-full">
 							<ResizablePanel defaultSize={48} minSize={32} maxSize={68}>

@@ -18,6 +18,7 @@ export const FILTER_PARAM_KEYS = [
 	"metricNames",
 	"metricTypes",
 	"cf",
+	"gh",
 	"gb",
 	"gbv",
 ];

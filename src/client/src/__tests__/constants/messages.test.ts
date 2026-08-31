@@ -43,6 +43,21 @@ describe("getMessage()", () => {
 		expect(msgs.SECRET_DELETED).toBe("Secret deleted successfully!");
 	});
 
+	it("has generation-health messages with count/eligible placeholders", () => {
+		const msgs = getMessage();
+		expect(msgs.GENERATION_HEALTH_STAT_OF_ELIGIBLE).toContain("{count}");
+		expect(msgs.GENERATION_HEALTH_STAT_OF_ELIGIBLE).toContain("{eligible}");
+		expect(msgs.GENERATION_HEALTH_STAT_SKIPPED).toContain("{skipped}");
+		expect(msgs.GENERATION_HEALTH_STAT_SKIPPED).toContain("{total}");
+		expect(msgs.GENERATION_HEALTH_TIP_TRUNCATED).toBeTruthy();
+		expect(msgs.GENERATION_HEALTH_TIP_SWAPPED).toBeTruthy();
+		expect(msgs.GENERATION_HEALTH_CLICK_TO_FILTER).toBeTruthy();
+		expect(msgs.AGENT_LOOP_CHIP).toBe("Loop");
+		expect(msgs.AGENT_LOOP_TIP).toContain("{threshold}");
+		expect(msgs.AGENT_LOOP_DETAIL).toContain("{tool}");
+		expect(msgs.AGENT_LOOP_DETAIL).toContain("{cost}");
+	});
+
 	it("has evaluation-related messages", () => {
 		const msgs = getMessage();
 		expect(msgs.EVALUATION_CONFIG_NOT_FOUND).toBeDefined();

@@ -19,6 +19,17 @@ import {
 	hasCodingAgentVendorIcon,
 } from "@/components/svg/coding-agents";
 import getMessage from "@/constants/messages";
+import {
+	classifyFromNormalizedTrace,
+	matchesGenerationHealthChip,
+	type GenerationHealthChip,
+} from "@/lib/platform/generation-health/classify";
+import {
+	fillTemplate,
+	generationHealthChipLabel,
+} from "@/lib/platform/generation-health/format";
+import { asAgentLoopHit } from "@/lib/platform/agent-loop/classify";
+import { agentLoopBadgeTitle } from "@/lib/platform/agent-loop/format";
 
 const m = getMessage();
 
@@ -109,6 +120,45 @@ function MiniMeta({
 	);
 }
 
+function LoopBadge({
+	title,
+}: {
+	title?: string;
+}) {
+	const m = getMessage();
+	return (
+		<span
+			title={title || m.AGENT_LOOP_CHIP}
+			className="inline-flex items-center rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-800 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-200"
+		>
+			{m.AGENT_LOOP_CHIP}
+		</span>
+	);
+}
+
+function HealthBadge({
+	chip,
+	title,
+}: {
+	chip: GenerationHealthChip;
+	title?: string;
+}) {
+	const tone =
+		chip === "swapped"
+			? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+			: chip === "filtered"
+				? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+				: "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-200";
+	return (
+		<span
+			title={title || generationHealthChipLabel(chip)}
+			className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${tone}`}
+		>
+			{generationHealthChipLabel(chip)}
+		</span>
+	);
+}
+
 function TraceRecord({
 	row,
 	config,
@@ -123,6 +173,17 @@ function TraceRecord({
 	onOpen: (row: any) => void;
 }) {
 	const show = (key: string) => visibilityColumns[key] !== false;
+	const health = classifyFromNormalizedTrace(row);
+	const healthChips: GenerationHealthChip[] = (
+		["truncated", "filtered", "empty", "swapped"] as GenerationHealthChip[]
+	).filter((chip) => matchesGenerationHealthChip(health, chip));
+	const loopHit = asAgentLoopHit(row.agentLoop);
+	const swapTitle = health.modelSwap
+		? fillTemplate(m.GENERATION_HEALTH_BADGE_SWAPPED_TITLE, {
+				requested: health.requestedModel,
+				served: health.servedModel,
+			})
+		: undefined;
 	return (
 		<button
 			type="button"
@@ -136,10 +197,24 @@ function TraceRecord({
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div className="min-w-0">
 					<div className="flex min-w-0 items-center gap-2">
-						<span className={`h-2 w-2 rounded-full ${config.key === "exceptions" ? "bg-rose-500" : "bg-sky-500"}`} />
-						<h3 className="truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
+						<span className={`h-2 w-2 shrink-0 rounded-full ${config.key === "exceptions" ? "bg-rose-500" : "bg-sky-500"}`} />
+						<h3 className="min-w-0 truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
 							{show("spanName") ? row.spanName || row.id : row.id}
 						</h3>
+						{healthChips.length || loopHit ? (
+							<span className="flex shrink-0 flex-wrap items-center gap-1">
+								{healthChips.map((chip) => (
+									<HealthBadge
+										key={chip}
+										chip={chip}
+										title={chip === "swapped" ? swapTitle : undefined}
+									/>
+								))}
+								{loopHit ? (
+									<LoopBadge title={agentLoopBadgeTitle(loopHit)} />
+								) : null}
+							</span>
+						) : null}
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400">
 						{show("time") && <span>{row.time}</span>}
@@ -510,6 +585,7 @@ function SessionRecord({
 		: "";
 	const branchName = (row.branch || "").trim();
 	const folderLabel = (row.working_dir_label || "").trim();
+	const loopHit = asAgentLoopHit(row.agentLoop);
 	return (
 		<button
 			type="button"
@@ -531,6 +607,11 @@ function SessionRecord({
 					>
 						{sessionId}
 					</h3>
+					{loopHit ? (
+						<div className="mt-1">
+							<LoopBadge title={agentLoopBadgeTitle(loopHit)} />
+						</div>
+					) : null}
 					<div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
 						{show("user") && row.user && (
 							<span className="truncate text-xs text-stone-500 dark:text-stone-400">
@@ -778,7 +859,7 @@ export default function SignalRecords({
 						row={row}
 						config={config}
 						visibilityColumns={visibilityColumns}
-						isSelected={selectedId === row.spanId}
+						isSelected={selectedId === config.getRowId(row)}
 						onOpen={onOpen}
 					/>
 				)

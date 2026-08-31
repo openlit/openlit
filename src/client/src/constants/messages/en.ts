@@ -275,6 +275,58 @@ export const OBSERVABILITY_COPY_UNSUPPORTED =
 export const OBSERVABILITY_LINK_COPIED = "Link copied to clipboard";
 export const OBSERVABILITY_LINK_COPY_FAILED = "Could not copy link";
 export const OBSERVABILITY_COPY_SHARE_LINK = "Copy shareable link";
+export const GENERATION_HEALTH_TRUNCATED = "Truncated";
+export const GENERATION_HEALTH_FILTERED = "Filtered";
+export const GENERATION_HEALTH_EMPTY = "Empty";
+export const GENERATION_HEALTH_SWAPPED = "Model swapped";
+export const GENERATION_HEALTH_CHIP_GROUP = "Generation issues";
+export const GENERATION_HEALTH_CLICK_TO_FILTER =
+	"Click to show only these traces";
+export const GENERATION_HEALTH_CLICK_TO_CLEAR =
+	"Showing these traces — click to show all";
+export const GENERATION_HEALTH_STAT_OF_ELIGIBLE = "{count}/{eligible}";
+export const GENERATION_HEALTH_TIP_TRUNCATED =
+	"The reply stopped because the model hit its token limit.";
+export const GENERATION_HEALTH_TIP_FILTERED =
+	"A content or safety filter blocked the reply.";
+export const GENERATION_HEALTH_TIP_EMPTY =
+	"The model returned no completion tokens.";
+export const GENERATION_HEALTH_TIP_SWAPPED =
+	"The provider served a different model than the one requested.";
+export const GENERATION_HEALTH_TIP_COUNT =
+	"{count} of {eligible} traces in this window";
+export const GENERATION_HEALTH_TIP_NONE =
+	"None of {eligible} traces in this window";
+export const GENERATION_HEALTH_TIP_NO_ELIGIBLE =
+	"No traces in this window recorded the attributes needed for this check.";
+export const GENERATION_HEALTH_STAT_SKIPPED =
+	"{skipped} of {total} generations couldn't be checked — missing attributes.";
+export const GENERATION_HEALTH_DETAIL_TRUNCATED =
+	"Generation stopped because the model hit max tokens. Raise max_tokens or shorten the prompt.";
+export const GENERATION_HEALTH_DETAIL_FILTERED =
+	"Generation was blocked by a content filter or safety system.";
+export const GENERATION_HEALTH_DETAIL_EMPTY =
+	"The model returned no completion tokens.";
+export const GENERATION_HEALTH_DETAIL_SWAPPED =
+	"Requested {requested} but the provider served {served}.";
+export const GENERATION_HEALTH_BADGE_SWAPPED_TITLE =
+	"Requested {requested} → served {served}";
+export const AGENT_LOOP_CHIP = "Loop";
+export const AGENT_LOOP_CHIP_GROUP = "Agent loops";
+export const AGENT_LOOP_CLICK_TO_FILTER = "Click to show only looping traces";
+export const AGENT_LOOP_CLICK_TO_CLEAR =
+	"Showing looping traces — click to show all";
+export const AGENT_LOOP_TIP =
+	"The same tool was called with the same arguments at least {threshold} times in one conversation or session.";
+export const AGENT_LOOP_TIP_COUNT =
+	"{count} of {eligible} traces with tool calls in this window";
+export const AGENT_LOOP_TIP_NONE =
+	"None of {eligible} traces with tool calls in this window";
+export const AGENT_LOOP_TIP_NO_ELIGIBLE =
+	"No traces in this window recorded tool calls.";
+export const AGENT_LOOP_BADGE_TITLE = "{tool} × {count}";
+export const AGENT_LOOP_DETAIL =
+	"{tool} repeated {count} times — {tokens} tokens / ${cost} wasted.";
 export const OBSERVABILITY_TIME = "Time";
 export const OBSERVABILITY_SEVERITY = "Severity";
 export const OBSERVABILITY_BODY = "Body";
