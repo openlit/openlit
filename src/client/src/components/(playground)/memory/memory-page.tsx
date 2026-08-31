@@ -54,15 +54,6 @@ import MemoryFilterCombobox, {
 } from "./memory-filter-combobox";
 import AskOtterBar from "./ask-otter";
 
-type ConnectorOption = {
-	id: string;
-	name: string;
-	type: string;
-	environment?: string;
-	capabilities?: { add?: boolean } | null;
-	filterFields?: MemoryFilterField[];
-};
-
 export default function MemoryPage() {
 	const messages = getMessage();
 	const posthog = usePostHog();
@@ -122,7 +113,7 @@ export default function MemoryPage() {
 		[connectorId, replaceQuery]
 	);
 
-	const connectors = (result?.connectors || []) as ConnectorOption[];
+	const connectors = result?.connectors || [];
 	const copyTargets = connectors.filter(
 		(connector) => connector.id !== connectorId && connector.capabilities?.add
 	);
@@ -290,21 +281,20 @@ export default function MemoryPage() {
 		setUserId("");
 		setSessionId("");
 		setAgentId("");
-		setResult((prev) =>
-			prev
-				? {
-						...prev,
-						memories: [],
-						filters: emptyMemoryFilters(),
-						filterFields: [],
-						graph: { nodes: [], edges: [] },
-						hint: undefined,
-						connector:
-							connectors.find((connector) => connector.id === nextId) ||
-							prev.connector,
-					}
-				: prev
-		);
+		setResult((prev) => {
+			if (!prev) return prev;
+			return {
+				...prev,
+				memories: [] as MemoryListItem[],
+				filters: emptyMemoryFilters(),
+				filterFields: [],
+				graph: { nodes: [], edges: [] },
+				hint: undefined,
+				connector:
+					prev.connectors.find((connector) => connector.id === nextId) ||
+					prev.connector,
+			};
+		});
 		replaceQuery({ id: null, connectorId: nextId || null });
 	}
 

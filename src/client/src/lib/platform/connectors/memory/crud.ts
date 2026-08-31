@@ -62,19 +62,55 @@ export interface MemoryConnectorInput {
 	credentials?: unknown;
 }
 
-function sanitize(row: {
-	secretRef?: string | null;
+/** Public memory connector row — never includes secretRef. */
+export type MemoryConnectorPublic = {
+	id: string;
+	name: string;
+	type: string;
+	environment: string;
+	organisationId: string | null;
+	projectId: string | null;
 	settings: string;
-	[key: string]: unknown;
-}) {
-	const { secretRef, metadata, ...rest } = row;
+	status: string;
+	metadata: string;
+	createdAt: Date;
+	updatedAt: Date;
+	hasSecret: boolean;
+	category: "memory";
+	scope: "project";
+	signals: string;
+	isDefault: boolean;
+};
+
+function sanitize(row: {
+	id: string;
+	name: string;
+	type: string;
+	environment: string;
+	organisationId: string | null;
+	projectId: string | null;
+	settings: string;
+	secretRef?: string | null;
+	status: string;
+	metadata: string;
+	createdAt: Date;
+	updatedAt: Date;
+}): MemoryConnectorPublic {
 	return {
-		...rest,
+		id: row.id,
+		name: row.name,
+		type: row.type,
+		environment: row.environment,
+		organisationId: row.organisationId,
+		projectId: row.projectId,
 		settings: row.settings,
-		metadata: publicConnectorMetadata(typeof metadata === "string" ? metadata : "{}"),
-		hasSecret: !!secretRef,
-		category: "memory" as const,
-		scope: "project" as const,
+		status: row.status,
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+		metadata: publicConnectorMetadata(row.metadata ?? "{}"),
+		hasSecret: !!row.secretRef,
+		category: "memory",
+		scope: "project",
 		signals: "",
 		isDefault: false,
 	};

@@ -22,7 +22,6 @@ import getMessage from "@/constants/messages";
 import { getRequestHeaders } from "@/utils/api";
 import {
 	emptyMemoryFilters,
-	type MemoryCapabilities,
 	type MemoryFilterField,
 	type MemoryFilterKey,
 	type MemoryFilterOptions,
@@ -42,7 +41,7 @@ export type MemoryCopyTarget = {
 	name: string;
 	type: string;
 	environment?: string;
-	capabilities?: MemoryCapabilities | null;
+	capabilities?: { add?: boolean } | null;
 	filterFields?: MemoryFilterField[];
 };
 

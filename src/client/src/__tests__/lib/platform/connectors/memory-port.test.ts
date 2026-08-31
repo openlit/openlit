@@ -4,6 +4,7 @@ import {
 	memoryPortMetadata,
 	parseMemoryPortLink,
 } from "@/lib/platform/connectors/memory/port-link";
+import type { MemoryRecord } from "@/lib/platform/connectors/memory/types";
 
 describe("memory port links", () => {
 	it("parses and reattaches provenance metadata", () => {
@@ -35,7 +36,7 @@ describe("memory port links", () => {
 
 	it("matches stored links by destination id or content fingerprint", () => {
 		const fingerprint = memoryContentFingerprint("Prefers tabs", "ada");
-		const attached = attachMemoryPorts(
+		const attached = attachMemoryPorts<MemoryRecord>(
 			[
 				{ id: "dest-1", content: "Prefers tabs", userId: "ada" },
 				{ id: "other", content: "Unrelated", userId: "ada" },

@@ -215,7 +215,9 @@ function normalizeRecord(
 
 function normalizeList(raw: unknown): MemoryRecord[] {
 	if (Array.isArray(raw)) {
-		return raw.map(normalizeRecord).filter((row): row is MemoryRecord => !!row);
+		return raw
+			.map((row) => normalizeRecord(row))
+			.filter((row): row is MemoryRecord => !!row);
 	}
 	const body = asRecord(raw);
 	const rows = body.results ?? body.memories ?? body.data;
@@ -223,7 +225,9 @@ function normalizeList(raw: unknown): MemoryRecord[] {
 		const single = normalizeRecord(raw);
 		return single ? [single] : [];
 	}
-	return rows.map(normalizeRecord).filter((row): row is MemoryRecord => !!row);
+	return rows
+		.map((row) => normalizeRecord(row))
+		.filter((row): row is MemoryRecord => !!row);
 }
 
 function uniqueChoices(choices: MemoryFilterChoice[]): MemoryFilterChoice[] {

@@ -67,9 +67,16 @@ export interface MemoryListItem extends MemoryRecord {
 	kind: MemoryKind;
 }
 
+export type MemoryConnectorOption = Awaited<
+	ReturnType<typeof listMemoryConnectors>
+>[number] & {
+	capabilities?: MemoryCapabilities | null;
+	filterFields?: MemoryFilterField[];
+};
+
 export interface MemoryQueryResult {
-	connectors: Awaited<ReturnType<typeof listMemoryConnectors>>;
-	connector: Awaited<ReturnType<typeof listMemoryConnectors>>[number] | null;
+	connectors: MemoryConnectorOption[];
+	connector: MemoryConnectorOption | null;
 	capabilities: MemoryCapabilities | null;
 	memories: MemoryListItem[];
 	stats: MemoryStats;

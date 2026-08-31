@@ -10,10 +10,12 @@ const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 /** Resolve `fs.existsSync` only at call time so client bundles never import `fs`. */
 function defaultExists(path: string): boolean {
 	try {
-		// eslint-disable-next-line @typescript-eslint/no-require-imports
-		const fs = require(
-			"fs"
-		) as { existsSync?: (filePath: string) => boolean };
+		// Keep Node `fs` out of client bundles; resolve only when `require` exists.
+		if (typeof require !== "function") return false;
+		// eslint-disable-next-line
+		const fs = require("fs") as {
+			existsSync?: (filePath: string) => boolean;
+		};
 		return Boolean(fs.existsSync?.(path));
 	} catch {
 		return false;
