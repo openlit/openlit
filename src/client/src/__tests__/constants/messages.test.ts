@@ -52,6 +52,10 @@ describe("getMessage()", () => {
 		expect(msgs.GENERATION_HEALTH_TIP_TRUNCATED).toBeTruthy();
 		expect(msgs.GENERATION_HEALTH_TIP_SWAPPED).toBeTruthy();
 		expect(msgs.GENERATION_HEALTH_CLICK_TO_FILTER).toBeTruthy();
+		expect(msgs.AGENT_LOOP_CHIP).toBe("Loop");
+		expect(msgs.AGENT_LOOP_TIP).toContain("{threshold}");
+		expect(msgs.AGENT_LOOP_DETAIL).toContain("{tool}");
+		expect(msgs.AGENT_LOOP_DETAIL).toContain("{cost}");
 	});
 
 	it("has evaluation-related messages", () => {

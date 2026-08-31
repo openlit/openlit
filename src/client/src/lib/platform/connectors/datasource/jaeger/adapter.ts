@@ -51,6 +51,10 @@ import {
 	GENERATION_HEALTH_SAMPLE_MAX,
 	spanMatchesAnyGenerationHealthChip,
 } from "@/lib/platform/generation-health/classify";
+import {
+	listedSpansMatchingAgentLoop,
+	loopHitsByTraceId,
+} from "@/lib/platform/agent-loop/classify";
 
 const TTL_MS = 30_000;
 const MAX_SERVICES = 50;
@@ -513,6 +517,9 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				);
 				if (!anyMatch) continue;
 			}
+			if (query.agentLoop && !loopHitsByTraceId(spans).has(traceId)) {
+				continue;
+			}
 			const root = pickRootSpan(spans);
 			const startMs = root?.timestamp
 				? new Date(root.timestamp).getTime()
@@ -556,21 +563,28 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		const start = Date.now();
 		const pageSize = Math.min(query.limit || 25, 200);
 		const offset = Math.max(0, query.offset || 0);
-		const budget = query.generationHealth?.length
-			? Math.max(offset + pageSize, 200)
-			: offset + pageSize;
+		const budget =
+			query.generationHealth?.length || query.agentLoop
+				? Math.max(offset + pageSize, 200)
+				: offset + pageSize;
 		const traces = await this.collectTraces(query, budget);
 		const rows = traces
 			.map((trace) => {
 				const spans = flattenJaegerTraces([trace]).map(toNormalizedSpan);
-				if (query.generationHealth?.length) {
-					const hit = firstSpanMatchingGenerationHealth(
+				let listed: NormalizedSpan | undefined;
+				if (query.agentLoop) {
+					listed = listedSpansMatchingAgentLoop(spans, true)[0];
+				}
+				if (!listed && query.generationHealth?.length) {
+					listed = firstSpanMatchingGenerationHealth(
 						spans,
 						query.generationHealth
 					);
-					if (hit) return hit;
 				}
-				return pickRootSpan(spans);
+				if (!listed) listed = pickRootSpan(spans);
+				if (!listed) return undefined;
+				const hit = loopHitsByTraceId(spans).get(listed.traceId);
+				return hit ? { ...listed, agentLoop: hit } : listed;
 			})
 			.filter((span): span is NormalizedSpan => !!span);
 		rememberSpans(this.descriptor.id, this.spansFromTraces(traces));

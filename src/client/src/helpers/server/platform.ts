@@ -14,6 +14,8 @@ import { FilterWhereConditionType } from "@/types/platform";
 import { buildVersionWhereClause } from "@/lib/platform/agents/version-where";
 import { parseGenerationHealthChips } from "@/lib/platform/generation-health/classify";
 import { generationHealthWhereSql } from "@/lib/platform/generation-health/sql";
+import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
+import { agentLoopWhereSql } from "@/lib/platform/agent-loop/sql";
 
 function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -92,6 +94,7 @@ export const validateMetricsRequestType = {
 	GET_TOTAL_EVALUATION_DETECTED: "GET_TOTAL_EVALUATION_DETECTED",
 	GET_EVALUATION_ANALYTICS: "GET_EVALUATION_ANALYTICS",
 	GENERATION_HEALTH: "GENERATION_HEALTH",
+	AGENT_LOOP: "AGENT_LOOP",
 };
 
 export const validateMetricsRequest = (
@@ -146,6 +149,7 @@ export const validateMetricsRequest = (
 		case validateMetricsRequestType.GET_TOTAL_EVALUATION_DETECTED:
 		case validateMetricsRequestType.GET_EVALUATION_ANALYTICS:
 		case validateMetricsRequestType.GENERATION_HEALTH:
+		case validateMetricsRequestType.AGENT_LOOP:
 			if (!params.timeLimit?.start || !params.timeLimit?.end) {
 				return {
 					success: false,
@@ -336,6 +340,21 @@ export const getFilterWhereCondition = (
 			if (generationHealth.length) {
 				const healthClause = generationHealthWhereSql(generationHealth);
 				if (healthClause) whereArray.push(healthClause);
+			}
+
+			if (hasAgentLoopFilter(filter.selectedConfig.agentLoop)) {
+				const loopBase = {
+					...filter,
+					selectedConfig: {
+						...filter.selectedConfig,
+						agentLoop: undefined,
+						generationHealth: undefined,
+					},
+				};
+				const baseWhere = getFilterWhereCondition(loopBase, true);
+				if (baseWhere) {
+					whereArray.push(agentLoopWhereSql("otel_traces", baseWhere));
+				}
 			}
 
 			if (filter.selectedConfig.customFilters?.length) {

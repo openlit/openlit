@@ -27,6 +27,7 @@ jest.mock("@/lib/platform/request", () => ({
 jest.mock("@/helpers/server/platform", () => ({
 	getFilterPreviousParams: (p: unknown) => p,
 	dateTruncGroupingLogic: () => "hour",
+	getFilterWhereCondition: () => "1 = 1",
 }));
 
 jest.mock("@/lib/platform/observability", () => ({
@@ -49,6 +50,11 @@ jest.mock("@/lib/platform/connectors/datasource/http/cache", () => ({
 	cacheKey: (...parts: unknown[]) => parts.join(":"),
 	cachedQuery: (_key: string, _ttl: number, loader: () => unknown) => loader(),
 	__clearCache: jest.fn(),
+}));
+
+jest.mock("@/lib/platform/agent-loop/clickhouse", () => ({
+	fetchLoopHitsByTraceIds: jest.fn(async () => new Map()),
+	fetchLoopHitsByGroupIds: jest.fn(async () => new Map()),
 }));
 
 jest.mock("@/lib/platform/telemetry/rollups", () => ({
@@ -74,6 +80,7 @@ import {
 	listTraceRecords,
 } from "@/lib/platform/traces/read";
 import { AdapterError } from "@openplait/adapter-sdk";
+import { fetchLoopHitsByTraceIds } from "@/lib/platform/agent-loop/clickhouse";
 
 const builtin = {
 	type: "clickhouse",
@@ -272,6 +279,141 @@ describe("listTraceRecords", () => {
 		expect(records).toHaveLength(10);
 		expect(records?.[0]).toMatchObject({ TraceId: "t-200", SpanId: "s-200" });
 		expect(records?.[9]).toMatchObject({ TraceId: "t-209" });
+	});
+
+	it("filters Tempo traces by stuck-agent loops from a full-trace sample", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const loopSpan = (index: number) => ({
+			traceId: "t-loop",
+			spanId: `tool-${index}`,
+			parentSpanId: "",
+			name: "execute_tool",
+			serviceName: "agent",
+			timestamp: `2026-07-01T00:00:0${index}.000Z`,
+			durationNs: 1,
+			statusCode: "OK",
+			spanAttributes: {
+				"gen_ai.conversation.id": "chat-1",
+				"gen_ai.tool.name": "search",
+				"gen_ai.tool.args": '{"q":"orders"}',
+			},
+			resourceAttributes: {},
+		});
+		const sampleTracesForGraph = jest.fn().mockResolvedValue([
+			{
+				traceId: "t-ok",
+				spanId: "root",
+				parentSpanId: "",
+				name: "GET /health",
+				serviceName: "api",
+				timestamp: "2026-07-01T00:00:00.000Z",
+				durationNs: 1,
+				statusCode: "OK",
+				spanAttributes: { "http.method": "GET" },
+				resourceAttributes: {},
+			},
+			loopSpan(0),
+			loopSpan(1),
+			loopSpan(2),
+		]);
+		const listSpans = jest.fn();
+		mockGetAdapter.mockResolvedValue({ sampleTracesForGraph, listSpans });
+
+		const res = await listTraceRecords({
+			...params,
+			selectedConfig: { agentLoop: true },
+		} as never);
+
+		expect(sampleTracesForGraph).toHaveBeenCalled();
+		expect(listSpans).not.toHaveBeenCalled();
+		expect(res).toMatchObject({
+			err: null,
+			total: 1,
+			freshness: "sampled",
+			records: [
+				expect.objectContaining({
+					TraceId: "t-loop",
+					agentLoop: expect.objectContaining({
+						toolName: "search",
+						count: 3,
+					}),
+				}),
+			],
+		});
+	});
+
+	it("attaches Tempo loop badges on the unfiltered list from full traces", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const listSpans = jest.fn().mockResolvedValue({
+			rows: [
+				{
+					traceId: "t-loop",
+					spanId: "t-loop",
+					parentSpanId: "",
+					name: "chat",
+					serviceName: "agent",
+					timestamp: "2026-07-01T00:00:00.000Z",
+					durationNs: 1,
+					statusCode: "OK",
+					spanAttributes: {},
+					resourceAttributes: {},
+				},
+			],
+		});
+		const tool = (index: number) => ({
+			traceId: "t-loop",
+			spanId: `tool-${index}`,
+			parentSpanId: "root",
+			name: "execute_tool",
+			serviceName: "agent",
+			timestamp: `2026-07-01T00:00:0${index}.000Z`,
+			durationNs: 1,
+			statusCode: "OK",
+			spanAttributes: {
+				"gen_ai.conversation.id": "chat-1",
+				"gen_ai.tool.name": "search",
+				"gen_ai.tool.args": '{"q":"orders"}',
+			},
+			resourceAttributes: {},
+		});
+		const getTraceSpans = jest.fn().mockResolvedValue([
+			{
+				traceId: "t-loop",
+				spanId: "root",
+				parentSpanId: "",
+				name: "chat",
+				serviceName: "agent",
+				timestamp: "2026-07-01T00:00:00.000Z",
+				durationNs: 1,
+				statusCode: "OK",
+				spanAttributes: { "gen_ai.request.model": "gpt-4o" },
+				resourceAttributes: {},
+			},
+			tool(0),
+			tool(1),
+			tool(2),
+		]);
+		mockGetAdapter.mockResolvedValue({
+			listSpans,
+			getTraceSpans,
+			countTraces: async () => ({ total: 1, truncated: false }),
+		});
+
+		const res = await listTraceRecords(params as never);
+
+		expect(getTraceSpans).toHaveBeenCalledWith("t-loop");
+		expect(res).toMatchObject({
+			err: null,
+			records: [
+				expect.objectContaining({
+					TraceId: "t-loop",
+					agentLoop: expect.objectContaining({
+						toolName: "search",
+						count: 3,
+					}),
+				}),
+			],
+		});
 	});
 
 	it("keeps sampling when the first budget cannot fill the requested health page", async () => {
@@ -499,6 +641,85 @@ describe("getTraceSpanRecord", () => {
 		expect(res.err).toBeNull();
 		expect(res.record).toMatchObject({ SpanId: "root-span", TraceId: "t1" });
 		expect(getSpan).not.toHaveBeenCalled();
+	});
+
+	it("attaches a ClickHouse cross-trace loop hit on span detail", async () => {
+		mockResolveDescriptor.mockResolvedValue(builtin);
+		(fetchLoopHitsByTraceIds as jest.Mock).mockResolvedValue(
+			new Map([
+				[
+					"t1",
+					{
+						toolName: "search",
+						count: 4,
+						wastedTokens: 20,
+						wastedCost: 0.2,
+					},
+				],
+			])
+		);
+		mockGetAdapter.mockResolvedValue({
+			getTraceSpans: jest.fn().mockResolvedValue([
+				{
+					traceId: "t1",
+					spanId: "s1",
+					parentSpanId: "",
+					name: "execute_tool",
+					serviceName: "agent",
+					timestamp: "2026-07-01T00:00:00.000Z",
+					durationNs: 1,
+					statusCode: "OK",
+					spanAttributes: {
+						"gen_ai.conversation.id": "chat-1",
+						"gen_ai.tool.name": "search",
+						"gen_ai.tool.args": '{"q":"once"}',
+					},
+					resourceAttributes: {},
+				},
+			]),
+		});
+
+		const res = await getTraceSpanRecord("s1", { traceId: "t1" });
+
+		expect(res.err).toBeNull();
+		expect(res.record).toMatchObject({
+			SpanId: "s1",
+			agentLoop: { toolName: "search", count: 4 },
+		});
+	});
+
+	it("loads sibling Tempo traces so a split conversation still shows the loop note", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const call = (traceId: string, spanId: string) => ({
+			traceId,
+			spanId,
+			parentSpanId: "",
+			name: "execute_tool",
+			serviceName: "agent",
+			timestamp: "2026-07-01T00:00:00.000Z",
+			durationNs: 1,
+			statusCode: "OK",
+			spanAttributes: {
+				"gen_ai.conversation.id": "chat-1",
+				"gen_ai.tool.name": "search",
+				"gen_ai.tool.args": '{"q":"orders"}',
+			},
+			resourceAttributes: {},
+		});
+		const sampleTracesForGraph = jest
+			.fn()
+			.mockResolvedValue([call("t1", "s1"), call("t2", "s2"), call("t3", "s3")]);
+		mockGetAdapter.mockResolvedValue({
+			getTraceSpans: jest.fn().mockResolvedValue([call("t1", "s1")]),
+			sampleTracesForGraph,
+		});
+
+		const res = await getTraceSpanRecord("s1", { traceId: "t1" });
+
+		expect(sampleTracesForGraph).toHaveBeenCalled();
+		expect(res.record).toMatchObject({
+			agentLoop: expect.objectContaining({ toolName: "search", count: 3 }),
+		});
 	});
 });
 

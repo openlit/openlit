@@ -195,6 +195,22 @@ describe('getRequests', () => {
     expect(listQuery).toContain('LIMIT 1 BY TraceId');
   });
 
+  it('lists one matching span per trace when the agent-loop chip is on', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 2 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      selectedConfig: { agentLoop: true },
+    } as typeof baseParams & { selectedConfig: { agentLoop: boolean } });
+
+    const countQuery = (dataCollector as jest.Mock).mock.calls[0][0].query as string;
+    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(countQuery).toContain('uniqExact(TraceId)');
+    expect(listQuery).toContain('LIMIT 1 BY TraceId');
+  });
+
   it('keeps span-level counts when generation-health chips are off', async () => {
     (dataCollector as jest.Mock)
       .mockResolvedValueOnce({ data: [{ total: 3 }], err: null })

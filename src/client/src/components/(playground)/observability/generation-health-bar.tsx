@@ -11,6 +11,7 @@ import getMessage from "@/constants/messages";
 import type { GenerationHealthChip } from "@/lib/platform/generation-health/classify";
 import type { GenerationHealthRow } from "@/lib/platform/llm/generation-health";
 import {
+	asFiniteNumber,
 	fillTemplate,
 	generationHealthChipLabel,
 	generationHealthCountLine,
@@ -80,7 +81,7 @@ export default function GenerationHealthBar() {
 
 	return (
 		<div
-			className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-stone-200 pt-2 dark:border-stone-800"
+			className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5"
 			aria-label={m.GENERATION_HEALTH_CHIP_GROUP}
 		>
 			<p className="text-[11px] font-medium text-stone-500 dark:text-stone-400">
@@ -89,8 +90,8 @@ export default function GenerationHealthBar() {
 			<TooltipProvider delayDuration={200}>
 				<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 					{METRICS.map((metric) => {
-						const count = Number(row[metric.countKey] || 0);
-						const eligible = Number(row[metric.eligibleKey] || 0);
+						const count = asFiniteNumber(row[metric.countKey]);
+						const eligible = asFiniteNumber(row[metric.eligibleKey]);
 						const isActive = selected.includes(metric.chip);
 						const ratio = fillTemplate(m.GENERATION_HEALTH_STAT_OF_ELIGIBLE, {
 							count: isLoadingData ? "—" : count,
@@ -98,8 +99,8 @@ export default function GenerationHealthBar() {
 						});
 						const hasHits = !isLoadingData && count > 0;
 						const skippedLine = generationHealthSkippedLine(
-							Math.max(row.llm_spans - eligible, 0),
-							row.llm_spans
+							Math.max(asFiniteNumber(row.llm_spans) - eligible, 0),
+							asFiniteNumber(row.llm_spans)
 						);
 						const label = generationHealthChipLabel(metric.chip);
 						const meaning = generationHealthTipMeaning(metric.chip);
