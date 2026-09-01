@@ -323,6 +323,12 @@ describe("SERVER_EVENTS", () => {
 		);
 	});
 
+	it("has connector server events", () => {
+		expect(SERVER_EVENTS.CONNECTOR_CREATE_SUCCESS).toBe("CONNECTOR_CREATE_SUCCESS");
+		expect(SERVER_EVENTS.CONNECTOR_CREATE_FAILURE).toBe("CONNECTOR_CREATE_FAILURE");
+		expect(SERVER_EVENTS.SIGNAL_ROUTING_CHANGED).toBe("SIGNAL_ROUTING_CHANGED");
+	});
+
 	it("has the daily instance telemetry snapshot event", () => {
 		expect(SERVER_EVENTS.INSTANCE_TELEMETRY_SNAPSHOT).toBe(
 			"INSTANCE_TELEMETRY_SNAPSHOT"

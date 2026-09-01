@@ -2,6 +2,7 @@ import {
 	POSTHOG_API_HOST,
 	POSTHOG_API_KEY,
 } from "@/constants/posthog";
+import { shouldCaptureServerTelemetryEvent } from "@/lib/posthog-sampling";
 import { jsonStringify } from "@/utils/json";
 import { consoleLog } from "@/utils/log";
 import { randomUUID } from "crypto";
@@ -54,11 +55,17 @@ export default class PostHogServer {
 		event,
 		properties = {},
 		startTimestamp,
+		sampleKey,
 	}: {
 		event: string;
 		properties?: Record<string, unknown>;
 		startTimestamp: number;
+		/** Dedupes / samples high-volume success events (e.g. per widget id). */
+		sampleKey?: string;
 	}) {
+		if (!shouldCaptureServerTelemetryEvent(event, sampleKey)) {
+			return;
+		}
 		await PostHogServer.capture({
 			event,
 			timestamp: new Date(startTimestamp),

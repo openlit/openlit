@@ -50,13 +50,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import getMessage from "@/constants/messages";
-import { CLIENT_EVENTS } from "@/constants/events";
 import FeatureAccess from "@/components/rbac/feature-access";
-import {
-	connectorCreateEventProps,
-	signalRoutingChangedEventProps,
-} from "@/helpers/client/connector-analytics";
-import { usePostHog } from "posthog-js/react";
 
 import type { FieldDef } from "@/lib/platform/connectors/datasource/types";
 import { getDatabaseConfigList } from "@/selectors/database-config";
@@ -260,7 +254,6 @@ export default function DataSourcesPage({
 	onOpenTypeHandled?: () => void;
 }) {
 	const messages = getMessage();
-	const posthog = usePostHog();
 	const currentProjectEnvironment = useRootStore(getCurrentProjectEnvironment);
 	const databaseConfigs = useRootStore(getDatabaseConfigList) || [];
 	const [loading, setLoading] = useState(true);
@@ -356,15 +349,6 @@ export default function DataSourcesPage({
 	);
 
 	const setBinding = async (signal: Signal, sourceId: string) => {
-		const previous = bindingForSignal(signal);
-		const previousSourceId = previous?.sourceId || null;
-		const previousConnectorType = previous?.sourceType || null;
-		const nextConnectorType =
-			sourceId === BUILTIN
-				? null
-				: sourceId.startsWith("builtin:")
-					? "clickhouse"
-					: sources.find((source) => signalRoutingSelectValue(source.id) === sourceId || source.id === sourceId)?.type || null;
 		toast.loading(messages.DATA_SOURCE_BINDING_SAVED, { id: "ds-bind" });
 		try {
 			if (sourceId === BUILTIN) {
@@ -387,17 +371,6 @@ export default function DataSourcesPage({
 				}),
 				});
 			}
-			posthog?.capture(
-				CLIENT_EVENTS.SIGNAL_ROUTING_CHANGED,
-				signalRoutingChangedEventProps({
-					signal,
-					environment,
-					previousSourceId,
-					nextSourceId: sourceId,
-					previousConnectorType,
-					nextConnectorType,
-				})
-			);
 			toast.success(messages.DATA_SOURCE_BINDING_SAVED, { id: "ds-bind" });
 			await load();
 		} catch (e: any) {
@@ -1067,7 +1040,6 @@ export function SourceFormDialog({
 	onSaved: () => void;
 }) {
 	const messages = getMessage();
-	const posthog = usePostHog();
 	const isEdit = !!source;
 	const [name, setName] = useState(source?.name || "");
 	const [environment, setEnvironment] = useState(source?.environment || initialEnvironment || "production");
@@ -1189,13 +1161,6 @@ export function SourceFormDialog({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
-				posthog?.capture(
-					CLIENT_EVENTS.CONNECTOR_CREATE_SUCCESS,
-					connectorCreateEventProps({
-						type: "clickhouse",
-						environment,
-					})
-				);
 				toast.success(messages.DATA_SOURCE_SAVED, { id: "ds-save" });
 				onSaved();
 				return;
@@ -1225,26 +1190,10 @@ export function SourceFormDialog({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
-				posthog?.capture(
-					CLIENT_EVENTS.CONNECTOR_CREATE_SUCCESS,
-					connectorCreateEventProps({
-						type,
-						environment,
-					})
-				);
 			}
 			toast.success(messages.DATA_SOURCE_SAVED, { id: "ds-save" });
 			onSaved();
 		} catch (e: any) {
-			if (!isEdit) {
-				posthog?.capture(
-					CLIENT_EVENTS.CONNECTOR_CREATE_FAILURE,
-					connectorCreateEventProps({
-						type: type || "unknown",
-						environment,
-					})
-				);
-			}
 			toast.error(e?.message || messages.DATA_SOURCE_SAVE_FAILED, {
 				id: "ds-save",
 			});

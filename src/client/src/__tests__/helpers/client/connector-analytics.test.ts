@@ -24,6 +24,7 @@ describe("connector analytics helpers", () => {
 			connectorCreateEventProps({ type: "tempo", environment: "Staging" })
 		).toEqual({
 			connector_type: "tempo",
+			connector_name: "Grafana Tempo",
 			environment: "staging",
 		});
 	});
@@ -46,6 +47,8 @@ describe("connector analytics helpers", () => {
 			next_source_id: "src-b",
 			previous_connector_type: "tempo",
 			next_connector_type: "jaeger",
+			previous_connector_name: "Grafana Tempo",
+			next_connector_name: "Jaeger",
 		});
 	});
 });
