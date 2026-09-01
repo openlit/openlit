@@ -86,4 +86,22 @@ describe("manage-dashboard query/run route", () => {
 			signal: "traces",
 		});
 	});
+
+	it("passes the widget id as the PostHog sample key", async () => {
+		const PostHogServer = (await import("@/lib/posthog")).default;
+
+		await POST(
+			jsonRequest({
+				widgetId: "w1",
+				filter: {},
+			}) as never
+		);
+
+		expect(PostHogServer.fireEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				event: "DASHBOARD_QUERY_RUN_SUCCESS",
+				sampleKey: "w1",
+			})
+		);
+	});
 });

@@ -474,6 +474,7 @@ describe("telemetry source bindings", () => {
 		mockBindingFindUnique.mockResolvedValue({
 			sourceId: "src-old",
 			databaseConfigId: null,
+			source: { type: "tempo" },
 		});
 		mockBindingUpsert.mockResolvedValue({
 			id: "b1",
@@ -485,7 +486,13 @@ describe("telemetry source bindings", () => {
 		expect(result).toMatchObject({
 			sourceId: "src-1",
 			previousSourceId: "src-old",
+			previousSourceType: "tempo",
+			nextSourceType: "datadog",
 			environment: "production",
+		});
+		expect(mockBindingFindUnique).toHaveBeenCalledWith({
+			where: { projectId_signal_environment: { projectId: "proj-1", signal: "traces", environment: "production" } },
+			include: { source: true },
 		});
 		expect(mockFindFirst).toHaveBeenCalledWith({
 			where: { id: "src-1", projectId: "proj-1" },
@@ -535,12 +542,18 @@ describe("telemetry source bindings", () => {
 		mockBindingFindFirst.mockResolvedValue({
 			sourceId: "src-9",
 			databaseConfigId: null,
+			source: { type: "tempo" },
 		});
 		mockBindingDeleteMany.mockResolvedValue({ count: 1 });
 		await expect(deleteTelemetrySourceBinding("logs")).resolves.toEqual({
 			signal: "logs",
 			environment: "production",
 			previousSourceId: "src-9",
+			previousSourceType: "tempo",
+		});
+		expect(mockBindingFindFirst).toHaveBeenCalledWith({
+			where: { projectId: "proj-1", signal: "logs", environment: "production" },
+			include: { source: true },
 		});
 		expect(mockBindingDeleteMany).toHaveBeenCalledWith({
 			where: { projectId: "proj-1", signal: "logs", environment: "production" },

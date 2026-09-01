@@ -18,6 +18,7 @@ import {
 	createMemoryConnector,
 	isMemoryConnectorType,
 } from "@/lib/platform/connectors/memory/crud";
+import { fireConnectorCreateTelemetry } from "@/helpers/server/connector-analytics";
 
 /**
  * Generic connector endpoint. Datasource instances are exposed through the
@@ -49,6 +50,7 @@ async function GETHandler() {
 }
 
 async function POSTHandler(request: NextRequest) {
+	const startTimestamp = Date.now();
 	const user = await getCurrentUser();
 	if (!user) return Response.json("Unauthorized", { status: 401 });
 	let body: Record<string, unknown>;
@@ -59,9 +61,24 @@ async function POSTHandler(request: NextRequest) {
 	}
 	const category = String(body.category || "");
 	const type = String(body.type || "");
+	const environment = String(body.environment || "production");
 	if (category === "memory" || isMemoryConnectorType(type)) {
 		const [err, connector] = await asaw(createMemoryConnector(body));
-		if (err) return errorResponse(err, "Failed to create connector");
+		if (err) {
+			fireConnectorCreateTelemetry({
+				success: false,
+				type: type || "memory",
+				environment,
+				startTimestamp,
+			});
+			return errorResponse(err, "Failed to create connector");
+		}
+		fireConnectorCreateTelemetry({
+			success: true,
+			type: String((connector as { type?: string })?.type || type || "memory"),
+			environment,
+			startTimestamp,
+		});
 		return Response.json(connector);
 	}
 	if (category && category !== "datasource") {
@@ -88,6 +105,12 @@ async function POSTHandler(request: NextRequest) {
 			})
 		);
 		if (validationErr) {
+			fireConnectorCreateTelemetry({
+				success: false,
+				type: "clickhouse",
+				environment,
+				startTimestamp,
+			});
 			return errorResponse(
 				validationErr,
 				"Failed to validate ClickHouse connector through OpenPlait"
@@ -103,7 +126,15 @@ async function POSTHandler(request: NextRequest) {
 			query: settings.query,
 			password: credentials.password,
 		} as any, typeof body.id === "string" ? body.id : undefined));
-		if (dbErr) return errorResponse(dbErr, "Failed to save ClickHouse connector");
+		if (dbErr) {
+			fireConnectorCreateTelemetry({
+				success: false,
+				type: "clickhouse",
+				environment,
+				startTimestamp,
+			});
+			return errorResponse(dbErr, "Failed to save ClickHouse connector");
+		}
 		const organisation = await getCurrentOrganisation();
 		const project = organisation?.id
 			? await getCurrentProjectForOrganisation(organisation.id)
@@ -114,6 +145,12 @@ async function POSTHandler(request: NextRequest) {
 			item.name === String(body.name || "") &&
 			(item.environment || "production") === String(body.environment || "production")
 		);
+		fireConnectorCreateTelemetry({
+			success: true,
+			type: "clickhouse",
+			environment,
+			startTimestamp,
+		});
 		return Response.json({
 			...(connector || { name: body.name, type: "clickhouse", environment: body.environment }),
 			category: "datasource",
@@ -121,7 +158,21 @@ async function POSTHandler(request: NextRequest) {
 		});
 	}
 	const [err, source] = await asaw(createTelemetrySource(body));
-	if (err) return errorResponse(err, "Failed to create connector");
+	if (err) {
+		fireConnectorCreateTelemetry({
+			success: false,
+			type: type || "unknown",
+			environment,
+			startTimestamp,
+		});
+		return errorResponse(err, "Failed to create connector");
+	}
+	fireConnectorCreateTelemetry({
+		success: true,
+		type: String((source as { type?: string })?.type || type),
+		environment,
+		startTimestamp,
+	});
 	return Response.json({ ...source, category: "datasource", scope: "project" });
 }
 
