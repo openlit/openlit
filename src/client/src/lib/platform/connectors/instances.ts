@@ -96,16 +96,21 @@ export async function listProjectConnectorInstances(projectId: string) {
 		...sources.map(syncTelemetrySourceConnector),
 	]);
 	const connectors = await prisma.connectorInstance.findMany({
-		where: { projectId, category: "datasource" },
+		where: { projectId },
 		orderBy: [{ environment: "asc" }, { createdAt: "asc" }],
 	});
 	return connectors.map((connector) => {
 		let metadata: Record<string, unknown> = {};
 		try { metadata = JSON.parse(connector.metadata || "{}") || {}; } catch { /* keep defaults */ }
+		const isDatasource = connector.category === "datasource";
 		return {
 			...connector,
-			signals: connector.type === "clickhouse" ? "traces,logs,metrics,intelligence" : metadata.signals || "traces,logs,metrics",
-			isDefault: metadata.isDefault === true,
+			signals: isDatasource
+				? (connector.type === "clickhouse"
+					? "traces,logs,metrics,intelligence"
+					: metadata.signals || "traces,logs,metrics")
+				: "",
+			isDefault: isDatasource && metadata.isDefault === true,
 			hasSecret: !!connector.secretRef,
 		};
 	});

@@ -26,6 +26,8 @@ async function post(request: Request, context: RouteContext, path: string): Prom
 		"llm/model/top": () => import("@/app/api/metrics/llm/model/top/route"),
 		"llm/token/time": () => import("@/app/api/metrics/llm/token/time/route"),
 		"llm/token/request/average": () => import("@/app/api/metrics/llm/token/request/average/route"),
+		"llm/generation-health": () => import("@/app/api/metrics/llm/generation-health/route"),
+		"llm/agent-loop": () => import("@/app/api/metrics/llm/agent-loop/route"),
 		"vector/application": () => import("@/app/api/metrics/vector/application/route"),
 		"vector/environment": () => import("@/app/api/metrics/vector/environment/route"),
 		"vector/operation": () => import("@/app/api/metrics/vector/operation/route"),

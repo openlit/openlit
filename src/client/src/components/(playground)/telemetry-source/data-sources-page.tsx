@@ -12,20 +12,32 @@ import {
 	Settings2,
 	BookOpen,
 	ExternalLink,
+	Search,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import DatabaseConfigPage from "@/components/(playground)/database-config/database-config-page";
+import { deleteDatabaseConfig } from "@/helpers/client/database-config";
+import type { DatabaseConfigWithActive } from "@/constants/dbConfig";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
+	SelectLabel,
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
@@ -38,13 +50,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import getMessage from "@/constants/messages";
-import { CLIENT_EVENTS } from "@/constants/events";
 import FeatureAccess from "@/components/rbac/feature-access";
-import {
-	connectorCreateEventProps,
-	signalRoutingChangedEventProps,
-} from "@/helpers/client/connector-analytics";
-import { usePostHog } from "posthog-js/react";
 
 import type { FieldDef } from "@/lib/platform/connectors/datasource/types";
 import { getDatabaseConfigList } from "@/selectors/database-config";
@@ -52,17 +58,19 @@ import { useRootStore } from "@/store";
 import { getCurrentProjectEnvironment } from "@/selectors/project";
 import { getRequestHeaders } from "@/utils/api";
 import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
+import { configuredConnectorMatches, CONNECTOR_FILTER_ALL_VALUE } from "@/lib/platform/connectors/list-filters";
 
 type Signal = "traces" | "logs" | "metrics" | "intelligence";
 const SIGNALS: Signal[] = ["traces", "logs", "metrics", "intelligence"];
 const BUILTIN = "builtin";
 
-interface TypeDescriptor {
+export interface TypeDescriptor {
 	type: string;
 	displayName: string;
 	description?: string;
 	icon?: string;
-	declaredSignals: Signal[];
+	category?: string;
+	declaredSignals?: Signal[];
 	correlation?: { crossSignal: boolean; keys: string[] };
 	configFields?: FieldDef[];
 	authStyle?: "none" | "http" | "api-key" | "custom";
@@ -94,6 +102,7 @@ interface SourceRow {
 	settings: string;
 	isDefault: boolean;
 	hasSecret?: boolean;
+	category?: string;
 }
 
 interface BindingRow {
@@ -179,6 +188,60 @@ async function jsonFetch(url: string, init?: RequestInit) {
 	return body;
 }
 
+function reportConnectorHealth(
+	messages: ReturnType<typeof getMessage>,
+	descriptors: TypeDescriptor[],
+	type: string,
+	res: {
+		health?: { ok?: boolean; message?: string };
+		validation?: {
+			supported?: boolean;
+			message?: string;
+			ok?: boolean;
+			sampleCount?: number;
+		};
+	}
+) {
+	const health = res?.health;
+	const validation = res?.validation;
+	if (!health?.ok) {
+		const raw = String(health?.message || "");
+		const usesHttpAuth =
+			descriptors.find((d) => d.type === type)?.authStyle === "http";
+		const hint =
+			/401|no credentials|unauthorized/i.test(raw) && usesHttpAuth
+				? ` ${messages.DATA_SOURCE_AUTH_401_HINT}`
+				: "";
+		toast.error(
+			(health?.message || messages.DATA_SOURCE_SAVE_FAILED) + hint,
+			{ id: "ds-test" }
+		);
+		return;
+	}
+	if (validation?.supported === false) {
+		toast.success(messages.DATA_SOURCE_TEST_OK, { id: "ds-test" });
+		return;
+	}
+	if (validation?.message) {
+		const raw = String(validation.message);
+		const hint = /401|no credentials|unauthorized/i.test(raw)
+			? ` ${messages.DATA_SOURCE_AUTH_401_HINT}`
+			: "";
+		toast.error(
+			messages.DATA_SOURCE_TEST_VALIDATION_FAILED(raw) + hint,
+			{ id: "ds-test" }
+		);
+		return;
+	}
+	if (validation?.ok && (validation.sampleCount || 0) > 0) {
+		toast.success(messages.DATA_SOURCE_TEST_AI_OK(validation.sampleCount || 0), {
+			id: "ds-test",
+		});
+		return;
+	}
+	toast.success(messages.DATA_SOURCE_TEST_AI_NONE, { id: "ds-test" });
+}
+
 export default function DataSourcesPage({
 	projectId,
 	showRouting = true,
@@ -191,7 +254,6 @@ export default function DataSourcesPage({
 	onOpenTypeHandled?: () => void;
 }) {
 	const messages = getMessage();
-	const posthog = usePostHog();
 	const currentProjectEnvironment = useRootStore(getCurrentProjectEnvironment);
 	const databaseConfigs = useRootStore(getDatabaseConfigList) || [];
 	const [loading, setLoading] = useState(true);
@@ -200,12 +262,21 @@ export default function DataSourcesPage({
 	const [descriptors, setDescriptors] = useState<TypeDescriptor[]>([]);
 	const [bindings, setBindings] = useState<BindingRow[]>([]);
 	const [editing, setEditing] = useState<SourceRow | "new" | null>(null);
+	const [dbEditing, setDbEditing] = useState<DatabaseConfigWithActive | "new" | null>(null);
 	const [newType, setNewType] = useState<string | undefined>();
 	const [testingId, setTestingId] = useState<string | null>(null);
+	const [connectorSearch, setConnectorSearch] = useState("");
+	const [typeFilter, setTypeFilter] = useState(CONNECTOR_FILTER_ALL_VALUE);
+	const [categoryFilter, setCategoryFilter] = useState(CONNECTOR_FILTER_ALL_VALUE);
+	const [signalFilter, setSignalFilter] = useState(CONNECTOR_FILTER_ALL_VALUE);
 	const environment = currentProjectEnvironment || "production";
 	const visibleSources = useMemo(
 		() => sources.filter((source) => (source.environment || "production") === environment),
 		[environment, sources]
+	);
+	const routingSources = useMemo(
+		() => visibleSources.filter((source) => source.category !== "memory"),
+		[visibleSources]
 	);
 
 	const load = useCallback(async () => {
@@ -252,11 +323,14 @@ export default function DataSourcesPage({
 	}, [environment, messages.DATA_SOURCE_LOAD_FAILED]);
 
 	useEffect(() => {
-		if (openType) {
-			setNewType(openType);
+		if (openType == null) return;
+		if (openType === "clickhouse") {
+			setDbEditing("new");
+		} else {
+			setNewType(openType || undefined);
 			setEditing("new");
-			onOpenTypeHandled?.();
 		}
+		onOpenTypeHandled?.();
 	}, [onOpenTypeHandled, openType]);
 
 	useEffect(() => {
@@ -275,15 +349,6 @@ export default function DataSourcesPage({
 	);
 
 	const setBinding = async (signal: Signal, sourceId: string) => {
-		const previous = bindingForSignal(signal);
-		const previousSourceId = previous?.sourceId || null;
-		const previousConnectorType = previous?.sourceType || null;
-		const nextConnectorType =
-			sourceId === BUILTIN
-				? null
-				: sourceId.startsWith("builtin:")
-					? "clickhouse"
-					: sources.find((source) => signalRoutingSelectValue(source.id) === sourceId || source.id === sourceId)?.type || null;
 		toast.loading(messages.DATA_SOURCE_BINDING_SAVED, { id: "ds-bind" });
 		try {
 			if (sourceId === BUILTIN) {
@@ -306,17 +371,6 @@ export default function DataSourcesPage({
 				}),
 				});
 			}
-			posthog?.capture(
-				CLIENT_EVENTS.SIGNAL_ROUTING_CHANGED,
-				signalRoutingChangedEventProps({
-					signal,
-					environment,
-					previousSourceId,
-					nextSourceId: sourceId,
-					previousConnectorType,
-					nextConnectorType,
-				})
-			);
 			toast.success(messages.DATA_SOURCE_BINDING_SAVED, { id: "ds-bind" });
 			await load();
 		} catch (e: any) {
@@ -340,63 +394,136 @@ export default function DataSourcesPage({
 		}
 	};
 
-	const testSource = async (row: SourceRow) => {
+	const removeClickhouse = async (config: DatabaseConfigWithActive) => {
+		if (!config.permissions?.canDelete) return;
+		if (!window.confirm(messages.DATA_SOURCE_DELETE_CONFIRM(config.name))) return;
+		await deleteDatabaseConfig(config.id);
+		await load();
+	};
+
+	const testConnector = async (row: SourceRow) => {
 		setTestingId(row.id);
 		toast.loading(messages.DATA_SOURCE_TESTING, { id: "ds-test" });
 		try {
 			const res = await jsonFetch(`/api/connectors/${row.id}/health`, {
 				method: "POST",
 			});
-			const health = res?.health;
-			const validation = res?.validation;
-			if (!health?.ok) {
-				const raw = String(health?.message || "");
-				const usesHttpAuth =
-					descriptors.find((d) => d.type === row.type)?.authStyle === "http";
-				const hint =
-					/401|no credentials|unauthorized/i.test(raw) && usesHttpAuth
-						? ` ${messages.DATA_SOURCE_AUTH_401_HINT}`
-						: "";
-				toast.error(
-					(health?.message || messages.DATA_SOURCE_SAVE_FAILED) + hint,
-					{ id: "ds-test" }
-				);
-				return;
-			}
-			// Loki/Mimir (and other non-trace sources) skip AI-span validation.
-			if (validation?.supported === false) {
-				toast.success(messages.DATA_SOURCE_TEST_OK, { id: "ds-test" });
-				return;
-			}
-			if (validation?.message) {
-				const raw = String(validation.message);
-				const hint = /401|no credentials|unauthorized/i.test(raw)
-					? ` ${messages.DATA_SOURCE_AUTH_401_HINT}`
-					: "";
-				toast.error(
-					messages.DATA_SOURCE_TEST_VALIDATION_FAILED(raw) + hint,
-					{ id: "ds-test" }
-				);
-				return;
-			}
-			if (validation?.ok && validation.sampleCount > 0) {
-				toast.success(messages.DATA_SOURCE_TEST_AI_OK(validation.sampleCount), {
-					id: "ds-test",
-				});
-			} else {
-				// Replace the loading toast with a finite, dismissible result. Using
-				// toast.message here can leave the original loading notification
-				// visible in Sonner when the validation returns zero samples.
-				toast.success(messages.DATA_SOURCE_TEST_AI_NONE, { id: "ds-test" });
-			}
-		} catch (e: any) {
-			toast.error(e?.message || messages.DATA_SOURCE_SAVE_FAILED, {
-				id: "ds-test",
-			});
+			reportConnectorHealth(messages, descriptors, row.type, res);
+		} catch (e: unknown) {
+			toast.error(
+				e instanceof Error ? e.message : messages.DATA_SOURCE_SAVE_FAILED,
+				{ id: "ds-test" }
+			);
 		} finally {
 			setTestingId(null);
 		}
 	};
+
+	const testClickhouse = async (config: DatabaseConfigWithActive) => {
+		setTestingId(`clickhouse:${config.id}`);
+		toast.loading(messages.DATA_SOURCE_TESTING, { id: "ds-test" });
+		try {
+			const response = await fetch("/api/clickhouse", { method: "POST" });
+			const body = await response.json().catch(() => ({}));
+			if (!response.ok || body?.err) {
+				throw new Error(body?.err || messages.DATA_SOURCE_SAVE_FAILED);
+			}
+			toast.success(messages.DATA_SOURCE_TEST_OK, { id: "ds-test" });
+		} catch (e: unknown) {
+			toast.error(
+				e instanceof Error ? e.message : messages.DATA_SOURCE_SAVE_FAILED,
+				{ id: "ds-test" }
+			);
+		} finally {
+			setTestingId(null);
+		}
+	};
+
+	const clickhouseDescriptor = descriptors.find((d) => d.type === "clickhouse");
+	const clickhouseSignals = useMemo(
+		(): Signal[] =>
+			(clickhouseDescriptor?.declaredSignals || [
+				"traces",
+				"logs",
+				"metrics",
+			]) as Signal[],
+		[clickhouseDescriptor]
+	);
+	const hasRows = environmentDatabases.length > 0 || visibleSources.length > 0;
+	const typeOptions = useMemo(() => {
+		const types = new Set<string>();
+		if (environmentDatabases.length > 0) types.add("clickhouse");
+		for (const source of visibleSources) types.add(source.type);
+		return Array.from(types)
+			.sort()
+			.map((type) => ({
+				type,
+				label: descriptors.find((descriptor) => descriptor.type === type)?.displayName || type,
+			}));
+	}, [descriptors, environmentDatabases.length, visibleSources]);
+	const filteredDatabases = useMemo(
+		() =>
+			environmentDatabases.filter((config) =>
+				configuredConnectorMatches({
+					query: connectorSearch,
+					typeFilter,
+					categoryFilter,
+					signalFilter,
+					type: "clickhouse",
+					category: "datasource",
+					signals: clickhouseSignals,
+					searchText: [
+						config.name,
+						"clickhouse",
+						config.host,
+						config.port,
+						config.environment,
+						...clickhouseSignals,
+					].join(" "),
+				})
+			),
+		[
+			categoryFilter,
+			clickhouseSignals,
+			connectorSearch,
+			environmentDatabases,
+			signalFilter,
+			typeFilter,
+		]
+	);
+	const filteredSources = useMemo(
+		() =>
+			visibleSources.filter((source) => {
+				const signals = parseSignals(source.signals);
+				const category = source.category === "memory" ? "memory" : "datasource";
+				return configuredConnectorMatches({
+					query: connectorSearch,
+					typeFilter,
+					categoryFilter,
+					signalFilter,
+					type: source.type,
+					category,
+					signals,
+					searchText: [
+						source.name,
+						source.type,
+						source.environment,
+						source.category,
+						source.signals,
+						category === "memory" ? messages.CONNECTOR_CATEGORY_MEMORY : "",
+					].join(" "),
+				});
+			}),
+		[
+			categoryFilter,
+			connectorSearch,
+			messages.CONNECTOR_CATEGORY_MEMORY,
+			signalFilter,
+			typeFilter,
+			visibleSources,
+		]
+	);
+	const hasFilteredRows = filteredDatabases.length > 0 || filteredSources.length > 0;
 
 	return (
 		<div className="flex h-full w-full flex-col gap-4 overflow-auto text-stone-700 dark:text-stone-300">
@@ -405,7 +532,7 @@ export default function DataSourcesPage({
 					projectId={projectId}
 					environment={environment}
 					databaseConfigs={databaseConfigs}
-					sources={visibleSources}
+					sources={routingSources}
 					descriptors={descriptors}
 					bindingForSignal={bindingForSignal}
 					onSetBinding={setBinding}
@@ -415,37 +542,92 @@ export default function DataSourcesPage({
 					}}
 				/>
 			)}
-			<section className="grid gap-3 border border-stone-200 bg-white p-4 md:grid-cols-2 dark:border-stone-800 dark:bg-stone-950">
-				<div className="-mx-4 -mt-4 flex flex-wrap items-start justify-between gap-3 border-b border-stone-200 p-4 md:col-span-2 dark:border-stone-800">
-					<div>
-					<div className="flex items-center gap-2">
-						<Database className="h-4 w-4 text-primary" />
-						<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">Connectors · {environment}</h2>
-					</div>
-					<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION} Add multiple ClickHouse targets and external integrations to each environment, then choose the connector used by each signal.</p>
-					</div>
-					<div className="flex items-center gap-2">
+			<section className="flex flex-col gap-3 border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
+				<div className="-mx-4 -mt-4 flex flex-col gap-3 border-b border-stone-200 p-4 dark:border-stone-800">
+					<div className="flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<div className="flex items-center gap-2">
+								<Database className="h-4 w-4 text-primary" />
+								<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">{messages.CONNECTED_CONNECTORS} · {environment}</h2>
+							</div>
+							<p className="mt-1 text-xs text-muted-foreground">{messages.PROJECT_CONNECTORS_DESCRIPTION}</p>
+						</div>
 						<FeatureAccess access="connectors.create" hideWhenDenied>
-							<Button size="sm" onClick={() => setEditing("new")}>
+							<Button size="sm" onClick={() => { setNewType(undefined); setEditing("new"); }}>
 								<Plus className="mr-1.5 h-3.5 w-3.5" />
-								{messages.DATA_SOURCE_ADD}
+								{messages.ADD_CONNECTOR}
 							</Button>
 						</FeatureAccess>
 					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						<div className="relative min-w-[12rem] flex-1">
+							<Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+							<Input
+								value={connectorSearch}
+								onChange={(event) => setConnectorSearch(event.target.value)}
+								placeholder={messages.CONNECTOR_SEARCH_PLACEHOLDER}
+								aria-label={messages.CONNECTOR_SEARCH_PLACEHOLDER}
+								className="h-8 bg-white pl-8 dark:bg-stone-950"
+							/>
+						</div>
+						<Select value={typeFilter} onValueChange={setTypeFilter}>
+							<SelectTrigger
+								className="h-8 w-[148px] bg-white text-xs dark:bg-stone-950"
+								aria-label={messages.CONNECTOR_FILTER_TYPE}
+							>
+								<SelectValue placeholder={messages.CONNECTOR_FILTER_TYPE} />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value={CONNECTOR_FILTER_ALL_VALUE}>{messages.CONNECTOR_FILTER_ALL_TYPES}</SelectItem>
+								{typeOptions.map((option) => (
+									<SelectItem key={option.type} value={option.type}>
+										{option.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<Select value={categoryFilter} onValueChange={setCategoryFilter}>
+							<SelectTrigger
+								className="h-8 w-[148px] bg-white text-xs dark:bg-stone-950"
+								aria-label={messages.CONNECTOR_FILTER_CATEGORY}
+							>
+								<SelectValue placeholder={messages.CONNECTOR_FILTER_CATEGORY} />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value={CONNECTOR_FILTER_ALL_VALUE}>{messages.CONNECTOR_FILTER_ALL_CATEGORIES}</SelectItem>
+								<SelectItem value="datasource">{messages.CONNECTOR_CATEGORY_DATASOURCE}</SelectItem>
+								<SelectItem value="memory">{messages.CONNECTOR_CATEGORY_MEMORY}</SelectItem>
+							</SelectContent>
+						</Select>
+						<Select value={signalFilter} onValueChange={setSignalFilter}>
+							<SelectTrigger
+								className="h-8 w-[148px] bg-white text-xs dark:bg-stone-950"
+								aria-label={messages.CONNECTOR_FILTER_SIGNAL}
+							>
+								<SelectValue placeholder={messages.CONNECTOR_FILTER_SIGNAL} />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value={CONNECTOR_FILTER_ALL_VALUE}>{messages.CONNECTOR_FILTER_ALL_SIGNALS}</SelectItem>
+								<SelectItem value="traces">{messages.DATA_SOURCE_SIGNAL_TRACES}</SelectItem>
+								<SelectItem value="logs">{messages.DATA_SOURCE_SIGNAL_LOGS}</SelectItem>
+								<SelectItem value="metrics">{messages.DATA_SOURCE_SIGNAL_METRICS}</SelectItem>
+								<SelectItem value="intelligence">{messages.DATA_SOURCE_SIGNAL_INTELLIGENCE}</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
 				</div>
-				<div className="contents">
-					<DatabaseConfigPage hideHeader hideEmpty />
-				</div>
-			<div className="contents">
-			{/* External sources list */}
-				{loading ? (
-					<div className="contents">
-						{[0].map((item) => (
-							<div key={item} className="flex min-h-[168px] flex-col gap-4 rounded-lg border border-stone-200 bg-stone-50/70 p-4 dark:border-stone-800 dark:bg-stone-900/50">
-								<div className="flex items-center gap-3"><div className="h-9 w-9 animate-pulse rounded-md bg-stone-200 dark:bg-stone-800" /><div className="space-y-2"><div className="h-3 w-32 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-20 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div></div>
-								<div className="space-y-2"><div className="h-2.5 w-full animate-pulse rounded bg-stone-200 dark:bg-stone-800" /><div className="h-2.5 w-3/4 animate-pulse rounded bg-stone-200 dark:bg-stone-800" /></div>
-								<div className="mt-auto h-8 animate-pulse rounded bg-stone-200 dark:bg-stone-800" />
-							</div>
+				<DatabaseConfigPage
+					hideHeader
+					hideEmpty
+					hideList
+					editing={dbEditing}
+					onEditingChange={setDbEditing}
+					onConfigSaved={() => void load()}
+				/>
+			{loading ? (
+					<div className="space-y-2">
+						{[0, 1, 2].map((item) => (
+							<div key={item} className="h-12 animate-pulse rounded-md bg-stone-100 dark:bg-stone-900" />
 						))}
 					</div>
 				) : loadError ? (
@@ -454,7 +636,7 @@ export default function DataSourcesPage({
 						<p className="mx-auto mt-1 max-w-xl text-xs text-muted-foreground">{loadError}</p>
 						<Button size="sm" variant="outline" className="mt-4" onClick={() => void load()}>{messages.DATA_SOURCE_RETRY}</Button>
 					</div>
-				) : visibleSources.length === 0 ? (
+				) : !hasRows ? (
 					<div className="flex flex-col items-center gap-1 py-10 text-center">
 						<h3 className="text-base font-semibold text-stone-900 dark:text-stone-100">
 							{messages.DATA_SOURCE_EMPTY_TITLE}
@@ -463,92 +645,170 @@ export default function DataSourcesPage({
 							{messages.DATA_SOURCE_EMPTY_DESCRIPTION}
 						</p>
 					</div>
+				) : !hasFilteredRows ? (
+					<div className="flex flex-col items-center gap-1 py-10 text-center">
+						<h3 className="text-base font-semibold text-stone-900 dark:text-stone-100">
+							{messages.CONNECTOR_NO_MATCHES}
+						</h3>
+					</div>
 				) : (
-					<div className="contents">
-						{visibleSources.map((s) => (
-							<div
-								key={s.id}
-								className="flex min-h-[168px] flex-col justify-between rounded-lg border border-stone-200 bg-stone-50/70 p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] dark:border-stone-800 dark:bg-stone-900/50 dark:hover:border-primary/50"
-							>
-								<div>
-									<div className="flex items-center gap-2">
-										<div className="flex h-9 w-9 items-center justify-center rounded-md border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
-											<Image src={descriptors.find((d) => d.type === s.type)?.icon || "/images/connect.svg"} alt="" width={24} height={24} className="h-6 w-6 object-contain" />
-										</div>
-										<span className="text-sm font-medium text-stone-950 dark:text-stone-50">
-											{s.name}
-										</span>
-										<Badge variant="outline" className="text-[10px]">
-										{s.type}
-									</Badge>
-									<Badge variant="secondary" className="text-[10px]">
-										{s.environment || "production"}
-									</Badge>
-										{s.isDefault && (
-											<Badge className="text-[10px]">default</Badge>
-										)}
-										{s.hasSecret && (
-											<span
-												className="flex items-center gap-0.5 text-[10px] text-emerald-600 dark:text-emerald-400"
-												title={messages.DATA_SOURCE_CREDENTIALS_SET}
-											>
-												<ShieldCheck className="h-3 w-3" />
-											</span>
-										)}
-									</div>
-									<p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
-										{descriptors.find((d) => d.type === s.type)?.description || `${s.type} telemetry connector.`}
-									</p>
-									<div className="flex flex-wrap gap-1">
-										{parseSignals(s.signals).map((sig) => (
-											<Badge
-												key={sig}
-												variant="secondary"
-												className="text-[10px]"
-											>
-												{sig}
-											</Badge>
-										))}
-									</div>
-								</div>
-				<div className="mt-3 flex items-center justify-end gap-1 border-t border-stone-200 pt-2 dark:border-stone-800">
-									<div className="flex items-center gap-1">
-									<Button
-										size="sm"
-										variant="ghost"
-										disabled={testingId === s.id}
-										onClick={() => testSource(s)}
-									>
-										<Wifi className="mr-1 h-3.5 w-3.5" />
-										{messages.DATA_SOURCE_TEST}
-									</Button>
-					<Button
-						size="icon"
-						variant="ghost"
-						title="Edit connector and signal routing"
-						aria-label={`Edit ${s.name} connector`}
-						onClick={() => setEditing(s)}
-					>
-						<Pencil className="h-3.5 w-3.5" />
-										</Button>
-									<Button
-										size="sm"
-										variant="ghost"
-										onClick={() => removeSource(s)}
-									>
-											<Trash2 className="h-3.5 w-3.5 text-error" />
-										</Button>
-									</div>
-								</div>
-							</div>
-						))}
+					<div className="overflow-x-auto rounded-md border border-stone-200 dark:border-stone-800">
+						<Table>
+							<TableHeader className="bg-stone-200/[0.5] text-stone-500 dark:bg-stone-800 dark:text-stone-400">
+								<TableRow className="text-xs">
+									<TableHead className="h-8 pl-3">{messages.NAME}</TableHead>
+									<TableHead className="h-8">{messages.DATA_SOURCE_FIELD_TYPE}</TableHead>
+									<TableHead className="h-8">{messages.CONNECTOR_ENVIRONMENT}</TableHead>
+									<TableHead className="h-8">{messages.DATA_SOURCE_FIELD_SIGNALS}</TableHead>
+									<TableHead className="h-8 text-right">{messages.ACTIONS}</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{filteredDatabases.map((config) => (
+									<TableRow key={`clickhouse:${config.id}`} className="text-sm">
+										<TableCell className="py-2 pl-3">
+											<div className="flex min-w-0 items-center gap-2">
+												<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
+													<Image src={clickhouseDescriptor?.icon || "/images/connectors/clickhouse.svg"} alt="" width={16} height={16} className="h-4 w-4 object-contain" />
+												</div>
+												<div className="min-w-0">
+													<p className="truncate font-medium text-stone-950 dark:text-stone-50">{config.name}</p>
+													<p className="truncate text-[11px] text-muted-foreground">{config.host}:{config.port}</p>
+												</div>
+											</div>
+										</TableCell>
+										<TableCell className="py-2">
+											<Badge variant="outline" className="text-[10px]">clickhouse</Badge>
+										</TableCell>
+										<TableCell className="py-2 text-xs text-muted-foreground">
+											{config.environment || "production"}
+										</TableCell>
+										<TableCell className="py-2">
+											<div className="flex flex-wrap gap-1">
+												{(clickhouseDescriptor?.declaredSignals || ["traces", "logs", "metrics"]).map((sig) => (
+													<Badge key={sig} variant="secondary" className="text-[10px]">{sig}</Badge>
+												))}
+											</div>
+										</TableCell>
+										<TableCell className="py-2 text-right">
+											<div className="flex items-center justify-end gap-1">
+												<Button
+													size="icon"
+													variant="ghost"
+													title={messages.DATA_SOURCE_TEST}
+													aria-label={`${messages.DATA_SOURCE_TEST} ${config.name}`}
+													disabled={testingId === `clickhouse:${config.id}`}
+													onClick={() => void testClickhouse(config)}
+												>
+													<Wifi className="h-3.5 w-3.5" />
+												</Button>
+												<Button
+													size="icon"
+													variant="ghost"
+													title={messages.DATA_SOURCE_EDIT_ACTION}
+													aria-label={`${messages.DATA_SOURCE_EDIT_ACTION} ${config.name}`}
+													disabled={!config.permissions?.canEdit}
+													onClick={() => setDbEditing(config)}
+												>
+													<Pencil className="h-3.5 w-3.5" />
+												</Button>
+												<Button
+													size="icon"
+													variant="ghost"
+													title={messages.DATA_SOURCE_DELETE_ACTION}
+													aria-label={`${messages.DATA_SOURCE_DELETE_ACTION} ${config.name}`}
+													disabled={!config.permissions?.canDelete}
+													onClick={() => void removeClickhouse(config)}
+												>
+													<Trash2 className="h-3.5 w-3.5 text-error" />
+												</Button>
+											</div>
+										</TableCell>
+									</TableRow>
+								))}
+								{filteredSources.map((s) => {
+									const descriptor = descriptors.find((d) => d.type === s.type);
+									return (
+										<TableRow key={s.id} className="text-sm">
+											<TableCell className="py-2 pl-3">
+												<div className="flex min-w-0 items-center gap-2">
+													<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
+														<Image src={descriptor?.icon || "/images/connect.svg"} alt="" width={16} height={16} className="h-4 w-4 object-contain" />
+													</div>
+													<div className="min-w-0">
+														<p className="truncate font-medium text-stone-950 dark:text-stone-50">{s.name}</p>
+														{s.hasSecret ? (
+															<span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 dark:text-emerald-400" title={messages.DATA_SOURCE_CREDENTIALS_SET}>
+																<ShieldCheck className="h-3 w-3" />
+																{messages.DATA_SOURCE_CREDENTIALS_SET}
+															</span>
+														) : null}
+													</div>
+												</div>
+											</TableCell>
+											<TableCell className="py-2">
+												<Badge variant="outline" className="text-[10px]">{s.type}</Badge>
+											</TableCell>
+											<TableCell className="py-2 text-xs text-muted-foreground">
+												{s.environment || "production"}
+											</TableCell>
+											<TableCell className="py-2">
+												<div className="flex flex-wrap gap-1">
+													{parseSignals(s.signals).map((sig) => (
+														<Badge key={sig} variant="secondary" className="text-[10px]">{sig}</Badge>
+													))}
+													{s.category === "memory" ? (
+														<Badge variant="secondary" className="text-[10px]">{messages.CONNECTOR_CATEGORY_MEMORY}</Badge>
+													) : null}
+													{s.isDefault ? (
+														<Badge className="text-[10px]">default</Badge>
+													) : null}
+												</div>
+											</TableCell>
+											<TableCell className="py-2 text-right">
+												<div className="flex items-center justify-end gap-1">
+													<Button
+														size="icon"
+														variant="ghost"
+														title={messages.DATA_SOURCE_TEST}
+														aria-label={`${messages.DATA_SOURCE_TEST} ${s.name}`}
+														disabled={testingId === s.id}
+														onClick={() => void testConnector(s)}
+													>
+														<Wifi className="h-3.5 w-3.5" />
+													</Button>
+													<Button
+														size="icon"
+														variant="ghost"
+														title={messages.DATA_SOURCE_EDIT_ACTION}
+														aria-label={`${messages.DATA_SOURCE_EDIT_ACTION} ${s.name}`}
+														onClick={() => setEditing(s)}
+													>
+														<Pencil className="h-3.5 w-3.5" />
+													</Button>
+													<Button
+														size="icon"
+														variant="ghost"
+														title={messages.DATA_SOURCE_DELETE_ACTION}
+														aria-label={`${messages.DATA_SOURCE_DELETE_ACTION} ${s.name}`}
+														onClick={() => removeSource(s)}
+													>
+														<Trash2 className="h-3.5 w-3.5 text-error" />
+													</Button>
+												</div>
+											</TableCell>
+										</TableRow>
+									);
+								})}
+							</TableBody>
+						</Table>
 					</div>
 				)}
-			</div>
 			</section>
 
 			{editing && (
 					<SourceFormDialog
+						key={editing === "new" ? `new:${newType || ""}` : editing.id}
 						source={editing === "new" ? null : editing}
 					descriptors={descriptors}
 					initialType={editing === "new" ? newType : undefined}
@@ -557,7 +817,7 @@ export default function DataSourcesPage({
 					bindingForSignal={bindingForSignal}
 					onSetBinding={setBinding}
 					bindings={bindings}
-					sources={visibleSources}
+					sources={routingSources}
 					databaseConfigs={databaseConfigs}
 						environment={environment}
 					onClose={() => {
@@ -668,7 +928,7 @@ function SignalRoutingSection({
 					const value = signalRoutingSelectValue(binding?.sourceId);
 					const options = sources.filter((source) => parseSignals(source.signals).includes(signal));
 					const hasOptions = environmentDatabases.length > 0 || options.length > 0;
-					const label = signal === "traces" ? messages.DATA_SOURCE_SIGNAL_TRACES : signal === "logs" ? messages.DATA_SOURCE_SIGNAL_LOGS : signal === "metrics" ? messages.DATA_SOURCE_SIGNAL_METRICS : "Intelligence";
+					const label = signal === "traces" ? messages.DATA_SOURCE_SIGNAL_TRACES : signal === "logs" ? messages.DATA_SOURCE_SIGNAL_LOGS : signal === "metrics" ? messages.DATA_SOURCE_SIGNAL_METRICS : messages.DATA_SOURCE_SIGNAL_INTELLIGENCE;
 					return (
 						<div key={signal} className="space-y-1.5">
 							<Label className="text-xs uppercase text-muted-foreground">{label}</Label>
@@ -750,7 +1010,7 @@ function SignalRoutingEditor({
 	);
 }
 
-function SourceFormDialog({
+export function SourceFormDialog({
 	source,
 	descriptors,
 	initialType,
@@ -780,13 +1040,28 @@ function SourceFormDialog({
 	onSaved: () => void;
 }) {
 	const messages = getMessage();
-	const posthog = usePostHog();
 	const isEdit = !!source;
 	const [name, setName] = useState(source?.name || "");
 	const [environment, setEnvironment] = useState(source?.environment || initialEnvironment || "production");
 	const [environments, setEnvironments] = useState<string[]>(Array.from(new Set(["production", source?.environment, initialEnvironment].filter(Boolean) as string[])));
-	const externalDescriptors = useMemo(() => descriptors.filter((descriptor) => descriptor.type !== "clickhouse"), [descriptors]);
-	const [type, setType] = useState(source?.type || initialType || externalDescriptors[0]?.type || "");
+	const [type, setType] = useState(source?.type || initialType || "");
+	const pickerGroups = useMemo(() => {
+		const groups = new Map<string, TypeDescriptor[]>();
+		for (const descriptor of descriptors) {
+			const key = descriptor.category || "datasource";
+			const group = groups.get(key) || [];
+			group.push(descriptor);
+			groups.set(key, group);
+		}
+		return Array.from(groups, ([key, items]) => ({
+			key,
+			label:
+				key === "memory"
+					? messages.CONNECTOR_CATEGORY_MEMORY
+					: messages.CONNECTOR_CATEGORY_DATASOURCE,
+			items,
+		}));
+	}, [descriptors, messages.CONNECTOR_CATEGORY_DATASOURCE, messages.CONNECTOR_CATEGORY_MEMORY]);
 	const clickHouseFields = useMemo<FieldDef[]>(() => [
 		{ key: "username", label: messages.DB_CONFIG_FIELD_USERNAME, kind: "text", group: "settings", placeholder: "default" },
 		{ key: "host", label: messages.DB_CONFIG_FIELD_HOST, kind: "text", group: "settings", placeholder: "clickhouse.example.com" },
@@ -801,6 +1076,7 @@ function SourceFormDialog({
 	const [isDefault, setIsDefault] = useState(!!source?.isDefault);
 	const [values, setValues] = useState<Record<string, string | boolean>>({});
 	const [saving, setSaving] = useState(false);
+	const [testing, setTesting] = useState(false);
 
 	useEffect(() => {
 		fetch("/api/project/environment")
@@ -847,6 +1123,8 @@ function SourceFormDialog({
 			(f.key === "authType" || f.group === "credentials") &&
 			isFieldVisible(f, { ...values })
 	);
+	const activeDescriptor = descriptors.find((d) => d.type === type);
+	const setupGuide = messages.DATA_SOURCE_SETUP_GUIDES[type];
 
 	const submit = async () => {
 		if (!name.trim()) {
@@ -883,13 +1161,6 @@ function SourceFormDialog({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
-				posthog?.capture(
-					CLIENT_EVENTS.CONNECTOR_CREATE_SUCCESS,
-					connectorCreateEventProps({
-						type: "clickhouse",
-						environment,
-					})
-				);
 				toast.success(messages.DATA_SOURCE_SAVED, { id: "ds-save" });
 				onSaved();
 				return;
@@ -899,6 +1170,7 @@ function SourceFormDialog({
 				environment: environment.trim().toLowerCase() || "production",
 				settings,
 				isDefault,
+				category: activeDescriptor?.category || "datasource",
 			};
 			if (Object.keys(credentials).length) payload.credentials = credentials;
 			if (isEdit) {
@@ -918,26 +1190,10 @@ function SourceFormDialog({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
-				posthog?.capture(
-					CLIENT_EVENTS.CONNECTOR_CREATE_SUCCESS,
-					connectorCreateEventProps({
-						type,
-						environment,
-					})
-				);
 			}
 			toast.success(messages.DATA_SOURCE_SAVED, { id: "ds-save" });
 			onSaved();
 		} catch (e: any) {
-			if (!isEdit) {
-				posthog?.capture(
-					CLIENT_EVENTS.CONNECTOR_CREATE_FAILURE,
-					connectorCreateEventProps({
-						type: type || "unknown",
-						environment,
-					})
-				);
-			}
 			toast.error(e?.message || messages.DATA_SOURCE_SAVE_FAILED, {
 				id: "ds-save",
 			});
@@ -946,8 +1202,27 @@ function SourceFormDialog({
 		}
 	};
 
-	const activeDescriptor = descriptors.find((d) => d.type === type);
-	const setupGuide = messages.DATA_SOURCE_SETUP_GUIDES[type];
+	const testConnection = async () => {
+		if (!source?.id) {
+			toast.error(messages.DATA_SOURCE_TEST_UNSAVED, { id: "ds-test" });
+			return;
+		}
+		setTesting(true);
+		toast.loading(messages.DATA_SOURCE_TESTING, { id: "ds-test" });
+		try {
+			const res = await jsonFetch(`/api/connectors/${source.id}/health`, {
+				method: "POST",
+			});
+			reportConnectorHealth(messages, descriptors, source.type, res);
+		} catch (e: unknown) {
+			toast.error(
+				e instanceof Error ? e.message : messages.DATA_SOURCE_SAVE_FAILED,
+				{ id: "ds-test" }
+			);
+		} finally {
+			setTesting(false);
+		}
+	};
 
 	return (
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -973,14 +1248,14 @@ function SourceFormDialog({
 						<div className="space-y-1.5">
 							<Label className="text-xs">{messages.DATA_SOURCE_FIELD_TYPE}</Label>
 								<Select
-									value={type}
+									value={type || undefined}
 									onValueChange={(nextType) => {
 										setType(nextType);
 									}}
 									disabled={isEdit}
 								>
 				<SelectTrigger className="h-auto min-h-14 items-center gap-2 overflow-hidden border-stone-300 bg-white py-2.5 text-left text-stone-950 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:line-clamp-none dark:border-stone-700 dark:bg-stone-900 dark:text-stone-50">
-									<SelectValue placeholder="Select a connector">
+									<SelectValue placeholder={messages.CONNECTOR_TYPE_PLACEHOLDER}>
 										{activeDescriptor ? (
 											<div className="flex min-w-0 items-center gap-2.5">
 												<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
@@ -994,28 +1269,35 @@ function SourceFormDialog({
 										) : undefined}
 									</SelectValue>
 								</SelectTrigger>
-				<SelectContent className="grid max-h-96 min-w-[var(--radix-select-trigger-width)] grid-cols-2 items-stretch gap-2 p-2 sm:min-w-[680px]">
-									{descriptors.map((d) => (
-						<SelectItem key={d.type} value={d.type} className="min-h-[72px] items-start py-2 pl-2 pr-8">
-							<div className="flex items-start gap-3">
-												<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
+				<SelectContent className="max-h-96 min-w-[var(--radix-select-trigger-width)] [&_[data-radix-select-viewport]]:h-auto [&_[data-radix-select-viewport]]:max-h-80">
+									{pickerGroups.map((group) => (
+										<SelectGroup key={group.key}>
+											<SelectLabel className="pl-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+												{group.label}
+											</SelectLabel>
+											{group.items.map((d) => (
+						<SelectItem key={d.type} value={d.type} className="items-center py-2 pl-2 pr-8">
+							<div className="flex items-center gap-3">
+												<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-950">
 													<Image src={d.icon || "/images/connect.svg"} alt="" width={18} height={18} className="h-[18px] w-[18px] object-contain" />
 												</div>
 												<div className="min-w-0">
 													<p className="font-medium">{d.displayName}</p>
-													<p className="mt-0.5 line-clamp-2 max-w-[220px] whitespace-normal text-[10px] leading-4 text-muted-foreground">{d.description || `${d.displayName} telemetry connector.`}</p>
+													<p className="truncate text-[10px] text-muted-foreground">{d.type}</p>
 												</div>
 											</div>
 										</SelectItem>
+											))}
+										</SelectGroup>
 									))}
 								</SelectContent>
 							</Select>
 							{isEdit && <p className="text-[11px] text-muted-foreground">{messages.DATA_SOURCE_TYPE_LOCKED}</p>}
 						</div>
-						{activeDescriptor && (
+						{activeDescriptor && (activeDescriptor.declaredSignals || []).length > 0 && (
 							<div className="mt-3 flex flex-wrap items-center gap-1.5">
 								<span className="mr-1 text-[11px] text-muted-foreground">{messages.DATA_SOURCE_SIGNALS_SECTION}:</span>
-								{activeDescriptor.declaredSignals.map((sig) => (
+								{(activeDescriptor.declaredSignals || []).map((sig) => (
 									<Badge key={sig} variant="secondary" className="text-[10px]">{sig}</Badge>
 								))}
 							</div>
@@ -1118,7 +1400,7 @@ function SourceFormDialog({
 						</section>
 					)}
 
-					{showRouting && source && bindingForSignal && onSetBinding && (
+					{showRouting && source && activeDescriptor?.category !== "memory" && bindingForSignal && onSetBinding && (
 						<SignalRoutingEditor
 							sources={sources || []}
 							databaseConfigs={databaseConfigs || []}
@@ -1129,21 +1411,34 @@ function SourceFormDialog({
 						/>
 					)}
 
+					{activeDescriptor?.category !== "memory" && (
 					<div className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2 dark:border-stone-800">
 						<Label className="text-xs">
 							{messages.DATA_SOURCE_FIELD_DEFAULT}
 						</Label>
 						<Switch checked={isDefault} onCheckedChange={setIsDefault} />
 					</div>
+					)}
 				</div>
 
-				<DialogFooter>
-					<Button variant="outline" onClick={onClose} disabled={saving}>
+				<DialogFooter className="gap-2 sm:justify-between">
+					<Button
+						variant="outline"
+						onClick={() => void testConnection()}
+						disabled={saving || testing || !isEdit}
+						title={!isEdit ? messages.DATA_SOURCE_TEST_UNSAVED : undefined}
+					>
+						<Wifi className="mr-1.5 h-3.5 w-3.5" />
+						{testing ? messages.DATA_SOURCE_TESTING : messages.DATA_SOURCE_TEST}
+					</Button>
+					<div className="flex gap-2">
+					<Button variant="outline" onClick={onClose} disabled={saving || testing}>
 						{messages.CANCEL}
 					</Button>
-					<Button onClick={submit} disabled={saving}>
+					<Button onClick={submit} disabled={saving || testing || !type}>
 						{messages.SAVE}
 					</Button>
+					</div>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

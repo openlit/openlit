@@ -37,6 +37,23 @@ describe("new implementation route access wraps", () => {
 		}
 	});
 
+	it("wraps memory routes with memory access/audit hooks", () => {
+		const files = [
+			"memory/route.ts",
+			"memory/copy/route.ts",
+			"memory/[id]/route.ts",
+			"memory/[id]/feedback/route.ts",
+		];
+		for (const rel of files) {
+			const source = readFileSync(join(API_ROOT, rel), "utf8");
+			expect(source).toMatch(/withMemoryAccess/);
+			expect(source).not.toMatch(/"[a-z_]+:[a-z_]+"/);
+			if (rel.includes("[id]") || rel === "memory/route.ts" || rel === "memory/copy/route.ts") {
+				expect(source).toMatch(/withMemoryAudit/);
+			}
+		}
+	});
+
 	it("wraps telemetry query routes with withRouteAccess", () => {
 		const roots = ["metrics", "telemetry", "observability"].map((d) =>
 			join(API_ROOT, d)

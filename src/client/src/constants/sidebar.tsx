@@ -10,6 +10,7 @@ import {
 	BookText,
 	Bot,
 	Boxes,
+	BrainCircuit,
 	Building2,
 	CircleDollarSign,
 	Component,
@@ -101,6 +102,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						icon: <BookOpen className={ICON_CLASSES} />,
 						text: "Contexts",
 						link: "/context",
+						type: "action",
+					},
+					{
+						icon: <BrainCircuit className={ICON_CLASSES} />,
+						text: m.FEATURE_MEMORY,
+						link: "/memory",
 						type: "action",
 					},
 					{

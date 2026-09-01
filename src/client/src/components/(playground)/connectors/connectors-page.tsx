@@ -184,8 +184,8 @@ export default function ConnectorsPage() {
 								<Input
 									value={search}
 									onChange={(event) => setSearch(event.target.value)}
-									placeholder="Search connectors"
-									aria-label="Search connectors"
+									placeholder={messages.CONNECTOR_SEARCH_PLACEHOLDER}
+									aria-label={messages.CONNECTOR_SEARCH_PLACEHOLDER}
 									className="h-9 pl-9"
 								/>
 							</div>
@@ -309,7 +309,7 @@ export default function ConnectorsPage() {
 								))}
 							</Accordion>
 							{!filteredConnectorGroups.length && (
-								<p className="py-10 text-center text-sm text-muted-foreground">No connectors match your search.</p>
+								<p className="py-10 text-center text-sm text-muted-foreground">{messages.CONNECTOR_NO_MATCHES}</p>
 							)}
 							</>
 						)}

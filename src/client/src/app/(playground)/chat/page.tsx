@@ -18,6 +18,7 @@ export default function ChatPage() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const conversationId = searchParams.get("id");
+	const initialPrompt = searchParams.get("prompt");
 	const currentOrg = useRootStore(getCurrentOrganisation);
 	const projects = useRootStore(getProjectList);
 	const currentProject = useRootStore(getCurrentProject);
@@ -60,7 +61,7 @@ export default function ChatPage() {
 	return (
 		<RequestProvider>
 			<div className="flex flex-col w-full h-full overflow-hidden">
-				<ChatLayout initialConversationId={conversationId} />
+				<ChatLayout initialConversationId={conversationId} initialPrompt={initialPrompt} />
 			</div>
 		</RequestProvider>
 	);

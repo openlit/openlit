@@ -11,6 +11,8 @@ import {
 	getFilterPreviousParams,
 	getFilterWhereCondition,
 } from "@/helpers/server/platform";
+import { hasGenerationHealthFilter } from "@/lib/platform/generation-health/classify";
+import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
 
 const PREDEFINED_GROUP_BY: Record<string, string> = {
 	model: `SpanAttributes['gen_ai.request.model']`,
@@ -232,8 +234,14 @@ export async function getRequestsConfig(params: MetricParams) {
 
 export async function getRequests(params: MetricParams) {
 	const { limit = 10, offset = 0 } = params;
+	const oneRowPerTrace =
+		hasGenerationHealthFilter(params.selectedConfig?.generationHealth) ||
+		hasAgentLoopFilter(params.selectedConfig?.agentLoop);
+	const totalExpr = oneRowPerTrace
+		? "CAST(uniqExact(TraceId) AS INTEGER)"
+		: "CAST(COUNT(*) AS INTEGER)";
 
-	const countQuery = `SELECT CAST(COUNT(*) AS INTEGER) AS total	FROM ${OTEL_TRACES_TABLE_NAME} 
+	const countQuery = `SELECT ${totalExpr} AS total	FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE ${getFilterWhereCondition(params, true)}`;
 
 	const { data: dataTotal, err: errTotal } = await dataCollector(
@@ -257,6 +265,7 @@ export async function getRequests(params: MetricParams) {
 					: `ORDER BY ${params.sorting.type} ${params.sorting.direction} `
 			: `ORDER BY Timestamp desc `
 		}
+		${oneRowPerTrace ? "LIMIT 1 BY TraceId" : ""}
 		LIMIT ${limit}
 		OFFSET ${offset}`;
 

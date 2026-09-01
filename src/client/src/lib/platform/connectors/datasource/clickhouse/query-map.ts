@@ -10,6 +10,8 @@ import type {
 	QuerySort,
 	Signal,
 } from "../types";
+import { parseGenerationHealthChips } from "@/lib/platform/generation-health/classify";
+import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
 
 /** Build a `TimeLimit` from an OpenLITQuery time range. */
 export function toTimeLimit(query: OpenLITQuery): TimeLimit {
@@ -91,6 +93,12 @@ export function toMetricParams(
 		});
 	}
 	if (customFilters.length) selectedConfig.customFilters = customFilters;
+	if (query.generationHealth?.length) {
+		selectedConfig.generationHealth = query.generationHealth;
+	}
+	if (query.agentLoop) {
+		selectedConfig.agentLoop = true;
+	}
 	return {
 		timeLimit: toTimeLimit(query),
 		limit: query.limit,
@@ -468,5 +476,7 @@ export function metricParamsToOpenLITQuery(
 		aiSelector: opts.aiSelector ?? signal === "traces",
 		interval: opts.interval,
 		maxDataPoints: opts.maxDataPoints,
+		generationHealth: parseGenerationHealthChips(cfg.generationHealth),
+		agentLoop: hasAgentLoopFilter(cfg.agentLoop),
 	};
 }
