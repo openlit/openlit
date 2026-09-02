@@ -61,18 +61,20 @@
                 "icon": "building",
                 "pages": [
                   "latest/openlit/organisation/overview",
-                  {
-                    "group": "Projects",
-                    "icon": "folder",
-                    "pages": [
-                      "latest/openlit/organisation/projects",
-                      "latest/openlit/organisation/environments",
-                      "latest/openlit/organisation/database-config",
-                      "latest/openlit/organisation/connectors",
-                      "latest/openlit/organisation/signal-routing",
-                      "latest/openlit/organisation/telemetry-sources"
-                    ]
-                  }
+                  "latest/openlit/organisation/projects",
+                  "latest/openlit/organisation/environments",
+                  "latest/openlit/organisation/signal-routing",
+                  "latest/openlit/organisation/telemetry-sources",
+                  "latest/openlit/organisation/database-config"
+                ]
+              },
+              {
+                "group": "Connectors",
+                "icon": "plug",
+                "pages": [
+                  "latest/openlit/connectors/overview",
+                  "latest/openlit/connectors/datasource",
+                  "latest/openlit/connectors/memory"
                 ]
               }
             ]
