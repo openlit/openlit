@@ -1,20 +1,16 @@
 ---
-title: 'Connectors'
-sidebarTitle: 'Connectors'
-description: 'Connect OpenLIT to ClickHouse and OpenPlait-backed observability backends — atomic connectors, actions, and the roadmap for a unified connector registry'
-icon: 'plug'
+title: 'Data-source connectors'
+sidebarTitle: 'Data sources'
+description: 'Connect OpenLIT to ClickHouse and OpenPlait-backed observability backends — atomic connectors, signal bindings, and portable query adapters'
+icon: 'database'
 ---
 
-**Connectors** are how OpenLIT attaches to data systems. Each connector is an **atomic** integration: one backend, one credential set, and a clear set of **actions** (test connection, validate AI telemetry, bind signals, manage secrets).
+**Data-source connectors** attach OpenLIT to observability backends for reading traces, logs, and metrics. Each connector is atomic: one Tempo instance, one Loki instance, one Prometheus endpoint.
 
-Open the connectors experience from **Organisation → Project → Connectors** (Data sources). Always select the correct [project](/latest/openlit/organisation/projects) and [environment](/latest/openlit/organisation/environments) first — connectors belong to the project, not the organisation root.
-
-<Frame>
-  <img src="/images/organisation/connectors-list.png" alt="OpenLIT Connectors page showing configured connectors and the connector catalog" />
-</Frame>
+Configure them from **Configuration → Connectors** (`/connectors`) or manage bindings from **Organisation → Project → Connectors**. Select the correct [project](/latest/openlit/organisation/projects) and [environment](/latest/openlit/organisation/environments) before adding or binding connectors.
 
 <Info>
-Connectors are the long-term integration point in OpenLIT: **data-source connectors** today, with the same registry model expanding to notifications and other action types over time. Several read paths use portable [@openplait](https://github.com/openlit/openplait) adapters so query behavior stays consistent across backends.
+Several read paths use portable [@openplait](https://github.com/openlit/openplait) adapters so query behavior stays consistent across backends. See the [Connectors overview](/latest/openlit/connectors/overview) for memory connectors and shared registry concepts.
 </Info>
 
 ## Mental model
@@ -44,17 +40,17 @@ flowchart LR
 
 ## Supported connectors (OpenLIT + OpenPlait)
 
-These are the connectors available in open-source OpenLIT. OpenPlait packages power the portable query adapters for ClickHouse, Tempo, Loki, Prometheus, and Jaeger.
+These are the data-source connectors available in open-source OpenLIT. OpenPlait packages power the portable query adapters for ClickHouse, Tempo, Loki, Prometheus, and Jaeger.
 
 ### Built-in app store
 
-| Connector | Package / implementation | Signals | What it’s for |
+| Connector | Package / implementation | Signals | What it's for |
 | --- | --- | --- | --- |
 | **ClickHouse** | Database Config + `@openplait/adapter-clickhouse` | traces, logs, metrics (+ intelligence) | Default store; full correlation, raw SQL, evals metadata, vault |
 
-### Data-source connectors
+### External data-source connectors
 
-| Connector | Package / implementation | Signals | What it’s for |
+| Connector | Package / implementation | Signals | What it's for |
 | --- | --- | --- | --- |
 | **Grafana Tempo** | `@openplait/adapter-tempo` | traces | TraceQL search, trace tree, span events |
 | **Grafana Loki** | `@openplait/adapter-loki` | logs | LogQL logs; correlate by trace id / service |
@@ -62,7 +58,7 @@ These are the connectors available in open-source OpenLIT. OpenPlait packages po
 | **Jaeger** | `@openplait/adapter-jaeger` | traces | Jaeger Query HTTP API; sampled in-process aggregates |
 
 <Tip>
-Prometheus-compatible APIs (for example Grafana Mimir’s PromQL endpoint) use the **Prometheus** connector — there is no separate Mimir connector type in open-source OpenLIT.
+Prometheus-compatible APIs (for example Grafana Mimir's PromQL endpoint) use the **Prometheus** connector — there is no separate Mimir connector type in open-source OpenLIT.
 </Tip>
 
 ## Capability matrix
@@ -77,17 +73,29 @@ Prometheus-compatible APIs (for example Grafana Mimir’s PromQL endpoint) use t
 
 \* Aggregate graphs are reconstructed in-process from a bounded sample of full traces when the backend cannot aggregate server-side.
 
-## Add a Jaeger connector in OpenLIT
+## Add a Jaeger connector
 
 <Frame>
   <img src="/images/organisation/openlit-jaeger-connector.png" alt="Add source dialog with the connector type menu open, including Jaeger" />
 </Frame>
 
-1. Select a [project](/latest/openlit/organisation/projects) and environment in the header.  
-2. Open **Connectors** and choose **Add connector** / **Add source**.  
-3. Pick **Jaeger** from the connector type list.  
-4. Set the Query URL (local all-in-one: `http://localhost:16686`) and auth if needed.  
-5. Bind **traces** to the connector under [signal routing](/latest/openlit/organisation/signal-routing).  
+<Steps>
+  <Step title="Select project and environment">
+    Use the header selectors to pick the [project](/latest/openlit/organisation/projects) and [environment](/latest/openlit/organisation/environments).
+  </Step>
+  <Step title="Open Connectors">
+    Go to **Configuration → Connectors** and choose **Add connector** / **Add source**.
+  </Step>
+  <Step title="Pick Jaeger">
+    Select **Jaeger** from the data-source connector list.
+  </Step>
+  <Step title="Configure endpoint">
+    Set the Query URL (local all-in-one: `http://localhost:16686`) and auth if needed.
+  </Step>
+  <Step title="Bind traces">
+    Bind **traces** to the connector under [signal routing](/latest/openlit/organisation/signal-routing).
+  </Step>
+</Steps>
 
 <Tip>
 Local demo credentials for seeded installs: email `user@openlit.io`, password `openlituser`. Jaeger all-in-one + seed script live in the OpenPlait `adapter-jaeger` integration folder.
@@ -95,7 +103,7 @@ Local demo credentials for seeded installs: email `user@openlit.io`, password `o
 
 ## Actions you can take on a connector
 
-The connector registry is designed so **actions** attach to a connector type. Today’s data-source actions:
+The connector registry is designed so **actions** attach to a connector type. Today's data-source actions:
 
 | Action | When to use it |
 | --- | --- |
@@ -108,11 +116,7 @@ The connector registry is designed so **actions** attach to a connector type. To
 | **Mark Database Config active** | Choose which ClickHouse app store the UI uses |
 | **Share Database Config** | Grant edit / delete / re-share on a ClickHouse connection |
 
-Enterprise audit logs record connector create/update/delete/test plus bind/unbind (with signal, environment, and previous source when switching). RBAC permissions are `connectors:read|create|update|delete|test|bind` (owner/admin by default).
-
-### Future connector categories
-
-The same registry will grow beyond datasources (for example notification and workflow connectors). Each new category still follows: **atomic connector → credentials → actions → optional bindings**. Data-source connectors remain the foundation for telemetry reads.
+Enterprise audit logs record connector create/update/delete/test plus bind/unbind (with signal, environment, and previous source when switching).
 
 ## How OpenLIT finds AI telemetry
 
@@ -158,16 +162,16 @@ See the [OpenPlait repository](https://github.com/openlit/openplait) for publish
 ## Related
 
 <CardGroup cols={2}>
+  <Card title="Memory connectors" href="/latest/openlit/connectors/memory" icon="brain">
+    Claude, Mem0, and Zep for agent memory.
+  </Card>
   <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
     Bind traces, logs, and metrics independently.
-  </Card>
-  <Card title="Environments" href="/latest/openlit/organisation/environments" icon="layer-group">
-    Partition configs and connectors by environment.
   </Card>
   <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
     Env vars → ClickHouse Database Config.
   </Card>
-  <Card title="Projects" href="/latest/openlit/organisation/projects" icon="folder">
-    How connectors are scoped to a project.
+  <Card title="Connectors overview" href="/latest/openlit/connectors/overview" icon="plug">
+    Shared connector model and project scope.
   </Card>
 </CardGroup>
