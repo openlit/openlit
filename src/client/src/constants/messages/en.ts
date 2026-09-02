@@ -1981,6 +1981,79 @@ export const TRACE_AI_ANALYZE = "Analyze";
 export const TRACE_AI_RERUN = "Rerun";
 export const TRACE_AI_ANALYZE_TRACE = "Analyze Trace";
 export const TRACE_AI_TAB_TITLE = "AI Analysis";
+export const GOVERNANCE_TAB_TITLE = "Governance";
+export const GOVERNANCE_LOADING = "Building governance report…";
+export const GOVERNANCE_LOAD_FAILED = "Failed to load governance report";
+export const GOVERNANCE_LOAD_FAILED_DETAIL = "{detail}";
+export const GOVERNANCE_EMPTY_TITLE = "No governance signals";
+export const GOVERNANCE_EMPTY_DESCRIPTION =
+	"This trace hierarchy has no rule matches, security findings, or evaluation results in the current window.";
+export const GOVERNANCE_SECTION_SUMMARY = "Summary";
+export const GOVERNANCE_SECTION_HARNESS = "Harness";
+export const GOVERNANCE_SECTION_RULES = "Matched rules";
+export const GOVERNANCE_SECTION_SECURITY = "Security & policy";
+export const GOVERNANCE_SECTION_EVALUATIONS = "Evaluations";
+export const GOVERNANCE_RISK_NONE = "No elevated risk";
+export const GOVERNANCE_RISK_INFO = "Informational";
+export const GOVERNANCE_RISK_MINOR = "Minor risk";
+export const GOVERNANCE_RISK_MAJOR = "Major risk";
+export const GOVERNANCE_RISK_CRITICAL = "Critical risk";
+export const GOVERNANCE_SUMMARY_CLEAN =
+	"No security findings, rule matches, or evaluation flags on this hierarchy.";
+export const GOVERNANCE_SUMMARY_FINDINGS = "{count} finding(s)";
+export const GOVERNANCE_SUMMARY_RULES = "{count} rule match(es)";
+export const GOVERNANCE_SUMMARY_EVALS = "{count} evaluation row(s)";
+export const GOVERNANCE_SUMMARY_MIXED = "Governance signals detected on this trace.";
+export const GOVERNANCE_FINDING_SPAN_ERROR_SUMMARY = "Span error: {name}";
+export const GOVERNANCE_FINDING_SPAN_ERROR_DETAIL =
+	"This span completed with an error status in the hierarchy.";
+export const GOVERNANCE_FINDING_CLASSIFICATION_DISPUTED_SUMMARY =
+	"Classification disputed";
+export const GOVERNANCE_FINDING_CLASSIFICATION_DISPUTED_DETAIL =
+	"A coding-agent session classification was disputed and may need review.";
+export const GOVERNANCE_FINDING_CLASSIFICATION_PERSONAL_SUMMARY =
+	"Personal-use classification";
+export const GOVERNANCE_FINDING_CLASSIFICATION_PERSONAL_DETAIL =
+	"This session was classified as personal use on a coding-agent span.";
+export const GOVERNANCE_FINDING_PERMISSION_MODE_SUMMARY =
+	"Permission mode: {mode}";
+export const GOVERNANCE_FINDING_PERMISSION_MODE_DETAIL =
+	"The coding agent reported a non-default permission mode for this session.";
+export const GOVERNANCE_FINDING_AGENT_LOOP_SUMMARY =
+	"Tool loop: {tool} × {count}";
+export const GOVERNANCE_FINDING_AGENT_LOOP_DETAIL =
+	"Repeated identical tool calls wasted {wasted_tokens} tokens (~${wasted_cost}).";
+export const GOVERNANCE_FINDING_TOOL_BURST_SUMMARY =
+	"High tool volume ({count} tool spans)";
+export const GOVERNANCE_FINDING_TOOL_BURST_DETAIL =
+	"This hierarchy executed many tool spans, which can indicate runaway agent behavior.";
+export const GOVERNANCE_FINDING_WIDE_BRANCH_SUMMARY = "Wide span branch";
+export const GOVERNANCE_FINDING_WIDE_BRANCH_DETAIL =
+	"One or more spans fan out into many child operations.";
+export const GOVERNANCE_SPAN_REF = "Span";
+export const GOVERNANCE_RULE_LINK = "Open rule";
+export const GOVERNANCE_HARNESS_SPANS = "Spans";
+export const GOVERNANCE_HARNESS_DEPTH = "Max depth";
+export const GOVERNANCE_HARNESS_LLM = "LLM calls";
+export const GOVERNANCE_HARNESS_TOOLS = "Tool calls";
+export const GOVERNANCE_HARNESS_RETRIEVAL = "Retrieval";
+export const GOVERNANCE_HARNESS_ERRORS = "Errors";
+export const GOVERNANCE_HARNESS_COST = "Trace cost";
+export const GOVERNANCE_HARNESS_DURATION = "Duration";
+export const GOVERNANCE_INVALID_SPAN_ID = "Invalid span id";
+export const GOVERNANCE_MISSING_SPAN_ID = "No span id provided";
+export const GOVERNANCE_RETRY = "Retry";
+export const GOVERNANCE_REFRESH = "Refresh";
+export const GOVERNANCE_EXPORT_JSON = "Export JSON";
+export const GOVERNANCE_TRUNCATED_NOTE =
+	"Large trace: rule and evaluation coverage was limited to protect performance.";
+export const GOVERNANCE_AGENT_LOOP_PREFIX = "Loop";
+export const GOVERNANCE_EVAL_SCORE_PREFIX = "score";
+export const GOVERNANCE_FILTER_ALL = "All severities";
+export const GOVERNANCE_FILTER_CRITICAL = "Critical";
+export const GOVERNANCE_FILTER_MAJOR = "Major";
+export const GOVERNANCE_FILTER_MINOR = "Minor";
+export const GOVERNANCE_EVALUATIONS_LINK = "Open evaluations";
 export const TRACE_AI_LOAD_FAILED = "Failed to load AI improvement analysis";
 export const TRACE_AI_RUN_FAILED = "Failed to run AI improvement analysis";
 export const TRACE_AI_TIMEOUT = "Analysis timed out. Please try again.";
