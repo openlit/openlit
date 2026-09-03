@@ -35,7 +35,7 @@ describe("OpenLitContextIds", () => {
 	});
 
 	it("renders organisation, project, and environment with copy actions", async () => {
-		(useRootStore as jest.Mock).mockImplementation((selector) =>
+		(useRootStore as unknown as jest.Mock).mockImplementation((selector) =>
 			selector({
 				organisation: { current: { id: "org_abc123" } },
 				project: { current: { id: "proj_xyz789" }, currentEnvironment: "production" },
@@ -57,7 +57,7 @@ describe("OpenLitContextIds", () => {
 	});
 
 	it("hides when no context values are available", () => {
-		(useRootStore as jest.Mock).mockImplementation((selector) =>
+		(useRootStore as unknown as jest.Mock).mockImplementation((selector) =>
 			selector({
 				organisation: { current: null },
 				project: { current: null, currentEnvironment: null },
