@@ -222,6 +222,24 @@
                     "pages": [
                       "latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate"
                     ]
+                  },
+                  {
+                    "group": "Manage Models",
+                    "pages": [
+                      "latest/openlit/developer-resources/api-reference/endpoint/manage-models/models",
+                      "latest/openlit/developer-resources/api-reference/endpoint/manage-models/providers",
+                      "latest/openlit/developer-resources/api-reference/endpoint/manage-models/export",
+                      "latest/openlit/developer-resources/api-reference/endpoint/manage-models/import",
+                      "latest/openlit/developer-resources/api-reference/endpoint/manage-models/public-pricing"
+                    ]
+                  },
+                  {
+                    "group": "API Keys",
+                    "pages": [
+                      "latest/openlit/developer-resources/api-reference/endpoint/api-keys/create",
+                      "latest/openlit/developer-resources/api-reference/endpoint/api-keys/get",
+                      "latest/openlit/developer-resources/api-reference/endpoint/api-keys/delete"
+                    ]
                   }
                 ]
               }

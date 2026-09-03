@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/session";
+import { resolveRequestAuth } from "@/helpers/server/auth";
 import { intelligenceDataCollector } from "@/lib/platform/common";
 import { validateSQL } from "@/lib/platform/chat/sql-validator";
 import { updateMessage } from "@/lib/platform/chat/conversation";
@@ -9,17 +9,19 @@ import { authorizeTelemetrySQLRouting } from "@/lib/platform/chat/telemetry-sql-
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
-	const user = await getCurrentUser();
-	if (!user) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
 	// Natural-language SQL chat runs raw ClickHouse SQL, so it is only
 	// available through the ClickHouse connector routed for intelligence.
-	const environment = request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
+	const environment =
+		request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
 	const chatSource = await isNativeSqlChatAvailable({
 		signal: "intelligence",
 		environment,
+		...(auth.databaseConfigId ? { dbConfigId: auth.databaseConfigId } : {}),
 	});
 	if (!chatSource.available) {
 		return Response.json(
@@ -38,10 +40,7 @@ export async function POST(request: NextRequest) {
 	// Validate SQL
 	const validation = validateSQL(query);
 	if (!validation.valid) {
-		return Response.json(
-			{ err: validation.error },
-			{ status: 400 }
-		);
+		return Response.json({ err: validation.error }, { status: 400 });
 	}
 	const routing = await authorizeTelemetrySQLRouting(validation.query!, {
 		environment,
@@ -54,10 +53,14 @@ export async function POST(request: NextRequest) {
 	const startTime = Date.now();
 
 	// Execute with readonly mode
-	const { data, err } = await intelligenceDataCollector({
-		query: validation.query!,
-		enable_readonly: true,
-	}, "query", chatSource.databaseConfigId);
+	const { data, err } = await intelligenceDataCollector(
+		{
+			query: validation.query!,
+			enable_readonly: true,
+		},
+		"query",
+		chatSource.databaseConfigId
+	);
 
 	const executionTimeMs = Date.now() - startTime;
 

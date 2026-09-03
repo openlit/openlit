@@ -36,13 +36,16 @@ export async function getCompiledPrompt(
 		err || getMessage().NO_API_KEY
 	);
 
+	const databaseConfigId =
+		promptCompiledInput.databaseConfigId || apiInfo?.databaseConfigId;
+
 	const { err: promptErr, data: promptData } = await getSpecificPrompt(
 		{
 			id: promptCompiledInput.id,
 			name: promptCompiledInput.name,
 			version: promptCompiledInput.version,
 		},
-		apiInfo?.databaseConfigId
+		databaseConfigId
 	);
 
 	const promptObject = (promptData as any)?.[0] || {};
@@ -62,7 +65,7 @@ export async function getCompiledPrompt(
 			},
 			downloadSource: promptCompiledInput.downloadSource || "api",
 		},
-		apiInfo?.databaseConfigId
+		databaseConfigId
 	);
 
 	promptObject.metaProperties = jsonParse(promptObject.metaProperties);

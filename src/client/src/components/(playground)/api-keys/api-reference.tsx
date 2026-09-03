@@ -27,6 +27,74 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 	const [copiedField, setCopiedField] = useState<string | null>(null);
 	const messages = getMessage();
 
+	const contextHeaderDocs: ParameterDoc[] = [
+		{
+			name: "x-openlit-organisation-id",
+			type: "string",
+			required: false,
+			description:
+				"Active organisation ID. Recommended for multi-organisation API-key clients.",
+			example: "org_01HXYZ",
+		},
+		{
+			name: "x-openlit-project-id",
+			type: "string",
+			required: true,
+			description:
+				"Active project ID. Telemetry source bindings are project-scoped.",
+			example: "proj_01HXYZ",
+		},
+		{
+			name: "x-openlit-environment",
+			type: "string",
+			required: true,
+			description:
+				"Active project environment (e.g. production). Required for signal routing of traces/logs/metrics/intelligence.",
+			example: "production",
+		},
+	];
+
+	const withContextHeaders = (docs: ParameterDoc[]) => [
+		...contextHeaderDocs,
+		...docs,
+	];
+
+	const withSdkContextHeaders = (docs: ParameterDoc[]) => [
+		{
+			name: "x-openlit-organisation-id",
+			type: "string",
+			required: false,
+			description:
+				"Active organisation ID. Recommended for multi-organisation API-key clients.",
+			example: "org_01HXYZ",
+		},
+		{
+			name: "x-openlit-project-id",
+			type: "string",
+			required: false,
+			description:
+				"Preferred with environment for intelligence signal routing. When omitted, the API key's project is used.",
+			example: "proj_01HXYZ",
+		},
+		{
+			name: "x-openlit-environment",
+			type: "string",
+			required: false,
+			description:
+				"Preferred for intelligence signal routing. When omitted, falls back to the API key's bound database config.",
+			example: "production",
+		},
+		{
+			name: "x-openlit-database-config-id",
+			type: "string",
+			required: false,
+			description:
+				"Optional explicit ClickHouse database config for SDK endpoints. Must belong to the same project as the API key. Prefer signal routing instead.",
+			example: "dbcfg_01HXYZ",
+		},
+		...docs,
+	];
+
 	const getParameterDocs = (endpointId: string): ParameterDoc[] => {
 		if (
 			endpointId === "query-traces" ||
@@ -161,11 +229,11 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 				example: "true",
 			});
 
-			return docs;
+			return withContextHeaders(docs);
 		}
 
 		if (endpointId === "get-log") {
-			return [
+			return withContextHeaders([
 				{
 					name: "id",
 					type: "string",
@@ -173,11 +241,11 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					description: "Path parameter. Unique hash/row identifier of the log record.",
 					example: "18446744073709551615",
 				},
-			];
+			]);
 		}
 
 		if (endpointId === "get-compiled-prompt") {
-			return [
+			return withSdkContextHeaders([
 				{
 					name: "name",
 					type: "string",
@@ -185,11 +253,11 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					description: "Query parameter. Prompt template identifier name.",
 					example: "summarize-prompt",
 				},
-			];
+			]);
 		}
 
 		if (endpointId === "get-secrets") {
-			return [
+			return withSdkContextHeaders([
 				{
 					name: "keys",
 					type: "string",
@@ -197,11 +265,11 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					description: "Query parameter. Comma-separated list of keys to fetch from the vault.",
 					example: "OPENAI_API_KEY,ANTHROPIC_API_KEY",
 				},
-			];
+			]);
 		}
 
 		if (endpointId === "evaluate-rules") {
-			return [
+			return withSdkContextHeaders([
 				{
 					name: "entity_type",
 					type: "string",
@@ -217,11 +285,11 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					description: "Input fields to run redaction, guardrail, or format rules against.",
 					example: "{ \"input_text\": \"...\" }",
 				},
-			];
+			]);
 		}
 
 		if (endpointId === "controller-poll") {
-			return [
+			return withContextHeaders([
 				{
 					name: "instance_id",
 					type: "string",
@@ -236,11 +304,11 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					description: "MD5 hash of the cached controller config on the client side.",
 					example: "88863aa992efcc3c48bc625d97f26c51",
 				},
-			];
+			]);
 		}
 
 		if (endpointId === "evaluation-offline") {
-			return [
+			return withContextHeaders([
 				{
 					name: "prompt",
 					type: "string",
@@ -302,11 +370,11 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					required: false,
 					description: "Custom payload attributes dictionary.",
 				},
-			];
+			]);
 		}
 
 		if (endpointId === "create-prompt") {
-			return [
+			return withContextHeaders([
 				{
 					name: "name",
 					type: "string",
@@ -349,11 +417,11 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					required: false,
 					description: "Arbitrary key-value metadata properties dict.",
 				},
-			];
+			]);
 		}
 
 		if (endpointId === "get-prompt") {
-			return [
+			return withContextHeaders([
 				{
 					name: "name",
 					type: "string",
@@ -361,11 +429,11 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					description: "Prompt identifier name to retrieve detail configurations for.",
 					example: "summarize-prompt",
 				},
-			];
+			]);
 		}
 
 		if (endpointId === "upsert-secret") {
-			return [
+			return withContextHeaders([
 				{
 					name: "key",
 					type: "string",
@@ -387,7 +455,7 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					description: "Secret classification labels.",
 					example: '["production"]',
 				},
-			];
+			]);
 		}
 
 		if (
@@ -395,7 +463,7 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 			endpointId === "get-trace-detail" ||
 			endpointId === "get-span-hierarchy"
 		) {
-			return [
+			return withContextHeaders([
 				{
 					name: "id",
 					type: "string",
@@ -403,16 +471,90 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 					description: "Path parameter. Span ID, Trace ID, or Anchor Span ID to fetch.",
 					example: "557a2bd43ff129ad",
 				},
-			];
+			]);
 		}
 
-		return [];
+		if (
+			endpointId === "get-ai-analysis" ||
+			endpointId === "run-ai-analysis"
+		) {
+			return withContextHeaders([
+				{
+					name: "spanId",
+					type: "string",
+					required: true,
+					description: "Path parameter. Anchor span ID used to resolve the analysis target.",
+					example: "557a2bd43ff129ad",
+				},
+				{
+					name: "scope",
+					type: "string",
+					required: false,
+					description: "Query parameter. Analyze the full hierarchy or only the given span.",
+					allowedValues: ["trace", "span"],
+					example: "trace",
+				},
+				{
+					name: "traceId",
+					type: "string",
+					required: false,
+					description: "Query parameter. Optional Trace ID to disambiguate hierarchy lookup.",
+					example: "a1b2c3d4e5f6g7h8",
+				},
+			]);
+		}
+
+		if (endpointId === "send-otter-message") {
+			return withContextHeaders([
+				{
+					name: "conversationId",
+					type: "string",
+					required: true,
+					description: "Conversation ID returned from POST /api/chat/conversation.",
+					example: "conv-1",
+				},
+				{
+					name: "content",
+					type: "string",
+					required: true,
+					description: "User message text for Ask Otter.",
+					example: "Analyze the slowest traces from the last 24 hours",
+				},
+			]);
+		}
+
+		if (endpointId === "execute-otter-sql") {
+			return withContextHeaders([
+				{
+					name: "query",
+					type: "string",
+					required: true,
+					description: "Validated read-only SQL to run against the intelligence ClickHouse connector.",
+					example: "SELECT SpanName, Duration FROM otel_traces LIMIT 10",
+				},
+				{
+					name: "messageId",
+					type: "string",
+					required: false,
+					description: "Optional chat message ID to attach query results to.",
+					example: "msg-1",
+				},
+			]);
+		}
+
+		return contextHeaderDocs;
 	};
 
 	const getEndpointGroup = (endpoint: ApiEndpoint): string => {
 		const path = endpoint.path;
 		if (path.startsWith("/api/telemetry") || path.startsWith("/api/metrics")) {
 			return "Telemetry";
+		}
+		if (path.startsWith("/api/chat/improvement")) {
+			return "AI Analysis";
+		}
+		if (path.startsWith("/api/chat")) {
+			return "Ask Otter";
 		}
 		if (path.startsWith("/api/prompt")) {
 			return "Prompt Hub";
@@ -437,6 +579,8 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 
 	const groups = [
 		"Telemetry",
+		"AI Analysis",
+		"Ask Otter",
 		"Prompt Hub",
 		"Secret Vault",
 		"Rule Engine",
@@ -447,6 +591,8 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 
 	const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
 		"Telemetry": true,
+		"AI Analysis": true,
+		"Ask Otter": true,
 		"Prompt Hub": true,
 		"Secret Vault": true,
 		"Rule Engine": true,
@@ -489,6 +635,10 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 				<h3 className="font-semibold text-stone-900 dark:text-stone-100">{messages.INTERACTIVE_API_REFERENCE}</h3>
 				<span className="text-xs text-stone-500 dark:text-stone-400 ml-auto">
 					{messages.OPENAPI_SPEC_BEARER_AUTH}
+					{" · "}
+					<span className="text-stone-500 dark:text-stone-400">
+						{messages.OPENAPI_SPEC_CONTEXT_HEADERS_HINT}
+					</span>
 				</span>
 			</div>
 

@@ -4,6 +4,7 @@ jest.mock("@/lib/platform/chat/config", () => ({ getChatConfigWithApiKey: jest.f
 jest.mock("@/lib/platform/chat/otter-runs", () => ({ saveOtterRun: jest.fn() }));
 jest.mock("@/lib/platform/chat/stream", () => ({ getModelInstance: jest.fn() }));
 jest.mock("@/lib/session", () => ({ getCurrentUser: jest.fn() }));
+jest.mock("@/lib/platform/api-keys", () => ({ getAPIKeyInfo: jest.fn() }));
 jest.mock("@/utils/asaw", () =>
 	jest.fn(async (promise: Promise<any>) => {
 		try {
@@ -46,6 +47,9 @@ class TestResponse {
 function makeRequest(body: Record<string, unknown>) {
 	return {
 		json: jest.fn().mockResolvedValue(body),
+		headers: {
+			get: jest.fn().mockReturnValue(null),
+		},
 	} as unknown as Request;
 }
 

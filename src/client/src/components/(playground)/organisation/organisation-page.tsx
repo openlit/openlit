@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,6 +91,7 @@ import {
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import CreateOrganisationDialog from "@/components/(playground)/sidebar/create-organisation-dialog";
+import OpenLitContextIds from "@/components/(playground)/openlit-context-ids";
 import { cn } from "@/lib/utils";
 import getMessage from "@/constants/messages";
 import { escapeEmailForDisplay } from "@/utils/string";
@@ -124,6 +125,7 @@ interface Project {
 export default function OrganisationSettingsPage() {
 	const posthog = usePostHog();
 	const router = useRouter();
+	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const messages = getMessage();
 	const currentOrg = useRootStore(getCurrentOrganisation);
@@ -147,7 +149,10 @@ export default function OrganisationSettingsPage() {
 	const [projectName, setProjectName] = useState("");
 	const [isProjectsLoading, setIsProjectsLoading] = useState(false);
 	const [isCreatingProject, setIsCreatingProject] = useState(false);
-	const requestedTab = searchParams.get("tab") || "details";
+	const isProjectsRoute = pathname === "/organisation/projects";
+	const requestedTab = isProjectsRoute
+		? "projects"
+		: searchParams.get("tab") || "details";
 	const availableTabs = orgPendingInvites.length > 0
 		? ["details", "projects", "members", "pending"]
 		: ["details", "projects", "members"];
@@ -155,14 +160,20 @@ export default function OrganisationSettingsPage() {
 		? requestedTab
 		: "details";
 	const handleTabChange = (tab: string) => {
+		if (tab === "projects") {
+			router.replace("/organisation/projects", { scroll: false });
+			return;
+		}
+
 		const params = new URLSearchParams(searchParams.toString());
-		if (tab === "details") {
-			params.delete("tab");
-		} else {
+		params.delete("tab");
+		if (tab !== "details") {
 			params.set("tab", tab);
 		}
 		const query = params.toString();
-		router.replace(query ? `/organisation?${query}` : "/organisation", { scroll: false });
+		router.replace(query ? `/organisation?${query}` : "/organisation", {
+			scroll: false,
+		});
 	};
 
 	const isCreator = currentOrg?.createdByUserId === currentUserId;
@@ -426,6 +437,7 @@ export default function OrganisationSettingsPage() {
 			</section>
 
 			<div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+			<OpenLitContextIds />
 			{pendingInvitations.length > 0 && (
 				<Card className="border-primary/20 bg-primary/5 dark:border-primary/30 dark:bg-primary/10">
 					<CardHeader className="pb-3">

@@ -30,6 +30,7 @@ export default function ProjectPageHeader({
 			title={project?.name || project?.id || messages.LOADING_PROJECT}
 			icon={<FolderKanban className="h-4 w-4" />}
 			tone="border-primary/20 bg-primary/10 text-primary dark:border-primary/30"
+			showContextIds={false}
 			leading={
 				<Button
 					asChild
@@ -52,7 +53,7 @@ export default function ProjectPageHeader({
 					<Button asChild size="sm" variant={pathname?.endsWith(`/project/${project?.id}`) && searchParams?.get("tab") !== "access" ? "default" : "outline"} className="h-8 gap-1.5 text-xs">
 						<Link href={`/organisation/project/${project?.id || ""}`}><FolderKanban className="h-3.5 w-3.5" />{messages.PROJECT_OVERVIEW}</Link>
 					</Button>
-					<Button asChild size="sm" variant={pathname?.endsWith("/connectors") ? "default" : "outline"} className="h-8 gap-1.5 text-xs">
+					<Button asChild size="sm" variant={pathname?.includes(`/project/${project?.id}/environments`) || pathname?.includes(`/project/${project?.id}/connectors`) ? "default" : "outline"} className="h-8 gap-1.5 text-xs">
 						<Link href={`/organisation/project/${project?.id || ""}/environments`}><Settings2 className="h-3.5 w-3.5" />{messages.PROJECT_ENVIRONMENTS}</Link>
 					</Button>
 				</div>

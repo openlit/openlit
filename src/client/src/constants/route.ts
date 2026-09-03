@@ -28,6 +28,7 @@ export const ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN = [
 	"/api/prompt/",
 	"/api/vault/",
 	"/api/metrics/",
+	"/api/chat/",
 ];
 
 export const CRON_JOB_ROUTES = [

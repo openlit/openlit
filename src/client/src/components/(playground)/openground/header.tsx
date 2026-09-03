@@ -58,10 +58,12 @@ export default function OpengroundHeader({
 	validateResponse = true,
 	title,
 	extraButton,
+	showContextIds,
 }: {
 	validateResponse?: boolean;
 	title?: string;
 	extraButton?: JSX.Element;
+	showContextIds?: boolean;
 }) {
 	const messages = getMessage();
 	const pageHeaderTitle = title || messages.FEATURE_OPENGROUND
@@ -72,6 +74,7 @@ export default function OpengroundHeader({
 			title={pageHeaderTitle}
 			icon={<MonitorPlay className="size-4" />}
 			tone="border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300"
+			showContextIds={showContextIds}
 			actions={
 				<OpengroundActions validateResponse={validateResponse} extraButton={extraButton} />
 			}

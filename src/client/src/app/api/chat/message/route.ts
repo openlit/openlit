@@ -1,5 +1,5 @@
 import { SERVER_EVENTS } from "@/constants/events";
-import { getCurrentUser } from "@/lib/session";
+import { resolveRequestAuth } from "@/helpers/server/auth";
 import { getDBConfigByUser } from "@/lib/db-config";
 import { getChatConfigWithApiKey } from "@/lib/platform/chat/config";
 import { streamChatMessage, formatStreamError } from "@/lib/platform/chat/stream";
@@ -8,10 +8,16 @@ import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
 import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 
+async function resolveDatabaseConfigId(authDatabaseConfigId?: string) {
+	if (authDatabaseConfigId) return authDatabaseConfigId;
+	const [, dbConfig] = await asaw(getDBConfigByUser(true));
+	return (dbConfig as { id?: string } | null | undefined)?.id || "";
+}
+
 export async function POST(request: NextRequest) {
 	const startTimestamp = Date.now();
-	const user = await getCurrentUser();
-	if (!user) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth?.userId) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.OTTER_CHAT_MESSAGE_FAILURE,
 			startTimestamp,
@@ -32,7 +38,10 @@ export async function POST(request: NextRequest) {
 		return Response.json("Missing conversationId or content", { status: 400 });
 	}
 
-	const { data: config, err: configErr } = await getChatConfigWithApiKey();
+	const dbConfigId = await resolveDatabaseConfigId(auth.databaseConfigId);
+	const { data: config, err: configErr } = await getChatConfigWithApiKey(
+		dbConfigId || undefined
+	);
 	if (configErr || !config) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.OTTER_CHAT_MESSAGE_FAILURE,
@@ -45,9 +54,8 @@ export async function POST(request: NextRequest) {
 		);
 	}
 
-	const [, dbConfig] = await asaw(getDBConfigByUser(true));
-	const dbConfigId = (dbConfig as any)?.id || "";
-	const environment = request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
+	const environment =
+		request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
 
 	try {
 		const encoder = new TextEncoder();
@@ -62,7 +70,7 @@ export async function POST(request: NextRequest) {
 						provider: config.provider,
 						apiKey: config.apiKey,
 						model: config.model,
-						userId: user.id,
+						userId: auth.userId!,
 						dbConfigId,
 						environment,
 						onDelta: (text) => send({ type: "delta", text }),

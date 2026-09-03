@@ -54,6 +54,7 @@ describe("getAgentLoop", () => {
 		mockedResolve.mockResolvedValue({
 			isBuiltIn: true,
 			type: "clickhouse",
+			dbConfigId: "db-dev",
 		} as any);
 	});
 
@@ -69,15 +70,49 @@ describe("getAgentLoop", () => {
 			],
 		});
 
-		const result = await getAgentLoop(params);
+		const result = await getAgentLoop({
+			...params,
+			environment: "dev",
+		});
 		const row = result.data?.[0];
 		expect(row?.tool_traces).toBe(40);
 		expect(row?.loops).toBe(8);
 		expect(row?.loops_pct).toBe(20);
+		expect(mockedResolve).toHaveBeenCalledWith({
+			signal: "traces",
+			sourceId: undefined,
+			environment: "dev",
+		});
+		expect(mockedDataCollector).toHaveBeenCalledWith(
+			expect.objectContaining({ query: expect.any(String) }),
+			"query",
+			"db-dev"
+		);
 		const query = mockedDataCollector.mock.calls[0][0].query as string;
 		expect(query).toContain("tool_traces");
 		expect(query).toContain("uniqExactIf");
 		expect(query).toContain("gen_ai.tool.name");
+	});
+
+	it("prefers an explicit databaseConfigId over the resolved traces binding", async () => {
+		mockedResolve.mockResolvedValue({
+			isBuiltIn: true,
+			type: "clickhouse",
+			dbConfigId: "db-from-environment",
+		} as any);
+		mockedDataCollector.mockResolvedValue({ data: [{}] });
+
+		await getAgentLoop({
+			...params,
+			environment: "dev",
+			databaseConfigId: "db-explicit",
+		});
+
+		expect(mockedDataCollector).toHaveBeenCalledWith(
+			expect.anything(),
+			"query",
+			"db-explicit"
+		);
 	});
 
 	it("returns unsupported when the source cannot sample traces", async () => {

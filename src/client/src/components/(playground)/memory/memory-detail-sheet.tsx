@@ -21,6 +21,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import getMessage from "@/constants/messages";
+import OpenLitContextIds from "@/components/(playground)/openlit-context-ids";
 import { formatBrowserDateTime, formatDatePartsValue } from "@/utils/date";
 import { getRequestHeaders } from "@/utils/api";
 import type { MemoryDetailResult, MemoryListItem } from "@/lib/platform/connectors/memory/read";
@@ -306,6 +307,7 @@ export default function MemoryDetailSheet({
 										</span>
 									) : null}
 								</div>
+								<OpenLitContextIds className="mt-2" />
 								{memory?.userId ? (
 									<p className="mt-2 flex items-center gap-1.5 text-xs text-stone-600 dark:text-stone-300">
 										<span>{messages.MEMORY_DETAIL_USER}</span>

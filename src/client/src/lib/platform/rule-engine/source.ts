@@ -9,6 +9,26 @@ import { resolveSignalSource } from "@/lib/telemetry-source";
 export async function resolveRuleEngineDatabaseConfigId(
 	request: Request
 ): Promise<string> {
+	const environment = getRequestEnvironment(request);
+
+	// Prefer signal routing (latest) when an environment is selected.
+	if (environment) {
+		const resolution = await resolveSignalSource("intelligence", {
+			environment,
+		});
+		const { descriptor } = resolution;
+		if (
+			resolution.hasSource &&
+			descriptor.type === "clickhouse" &&
+			descriptor.dbConfigId
+		) {
+			return descriptor.dbConfigId;
+		}
+		throw new Error(
+			"Rule Engine requires a ClickHouse datasource for the selected environment."
+		);
+	}
+
 	const requestedId = request.headers.get(
 		OPENLIT_CONTEXT_HEADERS.databaseConfigId
 	);
@@ -28,9 +48,7 @@ export async function resolveRuleEngineDatabaseConfigId(
 		return selected.id;
 	}
 
-	const resolution = await resolveSignalSource("intelligence", {
-		environment: getRequestEnvironment(request),
-	});
+	const resolution = await resolveSignalSource("intelligence", {});
 	const { descriptor } = resolution;
 
 	if (

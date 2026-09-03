@@ -1,3 +1,11 @@
+jest.mock("@/lib/platform/connectors/datasource/registry", () => ({
+	getSourceTypeDescriptor: jest.fn(() => undefined),
+}));
+
+jest.mock("@/lib/platform/connectors/memory/registry", () => ({
+	getMemoryTypeDescriptor: jest.fn(() => undefined),
+}));
+
 import {
 	BUILTIN_ROUTING_VALUE,
 	classifySignalRoutingChange,

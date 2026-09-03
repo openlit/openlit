@@ -313,10 +313,12 @@ export async function getSecretsFromDatabaseId(
 	);
 
 	const apiInfoForSecrets = apiInfo as APIKeyInfo | null | undefined;
+	const databaseConfigId =
+		filters.databaseConfigId || apiInfoForSecrets?.databaseConfigId || undefined;
 	const { err: secretErr, data: secretData } = await getSecrets(
 		{
 			...filters,
-			databaseConfigId: apiInfoForSecrets?.databaseConfigId || undefined,
+			databaseConfigId,
 			createdBy: apiInfoForSecrets?.createdByUser?.email,
 		},
 		{ selectValue: true }

@@ -54,6 +54,7 @@ describe("getGenerationHealth", () => {
 		mockedResolve.mockResolvedValue({
 			isBuiltIn: true,
 			type: "clickhouse",
+			dbConfigId: "db-dev",
 		} as any);
 	});
 
@@ -81,7 +82,10 @@ describe("getGenerationHealth", () => {
 			],
 		});
 
-		const result = await getGenerationHealth(params);
+		const result = await getGenerationHealth({
+			...params,
+			environment: "dev",
+		});
 		const row = result.data?.[0];
 		expect(row?.llm_spans).toBe(100);
 		expect(row?.truncated).toBe(10);
@@ -89,6 +93,16 @@ describe("getGenerationHealth", () => {
 		expect(row?.truncated_pct).toBe(25);
 		expect(row?.swapped_pct).toBe(25);
 		expect(row?.empty_pct).toBe(5);
+		expect(mockedResolve).toHaveBeenCalledWith({
+			signal: "traces",
+			sourceId: undefined,
+			environment: "dev",
+		});
+		expect(mockedDataCollector).toHaveBeenCalledWith(
+			expect.objectContaining({ query: expect.any(String) }),
+			"query",
+			"db-dev"
+		);
 		const query = mockedDataCollector.mock.calls[0][0].query as string;
 		expect(query).toContain("finish_eligible");
 		expect(query).toContain("swap_eligible");
@@ -97,6 +111,27 @@ describe("getGenerationHealth", () => {
 		expect(query).toContain("TraceId");
 		expect(query).not.toContain("countIf");
 		expect(query).not.toContain("operationType");
+	});
+
+	it("prefers an explicit databaseConfigId over the resolved traces binding", async () => {
+		mockedResolve.mockResolvedValue({
+			isBuiltIn: true,
+			type: "clickhouse",
+			dbConfigId: "db-from-environment",
+		} as any);
+		mockedDataCollector.mockResolvedValue({ data: [{}] });
+
+		await getGenerationHealth({
+			...params,
+			environment: "dev",
+			databaseConfigId: "db-explicit",
+		});
+
+		expect(mockedDataCollector).toHaveBeenCalledWith(
+			expect.anything(),
+			"query",
+			"db-explicit"
+		);
 	});
 
 	it("returns unsupported when the source cannot sample traces", async () => {

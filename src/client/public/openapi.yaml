@@ -3,14 +3,45 @@ info:
   title: OpenLIT Client API
   description: |
     API specification for the OpenLIT client application.
-    This includes telemetry retrieval APIs (authorized via browser session or `OPENLIT_API_KEY`), prompt hub management, rule engine evaluation, and other controller/platform APIs.
-  version: 1.23.0
+    Authenticate every request with an OpenLIT API key
+    (`Authorization: Bearer openlit-...`).
+
+    ## Request context headers
+
+    OpenLIT scopes data by **Organisation → Project → Environment**.
+    **Signal routing** (latest) selects the connector for each signal from the
+    active project + environment. Prefer these headers on API calls:
+
+    - `x-openlit-organisation-id` — active organisation
+    - `x-openlit-project-id` — active project (bindings are project-scoped)
+    - `x-openlit-environment` — active environment (drives signal routing)
+
+    ### Non-SDK APIs (telemetry, Ask Otter, AI Analysis, …)
+    Use signal routing headers only. Do **not** send
+    `x-openlit-database-config-id`. The API key still binds a vault/credential
+    database config (middleware injects `x-database-config-id`).
+
+    ### SDK-facing APIs (Prompt Hub, Vault, Rule Engine evaluate)
+    Prefer signal routing (`project` + `environment`) to resolve the intelligence
+    ClickHouse that stores prompts, secrets, and rules. Existing SDKs that only
+    send `Authorization: Bearer …` keep working via the API key's bound database
+    config. Those endpoints also accept an explicit
+    `x-openlit-database-config-id` when it belongs to the same project as the key.
+
+    ## Authentication
+
+    All documented endpoints require Bearer API key auth (`ApiKeyAuth`).
+  version: 1.28.0
 servers:
   - url: http://localhost:3000
     description: Local development server
 tags:
   - name: Telemetry
     description: Telemetry retrieval and observability querying APIs
+  - name: AI Analysis
+    description: Structured AI review of traces and spans (strengths, improvements, cost, tokens, path)
+  - name: Ask Otter
+    description: Conversational assistant for telemetry investigation, SQL execution, and usage
   - name: Prompt Hub
     description: Manage and compile prompt templates
   - name: Secret Vault
@@ -30,10 +61,13 @@ paths:
       tags:
         - Telemetry
       summary: Query logs
-      description: Retrieve a paginated list of telemetry logs matching the provided filters. Can be authenticated using session cookies or an API key.
+      description: Retrieve a paginated list of telemetry logs matching the provided filters. Requires an OpenLIT API key plus organisation/project/environment headers for signal routing.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -68,8 +102,10 @@ paths:
       description: Retrieve detail of a specific log entry by its hash/row ID.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
       parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
         - name: id
           in: path
           required: true
@@ -97,7 +133,10 @@ paths:
       description: Retrieve unique attribute keys for log attributes, resource attributes, and scope attributes.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -140,7 +179,10 @@ paths:
       description: Retrieve configuration metadata such as available service names, severities, and total log rows.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -179,7 +221,10 @@ paths:
       description: Retrieve a list of aggregated metrics matching the filters.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -213,8 +258,10 @@ paths:
       description: Retrieve time-series graph points and detail records for a specific metric name.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
       parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
         - name: name
           in: path
           required: true
@@ -263,7 +310,10 @@ paths:
       description: Retrieve unique attribute keys for metrics.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -304,7 +354,10 @@ paths:
       description: Retrieve list of available services, metric names, types, and counts.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -347,8 +400,10 @@ paths:
       description: Retrieve aggregated time-series summary bucketed counts and metrics (e.g. costs, latency, or token counts) for traces, exceptions, logs, or metrics.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
       parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
         - name: signal
           in: path
           required: true
@@ -396,10 +451,13 @@ paths:
       tags:
         - Telemetry
       summary: Query traces list
-      description: Retrieve a paginated list of trace spans matching the provided filters. Can be authenticated using session cookies or an API key.
+      description: Retrieve a paginated list of trace spans matching the provided filters. Requires an OpenLIT API key plus organisation/project/environment headers for signal routing.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -430,10 +488,13 @@ paths:
       tags:
         - Telemetry
       summary: Query exceptions list
-      description: Retrieve a paginated list of exceptions matching the provided filters. Can be authenticated using session cookies or an API key.
+      description: Retrieve a paginated list of exceptions matching the provided filters. Requires an OpenLIT API key plus organisation/project/environment headers for signal routing.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -467,8 +528,10 @@ paths:
       description: Retrieve details of a specific trace span by its ID (along with optional evaluation summary data).
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
       parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
         - name: id
           in: path
           required: true
@@ -495,8 +558,10 @@ paths:
       description: Retrieve details of a trace (such as its root span or transaction info) using the Trace ID.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
       parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
         - name: id
           in: path
           required: true
@@ -523,8 +588,10 @@ paths:
       description: Retrieve the tree hierarchy representation of all related spans (e.g. parents, subagents, child operations) associated with a trace span.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
       parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
         - name: id
           in: path
           required: true
@@ -550,7 +617,11 @@ paths:
       summary: List all API Keys
       description: Retrieve all API keys associated with the user's active database configuration.
       security:
-        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       responses:
         '200':
           description: A list of API Keys.
@@ -566,7 +637,11 @@ paths:
       summary: Generate an API Key
       description: Create a new API key prefixed with `openlit-` linked to the active database configuration.
       security:
-        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -603,8 +678,11 @@ paths:
       summary: Delete an API Key
       description: Mark an API key as deleted.
       security:
-        - CookieAuth: []
+        - ApiKeyAuth: []
       parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
         - name: id
           in: path
           required: true
@@ -629,7 +707,11 @@ paths:
       summary: List database configurations
       description: Retrieve database configurations the current user has access to.
       security:
-        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       responses:
         '200':
           description: Database configurations list.
@@ -637,7 +719,11 @@ paths:
       summary: Save database configuration
       description: Create or update a ClickHouse database configuration connection parameters.
       security:
-        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -669,7 +755,11 @@ paths:
       summary: Create a prompt
       description: Create a new prompt entry or version.
       security:
-        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -687,7 +777,11 @@ paths:
       summary: Retrieve a prompt by name or ID
       description: Retrieve details of a prompt version.
       security:
-        - CookieAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -706,10 +800,14 @@ paths:
       tags:
         - Prompt Hub
       summary: Fetch compiled prompt
-      description: Fetch and compile a prompt by name with dynamic variable interpolation. Does not require browser session cookie if authenticated by API key.
+      description: Fetch and compile a prompt by name with dynamic variable interpolation. Prefer project/environment signal routing for the intelligence ClickHouse; existing API-key-only clients and optional `x-openlit-database-config-id` remain supported.
       security:
         - ApiKeyAuth: []
       parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectIdOptional'
+        - $ref: '#/components/parameters/OpenLitEnvironmentOptional'
+        - $ref: '#/components/parameters/OpenLitDatabaseConfigId'
         - name: name
           in: query
           required: true
@@ -724,9 +822,14 @@ paths:
       tags:
         - Secret Vault
       summary: Fetch secrets from Vault
-      description: Safely retrieve API keys or credentials stored in the OpenLIT Vault.
+      description: Safely retrieve API keys or credentials stored in the OpenLIT Vault. Prefer project/environment signal routing; existing API-key-only clients and optional `x-openlit-database-config-id` remain supported.
       security:
         - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectIdOptional'
+        - $ref: '#/components/parameters/OpenLitEnvironmentOptional'
+        - $ref: '#/components/parameters/OpenLitDatabaseConfigId'
       responses:
         '200':
           description: Key-value secrets retrieved.
@@ -736,9 +839,14 @@ paths:
       tags:
         - Rule Engine
       summary: Evaluate rule engine config
-      description: Evaluate rules (e.g. redaction, prompts, guardrails) against inputs.
+      description: Evaluate rules (e.g. redaction, prompts, guardrails) against inputs. Prefer project/environment signal routing; existing API-key-only clients and optional `x-openlit-database-config-id` remain supported.
       security:
         - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectIdOptional'
+        - $ref: '#/components/parameters/OpenLitEnvironmentOptional'
+        - $ref: '#/components/parameters/OpenLitDatabaseConfigId'
       responses:
         '200':
           description: Rules evaluated.
@@ -748,10 +856,13 @@ paths:
       tags:
         - Evaluation Engine
       summary: Run offline LLM evaluation
-      description: Run LLM evaluation (e.g. toxicity, hallucination, bias, pii) on user-provided prompt and response. Can be authenticated using session cookies or an API key.
+      description: Run LLM evaluation (e.g. toxicity, hallucination, bias, pii) on user-provided prompt and response. Requires an OpenLIT API key.
       security:
         - ApiKeyAuth: []
-        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       requestBody:
         required: true
         content:
@@ -778,22 +889,601 @@ paths:
       description: Heartbeat and state synchronization endpoint for OpenLIT controllers.
       security:
         - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
       responses:
         '200':
           description: Acknowledged.
 
+
+  /api/chat/improvement/{spanId}:
+    get:
+      tags:
+        - AI Analysis
+      summary: Get AI Analysis runs for a trace or span
+      description: |
+        Retrieve saved AI Analysis runs for a trace hierarchy (`scope=trace`) or a single span (`scope=span`).
+        Requires an OpenLIT API key. Pass organisation, project, environment, and optionally `traceId`.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - name: spanId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Anchor span ID used to resolve the analysis target.
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [trace, span]
+            default: trace
+          description: Analyze the full hierarchy (`trace`) or only the given span (`span`).
+        - name: traceId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional Trace ID to disambiguate the hierarchy lookup.
+      responses:
+        '200':
+          description: Saved analysis runs for the target.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiAnalysisRunsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      tags:
+        - AI Analysis
+      summary: Run AI Analysis for a trace or span
+      description: |
+        Start a streaming AI Analysis run for a trace hierarchy or span.
+        Returns an NDJSON/text stream of progress and completed dimension findings.
+        Requires Chat Settings (provider + Vault API key) and an intelligence ClickHouse connector.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - name: spanId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [trace, span]
+            default: trace
+        - name: traceId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Streaming analysis progress and results.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/chat/config:
+    get:
+      tags:
+        - Ask Otter
+      summary: Get Ask Otter chat configuration
+      description: Return the organisation chat provider/model/Vault binding (API key redacted).
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+      responses:
+        '200':
+          description: Chat configuration.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChatConfig'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      tags:
+        - Ask Otter
+      summary: Upsert Ask Otter chat configuration
+      description: Save the AI provider, model, and Vault secret used by Ask Otter and AI Analysis.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, model, vaultId]
+              properties:
+                provider:
+                  type: string
+                  example: openai
+                model:
+                  type: string
+                  example: gpt-4o
+                vaultId:
+                  type: string
+                  description: Vault secret ID that stores the provider API key.
+                meta:
+                  type: string
+                  description: Optional JSON string of provider-specific metadata.
+                  example: '{}'
+      responses:
+        '200':
+          description: Configuration saved.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/chat/conversation:
+    get:
+      tags:
+        - Ask Otter
+      summary: List Ask Otter conversations
+      description: List chat conversations for the current user.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+      responses:
+        '200':
+          description: Conversation list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChatConversation'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      tags:
+        - Ask Otter
+      summary: Create an Ask Otter conversation
+      description: Create a new conversation with optional title, provider, and model.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  example: Investigate high cost traces
+                provider:
+                  type: string
+                  example: openai
+                model:
+                  type: string
+                  example: gpt-4o
+      responses:
+        '200':
+          description: Created conversation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChatConversation'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/chat/conversation/{id}:
+    get:
+      tags:
+        - Ask Otter
+      summary: Get conversation with messages
+      description: Retrieve a conversation and its message history.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Conversation and messages.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    delete:
+      tags:
+        - Ask Otter
+      summary: Delete a conversation
+      description: Delete a conversation and its messages.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Conversation deleted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/chat/message:
+    post:
+      tags:
+        - Ask Otter
+      summary: Send an Ask Otter message
+      description: |
+        Stream an assistant reply for a conversation. Returns NDJSON events
+        (`delta`, `step`, `done`, `error`). Requires an OpenLIT API key and Chat Settings.
+        Used by the Chat page, Memory Ask Otter panel, and Try in Chat from AI Analysis.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [conversationId, content]
+              properties:
+                conversationId:
+                  type: string
+                content:
+                  type: string
+                  example: Analyze the slowest traces from the last 24 hours
+      responses:
+        '200':
+          description: NDJSON stream of assistant tokens and tool steps.
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/chat/message/execute:
+    post:
+      tags:
+        - Ask Otter
+      summary: Execute validated SQL from Ask Otter
+      description: |
+        Run a read-only SQL query proposed by Ask Otter against the intelligence ClickHouse connector.
+        Returns 409 when the active environment is not routed to a ClickHouse intelligence source.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                messageId:
+                  type: string
+                  description: Optional chat message ID to attach query results to.
+                query:
+                  type: string
+                  example: SELECT SpanName, Duration FROM otel_traces LIMIT 10
+      responses:
+        '200':
+          description: Query rows and execution stats.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                  stats:
+                    type: object
+                    properties:
+                      rowsRead:
+                        type: integer
+                      executionTimeMs:
+                        type: integer
+                      bytesRead:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Native SQL chat unavailable for the routed intelligence source.
+
+  /api/chat/message/save-widget:
+    post:
+      tags:
+        - Ask Otter
+      summary: Save an Ask Otter query as a dashboard widget
+      description: Persist a validated chat SQL query as a dashboard widget.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, type, query]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+                  example: table
+                query:
+                  type: string
+                properties:
+                  type: object
+                boardId:
+                  type: string
+      responses:
+        '200':
+          description: Widget saved.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/chat/usage:
+    get:
+      tags:
+        - Ask Otter
+      summary: Get Ask Otter usage stats
+      description: Aggregate token and cost usage for Otter chat and analysis runs.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Usage summary.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/prompt/improve:
+    post:
+      tags:
+        - Prompt Hub
+      summary: Improve a prompt with Otter
+      description: |
+        Ask Otter to propose precise prompt edits. Requires an OpenLIT API key and Chat Settings.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                promptId:
+                  type: string
+                  description: Optional Prompt Hub ID when improving a saved prompt.
+                criteria:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional review criteria override.
+      responses:
+        '200':
+          description: Improvement suggestions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      suggestions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            dimension:
+                              type: string
+                            rationale:
+                              type: string
+                            original:
+                              type: string
+                            replacement:
+                              type: string
+                      provider:
+                        type: string
+                      model:
+                        type: string
+                      criteria:
+                        type: array
+                        items:
+                          type: string
+                      usage:
+                        type: object
+                        properties:
+                          promptTokens:
+                            type: integer
+                          completionTokens:
+                            type: integer
+                          cost:
+                            type: number
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
 components:
+  parameters:
+    OpenLitOrganisationId:
+      name: x-openlit-organisation-id
+      in: header
+      required: false
+      description: |
+        Active organisation ID. Send with project and environment so the request
+        matches Organisation → Project → Environment signal routing.
+      schema:
+        type: string
+        example: org_01HXYZ
+    OpenLitProjectId:
+      name: x-openlit-project-id
+      in: header
+      required: true
+      description: |
+        Active project ID. Telemetry source bindings are project-scoped; required
+        for correct signal routing with `x-openlit-environment`.
+      schema:
+        type: string
+        example: proj_01HXYZ
+    OpenLitEnvironment:
+      name: x-openlit-environment
+      in: header
+      required: true
+      description: |
+        Active project environment (for example `production` or `staging`).
+        Required for signal routing (traces/logs/metrics/intelligence connectors),
+        AI Analysis, and Ask Otter SQL. Defaults to `production` on some routes
+        when omitted, which may hit the wrong source.
+      schema:
+        type: string
+        example: production
+    OpenLitProjectIdOptional:
+      name: x-openlit-project-id
+      in: header
+      required: false
+      description: |
+        Preferred with `x-openlit-environment` for signal routing. When omitted,
+        the API key's bound database config project is used for routing.
+      schema:
+        type: string
+        example: proj_01HXYZ
+    OpenLitEnvironmentOptional:
+      name: x-openlit-environment
+      in: header
+      required: false
+      description: |
+        Preferred for signal routing. When omitted, SDK endpoints fall back to
+        the API key's bound database config (legacy).
+      schema:
+        type: string
+        example: production
+    OpenLitDatabaseConfigId:
+      name: x-openlit-database-config-id
+      in: header
+      required: false
+      description: |
+        SDK-facing endpoints only. Optional explicit ClickHouse database config.
+        Must belong to the same project as the API key. Prefer signal routing
+        (`x-openlit-project-id` + `x-openlit-environment`) instead.
+      schema:
+        type: string
+        example: dbcfg_01HXYZ
   securitySchemes:
-    CookieAuth:
-      type: apiKey
-      in: cookie
-      name: next-auth.session-token
-      description: Standard NextAuth browser session token cookie.
     ApiKeyAuth:
       type: http
       scheme: bearer
       bearerFormat: OPENLIT_API_KEY
-      description: Bearer token format (`Authorization: Bearer openlit-...`).
+      description: |
+        Required. Bearer token format (`Authorization: Bearer openlit-...`).
+        The key binds a database configuration; clients do not need to send
+        `x-openlit-database-config-id`.
 
   schemas:
     TimeLimit:
@@ -994,6 +1684,71 @@ components:
           example: false
         metadata:
           type: object
+
+    AiAnalysisRunsResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          nullable: true
+          properties:
+            rootSpanId:
+              type: string
+            runs:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  scope:
+                    type: string
+                    enum: [trace, span]
+                  summary:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+
+    ChatConfig:
+      type: object
+      properties:
+        provider:
+          type: string
+          example: openai
+        model:
+          type: string
+          example: gpt-4o
+        vaultId:
+          type: string
+        meta:
+          type: string
+
+    ChatConversation:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+        totalMessages:
+          type: integer
+        totalPromptTokens:
+          type: integer
+        totalCompletionTokens:
+          type: integer
+        totalCost:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
   responses:
     UnauthorizedError:

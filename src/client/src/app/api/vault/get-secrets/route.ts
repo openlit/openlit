@@ -1,12 +1,14 @@
 import { SERVER_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
 import { SecretGetFiltersWithApiKey } from "@/types/vault";
+import { resolveSdkIntelligenceDatabaseConfig } from "@/helpers/server/sdk-intelligence";
 import { getSecretsFromDatabaseId } from "@/lib/platform/vault";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
 const CORS_METHODS = "POST, OPTIONS";
-const CORS_HEADERS = "Content-Type, Authorization";
+const CORS_HEADERS =
+	"Content-Type, Authorization, x-openlit-organisation-id, x-openlit-project-id, x-openlit-environment, x-openlit-database-config-id";
 
 function getConfiguredAllowedOrigins() {
 	return [
@@ -42,7 +44,7 @@ function getCorsHeaders(origin: string) {
 		"Access-Control-Allow-Origin": origin,
 		"Access-Control-Allow-Methods": CORS_METHODS,
 		"Access-Control-Allow-Headers": CORS_HEADERS,
-		"Vary": "Origin",
+		Vary: "Origin",
 	};
 }
 
@@ -69,12 +71,29 @@ export async function POST(request: Request) {
 		});
 	}
 
+	const [resolveErr, resolved] = await resolveSdkIntelligenceDatabaseConfig(
+		request,
+		apiKey
+	);
+	if (resolveErr || !resolved) {
+		return Response.json(
+			{
+				err: resolveErr || getMessage().NO_API_KEY,
+				res: null,
+			},
+			{
+				headers: corsOrigin ? getCorsHeaders(corsOrigin) : undefined,
+			}
+		);
+	}
+
 	const formData = await request.json();
 
 	const filters: SecretGetFiltersWithApiKey = {
 		apiKey,
 		key: formData.key,
 		tags: formData.tags,
+		databaseConfigId: resolved.databaseConfigId,
 	};
 
 	const [err, data]: any = await asaw(getSecretsFromDatabaseId(filters));
@@ -84,6 +103,7 @@ export async function POST(request: Request) {
 			: SERVER_EVENTS.VAULT_SECRET_SDK_FETCH_SUCCESS,
 		properties: {
 			downloadSource: formData.source,
+			resolveVia: resolved.via,
 		},
 		startTimestamp,
 	});
