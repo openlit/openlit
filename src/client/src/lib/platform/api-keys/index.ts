@@ -87,18 +87,21 @@ export async function getAPIKeyInfo({ apiKey }: { apiKey: string }) {
 	);
 }
 
-export async function getAllAPIKeys() {
-	const [err, dbConfig] = await asaw(getDBConfigByUser(true));
-	throwIfError(err, err);
-
-	throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
+export async function getAllAPIKeys(databaseConfigId?: string) {
+	let resolvedDatabaseConfigId = databaseConfigId?.trim() || undefined;
+	if (!resolvedDatabaseConfigId) {
+		const [err, dbConfig] = await asaw(getDBConfigByUser(true));
+		throwIfError(err, err);
+		throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
+		resolvedDatabaseConfigId = dbConfig.id;
+	}
 
 	const [, data] = await asaw(
 		prisma.aPIKeys.findMany({
 			where: {
 				AND: [
 					{
-						databaseConfigId: dbConfig?.id,
+						databaseConfigId: resolvedDatabaseConfigId,
 					},
 					{ isDeleted: false },
 				],

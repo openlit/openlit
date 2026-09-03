@@ -109,7 +109,7 @@ paths:
         - name: id
           in: path
           required: true
-          description: The cityHash64 row ID of the log.
+          description: Path parameter. The cityHash64 row ID of the log.
           schema:
             type: string
       responses:
@@ -265,7 +265,7 @@ paths:
         - name: name
           in: path
           required: true
-          description: The name of the metric.
+          description: Path parameter. The name of the metric.
           schema:
             type: string
       requestBody:
@@ -407,7 +407,7 @@ paths:
         - name: signal
           in: path
           required: true
-          description: The telemetry signal type.
+          description: Path parameter. The telemetry signal type.
           schema:
             type: string
             enum: [traces, exceptions, logs, metrics]
@@ -535,7 +535,7 @@ paths:
         - name: id
           in: path
           required: true
-          description: The ID of the span.
+          description: Path parameter. The ID of the span.
           schema:
             type: string
       responses:
@@ -565,7 +565,7 @@ paths:
         - name: id
           in: path
           required: true
-          description: The ID of the trace (Trace ID).
+          description: Path parameter. The ID of the trace (Trace ID).
           schema:
             type: string
       responses:
@@ -595,7 +595,7 @@ paths:
         - name: id
           in: path
           required: true
-          description: The ID of the root/anchor span.
+          description: Path parameter. The ID of the root/anchor span.
           schema:
             type: string
       responses:
@@ -686,6 +686,7 @@ paths:
         - name: id
           in: path
           required: true
+          description: Path parameter. API key ID to delete.
           schema:
             type: string
       responses:
@@ -811,6 +812,7 @@ paths:
         - name: name
           in: query
           required: true
+          description: Query parameter. Prompt template identifier name.
           schema:
             type: string
       responses:
@@ -917,7 +919,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Anchor span ID used to resolve the analysis target.
+          description: Path parameter. Anchor span ID used to resolve the analysis target.
         - name: scope
           in: query
           required: false
@@ -925,13 +927,13 @@ paths:
             type: string
             enum: [trace, span]
             default: trace
-          description: Analyze the full hierarchy (`trace`) or only the given span (`span`).
+          description: Query parameter. Analyze the full hierarchy (`trace`) or only the given span (`span`).
         - name: traceId
           in: query
           required: false
           schema:
             type: string
-          description: Optional Trace ID to disambiguate the hierarchy lookup.
+          description: Query parameter. Optional Trace ID to disambiguate the hierarchy lookup.
       responses:
         '200':
           description: Saved analysis runs for the target.
@@ -960,11 +962,13 @@ paths:
         - name: spanId
           in: path
           required: true
+          description: Path parameter. Anchor span ID used to resolve the analysis target.
           schema:
             type: string
         - name: scope
           in: query
           required: false
+          description: Query parameter. Analyze the full hierarchy (`trace`) or only the given span (`span`).
           schema:
             type: string
             enum: [trace, span]
@@ -972,6 +976,7 @@ paths:
         - name: traceId
           in: query
           required: false
+          description: Query parameter. Optional Trace ID to disambiguate the hierarchy lookup.
           schema:
             type: string
       responses:
@@ -1131,6 +1136,7 @@ paths:
         - name: id
           in: path
           required: true
+          description: Path parameter. Conversation ID.
           schema:
             type: string
       responses:
@@ -1154,6 +1160,7 @@ paths:
         - name: id
           in: path
           required: true
+          description: Path parameter. Conversation ID to delete.
           schema:
             type: string
       responses:
@@ -1314,12 +1321,14 @@ paths:
         - name: start
           in: query
           required: false
+          description: Query parameter. Inclusive start of the usage window (ISO-8601).
           schema:
             type: string
             format: date-time
         - name: end
           in: query
           required: false
+          description: Query parameter. Inclusive end of the usage window (ISO-8601).
           schema:
             type: string
             format: date-time
@@ -1417,7 +1426,7 @@ components:
       in: header
       required: false
       description: |
-        Active organisation ID. Send with project and environment so the request
+        Header parameter. Active organisation ID. Send with project and environment so the request
         matches Organisation → Project → Environment signal routing.
       schema:
         type: string
@@ -1427,7 +1436,7 @@ components:
       in: header
       required: true
       description: |
-        Active project ID. Telemetry source bindings are project-scoped; required
+        Header parameter. Active project ID. Telemetry source bindings are project-scoped; required
         for correct signal routing with `x-openlit-environment`.
       schema:
         type: string
@@ -1437,7 +1446,7 @@ components:
       in: header
       required: true
       description: |
-        Active project environment (for example `production` or `staging`).
+        Header parameter. Active project environment (for example `production` or `staging`).
         Required for signal routing (traces/logs/metrics/intelligence connectors),
         AI Analysis, and Ask Otter SQL. Defaults to `production` on some routes
         when omitted, which may hit the wrong source.
@@ -1449,7 +1458,7 @@ components:
       in: header
       required: false
       description: |
-        Preferred with `x-openlit-environment` for signal routing. When omitted,
+        Header parameter. Preferred with `x-openlit-environment` for signal routing. When omitted,
         the API key's bound database config project is used for routing.
       schema:
         type: string
@@ -1459,7 +1468,7 @@ components:
       in: header
       required: false
       description: |
-        Preferred for signal routing. When omitted, SDK endpoints fall back to
+        Header parameter. Preferred for signal routing. When omitted, SDK endpoints fall back to
         the API key's bound database config (legacy).
       schema:
         type: string
@@ -1469,7 +1478,7 @@ components:
       in: header
       required: false
       description: |
-        SDK-facing endpoints only. Optional explicit ClickHouse database config.
+        Header parameter. SDK-facing endpoints only. Optional explicit ClickHouse database config.
         Must belong to the same project as the API key. Prefer signal routing
         (`x-openlit-project-id` + `x-openlit-environment`) instead.
       schema:

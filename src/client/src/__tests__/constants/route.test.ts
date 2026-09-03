@@ -1,6 +1,8 @@
 import {
   DEFAULT_LOGGED_IN_ROUTE,
   ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN,
+  ALLOWED_OPENLIT_ROUTES_WITH_TOKEN,
+  ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN,
   CRON_JOB_ROUTES,
   ONBOARDING_WHITELIST_ROUTES,
   ONBOARDING_WHITELIST_API_ROUTES,
@@ -24,6 +26,17 @@ describe('ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN', () => {
 
   it('includes the vault get-secrets route', () => {
     expect(ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN).toContain('/api/vault/get-secrets');
+  });
+});
+
+describe('ALLOWED_OPENLIT_ROUTES_WITH_TOKEN', () => {
+  it('includes API key and db-config routes for Bearer auth', () => {
+    expect(ALLOWED_OPENLIT_ROUTES_WITH_TOKEN).toContain('/api/api-key');
+    expect(ALLOWED_OPENLIT_ROUTES_WITH_TOKEN).toContain('/api/db-config');
+  });
+
+  it('includes API key prefix for delete-by-id', () => {
+    expect(ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN).toContain('/api/api-key/');
   });
 });
 
