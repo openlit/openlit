@@ -13,7 +13,6 @@ span ends exactly once on each exit path.
 """
 
 import time
-from collections.abc import AsyncIterator
 
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
