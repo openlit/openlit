@@ -21,8 +21,7 @@ import {
 	getCurrentOrganisation,
 	getCurrentProjectForOrganisation,
 } from "@/lib/organisation";
-import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
-import { MIDDLEWARE_DATABASE_CONFIG_HEADER } from "@/helpers/server/auth";
+import { OPENLIT_CONTEXT_HEADERS, MIDDLEWARE_DATABASE_CONFIG_HEADER } from "@/constants/openlit-context";
 import { headers } from "next/headers";
 import type { DatabaseConfig, TelemetrySource } from "@prisma/client";
 import type {

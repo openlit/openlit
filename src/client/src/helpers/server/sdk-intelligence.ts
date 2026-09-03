@@ -1,14 +1,12 @@
 import getMessage from "@/constants/messages";
 import {
 	getRequestEnvironment,
+	MIDDLEWARE_DATABASE_CONFIG_HEADER,
 	OPENLIT_CONTEXT_HEADERS,
 } from "@/constants/openlit-context";
 import { getDBConfigByIdInternal } from "@/lib/db-config";
 import { getAPIKeyInfo, type APIKeyInfo } from "@/lib/platform/api-keys";
 import { resolveSignalSource } from "@/lib/telemetry-source";
-
-/** Middleware injects this after a successful Bearer API key verification. */
-const MIDDLEWARE_DATABASE_CONFIG_HEADER = "x-database-config-id";
 
 export type SdkIntelligenceResolveVia =
 	| "signalRouting"

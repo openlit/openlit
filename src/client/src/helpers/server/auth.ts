@@ -1,8 +1,8 @@
 import { getAPIKeyInfo } from "@/lib/platform/api-keys";
 import { getCurrentUser } from "@/lib/session";
+import { MIDDLEWARE_DATABASE_CONFIG_HEADER } from "@/constants/openlit-context";
 
-/** Middleware injects this after a successful Bearer API key verification. */
-export const MIDDLEWARE_DATABASE_CONFIG_HEADER = "x-database-config-id";
+export { MIDDLEWARE_DATABASE_CONFIG_HEADER };
 
 export type RequestAuth = {
 	/** Bound database config (API key) or undefined for session (caller may resolve current). */
