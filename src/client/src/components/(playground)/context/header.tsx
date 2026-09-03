@@ -14,14 +14,12 @@ export default function ContextHeader({
 	extraButtons,
 	createNew = true,
 	leading,
-	showContextIds,
 }: {
 	className?: string;
 	title?: string;
 	extraButtons?: JSX.Element;
 	createNew?: boolean;
 	leading?: ReactNode;
-	showContextIds?: boolean;
 }) {
 	const pingStatus = useRootStore(getPingStatus);
 	const m = getMessage();
@@ -44,7 +42,6 @@ export default function ContextHeader({
 			icon={<BookOpen className="h-4 w-4" />}
 			tone="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/70 dark:bg-blue-950/40 dark:text-blue-300"
 			leading={leading}
-			showContextIds={showContextIds}
 			actions={
 				<div className={className}>
 					{extraButtons}

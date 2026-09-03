@@ -230,7 +230,7 @@ export default function ContextDetailPage() {
 	if (isLoading && !context) {
 		return (
 			<div className="flex h-full w-full flex-col overflow-hidden">
-				<ContextHeader title={m.LOADING} showContextIds />
+				<ContextHeader title={m.LOADING} />
 				<div className="flex flex-col w-full h-full overflow-hidden gap-4 items-center justify-center">
 					<div className="h-4 w-1/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
 					<div className="h-4 w-3/5 bg-stone-200 dark:bg-stone-700 rounded animate-pulse" />
@@ -248,7 +248,7 @@ export default function ContextDetailPage() {
 
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
-			<ContextHeader title={ctx.name} showContextIds />
+			<ContextHeader title={ctx.name} />
 			<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4 p-4">
 			{/* Left: Context info + content */}
 			<Card className="col-span-2 overflow-hidden flex flex-col border border-stone-200 dark:border-stone-800">

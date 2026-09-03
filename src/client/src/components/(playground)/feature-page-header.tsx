@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import OpenLitContextIds from "@/components/(playground)/openlit-context-ids";
 
 type FeaturePageHeaderProps = {
 	eyebrow: string;
@@ -10,11 +9,6 @@ type FeaturePageHeaderProps = {
 	/** Left-side control (typically an icon-only back button on detail pages). */
 	leading?: ReactNode;
 	actions?: ReactNode;
-	/**
-	 * Show copyable organisation / project / environment IDs.
-	 * Defaults to true when `leading` is set (detail pages).
-	 */
-	showContextIds?: boolean;
 };
 
 /**
@@ -32,10 +26,7 @@ export default function FeaturePageHeader({
 	tone = "border-stone-200 bg-stone-50 text-stone-700 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-200",
 	leading,
 	actions,
-	showContextIds,
 }: FeaturePageHeaderProps) {
-	const shouldShowContextIds = showContextIds ?? Boolean(leading);
-
 	return (
 		<section className="border-b border-stone-200 px-4 py-3 dark:border-stone-800">
 			<div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -58,9 +49,6 @@ export default function FeaturePageHeader({
 								<p className="mt-0.5 text-xs text-stone-600 dark:text-stone-300">
 									{description}
 								</p>
-							) : null}
-							{shouldShowContextIds ? (
-								<OpenLitContextIds className="mt-1.5" />
 							) : null}
 						</div>
 					</div>

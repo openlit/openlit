@@ -47,7 +47,7 @@ export default function OpengroundRequest({
 	if (isLoading || !isFetched)
 		return (
 			<div className="flex h-full w-full flex-col overflow-hidden">
-				<OpengroundHeader title={getMessage().LOADING} showContextIds />
+				<OpengroundHeader title={getMessage().LOADING} />
 				<div className="flex w-full h-full text-stone-600 dark:text-stone-400 items-center justify-center">
 					{getMessage().LOADING}
 				</div>
@@ -57,7 +57,7 @@ export default function OpengroundRequest({
 	if (!data)
 		return (
 			<div className="flex h-full w-full flex-col overflow-hidden">
-				<OpengroundHeader title={getMessage().OPENGROUND_RUN_DETAILS} showContextIds />
+				<OpengroundHeader title={getMessage().OPENGROUND_RUN_DETAILS} />
 				<div className="flex w-full h-full text-error items-center justify-center">
 					{getMessage().NO_DATA_FOUND}
 				</div>
@@ -66,7 +66,7 @@ export default function OpengroundRequest({
 
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
-			<OpengroundHeader title={getMessage().OPENGROUND_RUN_DETAILS} showContextIds />
+			<OpengroundHeader title={getMessage().OPENGROUND_RUN_DETAILS} />
 			<div className="flex flex-col w-full h-full gap-6 overflow-auto p-4">
 			{/* Evaluation Info */}
 			<Card>

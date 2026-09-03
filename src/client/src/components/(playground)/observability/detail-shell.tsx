@@ -1,5 +1,3 @@
-import OpenLitContextIds from "@/components/(playground)/openlit-context-ids";
-
 export default function DetailShell({
 	title,
 	leadingActions,
@@ -7,7 +5,6 @@ export default function DetailShell({
 	headerMeta,
 	children,
 	compact = false,
-	showContextIds = true,
 }: {
 	title: string;
 	leadingActions?: React.ReactNode;
@@ -15,8 +12,6 @@ export default function DetailShell({
 	headerMeta?: React.ReactNode;
 	children: React.ReactNode;
 	compact?: boolean;
-	/** Copyable organisation / project / environment for API signal routing. */
-	showContextIds?: boolean;
 }) {
 	return (
 		<div className="flex flex-col w-full h-full overflow-auto rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950">
@@ -33,10 +28,7 @@ export default function DetailShell({
 								className={`truncate font-semibold text-stone-950 dark:text-stone-50 ${compact ? "text-base md:text-lg" : "text-lg md:text-xl"}`}
 							>
 								{title}
-							</h1>
-							{showContextIds ? (
-								<OpenLitContextIds className="mt-1.5" />
-							) : null}
+								</h1>
 						</div>
 					</div>
 					{actions && <div className="shrink-0">{actions}</div>}

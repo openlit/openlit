@@ -30,7 +30,6 @@ export default function ProjectPageHeader({
 			title={project?.name || project?.id || messages.LOADING_PROJECT}
 			icon={<FolderKanban className="h-4 w-4" />}
 			tone="border-primary/20 bg-primary/10 text-primary dark:border-primary/30"
-			showContextIds={false}
 			leading={
 				<Button
 					asChild

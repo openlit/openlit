@@ -76,7 +76,7 @@ export default function OrganisationProjectPage({ projectId }: { projectId: stri
 			<ProjectPageHeader project={project} />
 			<main className="flex w-full flex-col gap-4 p-4">
 				<OpenLitContextIds />
-				<section className="border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-950">
+				<section className="border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
 					<div className="flex flex-col gap-3 border-b border-stone-200 pb-4 dark:border-stone-800 md:flex-row md:items-start md:justify-between">
 						<div>
 							<p className="text-xs uppercase tracking-wide text-muted-foreground">
