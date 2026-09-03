@@ -390,6 +390,7 @@
                   "latest/sdk/destinations/elastic",
                   "latest/sdk/destinations/hyperdx",
                   "latest/sdk/destinations/oneuptime",
+                  "latest/sdk/destinations/parseable",
                   "latest/sdk/destinations/openobserve",
                   "latest/sdk/destinations/highlight",
                   "latest/sdk/destinations/middleware",
