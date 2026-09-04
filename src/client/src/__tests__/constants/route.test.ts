@@ -74,8 +74,20 @@ describe('ONBOARDING_WHITELIST_API_ROUTES', () => {
     expect(ONBOARDING_WHITELIST_API_ROUTES.exact.POST).toContain('/api/organisation');
   });
 
+  it('allows database config setup APIs before onboarding is complete', () => {
+    expect(ONBOARDING_WHITELIST_API_ROUTES.exact.GET).toContain('/api/db-config');
+    expect(ONBOARDING_WHITELIST_API_ROUTES.exact.GET).toContain('/api/project/environment');
+    expect(ONBOARDING_WHITELIST_API_ROUTES.exact.POST).toContain('/api/db-config');
+    expect(ONBOARDING_WHITELIST_API_ROUTES.exact.POST).toContain('/api/clickhouse');
+    expect(ONBOARDING_WHITELIST_API_ROUTES.exact.POST).toContain('/api/project/environment');
+  });
+
   it('prefix.POST includes /api/organisation/current/', () => {
     expect(ONBOARDING_WHITELIST_API_ROUTES.prefix.POST).toContain('/api/organisation/current/');
+  });
+
+  it('prefix.POST includes /api/db-config/ for setting the active config', () => {
+    expect(ONBOARDING_WHITELIST_API_ROUTES.prefix.POST).toContain('/api/db-config/');
   });
 
   it('prefix.DELETE includes /api/organisation/invitation/', () => {

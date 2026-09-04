@@ -51,15 +51,34 @@ export const ONBOARDING_WHITELIST_ROUTE_PREFIXES = [
 // Prefix entries must include a trailing slash to avoid overmatching sibling routes.
 export const ONBOARDING_WHITELIST_API_ROUTES = {
 	exact: {
-		GET: ["/api/organisation", "/api/organisation/invitation", "/api/user/profile", "/api/auth/session"],
-		POST: ["/api/organisation", "/api/user/complete-onboarding", "/api/auth/session"],
+		GET: [
+			"/api/organisation",
+			"/api/organisation/invitation",
+			"/api/user/profile",
+			"/api/auth/session",
+			"/api/db-config",
+			"/api/project/environment",
+		],
+		POST: [
+			"/api/organisation",
+			"/api/user/complete-onboarding",
+			"/api/auth/session",
+			"/api/db-config",
+			"/api/clickhouse",
+			"/api/project/environment",
+		],
 	},
 	prefix: {
-		GET: ["/api/organisation/"],
-		POST: ["/api/organisation/current/", "/api/organisation/invitation/", "/api/organisation/"],
-		PUT: ["/api/organisation/"],
+		GET: ["/api/organisation/", "/api/db-config/"],
+		POST: [
+			"/api/organisation/current/",
+			"/api/organisation/invitation/",
+			"/api/organisation/",
+			"/api/db-config/",
+		],
+		PUT: ["/api/organisation/", "/api/db-config/"],
 		PATCH: ["/api/organisation/"],
-		DELETE: ["/api/organisation/invitation/", "/api/organisation/"],
+		DELETE: ["/api/organisation/invitation/", "/api/organisation/", "/api/db-config/"],
 	},
 } as const;
 
