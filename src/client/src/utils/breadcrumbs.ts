@@ -383,12 +383,21 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		],
 	},
 	{
+		regex: /^\/organisation\/projects\/?$/,
+		getTitle: () => getMessage().PROJECTS,
+		getBreadcrumbs: () => [
+			{ title: "Settings", href: "/settings" },
+			{ title: getMessage().ORGANISATION, href: "/organisation" },
+			{ title: getMessage().PROJECTS, href: "/organisation/projects" },
+		],
+	},
+	{
 		regex: /^\/organisation\/project\/[^/]+$/,
 		getTitle: () => "",
 		getBreadcrumbs: () => [
 			{ title: "Settings", href: "/settings" },
 			{ title: getMessage().ORGANISATION, href: "/organisation" },
-			{ title: getMessage().PROJECTS, href: "/organisation?tab=projects" },
+			{ title: getMessage().PROJECTS, href: "/organisation/projects" },
 		],
 	},
 

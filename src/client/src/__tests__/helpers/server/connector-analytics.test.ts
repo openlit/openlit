@@ -3,6 +3,14 @@ jest.mock("@/lib/posthog", () => ({
 	default: { fireEvent: jest.fn() },
 }));
 
+jest.mock("@/lib/platform/connectors/datasource/registry", () => ({
+	getSourceTypeDescriptor: jest.fn(() => undefined),
+}));
+
+jest.mock("@/lib/platform/connectors/memory/registry", () => ({
+	getMemoryTypeDescriptor: jest.fn(() => undefined),
+}));
+
 import PostHogServer from "@/lib/posthog";
 import { SERVER_EVENTS } from "@/constants/events";
 import {

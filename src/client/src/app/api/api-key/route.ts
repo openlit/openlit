@@ -1,25 +1,18 @@
 import { withAudit } from "@/lib/audit/route";
-import { requireCurrentOrganisationPermission } from "@/lib/rbac/current";
+import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { generateAPIKey, getAllAPIKeys } from "@/lib/platform/api-keys";
 import asaw from "@/utils/asaw";
-import { errorResponse } from "@/utils/api-response";
+import { MIDDLEWARE_DATABASE_CONFIG_HEADER } from "@/constants/openlit-context";
 
-export async function GET() {
-	const [permissionErr] = await asaw(
-		requireCurrentOrganisationPermission("api_key:read")
-	);
-	if (permissionErr) return errorResponse(permissionErr, "Forbidden", 403);
-
-	const res: any = await getAllAPIKeys();
+async function GETHandler(request: Request) {
+	const databaseConfigId =
+		request.headers?.get?.(MIDDLEWARE_DATABASE_CONFIG_HEADER)?.trim() ||
+		undefined;
+	const res: any = await getAllAPIKeys(databaseConfigId);
 	return Response.json(res);
 }
 
 async function POSTHandler(request: Request) {
-	const [permissionErr] = await asaw(
-		requireCurrentOrganisationPermission("api_key:create")
-	);
-	if (permissionErr) return errorResponse(permissionErr, "Forbidden", 403);
-
 	const formData = await request.json();
 	const name = formData.name;
 
@@ -34,4 +27,10 @@ async function POSTHandler(request: Request) {
 	return Response.json(res);
 }
 
-export const POST = withAudit(POSTHandler);
+export const GET = withCurrentOrganisationPermission(
+	"api_key:read",
+	GETHandler
+);
+export const POST = withAudit(
+	withCurrentOrganisationPermission("api_key:create", POSTHandler)
+);

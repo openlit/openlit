@@ -120,6 +120,27 @@ describe('getAllAPIKeys', () => {
     expect(result).toEqual([{ name: 'key1', apiKey: 'openlit-abc' }]);
   });
 
+  it('uses an explicit databaseConfigId without session db lookup', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([
+      null,
+      [{ name: 'key1', apiKey: 'openlit-abc' }],
+    ]);
+    (prisma.aPIKeys.findMany as jest.Mock).mockResolvedValue([{ name: 'key1' }]);
+
+    await getAllAPIKeys('db-from-api-key');
+    expect(getDBConfigByUser).not.toHaveBeenCalled();
+    expect(prisma.aPIKeys.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { databaseConfigId: 'db-from-api-key' },
+            { isDeleted: false },
+          ],
+        },
+      })
+    );
+  });
+
   it('throws when dbConfig is not found', async () => {
     (asaw as jest.Mock).mockResolvedValueOnce([null, null]);
     await expect(getAllAPIKeys()).rejects.toThrow('DB config not found');

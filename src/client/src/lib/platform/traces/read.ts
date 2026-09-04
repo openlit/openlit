@@ -422,7 +422,14 @@ export async function listTraceRecords(params: MetricParams) {
 			!!frame.meta?.truncated || spans.length >= (params.limit || 25);
 		let records = spans.map((row) => denormalizeSpanToTraceRow(row));
 		if (usesSqlIssueFilters(descriptor)) {
-			records = await attachClickHouseLoopHits(params, records);
+			records = await attachClickHouseLoopHits(
+				{
+					...params,
+					databaseConfigId:
+						params.databaseConfigId || descriptor.dbConfigId,
+				},
+				records
+			);
 		} else if (spans.some(isTraceSummaryRow)) {
 			const trees = await treesForListedTraces(adapter, spans);
 			records = withLoopHits(records, trees);

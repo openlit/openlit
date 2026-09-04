@@ -202,6 +202,24 @@ describe('getSecretById', () => {
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).not.toContain('EXCEPT value');
   });
+
+  it('allows DB-scoped lookup without a session when databaseConfigId is set', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValueOnce(null);
+    await getSecretById('v1', 'db-1', false);
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain("v.id = 'v1'");
+    expect(query).not.toContain('created_by');
+    expect(dataCollector).toHaveBeenCalledWith(
+      expect.anything(),
+      'query',
+      'db-1'
+    );
+  });
+
+  it('rejects unauthenticated lookups without databaseConfigId', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValueOnce(null);
+    await expect(getSecretById('v1')).rejects.toThrow('Unauthorized');
+  });
 });
 
 describe('upsertSecret', () => {

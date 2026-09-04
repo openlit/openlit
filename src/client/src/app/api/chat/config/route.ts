@@ -1,15 +1,15 @@
 import { getChatConfig, upsertChatConfig } from "@/lib/platform/chat/config";
-import { getCurrentUser } from "@/lib/session";
+import { resolveRequestAuth } from "@/helpers/server/auth";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
 
-export async function GET() {
-	const user = await getCurrentUser();
-	if (!user) {
+export async function GET(request: NextRequest) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
-	const { data, err } = await getChatConfig();
+	const { data, err } = await getChatConfig(auth.databaseConfigId);
 
 	if (err) {
 		return Response.json(err, { status: 400 });
@@ -19,8 +19,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-	const user = await getCurrentUser();
-	if (!user) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
@@ -33,12 +33,15 @@ export async function POST(request: NextRequest) {
 	}
 
 	const [err, data] = await asaw(
-		upsertChatConfig({
-			provider: formData.provider,
-			model: formData.model,
-			vaultId: formData.vaultId,
-			meta: formData.meta || "{}",
-		})
+		upsertChatConfig(
+			{
+				provider: formData.provider,
+				model: formData.model,
+				vaultId: formData.vaultId,
+				meta: formData.meta || "{}",
+			},
+			auth.databaseConfigId
+		)
 	);
 
 	if (err) {
