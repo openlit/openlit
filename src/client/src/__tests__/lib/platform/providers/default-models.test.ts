@@ -10,7 +10,7 @@ describe('default-models', () => {
   it('includes the expected core providers', () => {
     const expectedProviders = [
       'openai', 'anthropic', 'google', 'mistral', 'groq',
-      'perplexity', 'azure', 'cohere', 'together', 'fireworks',
+      'orcarouter', 'perplexity', 'azure', 'cohere', 'together', 'fireworks',
       'deepseek', 'xai', 'huggingface', 'replicate',
     ];
     for (const provider of expectedProviders) {

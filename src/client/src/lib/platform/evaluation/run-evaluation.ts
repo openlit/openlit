@@ -83,6 +83,11 @@ function getModel(provider: string, model: string, apiKey: string) {
 				baseURL: "https://api.groq.com/openai/v1",
 				apiKey,
 			})(model);
+		case "orcarouter":
+			return createOpenAI({
+				baseURL: "https://api.orcarouter.ai/v1",
+				apiKey,
+			})(model);
 		case "perplexity":
 			return createOpenAI({
 				baseURL: "https://api.perplexity.ai",
