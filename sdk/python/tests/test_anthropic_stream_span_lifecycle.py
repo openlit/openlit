@@ -13,7 +13,6 @@ span ends exactly once on each exit path.
 """
 
 import time
-from collections.abc import AsyncIterator
 
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -103,6 +102,7 @@ class FakeRawStream:
             raise StopAsyncIteration from None
 
     def close(self):
+        """Mark the stream closed (matches anthropic's MessageStream.close)."""
         self.closed = True
 
 
@@ -126,6 +126,7 @@ class FakeManager:
 
 
 def test_sync_early_break_inside_with_ends_span():
+    """Leaving the `with` block early (break) must still end and export the span."""
     tracer, exporter = _tracer_with_exporter()
     factory = _factory(tracer, is_async=False)
 
@@ -139,6 +140,7 @@ def test_sync_early_break_inside_with_ends_span():
 
 
 def test_sync_full_consumption_exports_exactly_one_span():
+    """Fully consuming the stream must export exactly one span."""
     tracer, exporter = _tracer_with_exporter()
     factory = _factory(tracer, is_async=False)
 
@@ -152,6 +154,7 @@ def test_sync_full_consumption_exports_exactly_one_span():
 
 
 def test_sync_close_finalizes_span():
+    """Calling close() early must finalize the span exactly once."""
     tracer, exporter = _tracer_with_exporter()
     factory = _factory(tracer, is_async=False)
 
@@ -166,12 +169,13 @@ def test_sync_close_finalizes_span():
 
 
 async def test_async_early_break_inside_with_ends_span():
+    """Leaving the `async with` block early must still end and export the span."""
     tracer, exporter = _tracer_with_exporter()
     factory = _factory(tracer, is_async=True)
 
     manager = factory(lambda *a, **k: FakeManager(FakeRawStream()), None, (), REQUEST_KWARGS)
     async with manager as stream:
-        await stream.__anext__()
+        await anext(stream)
 
     time.sleep(0.1)
     spans = exporter.get_finished_spans()
@@ -179,6 +183,7 @@ async def test_async_early_break_inside_with_ends_span():
 
 
 async def test_async_full_consumption_exports_exactly_one_span():
+    """Fully consuming the async stream must export exactly one span."""
     tracer, exporter = _tracer_with_exporter()
     factory = _factory(tracer, is_async=True)
 
