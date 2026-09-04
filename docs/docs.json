@@ -294,6 +294,7 @@
                   "latest/sdk/integrations/openai",
                   "latest/sdk/integrations/go-openai",
                   "latest/sdk/integrations/ollama",
+                  "latest/sdk/integrations/llmman",
                   "latest/sdk/integrations/anthropic",
                   "latest/sdk/integrations/go-anthropic",
                   "latest/sdk/integrations/deepseek",
