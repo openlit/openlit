@@ -234,6 +234,38 @@ describe('checkAuth', () => {
       await middleware(req as any, makeFetchEvent());
       expect(NextResponse.next).toHaveBeenCalled();
     });
+
+    it('allows GET to /api/db-config without onboarding so step 3 can list ClickHouse configs', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('GET', '/api/db-config');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows POST to /api/db-config without onboarding so step 3 can save ClickHouse configs', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/db-config');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows GET to /api/project/environment without onboarding', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('GET', '/api/project/environment');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows POST to /api/clickhouse without onboarding so the db config form can ping', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/clickhouse');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
   });
 
   describe('onboarding-whitelisted API routes (prefix match)', () => {
@@ -258,6 +290,14 @@ describe('checkAuth', () => {
       const req = makeRequest('DELETE', '/api/organisation/invitation/456');
       await middleware(req as any, makeFetchEvent());
       expect(NextResponse.next).toHaveBeenCalled();
+    });
+
+    it('allows POST to /api/db-config/current/:id without onboarding', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/db-config/current/db-1');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
     });
   });
 
