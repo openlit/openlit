@@ -118,7 +118,11 @@ async function fromExternalSample(params: MetricParams): Promise<AgentLoopRow> {
 	}
 }
 
-async function resolveExternalTraces(params: MetricParams) {
+/**
+ * Same source resolution as the traces list: environment / sourceId →
+ * traces binding → ClickHouse DatabaseConfig (or external adapter).
+ */
+async function resolveTracesSource(params: MetricParams) {
 	const { resolveTelemetrySourceDescriptor } =
 		await import("@/lib/telemetry-source");
 	const descriptor = await resolveTelemetrySourceDescriptor({
@@ -126,10 +130,14 @@ async function resolveExternalTraces(params: MetricParams) {
 		sourceId: params.sourceId,
 		environment: params.environment,
 	});
-	if (descriptor.isBuiltIn || descriptor.type === "clickhouse") {
-		return null;
-	}
-	return { descriptor };
+	const isClickHouse =
+		descriptor.isBuiltIn || descriptor.type === "clickhouse";
+	return {
+		descriptor,
+		isClickHouse,
+		databaseConfigId:
+			params.databaseConfigId || descriptor.dbConfigId || undefined,
+	};
 }
 
 function windowQuery(params: MetricParams) {
@@ -141,8 +149,8 @@ function windowQuery(params: MetricParams) {
 export async function getAgentLoop(
 	params: MetricParams
 ): Promise<{ err?: unknown; data?: AgentLoopRow[] }> {
-	const external = await resolveExternalTraces(params);
-	if (external) {
+	const source = await resolveTracesSource(params);
+	if (!source.isClickHouse) {
 		try {
 			return { data: [await fromExternalSample(params)] };
 		} catch (err) {
@@ -164,7 +172,7 @@ export async function getAgentLoop(
 	const result = await dataCollector(
 		{ query },
 		"query",
-		params.databaseConfigId
+		source.databaseConfigId
 	);
 	if (result.err) return { err: result.err, data: [] };
 	const rows = (result.data as Record<string, unknown>[]) || [];

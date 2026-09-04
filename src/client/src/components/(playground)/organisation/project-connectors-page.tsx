@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { Layers } from "lucide-react";
 import DataSourcesPage from "@/components/(playground)/telemetry-source/data-sources-page";
+import OpenLitContextIds from "@/components/(playground)/openlit-context-ids";
 import ProjectPageHeader from "./project-page-header";
 import getMessage from "@/constants/messages";
 import FeatureAccess from "@/components/rbac/feature-access";
@@ -37,10 +38,11 @@ export default function ProjectConnectorsPage({ projectId }: { projectId?: strin
 			<ProjectPageHeader project={project} />
 			<FeatureAccess access="connectors.read" requireProject>
 			<div className="flex min-h-0 w-full flex-col gap-4 p-4">
+			<OpenLitContextIds />
 			<section className="border border-primary/20 bg-primary/[0.04] p-4 dark:border-primary/30 dark:bg-primary/[0.08]">
 				<div className="flex items-start gap-3">
 					<Layers className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-					<div>
+					<div className="min-w-0 flex-1">
 						<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">{messages.PROJECT_ENVIRONMENTS}: {environment}</h2>
 						<p className="mt-1 text-xs leading-5 text-muted-foreground">{messages.PROJECT_ENVIRONMENTS_DESCRIPTION}</p>
 					</div>

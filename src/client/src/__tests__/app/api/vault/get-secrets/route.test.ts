@@ -1,6 +1,9 @@
 jest.mock("@/lib/platform/vault", () => ({
 	getSecretsFromDatabaseId: jest.fn(),
 }));
+jest.mock("@/helpers/server/sdk-intelligence", () => ({
+	resolveSdkIntelligenceDatabaseConfig: jest.fn(),
+}));
 jest.mock("@/lib/posthog", () => ({
 	__esModule: true,
 	default: {
@@ -17,6 +20,7 @@ jest.mock("@/utils/asaw", () => jest.fn());
 
 import { OPTIONS, POST } from "@/app/api/vault/get-secrets/route";
 import { getSecretsFromDatabaseId } from "@/lib/platform/vault";
+import { resolveSdkIntelligenceDatabaseConfig } from "@/helpers/server/sdk-intelligence";
 import asaw from "@/utils/asaw";
 
 class TestHeaders {
@@ -134,6 +138,10 @@ describe("/api/vault/get-secrets CORS", () => {
 	});
 
 	it("does not block no-Origin API key clients", async () => {
+		(resolveSdkIntelligenceDatabaseConfig as jest.Mock).mockResolvedValue([
+			null,
+			{ databaseConfigId: "db-1", via: "apiKey", apiKeyInfo: { id: "key-1" } },
+		]);
 		(asaw as jest.Mock).mockResolvedValue([null, { OPENAI_API_KEY: "sk-test" }]);
 
 		const response = await POST(makeRequest({ body: { key: "OPENAI_API_KEY" } }));
@@ -144,6 +152,7 @@ describe("/api/vault/get-secrets CORS", () => {
 			apiKey: "openlit-test",
 			key: "OPENAI_API_KEY",
 			tags: undefined,
+			databaseConfigId: "db-1",
 		});
 		expect(body).toEqual({
 			err: null,

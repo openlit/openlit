@@ -46,7 +46,27 @@ describe("resolveRuleEngineDatabaseConfigId", () => {
 		});
 	});
 
-	it("prefers the explicitly selected project ClickHouse", async () => {
+	it("uses environment binding even when an explicit ClickHouse header is present", async () => {
+		(resolveSignalSource as jest.Mock).mockResolvedValue({
+			hasSource: true,
+			descriptor: { type: "clickhouse", dbConfigId: "db-production" },
+		});
+
+		await expect(
+			resolveRuleEngineDatabaseConfigId(
+				requestWithContext({
+					environment: "production",
+					databaseConfigId: "db-selected",
+				})
+			)
+		).resolves.toBe("db-production");
+		expect(resolveSignalSource).toHaveBeenCalledWith("intelligence", {
+			environment: "production",
+		});
+		expect(getDBConfigByUser).not.toHaveBeenCalled();
+	});
+
+	it("uses the explicitly selected project ClickHouse when no environment is set", async () => {
 		(getDBConfigByUser as jest.Mock).mockResolvedValue([
 			{ id: "db-selected" },
 			{ id: "db-other" },
@@ -55,7 +75,6 @@ describe("resolveRuleEngineDatabaseConfigId", () => {
 		await expect(
 			resolveRuleEngineDatabaseConfigId(
 				requestWithContext({
-					environment: "production",
 					databaseConfigId: "db-selected",
 				})
 			)

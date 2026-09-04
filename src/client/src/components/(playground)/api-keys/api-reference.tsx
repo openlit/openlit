@@ -8,14 +8,40 @@ import getMessage from "@/constants/messages";
 
 import { ApiEndpoint, API_REFERENCE_ENDPOINTS } from "@/constants/api-reference";
 
+type ParameterLocation = "header" | "path" | "query" | "body";
+
 interface ParameterDoc {
 	name: string;
 	type: string;
 	required: boolean;
 	description: string;
+	/** Where the value is sent: HTTP header, URL path, query string, or JSON body. */
+	location: ParameterLocation;
 	allowedValues?: string[];
 	example?: string;
 }
+
+const PARAMETER_LOCATION_LABEL: Record<ParameterLocation, string> = {
+	header: "Header",
+	path: "Path",
+	query: "Query",
+	body: "Body",
+};
+
+function asBodyParams(
+	docs: Omit<ParameterDoc, "location">[]
+): ParameterDoc[] {
+	return docs.map((doc) => ({ ...doc, location: "body" }));
+}
+
+function asPathParam(doc: Omit<ParameterDoc, "location">): ParameterDoc {
+	return { ...doc, location: "path" };
+}
+
+function asQueryParam(doc: Omit<ParameterDoc, "location">): ParameterDoc {
+	return { ...doc, location: "query" };
+}
+
 
 interface ApiReferenceProps {
 	userApiKey?: string;
@@ -27,6 +53,85 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 	const [copiedField, setCopiedField] = useState<string | null>(null);
 	const messages = getMessage();
 
+	const contextHeaderDocs: ParameterDoc[] = [
+		{
+			name: "x-openlit-organisation-id",
+			type: "string",
+			required: false,
+			location: "header",
+			description:
+				"Active organisation ID. Recommended for multi-organisation API-key clients.",
+			example: "org_01HXYZ",
+		},
+		{
+			name: "x-openlit-project-id",
+			type: "string",
+			required: true,
+			location: "header",
+			description:
+				"Active project ID. Telemetry source bindings are project-scoped.",
+			example: "proj_01HXYZ",
+		},
+		{
+			name: "x-openlit-environment",
+			type: "string",
+			required: true,
+			location: "header",
+			description:
+				"Active project environment (e.g. production). Required for signal routing of traces/logs/metrics/intelligence.",
+			example: "production",
+		},
+	];
+
+	const withContextHeaders = (docs: ParameterDoc[]): ParameterDoc[] => [
+		...contextHeaderDocs,
+		...docs,
+	];
+
+	const sdkContextHeaderDocs: ParameterDoc[] = [
+		{
+			name: "x-openlit-organisation-id",
+			type: "string",
+			required: false,
+			location: "header",
+			description:
+				"Active organisation ID. Recommended for multi-organisation API-key clients.",
+			example: "org_01HXYZ",
+		},
+		{
+			name: "x-openlit-project-id",
+			type: "string",
+			required: false,
+			location: "header",
+			description:
+				"Preferred with environment for intelligence signal routing. When omitted, the API key's project is used.",
+			example: "proj_01HXYZ",
+		},
+		{
+			name: "x-openlit-environment",
+			type: "string",
+			required: false,
+			location: "header",
+			description:
+				"Preferred for intelligence signal routing. When omitted, falls back to the API key's bound database config.",
+			example: "production",
+		},
+		{
+			name: "x-openlit-database-config-id",
+			type: "string",
+			required: false,
+			location: "header",
+			description:
+				"Optional explicit ClickHouse database config for SDK endpoints. Must belong to the same project as the API key. Prefer signal routing instead.",
+			example: "dbcfg_01HXYZ",
+		},
+	];
+
+	const withSdkContextHeaders = (docs: ParameterDoc[]): ParameterDoc[] => [
+		...sdkContextHeaderDocs,
+		...docs,
+	];
+
 	const getParameterDocs = (endpointId: string): ParameterDoc[] => {
 		if (
 			endpointId === "query-traces" ||
@@ -37,7 +142,7 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 		) {
 			const isLog = endpointId === "query-logs";
 			const isMetric = endpointId === "query-metrics" || endpointId === "get-metric-detail";
-			const docs: ParameterDoc[] = [
+			const docs: Omit<ParameterDoc, "location">[] = [
 				{
 					name: "timeLimit",
 					type: "object",
@@ -161,233 +266,249 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 				example: "true",
 			});
 
-			return docs;
+			return withContextHeaders(asBodyParams(docs));
 		}
 
 		if (endpointId === "get-log") {
-			return [
-				{
+			return withContextHeaders([
+				asPathParam({
 					name: "id",
 					type: "string",
 					required: true,
-					description: "Path parameter. Unique hash/row identifier of the log record.",
+					description: "Unique hash/row identifier of the log record.",
 					example: "18446744073709551615",
-				},
-			];
+				}),
+			]);
 		}
 
 		if (endpointId === "get-compiled-prompt") {
-			return [
-				{
-					name: "name",
-					type: "string",
-					required: true,
-					description: "Query parameter. Prompt template identifier name.",
-					example: "summarize-prompt",
-				},
-			];
+			return withSdkContextHeaders(
+				asBodyParams([
+					{
+						name: "name",
+						type: "string",
+						required: true,
+						description: "Prompt template identifier name.",
+						example: "summarize-prompt",
+					},
+				])
+			);
 		}
 
 		if (endpointId === "get-secrets") {
-			return [
-				{
-					name: "keys",
-					type: "string",
-					required: false,
-					description: "Query parameter. Comma-separated list of keys to fetch from the vault.",
-					example: "OPENAI_API_KEY,ANTHROPIC_API_KEY",
-				},
-			];
+			return withSdkContextHeaders(
+				asBodyParams([
+					{
+						name: "keys",
+						type: "string",
+						required: false,
+						description: "Comma-separated list of keys to fetch from the vault.",
+						example: "OPENAI_API_KEY,ANTHROPIC_API_KEY",
+					},
+				])
+			);
 		}
 
 		if (endpointId === "evaluate-rules") {
-			return [
-				{
-					name: "entity_type",
-					type: "string",
-					required: true,
-					description: "Type of rule engine entity to evaluate.",
-					allowedValues: ["prompt", "span"],
-					example: "prompt",
-				},
-				{
-					name: "fields",
-					type: "object",
-					required: true,
-					description: "Input fields to run redaction, guardrail, or format rules against.",
-					example: "{ \"input_text\": \"...\" }",
-				},
-			];
+			return withSdkContextHeaders(
+				asBodyParams([
+					{
+						name: "entity_type",
+						type: "string",
+						required: true,
+						description: "Type of rule engine entity to evaluate.",
+						allowedValues: ["prompt", "span"],
+						example: "prompt",
+					},
+					{
+						name: "fields",
+						type: "object",
+						required: true,
+						description: "Input fields to run redaction, guardrail, or format rules against.",
+						example: "{ \"input_text\": \"...\" }",
+					},
+				])
+			);
 		}
 
 		if (endpointId === "controller-poll") {
-			return [
-				{
-					name: "instance_id",
-					type: "string",
-					required: true,
-					description: "Unique identifier for the polling client agent instance.",
-					example: "client-instance-xyz-123",
-				},
-				{
-					name: "config_hash",
-					type: "string",
-					required: false,
-					description: "MD5 hash of the cached controller config on the client side.",
-					example: "88863aa992efcc3c48bc625d97f26c51",
-				},
-			];
+			return withContextHeaders(
+				asBodyParams([
+					{
+						name: "instance_id",
+						type: "string",
+						required: true,
+						description: "Unique identifier for the polling client agent instance.",
+						example: "client-instance-xyz-123",
+					},
+					{
+						name: "config_hash",
+						type: "string",
+						required: false,
+						description: "MD5 hash of the cached controller config on the client side.",
+						example: "88863aa992efcc3c48bc625d97f26c51",
+					},
+				])
+			);
 		}
 
 		if (endpointId === "evaluation-offline") {
-			return [
-				{
-					name: "prompt",
-					type: "string",
-					required: true,
-					description: "The prompt text to evaluate.",
-					example: "I need to reset my password, my email is admin@gmail.com",
-				},
-				{
-					name: "response",
-					type: "string",
-					required: true,
-					description: "The LLM generated response to evaluate.",
-					example: "I can help with that. Please verify your identity.",
-				},
-				{
-					name: "contexts",
-					type: "string[]",
-					required: false,
-					description: "Retrieved context document texts used by the LLM.",
-					example: '["User password reset procedure document."]',
-				},
-				{
-					name: "eval_types",
-					type: "string[]",
-					required: false,
-					description: "Scorers to execute. Can be toxicity, hallucination, bias, pii.",
-					example: '["toxicity", "pii"]',
-				},
-				{
-					name: "threshold_score",
-					type: "number",
-					required: false,
-					description: "Minimum score required to trigger validation flags. Defaults to 0.5.",
-					example: "0.5",
-				},
-				{
-					name: "store_results",
-					type: "boolean",
-					required: false,
-					description: "Persist the evaluation metrics run results to ClickHouse. Defaults to true.",
-					example: "true",
-				},
-				{
-					name: "run_id",
-					type: "string",
-					required: false,
-					description: "Optional external execution or batch tracking ID.",
-					example: "run-998877",
-				},
-				{
-					name: "metadata",
-					type: "object",
-					required: false,
-					description: "Custom metadata key-value properties dictionary (max 20 entries).",
-				},
-				{
-					name: "attributes",
-					type: "object",
-					required: false,
-					description: "Custom payload attributes dictionary.",
-				},
-			];
+			return withContextHeaders(
+				asBodyParams([
+					{
+						name: "prompt",
+						type: "string",
+						required: true,
+						description: "The prompt text to evaluate.",
+						example: "I need to reset my password, my email is admin@gmail.com",
+					},
+					{
+						name: "response",
+						type: "string",
+						required: true,
+						description: "The LLM generated response to evaluate.",
+						example: "I can help with that. Please verify your identity.",
+					},
+					{
+						name: "contexts",
+						type: "string[]",
+						required: false,
+						description: "Retrieved context document texts used by the LLM.",
+						example: '["User password reset procedure document."]',
+					},
+					{
+						name: "eval_types",
+						type: "string[]",
+						required: false,
+						description: "Scorers to execute. Can be toxicity, hallucination, bias, pii.",
+						example: '["toxicity", "pii"]',
+					},
+					{
+						name: "threshold_score",
+						type: "number",
+						required: false,
+						description: "Minimum score required to trigger validation flags. Defaults to 0.5.",
+						example: "0.5",
+					},
+					{
+						name: "store_results",
+						type: "boolean",
+						required: false,
+						description: "Persist the evaluation metrics run results to ClickHouse. Defaults to true.",
+						example: "true",
+					},
+					{
+						name: "run_id",
+						type: "string",
+						required: false,
+						description: "Optional external execution or batch tracking ID.",
+						example: "run-998877",
+					},
+					{
+						name: "metadata",
+						type: "object",
+						required: false,
+						description: "Custom metadata key-value properties dictionary (max 20 entries).",
+					},
+					{
+						name: "attributes",
+						type: "object",
+						required: false,
+						description: "Custom payload attributes dictionary.",
+					},
+				])
+			);
 		}
 
 		if (endpointId === "create-prompt") {
-			return [
-				{
-					name: "name",
-					type: "string",
-					required: true,
-					description: "Unique prompt identification name.",
-					example: "rag-generation-prompt",
-				},
-				{
-					name: "prompt",
-					type: "string",
-					required: true,
-					description: "Prompt template string with support for variable placeholders.",
-					example: "Answer the query: {{query}} using context: {{context}}",
-				},
-				{
-					name: "version",
-					type: "string",
-					required: false,
-					description: "Optional semantic version for this prompt release.",
-					example: "1.0.0",
-				},
-				{
-					name: "status",
-					type: "string",
-					required: false,
-					description: "Release status of the prompt.",
-					allowedValues: ["active", "draft", "retired"],
-					example: "active",
-				},
-				{
-					name: "tags",
-					type: "string[]",
-					required: false,
-					description: "Labels to categorize the prompt.",
-					example: '["production", "rag"]',
-				},
-				{
-					name: "metaProperties",
-					type: "object",
-					required: false,
-					description: "Arbitrary key-value metadata properties dict.",
-				},
-			];
+			return withContextHeaders(
+				asBodyParams([
+					{
+						name: "name",
+						type: "string",
+						required: true,
+						description: "Unique prompt identification name.",
+						example: "rag-generation-prompt",
+					},
+					{
+						name: "prompt",
+						type: "string",
+						required: true,
+						description: "Prompt template string with support for variable placeholders.",
+						example: "Answer the query: {{query}} using context: {{context}}",
+					},
+					{
+						name: "version",
+						type: "string",
+						required: false,
+						description: "Optional semantic version for this prompt release.",
+						example: "1.0.0",
+					},
+					{
+						name: "status",
+						type: "string",
+						required: false,
+						description: "Release status of the prompt.",
+						allowedValues: ["active", "draft", "retired"],
+						example: "active",
+					},
+					{
+						name: "tags",
+						type: "string[]",
+						required: false,
+						description: "Labels to categorize the prompt.",
+						example: '["production", "rag"]',
+					},
+					{
+						name: "metaProperties",
+						type: "object",
+						required: false,
+						description: "Arbitrary key-value metadata properties dict.",
+					},
+				])
+			);
 		}
 
 		if (endpointId === "get-prompt") {
-			return [
-				{
-					name: "name",
-					type: "string",
-					required: true,
-					description: "Prompt identifier name to retrieve detail configurations for.",
-					example: "summarize-prompt",
-				},
-			];
+			return withContextHeaders(
+				asBodyParams([
+					{
+						name: "name",
+						type: "string",
+						required: true,
+						description: "Prompt identifier name to retrieve detail configurations for.",
+						example: "summarize-prompt",
+					},
+				])
+			);
 		}
 
 		if (endpointId === "upsert-secret") {
-			return [
-				{
-					name: "key",
-					type: "string",
-					required: true,
-					description: "Secret key name stored in the vault.",
-					example: "OPENAI_API_KEY",
-				},
-				{
-					name: "value",
-					type: "string",
-					required: true,
-					description: "Unencrypted credentials value that will be encrypted on write.",
-					example: "sk-proj-...",
-				},
-				{
-					name: "tags",
-					type: "string[]",
-					required: false,
-					description: "Secret classification labels.",
-					example: '["production"]',
-				},
-			];
+			return withContextHeaders(
+				asBodyParams([
+					{
+						name: "key",
+						type: "string",
+						required: true,
+						description: "Secret key name stored in the vault.",
+						example: "OPENAI_API_KEY",
+					},
+					{
+						name: "value",
+						type: "string",
+						required: true,
+						description: "Unencrypted credentials value that will be encrypted on write.",
+						example: "sk-proj-...",
+					},
+					{
+						name: "tags",
+						type: "string[]",
+						required: false,
+						description: "Secret classification labels.",
+						example: '["production"]',
+					},
+				])
+			);
 		}
 
 		if (
@@ -395,24 +516,102 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 			endpointId === "get-trace-detail" ||
 			endpointId === "get-span-hierarchy"
 		) {
-			return [
-				{
+			return withContextHeaders([
+				asPathParam({
 					name: "id",
 					type: "string",
 					required: true,
-					description: "Path parameter. Span ID, Trace ID, or Anchor Span ID to fetch.",
+					description: "Span ID, Trace ID, or Anchor Span ID to fetch.",
 					example: "557a2bd43ff129ad",
-				},
-			];
+				}),
+			]);
 		}
 
-		return [];
+		if (
+			endpointId === "get-ai-analysis" ||
+			endpointId === "run-ai-analysis"
+		) {
+			return withContextHeaders([
+				asPathParam({
+					name: "spanId",
+					type: "string",
+					required: true,
+					description: "Anchor span ID used to resolve the analysis target.",
+					example: "557a2bd43ff129ad",
+				}),
+				asQueryParam({
+					name: "scope",
+					type: "string",
+					required: false,
+					description: "Analyze the full hierarchy or only the given span.",
+					allowedValues: ["trace", "span"],
+					example: "trace",
+				}),
+				asQueryParam({
+					name: "traceId",
+					type: "string",
+					required: false,
+					description: "Optional Trace ID to disambiguate hierarchy lookup.",
+					example: "a1b2c3d4e5f6g7h8",
+				}),
+			]);
+		}
+
+		if (endpointId === "send-otter-message") {
+			return withContextHeaders(
+				asBodyParams([
+					{
+						name: "conversationId",
+						type: "string",
+						required: true,
+						description: "Conversation ID returned from POST /api/chat/conversation.",
+						example: "conv-1",
+					},
+					{
+						name: "content",
+						type: "string",
+						required: true,
+						description: "User message text for Ask Otter.",
+						example: "Analyze the slowest traces from the last 24 hours",
+					},
+				])
+			);
+		}
+
+		if (endpointId === "execute-otter-sql") {
+			return withContextHeaders(
+				asBodyParams([
+					{
+						name: "query",
+						type: "string",
+						required: true,
+						description: "Validated read-only SQL to run against the intelligence ClickHouse connector.",
+						example: "SELECT SpanName, Duration FROM otel_traces LIMIT 10",
+					},
+					{
+						name: "messageId",
+						type: "string",
+						required: false,
+						description: "Optional chat message ID to attach query results to.",
+						example: "msg-1",
+					},
+				])
+			);
+		}
+
+		return contextHeaderDocs;
 	};
 
 	const getEndpointGroup = (endpoint: ApiEndpoint): string => {
 		const path = endpoint.path;
 		if (path.startsWith("/api/telemetry") || path.startsWith("/api/metrics")) {
 			return "Telemetry";
+		}
+		if (path.startsWith("/api/chat/improvement")) {
+			return "AI Analysis";
+		}
+		if (path.startsWith("/api/chat")) {
+			return "Ask Otter";
 		}
 		if (path.startsWith("/api/prompt")) {
 			return "Prompt Hub";
@@ -437,6 +636,8 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 
 	const groups = [
 		"Telemetry",
+		"AI Analysis",
+		"Ask Otter",
 		"Prompt Hub",
 		"Secret Vault",
 		"Rule Engine",
@@ -447,6 +648,8 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 
 	const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
 		"Telemetry": true,
+		"AI Analysis": true,
+		"Ask Otter": true,
 		"Prompt Hub": true,
 		"Secret Vault": true,
 		"Rule Engine": true,
@@ -489,6 +692,10 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 				<h3 className="font-semibold text-stone-900 dark:text-stone-100">{messages.INTERACTIVE_API_REFERENCE}</h3>
 				<span className="text-xs text-stone-500 dark:text-stone-400 ml-auto">
 					{messages.OPENAPI_SPEC_BEARER_AUTH}
+					{" · "}
+					<span className="text-stone-500 dark:text-stone-400">
+						{messages.OPENAPI_SPEC_CONTEXT_HEADERS_HINT}
+					</span>
 				</span>
 			</div>
 
@@ -594,6 +801,7 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 										<thead>
 											<tr className="border-b border-stone-200 dark:border-stone-800 text-stone-500 font-medium">
 												<th className="pb-2 pr-4 font-mono text-[10px]">Parameter</th>
+												<th className="pb-2 pr-4 font-mono text-[10px]">In</th>
 												<th className="pb-2 pr-4 font-mono text-[10px]">Type</th>
 												<th className="pb-2 pr-4 font-mono text-[10px]">Required</th>
 												<th className="pb-2">Description</th>
@@ -601,9 +809,17 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 										</thead>
 										<tbody>
 											{getParameterDocs(selectedEndpoint.id).map((doc) => (
-												<tr key={doc.name} className="border-b border-stone-100 dark:border-stone-900/40 last:border-0 hover:bg-stone-50/50 dark:hover:bg-stone-900/20">
+												<tr key={`${doc.location}:${doc.name}`} className="border-b border-stone-100 dark:border-stone-900/40 last:border-0 hover:bg-stone-50/50 dark:hover:bg-stone-900/20">
 													<td className="py-2.5 pr-4 font-mono text-[11px] font-semibold text-stone-800 dark:text-stone-200">
 														{doc.name}
+													</td>
+													<td className="py-2.5 pr-4">
+														<Badge
+															variant="outline"
+															className="text-[9px] px-1.5 py-0 font-semibold border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300"
+														>
+															{PARAMETER_LOCATION_LABEL[doc.location]}
+														</Badge>
 													</td>
 													<td className="py-2.5 pr-4 font-mono text-[11px] text-stone-500">
 														{doc.type}

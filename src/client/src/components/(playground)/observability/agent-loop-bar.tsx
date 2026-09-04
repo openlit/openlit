@@ -28,7 +28,7 @@ export default function AgentLoopBar() {
 	const pingStatus = useRootStore(getPingStatus);
 	const environment = useRootStore(getCurrentProjectEnvironment);
 	const updateFilter = useRootStore(getUpdateFilter);
-	const { data, isFetched, isLoading, fireRequest } = useFetchWrapper();
+	const { data, isFetched, isLoading, fireRequest, reset } = useFetchWrapper();
 	const selected = Boolean(filter.selectedConfig.agentLoop);
 
 	const fetchData = useCallback(async () => {
@@ -44,6 +44,12 @@ export default function AgentLoopBar() {
 	}, [environment, filter, fireRequest]);
 
 	useEffect(() => {
+		// Drop previous environment's counts — do not keep production chips
+		// when the next environment's request fails or returns empty.
+		reset();
+	}, [environment, reset]);
+
+	useEffect(() => {
 		if (
 			filter.timeLimit.start &&
 			filter.timeLimit.end &&
@@ -51,7 +57,7 @@ export default function AgentLoopBar() {
 		) {
 			fetchData();
 		}
-	}, [filter, fetchData, pingStatus]);
+	}, [filter, fetchData, pingStatus, environment]);
 
 	const row = (data || {}) as AgentLoopRow;
 	if (row.unsupported) return null;

@@ -153,7 +153,7 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			{
 				icon: <FolderKanban className={ICON_CLASSES} />,
 				text: m.SIDEBAR_PROJECTS,
-				link: "/organisation?tab=projects",
+				link: "/organisation/projects",
 				type: "action",
 			},
 			{
@@ -170,7 +170,7 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			},
 			{
 				icon: <BookOpen className={ICON_CLASSES} />,
-				text: "OpenAPI Spec",
+				text: m.OPENAPI_SPEC_NAV,
 				link: "/openapi-spec",
 				type: "action",
 			},

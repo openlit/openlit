@@ -26,7 +26,7 @@ export function OpengroundActions({
 		<div className={className}>
 			<Button variant="outline" size="sm" className="h-8" onClick={() => router.back()}>
 				<ArrowLeftIcon className="mr-1.5 size-3.5" />
-					{getMessage().BACK}
+				{getMessage().BACK}
 			</Button>
 			{extraButton}
 		</div>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,6 +91,7 @@ import {
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import CreateOrganisationDialog from "@/components/(playground)/sidebar/create-organisation-dialog";
+import OpenLitContextIds from "@/components/(playground)/openlit-context-ids";
 import { cn } from "@/lib/utils";
 import getMessage from "@/constants/messages";
 import { escapeEmailForDisplay } from "@/utils/string";
@@ -124,6 +125,7 @@ interface Project {
 export default function OrganisationSettingsPage() {
 	const posthog = usePostHog();
 	const router = useRouter();
+	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const messages = getMessage();
 	const currentOrg = useRootStore(getCurrentOrganisation);
@@ -147,7 +149,10 @@ export default function OrganisationSettingsPage() {
 	const [projectName, setProjectName] = useState("");
 	const [isProjectsLoading, setIsProjectsLoading] = useState(false);
 	const [isCreatingProject, setIsCreatingProject] = useState(false);
-	const requestedTab = searchParams.get("tab") || "details";
+	const isProjectsRoute = pathname === "/organisation/projects";
+	const requestedTab = isProjectsRoute
+		? "projects"
+		: searchParams.get("tab") || "details";
 	const availableTabs = orgPendingInvites.length > 0
 		? ["details", "projects", "members", "pending"]
 		: ["details", "projects", "members"];
@@ -155,14 +160,20 @@ export default function OrganisationSettingsPage() {
 		? requestedTab
 		: "details";
 	const handleTabChange = (tab: string) => {
+		if (tab === "projects") {
+			router.replace("/organisation/projects", { scroll: false });
+			return;
+		}
+
 		const params = new URLSearchParams(searchParams.toString());
-		if (tab === "details") {
-			params.delete("tab");
-		} else {
+		params.delete("tab");
+		if (tab !== "details") {
 			params.set("tab", tab);
 		}
 		const query = params.toString();
-		router.replace(query ? `/organisation?${query}` : "/organisation", { scroll: false });
+		router.replace(query ? `/organisation?${query}` : "/organisation", {
+			scroll: false,
+		});
 	};
 
 	const isCreator = currentOrg?.createdByUserId === currentUserId;
@@ -425,7 +436,8 @@ export default function OrganisationSettingsPage() {
 				</div>
 			</section>
 
-			<div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+			<div className="min-h-0 flex-1 overflow-y-auto p-4">
+			<OpenLitContextIds />
 			{pendingInvitations.length > 0 && (
 				<Card className="border-primary/20 bg-primary/5 dark:border-primary/30 dark:bg-primary/10">
 					<CardHeader className="pb-3">
@@ -466,11 +478,11 @@ export default function OrganisationSettingsPage() {
 			)}
 
 			{currentOrg && (
-				<Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
+				<Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full mt-4">
 
 					<TabsContent value="details" className="space-y-4 mt-0">
 						{hasAdminPermissions ? (
-							<div className="space-y-3 py-4">
+							<div className="space-y-3">
 								<div className="space-y-1.5">
 									<Label htmlFor="org-name" className="text-sm">
 										{messages.ORGANISATION_NAME}
@@ -612,7 +624,7 @@ export default function OrganisationSettingsPage() {
 						)}
 					</TabsContent>
 
-					<TabsContent value="projects" className="mt-0 p-0 pt-2">
+					<TabsContent value="projects" className="mt-0 p-0">
 						<div className="mb-3 rounded-md border border-stone-200 bg-stone-50/60 p-3 dark:border-stone-800 dark:bg-stone-900/40">
 							<div className="mb-3 flex items-start justify-between gap-3">
 								<div>
@@ -739,7 +751,7 @@ export default function OrganisationSettingsPage() {
 						)}
 					</TabsContent>
 
-					<TabsContent value="members" className="mt-0 p-0 pt-2">
+					<TabsContent value="members" className="mt-0 p-0">
 						{hasAdminPermissions ? (
 							<div className="space-y-1.5 mb-3">
 								<Label htmlFor="invite-email" className="text-sm">
@@ -915,7 +927,7 @@ export default function OrganisationSettingsPage() {
 					</TabsContent>
 
 					{orgPendingInvites.length > 0 && (
-						<TabsContent value="pending" className="mt-0 p-4">
+						<TabsContent value="pending" className="mt-0 p-0">
 							<Table>
 								<TableHeader className="bg-stone-200/[0.5] text-stone-500 dark:bg-stone-800 dark:text-stone-400">
 									<TableRow className="text-xs">

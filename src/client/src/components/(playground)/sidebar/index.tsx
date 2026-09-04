@@ -42,13 +42,16 @@ import { useSidebarLayout } from "../sidebar-layout-context";
 const isActive = (pathname: string, item: SidebarActionItem, currentUrl: string) => {
 	if (!item.link) return false;
 	if (item.link.includes("?")) return currentUrl.startsWith(item.link);
-	// Organisation owns `/organisation` except the Projects tab, which has its
-	// own Settings entry (`/organisation?tab=projects`).
+	// Organisation owns `/organisation` except the Projects route, which has its
+	// own Settings entry (`/organisation/projects`).
 	if (item.link === "/organisation") {
 		return (
 			pathname.startsWith("/organisation") &&
-			!currentUrl.includes("tab=projects")
+			!pathname.startsWith("/organisation/projects")
 		);
+	}
+	if (item.link === "/organisation/projects") {
+		return pathname.startsWith("/organisation/projects");
 	}
 	if (item.link === "/dashboards") return pathname.startsWith("/dashboards") || pathname.startsWith("/d/");
 	if (item.link === "/dashboard") return pathname.startsWith("/dashboard") && !pathname.startsWith("/dashboards");

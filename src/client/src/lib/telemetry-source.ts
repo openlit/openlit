@@ -21,6 +21,8 @@ import {
 	getCurrentOrganisation,
 	getCurrentProjectForOrganisation,
 } from "@/lib/organisation";
+import { OPENLIT_CONTEXT_HEADERS, MIDDLEWARE_DATABASE_CONFIG_HEADER } from "@/constants/openlit-context";
+import { headers } from "next/headers";
 import type { DatabaseConfig, TelemetrySource } from "@prisma/client";
 import type {
 	DataSourceAdapter,
@@ -88,11 +90,70 @@ export function toDescriptor(row: TelemetrySource): TelemetrySourceDescriptor {
 	};
 }
 
+async function readRequestContextHeaders(): Promise<{
+	projectId?: string;
+	databaseConfigId?: string;
+}> {
+	try {
+		const headerStore = await headers();
+		return {
+			projectId:
+				headerStore.get(OPENLIT_CONTEXT_HEADERS.projectId)?.trim() ||
+				undefined,
+			databaseConfigId:
+				headerStore.get(MIDDLEWARE_DATABASE_CONFIG_HEADER)?.trim() ||
+				headerStore.get(OPENLIT_CONTEXT_HEADERS.databaseConfigId)?.trim() ||
+				undefined,
+		};
+	} catch {
+		return {};
+	}
+}
+
 async function getCurrentProjectId(): Promise<string | null> {
-	const currentOrg = await getCurrentOrganisation();
-	if (!currentOrg?.id) return null;
-	const currentProject = await getCurrentProjectForOrganisation(currentOrg.id);
-	return currentProject?.id ?? null;
+	const requestContext = await readRequestContextHeaders();
+	if (requestContext.projectId) {
+		return requestContext.projectId;
+	}
+	if (requestContext.databaseConfigId) {
+		const databaseConfig = await getDBConfigByIdInternal({
+			id: requestContext.databaseConfigId,
+		});
+		if (databaseConfig?.projectId) {
+			return databaseConfig.projectId;
+		}
+	}
+
+	try {
+		const currentOrg = await getCurrentOrganisation();
+		if (!currentOrg?.id) return null;
+		const currentProject = await getCurrentProjectForOrganisation(currentOrg.id);
+		return currentProject?.id ?? null;
+	} catch {
+		return null;
+	}
+}
+
+async function resolveActiveCredentialDatabase(
+	options: ResolveTelemetrySourceOptions
+): Promise<DatabaseConfig | null | undefined> {
+	if (options.dbConfigId) {
+		return getDBConfigByIdInternal({ id: options.dbConfigId });
+	}
+	if (options.projectId !== undefined) {
+		return null;
+	}
+
+	const requestContext = await readRequestContextHeaders();
+	if (requestContext.databaseConfigId) {
+		return getDBConfigByIdInternal({ id: requestContext.databaseConfigId });
+	}
+
+	try {
+		return (await getDBConfigByUser(true)) as DatabaseConfig | null | undefined;
+	} catch {
+		return null;
+	}
 }
 
 export async function resolveBuiltInDescriptor(
@@ -230,11 +291,8 @@ export async function resolveSignalSource(
 	// leaves background/parallel reads unable to resolve authentication
 	// consistently. Background callers pass projectId + dbConfigId explicitly;
 	// interactive callers can safely resolve the current project-scoped DB.
-	const activeDatabase =
-		options.projectId === undefined && !options.dbConfigId
-			? ((await getDBConfigByUser(true)) as
-					DatabaseConfig | null | undefined)
-			: null;
+	// API-key callers use the middleware-bound database config as the vault.
+	const activeDatabase = await resolveActiveCredentialDatabase(options);
 	const credentialDatabaseConfigId =
 		options.dbConfigId || activeDatabase?.id;
 	const environment = normalizeEnvironment(options.environment || activeDatabase?.environment || "production");

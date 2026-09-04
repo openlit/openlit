@@ -31,6 +31,8 @@ function extractDatabaseConfigId(body: any, request: Request) {
 		typeof selectedConfig === "string" ? selectedConfig : undefined,
 		selectedConfig?.databaseConfigId,
 		selectedConfig?.dbConfigId,
+		// Middleware injects this after Bearer API key verification.
+		request.headers?.get?.("x-database-config-id"),
 		request.headers?.get?.(OPENLIT_CONTEXT_HEADERS.databaseConfigId)
 	);
 }
@@ -55,6 +57,15 @@ export function withDbConfigAccess<THandler extends RouteHandler>(
 ): THandler {
 	return (async (request: Request, context: RouteContext = {}) => {
 		const messages = getMessage();
+
+		// API key first: middleware already verified Bearer and set x-database-config-id.
+		const apiKeyDatabaseConfigId = firstString(
+			request.headers?.get?.("x-database-config-id")
+		);
+		if (apiKeyDatabaseConfigId) {
+			return handler(request, context);
+		}
+
 		const user = await getCurrentUser();
 		if (!user) return Response.json({ error: messages.UNAUTHORIZED_USER }, { status: 401 });
 

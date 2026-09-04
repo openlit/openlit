@@ -15,8 +15,12 @@ export const CREATE_NEW_KEY = "Create a new api key";
 export const SETTINGS = "Settings";
 export const OPENAPI_SPECIFICATION = "OpenAPI Specification";
 export const OPENAPI_SPECIFICATION_UI = "OpenAPI Specification UI";
+export const OPENAPI_SPEC_NAV = "OpenAPI Spec";
+export const OPENAPI_SPEC_PAGE_TITLE = "Open API Spec";
 export const INTERACTIVE_API_REFERENCE = "Interactive API Reference";
 export const OPENAPI_SPEC_BEARER_AUTH = "OpenAPI 3.0 Spec • Bearer Auth Authorized";
+export const OPENAPI_SPEC_CONTEXT_HEADERS_HINT =
+	"org / project / environment headers required for signal routing";
 export const REQUEST_CURL_EXAMPLE = "Request Curl Example";
 export const COPY_SNIPPET = "Copy Snippet";
 export const COPIED = "Copied";
@@ -1374,6 +1378,9 @@ export const PROJECT_DETAILS_DESCRIPTION =
 	"Review project identity, current status, and database configuration.";
 export const PROJECT_ENVIRONMENT = "Environments";
 export const PROJECT_ID = "Project ID";
+export const ORGANISATION_ID = "Organisation ID";
+export const ENVIRONMENT_NAME = "Environment";
+export const COPY_CONTEXT_VALUE = (label: string) => `Copy ${label}`;
 export const PROJECT_CONNECTION_COUNT = "ClickHouse connections";
 export const PROJECT_DATABASE_CONFIGS = "Database configurations";
 export const PROJECT_DATABASE_CONFIGS_DESCRIPTION =

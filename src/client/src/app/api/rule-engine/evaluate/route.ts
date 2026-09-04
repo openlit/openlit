@@ -1,12 +1,15 @@
 import { SERVER_EVENTS } from "@/constants/events";
 import { EvaluateInput } from "@/types/rule-engine";
 import { evaluateRules } from "@/lib/platform/rule-engine/evaluate";
-import { getAPIKeyInfo } from "@/lib/platform/api-keys";
 import { getCurrentUser } from "@/lib/session";
 import getMessage from "@/constants/messages";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 import { resolveRuleEngineDatabaseConfigId } from "@/lib/platform/rule-engine/source";
+import { resolveSdkIntelligenceDatabaseConfig } from "@/helpers/server/sdk-intelligence";
+
+const CORS_HEADERS =
+	"Content-Type, Authorization, x-openlit-organisation-id, x-openlit-project-id, x-openlit-environment, x-openlit-database-config-id";
 
 export async function POST(request: Request) {
 	const startTimestamp = Date.now();
@@ -21,19 +24,39 @@ export async function POST(request: Request) {
 			return Response.json({ err: getMessage().NO_API_KEY }, { status: 401 });
 		}
 
-		const [keyErr, apiInfo] = await getAPIKeyInfo({ apiKey });
-		if (keyErr || !apiInfo?.databaseConfigId) {
-			return Response.json({ err: getMessage().NO_API_KEY }, { status: 401 });
+		const [resolveErr, resolved] = await resolveSdkIntelligenceDatabaseConfig(
+			request,
+			apiKey
+		);
+		if (resolveErr || !resolved) {
+			return Response.json(
+				{ err: resolveErr || getMessage().NO_API_KEY },
+				{ status: 401 }
+			);
 		}
-
-		databaseConfigId = apiInfo.databaseConfigId;
+		databaseConfigId = resolved.databaseConfigId;
 	} else {
 		// Session-based auth (dashboard usage)
 		const user = await getCurrentUser();
 		if (!user) {
-			return Response.json({ err: getMessage().UNAUTHORIZED_USER }, { status: 401 });
+			return Response.json(
+				{ err: getMessage().UNAUTHORIZED_USER },
+				{ status: 401 }
+			);
 		}
-		databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
+		try {
+			databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
+		} catch (error) {
+			return Response.json(
+				{
+					err:
+						error instanceof Error
+							? error.message
+							: "Failed to resolve Rule Engine datasource",
+				},
+				{ status: 400 }
+			);
+		}
 	}
 
 	// --- Parse request body ---
@@ -46,13 +69,17 @@ export async function POST(request: Request) {
 
 	// --- Validate entity_type ---
 	const VALID_ENTITY_TYPES = [
-		"context", "prompt", "evaluation",
+		"context",
+		"prompt",
+		"evaluation",
 		// "dataset", "meta_config",
 	] as const;
 	const entityType = body?.entity_type;
 	if (!entityType || !VALID_ENTITY_TYPES.includes(entityType)) {
 		return Response.json(
-			{ err: `entity_type is required and must be one of: ${VALID_ENTITY_TYPES.join(", ")}` },
+			{
+				err: `entity_type is required and must be one of: ${VALID_ENTITY_TYPES.join(", ")}`,
+			},
 			{ status: 400 }
 		);
 	}
@@ -77,17 +104,15 @@ export async function POST(request: Request) {
 		if (typeof key !== "string") continue;
 		const trimmedKey = key.trim();
 		if (trimmedKey.length === 0 || trimmedKey.length > MAX_KEY_LENGTH) continue;
-		if (
-			typeof value === "string" &&
-			value.length <= MAX_VALUE_LENGTH
-		) {
+		if (typeof value === "string" && value.length <= MAX_VALUE_LENGTH) {
 			fieldsMap.set(trimmedKey, value);
 		} else if (typeof value === "number" || typeof value === "boolean") {
 			fieldsMap.set(trimmedKey, value);
 		}
 	}
 
-	const sanitizedFields: Record<string, string | number | boolean> = Object.fromEntries(fieldsMap);
+	const sanitizedFields: Record<string, string | number | boolean> =
+		Object.fromEntries(fieldsMap);
 
 	if (fieldsMap.size === 0) {
 		return Response.json(
@@ -107,12 +132,17 @@ export async function POST(request: Request) {
 		fields: sanitizedFields,
 		entity_type: entityType,
 		include_entity_data: body?.include_entity_data === true,
-		entity_inputs: body?.entity_inputs && typeof body.entity_inputs === "object" && !Array.isArray(body.entity_inputs)
-			? body.entity_inputs
-			: undefined,
+		entity_inputs:
+			body?.entity_inputs &&
+			typeof body.entity_inputs === "object" &&
+			!Array.isArray(body.entity_inputs)
+				? body.entity_inputs
+				: undefined,
 	};
 
-	const [err, res]: any = await asaw(evaluateRules(evaluateInput, databaseConfigId));
+	const [err, res]: any = await asaw(
+		evaluateRules(evaluateInput, databaseConfigId)
+	);
 	if (err) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.RULE_EVALUATE_FAILURE,
@@ -135,7 +165,7 @@ export async function OPTIONS() {
 		headers: {
 			"Access-Control-Allow-Origin": "*",
 			"Access-Control-Allow-Methods": "POST, OPTIONS",
-			"Access-Control-Allow-Headers": "Content-Type, Authorization",
+			"Access-Control-Allow-Headers": CORS_HEADERS,
 		},
 	});
 }

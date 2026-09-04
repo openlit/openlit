@@ -313,10 +313,12 @@ export async function getSecretsFromDatabaseId(
 	);
 
 	const apiInfoForSecrets = apiInfo as APIKeyInfo | null | undefined;
+	const databaseConfigId =
+		filters.databaseConfigId || apiInfoForSecrets?.databaseConfigId || undefined;
 	const { err: secretErr, data: secretData } = await getSecrets(
 		{
 			...filters,
-			databaseConfigId: apiInfoForSecrets?.databaseConfigId || undefined,
+			databaseConfigId,
 			createdBy: apiInfoForSecrets?.createdByUser?.email,
 		},
 		{ selectValue: true }
@@ -349,8 +351,16 @@ export async function getSecretById(
 		if (!source) return { data: [] };
 	} else {
 		const user = await getCurrentUser();
-		throwIfError(!user, getMessage().UNAUTHORIZED_USER);
-		ownerCondition = ` AND ${getOwnerEmailCondition(user!, "v")}`;
+		if (user) {
+			ownerCondition = ` AND ${getOwnerEmailCondition(user, "v")}`;
+		} else if (databaseConfigId) {
+			// Trusted DB-scoped lookup (Bearer API key / middleware binding).
+			// The caller already resolved a database config; secrets are queried
+			// only against that ClickHouse instance.
+			ownerCondition = "";
+		} else {
+			throwIfError(true, getMessage().UNAUTHORIZED_USER);
+		}
 	}
 	const query = `SELECT * ${
 		!!excludeVaultValue ? "EXCEPT value" : ""
