@@ -95,7 +95,7 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
       PRIMARY KEY id
     ) ENGINE = MergeTree()
     ORDER BY (id, board_id, widget_id, created_at);
-    `
+    `,
   ];
 
   const { migrationExist, queriesRun } = await migrationHelper({
@@ -103,6 +103,14 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
     databaseConfigId,
     queries,
   });
+
+  // Do not seed dashboards when table creation failed. The migration helper
+  // deliberately leaves failed migrations unrecorded so a later boot can
+  // retry them, but the seed path needs the same failure boundary; otherwise
+  // startup can report success while dashboard inserts hit missing tables.
+  if (!migrationExist && !queriesRun) {
+    return { migrationExist, queriesRun };
+  }
 
   // Always run the seed -- it is idempotent per-title via
   // `boardExistsByTitle` and exists precisely so that dashboards
