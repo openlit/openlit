@@ -48,10 +48,15 @@ export default async function EncryptVaultValuesMigration(
 			dbConfig.id
 		);
 
-		if (readErr || !data || !Array.isArray(data)) {
+		if (readErr) {
 			consoleLog(
-				`Vault encryption migration: no data to migrate or error: ${readErr}`
+				`Vault encryption migration: could not read the vault table: ${readErr}`
 			);
+			return { migrationExist: false, queriesRun: false };
+		}
+
+		if (!data || !Array.isArray(data)) {
+			consoleLog("Vault encryption migration: no data to migrate");
 			await markMigrationComplete(dbConfig.id);
 			return { migrationExist: false, queriesRun: true };
 		}
@@ -65,6 +70,8 @@ export default async function EncryptVaultValuesMigration(
 			await markMigrationComplete(dbConfig.id);
 			return { migrationExist: false, queriesRun: true };
 		}
+
+		let failedCount = 0;
 
 		for (const secret of plaintextSecrets) {
 			const encrypted = escapeClickHouseString(encryptValue(secret.value));
@@ -82,10 +89,18 @@ export default async function EncryptVaultValuesMigration(
 			);
 
 			if (updateErr) {
+				failedCount += 1;
 				consoleLog(
 					`Vault encryption migration: failed to encrypt secret ${secret.id}: ${updateErr}`
 				);
 			}
+		}
+
+		if (failedCount > 0) {
+			consoleLog(
+				`Vault encryption migration: ${failedCount} of ${plaintextSecrets.length} secrets still hold plaintext, leaving the migration pending`
+			);
+			return { migrationExist: false, queriesRun: false };
 		}
 
 		consoleLog(
