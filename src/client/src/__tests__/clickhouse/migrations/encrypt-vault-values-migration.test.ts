@@ -60,4 +60,59 @@ describe("EncryptVaultValuesMigration", () => {
 		expect(query).toContain("UPDATE value = 'enc:v1:plain\\\\value\\'secret'");
 		expect(query).toContain("WHERE id = 'secret\\\\1'");
 	});
+
+	it("leaves the migration pending when the vault table cannot be read", async () => {
+		(dataCollector as jest.Mock).mockReset();
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: undefined,
+			err: "default: Authentication failed: password is incorrect",
+		});
+
+		const result = await EncryptVaultValuesMigration();
+
+		expect(prisma.clickhouseMigrations.create).not.toHaveBeenCalled();
+		expect(result).toEqual({ migrationExist: false, queriesRun: false });
+	});
+
+	it("leaves the migration pending when a secret fails to encrypt", async () => {
+		(dataCollector as jest.Mock).mockReset();
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [
+					{ id: "secret-1", value: "plaintext-1" },
+					{ id: "secret-2", value: "plaintext-2" },
+				],
+				err: null,
+			})
+			.mockResolvedValueOnce({ err: null })
+			.mockResolvedValueOnce({ err: "TABLE_IS_READ_ONLY" });
+
+		const result = await EncryptVaultValuesMigration();
+
+		expect(prisma.clickhouseMigrations.create).not.toHaveBeenCalled();
+		expect(result).toEqual({ migrationExist: false, queriesRun: false });
+	});
+
+	it("records the migration when the vault holds no rows to encrypt", async () => {
+		(dataCollector as jest.Mock).mockReset();
+		(dataCollector as jest.Mock).mockResolvedValueOnce({ data: [], err: null });
+
+		const result = await EncryptVaultValuesMigration();
+
+		expect(prisma.clickhouseMigrations.create).toHaveBeenCalledTimes(1);
+		expect(result).toEqual({ migrationExist: false, queriesRun: true });
+	});
+
+	it("records the migration when the read returns no rows and no error", async () => {
+		(dataCollector as jest.Mock).mockReset();
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: undefined,
+			err: null,
+		});
+
+		const result = await EncryptVaultValuesMigration();
+
+		expect(prisma.clickhouseMigrations.create).toHaveBeenCalledTimes(1);
+		expect(result).toEqual({ migrationExist: false, queriesRun: true });
+	});
 });
