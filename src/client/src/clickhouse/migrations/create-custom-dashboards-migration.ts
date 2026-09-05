@@ -1,5 +1,6 @@
 import migrationHelper from "./migration-helper";
 import CreateCustomDashboardsSeed from "../seed/dashboards";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 
 const MIGRATION_ID = "create-custom-dashboards-table";
 
@@ -8,6 +9,36 @@ const CUSTOM_DASHBOARDS_BOARDS_TABLE = "openlit_board";
 const CUSTOM_DASHBOARDS_FOLDERS_TABLE = "openlit_folder";
 const CUSTOM_DASHBOARDS_WIDGETS_TABLE = "openlit_widget";
 const CUSTOM_DASHBOARDS_BOARD_WIDGETS_TABLE = "openlit_board_widget";
+const EXPECTED_CUSTOM_DASHBOARD_TABLES = [
+  CUSTOM_DASHBOARDS_FOLDERS_TABLE,
+  CUSTOM_DASHBOARDS_BOARDS_TABLE,
+  CUSTOM_DASHBOARDS_WIDGETS_TABLE,
+  CUSTOM_DASHBOARDS_BOARD_WIDGETS_TABLE,
+];
+
+async function verifyCustomDashboardTables(databaseConfigId?: string) {
+  const { data, err } = await intelligenceDataCollector(
+    { query: "SHOW TABLES" },
+    "query",
+    databaseConfigId
+  );
+  if (err) return { err };
+
+  const existingTables = new Set(
+    (Array.isArray(data) ? data : [])
+      .map((row) => {
+        if (!row || typeof row !== "object") return "";
+        const tableRow = row as { name?: unknown; table?: unknown };
+        return String(tableRow.name ?? tableRow.table ?? "");
+      })
+      .filter(Boolean)
+  );
+  const missingTables = EXPECTED_CUSTOM_DASHBOARD_TABLES.filter(
+    (tableName) => !existingTables.has(tableName)
+  );
+
+  return { missingTables };
+}
 
 export default async function CreateCustomDashboardsMigration(databaseConfigId?: string) {
   const queries = [
@@ -95,14 +126,37 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
       PRIMARY KEY id
     ) ENGINE = MergeTree()
     ORDER BY (id, board_id, widget_id, created_at);
-    `
+    `,
   ];
 
-  const { migrationExist, queriesRun } = await migrationHelper({
+  const { migrationExist, queriesRun, err: migrationErr } = await migrationHelper({
     clickhouseMigrationId: MIGRATION_ID,
     databaseConfigId,
     queries,
   });
+
+  const tableVerification = await verifyCustomDashboardTables(databaseConfigId);
+  if (tableVerification.err) {
+    const errorMessage = migrationErr
+      ? `ClickHouse migration failed: ${String(migrationErr)}; table verification also failed: ${String(tableVerification.err)}`
+      : `ClickHouse dashboard table verification failed: ${String(tableVerification.err)}`;
+    console.error(errorMessage);
+    return { migrationExist, queriesRun, err: errorMessage };
+  }
+
+  if (tableVerification.missingTables?.length) {
+    const errorMessage = `${migrationErr ? `ClickHouse migration failed: ${String(migrationErr)}; ` : ""}ClickHouse dashboard table verification failed; missing tables: ${tableVerification.missingTables.join(", ")}`;
+    console.error(errorMessage);
+    return { migrationExist, queriesRun, err: errorMessage };
+  }
+
+  // Do not seed dashboards when table creation failed. The migration helper
+  // deliberately leaves failed migrations unrecorded so a later boot can
+  // retry them, but the seed path needs the same failure boundary; otherwise
+  // startup can report success while dashboard inserts hit missing tables.
+  if (!migrationExist && !queriesRun) {
+    return { migrationExist, queriesRun, err: migrationErr };
+  }
 
   // Always run the seed -- it is idempotent per-title via
   // `boardExistsByTitle` and exists precisely so that dashboards

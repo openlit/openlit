@@ -37,59 +37,90 @@ import AddProviderModelsCachePricesMigration from "./add-provider-models-cache-p
 import CreateTelemetryRollupsMigration from "./create-telemetry-rollups-migration";
 import AlterTelemetryRollupsDimensionsMigration from "./alter-telemetry-rollups-dimensions-migration";
 
+type MigrationResult = {
+	migrationExist?: boolean;
+	queriesRun?: boolean;
+	err?: unknown;
+	data?: unknown;
+};
+
+function migrationSucceeded(result: unknown): result is MigrationResult {
+	if (!result || typeof result !== "object") return false;
+
+	const migrationResult = result as MigrationResult;
+	if (migrationResult.err) return false;
+	if (migrationResult.migrationExist === true) return true;
+	if ("queriesRun" in migrationResult) {
+		return migrationResult.queriesRun === true;
+	}
+
+	// A few legacy migrations return `{ data: ... }` instead of the
+	// migrationHelper result shape. Keep accepting that successful contract,
+	// while rejecting missing or unrecognised results.
+	return "data" in migrationResult;
+}
+
+async function runMigration(name: string, migration: () => Promise<unknown>): Promise<MigrationResult> {
+	const result = await migration();
+	if (migrationSucceeded(result)) return result;
+
+	const details = result && typeof result === "object" && "err" in result ? String((result as MigrationResult).err) : "the migration did not report successful completion";
+	throw new Error(`ClickHouse migration "${name}" failed: ${details}`);
+}
+
 export default async function migrations(databaseConfigId?: string) {
 	// Group 1: Independent table creations (safe to parallel)
 	await Promise.all([
-		CreatePromptMigration(databaseConfigId),
-		CreateVaultMigration(databaseConfigId),
-		CreateEvaluationMigration(databaseConfigId),
-		CreateEvaluationTypeDefaultsMigration(databaseConfigId),
-		CreateCronLogMigration(databaseConfigId),
-		CreateCustomDashboardsMigration(databaseConfigId),
-		CreateOpengroundMigration(databaseConfigId),
-		CreateRuleEngineMigration(databaseConfigId),
-		CreateControllerMigration(databaseConfigId),
-		CreateChatMigration(databaseConfigId),
-		CreateAgentsSummaryMigration(databaseConfigId),
-		CreateAgentVersionsMigration(databaseConfigId),
+		runMigration("create-prompt", () => CreatePromptMigration(databaseConfigId)),
+		runMigration("create-vault", () => CreateVaultMigration(databaseConfigId)),
+		runMigration("create-evaluation", () => CreateEvaluationMigration(databaseConfigId)),
+		runMigration("create-evaluation-type-defaults", () => CreateEvaluationTypeDefaultsMigration(databaseConfigId)),
+		runMigration("create-cron-log", () => CreateCronLogMigration(databaseConfigId)),
+		runMigration("create-custom-dashboards", () => CreateCustomDashboardsMigration(databaseConfigId)),
+		runMigration("create-openground", () => CreateOpengroundMigration(databaseConfigId)),
+		runMigration("create-rule-engine", () => CreateRuleEngineMigration(databaseConfigId)),
+		runMigration("create-controller", () => CreateControllerMigration(databaseConfigId)),
+		runMigration("create-chat", () => CreateChatMigration(databaseConfigId)),
+		runMigration("create-agents-summary", () => CreateAgentsSummaryMigration(databaseConfigId)),
+		runMigration("create-agent-versions", () => CreateAgentVersionsMigration(databaseConfigId)),
 	]);
 
 	// Group 2: Controller schema modifications (must be sequential --
 	// each ALTER/CREATE depends on the previous step completing)
-	await AlterControllerModeMigration(databaseConfigId);
-	await AddControllerResourceAttrsMigration(databaseConfigId);
-	await AddControllerWorkloadKeyMigration(databaseConfigId);
-	await AddControllerSDKActionsMigration(databaseConfigId);
-	await AddControllerTTLMigration(databaseConfigId);
-	await AddControllerClusterIdMigration(databaseConfigId);
-	await UpdateControllerActionsTTLMigration(databaseConfigId);
-	await GeneralizeControllerDesiredStatesMigration(databaseConfigId);
-	await AddControllerSkippingIndexesMigration(databaseConfigId);
+	await runMigration("alter-controller-mode", () => AlterControllerModeMigration(databaseConfigId));
+	await runMigration("add-controller-resource-attrs", () => AddControllerResourceAttrsMigration(databaseConfigId));
+	await runMigration("add-controller-workload-key", () => AddControllerWorkloadKeyMigration(databaseConfigId));
+	await runMigration("add-controller-sdk-actions", () => AddControllerSDKActionsMigration(databaseConfigId));
+	await runMigration("add-controller-ttl", () => AddControllerTTLMigration(databaseConfigId));
+	await runMigration("add-controller-cluster-id", () => AddControllerClusterIdMigration(databaseConfigId));
+	await runMigration("update-controller-actions-ttl", () => UpdateControllerActionsTTLMigration(databaseConfigId));
+	await runMigration("generalize-controller-desired-states", () => GeneralizeControllerDesiredStatesMigration(databaseConfigId));
+	await runMigration("add-controller-skipping-indexes", () => AddControllerSkippingIndexesMigration(databaseConfigId));
 
 	// Group 3: Provider migrations (sequential -- metadata depends on providers)
-	await CreateProvidersMigration(databaseConfigId);
-	await AddProviderModelsCachePricesMigration(databaseConfigId);
+	await runMigration("create-providers", () => CreateProvidersMigration(databaseConfigId));
+	await runMigration("add-provider-models-cache-prices", () => AddProviderModelsCachePricesMigration(databaseConfigId));
 	await Promise.all([
-		CreateProviderMetadataMigration(databaseConfigId),
-		DropLegacyOpengroundTablesMigration(databaseConfigId),
+		runMigration("create-provider-metadata", () => CreateProviderMetadataMigration(databaseConfigId)),
+		runMigration("drop-legacy-openground-tables", () => DropLegacyOpengroundTablesMigration(databaseConfigId)),
 	]);
 
-	await EncryptVaultValuesMigration(databaseConfigId);
-	await AddChatConversationTypeMigration(databaseConfigId);
-	await AddChatMessageModelAttributionMigration(databaseConfigId);
-	await CreateTraceAnalysisMigration(databaseConfigId);
-	await CreateOtterRunsMigration(databaseConfigId);
+	await runMigration("encrypt-vault-values", () => EncryptVaultValuesMigration(databaseConfigId));
+	await runMigration("add-chat-conversation-type", () => AddChatConversationTypeMigration(databaseConfigId));
+	await runMigration("add-chat-message-model-attribution", () => AddChatMessageModelAttributionMigration(databaseConfigId));
+	await runMigration("create-trace-analysis", () => CreateTraceAnalysisMigration(databaseConfigId));
+	await runMigration("create-otter-runs", () => CreateOtterRunsMigration(databaseConfigId));
 
 	// Group 4: Agent table optimisations (sequential -- must run after the
 	// agents-summary + agent-versions CREATEs).
-	await AddAgentsSummarySkipIndexesMigration(databaseConfigId);
-	await OptimizeAgentTablesStorageMigration(databaseConfigId);
+	await runMigration("add-agents-summary-skip-indexes", () => AddAgentsSummarySkipIndexesMigration(databaseConfigId));
+	await runMigration("optimize-agent-tables-storage", () => OptimizeAgentTablesStorageMigration(databaseConfigId));
 
 	// Group 5: Coding-agent extensions (sequential — must run after
 	// agents_summary exists; safe to parallel within itself).
 	await Promise.all([
-		AddCodingAgentSummaryFieldsMigration(databaseConfigId),
-		CreateCodingAgentsAuditMigration(databaseConfigId),
+		runMigration("add-coding-agent-summary-fields", () => AddCodingAgentSummaryFieldsMigration(databaseConfigId)),
+		runMigration("create-coding-agents-audit", () => CreateCodingAgentsAuditMigration(databaseConfigId)),
 	]);
 
 	// Group 6: LOC / commit / PR rollup columns. Must run after the
@@ -97,16 +128,16 @@ export default async function migrations(databaseConfigId?: string) {
 	// the same `openlit_agents_summary` table; ClickHouse serialises
 	// ALTERs on a single table anyway, but ordering the awaits keeps
 	// the dependency explicit.
-	await AddCodingAgentLOCSummaryFieldsMigration(databaseConfigId);
+	await runMigration("add-coding-agent-loc-summary-fields", () => AddCodingAgentLOCSummaryFieldsMigration(databaseConfigId));
 
-	await CreateTelemetryRollupsMigration(databaseConfigId);
-	await AlterTelemetryRollupsDimensionsMigration(databaseConfigId);
+	await runMigration("create-telemetry-rollups", () => CreateTelemetryRollupsMigration(databaseConfigId));
+	await runMigration("alter-telemetry-rollups-dimensions", () => AlterTelemetryRollupsDimensionsMigration(databaseConfigId));
 
 	// Group 7: Drop the never-populated v2 GitHub App VCS tables that
 	// earlier deployments created via the now-removed
 	// `create-vcs-migration`. Runs last so stale deployments still get
 	// the cleanup, and uses IF EXISTS so fresh installs are no-ops.
-	await DropVcsMigration(databaseConfigId);
+	await runMigration("drop-vcs", () => DropVcsMigration(databaseConfigId));
 
 	// Built-in dashboard seeding (LLM / Vector DB / GPU / Coding
 	// Agents / future) lives inside `create-custom-dashboards-migration`
