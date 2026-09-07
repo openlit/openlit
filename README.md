@@ -34,24 +34,23 @@ AI applications are no longer just LLM calls.
 
 A production agent can involve:
 
-```text
-User
- │
- ▼
-AI Agent
- ├── LLM calls
- ├── Tool calls
- ├── Retrieval
- ├── Memory
- ├── Sub-agents
- ├── Prompts
- └── Code changes
-       │
-       ▼
-   Evaluation
-       │
-       ▼
-  Cost / Quality / Errors
+```mermaid
+flowchart TD
+    U([User]) --> A[AI Agent]
+    A --> L[LLM calls]
+    A --> T[Tool calls]
+    A --> R[Retrieval]
+    A --> M[Memory]
+    A --> S[Sub-agents]
+    A --> P[Prompts]
+    A --> C[Code changes]
+    L & T & R & M & S & P & C --> E{{Evaluation}}
+    E --> O[["Cost / Quality / Errors"]]
+
+    style U fill:#F97316,stroke:#7C2D12,color:#fff
+    style A fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style E fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style O fill:#F97316,stroke:#7C2D12,color:#fff
 ```
 
 **OpenLIT gives you visibility across the entire workflow.**
@@ -175,21 +174,22 @@ openlit doctor
 
 Now OpenLIT can capture:
 
-```text
-Coding Agent Session
-│
-├── User prompt
-├── LLM calls
-├── Tool calls
-│   ├── File reads
-│   ├── File edits
-│   ├── Shell commands
-│   └── Search
-│
-├── Sub-agent activity
-├── Token usage
-├── Cost
-└── Code impact
+```mermaid
+flowchart LR
+    S([Coding Agent Session]) --> P[User prompt]
+    S --> L[LLM calls]
+    S --> T[Tool calls]
+    T --> T1[File reads]
+    T --> T2[File edits]
+    T --> T3[Shell commands]
+    T --> T4[Search]
+    S --> SA[Sub-agent activity]
+    S --> TU[Token usage]
+    S --> CO[Cost]
+    S --> CI[Code impact]
+
+    style S fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style T fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
 ```
 
 Explore the resulting sessions in the **Coding Agents** dashboard.
@@ -278,27 +278,52 @@ Investigate:
 
 Go from:
 
-```text
-Something went wrong.
+> `Something went wrong.`
+
+to a fully traced root cause:
+
+```mermaid
+flowchart TD
+    A[Agent] --> P[Prompt] --> L1[LLM] --> T[Tool call] --> R[Retrieval] --> L2[LLM] --> E([Error])
+
+    style E fill:#DC2626,stroke:#7F1D1D,color:#fff
+    style A fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
 ```
 
-to:
+---
 
-```text
-Agent
-  ↓
-Prompt
-  ↓
-LLM
-  ↓
-Tool call
-  ↓
-Retrieval
-  ↓
-LLM
-  ↓
-Error
-```
+# 📸 See OpenLIT in action
+
+<table>
+<tr>
+<td width="33%" align="center">
+<img src="docs/images/docs-ai-observability-trace.png" alt="Traces view with full agent conversation, spans, and cost breakdown" width="100%"><br/>
+<sub><b>Traces</b> — full agent conversation, spans &amp; cost</sub>
+</td>
+<td width="33%" align="center">
+<img src="docs/images/auto-evals-dashboard.png" alt="Automated evaluation dashboard with hallucination, bias, and toxicity metrics" width="100%"><br/>
+<sub><b>Evaluations</b> — hallucination, bias &amp; toxicity checks</sub>
+</td>
+<td width="33%" align="center">
+<img src="docs/images/errors-page.png" alt="Exceptions dashboard listing failed requests and error types" width="100%"><br/>
+<sub><b>Debugging</b> — exceptions across every request</sub>
+</td>
+</tr>
+<tr>
+<td width="33%" align="center">
+<img src="docs/images/docs-prompt-hub-list.png" alt="Prompt Hub listing versioned prompts" width="100%"><br/>
+<sub><b>Prompt Hub</b> — versioned, centrally managed prompts</sub>
+</td>
+<td width="33%" align="center">
+<img src="docs/images/rule-engine-list.png" alt="Rule Engine listing conditional trace-matching rules" width="100%"><br/>
+<sub><b>Rule Engine</b> — conditional rules on trace attributes</sub>
+</td>
+<td width="33%" align="center">
+<img src="docs/images/dashboards-screen.png" alt="Dashboards explorer with GPU, vector DB, and LLM dashboards" width="100%"><br/>
+<sub><b>Dashboards</b> — cost, GPU &amp; usage at a glance</sub>
+</td>
+</tr>
+</table>
 
 ---
 
@@ -356,26 +381,17 @@ OpenLIT is built around **OpenTelemetry**, rather than creating a proprietary te
 
 Your telemetry can flow through the OpenTelemetry ecosystem:
 
-```text
-                 ┌──────────────┐
-                 │ AI App /     │
-                 │ AI Agent     │
-                 └──────┬───────┘
-                        │
-                 OpenTelemetry
-                        │
-                        ▼
-              ┌──────────────────┐
-              │ OpenTelemetry    │
-              │ Collector        │
-              └────────┬─────────┘
-                       │
-             ┌─────────┴─────────┐
-             ▼                   ▼
-       OpenLIT Backend      Other OTel
-             │               backends
-             ▼
-       OpenLIT Dashboard
+```mermaid
+flowchart TD
+    A["AI App / AI Agent"] -->|OpenTelemetry| C[OpenTelemetry Collector]
+    C --> B[OpenLIT Backend]
+    C --> O["Other OTel backends<br/>(Datadog, Grafana, Honeycomb, ...)"]
+    B --> D[OpenLIT Dashboard]
+
+    style A fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style C fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style B fill:#F97316,stroke:#7C2D12,color:#fff
+    style D fill:#F97316,stroke:#7C2D12,color:#fff
 ```
 
 This means you can integrate OpenLIT into an existing OpenTelemetry architecture instead of replacing it.
@@ -455,31 +471,20 @@ OpenLIT is designed to run in your infrastructure.
 
 A typical deployment looks like:
 
-```text
-┌──────────────────────────────────────────┐
-│              Your application            │
-│                                          │
-│  Agent ── LLM ── Tools ── RAG ── DB     │
-└────────────────────┬─────────────────────┘
-                     │
-              OpenTelemetry
-                     │
-                     ▼
-          ┌────────────────────┐
-          │ OpenTelemetry      │
-          │ Collector          │
-          └─────────┬──────────┘
-                    │
-                    ▼
-             ┌─────────────┐
-             │ ClickHouse  │
-             └──────┬──────┘
-                    │
-                    ▼
-             ┌─────────────┐
-             │   OpenLIT   │
-             │  Dashboard  │
-             └─────────────┘
+```mermaid
+flowchart TD
+    subgraph App["Your application"]
+        direction LR
+        Agent --> LLM --> Tools --> RAG --> DB
+    end
+    App -->|OpenTelemetry| Collector[OpenTelemetry Collector]
+    Collector --> CH[(ClickHouse)]
+    CH --> Dash[OpenLIT Dashboard]
+
+    style App fill:#1F2937,stroke:#F97316,stroke-width:2px,color:#fff
+    style Collector fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style CH fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style Dash fill:#F97316,stroke:#7C2D12,color:#fff
 ```
 
 ---
@@ -504,28 +509,15 @@ Observability is only the beginning.
 
 OpenLIT is designed around a continuous AI engineering loop:
 
-```text
-             ┌──────────┐
-             │   Trace  │
-             └────┬─────┘
-                  ↓
-             ┌──────────┐
-             │ Evaluate │
-             └────┬─────┘
-                  ↓
-             ┌──────────┐
-             │ Analyze  │
-             └────┬─────┘
-                  ↓
-             ┌──────────┐
-             │ Optimize │
-             └────┬─────┘
-                  ↓
-             ┌──────────┐
-             │ Manage   │
-             └────┬─────┘
-                  │
-                  └──────────────→ Trace
+```mermaid
+flowchart LR
+    T[Trace] --> E[Evaluate] --> A[Analyze] --> O[Optimize] --> M[Manage] -.-> T
+
+    style T fill:#F97316,stroke:#7C2D12,color:#fff
+    style E fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style A fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style O fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style M fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
 ```
 
 The goal is simple:
