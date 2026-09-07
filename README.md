@@ -1,13 +1,23 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
 
-#### Observability, Evaluations, Rule Engine, Guardrails, Prompts, Vault, Playground
+### Open-source observability & evaluation for AI agents
 
-# Open Source Platform for AI Engineering
+**Trace • Evaluate • Debug • Optimize**
 
-**[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) | [Go SDK](https://github.com/openlit/openlit/tree/main/sdk/go) |**
+<br/>
 
-**❤️ [Sponsor this project](https://opencollective.com/openlit) ❤️** 
+<a href="https://docs.openlit.io/latest/features/agent-observability">
+<img src="docs/images/docs-ai-observability-trace.png" alt="OpenLIT agent trace view" width="90%">
+</a>
+
+<br/><br/>
+
+<a href="https://github.com/openlit/openlit/stargazers"><b>⭐ Star</b></a>&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="#-getting-started-with-llm-observability"><b>🚀 Quickstart</b></a>&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://docs.openlit.io/"><b>📚 Docs</b></a>
+
+<br/><br/>
 
 [![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://openlit.io/)
 [![License](https://img.shields.io/github/license/openlit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/openlit/openlit/blob/main/LICENSE)
@@ -21,9 +31,23 @@
 
 ---
 
+<div align="center">
+
+**See what your AI agents are actually doing.**
+
+Claude Code • Cursor • Codex • LangGraph • OpenAI • Anthropic • 50+ integrations
+
+</div>
+
+---
+
+**[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) | [Go SDK](https://github.com/openlit/openlit/tree/main/sdk/go)**
+
+**❤️ [Sponsor this project](https://opencollective.com/openlit) ❤️**
+
 <https://github.com/user-attachments/assets/6909bf4a-f5b4-4060-bde3-95e91fa36168>
 
-**OpenLIT** allows you to simplify your AI development workflow, especially for Generative AI and LLMs. It streamlines essential tasks like experimenting with LLMs, organizing and versioning prompts, and securely handling API keys. With just one line of code, you can enable **OpenTelemetry-native** observability, offering full-stack monitoring that includes LLMs, vector databases, and GPUs. This enables developers to confidently build AI features and applications, transitioning smoothly from testing to production.
+**OpenLIT** allows you to simplify your AI development workflow, especially for Generative AI, LLMs, and AI agents. It streamlines essential tasks like experimenting with LLMs, organizing and versioning prompts, and securely handling API keys. With just one line of code, you can enable **OpenTelemetry-native** observability, offering full-stack monitoring that includes LLMs, AI agents, vector databases, and GPUs. This enables developers to confidently build AI features and applications, transitioning smoothly from testing to production.
 
 This project proudly follows and maintains the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) with the OpenTelemetry community, consistently updating to align with the latest standards in Observability.
 
