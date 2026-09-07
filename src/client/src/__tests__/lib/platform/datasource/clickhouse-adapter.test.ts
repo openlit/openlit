@@ -1,6 +1,5 @@
 const mockDataCollector = jest.fn();
 const mockGetRequests = jest.fn();
-const mockGetRequestViaSpanId = jest.fn();
 const mockGetAttributeKeys = jest.fn();
 const mockGetLogs = jest.fn();
 const mockGetLogByRowId = jest.fn();
@@ -14,13 +13,17 @@ const mockGetSignalSummary = jest.fn();
 
 jest.mock("@/lib/platform/common", () => ({
 	dataCollector: (...args: unknown[]) => mockDataCollector(...args),
+	connectorDataCollector: (...args: unknown[]) => mockDataCollector(...args),
 	OTEL_TRACES_TABLE_NAME: "otel_traces",
 	OTEL_LOGS_TABLE_NAME: "otel_logs",
 }));
 
+jest.mock("@/lib/db-config", () => ({
+	getDBConfigByIdForBackground: jest.fn().mockResolvedValue({ database: "openlit" }),
+}));
+
 jest.mock("@/lib/platform/request", () => ({
 	getRequests: (...args: unknown[]) => mockGetRequests(...args),
-	getRequestViaSpanId: (...args: unknown[]) => mockGetRequestViaSpanId(...args),
 	getAttributeKeys: (...args: unknown[]) => mockGetAttributeKeys(...args),
 }));
 
@@ -124,12 +127,12 @@ describe("ClickHouseAdapter", () => {
 	});
 
 	it("getSpan returns null when not found", async () => {
-		mockGetRequestViaSpanId.mockResolvedValue({ record: undefined });
+		mockDataCollector.mockResolvedValue({ data: [] });
 		expect(await adapter.getSpan("nope")).toBeNull();
 	});
 
 	it("getSpan normalizes a found record and its events", async () => {
-		mockGetRequestViaSpanId.mockResolvedValue({ record: rawSpan });
+		mockDataCollector.mockResolvedValue({ data: [rawSpan] });
 		const span = await adapter.getSpan("s1");
 		expect(span?.spanId).toBe("s1");
 		expect(span?.events).toEqual([
@@ -148,6 +151,7 @@ describe("ClickHouseAdapter", () => {
 		expect(spans).toHaveLength(1);
 		const [args, type, dbId] = mockDataCollector.mock.calls[0];
 		expect((args as { query: string }).query).toContain("TraceId = 't1'");
+		expect((args as { query: string }).query).toContain("`openlit`.`otel_traces`");
 		expect(type).toBe("query");
 		expect(dbId).toBe("db-1");
 	});

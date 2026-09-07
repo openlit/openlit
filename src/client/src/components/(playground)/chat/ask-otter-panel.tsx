@@ -28,6 +28,8 @@ export type AskOtterPanelProps = {
 	buildPrompt: (question: string) => string;
 	/** Optional chip for the currently selected item on the host page. */
 	contextLabel?: string | null;
+	/** Prefill the question input (e.g. governance “get a fix” default). */
+	defaultQuestion?: string;
 	/**
 	 * `dock` — compact bottom strip.
 	 * `fill` — full-height column for side panels / resizable hosts.
@@ -48,11 +50,12 @@ export default function AskOtterPanel({
 	copy,
 	buildPrompt,
 	contextLabel,
+	defaultQuestion = "",
 	layout = "dock",
 	className,
 }: AskOtterPanelProps) {
 	const messages = getMessage();
-	const [question, setQuestion] = useState("");
+	const [question, setQuestion] = useState(defaultQuestion);
 	const [hasConfig, setHasConfig] = useState<boolean | null>(null);
 	const [thread, setThread] = useState<AskMessage[]>([]);
 	const [streaming, setStreaming] = useState(false);
