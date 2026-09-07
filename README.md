@@ -136,7 +136,7 @@ Open your dashboard and start exploring your AI application's traces, metrics, c
 
 ---
 
-# 🤖 Coding agent observability: Claude Code, Cursor, Codex & Windsurf
+# 🤖 Coding agent observability: Claude Code, Cursor, Codex, Windsurf & OpenCode
 
 AI coding agents are powerful — but understanding what they actually did can be difficult.
 
@@ -174,6 +174,7 @@ Or install individual integrations:
 openlit coding install --vendor=cursor
 openlit coding install --vendor=claude-code
 openlit coding install --vendor=codex
+openlit coding install --vendor=opencode
 ```
 
 Check your installation:

@@ -1,6 +1,6 @@
 // openlit is the OpenLit command-line tool. v1 ships the `coding`
 // subcommand group for AI-coding-agent observability (Claude Code, Cursor,
-// Codex). Future subcommand groups (prompts, traces, eval,
+// Codex, OpenCode). Future subcommand groups (prompts, traces, eval,
 // migrate) plug in by registering on the root in `registerSubcommands`.
 //
 // Crash-isolation guardrails (see internal/coding/hook):
@@ -42,6 +42,7 @@ v1 ships the 'coding' subcommand group for AI-coding-agent observability:
 
   openlit coding install --vendor=all
   openlit coding launch claude
+  openlit coding launch opencode
   openlit coding hook --vendor=cc --event=SessionStart
 
 Run 'openlit doctor' to diagnose configuration, OTLP reachability,

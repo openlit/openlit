@@ -284,10 +284,11 @@ type LLMTurn struct {
 	// captured regardless of ContentCapture.
 	AttachmentPaths []string
 
-	InputTokens  int64
-	OutputTokens int64
-	TotalTokens  int64
-	CostUSD      float64
+	InputTokens     int64
+	OutputTokens    int64
+	ReasoningTokens int64
+	TotalTokens     int64
+	CostUSD         float64
 	// CacheReadTokens / CacheCreationTokens are the OTel-standard
 	// gen_ai cache fields. Anthropic exposes them on every response;
 	// OpenAI doesn't yet. Zero means "vendor didn't tell us" — never
