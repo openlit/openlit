@@ -64,7 +64,7 @@ jest.mock('path', () => ({
   dirname: jest.fn((p: string) => p.split('/').slice(0, -1).join('/')),
 }));
 
-import { getEvaluationConfig, setEvaluationConfig, getEvaluationConfigById, restoreEvaluationCronJobs } from '@/lib/platform/evaluation/config';
+import { getEvaluationConfig, setEvaluationConfig, getEvaluationConfigById, getEvaluationConfigByDbConfigId, restoreEvaluationCronJobs } from '@/lib/platform/evaluation/config';
 import { normalizeThresholdScore } from '@/lib/platform/evaluation/threshold';
 import { getEvaluationTypeDefaultPrompts } from '@/lib/platform/evaluation/evaluation-type-defaults';
 import { getDBConfigByUser } from '@/lib/db-config';
@@ -207,6 +207,18 @@ describe('getEvaluationConfig', () => {
       databaseConfigId: 'db-1',
       secret: mockSecret,
     });
+  });
+
+  it('defaults meta to an empty object when config.meta is undefined', async () => {
+    const configWithoutMeta = { ...makeMockEvalConfig(), meta: undefined };
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, configWithoutMeta]);
+
+    const result = await getEvaluationConfig();
+
+    expect(result.evaluationTypes).toBeDefined();
+    expect(result.evaluationTypes!.length).toBeGreaterThan(0);
   });
 });
 
@@ -380,6 +392,61 @@ describe('setEvaluationConfig', () => {
     );
   });
 
+  it('defaults previousMeta to an empty object when previousConfig.meta is undefined', async () => {
+    const previousConfig = { ...makeMockEvalConfig(), meta: undefined };
+    const inputConfig = {
+      id: 'eval-cfg-1',
+      auto: false,
+      recurringTime: '',
+      meta: JSON.stringify({ engine: 'new-engine' }),
+    };
+    const updatedRecord = { ...previousConfig, ...inputConfig };
+
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, previousConfig])
+      .mockResolvedValueOnce([null, updatedRecord]);
+
+    await setEvaluationConfig(inputConfig as any, 'http://api.example.com');
+
+    expect(prisma.evaluationConfigs.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          meta: expect.stringContaining('"engine":"new-engine"'),
+        }),
+      })
+    );
+  });
+
+  it('defaults incoming meta to an empty object when evaluationConfig.meta is undefined', async () => {
+    const previousConfig = {
+      ...makeMockEvalConfig(),
+      meta: JSON.stringify({ cronJobId: 'existing-cron', engine: 'old-engine' }),
+    };
+    const inputConfig = {
+      id: 'eval-cfg-1',
+      auto: false,
+      recurringTime: '',
+      meta: undefined,
+    };
+    const updatedRecord = { ...previousConfig, ...inputConfig };
+
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, previousConfig])
+      .mockResolvedValueOnce([null, updatedRecord]);
+
+    await setEvaluationConfig(inputConfig as any, 'http://api.example.com');
+
+    expect(prisma.evaluationConfigs.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          meta: expect.stringContaining('"engine":"old-engine"'),
+        }),
+      })
+    );
+  });
+
   it('merges incoming meta with previous meta on update', async () => {
     const previousConfig = {
       ...makeMockEvalConfig(),
@@ -466,6 +533,77 @@ describe('getEvaluationConfigById', () => {
     const result = await getEvaluationConfigById('eval-cfg-1');
 
     expect(result.secret).toEqual({});
+  });
+
+  it('defaults meta to an empty object when config.meta is undefined', async () => {
+    const configWithoutMeta = { ...makeMockEvalConfig(), meta: undefined };
+    (asaw as jest.Mock).mockResolvedValueOnce([null, configWithoutMeta]);
+
+    const result = await getEvaluationConfigById('eval-cfg-1');
+
+    expect(result.evaluationTypes).toBeDefined();
+    expect(result.evaluationTypes!.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getEvaluationConfigByDbConfigId
+// ---------------------------------------------------------------------------
+
+describe('getEvaluationConfigByDbConfigId', () => {
+  it('throws EVALUATION_CONFIG_NOT_FOUND when config not found', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, null]);
+
+    await expect(getEvaluationConfigByDbConfigId('db-1')).rejects.toThrow(
+      'Eval config not found'
+    );
+  });
+
+  it('throws EVALUATION_VAULT_SECRET_NOT_FOUND when secret not found', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, makeMockEvalConfig()]);
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [] });
+
+    await expect(getEvaluationConfigByDbConfigId('db-1')).rejects.toThrow(
+      'Vault secret not found'
+    );
+  });
+
+  it('returns full config with secret and evaluationTypes when found', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, makeMockEvalConfig()]);
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [mockSecret] });
+
+    const result = await getEvaluationConfigByDbConfigId('db-1');
+
+    expect(getSecretById).toHaveBeenCalledWith('vault-1', 'db-1', true);
+    expect(result).toMatchObject({
+      id: 'eval-cfg-1',
+      vaultId: 'vault-1',
+      databaseConfigId: 'db-1',
+      secret: mockSecret,
+    });
+    expect(result.evaluationTypes).toBeDefined();
+  });
+
+  it('passes through excludeVaultValue=false to getSecretById', async () => {
+    const secretWithValue = { ...mockSecret, value: 'sk-actual-key' };
+    (asaw as jest.Mock).mockResolvedValueOnce([null, makeMockEvalConfig()]);
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [secretWithValue] });
+
+    const result = await getEvaluationConfigByDbConfigId('db-1', false);
+
+    expect(getSecretById).toHaveBeenCalledWith('vault-1', 'db-1', false);
+    expect(result.secret).toEqual(secretWithValue);
+  });
+
+  it('defaults meta to an empty object when config.meta is undefined', async () => {
+    const configWithoutMeta = { ...makeMockEvalConfig(), meta: undefined };
+    (asaw as jest.Mock).mockResolvedValueOnce([null, configWithoutMeta]);
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [mockSecret] });
+
+    const result = await getEvaluationConfigByDbConfigId('db-1');
+
+    expect(result.evaluationTypes).toBeDefined();
+    expect(result.evaluationTypes!.length).toBeGreaterThan(0);
   });
 });
 
@@ -983,5 +1121,22 @@ describe('restoreEvaluationCronJobs', () => {
 
     expect(errorSpy).toHaveBeenCalledWith('Failed to restore evaluation cron jobs:', expect.any(Error));
     errorSpy.mockRestore();
+  });
+
+  it('defaults meta to an empty object when config.meta is undefined, skipping the config', async () => {
+    const mockUpdateCrontab = jest.fn();
+    (Cron as unknown as jest.Mock).mockImplementation(() => ({
+      validateCronSchedule: jest.fn(),
+      updateCrontab: mockUpdateCrontab,
+      deleteCronJob: jest.fn(),
+    }));
+
+    (prisma.evaluationConfigs.findMany as jest.Mock).mockResolvedValue([
+      { id: 'cfg-no-meta', recurringTime: '0 * * * *', meta: undefined },
+    ]);
+
+    await restoreEvaluationCronJobs('http://localhost:3000');
+
+    expect(mockUpdateCrontab).not.toHaveBeenCalled();
   });
 });
