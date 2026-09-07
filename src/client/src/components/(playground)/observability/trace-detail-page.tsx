@@ -172,7 +172,10 @@ function CostStat({
 }) {
 	const m = getMessage();
 	const currentEnvironment = useRootStore(getCurrentProjectEnvironment);
-	const hasCost = !!costValue && costValue !== "-";
+	const hasCost =
+		!!costValue &&
+		costValue !== "-" &&
+		costValue !== m.GOVERNANCE_COST_NOT_REPORTED;
 	const canRecalculate = hasModel && !!spanId;
 	const { fireRequest, isLoading } = useFetchWrapper<{
 		success: boolean;
@@ -869,6 +872,9 @@ export function TraceDetailView({
 	const tokensValue = codingTokensValue ?? trace?.totalTokens;
 	const costValue =
 		codingCostValue ?? (trace?.cost && trace.cost !== "-" ? `$${trace.cost}` : undefined);
+	const displayCostValue =
+		costValue ||
+		(isCodingAgentTrace ? m.GOVERNANCE_COST_NOT_REPORTED : undefined);
 	const durationValue =
 		codingDurationValue ||
 		(trace ? `${parseFloat(trace.requestDuration).toFixed(3)}s` : "");
@@ -900,7 +906,7 @@ export function TraceDetailView({
 						<Stat icon={<Clock className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_DURATION} value={durationValue} />
 						<Stat icon={<Zap className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_TOKENS} value={tokensValue} />
 						<CostStat
-							costValue={costValue}
+							costValue={displayCostValue}
 							spanId={trace.spanId}
 							traceId={knownTraceId}
 							hasModel={!!modelValue}

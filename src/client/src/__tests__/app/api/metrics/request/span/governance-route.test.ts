@@ -28,14 +28,21 @@ import {
 	}),
 };
 
-function makeRequest(spanId = "abc123", traceId?: string) {
+function makeRequest(
+	spanId = "abc123",
+	opts?: { traceId?: string; environment?: string; headerEnvironment?: string }
+) {
 	const params = new URLSearchParams();
-	if (traceId) params.set("traceId", traceId);
+	if (opts?.traceId) params.set("traceId", opts.traceId);
+	if (opts?.environment) params.set("environment", opts.environment);
 	const qs = params.size ? `?${params.toString()}` : "";
 	return {
 		url: `http://localhost/api/metrics/request/span/${spanId}/governance${qs}`,
 		headers: {
-			get: () => null,
+			get: (name: string) =>
+				name.toLowerCase() === "x-openlit-environment"
+					? opts?.headerEnvironment || null
+					: null,
 		},
 	} as Request;
 }
@@ -94,7 +101,7 @@ describe("GET /api/metrics/request/span/[id]/governance", () => {
 			},
 		});
 
-		const response = await GET(makeRequest("span-1", "trace-1"), {
+		const response = await GET(makeRequest("span-1", { traceId: "trace-1" }), {
 			params: { id: "span-1" },
 		});
 		expect(response.status).toBe(200);
@@ -112,6 +119,97 @@ describe("GET /api/metrics/request/span/[id]/governance", () => {
 				success: true,
 				spanId: "span-1",
 				riskLevel: "minor",
+			})
+		);
+	});
+
+	it("scopes the report to the selected connector environment", async () => {
+		(buildTraceGovernanceReport as jest.Mock).mockResolvedValue({
+			report: {
+				trace_id: "trace-1",
+				root_span_id: "span-1",
+				risk_level: "none",
+				summary: "ok",
+				harness: {
+					span_count: 1,
+					max_depth: 1,
+					llm_call_count: 0,
+					tool_call_count: 0,
+					retrieval_call_count: 0,
+					embedding_call_count: 0,
+					database_call_count: 0,
+					http_call_count: 0,
+					error_count: 0,
+					total_cost_usd: 0,
+					total_duration_ms: 1,
+					models_used: [],
+					tools_used: [],
+				},
+				rules: [],
+				security: [],
+				evaluations: [],
+				finding_count: 0,
+				rule_match_count: 0,
+			},
+		});
+
+		await GET(
+			makeRequest("span-1", {
+				traceId: "trace-1",
+				environment: "staging",
+			}),
+			{ params: { id: "span-1" } }
+		);
+
+		expect(buildTraceGovernanceReport).toHaveBeenCalledWith(
+			"span-1",
+			expect.objectContaining({
+				traceId: "trace-1",
+				environment: "staging",
+				databaseConfigId: "intel-db-1",
+			})
+		);
+	});
+
+	it("falls back to the x-openlit-environment header for connector scoping", async () => {
+		(buildTraceGovernanceReport as jest.Mock).mockResolvedValue({
+			report: {
+				trace_id: "trace-1",
+				root_span_id: "span-1",
+				risk_level: "none",
+				summary: "ok",
+				harness: {
+					span_count: 1,
+					max_depth: 1,
+					llm_call_count: 0,
+					tool_call_count: 0,
+					retrieval_call_count: 0,
+					embedding_call_count: 0,
+					database_call_count: 0,
+					http_call_count: 0,
+					error_count: 0,
+					total_cost_usd: 0,
+					total_duration_ms: 1,
+					models_used: [],
+					tools_used: [],
+				},
+				rules: [],
+				security: [],
+				evaluations: [],
+				finding_count: 0,
+				rule_match_count: 0,
+			},
+		});
+
+		await GET(
+			makeRequest("span-1", { headerEnvironment: "production" }),
+			{ params: { id: "span-1" } }
+		);
+
+		expect(buildTraceGovernanceReport).toHaveBeenCalledWith(
+			"span-1",
+			expect.objectContaining({
+				environment: "production",
 			})
 		);
 	});

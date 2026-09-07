@@ -18,6 +18,8 @@ import TraceAiAnalysisPanel from "@/components/(playground)/request/components/t
 import TraceGovernancePanel from "./trace-governance-panel";
 import getMessage from "@/constants/messages";
 import { cn } from "@/lib/utils";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
+import { useRootStore } from "@/store";
 
 type ViewMode = "tree" | "chat" | "analysis" | "governance" | "timeline" | "graph";
 type ViewModeLabelKey =
@@ -105,8 +107,9 @@ function SpanHierarchyExplorerInner({
 	// whether the user has explicitly picked a view so we don't keep
 	// snapping back to "chat" every time the trace data refreshes.
 	const userPickedViewRef = useRef(false);
-	const { data, fireRequest, isLoading } = useFetchWrapper();
+	const { data, fireRequest, isLoading, reset } = useFetchWrapper();
 	const { capabilities } = useSignalCapabilities();
+	const environment = useRootStore(getCurrentProjectEnvironment);
 
 	// The Chat view renders OTel span events (prompts/completions). Sources that
 	// don't carry span events (e.g. Datadog, New Relic) can't populate it, so we
@@ -123,12 +126,19 @@ function SpanHierarchyExplorerInner({
 	}, [selectedSpanId, updateRequest]);
 
 	useEffect(() => {
-		const qs = traceId ? `?traceId=${encodeURIComponent(traceId)}` : "";
+		reset();
+	}, [environment, reset]);
+
+	useEffect(() => {
+		const params = new URLSearchParams();
+		if (traceId) params.set("traceId", traceId);
+		if (environment) params.set("environment", environment);
+		const qs = params.size ? `?${params.toString()}` : "";
 		fireRequest({
 			requestType: "GET",
 			url: `/api/telemetry/request/span/${hierarchySpanId}/heirarchy${qs}`,
 		});
-	}, [fireRequest, hierarchySpanId, traceId]);
+	}, [environment, fireRequest, hierarchySpanId, traceId]);
 
 	const typedData = (data as { record?: TraceHeirarchySpan; err?: string }) || {};
 	const record = typedData.record;
@@ -167,23 +177,26 @@ function SpanHierarchyExplorerInner({
 				onSelectSpan={onSelectSpan}
 			/>
 			<div className="flex flex-wrap items-center gap-2 border-b border-stone-200 bg-stone-50 px-2 py-1.5 dark:border-stone-800 dark:bg-stone-900">
-				
-			<div className="flex rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 p-0.5">
+				<div className="flex max-w-full overflow-x-auto rounded-md border border-stone-200 bg-white p-0.5 dark:border-stone-800 dark:bg-stone-950">
 					{availableViewModes.map((mode) => (
 						<button
 							key={mode.key}
+							type="button"
+							title={m[mode.labelKey]}
+							aria-label={m[mode.labelKey]}
+							aria-pressed={viewMode === mode.key}
 							onClick={() => {
 								userPickedViewRef.current = true;
 								setViewMode(mode.key);
 							}}
-							className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+							className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium transition-colors sm:px-2 ${
 								viewMode === mode.key
 									? "bg-primary text-white"
 									: "text-stone-500 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-800"
 							}`}
 						>
 							{mode.icon}
-							{m[mode.labelKey]}
+							<span className="hidden sm:inline">{m[mode.labelKey]}</span>
 						</button>
 					))}
 				</div>

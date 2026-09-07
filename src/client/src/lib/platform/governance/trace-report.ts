@@ -186,6 +186,7 @@ function evaluationFindings(
 					: "major",
 			summary: `${row.evaluation_type} flagged on span`,
 			detail: row.explanation || `Verdict: ${verdict}`,
+			remediation: getMessage().GOVERNANCE_REMEDIATION_EVALUATION,
 			span_refs: [row.span_id],
 			evidence: {
 				evaluation_type: row.evaluation_type,

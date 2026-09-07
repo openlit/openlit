@@ -53,6 +53,9 @@ async function GETHandler(
 	const environment =
 		url.searchParams.get("environment") || getRequestEnvironment(request);
 
+	// Intelligence-layer tables (rules / evals) follow the connector binding for
+	// the selected environment; traces hierarchy uses the same environment via
+	// resolveTracesAdapter inside buildTraceGovernanceReport.
 	const databaseConfigId =
 		(await resolveIntelligenceClickHouseDbConfigId({ environment })) ||
 		undefined;

@@ -1994,9 +1994,10 @@ export const GOVERNANCE_LOAD_FAILED = "Failed to load governance report";
 export const GOVERNANCE_LOAD_FAILED_DETAIL = "{detail}";
 export const GOVERNANCE_EMPTY_TITLE = "No governance signals";
 export const GOVERNANCE_EMPTY_DESCRIPTION =
-	"This trace hierarchy has no rule matches, security findings, or evaluation results in the current window.";
+	"This trace hierarchy has no rule matches, security findings, or evaluation results.";
+export const GOVERNANCE_LOADING_HINT = "Building the governance report from this hierarchy…";
 export const GOVERNANCE_SECTION_SUMMARY = "Summary";
-export const GOVERNANCE_SECTION_HARNESS = "Harness";
+export const GOVERNANCE_SECTION_HARNESS = "Session metrics";
 export const GOVERNANCE_SECTION_RULES = "Matched rules";
 export const GOVERNANCE_SECTION_SECURITY = "Security & policy";
 export const GOVERNANCE_SECTION_EVALUATIONS = "Evaluations";
@@ -2029,7 +2030,16 @@ export const GOVERNANCE_FINDING_PERMISSION_MODE_DETAIL =
 export const GOVERNANCE_FINDING_AGENT_LOOP_SUMMARY =
 	"Tool loop: {tool} × {count}";
 export const GOVERNANCE_FINDING_AGENT_LOOP_DETAIL =
-	"Repeated identical tool calls wasted {wasted_tokens} tokens (~${wasted_cost}).";
+	"The same tool was called repeatedly with identical arguments, wasting {wasted_tokens} tokens (~${wasted_cost}).";
+export const GOVERNANCE_FINDING_AGENT_LOOP_DETAIL_NO_USAGE =
+	"The same tool was called {count} times with identical arguments. Cursor/tool spans do not carry per-call token or USD usage, so waste is measured by repeats{duration_suffix}.";
+export const GOVERNANCE_FINDING_AGENT_LOOP_DURATION_SUFFIX =
+	" (~{duration} of redundant tool time)";
+export const GOVERNANCE_USAGE_NOT_REPORTED = "not reported";
+export const GOVERNANCE_COST_NOT_REPORTED = "Not reported";
+export const GOVERNANCE_HARNESS_TOKENS = "Tokens";
+export const GOVERNANCE_COST_CURSOR_HINT =
+	"No USD cost on these spans. Cursor never sends cost; tokens (when present) come from session/stop events, not from tool.call spans.";
 export const GOVERNANCE_FINDING_TOOL_BURST_SUMMARY =
 	"High tool volume ({count} tool spans)";
 export const GOVERNANCE_FINDING_TOOL_BURST_DETAIL =
@@ -2037,7 +2047,80 @@ export const GOVERNANCE_FINDING_TOOL_BURST_DETAIL =
 export const GOVERNANCE_FINDING_WIDE_BRANCH_SUMMARY = "Wide span branch";
 export const GOVERNANCE_FINDING_WIDE_BRANCH_DETAIL =
 	"One or more spans fan out into many child operations.";
-export const GOVERNANCE_SPAN_REF = "Span";
+export const GOVERNANCE_REMEDIATION_SPAN_ERROR =
+	"Open the span details and Events tab, fix the failing operation, then re-run the agent step that produced the error.";
+export const GOVERNANCE_REMEDIATION_GENERATION_HEALTH =
+	"Inspect finish reasons and token limits on the span; raise max tokens or adjust the prompt when outputs are truncated or empty.";
+export const GOVERNANCE_REMEDIATION_MODEL_SWAP =
+	"Pin the requested model in the agent config, or accept the served model only if the swap is intentional.";
+export const GOVERNANCE_REMEDIATION_PERMISSION_MODE =
+	"Switch the coding-agent permission mode back to default, plan, or acceptEdits unless elevated access is intentional for this session.";
+export const GOVERNANCE_REMEDIATION_CLASSIFICATION =
+	"Confirm the session classification in Coding Agents and correct it if the dispute or personal tag is wrong.";
+export const GOVERNANCE_REMEDIATION_AGENT_LOOP =
+	"Coding agents like Cursor often cannot be interrupted mid-run. Add a durable rule to agent knowledge (AGENTS.md, .cursor/rules, or a skill) that forbids repeating this tool with identical arguments—require different path/args, a max attempt count, or escalate to the user. Use Copy agent rule or Ask Otter to draft it.";
+export const GOVERNANCE_REMEDIATION_TOOL_BURST =
+	"Review the tool list for redundant calls and add stop conditions or tighter tool policies before the next run.";
+export const GOVERNANCE_REMEDIATION_WIDE_BRANCH =
+	"Check whether fan-out is expected; otherwise limit parallel tool calls or subagent spawning.";
+export const GOVERNANCE_REMEDIATION_EVALUATION =
+	"Open Evaluations for this span, review the failing metric, and adjust the prompt, policy, or model before re-running.";
+export const GOVERNANCE_COPY_AGENT_RULE = "Copy agent rule";
+export const GOVERNANCE_COPY_AGENT_RULE_DONE = "Copied";
+export const GOVERNANCE_ASK_OTTER_FIX = "Ask Otter";
+export const GOVERNANCE_ASK_OTTER_HIDE = "Hide Otter";
+export const GOVERNANCE_ASK_OTTER_TITLE = "Ask Otter for a fix";
+export const GOVERNANCE_ASK_OTTER_EMPTY =
+	"Otter drafts a paste-ready AGENTS.md / .cursor/rules / skill rule so the next coding-agent run stops this identical tool loop.";
+export const GOVERNANCE_ASK_OTTER_PLACEHOLDER =
+	"Draft an agent knowledge rule that stops this tool loop…";
+export const GOVERNANCE_ASK_OTTER_HINT =
+	"Paste Otter’s rule into AGENTS.md, .cursor/rules, or a skill—do not rely on interrupting the live agent.";
+export const GOVERNANCE_ASK_OTTER_SEND = "Get fix";
+export const GOVERNANCE_ASK_OTTER_DEFAULT_QUESTION =
+	"Draft a paste-ready coding-agent knowledge rule that prevents this identical tool retry loop.";
+export const GOVERNANCE_AGENT_LOOP_KNOWLEDGE_RULE = (
+	tool: string,
+	resource: string,
+	count: number
+) =>
+	[
+		`## Tool-loop guard (${tool})`,
+		"",
+		`OpenLIT detected \`${tool}\` repeating identical arguments ${count} time(s)${resource ? ` on \`${resource}\`` : ""}.`,
+		"",
+		`Do not call \`${tool}\` again with the same arguments after a completed attempt.`,
+		"If the previous result was incomplete or wrong:",
+		"- change the path or arguments, or",
+		"- stop and ask the user what to do next",
+		`Never retry identical \`${tool}\` calls in a loop. Prefer at most one retry with different args, then escalate to the user.`,
+		"",
+		"Where to put this: AGENTS.md, `.cursor/rules/`, or a project skill so every coding-agent session loads it.",
+	].join("\n");
+export const GOVERNANCE_AGENT_LOOP_OTTER_PROMPT = (
+	tool: string,
+	count: number,
+	resource: string,
+	fingerprint: string,
+	question: string
+) =>
+	[
+		"You are helping prevent a stuck coding-agent tool loop observed in OpenLIT telemetry.",
+		"Operators usually cannot interrupt Cursor or similar agents mid-run, so the fix must be durable agent knowledge—not a live interrupt.",
+		`Tool: ${tool}`,
+		`Repeat count: ${count}`,
+		resource ? `Resource: ${resource}` : "",
+		fingerprint ? `Args fingerprint: ${fingerprint}` : "",
+		"",
+		"Draft a short, paste-ready rule for AGENTS.md, .cursor/rules, or a Cursor skill that stops the agent from repeating this identical tool call.",
+		"Include concrete constraints: different path/args on retry, a max attempt count, and escalate to the user instead of looping.",
+		"Output only the rule markdown (heading + bullets). No preamble.",
+		"",
+		`User request: ${question}`,
+	]
+		.filter(Boolean)
+		.join("\n");
+export const GOVERNANCE_SPAN_REF = "Open span";
 export const GOVERNANCE_RULE_LINK = "Open rule";
 export const GOVERNANCE_HARNESS_SPANS = "Spans";
 export const GOVERNANCE_HARNESS_DEPTH = "Max depth";
@@ -2054,13 +2137,32 @@ export const GOVERNANCE_REFRESH = "Refresh";
 export const GOVERNANCE_EXPORT_JSON = "Export JSON";
 export const GOVERNANCE_TRUNCATED_NOTE =
 	"Large trace: rule and evaluation coverage was limited to protect performance.";
-export const GOVERNANCE_AGENT_LOOP_PREFIX = "Loop";
+export const GOVERNANCE_AGENT_LOOP_BANNER =
+	"Stuck tool loop detected: {tool} repeated {count} times with the same arguments.";
 export const GOVERNANCE_EVAL_SCORE_PREFIX = "score";
-export const GOVERNANCE_FILTER_ALL = "All severities";
+export const GOVERNANCE_FILTER_ALL = "All";
 export const GOVERNANCE_FILTER_CRITICAL = "Critical";
 export const GOVERNANCE_FILTER_MAJOR = "Major";
 export const GOVERNANCE_FILTER_MINOR = "Minor";
+export const GOVERNANCE_FILTER_INFO = "Info";
 export const GOVERNANCE_EVALUATIONS_LINK = "Open evaluations";
+export const GOVERNANCE_FINDING_WHAT = "What happened";
+export const GOVERNANCE_FINDING_WHERE = "Where";
+export const GOVERNANCE_FINDING_FIX = "How to fix";
+export const GOVERNANCE_FINDING_EVIDENCE = "Evidence";
+export const GOVERNANCE_FINDING_SPANS = "Related spans";
+export const GOVERNANCE_SHOW_MORE = "Show more";
+export const GOVERNANCE_SHOWING_OF = "Showing {shown} of {total}";
+export const GOVERNANCE_CATEGORY_AGENT_LOOP = "Tool loop";
+export const GOVERNANCE_CATEGORY_POLICY = "Policy";
+export const GOVERNANCE_CATEGORY_CODING_AGENT = "Coding agent";
+export const GOVERNANCE_CATEGORY_SPAN_ERROR = "Span error";
+export const GOVERNANCE_CATEGORY_GENERATION_HEALTH = "Generation health";
+export const GOVERNANCE_CATEGORY_HARNESS = "Harness";
+export const GOVERNANCE_CATEGORY_EVALUATION = "Evaluation";
+export const GOVERNANCE_FILTER_EMPTY =
+	"No findings match this severity filter.";
+export const GOVERNANCE_SEVERITY_LABEL = "Severity";
 export const TRACE_AI_LOAD_FAILED = "Failed to load AI improvement analysis";
 export const TRACE_AI_RUN_FAILED = "Failed to run AI improvement analysis";
 export const TRACE_AI_TIMEOUT = "Analysis timed out. Please try again.";

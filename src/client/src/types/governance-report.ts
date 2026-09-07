@@ -21,6 +21,10 @@ export type GovernanceFinding = {
 	severity: GovernanceSeverity;
 	summary: string;
 	detail: string;
+	/** Deterministic next-step guidance derived from the finding category (no LLM). */
+	remediation?: string;
+	/** File path or other resource implicated by the finding, when known. */
+	resource?: string;
 	span_refs: string[];
 	evidence?: Record<string, string | number | boolean>;
 };
@@ -56,6 +60,9 @@ export type GovernanceHarnessReport = {
 	http_call_count: number;
 	error_count: number;
 	total_cost_usd: number;
+	/** True when at least one span reported a positive USD cost attribute. */
+	cost_reported?: boolean;
+	total_tokens: number;
 	total_duration_ms: number;
 	models_used: string[];
 	tools_used: string[];
@@ -67,6 +74,8 @@ export type GovernanceHarnessReport = {
 		count: number;
 		wasted_tokens: number;
 		wasted_cost: number;
+		wasted_duration_ms?: number;
+		usage_reported?: boolean;
 	};
 };
 

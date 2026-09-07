@@ -103,6 +103,23 @@ describe("governance security checks", () => {
 		expect(harness.span_count).toBe(2);
 		expect(harness.tool_call_count).toBe(1);
 		expect(harness.tools_used).toContain("bash");
+		expect(harness.total_tokens).toBe(0);
+		expect(harness.cost_reported).toBe(false);
+	});
+
+	it("prefers session token rollups on the root for harness totals", () => {
+		const root = makeSpan({
+			SpanId: "root",
+			SpanName: "coding_agent.session",
+			SpanAttributes: {
+				"gen_ai.usage.total_tokens": 1200,
+				"coding_agent.client": "cursor",
+			},
+			children: [],
+		});
+		const harness = buildHarnessMetrics(root, flattenHierarchy(root));
+		expect(harness.total_tokens).toBe(1200);
+		expect(harness.cost_reported).toBe(false);
 	});
 
 	it("summarizes mixed governance posture", () => {
@@ -122,5 +139,77 @@ describe("governance security checks", () => {
 		);
 		expect(summary.risk_level).toBe("major");
 		expect(summary.summary).toContain("2");
+	});
+
+	it("attaches real span ids and remediation for agent loops", () => {
+		const args = '{"path":"/Users/nii/openlit/README.md"}';
+		const spans = [
+			makeSpan({
+				SpanId: "loop-1",
+				SpanName: "coding_agent.tool.call",
+				TraceId: "t1",
+				SpanAttributes: {
+					"gen_ai.tool.name": "read_file",
+					"gen_ai.tool.args": args,
+					"coding_agent.session.id": "sess-1",
+				},
+			}),
+			makeSpan({
+				SpanId: "loop-2",
+				SpanName: "coding_agent.tool.call",
+				TraceId: "t1",
+				SpanAttributes: {
+					"gen_ai.tool.name": "read_file",
+					"gen_ai.tool.args": args,
+					"coding_agent.session.id": "sess-1",
+				},
+			}),
+			makeSpan({
+				SpanId: "loop-3",
+				SpanName: "coding_agent.tool.call",
+				TraceId: "t1",
+				SpanAttributes: {
+					"gen_ai.tool.name": "read_file",
+					"gen_ai.tool.args": args,
+					"coding_agent.session.id": "sess-1",
+				},
+			}),
+		];
+		const findings = buildSecurityFindings(spans);
+		const loop = findings.find((f) => f.category === "agent_loop");
+		expect(loop).toBeTruthy();
+		expect(loop?.span_refs).toEqual(
+			expect.arrayContaining(["loop-1", "loop-2", "loop-3"])
+		);
+		expect(loop?.span_refs.every((id) => id.startsWith("loop-"))).toBe(true);
+		expect(loop?.resource).toContain("README.md");
+		expect(loop?.remediation).toBeTruthy();
+		expect(loop?.remediation).toMatch(/AGENTS\.md|\.cursor\/rules/i);
+		expect(loop?.remediation).not.toMatch(/Stop or interrupt/i);
+	});
+
+	it("dedupes permission-mode findings across spans", () => {
+		const spans = [
+			makeSpan({
+				SpanId: "p1",
+				SpanName: "coding_agent.session",
+				SpanAttributes: {
+					"coding_agent.policy.permission_mode": "agent",
+				},
+			}),
+			makeSpan({
+				SpanId: "p2",
+				SpanName: "coding_agent.tool.call",
+				SpanAttributes: {
+					"coding_agent.policy.permission_mode": "agent",
+				},
+			}),
+		];
+		const findings = buildSecurityFindings(spans).filter(
+			(f) => f.category === "policy"
+		);
+		expect(findings).toHaveLength(1);
+		expect(findings[0].span_refs).toEqual(expect.arrayContaining(["p1", "p2"]));
+		expect(findings[0].remediation).toBeTruthy();
 	});
 });
