@@ -36,6 +36,46 @@ const TRACE_TO_RULE_FIELDS: Array<{
 		field: "gen_ai.request.model",
 		getValue: (t) => (t as any).SpanAttributes?.["gen_ai.request.model"],
 	},
+	{
+		field: "gen_ai.tool.name",
+		getValue: (t) =>
+			(t as any).SpanAttributes?.["gen_ai.tool.name"] ??
+			(t as any).SpanAttributes?.["gen_ai.tool.call.name"],
+	},
+	{
+		field: "coding_agent.client",
+		getValue: (t) =>
+			(t as any).SpanAttributes?.["coding_agent.client"] ??
+			(t as any).ResourceAttributes?.["coding_agent.client"],
+	},
+	{
+		field: "coding_agent.policy.permission_mode",
+		getValue: (t) =>
+			(t as any).SpanAttributes?.["coding_agent.policy.permission_mode"] ??
+			(t as any).ResourceAttributes?.["coding_agent.policy.permission_mode"],
+	},
+	{
+		field: "coding_agent.content_capture_mode",
+		getValue: (t) =>
+			(t as any).SpanAttributes?.["coding_agent.content_capture_mode"] ??
+			(t as any).ResourceAttributes?.["coding_agent.content_capture_mode"],
+	},
+	{
+		field: "coding_agent.user.classification",
+		getValue: (t) =>
+			(t as any).SpanAttributes?.["coding_agent.user.classification"] ??
+			(t as any).ResourceAttributes?.["coding_agent.user.classification"],
+	},
+	{
+		field: "coding_agent.session.outcome",
+		getValue: (t) =>
+			(t as any).SpanAttributes?.["coding_agent.session.outcome"] ??
+			(t as any).ResourceAttributes?.["coding_agent.session.outcome"],
+	},
+	{
+		field: "coding_agent.tool.name",
+		getValue: (t) => (t as any).SpanAttributes?.["coding_agent.tool.name"],
+	},
 ];
 
 /**

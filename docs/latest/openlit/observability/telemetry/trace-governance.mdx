@@ -1,0 +1,98 @@
+---
+title: "Trace Governance"
+sidebarTitle: "Trace Governance"
+description: "Per-trace governance passport, security findings, policy controls, and evidence export"
+---
+
+Trace Governance turns a request hierarchy into a **read-only passport**: which rules matched, what security and harness risks appeared, how evaluations scored, and which policy controls those findings implicate.
+
+Open it from **Trace detail → Governance tab** in the hierarchy explorer. This is **operational** governance from production telemetry — not a questionnaire-based GRC product.
+
+## Prerequisites
+
+- A project with a working telemetry source (traces)
+- For rule matches and stored evaluations: the OpenLIT intelligence ClickHouse binding for the environment
+- Optional: a prior [AI Analysis](/latest/openlit/observability/telemetry/ai-analysis) run so Otter `prompt_injection` / `tool_misuse` findings can merge into the same report
+
+## Governance tab on a trace
+
+1. Open a trace from Telemetry → Traces (or from a widget / Otter pill).
+2. In the hierarchy explorer, select the **Governance** tab (shield icon).
+3. Review:
+   - **Risk summary** and session metrics (spans, tools, errors, cost when reported)
+   - **Security & policy** findings (deterministic checks + evaluation fails + Otter security dims when available)
+   - **Matched rules** with links into the Rule Engine
+   - **Policy controls** mapped to NIST AI RMF, EU AI Act, and OWASP ASI categories
+   - **Evaluations** stored for spans in the tree
+4. Click a span chip to jump selection in the hierarchy.
+5. Use **Export JSON** to download a passport envelope (schema version, `report_id`, report body).
+
+Each report includes a stable `report_id`. Stamp the same value on CI or release metadata with the OpenTelemetry attribute `openlit.governance.report_id` when you want exports correlated to a build.
+
+```python
+from openlit.semcov import SemanticConvention
+
+# After you export a passport and read passport["report_id"]:
+span.set_attribute(
+    SemanticConvention.OPENLIT_GOVERNANCE_REPORT_ID,
+    report_id,
+)
+```
+
+```typescript
+span.setAttribute('openlit.governance.report_id', reportId);
+```
+
+## What the report includes
+
+| Section | Source |
+|---|---|
+| Harness metrics | Hierarchy walk (depth, LLM/tool/retrieval/HTTP/DB counts, coding-agent modes) |
+| Rule matches | Rule Engine evaluation per unique span field map (`context`, `prompt`, `evaluation`, `alert`) |
+| Deterministic security | Span errors, generation health, agent loops, coding-agent policy signals |
+| Otter security | Latest stored AI Analysis `prompt_injection` and `tool_misuse` (no extra LLM call) |
+| Evaluations | Rows from OpenLIT evaluation storage for spans in the tree |
+| Policy controls | Category → control ID mapping (NIST / EU AI Act / OWASP ASI) |
+
+Large trees may truncate rule evaluation and evaluation queries; the UI shows a truncated note when that happens.
+
+## Rule Engine fields for coding agents
+
+Governance and the Rule Engine condition builder share extended fields so policies can match coding-agent and tool attributes, including:
+
+- `gen_ai.tool.name` / `gen_ai.tool.call.name`
+- `coding_agent.client`
+- `coding_agent.policy.permission_mode`
+- `coding_agent.content_capture_mode`
+- `coding_agent.user.classification`
+- `coding_agent.session.outcome`
+- `coding_agent.tool.name`
+
+Author rules in the Rule Engine, then confirm matches on the Governance tab for a live trace.
+
+## APIs
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/telemetry/request/span/:id/governance` | Build report JSON |
+| `GET` | `/api/telemetry/request/span/:id/governance/export` | Passport envelope for evidence download |
+
+Enterprise deployments audit report views and passport exports (metadata only — never raw prompts or secrets).
+
+## Related
+
+- [AI Analysis](/latest/openlit/observability/telemetry/ai-analysis) — Otter improvement + security dimensions
+- [Traces](/latest/openlit/observability/telemetry/traces) — hierarchy explorer hosting the Governance tab
+- [Privacy & Governance (coding agents)](/latest/openlit/coding-agents/privacy-and-governance) — capture modes and redaction
+- [Agent Governance Toolkit](/latest/sdk/integrations/agent-governance-toolkit) — Microsoft policy span integration (separate from this UI)
+
+---
+
+<CardGroup cols={2}>
+  <Card title="AI Analysis" href="/latest/openlit/observability/telemetry/ai-analysis" icon="sparkles">
+    Run Otter analysis so prompt injection and tool misuse fold into the passport
+  </Card>
+  <Card title="Rule Engine" href="/latest/sdk/features/rule-engine" icon="git-branch">
+    Author conditions on coding-agent and tool fields that Governance will surface
+  </Card>
+</CardGroup>

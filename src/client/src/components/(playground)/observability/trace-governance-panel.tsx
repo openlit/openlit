@@ -131,6 +131,10 @@ function categoryLabel(category: GovernanceFindingCategory): string {
 			return m.GOVERNANCE_CATEGORY_HARNESS;
 		case "evaluation":
 			return m.GOVERNANCE_CATEGORY_EVALUATION;
+		case "prompt_injection":
+			return m.GOVERNANCE_CATEGORY_PROMPT_INJECTION;
+		case "tool_misuse":
+			return m.GOVERNANCE_CATEGORY_TOOL_MISUSE;
 		default:
 			return category;
 	}
@@ -478,18 +482,56 @@ export default function TraceGovernancePanel({
 		return counts;
 	}, [report]);
 
-	const exportReport = useCallback(() => {
-		if (!report) return;
-		const blob = new Blob([JSON.stringify(report, null, 2)], {
-			type: "application/json",
-		});
-		const url = URL.createObjectURL(blob);
-		const anchor = document.createElement("a");
-		anchor.href = url;
-		anchor.download = `governance-${report.trace_id || hierarchySpanId}.json`;
-		anchor.click();
-		URL.revokeObjectURL(url);
-	}, [report, hierarchySpanId]);
+	const exportReport = useCallback(async () => {
+		if (!hierarchySpanId) return;
+		const params = new URLSearchParams();
+		if (traceId) params.set("traceId", traceId);
+		if (environment) params.set("environment", environment);
+		const qs = params.toString();
+		const url = `/api/telemetry/request/span/${encodeURIComponent(
+			hierarchySpanId
+		)}/governance/export${qs ? `?${qs}` : ""}`;
+		try {
+			const response = await fetch(url, { credentials: "include" });
+			if (!response.ok) {
+				// Fall back to in-memory report if export route fails.
+				if (!report) return;
+				const blob = new Blob([JSON.stringify(report, null, 2)], {
+					type: "application/json",
+				});
+				const objectUrl = URL.createObjectURL(blob);
+				const anchor = document.createElement("a");
+				anchor.href = objectUrl;
+				anchor.download = `governance-${report.trace_id || hierarchySpanId}.json`;
+				anchor.click();
+				URL.revokeObjectURL(objectUrl);
+				return;
+			}
+			const payload = await response.json();
+			const blob = new Blob([JSON.stringify(payload.passport || payload, null, 2)], {
+				type: "application/json",
+			});
+			const objectUrl = URL.createObjectURL(blob);
+			const anchor = document.createElement("a");
+			anchor.href = objectUrl;
+			const reportId =
+				payload?.passport?.report_id || report?.report_id || hierarchySpanId;
+			anchor.download = `governance-passport-${reportId}.json`;
+			anchor.click();
+			URL.revokeObjectURL(objectUrl);
+		} catch {
+			if (!report) return;
+			const blob = new Blob([JSON.stringify(report, null, 2)], {
+				type: "application/json",
+			});
+			const objectUrl = URL.createObjectURL(blob);
+			const anchor = document.createElement("a");
+			anchor.href = objectUrl;
+			anchor.download = `governance-${report.trace_id || hierarchySpanId}.json`;
+			anchor.click();
+			URL.revokeObjectURL(objectUrl);
+		}
+	}, [hierarchySpanId, traceId, environment, report]);
 
 	const severityFilters: Array<{ key: SeverityFilter; label: string }> = [
 		{ key: "all", label: m.GOVERNANCE_FILTER_ALL },
@@ -562,6 +604,16 @@ export default function TraceGovernancePanel({
 					{report.analysis_limited && (
 						<p className="mt-1 text-[11px] text-stone-500">
 							{m.GOVERNANCE_TRUNCATED_NOTE}
+						</p>
+					)}
+					{report.otter_run_id && (
+						<p className="mt-1 text-[11px] text-stone-500">
+							{m.GOVERNANCE_OTTER_MERGED}
+						</p>
+					)}
+					{report.report_id && (
+						<p className="mt-1 font-mono text-[10px] text-stone-500">
+							{m.GOVERNANCE_REPORT_ID_LABEL}: {report.report_id}
 						</p>
 					)}
 					{report.harness.agent_loop && (
@@ -725,6 +777,32 @@ export default function TraceGovernancePanel({
 							)}
 						</>
 					)}
+				</section>
+			)}
+
+			{(report.policy_controls?.length || 0) > 0 && (
+				<section>
+					<h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+						{m.GOVERNANCE_SECTION_POLICY} ({report.policy_controls!.length})
+					</h3>
+					<div className="divide-y divide-stone-200 overflow-hidden rounded-md border border-stone-200 dark:divide-stone-800 dark:border-stone-800">
+						{report.policy_controls!.map((control) => (
+							<div
+								key={`${control.framework}:${control.control_id}`}
+								className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 text-xs"
+							>
+								<span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] uppercase text-stone-700 dark:bg-stone-800 dark:text-stone-300">
+									{control.framework}
+								</span>
+								<span className="font-mono text-[11px] font-medium text-stone-900 dark:text-stone-100">
+									{control.control_id}
+								</span>
+								<span className="text-stone-600 dark:text-stone-400">
+									{control.title}
+								</span>
+							</div>
+						))}
+					</div>
 				</section>
 			)}
 
