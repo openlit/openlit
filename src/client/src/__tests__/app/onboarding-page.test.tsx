@@ -36,6 +36,8 @@ jest.mock("@/helpers/client/project", () => ({
 jest.mock("@/helpers/client/database-config", () => ({
 	fetchDatabaseConfigList: (...args: unknown[]) => fetchDatabaseConfigList(...args),
 	deleteDatabaseConfig: jest.fn(),
+	projectHasDatabaseConfig: (list: unknown[] | undefined | null) =>
+		Array.isArray(list) && list.length > 0,
 }));
 
 jest.mock("@/store", () => ({
@@ -115,5 +117,15 @@ describe("OnboardingPage database config step", () => {
 		expect(screen.getByText("Add ClickHouse connector")).toBeInTheDocument();
 		expect(screen.getByPlaceholderText("127.0.0.1")).toBeInTheDocument();
 		expect(screen.getByPlaceholderText("8123")).toBeInTheDocument();
+	});
+
+	it("shows Finish setup once the current project already has a database config", () => {
+		mockStore({ databaseConfigs: [{ id: "db-1", name: "Primary" }] });
+		render(<OnboardingPage />);
+
+		expect(screen.getByRole("button", { name: "Finish setup" })).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Add database config" })
+		).not.toBeInTheDocument();
 	});
 });

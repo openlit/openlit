@@ -4,6 +4,10 @@ import { deleteData, getData } from "@/utils/api";
 import asaw from "@/utils/asaw";
 import { toast } from "sonner";
 
+export const projectHasDatabaseConfig = (
+	list: unknown[] | undefined | null
+): boolean => Array.isArray(list) && list.length > 0;
+
 export const fetchDatabaseConfigList = async (
 	successCb: (data: any[]) => void
 ) => {

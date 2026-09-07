@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ChatLayout from "@/components/(playground)/chat/chat-layout";
 import { RequestProvider } from "@/components/(playground)/request/request-context";
@@ -12,6 +12,7 @@ import {
 	getProjectList,
 } from "@/selectors/project";
 import { fetchProjectList } from "@/helpers/client/project";
+import { useProjectDatabaseSetup } from "@/utils/hooks/use-project-database-setup";
 import Loader from "@/components/common/loader";
 
 export default function ChatPage() {
@@ -23,26 +24,16 @@ export default function ChatPage() {
 	const projects = useRootStore(getProjectList);
 	const currentProject = useRootStore(getCurrentProject);
 	const isProjectLoading = useRootStore(getProjectIsLoading);
-	const [hasDbConfig, setHasDbConfig] = useState<boolean>();
+	const { hasDbConfig, isDatabaseSetupLoading } = useProjectDatabaseSetup();
 	const hasProject = Boolean(currentProject?.id && (projects?.length || 0) > 0);
 	const isSetupLoading =
 		isProjectLoading ||
-		hasDbConfig === undefined ||
+		isDatabaseSetupLoading ||
 		projects === undefined;
 
 	useEffect(() => {
 		if (currentOrg?.id) fetchProjectList(currentOrg.id);
 	}, [currentOrg?.id]);
-
-	useEffect(() => {
-		if (currentProject?.id) {
-			setHasDbConfig(undefined);
-			fetch("/api/connectors")
-				.then((response) => response.ok ? response.json() : { connectors: [] })
-				.then((body) => setHasDbConfig((body.connectors || []).some((connector: { type?: string }) => connector.type === "clickhouse")))
-				.catch(() => setHasDbConfig(false));
-		}
-	}, [currentProject?.id]);
 
 	useEffect(() => {
 		if (!isSetupLoading && (!currentOrg?.id || !hasProject || !hasDbConfig)) {

@@ -15,6 +15,7 @@ import {
   pingActiveDatabaseConfig,
   changeActiveDatabaseConfig,
   deleteDatabaseConfig,
+  projectHasDatabaseConfig,
 } from '@/helpers/client/database-config';
 import { useRootStore } from '@/store';
 import { getData, deleteData } from '@/utils/api';
@@ -215,5 +216,17 @@ describe('deleteDatabaseConfig', () => {
     await deleteDatabaseConfig('db1');
 
     expect(mockSetList).toHaveBeenCalledWith([]);
+  });
+});
+
+describe('projectHasDatabaseConfig', () => {
+  it('is false for missing or empty lists', () => {
+    expect(projectHasDatabaseConfig(undefined)).toBe(false);
+    expect(projectHasDatabaseConfig(null)).toBe(false);
+    expect(projectHasDatabaseConfig([])).toBe(false);
+  });
+
+  it('is true when the project has at least one database config', () => {
+    expect(projectHasDatabaseConfig([{ id: 'db1' }])).toBe(true);
   });
 });

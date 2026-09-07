@@ -15,6 +15,7 @@ import {
 	getProjectIsLoading,
 	getProjectList,
 } from "@/selectors/project";
+import { useProjectDatabaseSetup } from "@/utils/hooks/use-project-database-setup";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 import Loader from "@/components/common/loader";
 import { usePageHeader } from "@/selectors/page";
@@ -30,7 +31,7 @@ export default function DashboardPage() {
 	const projects = useRootStore(getProjectList);
 	const currentProject = useRootStore(getCurrentProject);
 	const isProjectLoading = useRootStore(getProjectIsLoading);
-	const [hasDbConfig, setHasDbConfig] = useState<boolean>();
+	const { hasDbConfig, isDatabaseSetupLoading } = useProjectDatabaseSetup();
 	const { fireRequest, isLoading } = useFetchWrapper();
 	const { fireRequest: fireRunQuery } = useFetchWrapper();
 	const [initialConfig, setInitialConfig] = useState<
@@ -43,18 +44,8 @@ export default function DashboardPage() {
 	const hasProject = Boolean(currentProject?.id && (projects?.length || 0) > 0);
 	const isSetupLoading =
 		isProjectLoading ||
-		hasDbConfig === undefined ||
+		isDatabaseSetupLoading ||
 		projects === undefined;
-
-	useEffect(() => {
-		if (currentProject?.id) {
-			setHasDbConfig(undefined);
-			fetch("/api/connectors")
-				.then((response) => response.ok ? response.json() : { connectors: [] })
-				.then((body) => setHasDbConfig((body.connectors || []).some((connector: { type?: string }) => connector.type === "clickhouse")))
-				.catch(() => setHasDbConfig(false));
-		}
-	}, [currentProject?.id]);
 
 	useEffect(() => {
 		if (!isSetupLoading && (!currentOrg?.id || !hasProject || !hasDbConfig)) {

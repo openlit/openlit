@@ -1480,6 +1480,7 @@ export const HOME_SETUP_DB_CONFIG_DESCRIPTION =
 export const HOME_SETUP_READY_STEP = "Devtool unlocked";
 export const HOME_SETUP_READY_DESCRIPTION =
 	"Your AI devtool is ready. Explore traces, prompts, evals, and the rest of the workspace.";
+export const HOME_SETUP_FINISH = "Finish setup";
 export const SLUG = "Slug";
 export const USER_ALREADY_INVITED = "User has already been invited to this organisation";
 export const INVITATION_NOT_FOR_YOU = "This invitation is not for you";
