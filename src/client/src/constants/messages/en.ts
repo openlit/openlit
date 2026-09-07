@@ -392,6 +392,7 @@ export const OBSERVABILITY_SPAN_NAME_EXAMPLE = "e.g. SpanName";
 export const OBSERVABILITY_ATTRIBUTE_KEY_EXAMPLE = "e.g. gen_ai.system";
 export const OBSERVABILITY_FULL_SCREEN = "Full screen";
 export const OBSERVABILITY_EVALUATION_PANEL = "Evaluation";
+export const OBSERVABILITY_SPAN_DETAILS = "Span details";
 export const OBSERVABILITY_ROW = "row";
 export const OBSERVABILITY_TRACE = "trace";
 export const OBSERVABILITY_SPAN = "span";

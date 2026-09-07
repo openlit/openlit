@@ -746,7 +746,7 @@ export function TraceDetailView({
 			? [
 					{
 						id: "evaluations",
-						label: "Evaluations",
+						label: m.EVALUATION_RESULTS,
 						content: (
 							<Evaluations
 								trace={trace}
@@ -884,6 +884,7 @@ export function TraceDetailView({
 		<DetailShell
 			title={title}
 			compact
+			fill
 			leadingActions={
 				variant === "page" ? (
 					<Button
@@ -944,8 +945,8 @@ export function TraceDetailView({
 			}
 		>
 			{trace && (
-				<>
-					<div className="flex flex-wrap gap-1.5">
+				<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+					<div className="flex shrink-0 flex-wrap gap-1.5">
 						<MetaPill label={m.OBSERVABILITY_TRACE_ID} value={trace.id} />
 						<MetaPill label={m.OBSERVABILITY_SPAN_ID} value={trace.spanId} />
 						{!isCodingAgentTrace && (
@@ -1010,10 +1011,10 @@ export function TraceDetailView({
 					)}
 					<GenerationHealthNote spanAttributes={spanAttributes} />
 					<AgentLoopNote hit={asAgentLoopHit(raw?.agentLoop)} />
-					<div className="hidden h-[min(860px,calc(100vh-12rem))] min-h-[620px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
+					<div className="hidden min-h-0 flex-1 overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
 						<ResizablePanelGroup direction="horizontal" className="h-full">
 							<ResizablePanel defaultSize={48} minSize={32} maxSize={68}>
-								<div className="h-full min-h-0 p-2">
+								<div className="h-full min-h-0 overflow-hidden p-2">
 									<SpanHierarchyExplorer
 										hierarchySpanId={hierarchySpanIdRef.current}
 										selectedSpanId={selectedSpanId}
@@ -1035,7 +1036,7 @@ export function TraceDetailView({
 							</ResizablePanel>
 						</ResizablePanelGroup>
 					</div>
-					<div className="grid gap-3 lg:hidden">
+					<div className="grid min-h-0 flex-1 gap-3 overflow-auto lg:hidden">
 						<SpanHierarchyExplorer
 							hierarchySpanId={hierarchySpanIdRef.current}
 							selectedSpanId={selectedSpanId}
@@ -1048,7 +1049,7 @@ export function TraceDetailView({
 							extraTabsPlacement="before"
 						/>
 					</div>
-				</>
+				</div>
 			)}
 		</DetailShell>
 	);

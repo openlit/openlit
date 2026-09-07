@@ -600,21 +600,18 @@ export default function TraceGovernancePanel({
 			</div>
 
 			<section>
-				<div className="grid grid-cols-3 overflow-hidden rounded-md border border-stone-200 dark:border-stone-800 sm:grid-cols-6">
+				<dl className="flex flex-wrap gap-x-5 gap-y-2 rounded-md border border-stone-200 px-2.5 py-2 dark:border-stone-800">
 					{harnessRows.map((row) => (
-						<div
-							key={row.label}
-							className="border-b border-r border-stone-200 px-2 py-1.5 last:border-b-0 dark:border-stone-800 sm:border-b-0 sm:[&:nth-child(6n)]:border-r-0"
-						>
-							<div className="text-[10px] uppercase tracking-wide text-stone-500">
+						<div key={row.label} className="min-w-0">
+							<dt className="text-[10px] uppercase tracking-wide text-stone-500">
 								{row.label}
-							</div>
-							<div className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+							</dt>
+							<dd className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-stone-900 dark:text-stone-100">
 								{row.value}
-							</div>
+							</dd>
 						</div>
 					))}
-				</div>
+				</dl>
 				{!report.harness.cost_reported && report.harness.total_tokens > 0 && (
 					<p className="mt-1.5 text-[11px] text-stone-500">
 						{m.GOVERNANCE_COST_CURSOR_HINT}
