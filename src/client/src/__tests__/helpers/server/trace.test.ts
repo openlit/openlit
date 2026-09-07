@@ -89,4 +89,27 @@ describe('buildHierarchy', () => {
     expect(result.SpanId).toBe('root');
     expect(result.children).toHaveLength(1);
   });
+
+  it('returns null when every item is missing a SpanId', () => {
+    const data = [{ ParentSpanId: '' }, { ParentSpanId: 'root' }];
+    expect(buildHierarchy(data)).toBeNull();
+  });
+
+  it('skips items missing a SpanId while still building the hierarchy for valid items', () => {
+    const data = [
+      { SpanId: 'root', ParentSpanId: '' },
+      { ParentSpanId: 'root' },
+    ];
+    const result = buildHierarchy(data) as any;
+    expect(result.SpanId).toBe('root');
+    expect(result.children).toHaveLength(0);
+  });
+
+  it('returns null when every span forms a cycle with no root or orphan top', () => {
+    const data = [
+      { SpanId: 'a', ParentSpanId: 'b' },
+      { SpanId: 'b', ParentSpanId: 'a' },
+    ];
+    expect(buildHierarchy(data)).toBeNull();
+  });
 });

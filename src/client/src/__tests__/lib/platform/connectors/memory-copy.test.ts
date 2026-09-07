@@ -25,6 +25,7 @@ import {
 	MEMORY_ADD_UNSUPPORTED,
 	MEMORY_COPY_EMPTY,
 	MEMORY_COPY_SAME_CONNECTOR,
+	MEMORY_COPY_TOO_MANY,
 } from "@/constants/messages/en";
 
 const source = { id: "memory:src", name: "Mem0", type: "mem0" };
@@ -60,6 +61,22 @@ describe("copyProjectMemories", () => {
 			})
 		).rejects.toThrow(MEMORY_ADD_UNSUPPORTED);
 	});
+
+	it("rejects a destination whose type is no longer registered", async () => {
+		mockGetMemoryTypeDescriptor.mockReturnValue(undefined);
+		await expect(
+			copyProjectMemories({
+				sourceConnectorId: "memory:src",
+				targetConnectorId: "memory:dst",
+			})
+		).rejects.toThrow(MEMORY_ADD_UNSUPPORTED);
+	});
+
+	// Note: `!sourceId.startsWith("memory:") || !targetId.startsWith("memory:")`
+	// (port.ts lines 77-79) is defensive/unreachable in practice: both the real
+	// and mocked `memoryConnectorId` always return a "memory:"-prefixed string,
+	// so this guard can never observe an unprefixed id. Left intentionally
+	// uncovered rather than forcing an artificial test around it.
 
 	it("copies selected memories with a stored source link", async () => {
 		mockQueryProjectMemories.mockResolvedValue({
@@ -163,5 +180,119 @@ describe("copyProjectMemories", () => {
 				targetConnectorId: "memory:dst",
 			})
 		).rejects.toThrow(MEMORY_COPY_EMPTY);
+	});
+
+	it("ignores blank entries in the requested memoryIds list", async () => {
+		mockQueryProjectMemories.mockResolvedValue({
+			memories: [
+				{ id: "m1", content: "Prefers tabs", userId: "ada", kind: "profile" },
+				{ id: "m2", content: "Skip me", userId: "ada", kind: "summary" },
+			],
+		});
+		mockAddProjectMemories.mockResolvedValue({
+			memories: [{ id: "z1", content: "Prefers tabs", userId: "ada", kind: "profile" }],
+		});
+
+		const result = await copyProjectMemories({
+			sourceConnectorId: "src",
+			targetConnectorId: "dst",
+			memoryIds: ["", "  ", "m1"],
+		});
+
+		expect(result.copied).toBe(1);
+		expect(mockAddProjectMemories).toHaveBeenCalledTimes(1);
+	});
+
+	it("rejects when more than the max number of memories would be copied", async () => {
+		const memories = Array.from({ length: 51 }, (_, i) => ({
+			id: `m${i}`,
+			content: `content ${i}`,
+			userId: "ada",
+			kind: "profile",
+		}));
+		mockQueryProjectMemories.mockResolvedValue({ memories });
+		await expect(
+			copyProjectMemories({
+				sourceConnectorId: "memory:src",
+				targetConnectorId: "memory:dst",
+			})
+		).rejects.toThrow(MEMORY_COPY_TOO_MANY);
+	});
+
+	it("treats a source-only port link (no origin recorded yet) as the origin on re-copy", async () => {
+		mockQueryProjectMemories.mockResolvedValue({
+			memories: [
+				{
+					id: "z1",
+					content: "Prefers tabs",
+					userId: "ada",
+					kind: "profile",
+					metadata: {
+						openlit: {
+							port: {
+								sourceConnectorId: "memory:src",
+								sourceMemoryId: "m1",
+							},
+						},
+					},
+				},
+			],
+		});
+		mockAddProjectMemories.mockResolvedValue({
+			memories: [{ id: "c1", content: "Prefers tabs", userId: "ada", kind: "profile" }],
+		});
+
+		const result = await copyProjectMemories({
+			sourceConnectorId: "memory:dst",
+			targetConnectorId: "memory:src",
+			memoryIds: ["z1"],
+		});
+
+		expect(result.memories[0].port).toEqual(
+			expect.objectContaining({
+				originConnectorId: "memory:src",
+				originMemoryId: "m1",
+			})
+		);
+	});
+
+	it("records per-memory failures, including from a non-Error rejection", async () => {
+		mockQueryProjectMemories.mockResolvedValue({
+			memories: [
+				{ id: "m1", content: "First", userId: "ada", kind: "profile" },
+				{ id: "m2", content: "Second", userId: "ada", kind: "profile" },
+			],
+		});
+		mockAddProjectMemories
+			.mockRejectedValueOnce(new Error("boom"))
+			.mockRejectedValueOnce("plain string failure");
+
+		const result = await copyProjectMemories({
+			sourceConnectorId: "memory:src",
+			targetConnectorId: "memory:dst",
+		});
+
+		expect(result.copied).toBe(0);
+		expect(result.failed).toEqual([
+			{ id: "m1", message: "boom" },
+			{ id: "m2", message: "plain string failure" },
+		]);
+		expect(mockRecordMemoryPortLinks).not.toHaveBeenCalled();
+	});
+
+	it("records a failure when the destination adapter reports no created memory", async () => {
+		mockQueryProjectMemories.mockResolvedValue({
+			memories: [{ id: "m1", content: "First", userId: "ada", kind: "profile" }],
+		});
+		mockAddProjectMemories.mockResolvedValue({ memories: [] });
+
+		const result = await copyProjectMemories({
+			sourceConnectorId: "memory:src",
+			targetConnectorId: "memory:dst",
+		});
+
+		expect(result.copied).toBe(0);
+		expect(result.failed).toHaveLength(1);
+		expect(result.failed[0].id).toBe("m1");
 	});
 });

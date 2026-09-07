@@ -122,6 +122,20 @@ describe('evaluateRules', () => {
         evaluateRules({ fields: { model: 'gpt-4' }, entity_type: 'context', include_entity_data: false })
       ).rejects.toThrow('DB error');
     });
+
+    it('stringifies a non-toStringable error object', async () => {
+      const err = Object.create(null);
+      (dataCollector as jest.Mock).mockResolvedValue({ err, data: null });
+      await expect(
+        evaluateRules({ fields: { model: 'gpt-4' }, entity_type: 'context', include_entity_data: false })
+      ).rejects.toThrow();
+    });
+
+    it('defaults to an empty rows array when data is missing on success', async () => {
+      (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: undefined });
+      const result = await evaluateRules({ fields: { model: 'gpt-4' }, entity_type: 'context', include_entity_data: false });
+      expect(result).toEqual({ matchingRuleIds: [], entities: [] });
+    });
   });
 
   describe('include_entity_data = false', () => {

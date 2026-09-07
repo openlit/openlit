@@ -141,6 +141,35 @@ describe('changeActiveDatabaseConfig', () => {
     expect(toast.error).toHaveBeenCalled();
     expect(successCb).not.toHaveBeenCalled();
   });
+
+  it('defaults to an empty list when the store has no existing list', async () => {
+    (useRootStore.getState as jest.Mock).mockReturnValue({
+      databaseConfig: {
+        setIsLoading: mockSetIsLoading,
+        setList: mockSetList,
+        setPing: mockSetPing,
+        list: undefined,
+      },
+    });
+    (asaw as jest.Mock).mockResolvedValue([null, {}]);
+    const successCb = jest.fn();
+
+    await changeActiveDatabaseConfig('db1', successCb);
+
+    expect(mockSetList).toHaveBeenCalledWith([]);
+  });
+
+  it('skips the success toast when called with silent: true', async () => {
+    const list = [{ id: 'db1', isCurrent: false }];
+    (useRootStore.getState as jest.Mock).mockReturnValue(makeGetState(list));
+    (asaw as jest.Mock).mockResolvedValue([null, {}]);
+    const successCb = jest.fn();
+
+    await changeActiveDatabaseConfig('db1', successCb, { silent: true });
+
+    expect(successCb).toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
 });
 
 describe('deleteDatabaseConfig', () => {
@@ -170,5 +199,21 @@ describe('deleteDatabaseConfig', () => {
 
     expect(toast.error).toHaveBeenCalled();
     expect(mockSetList).not.toHaveBeenCalled();
+  });
+
+  it('defaults to an empty list when the store has no existing list', async () => {
+    (useRootStore.getState as jest.Mock).mockReturnValue({
+      databaseConfig: {
+        setIsLoading: mockSetIsLoading,
+        setList: mockSetList,
+        setPing: mockSetPing,
+        list: undefined,
+      },
+    });
+    (asaw as jest.Mock).mockResolvedValue([null, {}]);
+
+    await deleteDatabaseConfig('db1');
+
+    expect(mockSetList).toHaveBeenCalledWith([]);
   });
 });
