@@ -15,10 +15,7 @@ const RULE_FIELD_NAMES = [
 	"gen_ai.request.temperature",
 ] as const;
 
-function ruleFieldValue(
-	row: Record<string, unknown>,
-	field: string
-): string {
+function ruleFieldValue(row: TraceRow, field: string): string {
 	const attributeFields: Record<
 		string,
 		["SpanAttributes" | "ResourceAttributes", string]
@@ -33,30 +30,42 @@ function ruleFieldValue(
 	};
 	if (field === "deployment.environment") {
 		return String(
-			(row.ResourceAttributes as Record<string, unknown>)?.[
-				"deployment.environment"
-			] ??
-				(row.SpanAttributes as Record<string, unknown>)?.[
-					"deployment.environment"
-				] ??
-				(row.SpanAttributes as Record<string, unknown>)?.["gen_ai.environment"] ??
+			row.ResourceAttributes["deployment.environment"] ??
+				row.SpanAttributes["deployment.environment"] ??
+				row.SpanAttributes["gen_ai.environment"] ??
 				""
 		);
 	}
 	const attribute = attributeFields[field];
 	if (attribute) {
 		const [scope, key] = attribute;
-		const bag = row[scope] as Record<string, unknown> | undefined;
-		return String(bag?.[key] ?? "");
+		return String(row[scope][key] ?? "");
 	}
 	const directFields: Record<string, string> = {
-		ServiceName: "ServiceName",
-		SpanName: "SpanName",
-		SpanKind: "SpanKind",
-		Duration: "Duration",
-		StatusCode: "StatusCode",
+		ServiceName: row.ServiceName,
+		SpanName: row.SpanName,
+		SpanKind: row.SpanKind,
+		Duration: row.Duration,
+		StatusCode: row.StatusCode,
 	};
-	return String(row[directFields[field] || field] ?? "");
+	return String(directFields[field] ?? "");
+}
+
+function parseTimestamp(value?: string | Date): Date {
+	if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+	if (typeof value === "string" && value) {
+		const parsed = new Date(value);
+		if (!Number.isNaN(parsed.getTime())) return parsed;
+	}
+	return new Date(0);
+}
+
+function stringRecord(
+	source?: Record<string, string | number>
+): Record<string, string> {
+	return Object.fromEntries(
+		Object.entries(source || {}).map(([key, value]) => [key, String(value)])
+	);
 }
 
 export function flattenHierarchy(span: TraceHeirarchySpan): TraceHeirarchySpan[] {
@@ -65,7 +74,7 @@ export function flattenHierarchy(span: TraceHeirarchySpan): TraceHeirarchySpan[]
 
 export function hierarchySpanToTraceRow(span: TraceHeirarchySpan): TraceRow {
 	return {
-		Timestamp: span.Timestamp as TraceRow["Timestamp"],
+		Timestamp: parseTimestamp(span.Timestamp),
 		TraceId: span.TraceId || "",
 		SpanId: span.SpanId,
 		ParentSpanId: span.ParentSpanId || "",
@@ -73,15 +82,24 @@ export function hierarchySpanToTraceRow(span: TraceHeirarchySpan): TraceRow {
 		SpanName: span.SpanName,
 		SpanKind: span.SpanKind || "SPAN_KIND_INTERNAL",
 		ServiceName: span.ServiceName || "",
-		ResourceAttributes: (span.ResourceAttributes || {}) as Record<string, string>,
+		ResourceAttributes: stringRecord(span.ResourceAttributes),
 		ScopeName: span.ScopeName || "",
 		ScopeVersion: span.ScopeVersion || "",
 		SpanAttributes: span.SpanAttributes || {},
 		Duration: String(span.Duration || ""),
 		StatusCode: span.StatusCode || "",
 		StatusMessage: span.StatusMessage || "",
-		Events: (span.Events || []) as TraceRow["Events"],
-		Links: (span.Links || []) as TraceRow["Links"],
+		Events: (span.Events || []).map((event) => ({
+			Timestamp: parseTimestamp(event.Timestamp),
+			Name: event.Name || "",
+			Attributes: stringRecord(event.Attributes),
+		})),
+		Links: (span.Links || []).map((link) => ({
+			TraceId: link.TraceId || "",
+			SpanId: link.SpanId || "",
+			TraceState: link.TraceState || "",
+			Attributes: stringRecord(link.Attributes),
+		})),
 	};
 }
 
@@ -89,7 +107,7 @@ export function hierarchySpanToTraceRow(span: TraceHeirarchySpan): TraceRow {
 export function ruleFieldsFromHierarchySpan(
 	span: TraceHeirarchySpan
 ): Record<string, string | number | boolean> {
-	const row = hierarchySpanToTraceRow(span) as Record<string, unknown>;
+	const row = hierarchySpanToTraceRow(span);
 	const fields: Record<string, string | number | boolean> = {};
 	for (const field of RULE_FIELD_NAMES) {
 		const value = ruleFieldValue(row, field);

@@ -5,6 +5,7 @@ import { evaluateRules } from "../rule-engine/evaluate";
 import { OPENLIT_RULES_TABLE_NAME } from "../rule-engine/table-details";
 import { OPENLIT_EVALUATION_TABLE_NAME } from "../evaluation/table-details";
 import { EVALUATION_SOURCE } from "@/constants/evaluation-sources";
+import getMessage from "@/constants/messages";
 import { getTraceHierarchy } from "../traces/read";
 import type {
 	GovernanceEvaluationRow,
