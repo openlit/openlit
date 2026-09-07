@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { isPlainObject } from "lodash";
-import { ClipboardCheck, Repeat, Sparkles } from "lucide-react";
+import { ClipboardCheck, Sparkles } from "lucide-react";
 import AttributeGrid from "./attribute-grid";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -130,16 +130,9 @@ export function buildObjectTabs(
 	return [...rootTab, ...directTabs, ...groupedTabs];
 }
 
-function isFeaturedObjectTab(tab: { id: string; label: string }) {
-	const id = tab.id.replace(/[\s_-]/g, "").toLowerCase();
-	const label = tab.label.replace(/[\s_-]/g, "").toLowerCase();
-	return id === "agentloop" || label === "agentloop";
-}
-
 function featuredIcon(tabId: string) {
-	if (tabId === "ai-analysis") return <Sparkles className="h-3.5 w-3.5" />;
 	if (tabId === "evaluations") return <ClipboardCheck className="h-3.5 w-3.5" />;
-	return <Repeat className="h-3.5 w-3.5" />;
+	return <Sparkles className="h-3.5 w-3.5" />;
 }
 
 type CustomTab = {
@@ -158,12 +151,11 @@ export default function DetailObjectTabs({
 }) {
 	const m = getMessage();
 	const objectTabs = tabs.map((tab) => ({ ...tab, type: "object" as const }));
-	const featuredObjectTabs = objectTabs.filter((tab) => isFeaturedObjectTab(tab));
-	const detailTabs = objectTabs.filter((tab) => !isFeaturedObjectTab(tab));
-	const featuredTabs = [
-		...(extraTabs || []).map((tab) => ({ ...tab, type: "custom" as const })),
-		...featuredObjectTabs,
-	];
+	const featuredTabs = (extraTabs || []).map((tab) => ({
+		...tab,
+		type: "custom" as const,
+	}));
+	const detailTabs = objectTabs;
 	const allTabs = [...featuredTabs, ...detailTabs];
 	const defaultTab = detailTabs[0]?.id || featuredTabs[0]?.id;
 	const [activeTab, setActiveTab] = useState(defaultTab);

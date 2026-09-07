@@ -759,6 +759,7 @@ export function TraceDetailView({
 	];
 	const detailTabs = useMemo(
 		() => buildObjectTabs(raw, {
+			excludeKeys: ["agentLoop"],
 			labelOverrides: {
 				SpanAttributes: "Span Attributes",
 				ResourceAttributes: "Resource Attributes",

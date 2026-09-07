@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { BarChart3, DollarSign, GitBranch, MessageSquareText, Network, Shield, Sparkles } from "lucide-react";
+import { BarChart3, DollarSign, GitBranch, MessageSquareText, Network, Repeat, Shield, Sparkles } from "lucide-react";
 import {
 	Tooltip,
 	TooltipContent,
@@ -25,11 +25,16 @@ import getMessage from "@/constants/messages";
 import { cn } from "@/lib/utils";
 import { getCurrentProjectEnvironment } from "@/selectors/project";
 import { useRootStore } from "@/store";
+import { detectAgentLoops } from "@/lib/platform/agent-loop/classify";
+import { agentLoopDetailLine } from "@/lib/platform/agent-loop/format";
+import { flattenHierarchy } from "@/lib/platform/governance/hierarchy";
+import { extractResourceHint, matchingLoopSpans } from "@/lib/platform/governance/evidence";
 
-type ViewMode = "tree" | "chat" | "analysis" | "governance" | "timeline" | "graph";
+type ViewMode = "tree" | "chat" | "agentloop" | "analysis" | "governance" | "timeline" | "graph";
 type ViewModeLabelKey =
 	| "OBSERVABILITY_TREE"
 	| "OBSERVABILITY_CHAT"
+	| "OBSERVABILITY_AGENT_LOOP"
 	| "TRACE_AI_TAB_TITLE"
 	| "GOVERNANCE_TAB_TITLE"
 	| "OBSERVABILITY_TIMELINE"
@@ -38,6 +43,7 @@ type ViewModeLabelKey =
 const VIEW_MODES: { key: ViewMode; labelKey: ViewModeLabelKey; icon: ReactNode }[] = [
 	{ key: "tree", labelKey: "OBSERVABILITY_TREE", icon: <GitBranch className="h-3.5 w-3.5" /> },
 	{ key: "chat", labelKey: "OBSERVABILITY_CHAT", icon: <MessageSquareText className="h-3.5 w-3.5" /> },
+	{ key: "agentloop", labelKey: "OBSERVABILITY_AGENT_LOOP", icon: <Repeat className="h-3.5 w-3.5" /> },
 	{ key: "governance", labelKey: "GOVERNANCE_TAB_TITLE", icon: <Shield className="h-3.5 w-3.5" /> },
 	{ key: "analysis", labelKey: "TRACE_AI_TAB_TITLE", icon: <Sparkles className="h-3.5 w-3.5" /> },
 	{ key: "timeline", labelKey: "OBSERVABILITY_TIMELINE", icon: <BarChart3 className="h-3.5 w-3.5" /> },
@@ -90,6 +96,66 @@ function isCodingAgentTree(span?: TraceHeirarchySpan): boolean {
 		}
 	}
 	return false;
+}
+
+function AgentLoopView({
+	record,
+	onSelectSpan,
+}: {
+	record: TraceHeirarchySpan;
+	onSelectSpan?: (spanId: string) => void;
+}) {
+	const m = getMessage();
+	const spans = useMemo(() => flattenHierarchy(record), [record]);
+	const loops = useMemo(() => detectAgentLoops(spans), [spans]);
+
+	if (!loops.length) {
+		return (
+			<div className="px-3 py-8 text-sm text-stone-400">
+				{m.OBSERVABILITY_AGENT_LOOP_EMPTY}
+			</div>
+		);
+	}
+
+	return (
+		<div className="grid min-w-0 gap-2 p-3">
+			{loops.map((loop) => {
+				const matched = matchingLoopSpans(spans, loop.toolName, loop.fingerprint);
+				const sample = matched[0];
+				const resource = sample ? extractResourceHint(sample) : "";
+				return (
+					<div
+						key={`${loop.toolName}:${loop.fingerprint}`}
+						className="min-w-0 max-w-full overflow-hidden rounded-md border border-stone-200 bg-white px-2.5 py-2 dark:border-stone-800 dark:bg-stone-950"
+					>
+						<p className="break-words text-xs font-medium text-stone-900 dark:text-stone-50">
+							{agentLoopDetailLine(loop)}
+						</p>
+						{resource ? (
+							<p className="mt-1 break-all font-mono text-[11px] text-stone-500 dark:text-stone-400">
+								{resource}
+							</p>
+						) : null}
+						{matched.length > 0 && onSelectSpan ? (
+							<div className="mt-2 flex min-w-0 flex-wrap gap-1">
+								<span className="sr-only">{m.OBSERVABILITY_AGENT_LOOP_SPANS}</span>
+								{matched.slice(0, 8).map((span) => (
+									<button
+										key={span.SpanId}
+										type="button"
+										onClick={() => onSelectSpan(span.SpanId)}
+										className="max-w-full break-all rounded border border-stone-200 px-1.5 py-0.5 font-mono text-[10px] text-stone-600 hover:bg-stone-50 dark:border-stone-800 dark:text-stone-300 dark:hover:bg-stone-900"
+									>
+										{span.SpanId.slice(0, 8)}
+									</button>
+								))}
+							</div>
+						) : null}
+					</div>
+				);
+			})}
+		</div>
+	);
 }
 
 function SpanHierarchyExplorerInner({
@@ -249,7 +315,7 @@ function SpanHierarchyExplorerInner({
 				) : (
 					<div
 						className={cn(
-							"bg-stone-50/60 dark:bg-stone-950",
+							"min-w-0 bg-stone-50/60 dark:bg-stone-950",
 							fill
 								? viewMode === "graph"
 									? "min-h-0 flex-1 overflow-hidden overscroll-contain"
@@ -265,6 +331,9 @@ function SpanHierarchyExplorerInner({
 							</div>
 						)}
 						{viewMode === "chat" && <ChatView record={record} />}
+						{viewMode === "agentloop" && (
+							<AgentLoopView record={record} onSelectSpan={onSelectSpan} />
+						)}
 						{viewMode === "analysis" && (
 							<div className="h-full overflow-auto">
 								<TraceAiAnalysisPanel spanId={hierarchySpanId} scope="trace" />

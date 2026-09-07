@@ -212,4 +212,95 @@ describe("governance security checks", () => {
 		expect(findings[0].span_refs).toEqual(expect.arrayContaining(["p1", "p2"]));
 		expect(findings[0].remediation).toBeTruthy();
 	});
+
+	it("flags leftover coding-agent governance findings", () => {
+		const spans = [
+			makeSpan({
+				SpanId: "session",
+				SpanName: "coding_agent.session",
+				SpanAttributes: {
+					"coding_agent.content_capture_mode": "full",
+					"coding_agent.session.outcome": "abandoned_with_change",
+					"coding_agent.session.edit.reject_count": 3,
+					"coding_agent.session.edit.accept_count": 1,
+					"coding_agent.session.commit_count": 3,
+					"coding_agent.session.pr_count": 2,
+					"coding_agent.session.subagent_count": 4,
+					"coding_agent.session.lines.added": 12,
+					"coding_agent.vcs.dirty": "true",
+					"coding_agent.mcp.server.name": "browser",
+					"coding_agent.mcp.scope": "user",
+					"coding_agent.mcp.source": "marketplace",
+				},
+			}),
+			makeSpan({
+				SpanId: "tool-secret",
+				SpanName: "coding_agent.tool.call",
+				SpanAttributes: {
+					"gen_ai.tool.name": "write",
+					"gen_ai.tool.args": '{"token":"AKIAIOSFODNN7EXAMPLE"}',
+				},
+			}),
+		];
+		const findings = buildSecurityFindings(spans);
+		expect(findings.some((f) => f.evidence?.content_capture_mode === "full")).toBe(
+			true
+		);
+		expect(findings.some((f) => f.evidence?.session_outcome === "abandoned_with_change")).toBe(
+			true
+		);
+		expect(findings.some((f) => f.evidence?.edit_reject_count === 3)).toBe(true);
+		expect(findings.some((f) => f.evidence?.vcs_dirty === true)).toBe(true);
+		expect(findings.some((f) => f.evidence?.mcp_scope === "user_or_local")).toBe(
+			true
+		);
+		expect(findings.some((f) => f.evidence?.mcp_source === "marketplace")).toBe(
+			true
+		);
+		expect(findings.some((f) => f.evidence?.commit_count === 3)).toBe(true);
+		expect(findings.some((f) => f.evidence?.subagent_count === 4)).toBe(true);
+		const secret = findings.find((f) =>
+			String(f.evidence?.secret_kinds || "").includes("aws_access_key")
+		);
+		expect(secret).toBeTruthy();
+		expect(JSON.stringify(secret)).not.toContain("AKIAIOSFODNN7EXAMPLE");
+	});
+
+	it("does not flag a dirty tree when the agent did not write", () => {
+		const findings = buildSecurityFindings([
+			makeSpan({
+				SpanId: "session",
+				SpanName: "coding_agent.session",
+				SpanAttributes: {
+					"coding_agent.vcs.dirty": "true",
+					"coding_agent.session.outcome": "completed",
+				},
+			}),
+		]);
+		expect(findings.some((f) => f.evidence?.vcs_dirty)).toBe(false);
+	});
+
+	it("does not flag healthy coding-agent defaults", () => {
+		const spans = [
+			makeSpan({
+				SpanId: "session",
+				SpanName: "coding_agent.session",
+				SpanAttributes: {
+					"coding_agent.content_capture_mode": "metadata_only",
+					"coding_agent.session.outcome": "completed",
+					"coding_agent.session.edit.reject_count": 1,
+					"coding_agent.session.edit.accept_count": 8,
+					"coding_agent.session.commit_count": 1,
+					"coding_agent.session.pr_count": 1,
+					"coding_agent.session.subagent_count": 1,
+					"coding_agent.vcs.dirty": "false",
+					"coding_agent.mcp.server.name": "repo",
+					"coding_agent.mcp.scope": "project",
+					"coding_agent.mcp.source": "builtin",
+				},
+			}),
+		];
+		const findings = buildSecurityFindings(spans);
+		expect(findings).toEqual([]);
+	});
 });

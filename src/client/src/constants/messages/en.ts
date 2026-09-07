@@ -372,6 +372,10 @@ export const OBSERVABILITY_HIERARCHY_UNAVAILABLE =
 	"Span hierarchy is not available for this span.";
 export const OBSERVABILITY_TREE = "Tree";
 export const OBSERVABILITY_CHAT = "Chat";
+export const OBSERVABILITY_AGENT_LOOP = "Agent Loop";
+export const OBSERVABILITY_AGENT_LOOP_EMPTY =
+	"No repeated identical tool calls on this hierarchy.";
+export const OBSERVABILITY_AGENT_LOOP_SPANS = "Open looping spans";
 export const OBSERVABILITY_CHAT_FILTER_CONVERSATION = "Conversation";
 export const OBSERVABILITY_CHAT_FILTER_ALL = "All activity";
 export const OBSERVABILITY_CHAT_SUMMARY = (
@@ -2066,6 +2070,66 @@ export const GOVERNANCE_REMEDIATION_WIDE_BRANCH =
 	"Check whether fan-out is expected; otherwise limit parallel tool calls or subagent spawning.";
 export const GOVERNANCE_REMEDIATION_EVALUATION =
 	"Open Evaluations for this span, review the failing metric, and adjust the prompt, policy, or model before re-running.";
+export const GOVERNANCE_FINDING_CAPTURE_FULL_SUMMARY =
+	"Full content capture is enabled";
+export const GOVERNANCE_FINDING_CAPTURE_FULL_DETAIL =
+	"This session records prompts, tool arguments, and results. That is the highest-risk capture mode for secrets and personal data.";
+export const GOVERNANCE_FINDING_CAPTURE_MINIMAL_SUMMARY =
+	"Minimal content capture";
+export const GOVERNANCE_FINDING_CAPTURE_MINIMAL_DETAIL =
+	"Only session bookends and counters were captured, so this hierarchy has a weak audit trail.";
+export const GOVERNANCE_REMEDIATION_CONTENT_CAPTURE =
+	"Use metadata_only for normal work. Enable full capture only for an approved review, and keep secrets out of prompts and tool arguments.";
+export const GOVERNANCE_FINDING_OUTCOME_ABANDONED_SUMMARY =
+	"Session abandoned with uncommitted changes";
+export const GOVERNANCE_FINDING_OUTCOME_ABANDONED_DETAIL =
+	"The coding agent ended without a clean completion after making changes. Review leftover edits before they are committed or discarded.";
+export const GOVERNANCE_FINDING_OUTCOME_CANCELLED_SUMMARY =
+	"Session cancelled";
+export const GOVERNANCE_FINDING_OUTCOME_CANCELLED_DETAIL =
+	"The coding-agent session was cancelled before a completed outcome.";
+export const GOVERNANCE_REMEDIATION_SESSION_OUTCOME =
+	"Inspect the leftover diff, keep or revert the changes, and avoid leaving abandoned agent edits in the working tree.";
+export const GOVERNANCE_FINDING_EDIT_REJECT_SUMMARY =
+	"High edit rejection ({percent}%)";
+export const GOVERNANCE_FINDING_EDIT_REJECT_DETAIL =
+	"{rejected} of {total} recorded edit decisions were rejected.";
+export const GOVERNANCE_REMEDIATION_EDIT_REJECT =
+	"Tighten the task prompt or coding-agent rules so proposed edits match the intended files and style before the next run.";
+export const GOVERNANCE_FINDING_VCS_DIRTY_SUMMARY =
+	"Agent wrote on a dirty working tree";
+export const GOVERNANCE_FINDING_VCS_DIRTY_DETAIL =
+	"The repository already had uncommitted changes when the agent applied more edits, which mixes human and agent diffs.";
+export const GOVERNANCE_REMEDIATION_VCS_DIRTY =
+	"Commit or stash local work before launching the agent, then re-run so agent edits are reviewable on their own.";
+export const GOVERNANCE_FINDING_MCP_SCOPE_SUMMARY =
+	"User- or local-scoped MCP ({count})";
+export const GOVERNANCE_FINDING_MCP_SCOPE_DETAIL =
+	"MCP servers are bound outside project scope: {servers}.";
+export const GOVERNANCE_FINDING_MCP_MARKETPLACE_SUMMARY =
+	"Marketplace MCP server ({count})";
+export const GOVERNANCE_FINDING_MCP_MARKETPLACE_DETAIL =
+	"MCP servers from the marketplace were used: {servers}.";
+export const GOVERNANCE_REMEDIATION_MCP =
+	"Prefer project- or enterprise-scoped MCP servers, and review marketplace plugins before they can read the repo or secrets.";
+export const GOVERNANCE_FINDING_GIT_BLAST_SUMMARY =
+	"High git activity ({commits} commits, {prs} PRs)";
+export const GOVERNANCE_FINDING_GIT_BLAST_DETAIL =
+	"This session created several commits or pull requests. Confirm the changes were intended and reviewed.";
+export const GOVERNANCE_REMEDIATION_GIT_BLAST =
+	"Limit the agent to one focused commit or PR per task, and require human review before push.";
+export const GOVERNANCE_FINDING_SUBAGENT_SUMMARY =
+	"Subagent fan-out ({count})";
+export const GOVERNANCE_FINDING_SUBAGENT_DETAIL =
+	"This session spawned several subagents, which can multiply tool use, cost, and unreviewed edits.";
+export const GOVERNANCE_REMEDIATION_SUBAGENT =
+	"Cap parallel subagents in agent knowledge or settings unless fan-out is required for this task.";
+export const GOVERNANCE_FINDING_SECRET_SUMMARY =
+	"Possible secret or PII in captured payloads ({kinds})";
+export const GOVERNANCE_FINDING_SECRET_DETAIL =
+	"Tool or message payloads matched credential or PII patterns. The matching values are not stored on this finding.";
+export const GOVERNANCE_REMEDIATION_SECRET =
+	"Rotate any exposed credentials, switch capture mode to metadata_only, and keep secrets in a vault instead of prompts or tool arguments.";
 export const GOVERNANCE_COPY_AGENT_RULE = "Copy agent rule";
 export const GOVERNANCE_COPY_AGENT_RULE_DONE = "Copied";
 export const GOVERNANCE_ASK_OTTER_FIX = "Ask Otter";

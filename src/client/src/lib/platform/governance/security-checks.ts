@@ -23,6 +23,7 @@ import {
 	spanDurationMs,
 } from "./hierarchy";
 import { extractResourceHint, matchingLoopSpans } from "./evidence";
+import { buildCodingAgentFindings } from "./coding-agent-findings";
 
 function stableFindingId(parts: string[]): string {
 	return createHash("sha1").update(parts.join("|")).digest("hex").slice(0, 12);
@@ -323,6 +324,7 @@ export function buildSecurityFindings(
 		});
 	}
 
+	findings.push(...buildCodingAgentFindings(spans));
 	return findings;
 }
 
