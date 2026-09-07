@@ -95,4 +95,40 @@ describe('formatDatePartsValue', () => {
       })
     ).toBeNull();
   });
+
+  it('returns null for non-plain-object values', () => {
+    expect(formatDatePartsValue(null)).toBeNull();
+    expect(formatDatePartsValue(undefined)).toBeNull();
+    expect(formatDatePartsValue('2024-01-01')).toBeNull();
+    expect(formatDatePartsValue([2024, 1, 1])).toBeNull();
+  });
+
+  it('returns null when required year, month, or day parts are missing', () => {
+    expect(formatDatePartsValue({ year: 2026, month: 8 })).toBeNull();
+  });
+
+  it('returns null when a required part is falsy after normalization', () => {
+    expect(formatDatePartsValue({ year: 2026, month: 0, day: 17 })).toBeNull();
+  });
+
+  it('accepts numeric parts provided as strings', () => {
+    const formatted = formatDatePartsValue({ year: '2026', month: '8', day: '17' });
+
+    expect(formatted).toBe(new Date(2026, 7, 17, 0, 0, 0).toLocaleString());
+  });
+
+  it('ignores empty-string entries and defaults missing hour and minute parts to zero', () => {
+    const formatted = formatDatePartsValue({
+      year: 2026,
+      month: 8,
+      day: 17,
+      timezone: '',
+    });
+
+    expect(formatted).toBe(new Date(2026, 7, 17, 0, 0, 0).toLocaleString());
+  });
+
+  it('returns null when the resulting date is out of range', () => {
+    expect(formatDatePartsValue({ year: 300000, month: 1, day: 1 })).toBeNull();
+  });
 });

@@ -6,6 +6,10 @@ jest.mock('next/server', () => ({
     redirect: jest.fn((url) => ({ type: 'redirect', url: url.toString() })),
     json: jest.fn((body, init) => ({ type: 'json', body, init })),
   },
+  NextRequest: jest.fn(function (this: any, base: any, init: any) {
+    this.__base = base;
+    this.headers = init?.headers;
+  }),
 }));
 
 jest.mock('next-auth/middleware', () => ({
@@ -35,7 +39,7 @@ const makeRequest = (
 const makeFetchEvent = () => ({} as any);
 
 describe('checkAuth', () => {
-  const nextHandler = jest.fn(() => ({ type: 'next' }));
+  const nextHandler = jest.fn((..._args: unknown[]) => ({ type: 'next' }));
   let middleware: any;
 
   beforeEach(() => {
@@ -67,6 +71,77 @@ describe('checkAuth', () => {
     await middleware(req as any, makeFetchEvent());
     expect(NextResponse.next).toHaveBeenCalled();
     expect(nextHandler).not.toHaveBeenCalled();
+  });
+
+  describe('Bearer token / API key auth', () => {
+    afterEach(() => {
+      delete (global as any).fetch;
+    });
+
+    it('rejects a Bearer token on a route that does not allow tokens', async () => {
+      const req = makeRequest('GET', '/dashboard', '', { Authorization: 'Bearer abc123' });
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: 'Forbidden' },
+        { status: 403 }
+      );
+      expect(nextHandler).not.toHaveBeenCalled();
+    });
+
+    it('rejects an empty API key', async () => {
+      const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer   ' });
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: 'Invalid API key' },
+        { status: 401 }
+      );
+    });
+
+    it('rejects the API key when verify-key responds with a non-ok status', async () => {
+      (global as any).fetch = jest.fn().mockResolvedValue({ ok: false });
+      const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });
+      await middleware(req as any, makeFetchEvent());
+      expect((global as any).fetch).toHaveBeenCalled();
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: 'Invalid API key' },
+        { status: 401 }
+      );
+    });
+
+    it('rejects the API key when verify-key reports it as invalid', async () => {
+      (global as any).fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ valid: false }),
+      });
+      const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: 'Invalid API key' },
+        { status: 401 }
+      );
+    });
+
+    it('forwards the request with the resolved database config id when the key is valid', async () => {
+      (global as any).fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ valid: true, databaseConfigId: 'db-config-1' }),
+      });
+      const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });
+      await middleware(req as any, makeFetchEvent());
+      expect(nextHandler).toHaveBeenCalled();
+      const forwardedRequest = nextHandler.mock.calls[0][0] as { headers: Headers };
+      expect(forwardedRequest.headers.get('x-database-config-id')).toBe('db-config-1');
+    });
+
+    it('returns 401 when the verify-key request throws', async () => {
+      (global as any).fetch = jest.fn().mockRejectedValue(new Error('network down'));
+      const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: 'Invalid API key' },
+        { status: 401 }
+      );
+    });
   });
 
   describe('auth page (/login)', () => {
@@ -145,6 +220,82 @@ describe('checkAuth', () => {
       const req = makeRequest('GET', '/api/evaluation/auto', '', { 'x-cron-job': 'secret-token' });
       await middleware(req as any, makeFetchEvent());
       expect(NextResponse.next).toHaveBeenCalled();
+    });
+  });
+
+  describe('rate limiting sensitive API prefixes', () => {
+    it('uses the x-real-ip header when x-forwarded-for is absent', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      const req = makeRequest('GET', '/api/organisation', '', { 'x-real-ip': '10.0.0.5' });
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+    });
+
+    it('falls back to "unknown" when no client ip headers are present', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      const req = makeRequest('GET', '/api/organisation');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+    });
+
+    it('sweeps expired rate-limit windows on the periodic cleanup pass', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      const headers = { 'x-forwarded-for': '192.0.2.55' };
+
+      // Seed a window for this key using the real clock.
+      const realNow = Date.now();
+      await middleware(makeRequest('GET', '/api/organisation', '', headers) as any, makeFetchEvent());
+
+      // Jump far enough forward that both this key's window AND the global
+      // cleanup timer are due, forcing the forEach sweep to delete it.
+      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(realNow + 10 * 60_000);
+      try {
+        (NextResponse.next as jest.Mock).mockClear();
+        await middleware(makeRequest('GET', '/api/organisation', '', headers) as any, makeFetchEvent());
+        expect(NextResponse.next).toHaveBeenCalled();
+      } finally {
+        nowSpy.mockRestore();
+      }
+    });
+
+    it('returns 429 once the request count in the current window exceeds the limit', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      const headers = { 'x-forwarded-for': '203.0.113.9' };
+      for (let i = 0; i < 1200; i++) {
+        const req = makeRequest('GET', '/api/organisation', '', headers);
+        await middleware(req as any, makeFetchEvent());
+      }
+      (NextResponse.json as jest.Mock).mockClear();
+      const finalReq = makeRequest('GET', '/api/organisation', '', headers);
+      await middleware(finalReq as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: 'Too many requests' },
+        { status: 429 }
+      );
+    });
+  });
+
+  describe('onboarding whitelist method lookups', () => {
+    it('treats a method with no configured prefix whitelist as having none', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      const req = makeRequest('HEAD', '/api/some-endpoint');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+    });
+  });
+
+  describe('unauthenticated request to a non-whitelisted API route', () => {
+    it('returns 401 Unauthorized without redirecting', async () => {
+      (getToken as jest.Mock).mockResolvedValue(null);
+      const req = makeRequest('GET', '/api/some-restricted-endpoint', '', {
+        'x-forwarded-for': '198.51.100.1',
+      });
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+      expect(NextResponse.redirect).not.toHaveBeenCalled();
     });
   });
 
