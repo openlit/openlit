@@ -14,11 +14,11 @@
 
 import { dataCollector } from "@/lib/platform/common";
 import {
-	OTEL_TRACES_TABLE_NAME,
-} from "@/lib/platform/common";
+	queryConnectorTraces,
+	resolveTracesTableRef,
+} from "./direct-read";
 import {
 	getRequests,
-	getRequestViaSpanId,
 	getAttributeKeys,
 } from "@/lib/platform/request";
 import {
@@ -178,10 +178,11 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 	}
 
 	async validateAISignal(window: QueryTimeRange): Promise<AISignalValidation> {
+		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
 		const query = `SELECT CAST(COUNT(*) AS INTEGER) AS c
-			FROM ${OTEL_TRACES_TABLE_NAME}
+			FROM ${tracesTable}
 			WHERE ${timeRangeClause(window)} AND ${aiSelectorToClickHouse()}`;
-		const { data, err } = await dataCollector({ query }, "query", this.dbConfigId);
+		const { data, err } = await queryConnectorTraces(query, this.dbConfigId);
 		const sampleCount = (data as { c?: number }[])?.[0]?.c ?? 0;
 		return {
 			ok: !err && sampleCount > 0,
@@ -211,32 +212,40 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 	}
 
 	async getSpan(spanId: string): Promise<NormalizedSpan | null> {
-		const result = await getRequestViaSpanId(spanId, this.dbConfigId);
+		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
+		const query = `SELECT * FROM ${tracesTable}
+			WHERE SpanId = '${escapeCH(spanId)}'
+			LIMIT 1`;
+		const result = await queryConnectorTraces(query, this.dbConfigId);
 		assertLegacyReadSucceeded(result);
-		const { record } = result;
-		return record ? normalizeSpanRow(record as Record<string, unknown>) : null;
+		const record = (result.data as unknown[])?.[0];
+		return record
+			? normalizeSpanRow(record as Record<string, unknown>)
+			: null;
 	}
 
 	async getTraceSpans(traceId: string): Promise<NormalizedSpan[]> {
-		const query = `SELECT * FROM ${OTEL_TRACES_TABLE_NAME}
+		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
+		const query = `SELECT * FROM ${tracesTable}
 			WHERE TraceId = '${escapeCH(traceId)}'
 			ORDER BY Timestamp ASC
 			LIMIT 5000`;
-		const result = await dataCollector({ query }, "query", this.dbConfigId);
+		const result = await queryConnectorTraces(query, this.dbConfigId);
 		assertLegacyReadSucceeded(result);
 		const { data } = result;
 		return ((data as Record<string, unknown>[]) || []).map(normalizeSpanRow);
 	}
 
 	async getSpansBySession(sessionId: string): Promise<NormalizedSpan[]> {
+		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
 		const s = escapeCH(sessionId);
-		const query = `SELECT * FROM ${OTEL_TRACES_TABLE_NAME}
+		const query = `SELECT * FROM ${tracesTable}
 			WHERE SpanAttributes['${AI_SELECTOR_MARKERS.codingSessionId}'] = '${s}'
 				OR ResourceAttributes['coding_agent.agent.parent_id'] = '${s}'
 				OR SpanAttributes['coding_agent.agent.parent_id'] = '${s}'
 			ORDER BY Timestamp ASC
 			LIMIT 5000`;
-		const result = await dataCollector({ query }, "query", this.dbConfigId);
+		const result = await queryConnectorTraces(query, this.dbConfigId);
 		assertLegacyReadSucceeded(result);
 		const { data } = result;
 		return ((data as Record<string, unknown>[]) || []).map(normalizeSpanRow);
@@ -265,10 +274,11 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 		]
 			.filter(Boolean)
 			.join(" AND ");
-		const sql = `SELECT ${selects} FROM ${OTEL_TRACES_TABLE_NAME}
+		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
+		const sql = `SELECT ${selects} FROM ${tracesTable}
 			WHERE ${where} ${groupBy}
 			${query.limit ? `LIMIT ${Number(query.limit)}` : ""}`;
-		const result = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		const result = await queryConnectorTraces(sql, this.dbConfigId);
 		assertLegacyReadSucceeded(result);
 		const { data } = result;
 		return {
@@ -320,11 +330,12 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 		]
 			.filter(Boolean)
 			.join(" AND ");
-		const sql = `SELECT DISTINCT ${expr} AS v FROM ${OTEL_TRACES_TABLE_NAME}
+		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
+		const sql = `SELECT DISTINCT ${expr} AS v FROM ${tracesTable}
 			WHERE ${where} AND notEmpty(toString(${expr}))
 			ORDER BY v
 			LIMIT 1000`;
-		const result = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		const result = await queryConnectorTraces(sql, this.dbConfigId);
 		assertLegacyReadSucceeded(result);
 		const { data } = result;
 		return ((data as { v?: unknown }[]) || [])
@@ -482,6 +493,7 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 	// ---- Discovery --------------------------------------------------------
 
 	async discoverServices(window: QueryTimeRange): Promise<DiscoveredService[]> {
+		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
 		const sql = `SELECT
 				ServiceName AS serviceName,
 				any(ResourceAttributes['deployment.environment']) AS environment,
@@ -491,10 +503,10 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 				any(ResourceAttributes['telemetry.sdk.version']) AS sdkVersion,
 				min(Timestamp) AS firstSeen,
 				max(Timestamp) AS lastSeen
-			FROM ${OTEL_TRACES_TABLE_NAME}
+			FROM ${tracesTable}
 			WHERE ${timeRangeClause(window)} AND ${aiSelectorToClickHouse()}
 			GROUP BY ServiceName`;
-		const result = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		const result = await queryConnectorTraces(sql, this.dbConfigId);
 		assertLegacyReadSucceeded(result);
 		const { data } = result;
 		return ((data as Record<string, unknown>[]) || []).map((r) => ({
@@ -510,6 +522,7 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 	}
 
 	async aggregateByService(window: QueryTimeRange): Promise<ServiceRollup[]> {
+		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
 		const sql = `SELECT
 				ServiceName AS serviceName,
 				any(ResourceAttributes['deployment.environment']) AS environment,
@@ -517,10 +530,10 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 				CAST(COUNT(*) AS INTEGER) AS requestCount,
 				groupUniqArray(SpanAttributes['gen_ai.request.model']) AS models,
 				groupUniqArray(SpanAttributes['gen_ai.system']) AS providers
-			FROM ${OTEL_TRACES_TABLE_NAME}
+			FROM ${tracesTable}
 			WHERE ${timeRangeClause(window)} AND ${aiSelectorToClickHouse()}
 			GROUP BY ServiceName`;
-		const result = await dataCollector({ query: sql }, "query", this.dbConfigId);
+		const result = await queryConnectorTraces(sql, this.dbConfigId);
 		assertLegacyReadSucceeded(result);
 		const { data } = result;
 		return ((data as Record<string, unknown>[]) || []).map((r) => ({
@@ -537,6 +550,7 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 		query: OpenLITQuery,
 		maxTraces: number
 	): Promise<NormalizedSpan[]> {
+		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
 		const params = toMetricParams(query, this.dbConfigId);
 		const where = [
 			getFilterWhereCondition(params, true),
@@ -544,15 +558,11 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 		]
 			.filter(Boolean)
 			.join(" AND ");
-		const traceIdSql = `SELECT DISTINCT TraceId FROM ${OTEL_TRACES_TABLE_NAME}
+		const traceIdSql = `SELECT DISTINCT TraceId FROM ${tracesTable}
 			WHERE ${where}
 			ORDER BY TraceId
 			LIMIT ${Number(maxTraces) || 100}`;
-		const idResult = await dataCollector(
-			{ query: traceIdSql },
-			"query",
-			this.dbConfigId
-		);
+		const idResult = await queryConnectorTraces(traceIdSql, this.dbConfigId);
 		assertLegacyReadSucceeded(idResult);
 		const idRows = idResult.data;
 		const traceIds = ((idRows as { TraceId?: string }[]) || [])
@@ -560,11 +570,11 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			.filter((id): id is string => !!id)
 			.map((id) => `'${escapeCH(id)}'`);
 		if (traceIds.length === 0) return [];
-		const spanSql = `SELECT * FROM ${OTEL_TRACES_TABLE_NAME}
+		const spanSql = `SELECT * FROM ${tracesTable}
 			WHERE TraceId IN (${traceIds.join(", ")})
 			ORDER BY Timestamp ASC
 			LIMIT 50000`;
-		const result = await dataCollector({ query: spanSql }, "query", this.dbConfigId);
+		const result = await queryConnectorTraces(spanSql, this.dbConfigId);
 		assertLegacyReadSucceeded(result);
 		const { data } = result;
 		return ((data as Record<string, unknown>[]) || []).map(normalizeSpanRow);

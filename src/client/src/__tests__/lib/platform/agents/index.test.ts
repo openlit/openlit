@@ -2,11 +2,17 @@
  * Unified agent listing query + computeAgentKey helper.
  */
 
+jest.mock("@/lib/db-config", () => ({
+	getDBConfigByIdForBackground: jest.fn(),
+	getDBConfigByIdInternal: jest.fn(),
+	getDBConfigByUser: jest.fn(),
+}));
 jest.mock("@/lib/platform/common", () => {
 	const collector = jest.fn();
 	return {
 		dataCollector: collector,
 		intelligenceDataCollector: collector,
+		connectorDataCollector: collector,
 		OTEL_TRACES_TABLE_NAME: "otel_traces",
 	};
 });

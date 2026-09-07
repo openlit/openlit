@@ -8,7 +8,7 @@
  * they read from the materialized tables.
  */
 
-import { intelligenceDataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import {
 	CONTROLLER_DESIRED_STATES_V2_TABLE,
 	CONTROLLER_SERVICES_TABLE,
@@ -136,6 +136,12 @@ async function discoverAgents(
 		? `AND cluster_id = '${escape(clusterFilter)}'`
 		: "";
 
+	const tracesDbConfigId = await resolveCodingClickHouseDbConfigId(dbConfigId);
+	const { resolveTracesTableRef } = await import(
+		"@/lib/platform/connectors/datasource/clickhouse/direct-read"
+	);
+	const tracesTable = await resolveTracesTableRef(tracesDbConfigId);
+
 	// SDK-side: deduplicate per (service_name, environment, cluster_id) over a
 	// recent window. cluster_id defaults to 'default' for SDK-only agents.
 	// workload_key comes from ResourceAttributes['service.workload.key'] which
@@ -182,7 +188,7 @@ async function discoverAgents(
 					ServiceName AS service_name,
 					${DEPLOYMENT_ENV_SQL} AS environment,
 					if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default') AS cluster_id
-				FROM ${OTEL_TRACES_TABLE_NAME}
+				FROM ${tracesTable}
 				WHERE Timestamp >= now() - INTERVAL ${SDK_DISCOVERY_LOOKBACK_MINUTES} MINUTE
 					AND (
 						ResourceAttributes['telemetry.distro.name'] = 'openlit-cli'
@@ -200,7 +206,7 @@ async function discoverAgents(
 				argMax(ResourceAttributes['telemetry.sdk.language'], Timestamp) AS sdk_language,
 				min(Timestamp) AS first_seen,
 				max(Timestamp) AS last_seen
-			FROM ${OTEL_TRACES_TABLE_NAME}
+			FROM ${tracesTable}
 			WHERE Timestamp >= now() - INTERVAL ${SDK_DISCOVERY_LOOKBACK_MINUTES} MINUTE
 				AND ServiceName != ''
 				AND ResourceAttributes['telemetry.sdk.name'] = 'openlit'
@@ -255,7 +261,11 @@ async function discoverAgents(
 			SDK_DISCOVERY_LOOKBACK_MINUTES
 		);
 	} else {
-		const sdkRes = await intelligenceDataCollector({ query: sdkQuery }, "query", dbConfigId);
+		const sdkRes = await intelligenceDataCollector(
+			{ query: sdkQuery },
+			"query",
+			tracesDbConfigId
+		);
 		if (sdkRes.err) {
 			agentsLogger.error("materializer_sdk_discovery_failed", {
 				err: sdkRes.err,
@@ -595,6 +605,10 @@ async function discoverCodingAgents(
 	window?: CodingAgentDiscoveryWindow
 ): Promise<DiscoveredAgent[]> {
 	const codingDbConfigId = await resolveCodingClickHouseDbConfigId(dbConfigId);
+	const { resolveTracesTableRef } = await import(
+		"@/lib/platform/connectors/datasource/clickhouse/direct-read"
+	);
+	const tracesTable = await resolveTracesTableRef(codingDbConfigId);
 
 	// Cost rollup notes:
 	//   * `coding_agent.session.cost_usd` is only stamped on the
@@ -760,7 +774,7 @@ async function discoverCodingAgents(
 				min(Timestamp) AS chat_first_seen,
 				max(Timestamp) AS chat_last_seen,
 				argMax(SpanAttributes['coding_agent.client.version'], Timestamp) AS client_version
-			FROM ${OTEL_TRACES_TABLE_NAME}
+			FROM ${tracesTable}
 			WHERE ${buildCodingWindowClause(window)}
 				AND (
 					SpanAttributes['coding_agent.session.id'] != ''
@@ -913,6 +927,12 @@ async function fetchRequestCounts(
 	}
 	if (!traditional.length) return map;
 
+	const tracesDbConfigId = await resolveCodingClickHouseDbConfigId(dbConfigId);
+	const { resolveTracesTableRef } = await import(
+		"@/lib/platform/connectors/datasource/clickhouse/direct-read"
+	);
+	const tracesTable = await resolveTracesTableRef(tracesDbConfigId);
+
 	const serviceNames = Array.from(new Set(traditional.map((a) => a.service_name)));
 	const namesList = serviceNames.map((n) => `'${escape(n)}'`).join(", ");
 	const query = `
@@ -921,12 +941,12 @@ async function fetchRequestCounts(
 			${DEPLOYMENT_ENV_SQL} AS environment,
 			if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default') AS cluster_id,
 			count() AS request_count_24h
-		FROM ${OTEL_TRACES_TABLE_NAME}
+		FROM ${tracesTable}
 		WHERE Timestamp >= now() - INTERVAL 24 HOUR
 			AND ServiceName IN (${namesList})
 		GROUP BY service_name, environment, cluster_id
 	`;
-	const res = await intelligenceDataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", tracesDbConfigId);
 	if (res.err) {
 		agentsLogger.error("materializer_request_count_failed", {
 			err: res.err,

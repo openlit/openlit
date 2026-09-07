@@ -1,7 +1,16 @@
-jest.mock('@/lib/platform/common', () => ({
-  dataCollector: jest.fn(),
-  OTEL_TRACES_TABLE_NAME: 'otel_traces',
+jest.mock('@/lib/db-config', () => ({
+  getDBConfigByIdForBackground: jest.fn().mockResolvedValue({ database: 'openlit' }),
+  getDBConfigByUser: jest.fn(),
 }));
+jest.mock('@/lib/platform/common', () => {
+  const collector = jest.fn();
+  return {
+    dataCollector: collector,
+    connectorDataCollector: collector,
+    intelligenceDataCollector: collector,
+    OTEL_TRACES_TABLE_NAME: 'otel_traces',
+  };
+});
 
 import {
   getGroupByExpression,
