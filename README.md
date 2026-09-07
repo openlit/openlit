@@ -579,6 +579,30 @@ See [LICENSE](https://github.com/openlit/openlit/blob/main/LICENSE) for details.
 
 ---
 
+# 🙇 Acknowledgments
+
+This project is proudly supported by:
+
+<p>
+<a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=openlit" target="_blank">
+  <img src="docs/images/testmu-logo.png" alt="TestMu" height="80">
+</a>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://www.digitalocean.com/">
+  <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" alt="DigitalOcean" height="80" width="200">
+</a>
+</p>
+
+---
+
+# 💻 Contributors
+
+<a href="https://github.com/openlit/openlit/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=openlit/openlit" alt="OpenLIT contributors">
+</a>
+
+---
+
 <div align="center">
 
 ### Build AI systems you can actually understand.
