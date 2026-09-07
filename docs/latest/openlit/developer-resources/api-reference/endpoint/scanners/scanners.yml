@@ -1,0 +1,250 @@
+openapi: 3.0.3
+info:
+  title: Scanner API
+  description: Run Trustabl scanner jobs and retrieve scan findings.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/scanners/{id}/scan:
+    post:
+      summary: Run a scanner job
+      description: Start a Trustabl scan for the connector. Missing body fields fall back to connector defaults. Returns the finished job and findings.
+      operationId: runScannerJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Scanner connector ID (`scanner:<uuid>`).
+        - name: x-openlit-organisation-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: x-openlit-project-id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: x-openlit-environment
+          in: header
+          required: true
+          schema:
+            type: string
+            example: production
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                target:
+                  type: string
+                  example: https://github.com/acme/checkout-agent
+                ref:
+                  type: string
+                  example: main
+                detectors:
+                  type: string
+                  example: claude_sdk,mcp
+                strict:
+                  type: boolean
+                secretScan:
+                  type: boolean
+                vulnScan:
+                  type: boolean
+                licenseScan:
+                  type: boolean
+                requireSigned:
+                  type: boolean
+                rulesRepo:
+                  type: string
+                rulesRef:
+                  type: string
+                rulesSource:
+                  type: string
+                  enum: [environment, production, staging, git]
+                noRulesUpdate:
+                  type: boolean
+                verbose:
+                  type: boolean
+      responses:
+        '200':
+          description: Scan job result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connector:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      type:
+                        type: string
+                  job:
+                    $ref: '#/components/schemas/ScannerJob'
+        '400':
+          description: Invalid JSON or scan parameters.
+        '401':
+          description: Unauthorized.
+  /api/scanners:
+    get:
+      summary: List scanner connectors and scan jobs
+      description: Return scanner connectors for the current project and environment, including recent jobs and findings.
+      operationId: listScannerJobs
+      parameters:
+        - name: x-openlit-organisation-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: x-openlit-project-id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: x-openlit-environment
+          in: header
+          required: true
+          schema:
+            type: string
+            example: production
+      responses:
+        '200':
+          description: Scanner connectors with recent jobs.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connectors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        type:
+                          type: string
+                        environment:
+                          type: string
+                        jobs:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/ScannerJob'
+        '401':
+          description: Unauthorized.
+  /api/scanners/findings:
+    get:
+      summary: Get latest scan findings for a repository
+      description: Return the latest succeeded scan in this environment whose target matches repoUrl.
+      operationId: getScannerFindings
+      parameters:
+        - name: repoUrl
+          in: query
+          required: true
+          schema:
+            type: string
+            example: https://github.com/acme/checkout-agent
+        - name: x-openlit-organisation-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: x-openlit-project-id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: x-openlit-environment
+          in: header
+          required: true
+          schema:
+            type: string
+            example: production
+      responses:
+        '200':
+          description: Latest matching scan findings, or a miss when none exist.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matched:
+                    type: boolean
+                  repoKey:
+                    type: string
+                    nullable: true
+                  connectorId:
+                    type: string
+                  jobId:
+                    type: string
+                  findings:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ruleId:
+                          type: string
+                        severity:
+                          type: string
+                        path:
+                          type: string
+                        title:
+                          type: string
+                  url:
+                    type: string
+        '400':
+          description: repoUrl is missing.
+        '401':
+          description: Unauthorized.
+components:
+  schemas:
+    ScannerJob:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, runtime-missing]
+        target:
+          type: string
+        ref:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        findingCount:
+          type: integer
+        mediumPlusCount:
+          type: integer
+        findings:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              ruleId:
+                type: string
+              severity:
+                type: string
+              path:
+                type: string
+              title:
+                type: string
+        error:
+          type: string

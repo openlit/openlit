@@ -246,6 +246,11 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getTitle: () => getMessage().FEATURE_MEMORY,
 		getBreadcrumbs: () => [],
 	},
+	{
+		regex: /^\/scanner$/,
+		getTitle: () => getMessage().FEATURE_SCANNER,
+		getBreadcrumbs: () => [],
+	},
 
 	// Rule Engine
 	{

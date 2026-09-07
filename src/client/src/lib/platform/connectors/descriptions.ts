@@ -7,6 +7,7 @@ const CONNECTOR_DESCRIPTIONS: Record<string, string> = {
 	claude: "Agent memory from Claude memory stores.",
 	mem0: "Long-term agent memory from Mem0.",
 	zep: "Session and graph memory from Zep.",
+	trustabl: "Agent SDK and MCP reliability scans from Trustabl.",
 };
 
 export function connectorDescription(type: string, displayName?: string): string {

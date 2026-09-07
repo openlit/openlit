@@ -1,9 +1,9 @@
 # Connector framework
 
 Connectors are the common integration boundary for OpenLIT. A connector type
-belongs to a category (`datasource`, `notification`, `memory`, and so on), and
-an instance is a project- or organisation-scoped configuration with secrets
-stored in the vault.
+belongs to a category (`datasource`, `notification`, `memory`, `scanner`, and so
+on), and an instance is a project- or organisation-scoped configuration with
+secrets stored in the vault.
 
 Datasource adapters are registered automatically from the existing datasource
 registry. New datasource contributors should implement the existing

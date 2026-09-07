@@ -8,6 +8,7 @@ export const VISIBLE_CONNECTOR_TYPES = [
 	"claude",
 	"mem0",
 	"zep",
+	"trustabl",
 ] as const;
 
 export function isVisibleConnectorType(type: unknown): boolean {

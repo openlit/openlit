@@ -1,0 +1,116 @@
+import getMessage from "@/constants/messages";
+import type { FieldDef } from "../datasource/types";
+
+export function trustablConfigFields(): FieldDef[] {
+	const messages = getMessage();
+	return [
+		{
+			key: "target",
+			label: messages.SCANNER_FIELD_TARGET,
+			kind: "url",
+			group: "settings",
+			placeholder: "https://github.com/owner/repo/tree/main",
+			description: messages.SCANNER_FIELD_TARGET_HELP,
+		},
+		{
+			key: "ref",
+			label: messages.SCANNER_FIELD_REF,
+			kind: "text",
+			group: "settings",
+			placeholder: "main",
+			description: messages.SCANNER_FIELD_REF_HELP,
+		},
+		{
+			key: "detectors",
+			label: messages.SCANNER_FIELD_DETECTORS,
+			kind: "text",
+			group: "settings",
+			placeholder: "claude_sdk,mcp",
+			description: messages.SCANNER_FIELD_DETECTORS_HELP,
+		},
+		{
+			key: "strict",
+			label: messages.SCANNER_FIELD_STRICT,
+			kind: "switch",
+			group: "settings",
+			defaultValue: false,
+			description: messages.SCANNER_FIELD_STRICT_HELP,
+		},
+		{
+			key: "secretScan",
+			label: messages.SCANNER_FIELD_SECRET_SCAN,
+			kind: "switch",
+			group: "settings",
+			defaultValue: false,
+			description: messages.SCANNER_FIELD_SECRET_SCAN_HELP,
+		},
+		{
+			key: "vulnScan",
+			label: messages.SCANNER_FIELD_VULN_SCAN,
+			kind: "switch",
+			group: "settings",
+			defaultValue: false,
+			description: messages.SCANNER_FIELD_VULN_SCAN_HELP,
+		},
+		{
+			key: "licenseScan",
+			label: messages.SCANNER_FIELD_LICENSE_SCAN,
+			kind: "switch",
+			group: "settings",
+			defaultValue: false,
+			description: messages.SCANNER_FIELD_LICENSE_SCAN_HELP,
+		},
+		{
+			key: "rulesSource",
+			label: messages.SCANNER_FIELD_RULES_SOURCE,
+			kind: "select",
+			group: "settings",
+			defaultValue: "environment",
+			description: messages.SCANNER_FIELD_RULES_SOURCE_HELP,
+			options: [
+				{ value: "environment", label: messages.SCANNER_FIELD_RULES_SOURCE_ENVIRONMENT },
+				{ value: "production", label: messages.SCANNER_FIELD_RULES_SOURCE_PRODUCTION },
+				{ value: "staging", label: messages.SCANNER_FIELD_RULES_SOURCE_STAGING },
+				{ value: "git", label: messages.SCANNER_FIELD_RULES_SOURCE_GIT },
+			],
+		},
+		{
+			key: "rulesRepo",
+			label: messages.SCANNER_FIELD_RULES_REPO,
+			kind: "url",
+			group: "settings",
+			placeholder: "https://github.com/trustabl/trustabl-rules",
+			description: messages.SCANNER_FIELD_RULES_REPO_HELP,
+		},
+		{
+			key: "rulesRef",
+			label: messages.SCANNER_FIELD_RULES_REF,
+			kind: "text",
+			group: "settings",
+			placeholder: "main",
+			description: messages.SCANNER_FIELD_RULES_REF_HELP,
+		},
+		{
+			key: "requireSigned",
+			label: messages.SCANNER_FIELD_REQUIRE_SIGNED,
+			kind: "switch",
+			group: "settings",
+			defaultValue: true,
+			description: messages.SCANNER_FIELD_REQUIRE_SIGNED_HELP,
+		},
+		{
+			key: "noRulesUpdate",
+			label: messages.SCANNER_FIELD_NO_RULES_UPDATE,
+			kind: "switch",
+			group: "settings",
+			defaultValue: false,
+			description: messages.SCANNER_FIELD_NO_RULES_UPDATE_HELP,
+		},
+		{
+			key: "githubToken",
+			label: messages.SCANNER_FIELD_GITHUB_TOKEN,
+			kind: "password",
+			group: "credentials",
+		},
+	];
+}

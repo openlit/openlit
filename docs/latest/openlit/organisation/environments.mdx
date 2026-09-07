@@ -12,7 +12,7 @@ Organisation
   └── Project
         └── Environment  (production | staging | …)
               ├── Database Config   (ClickHouse app store)
-              ├── Connectors        (Tempo, Loki, Prometheus, Jaeger, …)
+              ├── Connectors        (Tempo, Loki, Prometheus, Jaeger, Trustabl, …)
               └── Signal routing    (traces / logs / metrics bindings)
 ```
 
@@ -68,7 +68,7 @@ Environments are created when you add a Database Config or connector with a new 
     Env vars → ClickHouse Database Config per environment.
   </Card>
   <Card title="Connectors" href="/latest/openlit/connectors/overview" icon="plug">
-    Data-source and memory connectors in OpenLIT.
+    Data-source, memory, and scanner connectors in OpenLIT.
   </Card>
   <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
     Bind traces, logs, and metrics per environment.

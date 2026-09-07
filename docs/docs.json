@@ -74,7 +74,8 @@
                 "pages": [
                   "latest/openlit/connectors/overview",
                   "latest/openlit/connectors/datasource",
-                  "latest/openlit/connectors/memory"
+                  "latest/openlit/connectors/memory",
+                  "latest/openlit/connectors/scanner"
                 ]
               }
             ]
@@ -239,6 +240,14 @@
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/create",
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/get",
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/delete"
+                    ]
+                  },
+                  {
+                    "group": "Scanner",
+                    "pages": [
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/scan",
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/list",
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/findings"
                     ]
                   }
                 ]

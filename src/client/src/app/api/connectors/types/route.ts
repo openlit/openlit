@@ -8,7 +8,7 @@ async function GETHandler() {
 
 	const types = availableConnectorTypeDescriptors();
 	return Response.json({
-		categories: ["datasource", "notification", "memory", "vector-store", "model-provider"],
+		categories: ["datasource", "notification", "memory", "scanner", "repository", "vector-store", "model-provider"],
 		types,
 	});
 }

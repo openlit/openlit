@@ -16,7 +16,7 @@ info:
     - `x-openlit-project-id` — active project (bindings are project-scoped)
     - `x-openlit-environment` — active environment (drives signal routing)
 
-    ### Non-SDK APIs (telemetry, Ask Otter, AI Analysis, …)
+    ### Non-SDK APIs (telemetry, Ask Otter, AI Analysis, Scanner, …)
     Use signal routing headers only. Do **not** send
     `x-openlit-database-config-id`. The API key still binds a vault/credential
     database config (middleware injects `x-database-config-id`).
@@ -31,7 +31,7 @@ info:
     ## Authentication
 
     All documented endpoints require Bearer API key auth (`ApiKeyAuth`).
-  version: 1.28.0
+  version: 1.29.0
 servers:
   - url: http://localhost:3000
     description: Local development server
@@ -54,6 +54,8 @@ tags:
     description: Offline LLM evaluations
   - name: API Keys
     description: Manage browser/SDK access keys
+  - name: Scanner
+    description: Run Trustabl scanner jobs and retrieve findings for GitHub repositories
 
 paths:
   /api/telemetry/logs:
@@ -1419,6 +1421,112 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
+  /api/scanners:
+    get:
+      tags:
+        - Scanner
+      summary: List scanner connectors and scan jobs
+      description: |
+        Return scanner connectors for the current project and environment, including
+        recent scan jobs and their findings. Use this to read the data of a scan after
+        `POST /api/scanners/{id}/scan`. Jobs are environment-scoped. Secrets are never
+        returned.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+      responses:
+        '200':
+          description: Scanner connectors with recent jobs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/scanners/{id}/scan:
+    post:
+      tags:
+        - Scanner
+      summary: Run a scanner job
+      description: |
+        Start a Trustabl scan for the connector. Missing body fields fall back to the
+        connector defaults. The scan target must be an `https://github.com/owner/repo`
+        URL (optional `/tree/<ref>`). Local filesystem paths are rejected.
+
+        The response includes the finished job and its findings. The request can take
+        several minutes (up to 300 seconds). A second scan is rejected while one is
+        already running on the same connector. Tokens stay on the connector and must
+        not be sent in the body.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - name: id
+          in: path
+          required: true
+          description: Scanner connector ID (`scanner:<uuid>`).
+          schema:
+            type: string
+            example: scanner:3f1c9a2b-4d6e-4a11-9c8f-1b2a3c4d5e6f
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScannerScanRequest'
+      responses:
+        '200':
+          description: Scan job result, including findings when the job finished.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerScanResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/scanners/findings:
+    get:
+      tags:
+        - Scanner
+      summary: Get latest scan findings for a repository
+      description: |
+        Return the latest succeeded scan in the current project and environment whose
+        target matches `repoUrl`. Accepts `https://github.com/owner/repo`, `.git`,
+        `/tree/<ref>`, and `git@github.com:owner/repo` forms. Medium+ findings are
+        listed first (up to 25). When no scan matches, `matched` is false.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - name: repoUrl
+          in: query
+          required: true
+          description: GitHub repository URL from `vcs.repository.url.full` or the scanner target.
+          schema:
+            type: string
+            example: https://github.com/acme/checkout-agent
+      responses:
+        '200':
+          description: Latest matching scan findings, or a miss when none exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerFindingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
 components:
   parameters:
     OpenLitOrganisationId:
@@ -1448,7 +1556,7 @@ components:
       description: |
         Header parameter. Active project environment (for example `production` or `staging`).
         Required for signal routing (traces/logs/metrics/intelligence connectors),
-        AI Analysis, and Ask Otter SQL. Defaults to `production` on some routes
+        AI Analysis, Ask Otter SQL, and scanner jobs. Defaults to `production` on some routes
         when omitted, which may hit the wrong source.
       schema:
         type: string
@@ -1758,6 +1866,262 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    ScannerFinding:
+      type: object
+      properties:
+        id:
+          type: string
+        ruleId:
+          type: string
+          example: MCP-004
+        severity:
+          type: string
+          example: medium
+        category:
+          type: string
+        scope:
+          type: string
+        toolName:
+          type: string
+        path:
+          type: string
+          example: src/mcp/server.ts
+        line:
+          type: integer
+        endLine:
+          type: integer
+        title:
+          type: string
+        message:
+          type: string
+        helpUrl:
+          type: string
+        fix:
+          type: string
+        confidence:
+          type: string
+
+    ScannerReportSummary:
+      type: object
+      properties:
+        scanId:
+          type: string
+        repo:
+          type: string
+        overallScore:
+          type: number
+          example: 0.72
+        rulesSource:
+          type: string
+          example: production
+        rulesVersion:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        sdks:
+          type: array
+          items:
+            type: string
+        toolCount:
+          type: integer
+        agentCount:
+          type: integer
+        mcpCount:
+          type: integer
+        vulnerabilityCount:
+          type: integer
+        secretCount:
+          type: integer
+        filesParsed:
+          type: integer
+        noAgentSurfaces:
+          type: boolean
+
+    ScannerScanParams:
+      type: object
+      description: Resolved Trustabl scan flags persisted on the job. Secrets are never included.
+      properties:
+        detectors:
+          type: string
+          example: claude_sdk,mcp
+        strict:
+          type: boolean
+        secretScan:
+          type: boolean
+        vulnScan:
+          type: boolean
+        licenseScan:
+          type: boolean
+        requireSigned:
+          type: boolean
+        rulesRepo:
+          type: string
+        rulesRef:
+          type: string
+        rulesSource:
+          type: string
+          enum: [production, staging, git]
+        noRulesUpdate:
+          type: boolean
+        verbose:
+          type: boolean
+
+    ScannerScanRequest:
+      type: object
+      description: |
+        Optional per-run overrides. Omitted fields use the scanner connector defaults.
+        Do not send GitHub tokens in this body.
+      properties:
+        target:
+          type: string
+          description: GitHub repository URL. Falls back to the connector setting.
+          example: https://github.com/acme/checkout-agent
+        ref:
+          type: string
+          description: Branch, tag, or commit. Falls back to the URL `/tree/<ref>` or the connector setting.
+          example: main
+        detectors:
+          type: string
+        strict:
+          type: boolean
+        secretScan:
+          type: boolean
+        vulnScan:
+          type: boolean
+        licenseScan:
+          type: boolean
+        requireSigned:
+          type: boolean
+        rulesRepo:
+          type: string
+        rulesRef:
+          type: string
+        rulesSource:
+          type: string
+          enum: [environment, production, staging, git]
+        noRulesUpdate:
+          type: boolean
+        verbose:
+          type: boolean
+
+    ScannerJob:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, runtime-missing]
+        target:
+          type: string
+          example: https://github.com/acme/checkout-agent
+        ref:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        durationMs:
+          type: integer
+        exitCode:
+          type: integer
+        error:
+          type: string
+        findingCount:
+          type: integer
+        mediumPlusCount:
+          type: integer
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScannerFinding'
+        params:
+          $ref: '#/components/schemas/ScannerScanParams'
+        report:
+          $ref: '#/components/schemas/ScannerReportSummary'
+
+    ScannerConnector:
+      type: object
+      properties:
+        id:
+          type: string
+          example: scanner:3f1c9a2b-4d6e-4a11-9c8f-1b2a3c4d5e6f
+        name:
+          type: string
+        type:
+          type: string
+          example: trustabl
+        environment:
+          type: string
+          example: production
+        settings:
+          type: string
+          description: JSON object of non-secret connector settings.
+        hasSecret:
+          type: boolean
+        category:
+          type: string
+          example: scanner
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScannerJob'
+
+    ScannerListResponse:
+      type: object
+      properties:
+        connectors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScannerConnector'
+
+    ScannerScanResponse:
+      type: object
+      properties:
+        connector:
+          $ref: '#/components/schemas/ScannerConnector'
+        job:
+          $ref: '#/components/schemas/ScannerJob'
+
+    ScannerFindingsResponse:
+      type: object
+      properties:
+        matched:
+          type: boolean
+        repoKey:
+          type: string
+          nullable: true
+          example: github.com/acme/checkout-agent
+        connectorId:
+          type: string
+        connectorName:
+          type: string
+        jobId:
+          type: string
+        target:
+          type: string
+        ref:
+          type: string
+        scannedAt:
+          type: string
+          format: date-time
+        findingCount:
+          type: integer
+        mediumPlusCount:
+          type: integer
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScannerFinding'
+        url:
+          type: string
+          description: Scanner workspace deep link (`/scanner?connectorId=&jobId=`).
+          example: /scanner?connectorId=scanner%3Aabc&jobId=job%3A1
 
   responses:
     UnauthorizedError:
