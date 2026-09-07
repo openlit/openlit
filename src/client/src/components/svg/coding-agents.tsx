@@ -17,9 +17,15 @@
  *     explicit fill is supplied. The default fill (#788CFE) matches the
  *     primary swirl colour in the upstream SVG so the icon still reads
  *     as "Codex" outside a coloured pill.
+ *   - OpenCode: geometry from anomalyco/opencode's official
+ *     `packages/console/app/src/asset/brand/opencode-logo-light-square.svg`
+ *     (MIT; see /THIRD_PARTY_NOTICES.md). The clip/mask wrappers are removed
+ *     and their x-offset is folded into the same two paths so the mark can
+ *     tint via `currentColor`.
  */
 
 import type { SVGProps } from "react";
+import { AGENTS_CODING_VENDOR_OPENCODE_LABEL } from "@/constants/messages/en";
 
 type IconProps = SVGProps<SVGSVGElement> & { className?: string };
 
@@ -99,6 +105,28 @@ export function CodexIcon({ className = "h-4 w-4" }: IconProps) {
 	);
 }
 
+export function OpenCodeIcon({
+	className = "h-4 w-4",
+	...rest
+}: IconProps) {
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 300 300"
+			className={className}
+			aria-label={AGENTS_CODING_VENDOR_OPENCODE_LABEL}
+			role="img"
+			{...rest}
+		>
+			<path d="M210 240H90V120H210V240Z" fill="currentColor" />
+			<path
+				d="M210 60H90V240H210V60ZM270 300H30V0H270V300Z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
 /**
  * Returns true when we have an inline logo for the given vendor.
  * Callers (table rows, session cards, trace-detail pills) use this
@@ -115,6 +143,7 @@ export function hasCodingAgentVendorIcon(
 		case "cursor":
 		case "claude-code":
 		case "codex":
+		case "opencode":
 			return true;
 		default:
 			return false;
@@ -134,6 +163,7 @@ const CODING_AGENT_VENDOR_LABELS: Record<string, string> = {
 	cursor: "Cursor",
 	"claude-code": "Claude Code",
 	codex: "Codex",
+	opencode: AGENTS_CODING_VENDOR_OPENCODE_LABEL,
 	windsurf: "Windsurf",
 };
 
@@ -161,6 +191,8 @@ export function CodingAgentVendorIcon({
 	switch (vendor.toLowerCase()) {
 		case "cursor":
 			return <CursorIcon className={className} />;
+		case "opencode":
+			return <OpenCodeIcon className={className} />;
 		case "claude-code":
 			return <ClaudeCodeIcon className={className} />;
 		case "codex":

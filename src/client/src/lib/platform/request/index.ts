@@ -411,7 +411,7 @@ export async function getHeirarchyViaSpanId(spanId: string, databaseConfigId?: s
 			  AND (
 				notEmpty(SpanAttributes['gen_ai.input.messages'])
 				OR notEmpty(SpanAttributes['gen_ai.output.messages'])
-				OR SpanAttributes['coding_agent.llm.turn.kind'] IN ('user_prompt', 'assistant_only')
+				OR SpanAttributes['coding_agent.llm.turn.kind'] IN ('prompt', 'response', 'thought', 'user_prompt', 'assistant_only')
 			  )
 			ORDER BY Timestamp DESC
 			LIMIT 2000

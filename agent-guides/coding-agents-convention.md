@@ -16,7 +16,7 @@ Everything OpenLit reads or rolls up speaks one of two namespaces:
 **Hard rules:**
 
 1. Adapters MUST stamp `coding_agent.session.id` on every span. No exceptions.
-2. Adapters MUST stamp `coding_agent.client` (vendor identifier) on every span. Allowed values: `cursor`, `claude-code`, `codex`, `windsurf`. Add new values to `sdk/go/semconv/coding_agent.go` AND `src/client/src/types/agents.ts` AND re-run `go generate`.
+2. Adapters MUST stamp `coding_agent.client` (vendor identifier) on every span. Allowed values: `cursor`, `claude-code`, `codex`, `opencode`, `windsurf`. Add new values to `sdk/go/semconv/coding_agent.go` AND `src/client/src/types/agents.ts` AND re-run `go generate`.
 3. `gen_ai.system` MUST be the LLM provider, not the agent vendor: `anthropic`, `openai`, `google`, `xai`, `mistral`. Use the `inferProvider(model, vendor)` helper.
 4. Numeric attributes are emitted as numbers, NEVER as strings. Tokens are `int64`. Cost is `float64` in USD. Duration is `int64` in milliseconds.
 5. Timestamps are RFC3339-with-nanos when stamped as strings, or the OTel span's intrinsic start/end when stamped as span time. NEVER unix seconds, never milliseconds-since-epoch.
@@ -89,6 +89,10 @@ For sessions where the rollup is missing (Codex never emits a
 the query layer falls back to per-event aggregation with the
 `greatest(rollup, sum)` pattern documented in `queries.ts`.
 
+**Non-terminal session snapshot spans** (`coding_agent.session.snapshot.start`, `coding_agent.session.snapshot`):
+
+These are the narrow exception for a vendor such as OpenCode that has no true session-end signal. They are allowed only in `minimal` capture mode. The start snapshot establishes visibility; each idle snapshot carries per-snapshot token/cost deltas and cumulative duration/tool-call count. Readers sum the deltas and take the numeric maximum of cumulative values. A snapshot MUST NOT carry `coding_agent.session.outcome` and MUST NOT be treated as a terminal `coding_agent.session` root.
+
 **LLM turn span** (`coding_agent.llm.turn`):
 
 | Attribute | Required | Notes |
@@ -99,6 +103,7 @@ the query layer falls back to per-event aggregation with the
 | `gen_ai.response.model` | When known | Often equal to request |
 | `gen_ai.usage.input_tokens` | When known | `int64` |
 | `gen_ai.usage.output_tokens` | When known | `int64` |
+| `gen_ai.usage.reasoning_tokens` | When known | `int64` |
 | `gen_ai.usage.total_tokens` | When known | `int64` |
 | `gen_ai.usage.cost` | When known | `float64`, USD |
 | `gen_ai.response.id` | When known | Vendor request id |
@@ -400,11 +405,11 @@ If we add OpenCode (or any other vendor):
 1. **semconv** — add the vendor identifier to `sdk/go/semconv/coding_agent.go`'s vendor list AND to `src/client/src/types/agents.ts`'s `CodingAgentVendor` union. Run `go generate ./cli/...` to regenerate `cli/gen/semconv.ts`.
 2. **Adapter** — create `cli/internal/coding/hook/opencode/handle.go`. Mirror the structure of `cursor/handle.go` or `claudecode/handle.go`. Map every payload key to the canonical attribute matrix in §2 — DO NOT introduce a new `opencode.*` namespace for facts that already have a canonical key.
 3. **`peekContext`** — `cli/internal/coding/hook/hook.go`. Add the vendor's payload key names to `pickString`. The function MUST resolve `session_id`, `user`, `cwd`, `permission_mode`, `model`, and (when applicable) `parent_conversation_id` from this vendor's payload format.
-4. **Plugin manifest** — `plugins/opencode/`. Mirror `plugins/cursor/` for VS-Code-style hooks or `plugins/claude-code/` for Anthropic-style. The plugin invokes `openlit coding hook --vendor=opencode --event=<EventName>`.
+4. **Plugin manifest** — `plugins/opencode/`. Keep the distributable source in sync with the embedded installer copy. The plugin invokes `openlit coding hook --vendor=opencode --event=<EventName>` with a strictly projected payload.
 5. **Native telemetry mapping** — if the vendor ships its own OTel signals, write §4's equivalent for it. Add the inbound coalesce to `queries.ts` and document the dual-path rules.
 6. **Icon** — add a tiny inline SVG component to `src/client/src/components/svg/coding-agents.tsx` and wire `case "opencode":` into `CodingAgentVendorIcon`. The hard-coded `=== "cursor"` checks in `coding-agents-table.tsx`, `signal-records.tsx`, and `trace-detail-page.tsx` should be replaced with a "ask the icon component, fall back to Bot" pattern so new vendors pick up icons automatically.
-7. **Onboarding doc** — `docs/features/coding-agents/onboarding.mdx`. Add a tab for the vendor.
-8. **Sanity check** — fire one session end to end, then run the verification SQL in `coding-agents-hook.md` §10.
+7. **Onboarding doc** — `docs/latest/openlit/coding-agents/setup-and-configure.mdx`. Add a tab for the vendor.
+8. **Sanity check** — run one session end to end (or through the vendor's strongest available lifecycle boundary), then run the verification SQL in `coding-agents-hook.md` §9.
 
 ## 11. Things the convention WILL bite you on
 
@@ -426,5 +431,6 @@ These are known limits where the data the vendor sends prevents perfect rollup. 
 
 - **Cursor: no stable chat-thread id across CLI processes**. When the user suspends a chat (laptop sleep, IDE restart) and resumes, Cursor spawns a fresh CLI process with a fresh `session_id` AND a fresh `conversation_id`. There is no field in the hook payload that links the new session to the previous one. Result: one user-perceived chat shows as N sessions in the OpenLit UI. The chat rollup is doing the right thing per the data it received; the limitation is upstream. Possible future fixes (in order of robustness): Cursor adds a `composer_thread_id` field to the payload, OR we read Cursor's local SQLite at `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` to map session_id → thread_id (version-fragile, not recommended without coordination with Cursor).
 - **Claude Code: no `cwd` / `repo` in native OTel telemetry**. The native exporter only knows what Claude Code itself sees. When the user runs Claude Code outside a Git repo, or when `CLAUDE_PROJECT_DIR` isn't set, those resource attributes will be empty even in the dual-path scenario.
+- **OpenCode: no terminal session-end event**. `session.idle` fires at run-loop boundaries and may follow errors or cancellation, while `session.deleted` means persisted conversation deletion rather than successful completion. The adapter therefore leaves outcome unknown instead of fabricating success. Minimal capture uses the non-terminal snapshot contract above; metadata/full retain ordinary child and lifecycle spans. A session row can keep updating whenever the conversation resumes.
 
 When in doubt: grep for the canonical attribute name in `queries.ts` and `materialize.ts`. If a reader doesn't already coalesce your new key, your data will be invisible to the UI no matter how cleanly it lands in ClickHouse.

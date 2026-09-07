@@ -976,3 +976,38 @@ describe("deriveSnapshotFromAdapter", () => {
 		expect(result?.runtime_config.provider).toBe("gemini");
 	});
 });
+
+describe("OpenCode external discovery", () => {
+	it("excludes OpenCode CLI services from SDK discovery", async () => {
+		const discoverServices = jest.fn().mockResolvedValue([
+			makeService({ serviceName: "opencode" }),
+		]);
+		const adapter = fakeAdapter({ discoverServices });
+
+		await expect(discoverSdkRowsFromAdapter(adapter)).resolves.toEqual([]);
+	});
+
+	it("includes OpenCode spans in coding-agent discovery", async () => {
+		const adapter = fakeAdapter({
+			sampleTracesForGraph: jest.fn().mockResolvedValue([
+				makeSpan({
+					name: "coding_agent.llm.turn",
+					serviceName: "opencode",
+					timestamp: "2026-09-07T00:00:00.000Z",
+					spanAttributes: {
+						"coding_agent.client": "opencode",
+						"coding_agent.session.id": "ses-1",
+					},
+					resourceAttributes: { "service.name": "opencode" },
+				}),
+			]),
+		});
+
+		const rows = await discoverCodingRowsFromAdapter(adapter);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			vendor: "opencode",
+			session_count_24h: 1,
+		});
+	});
+});
