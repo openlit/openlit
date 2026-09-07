@@ -27,6 +27,7 @@ jest.mock("@openplait/adapter-clickhouse", () => {
 	return {
 		ClickHouseAdapter: MockClickHouseAdapter,
 		OPENLIT_CLICKHOUSE_DATASETS: ["traces", "logs", "metrics"],
+		OTEL_CLICKHOUSE_DATASETS: ["otel_traces", "otel_logs", "otel_metrics"],
 	};
 });
 
@@ -552,7 +553,14 @@ describe("connectionConfig env var parsing (positiveInteger)", () => {
 		await validateOpenPlaitClickHouseConnection(CONNECTION);
 
 		const adapterConfig = mockAdapterCtor.mock.calls[0][0];
-		expect(adapterConfig.datasets).toEqual(["traces", "logs", "metrics"]);
+		expect(adapterConfig.datasets).toEqual([
+			"otel_traces",
+			"otel_logs",
+			"otel_metrics",
+			"traces",
+			"logs",
+			"metrics",
+		]);
 		expect(adapterConfig.applicationName).toBe("openlit-openplait");
 		expect(adapterConfig.allowNativeQueries).toBe(true);
 		expect(adapterConfig.requireTimeRange).toBe(false);

@@ -984,7 +984,7 @@ describe("ClickHouseAdapter", () => {
 	});
 
 	it("getSpan throws the legacy error on failure", async () => {
-		mockGetRequestViaSpanId.mockResolvedValue({ err: new Error("get span failed") });
+		mockDataCollector.mockResolvedValue({ err: new Error("get span failed") });
 		await expect(adapter.getSpan("s1")).rejects.toThrow("get span failed");
 	});
 
