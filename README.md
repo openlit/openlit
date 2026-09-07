@@ -305,8 +305,8 @@ flowchart TD
 <sub><b>Evaluations</b> — hallucination, bias &amp; toxicity checks</sub>
 </td>
 <td width="33%" align="center">
-<img src="docs/images/errors-page.png" alt="Exceptions dashboard listing failed requests and error types" width="100%"><br/>
-<sub><b>Debugging</b> — exceptions across every request</sub>
+<img src="docs/images/organisation/connectors-list.png" alt="Connectors catalog with ClickHouse, Grafana Tempo, Loki, Prometheus, and Jaeger" width="100%"><br/>
+<sub><b>Connectors</b> — plug in ClickHouse, Tempo, Loki, Prometheus &amp; more</sub>
 </td>
 </tr>
 <tr>
@@ -319,8 +319,8 @@ flowchart TD
 <sub><b>Rule Engine</b> — conditional rules on trace attributes</sub>
 </td>
 <td width="33%" align="center">
-<img src="docs/images/dashboards-screen.png" alt="Dashboards explorer with GPU, vector DB, and LLM dashboards" width="100%"><br/>
-<sub><b>Dashboards</b> — cost, GPU &amp; usage at a glance</sub>
+<img src="docs/images/docs-ui-banner.jpeg" alt="OpenLIT dashboard preview with cost, latency, and usage charts" width="100%"><br/>
+<sub><b>Dashboards</b> — cost, latency &amp; usage charts at a glance</sub>
 </td>
 </tr>
 </table>
