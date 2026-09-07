@@ -311,11 +311,11 @@ flowchart TD
 </tr>
 <tr>
 <td width="33%" align="center">
-<img src="docs/images/docs-prompt-hub-list.png" alt="Prompt Hub listing versioned prompts" width="100%"><br/>
+<img src="docs/images/docs-prompt-hub-details.png" alt="Prompt Hub prompt detail page with versions and linked rules" width="100%"><br/>
 <sub><b>Prompt Hub</b> — versioned, centrally managed prompts</sub>
 </td>
 <td width="33%" align="center">
-<img src="docs/images/rule-engine-list.png" alt="Rule Engine listing conditional trace-matching rules" width="100%"><br/>
+<img src="docs/images/rule-engine-conditions.png" alt="Rule Engine rule detail page with condition groups and live rule preview" width="100%"><br/>
 <sub><b>Rule Engine</b> — conditional rules on trace attributes</sub>
 </td>
 <td width="33%" align="center">
