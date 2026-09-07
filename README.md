@@ -7,7 +7,7 @@
 **Trace, evaluate, debug, and optimize AI applications and coding agents with OpenTelemetry.**
 
 <a href="https://docs.openlit.io/latest/features/agent-observability">
-  <img src="docs/images/docs-ai-observability-trace.png" alt="OpenLIT agent trace view" width="90%">
+  <img src="docs/images/readme-hero-coding-agent-trace.png" alt="OpenLIT coding agent trace view" width="90%">
 </a>
 
 <p>
