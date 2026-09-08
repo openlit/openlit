@@ -95,9 +95,24 @@ describe("observability platform queries", () => {
 		expect(result.total).toBe(12);
 		expect(result.records).toEqual([{ rowId: "1", Body: "hello" }]);
 		const query = (dataCollector as jest.Mock).mock.calls[1][0].query;
-		expect(query).toContain("ORDER BY SeverityText asc");
+		expect(query).toContain("ORDER BY SeverityText ASC");
 		expect(query).toContain("LIMIT 10");
 		expect(query).toContain("OFFSET 5");
+	});
+
+	it("does not interpolate injected ORDER BY direction", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [{ total: 1 }], err: null })
+			.mockResolvedValueOnce({ data: [], err: null });
+
+		await getLogs({
+			...params,
+			sorting: { type: "SeverityText", direction: "ASC; SELECT 1" },
+		} as any);
+
+		const query = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+		expect(query).toContain("ORDER BY SeverityText DESC");
+		expect(query).not.toContain("SELECT 1");
 	});
 
 	it("returns count errors before loading log records", async () => {

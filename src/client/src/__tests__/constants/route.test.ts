@@ -38,6 +38,12 @@ describe('ALLOWED_OPENLIT_ROUTES_WITH_TOKEN', () => {
   it('includes API key prefix for delete-by-id', () => {
     expect(ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN).toContain('/api/api-key/');
   });
+
+  it('allows Bearer poll but not unauthenticated poll or a controller prefix', () => {
+    expect(ALLOWED_OPENLIT_ROUTES_WITH_TOKEN).toContain('/api/controller/poll');
+    expect(ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN).not.toContain('/api/controller/poll');
+    expect(ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN).not.toContain('/api/controller/');
+  });
 });
 
 describe('CRON_JOB_ROUTES', () => {

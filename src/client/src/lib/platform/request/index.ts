@@ -14,6 +14,10 @@ import {
 } from "@/helpers/server/platform";
 import { hasGenerationHealthFilter } from "@/lib/platform/generation-health/classify";
 import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
+import {
+	escapeClickHouseString,
+	buildRequestsOrderByClause,
+} from "@/lib/clickhouse-escape";
 
 const PREDEFINED_GROUP_BY: Record<string, string> = {
 	model: `SpanAttributes['gen_ai.request.model']`,
@@ -42,10 +46,6 @@ const ALLOWED_FIELD_GROUP_BY = new Set([
 	"StatusCode",
 	"StatusMessage",
 ]);
-
-function escapeClickHouseString(value: string) {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
 
 export function getGroupByExpression(groupBy: string): string | null {
 	if (groupBy in PREDEFINED_GROUP_BY) return PREDEFINED_GROUP_BY[groupBy];
@@ -263,11 +263,7 @@ export async function getRequests(params: MetricParams) {
 	const query = `SELECT *	FROM ${table} 
 		WHERE ${getFilterWhereCondition(params, true)}
 		${params.sorting && params.sorting.type && params.sorting.direction
-			? params.sorting.type.includes("cost")
-				? `ORDER BY toFloat64OrZero(${params.sorting.type}) ${params.sorting.direction} `
-				: params.sorting.type.includes("tokens")
-					? `ORDER BY toInt32OrZero(${params.sorting.type}) ${params.sorting.direction} `
-					: `ORDER BY ${params.sorting.type} ${params.sorting.direction} `
+			? buildRequestsOrderByClause(params.sorting.type, params.sorting.direction)
 			: `ORDER BY Timestamp desc `
 		}
 		${oneRowPerTrace ? "LIMIT 1 BY TraceId" : ""}

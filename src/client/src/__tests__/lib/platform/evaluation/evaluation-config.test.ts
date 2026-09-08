@@ -267,10 +267,24 @@ describe('setEvaluationConfig', () => {
     const result = await setEvaluationConfig(inputConfig as any, 'http://api.example.com');
 
     expect(prisma.evaluationConfigs.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'eval-cfg-1' } })
+      expect.objectContaining({ where: { id: 'eval-cfg-1', databaseConfigId: 'db-1' } })
     );
     expect(prisma.evaluationConfigs.update).toHaveBeenCalledTimes(1);
     expect(result).toEqual(updatedRecord);
+  });
+
+  it('does not update a config that belongs to another database', async () => {
+    const inputConfig = { id: 'foreign-eval', auto: false, recurringTime: '', meta: '{}' };
+
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, null]);
+
+    await expect(
+      setEvaluationConfig(inputConfig as any, 'http://api.example.com')
+    ).rejects.toThrow('Eval config not found');
+    expect(prisma.evaluationConfigs.update).not.toHaveBeenCalled();
+    expect(prisma.evaluationConfigs.create).not.toHaveBeenCalled();
   });
 
   it('throws EVALUATION_CONFIG_SET_ERROR when prisma create fails', async () => {

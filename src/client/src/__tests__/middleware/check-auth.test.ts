@@ -133,6 +133,21 @@ describe('checkAuth', () => {
       expect(forwardedRequest.headers.get('x-database-config-id')).toBe('db-config-1');
     });
 
+    it('strips a client-supplied x-database-config-id on session API requests', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      const headers = new Headers({ 'x-database-config-id': 'victim-db' });
+      const req = {
+        method: 'GET',
+        nextUrl: { pathname: '/api/some-endpoint', search: '' },
+        url: 'http://localhost/api/some-endpoint',
+        headers,
+      };
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      const forwarded = (NextResponse.next as jest.Mock).mock.calls.at(-1)?.[0];
+      expect(forwarded.request.headers.get('x-database-config-id')).toBeNull();
+    });
+
     it('returns 401 when the verify-key request throws', async () => {
       (global as any).fetch = jest.fn().mockRejectedValue(new Error('network down'));
       const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });

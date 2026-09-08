@@ -817,6 +817,10 @@ export const CODING_AGENT_SESSION_SUBAGENTS_HINT =
 // Agents - No Controller
 export const AGENTS_NO_CONTROLLERS_TITLE = "No controllers detected";
 export const AGENTS_NO_CONTROLLERS_DESCRIPTION = "Install the OpenLIT Controller to automatically discover and instrument LLM API calls using eBPF.";
+export const AGENTS_NO_SDK_AGENTS_TITLE = "No instrumented applications yet";
+export const AGENTS_NO_SDK_AGENTS_DESCRIPTION =
+	"Applications that send traces with the OpenLIT SDK will appear here. Add the SDK to your app, then come back once telemetry is flowing.";
+export const AGENTS_NO_SDK_AGENTS_CTA = "View SDK setup";
 export const AGENTS_API_KEY_PREFILLED_MESSAGE = "Commands below are pre-filled with your API key and dashboard URL. The controller will authenticate automatically.";
 export const AGENTS_API_KEY_RECOMMENDED_PREFIX = "Recommended:";
 export const AGENTS_API_KEY_RECOMMENDED_BEFORE_LINK = " Create an API key in ";

@@ -160,6 +160,13 @@ describe('getSecrets', () => {
 	    expect(query).toContain("v.key = 'a\\\\b\\'c'");
 	  });
 
+	  it('escapes SQL breakout payloads in key filters', async () => {
+	    await getSecrets({ key: "' OR 1=1" });
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).toContain("v.key = '\\' OR 1=1'");
+	    expect(query).not.toMatch(/v\.key = '' OR 1=1/);
+	  });
+
 	  it('builds the owner condition with an empty string when the current user has no email', async () => {
 	    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u1' });
 	    await getSecrets({});

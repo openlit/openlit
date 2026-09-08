@@ -44,7 +44,12 @@ const mockedDataCollector = intelligenceDataCollector as jest.MockedFunction<
 >;
 
 beforeEach(() => {
+	process.env.OPENLIT_EDITION = "enterprise";
 	mockedDataCollector.mockReset();
+});
+
+afterAll(() => {
+	delete process.env.OPENLIT_EDITION;
 });
 
 describe("computeAgentKey", () => {
@@ -156,6 +161,34 @@ describe("listAgents", () => {
 		const result = await listAgents();
 		expect(result.data[0].controller_service_id).toBeNull();
 		expect(result.data[0].source).toBe("sdk");
+	});
+
+	it("excludes source=controller and redacts both as sdk when edition is oss", async () => {
+		process.env.OPENLIT_EDITION = "oss";
+		mockedDataCollector.mockResolvedValueOnce({
+			data: [
+				makeRow({
+					source: "controller",
+					controller_service_id: "ctrl-1",
+					controller_instance_id: "inst-1",
+				}),
+				makeRow({
+					agent_key: "both-1",
+					source: "both",
+					controller_service_id: "ctrl-2",
+					controller_instance_id: "inst-2",
+				}),
+				makeRow({ agent_key: "sdk-1", source: "sdk" }),
+			],
+		});
+		const result = await listAgents();
+		expect(result.data.map((row) => row.source)).toEqual(["sdk", "sdk"]);
+		expect(result.data.every((row) => row.controller_service_id === null)).toBe(
+			true
+		);
+		const issuedQuery = (mockedDataCollector.mock.calls[0][0] as { query: string })
+			.query;
+		expect(issuedQuery).toContain("s.source != 'controller'");
 	});
 
 	it("preserves controller_service_id when present", async () => {
@@ -721,6 +754,47 @@ describe("getAgent", () => {
 		expect(agent?.controller_service_id).toBe("ctrl-uuid");
 		expect(agent?.source).toBe("controller");
 		expect(agent?.pods_total).toBe(0);
+	});
+
+	it("returns null for a controller-only agent when edition is oss", async () => {
+		process.env.OPENLIT_EDITION = "oss";
+		mockedDataCollector.mockResolvedValueOnce({
+			data: [
+				{
+					agent_key: "key1",
+					service_name: "svc",
+					environment: "prod",
+					cluster_id: "default",
+					source: "controller",
+					controller_service_id: "ctrl-uuid",
+					controller_instance_id: "inst-uuid",
+					primary_model: "",
+					models: [],
+					providers: [],
+					tool_names: [],
+					tool_count: 0,
+					request_count_24h: 0,
+					current_version_hash: "",
+					current_version_number: 0,
+					sdk_version: "",
+					sdk_language: "",
+					instrumentation_status: "discovered",
+					desired_instrumentation_status: "none",
+					agent_observability_status: "",
+					desired_agent_status: "none",
+					pending_action: "",
+					pending_action_status: "",
+					first_seen: "2026-05-11 22:00:00",
+					last_seen: "2026-05-11 22:10:00",
+					updated_at: "2026-05-11 22:10:00",
+					last_materialized_at: "2026-05-11 22:10:00",
+					pods_total: 0,
+					pods_pending: 0,
+					pods_acknowledged: 0,
+				},
+			],
+		});
+		await expect(getAgent({ agentKey: "key1" })).resolves.toBeNull();
 	});
 
 	it("issues a join against the rollup CTEs for the detail query as well", async () => {

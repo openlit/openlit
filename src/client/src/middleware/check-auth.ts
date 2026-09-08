@@ -17,20 +17,17 @@ import {
 	ONBOARDING_WHITELIST_ROUTE_PREFIXES,
 	ONBOARDING_WHITELIST_API_ROUTES,
 } from "@/constants/route";
+import { isValidCronJobRequest } from "@/helpers/server/cron-auth";
 
-function isValidCronJobRequest(request: NextRequest) {
-	// Self-hosted / dev installs run the cron in the same container and do
-	// not set CRON_JOB_SECRET. Fall back to the literal "true" the cron
-	// scripts send so the materialize / evaluation / pricing crons work out
-	// of the box (this matches the documented `-H 'X-CRON-JOB: true'` call).
-	// When an operator DOES set CRON_JOB_SECRET, both this check and the cron
-	// scripts use it, so the endpoints require the secret and can't be
-	// triggered without it.
-	const expectedToken = process.env.CRON_JOB_SECRET || "true";
-	const cronJobToken =
-		request.headers.get("X-CRON-JOB") ?? request.headers.get("x-cron-job");
+const CLIENT_TENANT_HEADERS = [
+	"x-database-config-id",
+	"x-openlit-database-config-id",
+] as const;
 
-	return cronJobToken === expectedToken;
+function stripClientTenantHeaders(headers: Headers) {
+	for (const name of CLIENT_TENANT_HEADERS) {
+		headers.delete(name);
+	}
 }
 
 const rateLimitWindows = new Map<string, { count: number; resetAt: number }>();
@@ -114,6 +111,13 @@ export default function checkAuth(next: NextMiddleware) {
 				return NextResponse.next();
 			}
 
+			const requestHeaders = new Headers(request.headers);
+			stripClientTenantHeaders(requestHeaders);
+			const continueWithoutClientTenant = () =>
+				NextResponse.next({
+					request: { headers: requestHeaders },
+				});
+
 			const isWithTokenRoute =
 				ALLOWED_OPENLIT_ROUTES_WITH_TOKEN.includes(pathname) ||
 				ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN.some((prefix) =>
@@ -142,7 +146,6 @@ export default function checkAuth(next: NextMiddleware) {
 					if (res.ok) {
 						const data = await res.json();
 						if (data.valid && data.databaseConfigId) {
-							const requestHeaders = new Headers(request.headers);
 							requestHeaders.set("x-database-config-id", data.databaseConfigId);
 							return next(
 								new NextRequest(request, {
@@ -211,7 +214,7 @@ export default function checkAuth(next: NextMiddleware) {
 						);
 					}
 
-					return NextResponse.next();
+					return continueWithoutClientTenant();
 				}
 
 				if (isApiPage) {
@@ -225,7 +228,7 @@ export default function checkAuth(next: NextMiddleware) {
 					if (isAuth || isAllowedRequestWithoutToken || isCronJobRoute) {
 						if (isCronJobRoute) {
 							if (isValidCronJobRequest(request)) {
-								return NextResponse.next();
+								return continueWithoutClientTenant();
 							}
 							return NextResponse.json(
 								{ error: "Forbidden" },
@@ -246,7 +249,7 @@ export default function checkAuth(next: NextMiddleware) {
 							{ status: 403 }
 						);
 					}
-						return NextResponse.next();
+						return continueWithoutClientTenant();
 					}
 				}
 
@@ -275,7 +278,7 @@ export default function checkAuth(next: NextMiddleware) {
 					);
 				}
 
-				return NextResponse.next();
+				return continueWithoutClientTenant();
 			} catch (error) {
 				// If there's an error getting the token (e.g., invalid/corrupted token),
 				// treat as unauthenticated and redirect to login
@@ -295,7 +298,7 @@ export default function checkAuth(next: NextMiddleware) {
 					);
 				}
 				
-				return NextResponse.next();
+				return continueWithoutClientTenant();
 			}
 		},
 		{
