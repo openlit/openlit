@@ -39,17 +39,13 @@ import {
 	getProjectList,
 } from "@/selectors/project";
 import {
-	getDatabaseConfigList,
-	getDatabaseConfigListIsLoading,
-} from "@/selectors/database-config";
-import {
 	acceptInvitation,
 	declineInvitation,
 	fetchOrganisationList,
 	fetchPendingInvitations,
 } from "@/helpers/client/organisation";
 import { fetchProjectList } from "@/helpers/client/project";
-import { fetchDatabaseConfigList } from "@/helpers/client/database-config";
+import { useProjectDatabaseSetup } from "@/utils/hooks/use-project-database-setup";
 import { postData } from "@/utils/api";
 import asaw from "@/utils/asaw";
 import getMessage from "@/constants/messages";
@@ -156,10 +152,9 @@ export default function OnboardingPage() {
 	const projects = useRootStore(getProjectList);
 	const currentProject = useRootStore(getCurrentProject);
 	const isProjectLoading = useRootStore(getProjectIsLoading);
-	const databaseConfigs = useRootStore(getDatabaseConfigList);
-	const isDatabaseConfigLoading = useRootStore(getDatabaseConfigListIsLoading);
+	const { databaseConfigs, hasDbConfig, isDatabaseConfigLoading } =
+		useProjectDatabaseSetup();
 	const hasProject = Boolean(currentProject?.id && (projects?.length || 0) > 0);
-	const hasDbConfig = Boolean(databaseConfigs?.length);
 	const isSetupComplete = Boolean(currentOrg?.id && hasProject && hasDbConfig);
 	const isInitialising =
 		!currentOrg?.id &&
@@ -184,12 +179,6 @@ export default function OnboardingPage() {
 			fetchProjectList(currentOrg.id);
 		}
 	}, [currentOrg?.id]);
-
-	useEffect(() => {
-		if (currentProject?.id) {
-			fetchDatabaseConfigList(() => {});
-		}
-	}, [currentProject?.id]);
 
 	const handleCreateProject = async () => {
 		if (!currentOrg?.id || !projectName.trim()) return;
@@ -445,7 +434,7 @@ export default function OnboardingPage() {
 			>
 				{isSetupComplete ? (
 					<Button size="sm" className="h-9" onClick={() => currentOrg?.id && setCurrentOrgAndComplete(currentOrg.id)} disabled={isCompleting}>
-						{isCompleting ? messages.LOADING : "Finish setup"}
+						{isCompleting ? messages.LOADING : messages.HOME_SETUP_FINISH}
 					</Button>
 				) : null}
 			</TimelineStep>
