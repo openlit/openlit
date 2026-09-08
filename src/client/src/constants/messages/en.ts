@@ -1304,6 +1304,7 @@ export const MANAGE_DB_CONFIG = "Manage DB Config";
 export const MODIFYING_DB_CONFIG = "Modifying database config...";
 export const DB_CONFIG_UPDATED = "Database config updated";
 export const DB_CONFIG_UPDATE_FAILED = "Database config update failed";
+export const DB_CONFIG_LIST_FAILED = "Failed to load database configs";
 export const DB_CONFIG_SET_ACTIVE = (name: string) =>
 	`Database config: ${name} is being set active`;
 export const DB_CONFIG_FIELD_CONFIG_NAME = "Config Name";

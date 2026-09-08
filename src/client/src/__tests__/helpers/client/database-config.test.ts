@@ -57,19 +57,22 @@ describe('fetchDatabaseConfigList', () => {
     expect(mockSetList).toHaveBeenCalledWith(data);
   });
 
-  it('calls successCb with empty array on error', async () => {
-    (asaw as jest.Mock).mockResolvedValue([null, null]);
+  it('treats a fetch error as an empty list and surfaces it', async () => {
+    (asaw as jest.Mock).mockResolvedValue(['Unauthorized']);
     const successCb = jest.fn();
     await fetchDatabaseConfigList(successCb);
     expect(successCb).toHaveBeenCalledWith([]);
+    expect(mockSetList).toHaveBeenCalledWith([]);
+    expect(toast.error).toHaveBeenCalled();
   });
 
-  it('coerces non-array payloads to an empty list', async () => {
+  it('does not treat a non-array payload as a successful list', async () => {
     (asaw as jest.Mock).mockResolvedValue([null, '<html>login</html>']);
     const successCb = jest.fn();
     await fetchDatabaseConfigList(successCb);
     expect(successCb).toHaveBeenCalledWith([]);
     expect(mockSetList).toHaveBeenCalledWith([]);
+    expect(toast.error).toHaveBeenCalled();
   });
 
   it('ignores a response after the current project has changed', async () => {

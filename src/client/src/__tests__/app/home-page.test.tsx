@@ -62,11 +62,30 @@ const project = {
 };
 
 function mockStore(
-	overrides: { databaseConfigs?: unknown[] | undefined } = {}
+	overrides: {
+		databaseConfigs?: unknown[] | undefined;
+		organisationList?: unknown[] | undefined;
+		isOrganisationLoading?: boolean;
+		projects?: unknown[] | undefined;
+		isProjectLoading?: boolean;
+		currentOrg?: typeof org | undefined;
+	} = {}
 ) {
+	const currentOrg = "currentOrg" in overrides ? overrides.currentOrg : org;
+	const projects =
+		"projects" in overrides ? overrides.projects : [project];
 	const state = {
-		organisation: { current: org },
-		project: { list: [project], current: project, isLoading: false },
+		organisation: {
+			current: currentOrg,
+			list:
+				"organisationList" in overrides ? overrides.organisationList : [org],
+			isLoading: overrides.isOrganisationLoading ?? false,
+		},
+		project: {
+			list: projects,
+			current: Array.isArray(projects) && projects.length > 0 ? project : undefined,
+			isLoading: overrides.isProjectLoading ?? false,
+		},
 		databaseConfig: {
 			list: "databaseConfigs" in overrides ? overrides.databaseConfigs : [],
 			isLoading: false,
@@ -89,24 +108,29 @@ describe("HomePage database setup gate", () => {
 		global.fetch = jest.fn() as unknown as typeof fetch;
 	});
 
-	it("loads project database configs instead of /api/connectors and redirects when none exist", async () => {
+	it("loads project database configs instead of /api/connectors and stays on home while setup is empty", async () => {
 		mockStore({ databaseConfigs: [] });
 		render(<HomePage />);
 
 		expect(fetchDatabaseConfigList).toHaveBeenCalled();
-		await waitFor(() => {
-			expect(replace).toHaveBeenCalledWith("/onboarding");
-		});
+		expect(replace).not.toHaveBeenCalled();
 		expect(global.fetch).not.toHaveBeenCalled();
+		expect(fireRequest).not.toHaveBeenCalled();
 	});
 
-	it("does not bounce to onboarding while database configs are still loading", () => {
+	it("does not bounce to onboarding while organisation or database configs are still loading", () => {
 		fetchDatabaseConfigList.mockImplementation(async () => undefined);
-		mockStore({ databaseConfigs: undefined });
+		mockStore({
+			databaseConfigs: undefined,
+			organisationList: undefined,
+			isOrganisationLoading: true,
+			currentOrg: undefined,
+			projects: undefined,
+		});
 		render(<HomePage />);
 
-		expect(fetchDatabaseConfigList).toHaveBeenCalled();
 		expect(replace).not.toHaveBeenCalled();
+		expect(fireRequest).not.toHaveBeenCalled();
 	});
 
 	it("stays on home once the current project has a database config", async () => {

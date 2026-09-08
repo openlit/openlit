@@ -3,19 +3,13 @@
 import Filter from "@/components/(playground)/filter";
 import { useEffect, useMemo, useState } from "react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Dashboard, {
 	DashboardConfig,
 } from "../../../components/(playground)/manage-dashboard/board-creator";
 import { useRootStore } from "@/store";
 import { getFilterDetails } from "@/selectors/filter";
-import { getCurrentOrganisation } from "@/selectors/organisation";
-import {
-	getCurrentProject,
-	getProjectIsLoading,
-	getProjectList,
-} from "@/selectors/project";
-import { useProjectDatabaseSetup } from "@/utils/hooks/use-project-database-setup";
+import { useWorkspaceSetup } from "@/utils/hooks/use-project-database-setup";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 import Loader from "@/components/common/loader";
 import { usePageHeader } from "@/selectors/page";
@@ -25,13 +19,8 @@ import { toast } from "sonner";
 import BoardList from "./board-list";
 
 export default function DashboardPage() {
-	const router = useRouter();
 	const filter = useRootStore(getFilterDetails);
-	const currentOrg = useRootStore(getCurrentOrganisation);
-	const projects = useRootStore(getProjectList);
-	const currentProject = useRootStore(getCurrentProject);
-	const isProjectLoading = useRootStore(getProjectIsLoading);
-	const { hasDbConfig, isDatabaseSetupLoading } = useProjectDatabaseSetup();
+	const { hasDbConfig, hasProject, isSetupLoading } = useWorkspaceSetup();
 	const { fireRequest, isLoading } = useFetchWrapper();
 	const { fireRequest: fireRunQuery } = useFetchWrapper();
 	const [initialConfig, setInitialConfig] = useState<
@@ -41,17 +30,6 @@ export default function DashboardPage() {
 	const dashboardId = searchParams.get("dashboardId");
 	const { setHeader } = usePageHeader();
 	const posthog = usePostHog();
-	const hasProject = Boolean(currentProject?.id && (projects?.length || 0) > 0);
-	const isSetupLoading =
-		isProjectLoading ||
-		isDatabaseSetupLoading ||
-		projects === undefined;
-
-	useEffect(() => {
-		if (!isSetupLoading && (!currentOrg?.id || !hasProject || !hasDbConfig)) {
-			router.replace("/onboarding");
-		}
-	}, [currentOrg?.id, hasDbConfig, hasProject, isSetupLoading, router]);
 
 	useEffect(() => {
 		if (isSetupLoading || !hasProject || !hasDbConfig) return;
@@ -118,7 +96,7 @@ export default function DashboardPage() {
 		return data.response;
 	};
 
-	if (isSetupLoading || !hasProject || !hasDbConfig) {
+	if (isSetupLoading) {
 		return (
 			<div className="flex h-full w-full items-center justify-center">
 				<Loader />

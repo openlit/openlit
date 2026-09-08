@@ -1,4 +1,5 @@
 import { DatabaseConfigWithActive } from "@/constants/dbConfig";
+import getMessage from "@/constants/messages";
 import { useRootStore } from "@/store";
 import { deleteData, getData } from "@/utils/api";
 import asaw from "@/utils/asaw";
@@ -14,7 +15,7 @@ export const fetchDatabaseConfigList = async (
 ) => {
 	const requestedProjectId = options.projectId;
 	useRootStore.getState().databaseConfig.setIsLoading(true);
-	const [, data] = await asaw(
+	const [err, data] = await asaw(
 		getData({
 			method: "GET",
 			url: "/api/db-config",
@@ -26,9 +27,17 @@ export const fetchDatabaseConfigList = async (
 		return;
 	}
 
-	const list = Array.isArray(data) ? data : [];
-	successCb(list);
-	useRootStore.getState().databaseConfig.setList(list);
+	if (err || !Array.isArray(data)) {
+		toast.error(err || getMessage().DB_CONFIG_LIST_FAILED, {
+			id: "db-config-list",
+		});
+		successCb([]);
+		useRootStore.getState().databaseConfig.setList([]);
+		return;
+	}
+
+	successCb(data);
+	useRootStore.getState().databaseConfig.setList(data);
 };
 
 export const pingActiveDatabaseConfig = async () => {
