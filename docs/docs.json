@@ -93,26 +93,30 @@
                   "latest/openlit/observability/telemetry/logs"
                 ]
               },
-              "latest/openlit/observability/tracing",
-              "latest/openlit/observability/metrics",
-              "latest/openlit/observability/error",
-              "latest/openlit/observability/fleet-hub",
               {
                 "group": "Agents",
                 "icon": "radar",
                 "pages": [
-                  "latest/controller/overview",
-                  "latest/controller/quickstart",
-                  "latest/controller/architecture",
-                  "latest/controller/configuration"
+                  "latest/openlit/observability/agents/overview",
+                  "latest/openlit/observability/agents/setup",
+                  "latest/openlit/observability/agents/analytics",
+                  "latest/openlit/observability/agents/monitoring",
+                  "latest/openlit/observability/agents/definition",
+                  "latest/openlit/observability/agents/configuration",
+                  "latest/openlit/observability/agents/versioning"
                 ]
               },
               {
                 "group": "Coding Agents",
                 "icon": "code",
                 "pages": [
-                  "latest/openlit/coding-agents/onboarding",
-                  "latest/openlit/coding-agents/architecture"
+                  "latest/openlit/coding-agents/overview",
+                  "latest/openlit/coding-agents/setup-and-configure",
+                  "latest/openlit/coding-agents/analytics",
+                  "latest/openlit/coding-agents/sessions",
+                  "latest/openlit/coding-agents/users",
+                  "latest/openlit/coding-agents/privacy-and-governance",
+                  "latest/openlit/coding-agents/troubleshooting"
                 ]
               }
             ]
@@ -121,6 +125,10 @@
             "group": "Evaluations",
             "pages": [
               "latest/openlit/evaluations/overview",
+              "latest/openlit/evaluations/evaluators",
+              "latest/openlit/evaluations/configuration",
+              "latest/openlit/evaluations/analytics",
+              "latest/openlit/evaluations/manual-feedback",
               {
                 "group": "Evaluation Methods",
                 "icon": "ruler",
@@ -175,29 +183,82 @@
           {
             "group": "Otter (AI Copilot)",
             "pages": [
-              "latest/openlit/chat"
+              "latest/openlit/chat/overview",
+              "latest/openlit/chat/conversations",
+              "latest/openlit/chat/settings",
+              "latest/openlit/chat/usage"
             ]
           },
           {
             "group": "Pricing & Models",
             "pages": [
-              "latest/openlit/pricing/manage-models",
-              "latest/openlit/pricing/cost-recalculation"
+              "latest/openlit/costs/overview",
+              "latest/openlit/costs/analytics",
+              "latest/openlit/costs/manage-models/overview",
+              "latest/openlit/costs/configuration"
             ]
           },
           {
             "group": "Prompts and Experiments",
             "pages": [
-              "latest/openlit/prompts-experiments/prompt-hub",
-              "latest/openlit/prompts-experiments/openground",
-              "latest/openlit/prompts-experiments/context",
-              "latest/openlit/prompts-experiments/rule-engine"
+              {
+                "group": "Prompt Hub",
+                "icon": "message",
+                "pages": [
+                  "latest/openlit/prompts-experiments/prompt-hub/overview",
+                  "latest/openlit/prompts-experiments/prompt-hub/manage-prompts",
+                  "latest/openlit/prompts-experiments/prompt-hub/versioning",
+                  "latest/openlit/prompts-experiments/prompt-hub/retrieve-a-prompt",
+                  "latest/openlit/prompts-experiments/prompt-hub/ai-improvement",
+                  "latest/openlit/prompts-experiments/prompt-hub/rules"
+                ]
+              },
+              {
+                "group": "OpenGround",
+                "icon": "flask",
+                "pages": [
+                  "latest/openlit/prompts-experiments/openground/overview",
+                  "latest/openlit/prompts-experiments/openground/run-a-comparison",
+                  "latest/openlit/prompts-experiments/openground/results-and-history"
+                ]
+              },
+              {
+                "group": "Context",
+                "icon": "books",
+                "pages": [
+                  "latest/openlit/prompts-experiments/context/overview",
+                  "latest/openlit/prompts-experiments/context/manage-contexts",
+                  "latest/openlit/prompts-experiments/context/retrieve-context",
+                  "latest/openlit/prompts-experiments/context/link-rules"
+                ]
+              },
+              {
+                "group": "Rule Engine",
+                "icon": "code-branch",
+                "pages": [
+                  "latest/openlit/prompts-experiments/rule-engine/overview",
+                  "latest/openlit/prompts-experiments/rule-engine/create-and-manage-rules",
+                  "latest/openlit/prompts-experiments/rule-engine/conditions",
+                  "latest/openlit/prompts-experiments/rule-engine/linked-entities",
+                  "latest/openlit/prompts-experiments/rule-engine/preview",
+                  "latest/openlit/prompts-experiments/rule-engine/evaluate-api"
+                ]
+              }
             ]
           },
           {
             "group": "Developer Resources",
             "pages": [
-              "latest/openlit/developer-resources/vault",
+              {
+                "group": "Vault",
+                "icon": "key",
+                "pages": [
+                  "latest/openlit/developer-resources/vault/overview",
+                  "latest/openlit/developer-resources/vault/manage-secrets",
+                  "latest/openlit/developer-resources/vault/retrieve-secrets",
+                  "latest/openlit/developer-resources/vault/security"
+                ]
+              },
               "latest/openlit/developer-resources/multiple-db",
               "latest/openlit/developer-resources/anonymous-telemetry",
               {
@@ -292,10 +353,8 @@
                 "icon": "robot",
                 "pages": [
                   "latest/sdk/integrations/openai",
-                  "latest/sdk/integrations/go-openai",
                   "latest/sdk/integrations/ollama",
                   "latest/sdk/integrations/anthropic",
-                  "latest/sdk/integrations/go-anthropic",
                   "latest/sdk/integrations/deepseek",
                   "latest/sdk/integrations/gpt4all",
                   "latest/sdk/integrations/cohere",
@@ -508,5 +567,67 @@
   },
   "contextual": {
     "options": ["copy", "chatgpt", "claude"]
-  }
+  },
+  "redirects": [
+    {
+      "source": "/latest/openlit/observability/tracing",
+      "destination": "/latest/openlit/observability/telemetry/traces"
+    },
+    {
+      "source": "/latest/openlit/observability/metrics",
+      "destination": "/latest/openlit/observability/telemetry/metrics"
+    },
+    {
+      "source": "/latest/openlit/observability/error",
+      "destination": "/latest/openlit/observability/telemetry/traces#exceptions"
+    },
+    {
+      "source": "/latest/openlit/coding-agents/onboarding",
+      "destination": "/latest/openlit/coding-agents/setup-and-configure"
+    },
+    {
+      "source": "/latest/openlit/coding-agents/architecture",
+      "destination": "/latest/openlit/coding-agents/overview"
+    },
+    {
+      "source": "/latest/openlit/chat",
+      "destination": "/latest/openlit/chat/overview"
+    },
+    {
+      "source": "/latest/openlit/pricing/manage-models",
+      "destination": "/latest/openlit/costs/manage-models/overview"
+    },
+    {
+      "source": "/latest/openlit/pricing/cost-recalculation",
+      "destination": "/latest/openlit/costs/configuration"
+    },
+    {
+      "source": "/latest/openlit/prompts-experiments/prompt-hub",
+      "destination": "/latest/openlit/prompts-experiments/prompt-hub/overview"
+    },
+    {
+      "source": "/latest/openlit/prompts-experiments/openground",
+      "destination": "/latest/openlit/prompts-experiments/openground/overview"
+    },
+    {
+      "source": "/latest/openlit/prompts-experiments/context",
+      "destination": "/latest/openlit/prompts-experiments/context/overview"
+    },
+    {
+      "source": "/latest/openlit/prompts-experiments/rule-engine",
+      "destination": "/latest/openlit/prompts-experiments/rule-engine/overview"
+    },
+    {
+      "source": "/latest/openlit/developer-resources/vault",
+      "destination": "/latest/openlit/developer-resources/vault/overview"
+    },
+    {
+      "source": "/latest/sdk/integrations/go-openai",
+      "destination": "/latest/sdk/integrations/openai"
+    },
+    {
+      "source": "/latest/sdk/integrations/go-anthropic",
+      "destination": "/latest/sdk/integrations/anthropic"
+    }
+  ]
 }
