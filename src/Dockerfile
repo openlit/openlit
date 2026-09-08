@@ -94,8 +94,10 @@ ARG TARGETPLATFORM
 ENV OPAMP_SUPERVISOR_VERSION=${OPAMP_SUPERVISOR_VERSION}
 ENV TARGETARCH=${TARGETARCH}
 
-# Install only the additional runtime dependencies needed
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install only the additional runtime dependencies needed.
+# bullseye-security InRelease Valid-Until can expire in CI while the mirror is
+# otherwise healthy; skip the timestamp check so apt-get update still works.
+RUN apt-get update -o Acquire::Check-Valid-Until=false && apt-get install -y --no-install-recommends \
     bash \
     openssl \
     ca-certificates \
@@ -130,7 +132,7 @@ COPY --from=otel-downloader /tmp/otelcol-contrib /app/opamp/otelcontribcol
 COPY --from=otel-downloader /tmp/opampsupervisor /app/opamp/opampsupervisor
 
 # Verify binary architectures match runtime
-RUN apt-get update && apt-get install -y --no-install-recommends file && \
+RUN apt-get update -o Acquire::Check-Valid-Until=false && apt-get install -y --no-install-recommends file && \
     echo "Verifying binary architectures..." && \
     echo "Runtime architecture: $(uname -m)" && \
     echo "otelcontribcol:" && file /app/opamp/otelcontribcol && \
