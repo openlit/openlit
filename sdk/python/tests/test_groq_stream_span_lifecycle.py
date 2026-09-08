@@ -21,6 +21,7 @@ import time
 
 import pytest
 from opentelemetry import trace as trace_api, context as context_api
+from opentelemetry.trace import StatusCode
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
@@ -138,6 +139,13 @@ def _assert_one_span_with_tokens(exporter):
     assert SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS in attrs
 
 
+def _assert_one_error_span(exporter):
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1, "expected exactly one exported span"
+    assert spans[0].status.status_code == StatusCode.ERROR
+    assert spans[0].attributes[SemanticConvention.ERROR_TYPE] == "RuntimeError"
+
+
 def test_sync_early_break_inside_with_ends_span():
     tracer, exporter = _tracer_with_exporter()
     wrapper = _factory(tracer, is_async=False)
@@ -188,6 +196,19 @@ def test_sync_context_detached_after_early_break():
     assert trace_api.get_current_span(context_api.get_current()) is trace_api.INVALID_SPAN
 
 
+def test_sync_exception_inside_with_ends_error_span():
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=False)
+
+    stream = wrapper(lambda *a, **k: FakeSyncStream(), None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="stream failed"):
+        with stream as s:
+            next(s)
+            raise RuntimeError("stream failed")
+
+    _assert_one_error_span(exporter)
+
+
 @pytest.mark.asyncio
 async def test_async_early_break_inside_with_ends_span():
     tracer, exporter = _tracer_with_exporter()
@@ -227,3 +248,17 @@ async def test_async_full_consumption_exports_exactly_one_span():
 
     time.sleep(0.05)
     _assert_one_span_with_tokens(exporter)
+
+
+@pytest.mark.asyncio
+async def test_async_exception_inside_with_ends_error_span():
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=True)
+
+    stream = await wrapper(_acreate, None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="stream failed"):
+        async with stream as s:
+            await anext(s)
+            raise RuntimeError("stream failed")
+
+    _assert_one_error_span(exporter)

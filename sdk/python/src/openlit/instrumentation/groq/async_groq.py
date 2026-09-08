@@ -83,9 +83,14 @@ def async_chat(
             try:
                 await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
             finally:
-                # Finalize on every exit: a break before exhaustion never
-                # hits StopAsyncIteration, so the span would leak otherwise.
-                if not exc_type:
+                if exc_type:
+                    self._streaming_response_processed = True
+                    handle_exception(self._span, exc_value)
+                    if self._span.is_recording():
+                        self._span.end()
+                else:
+                    # A break before exhaustion never hits StopAsyncIteration,
+                    # so the span would leak without normal-exit finalization.
                     self._finalize_streaming_span()
 
         def __aiter__(self):
