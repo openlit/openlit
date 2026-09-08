@@ -79,8 +79,9 @@ RUN echo "Downloading binaries for architecture: ${TARGETARCH}" && \
     echo "opampsupervisor binary info:" && file opampsupervisor
 
 
-# Final runtime image - Node 20 (OpenPlait adapters declare engines.node >=20)
-FROM node:20-bullseye-slim@sha256:65ef49f7d24aefd012a7fc6f9a2b734bcc19e424976a81f60c86b47266ef5b28
+# Final runtime image - Node 20 on Debian bookworm (bullseye-security
+# package indexes now 404 openssl 1.1.1w updates required by bullseye-slim)
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
 
 # Accept build arguments to pass version and architecture info
 # TARGETARCH is automatically provided by Docker buildx based on --platform
@@ -95,8 +96,7 @@ ENV OPAMP_SUPERVISOR_VERSION=${OPAMP_SUPERVISOR_VERSION}
 ENV TARGETARCH=${TARGETARCH}
 
 # Install only the additional runtime dependencies needed.
-# bullseye-security InRelease Valid-Until can expire in CI while the mirror is
-# otherwise healthy; skip the timestamp check so apt-get update still works.
+# Skip Valid-Until so a briefly stale security index cannot fail the image build.
 RUN apt-get update -o Acquire::Check-Valid-Until=false && apt-get install -y --no-install-recommends \
     bash \
     openssl \

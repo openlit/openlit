@@ -5,7 +5,7 @@
 const fetchDatabaseConfigList = jest.fn().mockResolvedValue(undefined);
 
 jest.mock("@/helpers/client/database-config", () => ({
-	fetchDatabaseConfigList: (...args: unknown[]) => fetchDatabaseConfigList(...args),
+	fetchDatabaseConfigList: (...args: any[]) => fetchDatabaseConfigList(...args),
 	projectHasDatabaseConfig: (list: unknown[] | undefined | null) =>
 		Array.isArray(list) && list.length > 0,
 }));

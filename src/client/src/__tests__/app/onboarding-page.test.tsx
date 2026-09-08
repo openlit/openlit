@@ -38,7 +38,7 @@ jest.mock("@/helpers/client/project", () => ({
 }));
 
 jest.mock("@/helpers/client/database-config", () => ({
-	fetchDatabaseConfigList: (...args: unknown[]) => fetchDatabaseConfigList(...args),
+	fetchDatabaseConfigList: (...args: any[]) => fetchDatabaseConfigList(...args),
 	deleteDatabaseConfig: jest.fn(),
 	projectHasDatabaseConfig: (list: unknown[] | undefined | null) =>
 		Array.isArray(list) && list.length > 0,
