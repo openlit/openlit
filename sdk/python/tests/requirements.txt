@@ -25,7 +25,7 @@ together
 transformers
 groq
 elevenlabs
-crewai>=1.15.5
+crewai>=1.15.20
 agno
 
 # Vector DBs
