@@ -26,12 +26,15 @@ const mockSetIsLoading = jest.fn();
 const mockSetList = jest.fn();
 const mockSetPing = jest.fn();
 
-const makeGetState = (list: any[] = []) => ({
+const makeGetState = (list: any[] = [], currentProjectId = 'proj-1') => ({
   databaseConfig: {
     setIsLoading: mockSetIsLoading,
     setList: mockSetList,
     setPing: mockSetPing,
     list,
+  },
+  project: {
+    current: currentProjectId ? { id: currentProjectId } : undefined,
   },
 });
 
@@ -67,6 +70,24 @@ describe('fetchDatabaseConfigList', () => {
     await fetchDatabaseConfigList(successCb);
     expect(successCb).toHaveBeenCalledWith([]);
     expect(mockSetList).toHaveBeenCalledWith([]);
+  });
+
+  it('ignores a response after the current project has changed', async () => {
+    let resolveAsaw: (value: unknown) => void = () => {};
+    (asaw as jest.Mock).mockReturnValue(
+      new Promise((resolve) => {
+        resolveAsaw = resolve;
+      })
+    );
+    const successCb = jest.fn();
+
+    const pending = fetchDatabaseConfigList(successCb, { projectId: 'proj-1' });
+    (useRootStore.getState as jest.Mock).mockReturnValue(makeGetState([], 'proj-2'));
+    resolveAsaw([null, [{ id: 'db1' }]]);
+    await pending;
+
+    expect(successCb).not.toHaveBeenCalled();
+    expect(mockSetList).not.toHaveBeenCalled();
   });
 });
 

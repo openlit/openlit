@@ -2,7 +2,11 @@
  * @jest-environment jsdom
  */
 
-const fetchDatabaseConfigList = jest.fn().mockResolvedValue(undefined);
+const fetchDatabaseConfigList = jest.fn(
+	async (successCb?: (data: unknown[]) => void) => {
+		successCb?.([]);
+	}
+);
 const replace = jest.fn();
 const fireRequest = jest.fn().mockResolvedValue({ response: {}, error: undefined });
 
@@ -77,6 +81,11 @@ function mockStore(
 describe("HomePage database setup gate", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		fetchDatabaseConfigList.mockImplementation(
+			async (successCb?: (data: unknown[]) => void) => {
+				successCb?.([]);
+			}
+		);
 		global.fetch = jest.fn() as unknown as typeof fetch;
 	});
 
@@ -92,6 +101,7 @@ describe("HomePage database setup gate", () => {
 	});
 
 	it("does not bounce to onboarding while database configs are still loading", () => {
+		fetchDatabaseConfigList.mockImplementation(async () => undefined);
 		mockStore({ databaseConfigs: undefined });
 		render(<HomePage />);
 

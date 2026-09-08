@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
 	fetchDatabaseConfigList,
 	projectHasDatabaseConfig,
@@ -16,19 +16,30 @@ export function useProjectDatabaseSetup() {
 	const currentProject = useRootStore(getCurrentProject);
 	const databaseConfigs = useRootStore(getDatabaseConfigList);
 	const isDatabaseConfigLoading = useRootStore(getDatabaseConfigListIsLoading);
+	const [configProjectId, setConfigProjectId] = useState<string>();
 
 	useEffect(() => {
-		if (currentProject?.id) {
-			void fetchDatabaseConfigList(() => {});
+		if (!currentProject?.id) {
+			setConfigProjectId(undefined);
+			return;
 		}
+
+		const projectId = currentProject.id;
+		setConfigProjectId(undefined);
+		void fetchDatabaseConfigList(() => {
+			setConfigProjectId(projectId);
+		}, { projectId });
 	}, [currentProject?.id]);
+
+	const belongsToCurrentProject = configProjectId === currentProject?.id;
 
 	return {
 		databaseConfigs,
-		hasDbConfig: projectHasDatabaseConfig(databaseConfigs),
+		hasDbConfig:
+			belongsToCurrentProject && projectHasDatabaseConfig(databaseConfigs),
 		isDatabaseConfigLoading,
 		isDatabaseSetupLoading:
 			isDatabaseConfigLoading ||
-			(Boolean(currentProject?.id) && databaseConfigs === undefined),
+			(Boolean(currentProject?.id) && !belongsToCurrentProject),
 	};
 }

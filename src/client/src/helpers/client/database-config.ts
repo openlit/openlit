@@ -9,8 +9,10 @@ export const projectHasDatabaseConfig = (
 ): boolean => Array.isArray(list) && list.length > 0;
 
 export const fetchDatabaseConfigList = async (
-	successCb: (data: any[]) => void
+	successCb: (data: any[]) => void,
+	options: { projectId?: string } = {}
 ) => {
+	const requestedProjectId = options.projectId;
 	useRootStore.getState().databaseConfig.setIsLoading(true);
 	const [, data] = await asaw(
 		getData({
@@ -18,6 +20,13 @@ export const fetchDatabaseConfigList = async (
 			url: "/api/db-config",
 		})
 	);
+
+	if (
+		requestedProjectId &&
+		useRootStore.getState().project?.current?.id !== requestedProjectId
+	) {
+		return;
+	}
 
 	const list = Array.isArray(data) ? data : [];
 	successCb(list);

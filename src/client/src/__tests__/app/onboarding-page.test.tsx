@@ -5,7 +5,11 @@
 const fetchOrganisationList = jest.fn().mockResolvedValue(undefined);
 const fetchPendingInvitations = jest.fn().mockResolvedValue(undefined);
 const fetchProjectList = jest.fn().mockResolvedValue([]);
-const fetchDatabaseConfigList = jest.fn().mockResolvedValue(undefined);
+const fetchDatabaseConfigList = jest.fn(
+	async (successCb?: (data: unknown[]) => void) => {
+		successCb?.([]);
+	}
+);
 
 jest.mock("next-auth/react", () => ({
 	useSession: () => ({ update: jest.fn() }),
@@ -119,11 +123,13 @@ describe("OnboardingPage database config step", () => {
 		expect(screen.getByPlaceholderText("8123")).toBeInTheDocument();
 	});
 
-	it("shows Finish setup once the current project already has a database config", () => {
+	it("shows Finish setup once the current project already has a database config", async () => {
 		mockStore({ databaseConfigs: [{ id: "db-1", name: "Primary" }] });
 		render(<OnboardingPage />);
 
-		expect(screen.getByRole("button", { name: "Finish setup" })).toBeInTheDocument();
+		expect(
+			await screen.findByRole("button", { name: "Finish setup" })
+		).toBeInTheDocument();
 		expect(
 			screen.queryByRole("button", { name: "Add database config" })
 		).not.toBeInTheDocument();

@@ -14,7 +14,7 @@ jest.mock("@/store", () => ({
 	useRootStore: jest.fn(),
 }));
 
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { useRootStore } from "@/store";
 import { useProjectDatabaseSetup } from "@/utils/hooks/use-project-database-setup";
 
@@ -43,12 +43,21 @@ function mockStore(
 describe("useProjectDatabaseSetup", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		fetchDatabaseConfigList.mockImplementation(
+			async (successCb?: (data: unknown[]) => void) => {
+				successCb?.([]);
+			}
+		);
 	});
 
-	it("fetches database configs when a current project is selected", () => {
+	it("fetches database configs for the current project", async () => {
 		mockStore({ list: [] });
 		renderHook(() => useProjectDatabaseSetup());
-		expect(fetchDatabaseConfigList).toHaveBeenCalled();
+		await waitFor(() => {
+			expect(fetchDatabaseConfigList).toHaveBeenCalledWith(expect.any(Function), {
+				projectId: "proj-1",
+			});
+		});
 	});
 
 	it("does not fetch when there is no current project", () => {
@@ -57,23 +66,28 @@ describe("useProjectDatabaseSetup", () => {
 		expect(fetchDatabaseConfigList).not.toHaveBeenCalled();
 	});
 
-	it("treats an empty list as incomplete setup", () => {
+	it("treats an empty list as incomplete setup once the project list has loaded", async () => {
 		mockStore({ list: [] });
 		const { result } = renderHook(() => useProjectDatabaseSetup());
-		expect(result.current.hasDbConfig).toBe(false);
-		expect(result.current.isDatabaseSetupLoading).toBe(false);
+		await waitFor(() => {
+			expect(result.current.hasDbConfig).toBe(false);
+			expect(result.current.isDatabaseSetupLoading).toBe(false);
+		});
 	});
 
-	it("treats a populated list as complete setup", () => {
+	it("treats a populated list as complete setup once the project list has loaded", async () => {
 		mockStore({ list: [{ id: "db-1" }] });
 		const { result } = renderHook(() => useProjectDatabaseSetup());
-		expect(result.current.hasDbConfig).toBe(true);
+		await waitFor(() => {
+			expect(result.current.hasDbConfig).toBe(true);
+		});
 	});
 
-	it("keeps setup loading while the project config list is still undefined", () => {
-		mockStore({ list: undefined, isLoading: false });
+	it("keeps setup loading until the current project's configs have loaded", () => {
+		fetchDatabaseConfigList.mockImplementation(async () => undefined);
+		mockStore({ list: [{ id: "db-from-previous-project" }], isLoading: false });
 		const { result } = renderHook(() => useProjectDatabaseSetup());
-		expect(result.current.isDatabaseSetupLoading).toBe(true);
 		expect(result.current.hasDbConfig).toBe(false);
+		expect(result.current.isDatabaseSetupLoading).toBe(true);
 	});
 });
