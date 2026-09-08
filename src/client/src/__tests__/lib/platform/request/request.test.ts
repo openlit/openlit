@@ -187,6 +187,30 @@ describe('getRequests', () => {
     expect(query).toContain('toInt32OrZero(gen_ai.usage.prompt_tokens)');
   });
 
+  it('does not interpolate injected ORDER BY type or direction', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null })
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'Timestamp; DROP TABLE', direction: 'ASC' },
+    });
+    const typeQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(typeQuery).toContain('ORDER BY Timestamp DESC');
+    expect(typeQuery).not.toContain('DROP TABLE');
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'Timestamp', direction: 'ASC; SELECT 1' },
+    });
+    const directionQuery = (dataCollector as jest.Mock).mock.calls[3][0].query as string;
+    expect(directionQuery).toContain('ORDER BY Timestamp DESC');
+    expect(directionQuery).not.toContain('SELECT 1');
+  });
+
   it('lists one matching span per trace when generation-health chips are on', async () => {
     (dataCollector as jest.Mock)
       .mockResolvedValueOnce({ data: [{ total: 3 }], err: null })

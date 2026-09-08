@@ -120,6 +120,7 @@ function queueDiscovery(
 }
 
 beforeEach(() => {
+	process.env.OPENLIT_EDITION = "enterprise";
 	mockedDC.mockReset();
 	mockGetTelemetryAdapterForDbConfig.mockReset();
 	mockGetDBConfigByIdInternal.mockReset();
@@ -130,6 +131,10 @@ beforeEach(() => {
 	});
 	mockResolveCodingAgentsClickHouseDbConfigId.mockReset();
 	mockResolveCodingAgentsClickHouseDbConfigId.mockResolvedValue("db-1");
+});
+
+afterAll(() => {
+	delete process.env.OPENLIT_EDITION;
 });
 
 describe("materializeAgents — connector routing purity", () => {
@@ -460,5 +465,23 @@ describe("materializeAgents — workload_key dedup", () => {
 		expect(ctrlQuery).toBeDefined();
 		expect(ctrlQuery!).toMatch(/argMax\(s\.llm_providers,\s*s\.last_seen\)/);
 		expect(ctrlQuery!).toMatch(/latest\.llm_providers\s+AS\s+llm_providers/);
+	});
+
+	it("skips the controller discovery query when edition is oss", async () => {
+		process.env.OPENLIT_EDITION = "oss";
+		const queries: string[] = [];
+		mockedDC.mockImplementation(async (config: any, op?: string) => {
+			if (op === "query") {
+				queries.push(String(config.query));
+				return { data: [] } as any;
+			}
+			return { data: [] } as any;
+		});
+
+		await materializeAgents();
+
+		expect(
+			queries.some((q) => q.includes("openlit_controller_services"))
+		).toBe(false);
 	});
 });
