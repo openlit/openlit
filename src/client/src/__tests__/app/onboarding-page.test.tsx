@@ -5,7 +5,11 @@
 const fetchOrganisationList = jest.fn().mockResolvedValue(undefined);
 const fetchPendingInvitations = jest.fn().mockResolvedValue(undefined);
 const fetchProjectList = jest.fn().mockResolvedValue([]);
-const fetchDatabaseConfigList = jest.fn().mockResolvedValue(undefined);
+const fetchDatabaseConfigList = jest.fn(
+	async (successCb?: (data: unknown[]) => void) => {
+		successCb?.([]);
+	}
+);
 
 jest.mock("next-auth/react", () => ({
 	useSession: () => ({ update: jest.fn() }),
@@ -34,8 +38,10 @@ jest.mock("@/helpers/client/project", () => ({
 }));
 
 jest.mock("@/helpers/client/database-config", () => ({
-	fetchDatabaseConfigList: (...args: unknown[]) => fetchDatabaseConfigList(...args),
+	fetchDatabaseConfigList: (...args: any[]) => fetchDatabaseConfigList(...args),
 	deleteDatabaseConfig: jest.fn(),
+	projectHasDatabaseConfig: (list: unknown[] | undefined | null) =>
+		Array.isArray(list) && list.length > 0,
 }));
 
 jest.mock("@/store", () => ({
@@ -115,5 +121,17 @@ describe("OnboardingPage database config step", () => {
 		expect(screen.getByText("Add ClickHouse connector")).toBeInTheDocument();
 		expect(screen.getByPlaceholderText("127.0.0.1")).toBeInTheDocument();
 		expect(screen.getByPlaceholderText("8123")).toBeInTheDocument();
+	});
+
+	it("shows Finish setup once the current project already has a database config", async () => {
+		mockStore({ databaseConfigs: [{ id: "db-1", name: "Primary" }] });
+		render(<OnboardingPage />);
+
+		expect(
+			await screen.findByRole("button", { name: "Finish setup" })
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Add database config" })
+		).not.toBeInTheDocument();
 	});
 });
