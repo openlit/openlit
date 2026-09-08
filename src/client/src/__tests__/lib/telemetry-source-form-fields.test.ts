@@ -11,6 +11,9 @@ import { applyHttpAuthCredentials } from "@/lib/platform/connectors/datasource/h
 import { tempoAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/tempo";
 import { lokiAdapterFactory } from "@/lib/platform/connectors/datasource/grafana/loki";
 import { prometheusAdapterFactory } from "@/lib/platform/connectors/datasource/prometheus/adapter";
+import { mimirAdapterFactory } from "@/lib/platform/connectors/datasource/mimir/adapter";
+import { victoriaMetricsAdapterFactory } from "@/lib/platform/connectors/datasource/victoria-metrics/adapter";
+import { victoriaLogsAdapterFactory } from "@/lib/platform/connectors/datasource/victoria-logs/adapter";
 
 describe("applyHttpAuthCredentials", () => {
 	it("prefers Basic auth when username is set (Grafana Cloud path)", () => {
@@ -101,6 +104,24 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 		expect(urlField(tempoAdapterFactory)).toContain("tempo");
 		expect(urlField(lokiAdapterFactory)).toContain("3100");
 		expect(urlField(prometheusAdapterFactory)).toContain("9090");
+		expect(urlField(mimirAdapterFactory)).toContain("grafana.net");
+		expect(urlField(victoriaMetricsAdapterFactory)).toContain("8428");
+		expect(urlField(victoriaLogsAdapterFactory)).toContain("9428");
+	});
+
+	it("exposes tenantProject for Victoria connectors only", () => {
+		expect(
+			prometheusAdapterFactory.describe().configFields.some((f) => f.key === "tenantProject")
+		).toBe(false);
+		expect(
+			mimirAdapterFactory.describe().configFields.some((f) => f.key === "tenantProject")
+		).toBe(false);
+		expect(
+			victoriaMetricsAdapterFactory.describe().configFields.some((f) => f.key === "tenantProject")
+		).toBe(true);
+		expect(
+			victoriaLogsAdapterFactory.describe().configFields.some((f) => f.key === "tenantProject")
+		).toBe(true);
 	});
 
 });

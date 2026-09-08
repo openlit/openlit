@@ -26,14 +26,26 @@ describe("new implementation route access wraps", () => {
 			"connectors/[id]/route.ts",
 			"connectors/[id]/health/route.ts",
 			"connectors/bindings/route.ts",
+			"telemetry-source/route.ts",
+			"telemetry-source/[id]/route.ts",
+			"telemetry-source/[id]/health/route.ts",
+			"telemetry-source/binding/route.ts",
 			"project/environment/route.ts",
 		];
 		for (const rel of files) {
 			const source = readFileSync(join(API_ROOT, rel), "utf8");
 			expect(source).toMatch(/withConnectorAccess/);
-			if (rel.includes("bindings") || rel.includes("[id]") || rel.includes("environment")) {
+			if (
+				rel.includes("bindings") ||
+				rel.includes("binding") ||
+				rel.includes("[id]") ||
+				rel.includes("environment") ||
+				rel === "connectors/route.ts" ||
+				rel === "telemetry-source/route.ts"
+			) {
 				expect(source).toMatch(/withConnectorAudit|withConnectorAccess/);
 			}
+			expect(source).not.toMatch(/"[a-z_]+:[a-z_]+"/);
 		}
 	});
 
