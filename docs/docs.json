@@ -118,16 +118,6 @@
                   "latest/openlit/coding-agents/privacy-and-governance",
                   "latest/openlit/coding-agents/troubleshooting"
                 ]
-              },
-              {
-                "group": "Controller",
-                "icon": "tower-broadcast",
-                "pages": [
-                  "latest/controller/overview",
-                  "latest/controller/quickstart",
-                  "latest/controller/architecture",
-                  "latest/controller/configuration"
-                ]
               }
             ]
           },
