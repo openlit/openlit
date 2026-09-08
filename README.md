@@ -350,6 +350,10 @@ We are dedicated to continuously improving OpenLIT. Here's a look at what's been
 | [Dataset Generation Based on LLM Events](https://github.com/openlit/openlit/issues/472)                                           | 🔜 Coming Soon |
 | [Search over Traces]()                                                                                                            | 🔜 Coming Soon |
 
+## ☁️ One-Click Deploy
+
+[![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/openlit/)
+
 ## 🌱 Contributing
 
 Whether it's big or small, we love contributions 💚. Check out our [Contribution guide](./CONTRIBUTING.md) to get started
