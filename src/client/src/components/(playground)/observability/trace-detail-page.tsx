@@ -172,7 +172,10 @@ function CostStat({
 }) {
 	const m = getMessage();
 	const currentEnvironment = useRootStore(getCurrentProjectEnvironment);
-	const hasCost = !!costValue && costValue !== "-";
+	const hasCost =
+		!!costValue &&
+		costValue !== "-" &&
+		costValue !== m.GOVERNANCE_COST_NOT_REPORTED;
 	const canRecalculate = hasModel && !!spanId;
 	const { fireRequest, isLoading } = useFetchWrapper<{
 		success: boolean;
@@ -743,7 +746,7 @@ export function TraceDetailView({
 			? [
 					{
 						id: "evaluations",
-						label: "Evaluations",
+						label: m.EVALUATION_RESULTS,
 						content: (
 							<Evaluations
 								trace={trace}
@@ -756,6 +759,7 @@ export function TraceDetailView({
 	];
 	const detailTabs = useMemo(
 		() => buildObjectTabs(raw, {
+			excludeKeys: ["agentLoop"],
 			labelOverrides: {
 				SpanAttributes: "Span Attributes",
 				ResourceAttributes: "Resource Attributes",
@@ -869,6 +873,9 @@ export function TraceDetailView({
 	const tokensValue = codingTokensValue ?? trace?.totalTokens;
 	const costValue =
 		codingCostValue ?? (trace?.cost && trace.cost !== "-" ? `$${trace.cost}` : undefined);
+	const displayCostValue =
+		costValue ||
+		(isCodingAgentTrace ? m.GOVERNANCE_COST_NOT_REPORTED : undefined);
 	const durationValue =
 		codingDurationValue ||
 		(trace ? `${parseFloat(trace.requestDuration).toFixed(3)}s` : "");
@@ -878,6 +885,7 @@ export function TraceDetailView({
 		<DetailShell
 			title={title}
 			compact
+			fill
 			leadingActions={
 				variant === "page" ? (
 					<Button
@@ -900,7 +908,7 @@ export function TraceDetailView({
 						<Stat icon={<Clock className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_DURATION} value={durationValue} />
 						<Stat icon={<Zap className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_TOKENS} value={tokensValue} />
 						<CostStat
-							costValue={costValue}
+							costValue={displayCostValue}
 							spanId={trace.spanId}
 							traceId={knownTraceId}
 							hasModel={!!modelValue}
@@ -938,8 +946,8 @@ export function TraceDetailView({
 			}
 		>
 			{trace && (
-				<>
-					<div className="flex flex-wrap gap-1.5">
+				<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+					<div className="flex shrink-0 flex-wrap gap-1.5">
 						<MetaPill label={m.OBSERVABILITY_TRACE_ID} value={trace.id} />
 						<MetaPill label={m.OBSERVABILITY_SPAN_ID} value={trace.spanId} />
 						{!isCodingAgentTrace && (
@@ -1004,10 +1012,10 @@ export function TraceDetailView({
 					)}
 					<GenerationHealthNote spanAttributes={spanAttributes} />
 					<AgentLoopNote hit={asAgentLoopHit(raw?.agentLoop)} />
-					<div className="hidden h-[min(860px,calc(100vh-12rem))] min-h-[620px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
+					<div className="hidden min-h-0 flex-1 overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
 						<ResizablePanelGroup direction="horizontal" className="h-full">
 							<ResizablePanel defaultSize={48} minSize={32} maxSize={68}>
-								<div className="h-full min-h-0 p-2">
+								<div className="h-full min-h-0 overflow-hidden p-2">
 									<SpanHierarchyExplorer
 										hierarchySpanId={hierarchySpanIdRef.current}
 										selectedSpanId={selectedSpanId}
@@ -1029,7 +1037,7 @@ export function TraceDetailView({
 							</ResizablePanel>
 						</ResizablePanelGroup>
 					</div>
-					<div className="grid gap-3 lg:hidden">
+					<div className="grid min-h-0 flex-1 gap-3 overflow-auto lg:hidden">
 						<SpanHierarchyExplorer
 							hierarchySpanId={hierarchySpanIdRef.current}
 							selectedSpanId={selectedSpanId}
@@ -1042,7 +1050,7 @@ export function TraceDetailView({
 							extraTabsPlacement="before"
 						/>
 					</div>
-				</>
+				</div>
 			)}
 		</DetailShell>
 	);

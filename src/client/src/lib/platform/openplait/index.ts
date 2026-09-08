@@ -7,6 +7,7 @@ import {
 import {
 	ClickHouseAdapter,
 	OPENLIT_CLICKHOUSE_DATASETS,
+	OTEL_CLICKHOUSE_DATASETS,
 	type ClickHouseAdapterConfig,
 } from "@openplait/adapter-clickhouse";
 import { DatasourceRegistry, OpenPlaitRuntime } from "@openplait/runtime";
@@ -98,7 +99,7 @@ function connectionConfig(
 			process.env.OPENPLAIT_CLICKHOUSE_MAX_ROWS_TO_READ,
 			DEFAULT_MAX_ROWS_TO_READ
 		),
-		datasets: [...OPENLIT_CLICKHOUSE_DATASETS],
+		datasets: [...OTEL_CLICKHOUSE_DATASETS, ...OPENLIT_CLICKHOUSE_DATASETS],
 	};
 }
 
