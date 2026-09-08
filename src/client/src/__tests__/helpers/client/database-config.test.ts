@@ -26,7 +26,7 @@ const mockSetIsLoading = jest.fn();
 const mockSetList = jest.fn();
 const mockSetPing = jest.fn();
 
-const makeGetState = (list: any[] = [], currentProjectId = 'proj-1') => ({
+const makeGetState = (list: any[] = [], currentProjectId: string | null = 'proj-1') => ({
   databaseConfig: {
     setIsLoading: mockSetIsLoading,
     setList: mockSetList,
@@ -88,6 +88,17 @@ describe('fetchDatabaseConfigList', () => {
 
     expect(successCb).not.toHaveBeenCalled();
     expect(mockSetList).not.toHaveBeenCalled();
+  });
+
+  it('still applies the list when the current project has not been set yet', async () => {
+    (useRootStore.getState as jest.Mock).mockReturnValue(makeGetState([], null));
+    (asaw as jest.Mock).mockResolvedValue([null, [{ id: 'db1' }]]);
+    const successCb = jest.fn();
+
+    await fetchDatabaseConfigList(successCb, { projectId: 'proj-1' });
+
+    expect(successCb).toHaveBeenCalledWith([{ id: 'db1' }]);
+    expect(mockSetList).toHaveBeenCalledWith([{ id: 'db1' }]);
   });
 });
 

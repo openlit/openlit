@@ -21,10 +21,8 @@ export const fetchDatabaseConfigList = async (
 		})
 	);
 
-	if (
-		requestedProjectId &&
-		useRootStore.getState().project?.current?.id !== requestedProjectId
-	) {
+	const currentProjectId = useRootStore.getState().project?.current?.id;
+	if (requestedProjectId && currentProjectId && currentProjectId !== requestedProjectId) {
 		return;
 	}
 
