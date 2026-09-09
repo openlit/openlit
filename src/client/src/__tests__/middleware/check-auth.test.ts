@@ -133,6 +133,21 @@ describe('checkAuth', () => {
       expect(forwardedRequest.headers.get('x-database-config-id')).toBe('db-config-1');
     });
 
+    it('strips a client-supplied x-database-config-id on session API requests', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      const headers = new Headers({ 'x-database-config-id': 'victim-db' });
+      const req = {
+        method: 'GET',
+        nextUrl: { pathname: '/api/some-endpoint', search: '' },
+        url: 'http://localhost/api/some-endpoint',
+        headers,
+      };
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      const forwarded = (NextResponse.next as jest.Mock).mock.calls.at(-1)?.[0];
+      expect(forwarded.request.headers.get('x-database-config-id')).toBeNull();
+    });
+
     it('returns 401 when the verify-key request throws', async () => {
       (global as any).fetch = jest.fn().mockRejectedValue(new Error('network down'));
       const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });
@@ -385,6 +400,38 @@ describe('checkAuth', () => {
       await middleware(req as any, makeFetchEvent());
       expect(NextResponse.next).toHaveBeenCalled();
     });
+
+    it('allows GET to /api/db-config without onboarding so step 3 can list ClickHouse configs', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('GET', '/api/db-config');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows POST to /api/db-config without onboarding so step 3 can save ClickHouse configs', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/db-config');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows GET to /api/project/environment without onboarding', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('GET', '/api/project/environment');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows POST to /api/clickhouse without onboarding so the db config form can ping', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/clickhouse');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
   });
 
   describe('onboarding-whitelisted API routes (prefix match)', () => {
@@ -409,6 +456,14 @@ describe('checkAuth', () => {
       const req = makeRequest('DELETE', '/api/organisation/invitation/456');
       await middleware(req as any, makeFetchEvent());
       expect(NextResponse.next).toHaveBeenCalled();
+    });
+
+    it('allows POST to /api/db-config/current/:id without onboarding', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/db-config/current/db-1');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
     });
   });
 

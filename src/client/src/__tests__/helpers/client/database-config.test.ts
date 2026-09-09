@@ -15,6 +15,7 @@ import {
   pingActiveDatabaseConfig,
   changeActiveDatabaseConfig,
   deleteDatabaseConfig,
+  projectHasDatabaseConfig,
 } from '@/helpers/client/database-config';
 import { useRootStore } from '@/store';
 import { getData, deleteData } from '@/utils/api';
@@ -25,12 +26,15 @@ const mockSetIsLoading = jest.fn();
 const mockSetList = jest.fn();
 const mockSetPing = jest.fn();
 
-const makeGetState = (list: any[] = []) => ({
+const makeGetState = (list: any[] = [], currentProjectId: string | null = 'proj-1') => ({
   databaseConfig: {
     setIsLoading: mockSetIsLoading,
     setList: mockSetList,
     setPing: mockSetPing,
     list,
+  },
+  project: {
+    current: currentProjectId ? { id: currentProjectId } : undefined,
   },
 });
 
@@ -53,19 +57,51 @@ describe('fetchDatabaseConfigList', () => {
     expect(mockSetList).toHaveBeenCalledWith(data);
   });
 
-  it('calls successCb with empty array on error', async () => {
-    (asaw as jest.Mock).mockResolvedValue([null, null]);
+  it('treats a fetch error as an empty list and surfaces it', async () => {
+    (asaw as jest.Mock).mockResolvedValue(['Unauthorized']);
     const successCb = jest.fn();
     await fetchDatabaseConfigList(successCb);
     expect(successCb).toHaveBeenCalledWith([]);
+    expect(mockSetList).toHaveBeenCalledWith([]);
+    expect(toast.error).toHaveBeenCalled();
   });
 
-  it('coerces non-array payloads to an empty list', async () => {
+  it('does not treat a non-array payload as a successful list', async () => {
     (asaw as jest.Mock).mockResolvedValue([null, '<html>login</html>']);
     const successCb = jest.fn();
     await fetchDatabaseConfigList(successCb);
     expect(successCb).toHaveBeenCalledWith([]);
     expect(mockSetList).toHaveBeenCalledWith([]);
+    expect(toast.error).toHaveBeenCalled();
+  });
+
+  it('ignores a response after the current project has changed', async () => {
+    let resolveAsaw: (value: unknown) => void = () => {};
+    (asaw as jest.Mock).mockReturnValue(
+      new Promise((resolve) => {
+        resolveAsaw = resolve;
+      })
+    );
+    const successCb = jest.fn();
+
+    const pending = fetchDatabaseConfigList(successCb, { projectId: 'proj-1' });
+    (useRootStore.getState as jest.Mock).mockReturnValue(makeGetState([], 'proj-2'));
+    resolveAsaw([null, [{ id: 'db1' }]]);
+    await pending;
+
+    expect(successCb).not.toHaveBeenCalled();
+    expect(mockSetList).not.toHaveBeenCalled();
+  });
+
+  it('still applies the list when the current project has not been set yet', async () => {
+    (useRootStore.getState as jest.Mock).mockReturnValue(makeGetState([], null));
+    (asaw as jest.Mock).mockResolvedValue([null, [{ id: 'db1' }]]);
+    const successCb = jest.fn();
+
+    await fetchDatabaseConfigList(successCb, { projectId: 'proj-1' });
+
+    expect(successCb).toHaveBeenCalledWith([{ id: 'db1' }]);
+    expect(mockSetList).toHaveBeenCalledWith([{ id: 'db1' }]);
   });
 });
 
@@ -215,5 +251,17 @@ describe('deleteDatabaseConfig', () => {
     await deleteDatabaseConfig('db1');
 
     expect(mockSetList).toHaveBeenCalledWith([]);
+  });
+});
+
+describe('projectHasDatabaseConfig', () => {
+  it('is false for missing or empty lists', () => {
+    expect(projectHasDatabaseConfig(undefined)).toBe(false);
+    expect(projectHasDatabaseConfig(null)).toBe(false);
+    expect(projectHasDatabaseConfig([])).toBe(false);
+  });
+
+  it('is true when the project has at least one database config', () => {
+    expect(projectHasDatabaseConfig([{ id: 'db1' }])).toBe(true);
   });
 });

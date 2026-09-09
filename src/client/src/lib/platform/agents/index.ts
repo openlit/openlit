@@ -26,6 +26,7 @@ import { agentsLogger } from "./logger";
 import { AGENTS_SUMMARY_TABLE } from "./table-details";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { recomputeCodingAgentsForWindow } from "./materialize";
+import { isControllerProductEnabled } from "@/lib/platform/controller/product";
 
 const escape = escapeClickHouseString;
 
@@ -90,6 +91,24 @@ function rowToAgent(row: Record<string, unknown>): UnifiedAgent {
 		coding_edit_reject_24h: Number(row.coding_edit_reject_24h || 0),
 		coding_commit_count_24h: Number(row.coding_commit_count_24h || 0),
 		coding_pr_count_24h: Number(row.coding_pr_count_24h || 0),
+	};
+}
+
+function redactControllerProduct(agent: UnifiedAgent): UnifiedAgent | null {
+	if (isControllerProductEnabled()) return agent;
+	if (agent.source === "controller") return null;
+	if (agent.source === "both") {
+		return {
+			...agent,
+			source: "sdk",
+			controller_service_id: null,
+			controller_instance_id: null,
+		};
+	}
+	return {
+		...agent,
+		controller_service_id: null,
+		controller_instance_id: null,
 	};
 }
 
@@ -403,6 +422,9 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 	where.push(
 		`lower(s.environment) NOT IN ('local', 'default_environment')`
 	);
+	if (!isControllerProductEnabled()) {
+		where.push(`s.source != 'controller'`);
+	}
 
 	const query = `
 		${ROLLUP_CTES}
@@ -425,7 +447,10 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 		return { data: [], nextCursor: null };
 	}
 
-	const rows = ((res.data as Record<string, unknown>[]) || []).map(rowToAgent);
+	const rows = ((res.data as Record<string, unknown>[]) || [])
+		.map(rowToAgent)
+		.map(redactControllerProduct)
+		.filter((agent): agent is UnifiedAgent => agent !== null);
 	let nextCursor: AgentListCursor | null = null;
 	if (rows.length > limit) {
 		const last = rows[limit - 1];
@@ -531,7 +556,7 @@ async function loadAgent(
 	}
 	const rows = (res.data as Record<string, unknown>[]) || [];
 	if (!rows.length) return null;
-	return rowToAgent(rows[0]);
+	return redactControllerProduct(rowToAgent(rows[0]));
 }
 
 // `computeAgentKey` + `invalidateAgent` (+ env normalize helpers) now live in
