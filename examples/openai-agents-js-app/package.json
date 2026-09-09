@@ -12,6 +12,13 @@
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "overrides": {
+    "fast-uri": "3.1.6",
+    "hono": "4.12.34",
+    "@hono/node-server": "1.19.15",
+    "ip-address": "10.3.1",
+    "qs": "6.16.0"
   }
 }
 

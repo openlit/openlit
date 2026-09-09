@@ -29,6 +29,7 @@ import {
 import { AGENTS_SUMMARY_TABLE, AGENT_VERSIONS_TABLE } from "./table-details";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { mergeProviders } from "./provider-normalize";
+import { isControllerProductEnabled } from "@/lib/platform/controller/product";
 
 /** SQL: fold empty / local-dev env labels into `default` (matches normalizeDeploymentEnvironment). */
 const DEPLOYMENT_ENV_SQL = `multiIf(
@@ -366,13 +367,7 @@ async function discoverAgents(
 			latest.last_seen AS last_seen
 		FROM latest
 	`;
-	const ctrlRes = await intelligenceDataCollector({ query: ctrlQuery }, "query", dbConfigId);
-	if (ctrlRes.err) {
-		agentsLogger.error("materializer_controller_discovery_failed", {
-			err: ctrlRes.err,
-		});
-	}
-	const ctrlRows = (ctrlRes.data as Array<{
+	let ctrlRows: Array<{
 		id: string;
 		controller_instance_id: string;
 		cluster_id: string;
@@ -384,7 +379,17 @@ async function discoverAgents(
 		llm_providers: string[] | null;
 		first_seen: string;
 		last_seen: string;
-	}>) || [];
+	}> = [];
+	if (isControllerProductEnabled()) {
+		const ctrlRes = await intelligenceDataCollector({ query: ctrlQuery }, "query", dbConfigId);
+		if (ctrlRes.err) {
+			agentsLogger.error("materializer_controller_discovery_failed", {
+				err: ctrlRes.err,
+			});
+		}
+		ctrlRows =
+			(ctrlRes.data as typeof ctrlRows) || [];
+	}
 
 	const merged = new Map<string, DiscoveredAgent>();
 	// Secondary index: (cluster_id|workload_key) -> agent_key in `merged`.
