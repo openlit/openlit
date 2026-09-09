@@ -44,7 +44,12 @@ const mockedDataCollector = intelligenceDataCollector as jest.MockedFunction<
 >;
 
 beforeEach(() => {
+	process.env.OPENLIT_EDITION = "enterprise";
 	mockedDataCollector.mockReset();
+});
+
+afterAll(() => {
+	delete process.env.OPENLIT_EDITION;
 });
 
 describe("computeAgentKey", () => {
@@ -156,6 +161,34 @@ describe("listAgents", () => {
 		const result = await listAgents();
 		expect(result.data[0].controller_service_id).toBeNull();
 		expect(result.data[0].source).toBe("sdk");
+	});
+
+	it("excludes source=controller and redacts both as sdk when edition is oss", async () => {
+		process.env.OPENLIT_EDITION = "oss";
+		mockedDataCollector.mockResolvedValueOnce({
+			data: [
+				makeRow({
+					source: "controller",
+					controller_service_id: "ctrl-1",
+					controller_instance_id: "inst-1",
+				}),
+				makeRow({
+					agent_key: "both-1",
+					source: "both",
+					controller_service_id: "ctrl-2",
+					controller_instance_id: "inst-2",
+				}),
+				makeRow({ agent_key: "sdk-1", source: "sdk" }),
+			],
+		});
+		const result = await listAgents();
+		expect(result.data.map((row) => row.source)).toEqual(["sdk", "sdk"]);
+		expect(result.data.every((row) => row.controller_service_id === null)).toBe(
+			true
+		);
+		const issuedQuery = (mockedDataCollector.mock.calls[0][0] as { query: string })
+			.query;
+		expect(issuedQuery).toContain("s.source != 'controller'");
 	});
 
 	it("preserves controller_service_id when present", async () => {
@@ -500,6 +533,141 @@ describe("listAgents", () => {
 		expect(result.data).toHaveLength(1);
 		expect(result.data[0].agent_key).toBe("coding-1");
 	});
+
+	it("triggers the coding overlay when only timeEnd (no timeStart) is provided", async () => {
+		mockedDataCollector
+			.mockResolvedValueOnce({
+				data: [makeRow({ source: "coding", agent_key: "coding-end-only" })],
+			})
+			.mockResolvedValueOnce({ data: [] });
+
+		await listAgents({
+			filters: { source: ["coding"] },
+			timeEnd: "2026-05-11 23:59:59",
+		});
+		// Two calls means the overlay branch executed (discoverCodingAgents
+		// issues the second query) even though timeStart is absent.
+		expect(mockedDataCollector).toHaveBeenCalledTimes(2);
+	});
+
+	it("skips rows the coding overlay has no match for and falls back to the existing last_seen when the live row's is blank", async () => {
+		const cursorKey = computeAgentKey("coding", "default", "cursor");
+		const codexKey = computeAgentKey("coding", "default", "codex");
+		mockedDataCollector
+			.mockResolvedValueOnce({
+				data: [
+					makeRow({
+						agent_key: cursorKey,
+						service_name: "cursor",
+						source: "coding",
+						cluster_id: "coding",
+						environment: "default",
+						last_seen: "2026-05-11 22:10:00",
+					}),
+					makeRow({
+						agent_key: codexKey,
+						service_name: "codex",
+						source: "coding",
+						cluster_id: "coding",
+						environment: "default",
+						last_seen: "2026-05-11 22:05:00",
+					}),
+				],
+			})
+			// Only the "cursor" vendor is discovered live; "codex" has no
+			// matching overlay row and must be left untouched. The
+			// discovered row's last_seen is blank, so the original row's
+			// last_seen must be preserved instead of overwritten.
+			.mockResolvedValueOnce({
+				data: [
+					{
+						vendor: "cursor",
+						client_version: "1.0.0",
+						first_seen: "2026-05-11 20:00:00",
+						last_seen: "",
+						session_count_24h: 4,
+						cost_usd_24h: 0.5,
+						active_users_24h: 2,
+						lines_added_24h: 1,
+						lines_removed_24h: 1,
+						lines_accepted_24h: 1,
+						lines_rejected_24h: 0,
+						edit_accept_24h: 1,
+						edit_reject_24h: 0,
+						commit_count_24h: 0,
+						pr_count_24h: 0,
+					},
+				],
+			});
+
+		const result = await listAgents({
+			filters: { source: ["coding"] },
+			timeStart: "2026-05-11 00:00:00",
+			timeEnd: "2026-05-11 23:59:59",
+		});
+
+		const cursorRow = result.data.find((r) => r.agent_key === cursorKey);
+		const codexRow = result.data.find((r) => r.agent_key === codexKey);
+		expect(cursorRow?.coding_session_count_24h).toBe(4);
+		expect(cursorRow?.last_seen).toBe("2026-05-11 22:10:00");
+		expect(codexRow?.coding_session_count_24h).toBe(0);
+		expect(codexRow?.last_seen).toBe("2026-05-11 22:05:00");
+	});
+
+	it("defaults to an empty rows list when ClickHouse returns no data and no error", async () => {
+		mockedDataCollector.mockResolvedValueOnce({});
+		const result = await listAgents();
+		expect(result.data).toEqual([]);
+		expect(result.nextCursor).toBeNull();
+	});
+
+	it("applies rowToAgent defaults when optional summary fields are missing or non-array", async () => {
+		mockedDataCollector.mockResolvedValueOnce({
+			data: [
+				{
+					agent_key: "bare-key",
+					service_name: "svc",
+					controller_service_id: "",
+					controller_instance_id: "",
+					primary_model: "",
+					models: undefined,
+					providers: null,
+					tool_names: "not-an-array",
+					tool_count: 0,
+					request_count_24h: 0,
+					current_version_hash: "",
+					current_version_number: 0,
+					sdk_version: "",
+					sdk_language: "",
+					instrumentation_status: "",
+					desired_instrumentation_status: "",
+					agent_observability_status: "",
+					desired_agent_status: "",
+					pending_action: "",
+					pending_action_status: "",
+					first_seen: "2026-05-11 22:00:00",
+					last_seen: "2026-05-11 22:10:00",
+					updated_at: "2026-05-11 22:10:00",
+					last_materialized_at: "",
+					pods_total: 0,
+					pods_pending: 0,
+					pods_acknowledged: 0,
+				},
+			],
+		});
+		const result = await listAgents();
+		const row = result.data[0];
+		expect(row.environment).toBe("default");
+		expect(row.cluster_id).toBe("default");
+		expect(row.source).toBe("sdk");
+		expect(row.models).toEqual([]);
+		expect(row.providers).toEqual([]);
+		expect(row.tool_names).toEqual([]);
+		expect(row.instrumentation_status).toBe("discovered");
+		expect(row.desired_instrumentation_status).toBe("none");
+		expect(row.desired_agent_status).toBe("none");
+		expect(row.last_materialized_at).toBe("2026-05-11 22:10:00");
+	});
 });
 
 describe("normalizeDeploymentEnvironment / deploymentEnvironmentSqlPredicate", () => {
@@ -531,6 +699,11 @@ describe("getAgent", () => {
 	it("returns null when ClickHouse errors", async () => {
 		mockedDataCollector.mockResolvedValueOnce({ err: "boom", data: [] });
 		expect(await getAgent({ agentKey: "key1" })).toBeNull();
+	});
+
+	it("returns null when ClickHouse returns no data and no error", async () => {
+		mockedDataCollector.mockResolvedValueOnce({});
+		expect(await getAgent({ agentKey: "missing-data" })).toBeNull();
 	});
 
 	it("invalidates the detail cache key", () => {
@@ -581,6 +754,47 @@ describe("getAgent", () => {
 		expect(agent?.controller_service_id).toBe("ctrl-uuid");
 		expect(agent?.source).toBe("controller");
 		expect(agent?.pods_total).toBe(0);
+	});
+
+	it("returns null for a controller-only agent when edition is oss", async () => {
+		process.env.OPENLIT_EDITION = "oss";
+		mockedDataCollector.mockResolvedValueOnce({
+			data: [
+				{
+					agent_key: "key1",
+					service_name: "svc",
+					environment: "prod",
+					cluster_id: "default",
+					source: "controller",
+					controller_service_id: "ctrl-uuid",
+					controller_instance_id: "inst-uuid",
+					primary_model: "",
+					models: [],
+					providers: [],
+					tool_names: [],
+					tool_count: 0,
+					request_count_24h: 0,
+					current_version_hash: "",
+					current_version_number: 0,
+					sdk_version: "",
+					sdk_language: "",
+					instrumentation_status: "discovered",
+					desired_instrumentation_status: "none",
+					agent_observability_status: "",
+					desired_agent_status: "none",
+					pending_action: "",
+					pending_action_status: "",
+					first_seen: "2026-05-11 22:00:00",
+					last_seen: "2026-05-11 22:10:00",
+					updated_at: "2026-05-11 22:10:00",
+					last_materialized_at: "2026-05-11 22:10:00",
+					pods_total: 0,
+					pods_pending: 0,
+					pods_acknowledged: 0,
+				},
+			],
+		});
+		await expect(getAgent({ agentKey: "key1" })).resolves.toBeNull();
 	});
 
 	it("issues a join against the rollup CTEs for the detail query as well", async () => {

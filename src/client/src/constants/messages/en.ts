@@ -817,6 +817,10 @@ export const CODING_AGENT_SESSION_SUBAGENTS_HINT =
 // Agents - No Controller
 export const AGENTS_NO_CONTROLLERS_TITLE = "No controllers detected";
 export const AGENTS_NO_CONTROLLERS_DESCRIPTION = "Install the OpenLIT Controller to automatically discover and instrument LLM API calls using eBPF.";
+export const AGENTS_NO_SDK_AGENTS_TITLE = "No instrumented applications yet";
+export const AGENTS_NO_SDK_AGENTS_DESCRIPTION =
+	"Applications that send traces with the OpenLIT SDK will appear here. Add the SDK to your app, then come back once telemetry is flowing.";
+export const AGENTS_NO_SDK_AGENTS_CTA = "View SDK setup";
 export const AGENTS_API_KEY_PREFILLED_MESSAGE = "Commands below are pre-filled with your API key and dashboard URL. The controller will authenticate automatically.";
 export const AGENTS_API_KEY_RECOMMENDED_PREFIX = "Recommended:";
 export const AGENTS_API_KEY_RECOMMENDED_BEFORE_LINK = " Create an API key in ";
@@ -1304,6 +1308,7 @@ export const MANAGE_DB_CONFIG = "Manage DB Config";
 export const MODIFYING_DB_CONFIG = "Modifying database config...";
 export const DB_CONFIG_UPDATED = "Database config updated";
 export const DB_CONFIG_UPDATE_FAILED = "Database config update failed";
+export const DB_CONFIG_LIST_FAILED = "Failed to load database configs";
 export const DB_CONFIG_SET_ACTIVE = (name: string) =>
 	`Database config: ${name} is being set active`;
 export const DB_CONFIG_FIELD_CONFIG_NAME = "Config Name";
@@ -1480,6 +1485,7 @@ export const HOME_SETUP_DB_CONFIG_DESCRIPTION =
 export const HOME_SETUP_READY_STEP = "Devtool unlocked";
 export const HOME_SETUP_READY_DESCRIPTION =
 	"Your AI devtool is ready. Explore traces, prompts, evals, and the rest of the workspace.";
+export const HOME_SETUP_FINISH = "Finish setup";
 export const SLUG = "Slug";
 export const USER_ALREADY_INVITED = "User has already been invited to this organisation";
 export const INVITATION_NOT_FOR_YOU = "This invitation is not for you";

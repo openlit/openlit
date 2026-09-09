@@ -959,4 +959,59 @@ describe("buildAggregateDag", () => {
 		const edge = dag.edges.find((e) => e.from === "agent" && e.to === "llm");
 		expect(edge?.count).toBe(2);
 	});
+
+	it("defaults missing span name, statusCode, and durationNs to safe fallbacks", () => {
+		const spans = [
+			span({
+				spanId: "a",
+				name: undefined as unknown as string,
+				statusCode: undefined as unknown as string,
+				durationNs: undefined as unknown as number,
+			}),
+		];
+		const dag = buildAggregateDag(spans);
+		expect(dag.nodes).toHaveLength(1);
+		expect(dag.nodes[0]).toMatchObject({
+			name: "(unnamed)",
+			count: 1,
+			errorCount: 0,
+			p50DurationMs: 0,
+			p95DurationMs: 0,
+		});
+	});
+
+	it("defaults an unnamed parent span to '(unnamed)' in the edge's from field", () => {
+		const spans = [
+			span({ spanId: "parent", name: undefined as unknown as string }),
+			span({ spanId: "child", parentSpanId: "parent", name: "child-span" }),
+		];
+		const dag = buildAggregateDag(spans);
+		const edge = dag.edges.find((e) => e.to === "child-span");
+		expect(edge).toMatchObject({ from: "(unnamed)", to: "child-span", count: 1 });
+	});
+
+	it("returns empty nodes/edges for an empty span list", () => {
+		const dag = buildAggregateDag([]);
+		expect(dag).toEqual({
+			nodes: [],
+			edges: [],
+			sampledTraces: 0,
+			sampledSpans: 0,
+		});
+	});
+
+	it("does not create an edge when the parent span belongs to a different trace", () => {
+		const spans = [
+			span({ spanId: "p", traceId: "t1", name: "parent" }),
+			span({
+				spanId: "c",
+				traceId: "t2",
+				parentSpanId: "p",
+				name: "child",
+			}),
+		];
+		const dag = buildAggregateDag(spans);
+		expect(dag.edges).toHaveLength(0);
+		expect(dag.nodes.map((n) => n.name).sort()).toEqual(["child", "parent"]);
+	});
 });
