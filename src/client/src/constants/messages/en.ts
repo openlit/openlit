@@ -2226,6 +2226,8 @@ export const GOVERNANCE_MISSING_SPAN_ID = "No span id provided";
 export const GOVERNANCE_RETRY = "Retry";
 export const GOVERNANCE_REFRESH = "Refresh";
 export const GOVERNANCE_EXPORT_JSON = "Export JSON";
+export const GOVERNANCE_EXPORT_FAILED =
+	"Could not export the governance passport. Try again.";
 export const GOVERNANCE_TRUNCATED_NOTE =
 	"Large trace: rule and evaluation coverage was limited to protect performance.";
 export const GOVERNANCE_AGENT_LOOP_BANNER =

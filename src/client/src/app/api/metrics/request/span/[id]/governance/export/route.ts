@@ -54,50 +54,61 @@ async function GETHandler(
 	const environment =
 		url.searchParams.get("environment") || getRequestEnvironment(request);
 
-	const databaseConfigId =
-		(await resolveIntelligenceClickHouseDbConfigId({ environment })) ||
-		undefined;
+	try {
+		const databaseConfigId =
+			(await resolveIntelligenceClickHouseDbConfigId({ environment })) ||
+			undefined;
 
-	const result = await buildTraceGovernanceReport(spanId, {
-		traceId,
-		environment,
-		databaseConfigId,
-	});
+		const result = await buildTraceGovernanceReport(spanId, {
+			traceId,
+			environment,
+			databaseConfigId,
+		});
 
-	if (result.err) {
+		if (result.err) {
+			fireGovernanceReportTelemetry({
+				success: false,
+				startTimestamp,
+				spanId,
+				traceId,
+				error: String(result.err),
+			});
+			return errorResponse(result.err, String(result.err), 400);
+		}
+
+		const report = result.report!;
+		const passport = buildGovernancePassport(report);
+
+		fireGovernanceReportTelemetry({
+			success: true,
+			startTimestamp,
+			spanId,
+			traceId: report.trace_id,
+			riskLevel: report.risk_level,
+			findingCount: report.finding_count,
+			ruleMatchCount: report.rule_match_count,
+			evaluationCount: report.evaluations.length,
+			analysisLimited: report.analysis_limited,
+		});
+
+		return Response.json(
+			{ passport },
+			{
+				headers: {
+					"Content-Disposition": `attachment; filename="governance-passport-${passport.report_id}.json"`,
+				},
+			}
+		);
+	} catch (error) {
 		fireGovernanceReportTelemetry({
 			success: false,
 			startTimestamp,
 			spanId,
 			traceId,
-			error: String(result.err),
+			error: String(error),
 		});
-		return errorResponse(result.err, String(result.err), 400);
+		return errorResponse(error, String(error), 500);
 	}
-
-	const report = result.report!;
-	const passport = buildGovernancePassport(report);
-
-	fireGovernanceReportTelemetry({
-		success: true,
-		startTimestamp,
-		spanId,
-		traceId: report.trace_id,
-		riskLevel: report.risk_level,
-		findingCount: report.finding_count,
-		ruleMatchCount: report.rule_match_count,
-		evaluationCount: report.evaluations.length,
-		analysisLimited: report.analysis_limited,
-	});
-
-	return Response.json(
-		{ passport },
-		{
-			headers: {
-				"Content-Disposition": `attachment; filename="governance-passport-${passport.report_id}.json"`,
-			},
-		}
-	);
 }
 
 export const GET = withGovernanceAudit(

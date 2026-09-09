@@ -16,6 +16,7 @@ jest.mock("@/lib/rbac/route", () => ({
 import { GET } from "@/app/api/metrics/request/span/[id]/governance/route";
 import { buildTraceGovernanceReport } from "@/lib/platform/governance/trace-report";
 import { fireGovernanceReportTelemetry } from "@/helpers/server/governance-analytics";
+import { resolveIntelligenceClickHouseDbConfigId } from "@/lib/platform/intelligence/source";
 import {
 	GOVERNANCE_INVALID_SPAN_ID,
 	GOVERNANCE_MISSING_SPAN_ID,
@@ -210,6 +211,25 @@ describe("GET /api/metrics/request/span/[id]/governance", () => {
 			"span-1",
 			expect.objectContaining({
 				environment: "production",
+			})
+		);
+	});
+
+	it("returns a controlled error when intelligence config resolution throws", async () => {
+		(resolveIntelligenceClickHouseDbConfigId as jest.Mock).mockRejectedValueOnce(
+			new Error("connector unavailable")
+		);
+
+		const response = await GET(makeRequest("span-1"), {
+			params: { id: "span-1" },
+		});
+		expect(response.status).toBe(500);
+		expect(buildTraceGovernanceReport).not.toHaveBeenCalled();
+		expect(fireGovernanceReportTelemetry).toHaveBeenCalledWith(
+			expect.objectContaining({
+				success: false,
+				spanId: "span-1",
+				error: expect.stringContaining("connector unavailable"),
 			})
 		);
 	});

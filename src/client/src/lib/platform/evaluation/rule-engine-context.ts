@@ -43,6 +43,10 @@ const TRACE_TO_RULE_FIELDS: Array<{
 			(t as any).SpanAttributes?.["gen_ai.tool.call.name"],
 	},
 	{
+		field: "gen_ai.tool.call.name",
+		getValue: (t) => (t as any).SpanAttributes?.["gen_ai.tool.call.name"],
+	},
+	{
 		field: "coding_agent.client",
 		getValue: (t) =>
 			(t as any).SpanAttributes?.["coding_agent.client"] ??

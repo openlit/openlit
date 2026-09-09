@@ -35,6 +35,7 @@ import {
 import AskOtterPanel from "@/components/(playground)/chat/ask-otter-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 type SeverityFilter = "all" | GovernanceSeverity;
 
@@ -484,6 +485,7 @@ export default function TraceGovernancePanel({
 
 	const exportReport = useCallback(async () => {
 		if (!hierarchySpanId) return;
+		const m = getMessage();
 		const params = new URLSearchParams();
 		if (traceId) params.set("traceId", traceId);
 		if (environment) params.set("environment", environment);
@@ -494,44 +496,28 @@ export default function TraceGovernancePanel({
 		try {
 			const response = await fetch(url, { credentials: "include" });
 			if (!response.ok) {
-				// Fall back to in-memory report if export route fails.
-				if (!report) return;
-				const blob = new Blob([JSON.stringify(report, null, 2)], {
-					type: "application/json",
-				});
-				const objectUrl = URL.createObjectURL(blob);
-				const anchor = document.createElement("a");
-				anchor.href = objectUrl;
-				anchor.download = `governance-${report.trace_id || hierarchySpanId}.json`;
-				anchor.click();
-				URL.revokeObjectURL(objectUrl);
+				toast.error(m.GOVERNANCE_EXPORT_FAILED, { id: "governance-export" });
 				return;
 			}
 			const payload = await response.json();
-			const blob = new Blob([JSON.stringify(payload.passport || payload, null, 2)], {
+			const passport = payload.passport || payload;
+			if (!passport?.schema_version || !passport?.report_id) {
+				toast.error(m.GOVERNANCE_EXPORT_FAILED, { id: "governance-export" });
+				return;
+			}
+			const blob = new Blob([JSON.stringify(passport, null, 2)], {
 				type: "application/json",
 			});
 			const objectUrl = URL.createObjectURL(blob);
 			const anchor = document.createElement("a");
 			anchor.href = objectUrl;
-			const reportId =
-				payload?.passport?.report_id || report?.report_id || hierarchySpanId;
-			anchor.download = `governance-passport-${reportId}.json`;
+			anchor.download = `governance-passport-${passport.report_id}.json`;
 			anchor.click();
 			URL.revokeObjectURL(objectUrl);
 		} catch {
-			if (!report) return;
-			const blob = new Blob([JSON.stringify(report, null, 2)], {
-				type: "application/json",
-			});
-			const objectUrl = URL.createObjectURL(blob);
-			const anchor = document.createElement("a");
-			anchor.href = objectUrl;
-			anchor.download = `governance-${report.trace_id || hierarchySpanId}.json`;
-			anchor.click();
-			URL.revokeObjectURL(objectUrl);
+			toast.error(m.GOVERNANCE_EXPORT_FAILED, { id: "governance-export" });
 		}
-	}, [hierarchySpanId, traceId, environment, report]);
+	}, [hierarchySpanId, traceId, environment]);
 
 	const severityFilters: Array<{ key: SeverityFilter; label: string }> = [
 		{ key: "all", label: m.GOVERNANCE_FILTER_ALL },
