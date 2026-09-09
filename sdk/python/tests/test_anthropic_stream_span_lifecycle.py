@@ -1,4 +1,4 @@
-# pylint: disable=protected-access
+# pylint: disable=protected-access, missing-function-docstring
 """Regression tests: the Anthropic streaming wrappers must end their span on
 every exit path.
 
@@ -13,7 +13,6 @@ span ends exactly once on each exit path.
 """
 
 import time
-from collections.abc import AsyncIterator
 
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -171,7 +170,7 @@ async def test_async_early_break_inside_with_ends_span():
 
     manager = factory(lambda *a, **k: FakeManager(FakeRawStream()), None, (), REQUEST_KWARGS)
     async with manager as stream:
-        await stream.__anext__()
+        await anext(stream)
 
     time.sleep(0.1)
     spans = exporter.get_finished_spans()
