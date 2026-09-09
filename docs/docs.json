@@ -377,6 +377,7 @@
                   "latest/sdk/integrations/digitalocean-gradient",
                   "latest/sdk/integrations/assemblyai",
                   "latest/sdk/integrations/featherless",
+                  "latest/sdk/integrations/thegrid",
                   "latest/sdk/integrations/reka",
                   "latest/sdk/integrations/krutrim",
                   "latest/sdk/integrations/titan-ml",

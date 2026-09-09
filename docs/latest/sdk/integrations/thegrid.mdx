@@ -1,0 +1,56 @@
+---
+title: 'Monitor The Grid using OpenTelemetry'
+description: 'OpenLIT auto-instruments The Grid instruments (via the OpenAI SDK) with OpenTelemetry, enabling AI observability with token usage and latency monitoring.'
+sidebarTitle: 'The Grid'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using The Grid. This includes tracking performance, token usage, costs, and how users interact with the application.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+As The Grid uses the OpenAI SDK, This integration is compatible with  
+- OpenAI Python SDK client `>=1.92.0`, matching the `openai` constraint in OpenLIT's own `pyproject.toml` 
+
+## Get started 
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+    ```shell
+    pip install openlit
+    ```
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+<Note>
+The Grid addresses capability tiers rather than a specific lab's model name: `text-standard`, `code-prime` and `agent-max` each route to a current model for that tier. The span records the resolved model, so traces show which model actually served the request.
+</Note>
+
+<Warning>
+**Cost is not calculated for The Grid out of the box.** The Grid is market-priced and publishes no per-token rate, so it has no entry in OpenLIT's bundled `pricing.json`. You get spans, token counts and latency, but the cost attribute will be absent.
+
+To get cost, point `openlit.init()` at your own pricing document:
+
+```python
+openlit.init(pricing_json="https://your-host/pricing.json")
+```
+
+See [SDK pricing](/latest/openlit/costs/manage-models/sdk-pricing) for the expected shape.
+</Warning>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>
