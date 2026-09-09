@@ -118,6 +118,17 @@ export default function checkAuth(next: NextMiddleware) {
 					request: { headers: requestHeaders },
 				});
 
+			// Cron jobs do not carry a session cookie. Resolve them before
+			// getToken — next-auth/jwt can throw in the Edge runtime
+			// (Node `crypto`), which used to redirect /api/agents/materialize
+			// to /login on every tick.
+			if (CRON_JOB_ROUTES.includes(pathname)) {
+				if (isValidCronJobRequest(request)) {
+					return continueWithoutClientTenant();
+				}
+				return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+			}
+
 			const isWithTokenRoute =
 				ALLOWED_OPENLIT_ROUTES_WITH_TOKEN.includes(pathname) ||
 				ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN.some((prefix) =>
@@ -286,6 +297,11 @@ export default function checkAuth(next: NextMiddleware) {
 				
 				const isAuthPage =
 					pathname.startsWith("/login") || pathname.startsWith("/register");
+				const isApiPage = pathname.startsWith("/api");
+
+				if (isApiPage) {
+					return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
 				
 				if (!isAuthPage) {
 					let from = pathname;

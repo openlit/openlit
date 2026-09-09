@@ -14,10 +14,31 @@ jest.mock("@/lib/platform/connectors/datasource/http/safe-fetch", () => ({
 		allowPrivateNetwork: true,
 	}),
 }));
-jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
-	resolveSourceSecret: jest.fn(),
-	redactableSecretValues: () => ["tok"],
-}));
+jest.mock("@/lib/platform/connectors/datasource/http/secret", () => {
+	const messages = jest.requireActual("@/constants/messages/en") as {
+		DATA_SOURCE_SECRET_NOT_FOUND: string;
+		DATA_SOURCE_SECRET_UNAVAILABLE: string;
+		DATA_SOURCE_SECRET_DECRYPT_FAILED: string;
+	};
+	return {
+		resolveSourceSecret: jest.fn(),
+		redactableSecretValues: () => ["tok"],
+		httpAuthNeedsVault: (authType: unknown) => {
+			const type = String(authType || "none").trim().toLowerCase();
+			return type === "basic" || type === "bearer";
+		},
+		canSkipVaultForHttpNoneAuth: (error: unknown, authType: unknown) => {
+			const message = error instanceof Error ? error.message : String(error);
+			const type = String(authType || "none").trim().toLowerCase();
+			if (type && type !== "none" && type !== "auto") return false;
+			return (
+				message === messages.DATA_SOURCE_SECRET_NOT_FOUND ||
+				message === messages.DATA_SOURCE_SECRET_UNAVAILABLE ||
+				message === messages.DATA_SOURCE_SECRET_DECRYPT_FAILED
+			);
+		},
+	};
+});
 
 import { resolveSourceSecret } from "@/lib/platform/connectors/datasource/http/secret";
 import { MimirAdapter, mimirAdapterFactory } from "@/lib/platform/connectors/datasource/mimir/adapter";
@@ -26,6 +47,7 @@ import {
 	victoriaMetricsAdapterFactory,
 } from "@/lib/platform/connectors/datasource/victoria-metrics/adapter";
 import type { TelemetrySourceDescriptor } from "@/lib/platform/connectors/datasource/types";
+import { DATA_SOURCE_SECRET_NOT_FOUND } from "@/constants/messages/en";
 
 const window = {
 	start: new Date("2026-08-05T00:00:00Z"),
@@ -70,7 +92,7 @@ describe("mimir adapter", () => {
 
 	it("health-checks buildinfo and sends X-Scope-OrgID", async () => {
 		mockSafeFetch.mockResolvedValue({ status: "success", data: { version: "2.14" } });
-		const adapter = new MimirAdapter(descriptor("mimir"));
+		const adapter = new MimirAdapter(descriptor("mimir", { tenant: "team-a" }));
 		const result = await adapter.healthCheck();
 		expect(result.ok).toBe(true);
 		const url = new URL(mockSafeFetch.mock.calls[0][0]);
@@ -103,7 +125,7 @@ describe("victoria metrics adapter", () => {
 	it("health-checks buildinfo and sends AccountID plus ProjectID", async () => {
 		mockSafeFetch.mockResolvedValue({ status: "success", data: {} });
 		const adapter = new VictoriaMetricsAdapter(
-			descriptor("victoriametrics", { tenantProject: "34" })
+			descriptor("victoriametrics", { tenant: "team-a", tenantProject: "34" })
 		);
 		const result = await adapter.healthCheck();
 		expect(result.ok).toBe(true);
@@ -130,5 +152,22 @@ describe("victoria metrics adapter", () => {
 			serviceName: "api",
 			metricName: "up",
 		});
+	});
+
+	it("still queries when the vault secret is missing and auth is none", async () => {
+		(resolveSourceSecret as jest.Mock).mockRejectedValue(
+			new Error(DATA_SOURCE_SECRET_NOT_FOUND)
+		);
+		mockSafeFetch.mockResolvedValue({
+			status: "success",
+			data: { resultType: "matrix", result: [] },
+		});
+		const adapter = new VictoriaMetricsAdapter({
+			...descriptor("victoriametrics", { tenant: "12" }),
+			secretRef: "missing-vault-id",
+		});
+		await adapter.listMetricSeries({ signal: "metrics", timeRange: window });
+		expect(resolveSourceSecret).not.toHaveBeenCalled();
+		expect(mockSafeFetch.mock.calls[0][1].headers.AccountID).toBe("12");
 	});
 });

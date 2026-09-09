@@ -7,6 +7,7 @@ export const VISIBLE_CONNECTOR_TYPES = [
 	"mimir",
 	"victoriametrics",
 	"victorialogs",
+	"victoriatraces",
 	"jaeger",
 	"claude",
 	"mem0",

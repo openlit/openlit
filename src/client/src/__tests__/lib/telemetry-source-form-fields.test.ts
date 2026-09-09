@@ -14,6 +14,7 @@ import { prometheusAdapterFactory } from "@/lib/platform/connectors/datasource/p
 import { mimirAdapterFactory } from "@/lib/platform/connectors/datasource/mimir/adapter";
 import { victoriaMetricsAdapterFactory } from "@/lib/platform/connectors/datasource/victoria-metrics/adapter";
 import { victoriaLogsAdapterFactory } from "@/lib/platform/connectors/datasource/victoria-logs/adapter";
+import { victoriaTracesAdapterFactory } from "@/lib/platform/connectors/datasource/victoria-traces/adapter";
 
 describe("applyHttpAuthCredentials", () => {
 	it("prefers Basic auth when username is set (Grafana Cloud path)", () => {
@@ -63,6 +64,14 @@ describe("applyHttpAuthCredentials", () => {
 		expect(headers.AccountID).toBe("1");
 		expect(headers.Authorization).toBe("Bearer t");
 	});
+
+	it("adds AccountID from settings.tenant without vault credentials", () => {
+		const headers = applyHttpAuthCredentials(
+			{},
+			{ tenantHeader: "AccountID", tenant: "12" }
+		);
+		expect(headers.AccountID).toBe("12");
+	});
 });
 
 describe("descriptor configFields (descriptor-driven forms)", () => {
@@ -84,6 +93,11 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 			expect(d.configFields.find((f) => f.key === "authType")).toMatchObject({
 				kind: "select",
 				defaultValue: "none",
+				authentication: true,
+			});
+			expect(d.configFields.find((f) => f.key === "tenant")).toMatchObject({
+				group: "settings",
+				authentication: true,
 			});
 			const keysInOrder = d.configFields.map((f) => f.key);
 			const tenantIdx = keysInOrder.indexOf("tenant");
@@ -107,6 +121,7 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 		expect(urlField(mimirAdapterFactory)).toContain("grafana.net");
 		expect(urlField(victoriaMetricsAdapterFactory)).toContain("8428");
 		expect(urlField(victoriaLogsAdapterFactory)).toContain("9428");
+		expect(urlField(victoriaTracesAdapterFactory)).toContain("10428");
 	});
 
 	it("exposes tenantProject for Victoria connectors only", () => {
@@ -121,6 +136,9 @@ describe("descriptor configFields (descriptor-driven forms)", () => {
 		).toBe(true);
 		expect(
 			victoriaLogsAdapterFactory.describe().configFields.some((f) => f.key === "tenantProject")
+		).toBe(true);
+		expect(
+			victoriaTracesAdapterFactory.describe().configFields.some((f) => f.key === "tenantProject")
 		).toBe(true);
 	});
 

@@ -1,3 +1,4 @@
+import { VictoriaLogsAdapter as OpenPlaitVictoriaLogsAdapter } from "@openplait/adapter-victorialogs";
 import { OpenPlaitHttpAdapter } from "../grafana/openplait-http";
 import type {
 	DataFrame,
@@ -10,10 +11,10 @@ import type {
 	SourceTypeDescriptor,
 	TelemetrySourceDescriptor,
 } from "../types";
+import { openPlaitFramesToRows } from "@/lib/platform/openplait/frames";
 import { logStableRowId } from "@/lib/platform/connectors/datasource/clickhouse/normalize";
 import { computeIntervalMs, intervalMsToLabel } from "../downsample";
 import { httpVendorFields } from "../config-fields";
-import { SourceResponseError } from "../http/safe-fetch";
 import getMessage from "@/constants/messages";
 import { victoriaLogsFieldName, victoriaLogsSelector } from "./selector";
 
@@ -68,83 +69,6 @@ function clampTimeRange(
 	return { start: new Date(end - maxMs), end: range.end };
 }
 
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
-
-function stringField(row: Record<string, unknown>, ...keys: string[]): string | undefined {
-	for (const key of keys) {
-		const value = row[key];
-		if (value !== undefined && value !== null && String(value) !== "") {
-			return String(value);
-		}
-	}
-	return undefined;
-}
-
-function parseNdjson(payload: unknown): Record<string, unknown>[] {
-	if (Array.isArray(payload)) {
-		return payload.filter(
-			(item): item is Record<string, unknown> =>
-				!!item && typeof item === "object" && !Array.isArray(item)
-		);
-	}
-	const text =
-		typeof payload === "string"
-			? payload
-			: payload == null
-				? ""
-				: JSON.stringify(payload);
-	const rows: Record<string, unknown>[] = [];
-	for (const line of text.split(/\r?\n/)) {
-		const trimmed = line.trim();
-		if (!trimmed) continue;
-		try {
-			const parsed = JSON.parse(trimmed) as unknown;
-			if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-				rows.push(parsed as Record<string, unknown>);
-			}
-		} catch {
-			// Skip malformed NDJSON lines.
-		}
-	}
-	return rows;
-}
-
-function normalizeLog(row: Record<string, unknown>): NormalizedLog {
-	const labels: Record<string, string> = {};
-	for (const [key, value] of Object.entries(row)) {
-		if (value === undefined || value === null) continue;
-		if (typeof value === "object") continue;
-		labels[key] = String(value);
-	}
-	return {
-		timestamp: stringField(row, "_time", "timestamp") || new Date().toISOString(),
-		body: stringField(row, "_msg", "body", "message") || "",
-		traceId: stringField(row, "trace_id", "traceId"),
-		spanId: stringField(row, "span_id", "spanId"),
-		severityText: stringField(row, "level", "severity", "severityText"),
-		serviceName: stringField(row, "service_name", "service"),
-		logAttributes: labels,
-		resourceAttributes: labels,
-	};
-}
-
-function fieldValuesFrom(payload: unknown): string[] {
-	const body = asRecord(payload);
-	const values = body.values;
-	if (!Array.isArray(values)) return [];
-	return values
-		.map((item) => {
-			if (typeof item === "string") return item;
-			const record = asRecord(item);
-			return typeof record.value === "string" ? record.value : "";
-		})
-		.filter((item) => item.length > 0);
-}
-
 export class VictoriaLogsAdapter extends OpenPlaitHttpAdapter {
 	readonly type = "victorialogs";
 
@@ -159,6 +83,20 @@ export class VictoriaLogsAdapter extends OpenPlaitHttpAdapter {
 
 	private get maxQueryRangeMs(): number {
 		return this.positiveSetting("maxTimeRangeMs") || DEFAULT_MAX_QUERY_RANGE_MS;
+	}
+
+	private async adapter(): Promise<OpenPlaitVictoriaLogsAdapter> {
+		const connection = await this.openPlaitConnection();
+		return new OpenPlaitVictoriaLogsAdapter(
+			{
+				url: this.baseUrl,
+				httpHeaders: connection.headers,
+				allowNativeQueries: true,
+				maxResultRows: this.positiveSetting("maxResultRows") || 5_000,
+				maxLookbackMs: this.positiveSetting("maxLookbackMs"),
+			},
+			{ fetch: connection.fetch }
+		);
 	}
 
 	capabilities(): SourceCapabilities {
@@ -179,14 +117,7 @@ export class VictoriaLogsAdapter extends OpenPlaitHttpAdapter {
 	async healthCheck(): Promise<HealthCheckResult> {
 		const started = Date.now();
 		try {
-			const connection = await this.openPlaitConnection();
-			const url = new URL("health", `${this.baseUrl}/`);
-			const response = await connection.fetch(url.toString(), {
-				headers: connection.headers,
-			});
-			if (!response.ok) {
-				throw new SourceResponseError(response.status, await response.text());
-			}
+			await (await this.adapter()).health({ timeoutMs: 10_000 });
 			return { ok: true, latencyMs: Date.now() - started };
 		} catch (error) {
 			return {
@@ -197,41 +128,40 @@ export class VictoriaLogsAdapter extends OpenPlaitHttpAdapter {
 		}
 	}
 
-	private clampedRange(range: QueryTimeRange): QueryTimeRange {
-		return clampTimeRange(range, this.maxQueryRangeMs);
-	}
-
-	private async postForm(
-		path: string,
-		fields: Record<string, string>
-	): Promise<unknown> {
-		const connection = await this.openPlaitConnection();
-		const url = new URL(path, `${this.baseUrl}/`);
-		const body = new URLSearchParams(fields).toString();
-		const response = await connection.fetch(url.toString(), {
-			method: "POST",
-			headers: {
-				...connection.headers,
-				"Content-Type": "application/x-www-form-urlencoded",
-			},
-			body,
-		});
-		if (!response.ok) {
-			throw new SourceResponseError(response.status, await response.text());
-		}
-		return response.json();
+	private range(query: OpenLITQuery): { from: string; to: string } {
+		const clamped = clampTimeRange(query.timeRange, this.maxQueryRangeMs);
+		return {
+			from: clamped.start.toISOString(),
+			to: clamped.end.toISOString(),
+		};
 	}
 
 	async listLogs(query: OpenLITQuery): Promise<DataFrame<NormalizedLog>> {
 		const started = Date.now();
-		const range = this.clampedRange(query.timeRange);
-		const payload = await this.postForm("select/logsql/query", {
-			query: victoriaLogsSelector(query, this.defaultSelector),
-			start: range.start.toISOString(),
-			end: range.end.toISOString(),
-			limit: String(query.limit || 500),
+		const result = await this.executeNative(await this.adapter(), {
+			operation: "list-logs",
+			kind: "VictoriaLogsDatasource",
+			language: "logsql",
+			statement: victoriaLogsSelector(query, this.defaultSelector),
+			extension: "io.openplait.victorialogs",
+			extensionValue: {
+				timeRange: this.range(query),
+				limit: query.limit || 500,
+			},
 		});
-		const rows = parseNdjson(payload).map(normalizeLog);
+		const rows = openPlaitFramesToRows(result.frames).map((row) => {
+			const labels = (row.labels || {}) as Record<string, string>;
+			return {
+				timestamp: String(row.timestamp),
+				body: String(row.body || ""),
+				traceId: labels.trace_id,
+				spanId: labels.span_id,
+				severityText: labels.level,
+				serviceName: labels.service_name || labels.service,
+				logAttributes: labels,
+				resourceAttributes: labels,
+			} satisfies NormalizedLog;
+		});
 		rememberLogs(this.descriptor.id, rows);
 		return {
 			fields: [
@@ -240,7 +170,10 @@ export class VictoriaLogsAdapter extends OpenPlaitHttpAdapter {
 				{ name: "logAttributes", type: "map" },
 			],
 			rows,
-			meta: { latencyMs: Date.now() - started, freshness: "live" },
+			meta: {
+				latencyMs: result.metadata?.executionTimeMs ?? Date.now() - started,
+				freshness: "live",
+			},
 		};
 	}
 
@@ -293,28 +226,19 @@ export class VictoriaLogsAdapter extends OpenPlaitHttpAdapter {
 
 	async logTimeSeries(query: OpenLITQuery): Promise<DataFrame> {
 		const started = Date.now();
-		const range = this.clampedRange(query.timeRange);
-		const step = intervalMsToLabel(computeIntervalMs(query));
-		const payload = asRecord(
-			await this.postForm("select/logsql/hits", {
-				query: victoriaLogsSelector(query, this.defaultSelector),
-				start: range.start.toISOString(),
-				end: range.end.toISOString(),
-				step,
-			})
-		);
-		const hits = Array.isArray(payload.hits) ? payload.hits : [];
-		const rows: Record<string, unknown>[] = [];
-		for (const series of hits) {
-			const item = asRecord(series);
-			const timestamps = Array.isArray(item.timestamps) ? item.timestamps : [];
-			const values = Array.isArray(item.values) ? item.values : [];
-			for (let i = 0; i < timestamps.length; i++) {
-				const timestamp = String(timestamps[i] || "");
-				const count = Number(values[i]) || 0;
-				rows.push({ timestamp, value: count, label: timestamp, count });
-			}
-		}
+		const result = await this.executeNative(await this.adapter(), {
+			operation: "log-series",
+			kind: "VictoriaLogsDatasource",
+			language: "logsql",
+			statement: victoriaLogsSelector(query, this.defaultSelector),
+			extension: "io.openplait.victorialogs",
+			extensionValue: {
+				timeRange: this.range(query),
+				step: intervalMsToLabel(computeIntervalMs(query)),
+				operation: "hits",
+			},
+		});
+		const rows = openPlaitFramesToRows(result.frames);
 		return {
 			fields: [
 				{ name: "timestamp", type: "time" },
@@ -323,30 +247,32 @@ export class VictoriaLogsAdapter extends OpenPlaitHttpAdapter {
 				{ name: "count", type: "number" },
 			],
 			rows,
-			meta: { latencyMs: Date.now() - started, freshness: "live" },
+			meta: {
+				latencyMs: result.metadata?.executionTimeMs ?? Date.now() - started,
+				freshness: "live",
+			},
 		};
 	}
 
 	async attributeKeys(signal: Signal, window: QueryTimeRange): Promise<string[]> {
 		if (signal !== "logs") return [];
-		const range = this.clampedRange(window);
-		const payload = await this.postForm("select/logsql/field_names", {
-			query: this.defaultSelector,
-			start: range.start.toISOString(),
-			end: range.end.toISOString(),
+		const clamped = clampTimeRange(window, this.maxQueryRangeMs);
+		return (await this.adapter()).fieldNames({
+			timeoutMs: 10_000,
+			timeRange: {
+				from: clamped.start.toISOString(),
+				to: clamped.end.toISOString(),
+			},
 		});
-		return fieldValuesFrom(payload);
 	}
 
 	async distinctValues(key: string, query: OpenLITQuery): Promise<string[]> {
-		const range = this.clampedRange(query.timeRange);
-		const payload = await this.postForm("select/logsql/field_values", {
-			query: victoriaLogsSelector(query, this.defaultSelector),
-			field: victoriaLogsFieldName(key),
-			start: range.start.toISOString(),
-			end: range.end.toISOString(),
-		});
-		return fieldValuesFrom(payload);
+		const range = this.range(query);
+		return (await this.adapter()).fieldValues(
+			victoriaLogsFieldName(key),
+			{ timeoutMs: 10_000, timeRange: range },
+			victoriaLogsSelector(query, this.defaultSelector)
+		);
 	}
 }
 

@@ -17,9 +17,14 @@ jest.mock("@/lib/platform/connectors/datasource/http/safe-fetch", () => ({
 jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 	resolveSourceSecret: jest.fn(),
 	redactableSecretValues: () => ["tok"],
+	httpAuthNeedsVault: (authType: unknown) => {
+		const type = String(authType || "none").trim().toLowerCase();
+		return type === "basic" || type === "bearer";
+	},
 }));
 
 import { resolveSourceSecret } from "@/lib/platform/connectors/datasource/http/secret";
+import { DATA_SOURCE_SECRET_NOT_FOUND } from "@/constants/messages/en";
 import {
 	VictoriaLogsAdapter,
 	victoriaLogsAdapterFactory,
@@ -99,7 +104,7 @@ describe("victoria logs adapter", () => {
 		mockSafeFetch.mockResolvedValue(
 			'{"_msg":"failed","_time":"2026-08-05T00:01:00Z","service_name":"checkout","trace_id":"trace-1"}\n{"_msg":"ok","_time":"2026-08-05T00:02:00Z","service_name":"checkout"}\n'
 		);
-		const adapter = new VictoriaLogsAdapter(descriptor({ tenantProject: "34" }));
+		const adapter = new VictoriaLogsAdapter(descriptor({ tenant: "12", tenantProject: "34" }));
 		const frame = await adapter.listLogs({
 			signal: "logs",
 			timeRange: window,
@@ -144,6 +149,23 @@ describe("victoria logs adapter", () => {
 			expect.objectContaining({ timestamp: "2026-08-05T00:00:00Z", count: 4 }),
 			expect.objectContaining({ timestamp: "2026-08-05T00:30:00Z", count: 7 }),
 		]);
+	});
+
+	it("lists logs when the vault secret is missing and auth is none", async () => {
+		(resolveSourceSecret as jest.Mock).mockRejectedValue(
+			new Error(DATA_SOURCE_SECRET_NOT_FOUND)
+		);
+		mockSafeFetch.mockResolvedValue(
+			'{"_msg":"ok","_time":"2026-08-05T00:01:00Z"}\n'
+		);
+		const adapter = new VictoriaLogsAdapter({
+			...descriptor({ authType: "none", tenant: "12" }),
+			secretRef: "missing-vault-id",
+		});
+		const frame = await adapter.listLogs({ signal: "logs", timeRange: window });
+		expect(frame.rows[0]?.body).toBe("ok");
+		expect(resolveSourceSecret).not.toHaveBeenCalled();
+		expect(mockSafeFetch.mock.calls[0][1].headers.AccountID).toBe("12");
 	});
 
 	it("returns cached logs from getLog and throws on trace capabilities", async () => {

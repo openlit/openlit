@@ -20,6 +20,9 @@ describe("CE connector entitlement fallback", () => {
 		await expect(
 			assertPremiumConnectorAllowed("victorialogs")
 		).resolves.toBeUndefined();
+		await expect(
+			assertPremiumConnectorAllowed("victoriatraces")
+		).resolves.toBeUndefined();
 	});
 
 	it("returns an unlocked catalog with no premium types", async () => {

@@ -14,13 +14,34 @@ jest.mock("@/lib/platform/connectors/datasource/http/safe-fetch", () => ({
 		}
 	},
 }));
-jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
-	resolveSourceSecret: jest.fn().mockResolvedValue({
-		raw: "tok",
-		credentials: { token: "tok" },
-	}),
-	redactableSecretValues: () => ["tok"],
-}));
+jest.mock("@/lib/platform/connectors/datasource/http/secret", () => {
+	const messages = jest.requireActual("@/constants/messages/en") as {
+		DATA_SOURCE_SECRET_NOT_FOUND: string;
+		DATA_SOURCE_SECRET_UNAVAILABLE: string;
+		DATA_SOURCE_SECRET_DECRYPT_FAILED: string;
+	};
+	return {
+		resolveSourceSecret: jest.fn().mockResolvedValue({
+			raw: "tok",
+			credentials: { token: "tok" },
+		}),
+		redactableSecretValues: () => ["tok"],
+		httpAuthNeedsVault: (authType: unknown) => {
+			const type = String(authType || "none").trim().toLowerCase();
+			return type === "basic" || type === "bearer";
+		},
+		canSkipVaultForHttpNoneAuth: (error: unknown, authType: unknown) => {
+			const message = error instanceof Error ? error.message : String(error);
+			const type = String(authType || "none").trim().toLowerCase();
+			if (type && type !== "none" && type !== "auto") return false;
+			return (
+				message === messages.DATA_SOURCE_SECRET_NOT_FOUND ||
+				message === messages.DATA_SOURCE_SECRET_UNAVAILABLE ||
+				message === messages.DATA_SOURCE_SECRET_DECRYPT_FAILED
+			);
+		},
+	};
+});
 
 import { JaegerAdapter } from "@/lib/platform/connectors/datasource/jaeger/adapter";
 import {
@@ -897,11 +918,10 @@ describe("JaegerAdapter extended coverage", () => {
 			expect(typeof result.latencyMs).toBe("number");
 		});
 
-		it("fails when Jaeger reports no services", async () => {
+		it("still succeeds when Jaeger is reachable but has no services yet", async () => {
 			mockSafeFetch.mockResolvedValue({ data: [] });
 			await expect(adapter.healthCheck()).resolves.toMatchObject({
-				ok: false,
-				message: "Jaeger returned no services",
+				ok: true,
 			});
 		});
 

@@ -75,6 +75,7 @@ describe("datasource bootstrap", () => {
 			"mimir",
 			"victoriametrics",
 			"victorialogs",
+			"victoriatraces",
 			"jaeger",
 		]) {
 			expect(hasAdapterFactory(type)).toBe(true);

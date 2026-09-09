@@ -1,6 +1,6 @@
 /**
  * Adapter bootstrap for the CE datasource connectors: ClickHouse, Tempo, Loki,
- * Prometheus, Mimir, VictoriaMetrics, VictoriaLogs, and Jaeger. Enterprise
+ * Prometheus, Mimir, VictoriaMetrics, VictoriaLogs, VictoriaTraces, and Jaeger. Enterprise
  * builds may contribute additional factories through the neutral extension hook.
  */
 
@@ -12,6 +12,7 @@ import { prometheusAdapterFactory } from "./prometheus/adapter";
 import { mimirAdapterFactory } from "./mimir/adapter";
 import { victoriaMetricsAdapterFactory } from "./victoria-metrics/adapter";
 import { victoriaLogsAdapterFactory } from "./victoria-logs/adapter";
+import { victoriaTracesAdapterFactory } from "./victoria-traces/adapter";
 import { jaegerAdapterFactory } from "./jaeger/adapter";
 import { getExternalDataSourceAdapters } from "@/lib/platform/connectors/datasource/enterprise";
 import { registerDatasourceConnectorTypes } from "@/lib/platform/connectors/datasource";
@@ -23,6 +24,7 @@ const VENDOR_FACTORIES = [
 	mimirAdapterFactory,
 	victoriaMetricsAdapterFactory,
 	victoriaLogsAdapterFactory,
+	victoriaTracesAdapterFactory,
 	jaegerAdapterFactory,
 ];
 

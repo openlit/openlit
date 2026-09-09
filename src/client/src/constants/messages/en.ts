@@ -2721,6 +2721,11 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		steps: ["Enter the VictoriaLogs URL, commonly http://localhost:9428.", "Optionally set Tenant / Org ID (AccountID) and Project ID headers for multi-tenant installs.", "Bind the logs signal to this connector after a successful health check."],
 		docsUrl: "https://docs.victoriametrics.com/victorialogs/querying/",
 	},
+	victoriatraces: {
+		summary: "VictoriaTraces exposes a Jaeger Query API for trace search and detail.",
+		steps: ["Enter the VictoriaTraces HTTP URL, commonly http://localhost:10428. OpenLIT appends /select/jaeger.", "Optionally set Tenant / Org ID (AccountID) and Project ID headers for multi-tenant installs.", "Bind the traces signal to this connector after a successful health check."],
+		docsUrl: "https://docs.victoriametrics.com/victoriatraces/querying/",
+	},
 	claude: {
 		summary: "Connect OpenLIT to Claude memory stores.",
 		steps: ["Create an Anthropic API key with access to Memory Stores.", "Paste the API key into the credentials field.", "Save the connector, then pick a memory store when browsing or adding memories."],
@@ -2765,10 +2770,12 @@ export const DATA_SOURCE_FIELD_PASSWORD = "Password / Access policy token";
 export const DATA_SOURCE_FIELD_PASSWORD_PLACEHOLDER = "Basic-auth password or Cloud access policy token";
 export const DATA_SOURCE_FIELD_TENANT = "Tenant / Org ID";
 export const DATA_SOURCE_FIELD_TENANT_PLACEHOLDER = "X-Scope-OrgID or Victoria AccountID";
+export const DATA_SOURCE_FIELD_TENANT_HELP =
+	"Sent as X-Scope-OrgID (Grafana) or AccountID (Victoria). This is not stored in the vault.";
 export const DATA_SOURCE_FIELD_TENANT_PROJECT = "Project ID";
 export const DATA_SOURCE_FIELD_TENANT_PROJECT_PLACEHOLDER = "Victoria ProjectID (optional)";
 export const DATA_SOURCE_FIELD_TENANT_PROJECT_HELP =
-	"Sent as the ProjectID header for VictoriaMetrics and VictoriaLogs. Leave blank to use the default tenant project.";
+	"Sent as the ProjectID header for VictoriaMetrics, VictoriaLogs, and VictoriaTraces. Leave blank to use the default tenant project.";
 export const DATA_SOURCE_FIELD_DEFAULT_STEP = "Default query step";
 export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_MS = "Maximum query range (ms)";
 export const DATA_SOURCE_FIELD_DEFAULT_SELECTOR = "Default stream selector";
@@ -2781,6 +2788,9 @@ export const DATA_SOURCE_TYPE_VICTORIAMETRICS_DESCRIPTION =
 export const DATA_SOURCE_TYPE_VICTORIALOGS = "VictoriaLogs";
 export const DATA_SOURCE_TYPE_VICTORIALOGS_DESCRIPTION =
 	"Logs from VictoriaLogs using LogsQL.";
+export const DATA_SOURCE_TYPE_VICTORIATRACES = "VictoriaTraces";
+export const DATA_SOURCE_TYPE_VICTORIATRACES_DESCRIPTION =
+	"Traces from VictoriaTraces using the Jaeger Query API.";
 export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS = "Maximum query window (days)";
 export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS_PLACEHOLDER = "30";
 export const DATA_SOURCE_MAX_TIME_RANGE_HINT = (days: number) =>

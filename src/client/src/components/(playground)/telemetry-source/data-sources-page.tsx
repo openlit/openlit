@@ -1115,12 +1115,11 @@ export function SourceFormDialog({
 	}, [fields, source]);
 
 	const settingsFields = fields.filter(
-		(f) => f.group === "settings" && f.key !== "authType" && isFieldVisible(f, values)
+		(f) => f.group === "settings" && !f.authentication && isFieldVisible(f, values)
 	);
-	// authType is stored in settings JSON but shown with secrets under Authentication.
 	const authenticationFields = fields.filter(
 		(f) =>
-			(f.key === "authType" || f.group === "credentials") &&
+			(f.authentication || f.group === "credentials") &&
 			isFieldVisible(f, { ...values })
 	);
 	const activeDescriptor = descriptors.find((d) => d.type === type);
