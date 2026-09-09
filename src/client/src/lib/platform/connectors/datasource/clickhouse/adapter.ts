@@ -100,16 +100,31 @@ function timeRangeClause(range: QueryTimeRange, column = "Timestamp"): string {
 	)}'`;
 }
 
+/**
+ * Map attribute lookups are String-typed; Duration and arithmetic on it are
+ * already numeric. `toFloat64OrZero` / `OrNull` only accept String arguments
+ * in ClickHouse — wrapping `Duration / 1e9` breaks group-by aggregations.
+ */
+function coerceNumericExpr(expr: string): string {
+	if (
+		expr.startsWith("SpanAttributes[") ||
+		expr.startsWith("ResourceAttributes[")
+	) {
+		return `toFloat64OrZero(${expr})`;
+	}
+	return expr;
+}
+
 const AGG_FN_MAP: Record<string, (field: string) => string> = {
 	count: () => "count()",
-	sum: (f) => `sum(toFloat64OrZero(${f}))`,
-	avg: (f) => `avg(toFloat64OrZero(${f}))`,
-	min: (f) => `min(toFloat64OrZero(${f}))`,
-	max: (f) => `max(toFloat64OrZero(${f}))`,
-	p50: (f) => `quantile(0.5)(toFloat64OrZero(${f}))`,
-	p90: (f) => `quantile(0.9)(toFloat64OrZero(${f}))`,
-	p95: (f) => `quantile(0.95)(toFloat64OrZero(${f}))`,
-	p99: (f) => `quantile(0.99)(toFloat64OrZero(${f}))`,
+	sum: (f) => `sum(${coerceNumericExpr(f)})`,
+	avg: (f) => `avg(${coerceNumericExpr(f)})`,
+	min: (f) => `min(${coerceNumericExpr(f)})`,
+	max: (f) => `max(${coerceNumericExpr(f)})`,
+	p50: (f) => `quantile(0.5)(${coerceNumericExpr(f)})`,
+	p90: (f) => `quantile(0.9)(${coerceNumericExpr(f)})`,
+	p95: (f) => `quantile(0.95)(${coerceNumericExpr(f)})`,
+	p99: (f) => `quantile(0.99)(${coerceNumericExpr(f)})`,
 	cardinality: (f) => `uniqExact(${f})`,
 };
 
@@ -126,6 +141,11 @@ function fieldToExpr(field: string): string {
 	}
 	if (field === "deployment.environment") {
 		return "ResourceAttributes['deployment.environment']";
+	}
+	// OTel GenAI renamed gen_ai.system → gen_ai.provider.name (1.30+). Coalesce
+	// so group-by / filters work for both legacy and current SDK emits.
+	if (field === "gen_ai.provider.name" || field === "gen_ai.system") {
+		return `nullIf(coalesce(nullIf(SpanAttributes['gen_ai.provider.name'], ''), nullIf(SpanAttributes['gen_ai.system'], '')), '')`;
 	}
 	if (field === "SpanName" || field === "ServiceName" || field === "Duration") {
 		return field;

@@ -52,9 +52,32 @@ span.setAttribute('openlit.governance.report_id', reportId);
 | Deterministic security | Span errors, generation health, agent loops, coding-agent policy signals |
 | Otter security | Latest stored AI Analysis `prompt_injection` and `tool_misuse` (no extra LLM call) |
 | Evaluations | Rows from OpenLIT evaluation storage for spans in the tree |
-| Policy controls | Category → control ID mapping (NIST / EU AI Act / OWASP ASI) |
+| Policy controls | Modular packs under `policy-packs/` (NIST AI RMF, EU AI Act, OWASP ASI) |
 
 Large trees may truncate rule evaluation and evaluation queries; the UI shows a truncated note when that happens.
+
+## Extending policy pack coverage
+
+Policy control mappings live as one file per framework under the OpenLIT client:
+
+```text
+src/client/src/lib/platform/governance/policy-packs/
+  index.ts          # registry + matcher
+  types.ts          # definePolicyPack helpers
+  nist-ai-rmf.ts
+  eu-ai-act.ts
+  owasp-asi.ts
+```
+
+To deepen coverage for an existing framework, append controls to that framework’s file (`control_id`, `title`, `finding_categories`, optional `min_severity` / `rationale`).
+
+To add a new pack:
+
+1. Create `policy-packs/<name>.ts` with `definePolicyPack({ id, framework, version, controls })`.
+2. Import it in `policy-packs/index.ts` and append it to `POLICY_PACKS`.
+3. If the framework id is new, extend `GovernancePolicyFramework` in `types/governance-report.ts`.
+
+The Governance tab and passport export pick up registered packs automatically — no other wiring.
 
 ## Rule Engine fields for coding agents
 

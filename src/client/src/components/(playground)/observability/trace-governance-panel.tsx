@@ -789,17 +789,24 @@ export default function TraceGovernancePanel({
 						{report.policy_controls!.map((control) => (
 							<div
 								key={`${control.framework}:${control.control_id}`}
-								className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 text-xs"
+								className="flex flex-col gap-0.5 px-2.5 py-1.5 text-xs"
 							>
-								<span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] uppercase text-stone-700 dark:bg-stone-800 dark:text-stone-300">
-									{control.framework}
-								</span>
-								<span className="font-mono text-[11px] font-medium text-stone-900 dark:text-stone-100">
-									{control.control_id}
-								</span>
-								<span className="text-stone-600 dark:text-stone-400">
-									{control.title}
-								</span>
+								<div className="flex flex-wrap items-center gap-2">
+									<span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] uppercase text-stone-700 dark:bg-stone-800 dark:text-stone-300">
+										{control.framework}
+									</span>
+									<span className="font-mono text-[11px] font-medium text-stone-900 dark:text-stone-100">
+										{control.control_id}
+									</span>
+									<span className="text-stone-600 dark:text-stone-400">
+										{control.title}
+									</span>
+								</div>
+								{control.rationale ? (
+									<p className="pl-0.5 text-[10px] leading-snug text-stone-500 dark:text-stone-500">
+										{control.rationale}
+									</p>
+								) : null}
 							</div>
 						))}
 					</div>

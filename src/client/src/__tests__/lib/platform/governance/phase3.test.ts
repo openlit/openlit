@@ -3,7 +3,12 @@ import {
 	buildGovernancePassport,
 	GOVERNANCE_REPORT_ID_ATTR,
 } from "@/lib/platform/governance/passport";
-import { policyControlsForFindings } from "@/lib/platform/governance/policy-packs";
+import {
+	GOVERNANCE_POLICY_PACK,
+	POLICY_PACKS,
+	listPolicyPacks,
+	policyControlsForFindings,
+} from "@/lib/platform/governance/policy-packs";
 import type { GovernanceFinding } from "@/types/governance-report";
 
 describe("governance passport", () => {
@@ -58,6 +63,17 @@ describe("governance passport", () => {
 });
 
 describe("governance policy packs", () => {
+	it("registers modular packs for NIST, EU AI Act, and OWASP ASI", () => {
+		const listed = listPolicyPacks();
+		expect(listed.map((p) => p.id).sort()).toEqual([
+			"eu-ai-act",
+			"nist-ai-rmf",
+			"owasp-asi",
+		]);
+		expect(POLICY_PACKS.length).toBe(3);
+		expect(GOVERNANCE_POLICY_PACK.length).toBeGreaterThan(20);
+	});
+
 	it("maps prompt injection to OWASP and EU controls", () => {
 		const findings: GovernanceFinding[] = [
 			{
@@ -73,5 +89,81 @@ describe("governance policy packs", () => {
 		expect(controls.some((c) => c.framework === "owasp_asi")).toBe(true);
 		expect(controls.some((c) => c.framework === "eu_ai_act")).toBe(true);
 		expect(controls.some((c) => c.control_id === "ASI01")).toBe(true);
+		expect(controls.some((c) => c.control_id === "Art.15")).toBe(true);
+		expect(controls.some((c) => c.control_id === "MEASURE-2.6")).toBe(true);
+	});
+
+	it("maps coding-agent / policy findings across frameworks", () => {
+		const findings: GovernanceFinding[] = [
+			{
+				id: "1",
+				category: "policy",
+				severity: "major",
+				summary: "Full content capture",
+				detail: "detail",
+				span_refs: ["s1"],
+			},
+			{
+				id: "2",
+				category: "coding_agent",
+				severity: "minor",
+				summary: "shell",
+				detail: "detail",
+				span_refs: ["s2"],
+			},
+		];
+		const controls = policyControlsForFindings(findings);
+		expect(controls.some((c) => c.control_id === "Art.12")).toBe(true);
+		expect(controls.some((c) => c.control_id === "ASI05")).toBe(true);
+		expect(controls.some((c) => c.control_id === "GOVERN-1.2")).toBe(true);
+		expect(controls.some((c) => c.control_id === "MEASURE-2.7")).toBe(true);
+		expect(controls.every((c) => c.pack_id)).toBe(true);
+	});
+
+	it("respects min_severity on pack entries", () => {
+		const infoOnly: GovernanceFinding[] = [
+			{
+				id: "1",
+				category: "policy",
+				severity: "info",
+				summary: "note",
+				detail: "detail",
+				span_refs: ["s1"],
+			},
+		];
+		const major: GovernanceFinding[] = [
+			{
+				id: "1",
+				category: "policy",
+				severity: "major",
+				summary: "note",
+				detail: "detail",
+				span_refs: ["s1"],
+			},
+		];
+		const infoControls = policyControlsForFindings(infoOnly);
+		const majorControls = policyControlsForFindings(major);
+		expect(infoControls.some((c) => c.control_id === "MANAGE-1.1")).toBe(
+			false
+		);
+		expect(majorControls.some((c) => c.control_id === "MANAGE-1.1")).toBe(
+			true
+		);
+	});
+
+	it("dedupes identical framework+control_id pairs", () => {
+		const findings: GovernanceFinding[] = [
+			{
+				id: "1",
+				category: "prompt_injection",
+				severity: "critical",
+				summary: "injection",
+				detail: "detail",
+				span_refs: ["s1"],
+			},
+		];
+		const controls = policyControlsForFindings(findings);
+		const keys = controls.map((c) => `${c.framework}:${c.control_id}`);
+		expect(keys.length).toBe(new Set(keys).size);
 	});
 });

@@ -21,6 +21,10 @@ export type GovernancePolicyControl = {
 	control_id: string;
 	title: string;
 	finding_categories: GovernanceFindingCategory[];
+	/** Optional auditor-facing note from the pack entry. */
+	rationale?: string;
+	/** Source pack id (e.g. `nist-ai-rmf`) when emitted from the registry. */
+	pack_id?: string;
 };
 
 export type GovernanceRuleEntityType =

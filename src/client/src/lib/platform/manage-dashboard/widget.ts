@@ -56,8 +56,47 @@ function getFilterPathValue(filter: unknown, path: string): unknown {
 	return current;
 }
 
+/** Truthiness for Mustache-style `{{#filter.*}}` / `{{^filter.*}}` sections. */
+function isFilterSectionTruthy(value: unknown): boolean {
+	if (value == null) return false;
+	if (typeof value === "boolean") return value;
+	if (typeof value === "number") return value !== 0 && !Number.isNaN(value);
+	if (typeof value === "string") return value.length > 0;
+	if (Array.isArray(value)) return value.length > 0;
+	if (typeof value === "object") {
+		return Object.keys(value as Record<string, unknown>).length > 0;
+	}
+	return Boolean(value);
+}
+
 /**
- * Substitute only `{{filter.*}}` / `{{{filter.*}}}` placeholders.
+ * Expand only `{{#filter.path}}…{{/filter.path}}` and
+ * `{{^filter.path}}…{{/filter.path}}` sections.
+ *
+ * Coding Agents (and other) seeded widgets rely on these to optionally inject
+ * vendor/user predicates. We deliberately do **not** hand the query to a
+ * template engine — only allow-listed `filter.<path>` section tags are
+ * recognized, so arbitrary Mustache (`{{#evil}}`, lambdas, partials) stays
+ * inert (CodeQL js/code-injection).
+ */
+function renderFilterSections(template: string, filter: MetricParams): string {
+	const positive =
+		/\{\{#\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}([\s\S]*?)\{\{\/\s*filter\.\1\s*\}\}/g;
+	const inverted =
+		/\{\{\^\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}([\s\S]*?)\{\{\/\s*filter\.\1\s*\}\}/g;
+
+	let out = template.replace(positive, (_match, path: string, body: string) =>
+		isFilterSectionTruthy(getFilterPathValue(filter, path)) ? body : ""
+	);
+	out = out.replace(inverted, (_match, path: string, body: string) =>
+		isFilterSectionTruthy(getFilterPathValue(filter, path)) ? "" : body
+	);
+	return out;
+}
+
+/**
+ * Substitute only `{{filter.*}}` / `{{{filter.*}}}` placeholders, after
+ * expanding `filter.*` section tags.
  *
  * Intentionally does **not** use Mustache (or any template engine): the
  * query string is user-controlled on the widget preview path, and treating
@@ -70,7 +109,8 @@ function renderFilterPlaceholders(
 	template: string,
 	filter: MetricParams
 ): string {
-	return template.replace(
+	const withSections = renderFilterSections(template, filter);
+	return withSections.replace(
 		/\{\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}\}|\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g,
 		(
 			_match,
