@@ -78,19 +78,48 @@ function isFilterSectionTruthy(value: unknown): boolean {
  * template engine — only allow-listed `filter.<path>` section tags are
  * recognized, so arbitrary Mustache (`{{#evil}}`, lambdas, partials) stays
  * inert (CodeQL js/code-injection).
+ *
+ * Implemented as a left-to-right scan (no `[\s\S]*?` + backref replace) to
+ * avoid polynomial ReDoS on hostile templates (CodeQL js/polynomial-redos).
  */
 function renderFilterSections(template: string, filter: MetricParams): string {
-	const positive =
-		/\{\{#\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}([\s\S]*?)\{\{\/\s*filter\.\1\s*\}\}/g;
-	const inverted =
-		/\{\{\^\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}([\s\S]*?)\{\{\/\s*filter\.\1\s*\}\}/g;
+	const openTag = /\{\{([#^])\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g;
+	let out = "";
+	let cursor = 0;
 
-	let out = template.replace(positive, (_match, path: string, body: string) =>
-		isFilterSectionTruthy(getFilterPathValue(filter, path)) ? body : ""
-	);
-	out = out.replace(inverted, (_match, path: string, body: string) =>
-		isFilterSectionTruthy(getFilterPathValue(filter, path)) ? "" : body
-	);
+	while (cursor < template.length) {
+		openTag.lastIndex = cursor;
+		const open = openTag.exec(template);
+		if (!open) {
+			out += template.slice(cursor);
+			break;
+		}
+
+		const openStart = open.index;
+		const openEnd = openTag.lastIndex;
+		const kind = open[1] as "#" | "^";
+		const path = open[2];
+		out += template.slice(cursor, openStart);
+
+		const closeNeedle = `{{/filter.${path}}}`;
+		const closeIndex = template.indexOf(closeNeedle, openEnd);
+		if (closeIndex === -1) {
+			// Unclosed section: keep the open tag literal and continue.
+			out += open[0];
+			cursor = openEnd;
+			continue;
+		}
+
+		const body = template.slice(openEnd, closeIndex);
+		const truthy = isFilterSectionTruthy(getFilterPathValue(filter, path));
+		if (kind === "#") {
+			out += truthy ? body : "";
+		} else {
+			out += truthy ? "" : body;
+		}
+		cursor = closeIndex + closeNeedle.length;
+	}
+
 	return out;
 }
 
