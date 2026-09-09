@@ -571,6 +571,12 @@ class SemanticConvention:
     GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = (
         "gen_ai.usage.completion_tokens_details.reasoning_tokens"
     )
+    GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED = (
+        "gen_ai.usage.reasoning.output_tokens.reported"
+    )
+    GEN_AI_USAGE_DERIVED_COMPLETED_OUTPUT_TOKENS = (
+        "gen_ai.usage.derived.completed_output_tokens"
+    )
     # OTel GenAI semconv (experimental): reasoning output tokens are a subset of
     # gen_ai.usage.output_tokens and MUST NOT be added on top of it.
     GEN_AI_USAGE_REASONING_OUTPUT_TOKENS = "gen_ai.usage.reasoning.output_tokens"
