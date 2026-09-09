@@ -502,6 +502,7 @@ func logEffectiveAvailability(logger *slog.Logger, cfg *config.Config, a effecti
 type gpuCollectors struct {
 	mc          *export.MetricsCollector
 	ebpfTracer  *gpuebpf.Tracer
+	ebpfMetrics *export.EBPFMetrics
 	occMetrics  *export.OccupancyMetrics
 	dcgmMetrics *export.DCGMMetrics
 	dcgmClient  dcgm.Client
@@ -515,6 +516,9 @@ func (c *gpuCollectors) close() {
 	}
 	if c.ebpfTracer != nil {
 		c.ebpfTracer.Close()
+	}
+	if c.ebpfMetrics != nil {
+		c.ebpfMetrics.Close()
 	}
 	if c.occMetrics != nil {
 		c.occMetrics.Close()
@@ -567,6 +571,7 @@ func setupCollectors(
 				report.fault(logger, config.FeatureEBPF, err.Error())
 			}
 		} else {
+			out.ebpfMetrics = ebpfMetrics
 			occ, err := export.NewOccupancyMetrics(provider, devices, resolver, logger)
 			if err != nil {
 				if report != nil {

@@ -82,7 +82,9 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 			"cudaGraphLaunch":             objs.HandleCudaGraphLaunch,
 			"__cudaGetKernel":             objs.HandleCudaGetKernelEnter,
 			"cudaMalloc":                  objs.HandleCudaMallocEnter,
+			"cudaMallocAsync":             objs.HandleCudaMallocEnter,
 			"cudaFree":                    objs.HandleCudaFree,
+			"cudaMemcpy":                  objs.HandleCudaMemcpyEnter,
 			"cudaMemcpyAsync":             objs.HandleCudaMemcpyAsync,
 			"cudaStreamSynchronize":       objs.HandleCudaStreamSyncEnter,
 			"cudaEventRecord":             objs.HandleCudaEventRecordEnter,
@@ -92,6 +94,7 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 		uretprobes: map[string]*ebpf.Program{
 			"__cudaGetKernel":       objs.HandleCudaGetKernelExit,
 			"cudaMalloc":            objs.HandleCudaMalloc,
+			"cudaMallocAsync":       objs.HandleCudaMalloc,
 			"cudaMemcpy":            objs.HandleCudaMemcpy,
 			"cudaStreamSynchronize": objs.HandleCudaStreamSync,
 			"cudaDeviceSynchronize": objs.HandleCudaDeviceSync,
