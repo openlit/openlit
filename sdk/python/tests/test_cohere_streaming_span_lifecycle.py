@@ -243,6 +243,30 @@ async def test_async_stream_full_consumption_exports_exactly_one_span():
 
 
 @pytest.mark.asyncio
+async def test_async_stream_explicit_aclose_still_exports_span():
+    """Calling .aclose() directly, the native async-generator cleanup method,
+    must finalize the span too. Before this fix only close() was defined, so
+    aclose() fell through __getattr__ straight to the wrapped stream and the
+    span was never finalized."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _async_wrapper(tracer)
+
+    raw_stream = FakeRawAsyncStream([_CHUNK])
+
+    async def fake_create(*_args, **_kwargs):
+        return raw_stream
+
+    traced_stream = await wrapper(fake_create, object(), [], _chat_kwargs())
+    await anext(traced_stream)
+    await traced_stream.aclose()
+
+    assert raw_stream.closed
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+
+
+@pytest.mark.asyncio
 async def test_async_stream_close_still_exports_span_when_wrapped_close_raises():
     """Async twin of test_sync_stream_close_still_exports_span_when_wrapped_close_raises."""
 

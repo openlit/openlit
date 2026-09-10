@@ -167,12 +167,15 @@ def async_chat_stream(
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
-        async def close(self):
+        async def aclose(self):
             """Close the wrapped stream and finalize the span if it has not ended yet."""
             try:
                 await self.__wrapped__.aclose()
             finally:
                 self._finalize_streaming_span()
+
+        async def close(self):
+            await self.aclose()
 
         def _finalize_streaming_span(self):
             if self._streaming_response_processed:
