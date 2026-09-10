@@ -39,7 +39,8 @@ struct {
 
 // Last successful cudaSetDevice per thread (pid_tgid). Stamped onto later
 // events so userspace can attribute hw.id on multi-GPU hosts without waiting
-// for the SetDevice ringbuf event to be processed.
+// for the SetDevice ringbuf event to be processed. Userspace drops keys for
+// dead PIDs so a reused pid_tgid cannot inherit the previous process's index.
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __uint(max_entries, 65536);
