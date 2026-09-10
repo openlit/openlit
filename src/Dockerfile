@@ -10,18 +10,14 @@ WORKDIR /app/client
 # Copy package.json and package-lock.json to the working directory & the rest of the application code
 COPY ./client/ .
 
-# Bake the Prisma CLI engines for BOTH the builder (Alpine/musl) and the final
-# runtime (node:18-bullseye-slim = Debian, OpenSSL 1.1.x) at build time.
-#
-# schema.prisma `binaryTargets` only governs the Query Engine embedded in the
-# generated client. The Schema Engine used by `prisma migrate deploy` (and the
-# CLI engines used by `prisma generate`) are resolved at install time for the
-# *builder* platform only (musl). When those musl engines are copied into the
-# glibc runtime, the Prisma CLI cannot execute them and downloads a matching
-# engine from binaries.prisma.sh at container launch -- which fails in
-# air-gapped / locked-down clusters. Forcing the runtime target here makes
-# `prisma migrate deploy` and `prisma generate` run fully offline at launch.
-ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x,debian-openssl-1.1.x
+# Bake Prisma CLI/Schema engines for the Alpine builder and the Debian
+# bookworm runtime (OpenSSL 3). schema.prisma `binaryTargets` only covers the
+# Query Engine; CLI engines are resolved at install time for the builder
+# platform. This env replaces native detection, so both musl builder
+# targets must stay listed — release publishes linux/amd64 and linux/arm64/v8.
+# Without the matching glibc engines, entrypoint.sh (`prisma migrate deploy`
+# / `prisma generate`) downloads from binaries.prisma.sh and fails air-gapped.
+ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x,linux-musl-arm64-openssl-3.0.x,debian-openssl-3.0.x,linux-arm64-openssl-3.0.x
 
 # Install dependencies, generate Prisma client & Build the Next.js application
 RUN npm install && npx prisma generate && npm run build
