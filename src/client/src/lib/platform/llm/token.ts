@@ -5,6 +5,7 @@ import {
 	getFilterPreviousParams,
 	getFilterWhereCondition,
 } from "@/helpers/server/platform";
+import { externalAverageTokens, externalTokensPerTime } from "./external";
 
 export type TOKEN_TYPE = "total" | "prompt" | "completion";
 
@@ -23,6 +24,9 @@ function getFirstNonEmptyPath(paths: string[]) {
 }
 
 export async function getAverageTokensPerRequest(params: TokenParams) {
+	const external = await externalAverageTokens(params);
+	if (external) return external;
+
 	const tokenKey =
 		params.type === "total"
 			? "totalTokens"
@@ -70,6 +74,9 @@ export async function getAverageTokensPerRequest(params: TokenParams) {
 }
 
 export async function getTokensPerTime(params: MetricParams) {
+	const external = await externalTokensPerTime(params);
+	if (external) return external;
+
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
 

@@ -1,4 +1,5 @@
 import { withRouteAccess } from "@/lib/access/route-access";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 import { GPUMetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
@@ -12,6 +13,10 @@ async function POSTHandler(request: Request) {
 
 	const params: GPUMetricParams = {
 		timeLimit,
+		environment:
+			typeof formData.environment === "string"
+				? formData.environment
+				: getRequestEnvironment(request),
 	};
 
 	const validationParam = validateMetricsRequest(

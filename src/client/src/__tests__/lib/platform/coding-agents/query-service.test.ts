@@ -9,13 +9,22 @@ import {
 } from "@/lib/platform/coding-agents/queries";
 import type { CodingAgentAuth } from "@/lib/platform/coding-agents/auth";
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: jest.fn(),
-}));
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+	};
+});
 
 jest.mock("@/clickhouse/migrations/create-coding-agents-audit-migration", () => ({
 	CODING_AGENT_AUDIT_LOG_TABLE: "coding_agent_audit_log",
 	CODING_AGENT_DISPUTES_TABLE: "coding_agent_disputes",
+}));
+
+jest.mock("@/lib/platform/agent-loop/clickhouse", () => ({
+	fetchLoopHitsByTraceIds: jest.fn(async () => new Map()),
+	fetchLoopHitsByGroupIds: jest.fn(async () => new Map()),
 }));
 
 const mockDataCollector = jest.mocked(dataCollector);
@@ -207,7 +216,8 @@ describe("coding agent query service", () => {
 					}),
 				],
 			}),
-			"insert"
+			"insert",
+			undefined
 		);
 	});
 

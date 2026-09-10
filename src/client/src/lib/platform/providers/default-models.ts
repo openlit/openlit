@@ -135,6 +135,14 @@ export const DEFAULT_PROVIDERS: DefaultProviderEntry[] = [
 			topP: { min: 0, max: 1, step: 0.01, default: 0.9, description: "Nucleus sampling threshold" },
 		},
 	},
+	{
+		providerId: "minimax", displayName: "MiniMax", description: "MiniMax M-series language models", requiresVault: true,
+		configSchema: {
+			temperature: { min: 0, max: 2, step: 0.1, default: 1, description: "Sampling temperature" },
+			maxTokens: { min: 1, max: 1000000, step: 1, default: 1000, description: "Maximum tokens to generate" },
+			topP: { min: 0, max: 1, step: 0.1, default: 0.95, description: "Nucleus sampling threshold" },
+		},
+	},
 ];
 
 export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
@@ -1071,6 +1079,28 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			inputPricePerMToken: 0.3,
 			outputPricePerMToken: 1.0,
 			capabilities: ["streaming"],
+		},
+	],
+	minimax: [
+		{
+			id: "MiniMax-M3",
+			displayName: "MiniMax M3",
+			contextWindow: 1000000,
+			// Standard pay-as-you-go ≤512k (permanent 50% off the $0.60/$2.40/$0.12 list).
+			inputPricePerMToken: 0.3,
+			outputPricePerMToken: 1.2,
+			cacheReadPricePerMToken: 0.06,
+			capabilities: ["function-calling", "vision", "streaming", "thinking"],
+		},
+		{
+			id: "MiniMax-M2.7",
+			displayName: "MiniMax M2.7",
+			contextWindow: 204800,
+			inputPricePerMToken: 0.3,
+			outputPricePerMToken: 1.2,
+			cacheReadPricePerMToken: 0.06,
+			cacheCreationPricePerMToken: 0.375,
+			capabilities: ["function-calling", "streaming", "thinking"],
 		},
 	],
 };

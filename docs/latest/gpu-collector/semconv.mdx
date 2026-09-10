@@ -1,0 +1,104 @@
+---
+title: 'Semantic Conventions'
+description: 'Registry of OpenLIT GPU Collector metrics — instruments, units, attributes, and sources'
+icon: 'book'
+---
+
+Metric names follow the [OpenTelemetry hardware GPU semantic conventions](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/) where specified. OpenLIT **extension** metrics are listed explicitly below.
+
+## Core device metrics (always registered)
+
+| Instrument | Type | Unit | Key attributes | Source | Notes |
+|---|---|---|---|---|---|
+| `hw.gpu.utilization` | Gauge | `1` | `hw.id`, `hw.gpu.task` | NVML / AMD / Intel | — |
+| `hw.gpu.memory.utilization` | Gauge | `1` | `hw.id` | vendor (usage/limit) | — |
+| `hw.gpu.memory.controller.utilization` | Gauge | `1` | `hw.id` | vendor / DCGM Prefer | extension |
+| `hw.gpu.memory.limit` | UpDownCounter | `By` | `hw.id` | vendor | — |
+| `hw.gpu.memory.usage` | UpDownCounter | `By` | `hw.id` | vendor | — |
+| `hw.gpu.memory.free` | UpDownCounter | `By` | `hw.id` | vendor | — |
+| `hw.power` | Gauge | `W` | `hw.id` | vendor | — |
+| `hw.power.limit` | Gauge | `W` | `hw.id` | vendor | — |
+| `hw.energy` | Counter | `J` | `hw.id` | vendor | — |
+| `hw.temperature` | Gauge | `Cel` | `hw.id`, `hw.sensor_location` | vendor | — |
+| `hw.fan.speed` | Gauge | `rpm` | `hw.id` | vendor | — |
+| `hw.fan.speed_ratio` | Gauge | `1` | `hw.id` | vendor (NVIDIA %) | — |
+| `hw.gpu.speed` | Gauge | `Hz` | `hw.id`, `hw.gpu.clock_domain` | vendor | `graphics` / `sm` / `memory` |
+| `hw.gpu.io` | Counter | `By` | `hw.id`, `network.io.direction` | vendor / DCGM | — |
+| `hw.gpu.interconnect.io` | Counter | `By` | `hw.id`, `hw.gpu.interconnect.type` | vendor / DCGM | — |
+| `hw.status` | UpDownCounter | `1` | `hw.id`, state attrs | vendor | — |
+| `hw.errors` | Counter | `{error}` | `error.type`, `hw.type=gpu` | vendor | — |
+| `hw.gpu.allocated` | Gauge | `1` | `hw.id` | derived | — |
+| `hw.gpu.idle` | Gauge | `1` | `hw.id` | derived | — |
+
+## Process / workload attribution
+
+| Instrument | Type | Unit | Key attributes | Source |
+|---|---|---|---|---|
+| `process.gpu.memory.usage` | UpDownCounter | `By` | `process.pid`, `hw.id`, k8s.* | NVML / DRM fdinfo |
+| `process.gpu.utilization` | Gauge | `1` | `process.pid`, `hw.id` | NVML / DRM fdinfo |
+| `process.uptime` | Gauge | `s` | `process.pid` | `/proc` enrichment |
+
+## DCGM extension (`gpu.measurement.source=dcgm`)
+
+DCP-only series always emit when DCGM is enabled. Overlapping series (`hw.gpu.io`, interconnect, `hw.power`, `hw.gpu.utilization`, `hw.gpu.memory.controller.utilization`, SM `hw.gpu.speed`) emit **only** when `OTEL_GPU_DCGM_PREFER=true` and the sample is non-blank; the vendor (NVML) path then suppresses the same instruments so there is a single producer. Blank Prefer samples re-enable NVML until the next healthy DCGM scrape. Spec `hw.gpu.memory.utilization` (usage/limit) always comes from the vendor path.
+
+| Instrument | Type | Unit | Key attributes | Notes |
+|---|---|---|---|---|
+| `hw.gpu.engine.utilization` | Gauge | `1` | `hw.gpu.engine` | DCGM eng util |
+| `hw.gpu.sm.utilization` | Gauge | `1` | | SM active (DCP) |
+| `hw.gpu.sm.occupancy` | Gauge | `1` | | SM occupancy (DCP) |
+| `hw.gpu.pipe.utilization` | Gauge | `1` | `hw.gpu.pipe`=`tensor\|fp16\|fp32\|fp64` | DCP pipe |
+| `hw.gpu.memory.bandwidth.utilization` | Gauge | `1` | | DRAM util |
+| `hw.gpu.io` / `hw.gpu.interconnect.io` | Counter | `By` | Prefer only | Rate-integrated int64 |
+| `hw.gpu.speed` | Gauge | `Hz` | Prefer only; `clock_domain=graphics` | Field 100 (keeps NVML graphics series identity) |
+| `hw.gpu.idle` | Gauge | `1` | Prefer only | Derived from Prefer util |
+| `hw.power` / `hw.gpu.utilization` / `hw.gpu.memory.controller.utilization` | Gauge | Prefer only | Fields 155 / 203 / 204 |
+| `openlit.collector.gpu.dcgm.sample_valid` | UpDownCounter | `1` | `hw.id` | 0 on blank sample |
+
+## AMD RDC extension (`gpu.measurement.source=rdc`)
+
+| Instrument | Type | Unit | Key attributes | Notes |
+|---|---|---|---|---|
+| `hw.gpu.sm.utilization` | Gauge | `1` | | `RDC_FI_PROF_SM_ACTIVE` |
+| `hw.gpu.sm.occupancy` | Gauge | `1` | `hw.parent` (partitions) | Soft-fail when librdc missing |
+| `hw.gpu.pipe.utilization` | Gauge | `1` | `hw.gpu.pipe`=`fp16\|fp32\|fp64` | EVAL_FLOPS percent fields |
+| `hw.gpu.simd.utilization` | Gauge | `1` | | `RDC_FI_PROF_SIMD_UTILIZATION` |
+
+## eBPF CUDA (Linux/NVIDIA)
+
+| Instrument | Type | Unit | Family |
+|---|---|---|---|
+| `gpu.kernel.launch.calls` | Counter | `{call}` | activity |
+| `gpu.kernel.grid.size` / `block.size` | Histogram | `{thread}` | activity |
+| `gpu.kernel.shared_memory` | Histogram | `By` | activity |
+| `gpu.kernel.duration` | Histogram | `s` | launch→sync model; cardinality-capped `cuda.kernel.name` |
+| `gpu.graph.launch.calls` | Counter | `{call}` | graph **replay** invocations, not kernels inside the replay |
+| `gpu.memory.allocations` | Counter | `By` | activity |
+| `gpu.memory.copies` | Histogram | `By` | activity |
+| `process.gpu.core.usage` / `process.gpu.estimated.sm_active` | Gauge | `{cores}` / `1` | occupancy model (`gpu.measurement.source=ebpf_model`) |
+| `hw.gpu.core.limit` / `hw.gpu.estimated.sm_active` | Gauge | `{cores}` / `1` | **not** DCGM `hw.gpu.sm.*` |
+
+## Collector self-metrics
+
+| Instrument | Type | Unit | Notes |
+|---|---|---|---|
+| `openlit.collector.gpu.scrape.errors` | Counter | `{error}` | Optional backends (DCGM/RDC) |
+| `openlit.collector.gpu.dcgm.sample_valid` | UpDownCounter | `1` | Per-GPU blank-sample health |
+| `openlit.collector.profile.requests` | Counter | `{request}` | Control plane profiling |
+
+## Correlation keys
+
+Join continuous GPU, host, and on-demand profile data with these keys. Prefer (`OTEL_GPU_DCGM_PREFER=true`) keeps a **single producer** for overlapping NVML/DCGM series; if a Prefer sample is blank, NVML fills until the next healthy DCGM sample.
+
+| Join | Attributes |
+|---|---|
+| GPU across NVML / DCGM / RDC / eBPF | `hw.id` (UUID) + `gpu.index` + `gpu.pci_address` + `gpu.measurement.source` |
+| Host NIC vs (when NIC off) system network | `network.interface.name` (= `hw.id` on `hw.network.*`) |
+| TPU vs GPU | `hw.type` + namespaced `hw.id` (`tpu:<accelerator_id>`) + `hw.tpu.accelerator_id` |
+| Soft util overlap | NVML `hw.gpu.utilization` ≠ DCGM `hw.gpu.sm.utilization` ≠ eBPF `hw.gpu.estimated.sm_active` — different semantics; do not sum or equate |
+| eBPF activity join | `gpu.measurement.source=ebpf` (+ `hw.id` / `hw.type` when device known) |
+| On-demand profiles | Control API default `127.0.0.1:1919` (`profile-fanout --port 1919`) |
+
+## Common resource / identity attributes
+
+`hw.id`, `hw.name`, `hw.vendor`, `hw.type`, `gpu.index`, `gpu.pci_address`, `gpu.measurement.source`, optional MIG attrs, and host/k8s/cloud resource attributes from identity detection. Partition samples may set `hw.parent` and `hw.gpu.partition`.

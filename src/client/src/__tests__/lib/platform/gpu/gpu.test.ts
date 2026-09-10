@@ -3,6 +3,15 @@ jest.mock('@/lib/platform/common', () => ({
   OTEL_GPUS_TABLE_NAME: 'otel_metrics_gauge',
 }));
 
+jest.mock('@/lib/platform/gpu/external', () => ({
+  externalAverageUtilization: jest.fn().mockResolvedValue(null),
+  externalUtilizationParamsPerTime: jest.fn().mockResolvedValue(null),
+  externalAveragePowerDraw: jest.fn().mockResolvedValue(null),
+  externalPowerParamsPerTime: jest.fn().mockResolvedValue(null),
+  externalAverageMemoryUsage: jest.fn().mockResolvedValue(null),
+  externalMemoryParamsPerTime: jest.fn().mockResolvedValue(null),
+}));
+
 import { getAverageUtilization, getUtilizationParamsPerTime } from '@/lib/platform/gpu/utilization';
 import { getAveragePowerDraw, getPowerParamsPerTime } from '@/lib/platform/gpu/power';
 import { getMemoryParamsPerTime, getAverageMemoryUsage } from '@/lib/platform/gpu/memory';

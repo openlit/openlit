@@ -128,7 +128,7 @@ function GroupRow({
 
 export default function GroupedTable({
 	groupBy,
-	apiUrl = "/api/metrics/request/grouped",
+	apiUrl = "/api/telemetry/request/grouped",
 }: {
 	groupBy: string;
 	apiUrl?: string;

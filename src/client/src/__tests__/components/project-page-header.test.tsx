@@ -14,13 +14,13 @@ jest.mock("@/components/(playground)/feature-page-header", () => ({
 }));
 
 describe("ProjectPageHeader", () => {
-	it("renders project identity, left back control, and status badges", () => {
+	it("renders project identity, back control, and route actions", () => {
 		render(<ProjectPageHeader project={{ name: "Production", isCurrent: true, isDefault: true }} />);
 
 		expect(screen.getByRole("heading", { name: "Production" })).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "Back to Organisation" })).toHaveAttribute("href", "/organisation");
-		expect(screen.getByText("Current")).toBeInTheDocument();
-		expect(screen.getByText("Default Project")).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: /Overview/ })).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: /Manage Environments/ })).toBeInTheDocument();
 	});
 
 	it("uses the loading title when no project is available", () => {

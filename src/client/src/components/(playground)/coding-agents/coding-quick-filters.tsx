@@ -6,17 +6,15 @@
  * deep-links and the back button round-trip cleanly with the table
  * state.
  *
- * The picker's option set is fetched from
- * `/api/coding-agents/users?limit=50` (vendor-scoped when the agent
- * detail page pins a vendor). The list endpoint already enforces the
- * privacy cohort floor, so `low_cohort` users that come back from the
- * API are filtered client-side here — selecting a masked user
- * wouldn't navigate anywhere useful.
+ * Fetches via the same POST + OpenLIT context path as the Users tab
+ * (`getData` → `/api/coding-agents/users`) so the picker shares the
+ * page time window, vendor pin, and env-routed ClickHouse — a bare
+ * `fetch` previously missed those headers and defaulted to a 24h GET
+ * that often returned an empty set while Sessions still had rows.
  *
- * F5 / F9 cleanup note: the previous "CodingQuickFilters" default
- * export (a redundant inline filter bar) was removed; this file now
- * holds only the picker that is actually rendered by
- * `<CodingSessionsTab>`.
+ * The list endpoint already enforces the privacy cohort floor, so
+ * `low_cohort` / `unknown` rows are skipped client-side — selecting a
+ * masked identity wouldn't navigate anywhere useful.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -31,6 +29,9 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, User, X } from "lucide-react";
+import { getData } from "@/utils/api";
+import { useRootStore } from "@/store";
+import { getFilterDetails } from "@/selectors/filter";
 
 interface CodingUserRow {
 	user: string;
@@ -44,16 +45,22 @@ interface CodingUserPickerProps {
 
 const PICKER_LIMIT = 50;
 
+function isSelectableUser(user: string | undefined): boolean {
+	return Boolean(user) && user !== "low_cohort" && user !== "unknown";
+}
+
 export function CodingUserPicker({ vendorScope }: CodingUserPickerProps) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const selectedUser = searchParams?.get("user") || "";
+	const filter = useRootStore(getFilterDetails);
 
 	const [open, setOpen] = useState(false);
 	const [users, setUsers] = useState<CodingUserRow[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [hadMaskedOnly, setHadMaskedOnly] = useState(false);
 
 	const writeUserParam = useCallback(
 		(next: string | null) => {
@@ -77,34 +84,39 @@ export function CodingUserPicker({ vendorScope }: CodingUserPickerProps) {
 		(async () => {
 			setLoading(true);
 			setError(null);
+			setHadMaskedOnly(false);
 			try {
-				const url = new URL(
-					"/api/coding-agents/users",
-					typeof window !== "undefined"
-						? window.location.origin
-						: "http://localhost"
-				);
-				url.searchParams.set("limit", String(PICKER_LIMIT));
-				if (vendorScope) {
-					url.searchParams.set("vendor", vendorScope);
-				}
-				const res = await fetch(url.toString());
+				const body: Record<string, unknown> = {
+					limit: PICKER_LIMIT,
+					offset: 0,
+					timeLimit: {
+						start: filter.timeLimit?.start,
+						end: filter.timeLimit?.end,
+					},
+					sorting: { type: "sessions", direction: "desc" },
+					runFilters: {
+						...(vendorScope ? { vendor: vendorScope } : {}),
+					},
+				};
+				const response = (await getData({
+					url: "/api/coding-agents/users",
+					method: "POST",
+					body: JSON.stringify(body),
+				})) as {
+					data?: CodingUserRow[];
+					records?: CodingUserRow[];
+					err?: string;
+					error?: string;
+				};
 				if (cancelled) return;
-				if (!res.ok) {
-					setError(`HTTP ${res.status}`);
+				if (response?.err || response?.error) {
+					setError(String(response.err || response.error));
 					setUsers([]);
 					return;
 				}
-				const body = (await res.json()) as {
-					data?: CodingUserRow[];
-					records?: CodingUserRow[];
-				};
-				const rows = (body.data || body.records || []).filter(
-					(row) =>
-						row.user &&
-						row.user !== "low_cohort" &&
-						row.user !== "unknown"
-				);
+				const raw = response.data || response.records || [];
+				const rows = raw.filter((row) => isSelectableUser(row.user));
+				setHadMaskedOnly(raw.length > 0 && rows.length === 0);
 				setUsers(rows);
 			} catch (e) {
 				if (!cancelled) {
@@ -118,12 +130,21 @@ export function CodingUserPicker({ vendorScope }: CodingUserPickerProps) {
 		return () => {
 			cancelled = true;
 		};
-	}, [open, vendorScope]);
+	}, [
+		open,
+		vendorScope,
+		filter.timeLimit?.start,
+		filter.timeLimit?.end,
+	]);
 
 	const triggerLabel = useMemo(() => {
 		if (selectedUser) return selectedUser;
 		return "All users";
 	}, [selectedUser]);
+
+	const emptyLabel = hadMaskedOnly
+		? "No identifiable users in this window"
+		: "No users in this window";
 
 	return (
 		<div className="inline-flex items-center gap-1">
@@ -161,7 +182,7 @@ export function CodingUserPicker({ vendorScope }: CodingUserPickerProps) {
 					)}
 					{!loading && !error && users.length === 0 && (
 						<div className="px-2 py-1.5 text-xs text-stone-500">
-							No users in this window
+							{emptyLabel}
 						</div>
 					)}
 					{users.map((row) => (

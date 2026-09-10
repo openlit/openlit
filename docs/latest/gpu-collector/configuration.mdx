@@ -6,6 +6,14 @@ icon: 'sliders'
 
 The collector is configured entirely via environment variables. All variables follow the standard [OpenTelemetry SDK configuration](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/) spec where applicable.
 
+## Collector mode
+
+`OTEL_GPU_COLLECTOR_MODE` selects a use-case preset (`all` | `light` | `serving` | `training` | `deep`). **Default: `all`.** Presets only fill **unset** feature envs; explicit flags always win. See [Modes](/latest/gpu-collector/modes) for the full matrix, cost notes, and hosting checklist.
+
+| Variable | Default | Description |
+|---|---|---|
+| `OTEL_GPU_COLLECTOR_MODE` | `all` | Feature preset. Invalid values warn and fall back to `all` |
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -13,10 +21,10 @@ The collector is configured entirely via environment variables. All variables fo
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | *(required)* | OTLP endpoint URL, e.g. `http://localhost:4318` |
 | `OTEL_EXPORTER_OTLP_HEADERS` | | Auth headers in `key=val,key2=val2` format |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | `grpc` or `http/protobuf` |
-| `OTEL_SERVICE_NAME` | `default` | Service name attached to all metrics |
+| `OTEL_SERVICE_NAME` | *(unset)* | Optional. Only set if your backend requires `service.name`. This agent is **not** an application service — product identity uses `telemetry.distro.name=opentelemetry-gpu-collector` and `telemetry.distro.version` |
 | `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment=default` | Resource attributes (`key=val,...`). Prefer setting `host.name`, `k8s.*`, `cloud.provider`, `host.type`, `cloud.region` here — overrides auto-detect. Org tags such as `team` or `datacenter` are not auto-detected; set them here. |
 | `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Metric polling interval in **milliseconds**. For self-hosted LLM hosts, `15000` is recommended |
-| `OTEL_GPU_EBPF_ENABLED` | `true` on Linux; `false` elsewhere | eBPF CUDA activity tracing + stream-sync occupancy (Linux/NVIDIA only). Discovers `libcudart` via FS + `/proc` maps (fleet-friendly with host PID). Soft-fails without caps; set `false` to disable |
+| `OTEL_GPU_EBPF_ENABLED` | mode-dependent (`true` on Linux for `serving`+) | eBPF CUDA activity tracing + stream-sync occupancy (Linux/NVIDIA only). Discovers `libcudart` and `libcuda` via FS + `/proc` maps (fleet-friendly with host PID). Soft-fails without caps; set `false` to disable |
 | `OPENLIT_HOST_METRICS` | `true` | Collect system + collector-process host metrics. Set `false` for a GPU-only light footprint |
 | `OTEL_GPU_FS_TYPES_EXCLUDE` | `squashfs,erofs,iso9660,cramfs,romfs,cd9660,CDFS,UDF` | Filesystem types excluded from `system.filesystem.*` metrics (case-sensitive). Default skips image-based and optical filesystems that are 100% full by construction (e.g. snap mounts). Set to an empty string to report all types |
 | `OTEL_GPU_PROCESS_CMDLINE` | `true` | Export truncated `process.command_line` on GPU process metrics |
@@ -30,6 +38,31 @@ The collector is configured entirely via environment variables. All variables fo
 | `OPENLIT_K8S_POD_LOOKUP` | `true` in K8s when `K8S_NODE_NAME` is set | List pods on this node via the Kubernetes API (needs `list` on pods) for UID/container-id joins |
 | `POD_RESOURCES_SOCKET` | OS default | Override kubelet PodResources socket / named pipe path |
 | `OPENLIT_CLOUD_DETECT` | `true` | When `false`, skip AWS/GCP/Azure IMDS probes (recommended on bare metal to avoid link-local timeouts) |
+| `OTEL_GPU_DCGM_ENABLED` | mode-dependent (`true` for `serving`+) | Optional NVIDIA DCGM profiling (soft-skipped without libdcgm / when DCGM cannot init) |
+| `OTEL_GPU_DCGM_LIB_PATH` | `/lib64/libdcgm.so` | Path to libdcgm |
+| `OTEL_GPU_DCGM_ADDRESS` | | Empty = embedded; else hostengine address |
+| `OTEL_GPU_DCGM_INTERVAL` | `10` | DCGM sample interval in **seconds** (warns if &lt; 10s; DCP multiplexing) |
+| `OTEL_GPU_DCGM_PREFER` | mode-dependent (`true` for `serving`+) | When true and DCGM is up: DCGM owns overlapping `hw.gpu.io` / interconnect / power / util / SM clock / `hw.gpu.memory.controller.utilization`; NVML suppresses those series. Spec `hw.gpu.memory.utilization` (usage/limit) stays on the vendor path |
+| `OTEL_GPU_DCGM_FIELDS` | `50,100,155,203,204,1001–1012` | Comma-separated DCGM field IDs (`155`=power, `203`=GPU util, `204`=mem util, `1001–1012`=DCP) |
+| `OTEL_GPU_RDC_ENABLED` | mode-dependent (`true` for `all`) | Optional AMD RDC profiling (soft-skipped without librdc) |
+| `OTEL_GPU_RDC_LIB_PATH` | `librdc.so` | Path / soname for librdc |
+| `OTEL_GPU_KINETO_ENABLED` | mode-dependent (`true` for `deep`/`all`) | On-demand Kineto IPC + control profiling |
+| `OTEL_GPU_PROMETHEUS_ADDR` | | When set (e.g. `:9464`), serve Prometheus `/metrics` alongside OTLP |
+| `OTEL_GPU_CONTROL_ADDR` | mode-dependent (`127.0.0.1:1919` for `deep`/`all`) | Loopback control HTTP; empty disables |
+| `OTEL_GPU_CONTROL_TOKEN` | | Optional Bearer token for control API (**required** if allow-remote) |
+| `OTEL_GPU_CONTROL_ALLOW_REMOTE` | `false` | Allow non-loopback bind for multi-node fan-out (requires token) |
+| `OTEL_HOST_CPU_HIGHRES` | mode-dependent (`true` for `deep`/`all`) | 100ms CPU ring buffer for `GET /v1/cpu/highres` (requires control addr; Linux) |
+| `OTEL_HOST_PMU_ENABLED` | mode-dependent (`true` for `training`+) | Core CPU PMU counters (`hw.cpu.instructions`, …) |
+| `OTEL_HOST_PMU_EVENTS` | `instructions,cycles` or +`memory_bandwidth` in training+ | Include `memory_bandwidth` / `uncore` for IMC `hw.cpu.memory.io` |
+| `OTEL_HOST_INTEL_PT_ENABLED` | mode-dependent (`true` for `deep`/`all`) | On-demand Intel PT via `POST /v1/profile/cpu/pt` (needs `perf` + intel_pt) |
+| `OTEL_HOST_INTEL_PT_MAX_DURATION_MS` | `2000` | Hard cap for PT capture duration |
+| `OTEL_HOST_INTEL_PT_MAX_CPUS` | `4` | Max CPUs traced per PT capture |
+| `OTEL_HOST_INTEL_PT_MAX_BUFFER_PAGES` | `64` | AUX mmap pages passed to `perf -m` |
+| `OTEL_TPU_ENABLED` | mode-dependent (`true` for `all`) | Scrape TPU Prometheus endpoint |
+| `OTEL_HOST_KVM_ENABLED` | mode-dependent (`true` for `all`) | KVM exit / VM metrics |
+| `OTEL_HOST_INTERRUPTS_ENABLED` | mode-dependent (`true` for `all`) | Host interrupt counters |
+| `OTEL_HOST_NIC_ENABLED` | mode-dependent (`true` for `training`+) | Per-NIC `hw.network.*` (ethtool/sysfs). When enabled, `system.network.*` is skipped to avoid duplicates |
+| `OTEL_HOST_RDMA_ENABLED` | mode-dependent (`true` for `training`+) | RDMA device counters |
 
 ## Host, Kubernetes, and cloud identity
 
@@ -140,7 +173,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
 
 ### Disable eBPF CUDA tracing
 
-On Linux, eBPF CUDA tracing is **on by default**. It discovers `libcudart` from the filesystem and from `/proc/*/maps` (no CUDA volume mount required when Docker `--pid=host` / Kubernetes `hostPID: true` is set). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Containers typically also need `--ulimit memlock=-1:-1` so BPF maps can be created. Set `false` to skip:
+On Linux, eBPF CUDA tracing is **on by default**. It discovers `libcudart` and `libcuda` from the filesystem and from `/proc/*/maps` (no CUDA volume mount required when Docker `--pid=host` / Kubernetes `hostPID: true` is set). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Containers typically also need `--ulimit memlock=-1:-1` so BPF maps can be created. Set `false` to skip:
 
 ```bash
 OTEL_GPU_EBPF_ENABLED=false \

@@ -6,13 +6,15 @@ import { createMistral } from "@ai-sdk/mistral";
 import { createCohere } from "@ai-sdk/cohere";
 import { getChatSystemPrompt } from "./schema-context";
 import { validateSQL, extractSQLFromResponse } from "./sql-validator";
-import { dataCollector } from "../common";
+import { intelligenceDataCollector } from "../common";
+import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
 import {
 	addMessage,
 	getConversationMessages,
 	updateConversation,
 } from "./conversation";
 import { getChatTools } from "./tools";
+import { authorizeTelemetrySQLRouting } from "./telemetry-sql-routing";
 
 // ==================== Provider Factories ====================
 
@@ -37,6 +39,7 @@ const providerFactories: Record<string, ProviderFactory> = {
 	xai: (apiKey) => createOpenAI({ baseURL: "https://api.x.ai/v1", apiKey }),
 	huggingface: (apiKey) => createOpenAI({ baseURL: "https://api-inference.huggingface.co/v1", apiKey }),
 	replicate: (apiKey) => createOpenAI({ baseURL: "https://openai-proxy.replicate.com/v1", apiKey }),
+	minimax: (apiKey) => createOpenAI({ baseURL: "https://api.minimax.io/v1", apiKey }),
 };
 
 const VALID_PROVIDERS = Object.keys(providerFactories);
@@ -105,6 +108,7 @@ export interface StreamChatParams {
 	model: string;
 	userId: string;
 	dbConfigId: string;
+	environment?: string;
 	onDelta?: (text: string) => void;
 	onStep?: (label: string, status?: "active" | "complete" | "error", detail?: string) => void;
 }
@@ -123,7 +127,7 @@ export interface StreamChatResult {
  * - Handling tool call fallback text
  */
 export async function streamChatMessage(params: StreamChatParams): Promise<StreamChatResult> {
-	const { conversationId, content, provider, apiKey, model, userId, dbConfigId, onDelta, onStep } = params;
+	const { conversationId, content, provider, apiKey, model, userId, dbConfigId, environment, onDelta, onStep } = params;
 
 	// Save user message
 	onStep?.("Saving user message", "active");
@@ -140,7 +144,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 	const modelInstance = getModelInstance(provider, apiKey, model);
 
 	const isFirstMessage = messages.filter((m) => m.role === "user").length === 1;
-	const tools = getChatTools(userId, dbConfigId);
+	const tools = getChatTools(userId, dbConfigId, environment);
 	onStep?.("Preparing model and tools", "complete", `${Object.keys(tools).length} tools available`);
 
 	let streamError: any = null;
@@ -271,7 +275,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 	if (responseText && !responseText.startsWith("**Error:**")) {
 		onStep?.("Executing generated SQL", "active");
 		const streamedText = responseText;
-		responseText = await executeSQLBlocksInResponse(responseText, dbConfigId);
+		responseText = await executeSQLBlocksInResponse(responseText, environment);
 		onStep?.("Executing generated SQL", "complete");
 		if (responseText.startsWith(streamedText) && responseText.length > streamedText.length) {
 			onDelta?.(responseText.slice(streamedText.length));
@@ -301,19 +305,33 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 /**
  * Find SQL code blocks in a response, execute them, and append query-result blocks.
  */
-async function executeSQLBlocksInResponse(text: string, dbConfigId?: string): Promise<string> {
+async function executeSQLBlocksInResponse(text: string, environment?: string): Promise<string> {
 	const sqlBlocks = extractSQLFromResponse(text);
 	if (sqlBlocks.length === 0) return text;
+
+	const chatSource = await isNativeSqlChatAvailable({
+		signal: "intelligence",
+		environment,
+	});
+	if (!chatSource.available || !chatSource.databaseConfigId) return text;
 
 	let enrichedText = text;
 	for (const sql of sqlBlocks) {
 		const validation = validateSQL(sql);
 		if (validation.valid && validation.query) {
 			try {
-				const { data: queryData, err: queryErr } = await dataCollector({
+				const routing = await authorizeTelemetrySQLRouting(validation.query, {
+					environment,
+					databaseConfigId: chatSource.databaseConfigId,
+				});
+				if (!routing.allowed) {
+					enrichedText += `\n\n> ${routing.error}`;
+					continue;
+				}
+				const { data: queryData, err: queryErr } = await intelligenceDataCollector({
 					query: validation.query,
 					enable_readonly: true,
-				}, "query", dbConfigId);
+				}, "query", chatSource.databaseConfigId);
 				if (!queryErr && queryData) {
 					const resultJson = JSON.stringify(queryData);
 					const escapedSql = sql.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

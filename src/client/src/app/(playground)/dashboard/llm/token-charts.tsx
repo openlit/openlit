@@ -33,7 +33,7 @@ function TopModels() {
 		fireRequest({
 			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
-			url: "/api/metrics/llm/model/top",
+			url: "/api/telemetry/llm/model/top",
 			responseDataKey: "data",
 		});
 	}, [filter]);
@@ -121,7 +121,7 @@ function ModelsPerTime() {
 		fireRequest({
 			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
-			url: "/api/metrics/llm/model/time",
+			url: "/api/telemetry/llm/model/time",
 			responseDataKey: "data",
 		});
 	}, [filter]);
@@ -217,7 +217,7 @@ function TokensPerTime() {
 		fireRequest({
 			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
-			url: "/api/metrics/llm/token/time",
+			url: "/api/telemetry/llm/token/time",
 			responseDataKey: "data",
 		});
 	}, [filter]);
@@ -342,7 +342,7 @@ function TokenCharts() {
 						heading="Avg prompt tokens / request"
 						loadingClass="h-8 w-12"
 						textClass="text-2xl"
-						url="/api/metrics/llm/token/request/average"
+						url="/api/telemetry/llm/token/request/average"
 					/>
 					<StatCard
 						dataKey="total_tokens"
@@ -350,7 +350,7 @@ function TokenCharts() {
 						heading="Avg completion tokens / request"
 						loadingClass="h-8 w-12"
 						textClass="text-2xl"
-						url="/api/metrics/llm/token/request/average"
+						url="/api/telemetry/llm/token/request/average"
 					/>
 				</div>
 				<TokensPerTime />

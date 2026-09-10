@@ -29,17 +29,17 @@ var snapshotConfig = flag.Bool("snapshot.config", false,
 //
 //	OTEL_GPU_FS_TYPES_EXCLUDE=apfs go test ./internal/hostmetrics/ -run TestSystemCollectorSnapshot -v -args -snapshot.config
 func TestSystemCollectorSnapshot(t *testing.T) {
-	var fsTypesExclude []string
+	var cfg *config.Config
 	if *snapshotConfig {
-		fsTypesExclude = config.Load().FSTypesExclude
-		t.Logf("config loaded: filesystem exclude list %v", fsTypesExclude)
+		cfg = config.Load()
+		t.Logf("config loaded: filesystem exclude list %v", cfg.FSTypesExclude)
 	}
 
 	reader := metric.NewManualReader()
 	provider := metric.NewMeterProvider(metric.WithReader(reader))
 	defer provider.Shutdown(t.Context())
 
-	sc, err := NewSystemCollector(provider, slog.Default(), fsTypesExclude)
+	sc, err := NewSystemCollector(provider, slog.Default(), cfg)
 	if err != nil {
 		t.Fatalf("NewSystemCollector() error = %v", err)
 	}

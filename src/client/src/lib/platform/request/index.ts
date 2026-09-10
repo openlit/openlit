@@ -1,4 +1,5 @@
-import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
+import { MetricParams } from "../common";
+import { queryTracesSql, tracesTableRef } from "../traces/clickhouse-read";
 import {
 	getTraceMappingKeyFullPath,
 	getTraceMappingKeyFullPaths,
@@ -11,6 +12,12 @@ import {
 	getFilterPreviousParams,
 	getFilterWhereCondition,
 } from "@/helpers/server/platform";
+import { hasGenerationHealthFilter } from "@/lib/platform/generation-health/classify";
+import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
+import {
+	escapeClickHouseString,
+	buildRequestsOrderByClause,
+} from "@/lib/clickhouse-escape";
 
 const PREDEFINED_GROUP_BY: Record<string, string> = {
 	model: `SpanAttributes['gen_ai.request.model']`,
@@ -40,10 +47,6 @@ const ALLOWED_FIELD_GROUP_BY = new Set([
 	"StatusMessage",
 ]);
 
-function escapeClickHouseString(value: string) {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
-
 export function getGroupByExpression(groupBy: string): string | null {
 	if (groupBy in PREDEFINED_GROUP_BY) return PREDEFINED_GROUP_BY[groupBy];
 	const sep = groupBy.indexOf(":");
@@ -68,13 +71,14 @@ export function getGroupByExpression(groupBy: string): string | null {
 export async function getRequestPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
+	const table = await tracesTableRef(params.databaseConfigId);
 
 	const query = `
 		SELECT
 			CAST(COUNT(*) AS INTEGER) AS total,
 			formatDateTime(DATE_TRUNC('${dateTrunc}', Timestamp), '%Y/%m/%d %R') AS request_time
 		FROM
-			${OTEL_TRACES_TABLE_NAME}
+			${table}
 		WHERE ${getFilterWhereCondition({ ...params, operationType: "llm" }, true)}
 		GROUP BY
 			request_time
@@ -82,15 +86,16 @@ export async function getRequestPerTime(params: MetricParams) {
 			request_time;
 		`;
 
-	return dataCollector({ query });
+	return queryTracesSql(query, params.databaseConfigId);
 }
 
 export async function getTotalRequests(params: MetricParams) {
+	const table = await tracesTableRef(params.databaseConfigId);
 	const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			COUNT(*) AS total_requests,
 			'${params.timeLimit.start}' as start_date
-		FROM ${OTEL_TRACES_TABLE_NAME} 
+		FROM ${table} 
 		WHERE ${getFilterWhereCondition(parameters, true)}	
 	`;
 
@@ -111,17 +116,18 @@ export async function getTotalRequests(params: MetricParams) {
 			current_data.start_date = previous_day.start_date;
 	`;
 
-	return dataCollector({ query });
+	return queryTracesSql(query, params.databaseConfigId);
 }
 
 export async function getAverageRequestDuration(params: MetricParams) {
+	const table = await tracesTableRef(params.databaseConfigId);
 	const keyPath = `${getTraceMappingKeyFullPath("requestDuration")}`;
 
 	const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			AVG(${keyPath}) AS average_duration,
 			'${params.timeLimit.start}' as start_date
-		FROM ${OTEL_TRACES_TABLE_NAME}
+		FROM ${table}
 		WHERE ${getFilterWhereCondition(parameters, true)} AND isFinite(${keyPath})
 	`;
 
@@ -144,10 +150,11 @@ export async function getAverageRequestDuration(params: MetricParams) {
 			current_data.start_date = previous_day.start_date;
 	`;
 
-	return dataCollector({ query });
+	return queryTracesSql(query, params.databaseConfigId);
 }
 
 export async function getRequestsConfig(params: MetricParams) {
+	const table = await tracesTableRef(params.databaseConfigId);
 	const select: string[] = [];
 
 	// Provider filter source list. Folds three attribute namespaces
@@ -224,21 +231,27 @@ export async function getRequestsConfig(params: MetricParams) {
 		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['deployment.environment'])) AS environments`
 	);
 
-	const query = `SELECT ${select.join(", ")} FROM ${OTEL_TRACES_TABLE_NAME} 
+	const query = `SELECT ${select.join(", ")} FROM ${table} 
 			WHERE ${getFilterWhereCondition(params, true)}`;
 
-	return dataCollector({ query }, "query", params.databaseConfigId);
+	return queryTracesSql(query, params.databaseConfigId);
 }
 
 export async function getRequests(params: MetricParams) {
+	const table = await tracesTableRef(params.databaseConfigId);
 	const { limit = 10, offset = 0 } = params;
+	const oneRowPerTrace =
+		hasGenerationHealthFilter(params.selectedConfig?.generationHealth) ||
+		hasAgentLoopFilter(params.selectedConfig?.agentLoop);
+	const totalExpr = oneRowPerTrace
+		? "CAST(uniqExact(TraceId) AS INTEGER)"
+		: "CAST(COUNT(*) AS INTEGER)";
 
-	const countQuery = `SELECT CAST(COUNT(*) AS INTEGER) AS total	FROM ${OTEL_TRACES_TABLE_NAME} 
+	const countQuery = `SELECT ${totalExpr} AS total	FROM ${table} 
 		WHERE ${getFilterWhereCondition(params, true)}`;
 
-	const { data: dataTotal, err: errTotal } = await dataCollector(
-		{ query: countQuery },
-		"query",
+	const { data: dataTotal, err: errTotal } = await queryTracesSql(
+		countQuery,
 		params.databaseConfigId
 	);
 	if (errTotal) {
@@ -247,20 +260,17 @@ export async function getRequests(params: MetricParams) {
 		};
 	}
 
-	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
+	const query = `SELECT *	FROM ${table} 
 		WHERE ${getFilterWhereCondition(params, true)}
 		${params.sorting && params.sorting.type && params.sorting.direction
-			? params.sorting.type.includes("cost")
-				? `ORDER BY toFloat64OrZero(${params.sorting.type}) ${params.sorting.direction} `
-				: params.sorting.type.includes("tokens")
-					? `ORDER BY toInt32OrZero(${params.sorting.type}) ${params.sorting.direction} `
-					: `ORDER BY ${params.sorting.type} ${params.sorting.direction} `
+			? buildRequestsOrderByClause(params.sorting.type, params.sorting.direction)
 			: `ORDER BY Timestamp desc `
 		}
+		${oneRowPerTrace ? "LIMIT 1 BY TraceId" : ""}
 		LIMIT ${limit}
 		OFFSET ${offset}`;
 
-	const { data, err } = await dataCollector({ query }, "query", params.databaseConfigId);
+	const { data, err } = await queryTracesSql(query, params.databaseConfigId);
 	return {
 		err,
 		records: data,
@@ -268,32 +278,35 @@ export async function getRequests(params: MetricParams) {
 	};
 }
 
-export async function getRequestViaSpanId(spanId: string, dbConfigId?: string) {
+export async function getRequestViaSpanId(spanId: string, databaseConfigId?: string) {
+	const table = await tracesTableRef(databaseConfigId);
 	const safeSpanId = escapeClickHouseString(String(spanId ?? ""));
-	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
+	const query = `SELECT *	FROM ${table} 
 		WHERE SpanId='${safeSpanId}'`;
 
-	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
+	const { data, err } = await queryTracesSql(query, databaseConfigId);
 	return {
 		err,
 		record: (data as unknown[])?.[0],
 	};
 }
 
-export async function getRequestViaTraceId(traceId: string, dbConfigId?: string) {
+export async function getRequestViaTraceId(traceId: string, databaseConfigId?: string) {
+	const table = await tracesTableRef(databaseConfigId);
 	const safeTraceId = escapeClickHouseString(String(traceId ?? ""));
-	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} WHERE ${getTraceMappingKeyFullPath(
+	const query = `SELECT *	FROM ${table} WHERE ${getTraceMappingKeyFullPath(
 		"id"
 	)}='${safeTraceId}'`;
 
-	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
+	const { data, err } = await queryTracesSql(query, databaseConfigId);
 	return {
 		err,
 		record: (data as unknown[])?.[0],
 	};
 }
 
-export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string) {
+export async function getHeirarchyViaSpanId(spanId: string, databaseConfigId?: string) {
+	const table = await tracesTableRef(databaseConfigId);
 	// Step 1: resolve the source span. We need:
 	//   - TraceId (the usual "show every span in the trace" path)
 	//   - coding_agent.session.id (so coding-agent sessions whose CLI
@@ -313,14 +326,13 @@ export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string)
 				nullIf(ResourceAttributes['coding_agent.agent.parent_id'], ''),
 				nullIf(SpanAttributes['coding_agent.agent.parent_id'], '')
 			) AS CodingParentId
-		FROM ${OTEL_TRACES_TABLE_NAME}
+		FROM ${table}
 		WHERE SpanId = '${safeSpanId}'
 		LIMIT 1`;
 
-	const { data: sourceData, err: sourceErr } = await dataCollector(
-		{ query: sourceSpanQuery },
-		"query",
-		dbConfigId
+	const { data: sourceData, err: sourceErr } = await queryTracesSql(
+		sourceSpanQuery,
+		databaseConfigId
 	);
 
 	if (sourceErr || !Array.isArray(sourceData) || sourceData.length === 0) {
@@ -386,7 +398,7 @@ export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string)
 		? `
 		SELECT * FROM (
 			SELECT ${spanSelectColumns}
-			FROM ${OTEL_TRACES_TABLE_NAME}
+			FROM ${table}
 			WHERE ${filterClause}
 			ORDER BY Timestamp DESC
 			LIMIT 8000
@@ -394,7 +406,7 @@ export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string)
 		UNION DISTINCT
 		SELECT * FROM (
 			SELECT ${spanSelectColumns}
-			FROM ${OTEL_TRACES_TABLE_NAME}
+			FROM ${table}
 			WHERE ${filterClause}
 			  AND (
 				notEmpty(SpanAttributes['gen_ai.input.messages'])
@@ -407,15 +419,14 @@ export async function getHeirarchyViaSpanId(spanId: string, dbConfigId?: string)
 		`
 		: `
 		SELECT ${spanSelectColumns}
-		FROM ${OTEL_TRACES_TABLE_NAME}
+		FROM ${table}
 		WHERE ${filterClause}
 		ORDER BY Timestamp ASC
 		LIMIT 5000`;
 
-	const { data: allSpansRaw, err: allSpansErr } = await dataCollector(
-		{ query: allSpansQuery },
-		"query",
-		dbConfigId
+	const { data: allSpansRaw, err: allSpansErr } = await queryTracesSql(
+		allSpansQuery,
+		databaseConfigId
 	);
 
 	const allSpans = Array.isArray(allSpansRaw)
@@ -540,15 +551,17 @@ function buildCodingSessionHierarchy(spans: any[], sessionId: string) {
 	return root;
 }
 
-export async function getRequestExist() {
-	const query = `SELECT COUNT(*) AS total_requests FROM ${OTEL_TRACES_TABLE_NAME}`;
-	return dataCollector({ query });
+export async function getRequestExist(databaseConfigId?: string) {
+	const table = await tracesTableRef(databaseConfigId);
+	const query = `SELECT COUNT(*) AS total_requests FROM ${table}`;
+	return queryTracesSql(query, databaseConfigId);
 }
 
 export async function getAttributeKeys(params: MetricParams) {
+	const table = await tracesTableRef(params.databaseConfigId);
 	const spanKeysQuery = `
 		SELECT DISTINCT arrayJoin(mapKeys(SpanAttributes)) AS key
-		FROM ${OTEL_TRACES_TABLE_NAME}
+		FROM ${table}
 		WHERE ${getFilterWhereCondition(params, true)}
 		ORDER BY key
 		LIMIT 500
@@ -556,15 +569,15 @@ export async function getAttributeKeys(params: MetricParams) {
 
 	const resourceKeysQuery = `
 		SELECT DISTINCT arrayJoin(mapKeys(ResourceAttributes)) AS key
-		FROM ${OTEL_TRACES_TABLE_NAME}
+		FROM ${table}
 		WHERE ${getFilterWhereCondition(params, true)}
 		ORDER BY key
 		LIMIT 500
 	`;
 
 	const [spanResult, resourceResult] = await Promise.all([
-		dataCollector({ query: spanKeysQuery }),
-		dataCollector({ query: resourceKeysQuery }),
+		queryTracesSql(spanKeysQuery, params.databaseConfigId),
+		queryTracesSql(resourceKeysQuery, params.databaseConfigId),
 	]);
 
 	return {
@@ -575,6 +588,7 @@ export async function getAttributeKeys(params: MetricParams) {
 }
 
 export async function getGroupedRequests(params: MetricParams, groupBy: string) {
+	const table = await tracesTableRef(params.databaseConfigId);
 	const expr = getGroupByExpression(groupBy);
 	if (!expr) {
 		return {
@@ -589,10 +603,10 @@ export async function getGroupedRequests(params: MetricParams, groupBy: string) 
 			CAST(SUM(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost'])) AS FLOAT) AS total_cost,
 			CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS total_tokens,
 			CAST(AVG(Duration) * 1e-9 AS FLOAT) AS avg_duration_seconds
-		FROM ${OTEL_TRACES_TABLE_NAME}
+		FROM ${table}
 		WHERE ${getFilterWhereCondition(params, true)}
 		GROUP BY group_value
 		ORDER BY count DESC
 	`;
-	return dataCollector({ query });
+	return queryTracesSql(query, params.databaseConfigId);
 }

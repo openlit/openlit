@@ -119,6 +119,37 @@ class TestPIIRedaction:
         assert "a@b.com" not in result.transformed_text
         assert "111-22-3333" not in result.transformed_text
 
+    def test_overlapping_spans_redacted_cleanly(self):
+        """Overlapping matches (env-secret covering an API key) redact as one span."""
+        guard = PII(action="redact")
+        result = guard.evaluate("config: api_key=sk-proj-abcdefghij1234567890 done")
+        assert result.transformed_text == "config: [REDACTED:env-secret] done"
+
+    def test_overlapping_spans_leave_no_secret_tail(self):
+        """An inner match must not leave the tail of the value in the output."""
+        guard = PII(action="redact")
+        result = guard.evaluate("token=1.1.1.1secretos")
+        assert result.transformed_text == "[REDACTED:env-secret]"
+        assert "secretos" not in result.transformed_text
+
+    def test_disjoint_spans_still_redact_separately(self):
+        """Non-overlapping matches keep their own placeholders."""
+        guard = PII(action="redact")
+        result = guard.evaluate("contact bob@example.com or call 415-555-0100")
+        assert (
+            result.transformed_text
+            == "contact [REDACTED:email] or call [REDACTED:phone-us]"
+        )
+
+    def test_adjacent_spans_still_redact_separately(self):
+        """Touching but non-overlapping matches are not merged into one span."""
+        guard = PII(action="redact")
+        result = guard.evaluate("SK" + "a" * 32 + "github_pat_" + "b" * 22)
+        assert (
+            result.transformed_text
+            == "[REDACTED:twilio-api-key][REDACTED:github-fine-grained]"
+        )
+
 
 class TestPIIWarn:  # pylint: disable=too-few-public-methods
     """``warn`` action emits an event without transforming the text."""
