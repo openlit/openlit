@@ -13,6 +13,8 @@ on each exit path.
 
 import time
 
+import pytest
+
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
@@ -137,3 +139,26 @@ def test_sync_close_finalizes_span():
     spans = exporter.get_finished_spans()
     assert len(spans) == 1, "close() must finalize the span exactly once"
     assert fake_client.stream.closed is True
+
+
+def test_sync_exception_exit_ends_span():
+    """An exception escaping the with-block must still export the span.
+
+    When the caller's code inside the with-block raises before the stream is
+    exhausted, ``__exit__`` receives a non-None ``exc_type``. The span must
+    still be finalized (and the original exception preserved) instead of
+    leaking -- ``_finalize_streaming_span`` is idempotent, so its explicit
+    flag keeps the double call a no-op.
+    """
+    tracer, exporter = _tracer_with_exporter()
+    factory = _factory(tracer)
+
+    stream, _ = _make_stream(factory)
+    with pytest.raises(RuntimeError, match="boom"):
+        with stream:
+            next(stream)
+            raise RuntimeError("boom")
+
+    time.sleep(0.1)
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1, "exception exit must still end and export the span"
