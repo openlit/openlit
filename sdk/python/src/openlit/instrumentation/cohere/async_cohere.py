@@ -175,6 +175,7 @@ def async_chat_stream(
                 self._finalize_streaming_span()
 
         async def close(self):
+            """Alias for aclose(), kept for callers using the older name."""
             await self.aclose()
 
         def _finalize_streaming_span(self):
