@@ -191,9 +191,12 @@ def converse_stream(
                     self.__wrapped_stream.__exit__(exc_type, exc_value, traceback)
             finally:
                 # Finalize on every exit: a break before exhaustion never
-                # hits StopIteration, so the span would leak otherwise.
-                if not exc_type:
-                    self._finalize_streaming_span()
+                # hits StopIteration, so the span would leak otherwise. Also
+                # finalize on exception exits (exc_type set) — the flag in
+                # _finalize_streaming_span keeps a double call a no-op, so the
+                # span is still exported even when the caller aborts the
+                # with-block with an error that never reaches StopIteration.
+                self._finalize_streaming_span()
 
         def __iter__(self):
             return self
