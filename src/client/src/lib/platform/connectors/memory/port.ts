@@ -5,7 +5,6 @@
  * same link on the destination ConnectorInstance.
  */
 
-import { recordMemoryMutationAudit } from "@/lib/access/memory-route";
 import {
 	MEMORY_ADD_UNSUPPORTED,
 	MEMORY_CONNECTOR_CONTENT_REQUIRED,
@@ -153,13 +152,6 @@ export async function copyProjectMemories(
 	}
 
 	if (stored.length) await recordMemoryPortLinks(targetId, stored);
-
-	await recordMemoryMutationAudit({
-		action: "create",
-		connectorId: targetId,
-		source: "copy",
-		contentLength: created.reduce((sum, memory) => sum + memory.content.length, 0),
-	});
 
 	return {
 		source: { id: String(source.id), name: String(source.name), type: String(source.type) },

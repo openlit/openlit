@@ -6,6 +6,10 @@ jest.mock("sonner", () => ({
 	toast: { success: jest.fn(), error: jest.fn() },
 }));
 
+jest.mock("@/utils/api", () => ({
+	getRequestHeaders: (headers?: Record<string, string>) => headers || {},
+}));
+
 class ResizeObserverMock {
 	observe() {}
 	unobserve() {}

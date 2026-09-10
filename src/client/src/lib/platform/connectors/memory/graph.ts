@@ -385,7 +385,7 @@ export function layoutMemoryGraph(
 		siblings.push(edge.to);
 		childrenByParent.set(edge.from, siblings);
 	}
-	for (const siblings of childrenByParent.values()) siblings.sort();
+	for (const siblings of Array.from(childrenByParent.values())) siblings.sort();
 
 	const users = model.nodes.filter((node) => node.type === "user");
 	const roots = model.nodes.filter((node) => !parentByChild.has(node.id));

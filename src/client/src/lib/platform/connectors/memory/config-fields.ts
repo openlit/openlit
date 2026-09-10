@@ -42,7 +42,13 @@ export function memoryHttpVendorFields(opts: { placeholder?: string } = {}): Fie
 export function memoryPageFilters(
 	fields: Array<
 		| MemoryFilterKey
-		| Pick<MemoryFilterField, "key" | "required" | "writeRequired" | "allowCustom" | "label">
+		| (Pick<MemoryFilterField, "key"> &
+				Partial<
+					Pick<
+						MemoryFilterField,
+						"label" | "required" | "writeRequired" | "allowCustom"
+					>
+				>)
 	>
 ): MemoryFilterField[] {
 	const messages = getMessage();

@@ -25,7 +25,8 @@ editing shared forms, the schema, or any UI**.
    `add_memory`, `update_memory`, `delete_memory`) only when `capabilities()`
    advertises them. Copying between connectors (`POST /api/memory/copy`) writes
    `metadata.openlit.port` on the destination and stores the same link on the
-   destination connector so the source can be opened later.
+   destination connector so the source can be opened later. The copy HTTP route
+   is wrapped with `withMemoryAudit` / `withMemoryAccess`.
    Otter tools call `requireMemoryAccess` /
    `recordMemoryMutationAudit` from `@/lib/access/memory-route` so Enterprise
    RBAC and audit apply the same way as the HTTP routes.

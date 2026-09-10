@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import getMessage from "@/constants/messages";
 import { formatBrowserDateTime, formatDatePartsValue } from "@/utils/date";
+import { getRequestHeaders } from "@/utils/api";
 import type { MemoryDetailResult, MemoryListItem } from "@/lib/platform/connectors/memory/read";
 import type { MemoryKind } from "@/lib/platform/connectors/memory/graph";
 import type {
@@ -116,6 +117,7 @@ export default function MemoryDetailSheet({
 		if (connectorId) params.set("connectorId", connectorId);
 		fetch(`/api/memory/${encodeURIComponent(memoryId)}?${params.toString()}`, {
 			signal: controller.signal,
+			headers: getRequestHeaders(),
 		})
 			.then(async (response) => {
 				const body = await response.json().catch(() => null);
@@ -167,7 +169,7 @@ export default function MemoryDetailSheet({
 		if (connectorId) params.set("connectorId", connectorId);
 		fetch(`/api/memory/${encodeURIComponent(memoryId)}?${params.toString()}`, {
 			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
+			headers: getRequestHeaders({ "Content-Type": "application/json" }),
 			body: JSON.stringify({ content: input.content }),
 		})
 			.then(async (response) => {
@@ -198,6 +200,7 @@ export default function MemoryDetailSheet({
 		if (connectorId) params.set("connectorId", connectorId);
 		fetch(`/api/memory/${encodeURIComponent(memoryId)}?${params.toString()}`, {
 			method: "DELETE",
+			headers: getRequestHeaders(),
 		})
 			.then(async (response) => {
 				const body = await response.json().catch(() => null);
@@ -661,7 +664,7 @@ function MemoryFeedbackPanel({
 		if (connectorId) params.set("connectorId", connectorId);
 		fetch(`/api/memory/${encodeURIComponent(memoryId)}/feedback?${params.toString()}`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: getRequestHeaders({ "Content-Type": "application/json" }),
 			body: JSON.stringify({
 				rating,
 				reason: rating ? reason.trim() || null : null,

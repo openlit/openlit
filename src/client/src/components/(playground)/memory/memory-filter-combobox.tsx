@@ -112,7 +112,8 @@ export default function MemoryFilterCombobox({
 								: "text-stone-500 dark:text-stone-400"
 						)}
 					>
-						{selectedLabel || label}
+						{selectedLabel ||
+							(inDialog ? messages.MEMORY_FILTER_PLACEHOLDER : label)}
 					</span>
 					<ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
 				</button>

@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from "crypto";
+import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import { createProjectEnvironment } from "@/lib/project-environment";
 import {
@@ -15,6 +16,7 @@ import {
 	getCurrentProjectForOrganisation,
 } from "@/lib/organisation";
 import { assertPremiumConnectorAllowed } from "@/lib/access/connector-entitlement";
+import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 import { normalizeDatasourceEndpointUrl } from "@/lib/platform/connectors/datasource/http/endpoint-url";
 import { invalidateSourceSecretCache } from "@/lib/platform/connectors/datasource/http/secret";
 import { encryptValue, isEncrypted } from "@/utils/crypto";
@@ -60,19 +62,55 @@ export interface MemoryConnectorInput {
 	credentials?: unknown;
 }
 
-function sanitize(row: {
-	secretRef?: string | null;
+/** Public memory connector row — never includes secretRef. */
+export type MemoryConnectorPublic = {
+	id: string;
+	name: string;
+	type: string;
+	environment: string;
+	organisationId: string | null;
+	projectId: string | null;
 	settings: string;
-	[key: string]: unknown;
-}) {
-	const { secretRef, metadata, ...rest } = row;
+	status: string;
+	metadata: string;
+	createdAt: Date;
+	updatedAt: Date;
+	hasSecret: boolean;
+	category: "memory";
+	scope: "project";
+	signals: string;
+	isDefault: boolean;
+};
+
+function sanitize(row: {
+	id: string;
+	name: string;
+	type: string;
+	environment: string;
+	organisationId: string | null;
+	projectId: string | null;
+	settings: string;
+	secretRef?: string | null;
+	status: string;
+	metadata: string;
+	createdAt: Date;
+	updatedAt: Date;
+}): MemoryConnectorPublic {
 	return {
-		...rest,
+		id: row.id,
+		name: row.name,
+		type: row.type,
+		environment: row.environment,
+		organisationId: row.organisationId,
+		projectId: row.projectId,
 		settings: row.settings,
-		metadata: publicConnectorMetadata(typeof metadata === "string" ? metadata : "{}"),
-		hasSecret: !!secretRef,
-		category: "memory" as const,
-		scope: "project" as const,
+		status: row.status,
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+		metadata: publicConnectorMetadata(row.metadata ?? "{}"),
+		hasSecret: !!row.secretRef,
+		category: "memory",
+		scope: "project",
 		signals: "",
 		isDefault: false,
 	};
@@ -97,6 +135,25 @@ function normalizeEnvironment(value: unknown): string {
 		);
 	}
 	return environment;
+}
+
+/**
+ * Memory connectors are environment-scoped (same hierarchy as datasources).
+ * Prefer an explicit argument, then the request `x-openlit-environment` header,
+ * else production.
+ */
+async function resolveMemoryEnvironment(environment?: string): Promise<string> {
+	if (environment != null && String(environment).trim()) {
+		return normalizeEnvironment(environment);
+	}
+	try {
+		const headerStore = await headers();
+		const fromHeader = headerStore.get(OPENLIT_CONTEXT_HEADERS.environment);
+		if (fromHeader?.trim()) return normalizeEnvironment(fromHeader);
+	} catch {
+		/* outside a Next.js request (unit tests / scripts) */
+	}
+	return "production";
 }
 
 function normalizeSettingsObject(settings: Record<string, unknown>): Record<string, unknown> {
@@ -479,27 +536,34 @@ export async function getMemoryConnector(id: string) {
 	return existing;
 }
 
-export async function listMemoryConnectors() {
+export async function listMemoryConnectors(environment?: string) {
 	ensureMemoryAdaptersRegistered();
 	const { projectId } = await requireCurrentProject();
+	const env = await resolveMemoryEnvironment(environment);
 	const rows = await prisma.connectorInstance.findMany({
-		where: { projectId, category: "memory" },
-		orderBy: [{ environment: "asc" }, { createdAt: "asc" }],
+		where: { projectId, category: "memory", environment: env },
+		orderBy: [{ createdAt: "asc" }],
 	});
 	return rows.filter((row) => hasMemoryAdapterFactory(row.type)).map(sanitize);
 }
 
-export async function getMemoryRuntime(id?: string) {
+export async function getMemoryRuntime(id?: string, environment?: string) {
 	ensureMemoryAdaptersRegistered();
 	const { projectId } = await requireCurrentProject();
+	const env = await resolveMemoryEnvironment(environment);
 	const instanceId = id ? memoryConnectorId(id) : undefined;
 	const row = instanceId
 		? await prisma.connectorInstance.findFirst({
-				where: { id: instanceId, projectId, category: "memory" },
+				where: {
+					id: instanceId,
+					projectId,
+					category: "memory",
+					environment: env,
+				},
 			})
 		: await prisma.connectorInstance.findFirst({
-				where: { projectId, category: "memory" },
-				orderBy: [{ environment: "asc" }, { createdAt: "asc" }],
+				where: { projectId, category: "memory", environment: env },
+				orderBy: [{ createdAt: "asc" }],
 			});
 	if (!row) throw new Error(MEMORY_CONNECTOR_NOT_FOUND);
 	const adapter = createMemoryAdapter(toRuntimeDescriptor(row));
