@@ -9,6 +9,15 @@ jest.mock("@/lib/platform/intelligence/source", () => ({
 		.fn()
 		.mockResolvedValue("intel-db-1"),
 }));
+// Keep wrappers isolated so EE sync (real ee/ access + next-auth/jose) does
+// not pull ESM-only deps into this handler unit test.
+jest.mock("@/lib/access/governance-route", () => ({
+	withGovernanceAccess: (_action: unknown, handler: unknown) => handler,
+	withGovernanceAudit: (handler: unknown) => handler,
+}));
+jest.mock("@/lib/access/route-access", () => ({
+	withRouteAccess: (_access: unknown, handler: unknown) => handler,
+}));
 jest.mock("@/lib/rbac/route", () => ({
 	withDbConfigAccess: (handler: unknown) => handler,
 }));
