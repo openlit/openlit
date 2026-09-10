@@ -49,28 +49,46 @@ describe('default-models', () => {
   });
 
   it('seeds the MiniMax provider with its current models', () => {
-    expect(DEFAULT_PROVIDERS.some((p) => p.providerId === 'minimax')).toBe(true);
+    const minimaxProvider = DEFAULT_PROVIDERS.find((p) => p.providerId === 'minimax');
+    expect(minimaxProvider).toEqual(
+      expect.objectContaining({
+        displayName: 'MiniMax',
+        requiresVault: true,
+      })
+    );
+    expect(minimaxProvider?.configSchema.temperature).toEqual(
+      expect.objectContaining({ min: 0, max: 2, default: 1 })
+    );
+    expect(minimaxProvider?.configSchema.topP).toEqual(
+      expect.objectContaining({ min: 0, max: 1, default: 0.95 })
+    );
+
     const minimaxModels = DEFAULT_MODELS_BY_PROVIDER.minimax;
-    expect(minimaxModels).toBeDefined();
-    expect(minimaxModels.length).toBeGreaterThanOrEqual(2);
+    expect(minimaxModels).toHaveLength(2);
+
     const m3 = minimaxModels.find((m) => m.id === 'MiniMax-M3');
-    expect(m3).toBeDefined();
-    expect(m3!.contextWindow).toBe(1000000);
-    expect(m3!.inputPricePerMToken).toBe(0.6);
-    expect(m3!.outputPricePerMToken).toBe(2.4);
-    expect(m3!.cacheReadPricePerMToken).toBe(0.12);
-    expect(m3!.capabilities).toEqual(
-      expect.arrayContaining(['vision', 'thinking'])
+    expect(m3).toMatchObject({
+      contextWindow: 1000000,
+      inputPricePerMToken: 0.3,
+      outputPricePerMToken: 1.2,
+      cacheReadPricePerMToken: 0.06,
+    });
+    expect(m3?.cacheCreationPricePerMToken).toBeUndefined();
+    expect(m3?.capabilities).toEqual(
+      expect.arrayContaining(['function-calling', 'vision', 'streaming', 'thinking'])
     );
+
     const m27 = minimaxModels.find((m) => m.id === 'MiniMax-M2.7');
-    expect(m27).toBeDefined();
-    expect(m27!.contextWindow).toBe(204800);
-    expect(m27!.inputPricePerMToken).toBe(0.3);
-    expect(m27!.outputPricePerMToken).toBe(1.2);
-    expect(m27!.cacheReadPricePerMToken).toBe(0.06);
-    expect(m27!.cacheCreationPricePerMToken).toBe(0.375);
-    expect(m27!.capabilities).toEqual(
-      expect.arrayContaining(['thinking'])
+    expect(m27).toMatchObject({
+      contextWindow: 204800,
+      inputPricePerMToken: 0.3,
+      outputPricePerMToken: 1.2,
+      cacheReadPricePerMToken: 0.06,
+      cacheCreationPricePerMToken: 0.375,
+    });
+    expect(m27?.capabilities).toEqual(
+      expect.arrayContaining(['function-calling', 'streaming', 'thinking'])
     );
+    expect(m27?.capabilities).not.toContain('vision');
   });
 });

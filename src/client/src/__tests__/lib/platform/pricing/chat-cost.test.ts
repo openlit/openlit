@@ -72,6 +72,7 @@ describe("promptTokensIncludeCache", () => {
 	it("treats openai and litellm as inclusive", () => {
 		expect(promptTokensIncludeCache("openai", 6200, 5000, 1000)).toBe(true);
 		expect(promptTokensIncludeCache("litellm", 6200, 5000, 1000)).toBe(true);
+		expect(promptTokensIncludeCache("minimax", 6200, 5000, 1000)).toBe(true);
 	});
 
 	it("falls back to heuristic when provider unknown", () => {
