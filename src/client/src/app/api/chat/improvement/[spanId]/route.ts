@@ -1,20 +1,17 @@
 import { SERVER_EVENTS } from "@/constants/events";
+import { resolveRequestAuth } from "@/helpers/server/auth";
 import { getDBConfigByUser } from "@/lib/db-config";
 import {
 	getTraceImprovement,
 	streamTraceImprovementAnalysis,
 } from "@/lib/platform/chat/improvement";
-import {
-	withOtterDbChatAccess,
-	withOtterDbReadAccess,
-} from "@/lib/chat/access";
-import { getCurrentUser } from "@/lib/session";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
-async function getDatabaseConfigId() {
+async function resolveDatabaseConfigId(authDatabaseConfigId?: string) {
+	if (authDatabaseConfigId) return authDatabaseConfigId;
 	const [, dbConfig] = await asaw(getDBConfigByUser(true));
-	return (dbConfig as any)?.id || "";
+	return (dbConfig as { id?: string } | null | undefined)?.id || "";
 }
 
 function logRoute(stage: string, payload: Record<string, unknown>) {
@@ -30,25 +27,57 @@ function getScope(request: Request) {
 	return scope === "span" ? "span" : "trace";
 }
 
-async function getHandler(request: Request, context: any) {
-	const user = await getCurrentUser();
-	if (!user) {
+function getEnvironment(request: Request) {
+	return request.headers.get("x-openlit-environment") || undefined;
+}
+
+function getTraceId(request: Request) {
+	return new URL(request.url).searchParams.get("traceId") || undefined;
+}
+
+export async function GET(request: Request, context: any) {
+	const startTimestamp = Date.now();
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		logRoute("get_unauthorized", {});
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.AI_ANALYSIS_GET_FAILURE,
+			startTimestamp,
+			properties: { reason: "unauthorized" },
+		});
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
 	const { spanId } = context.params || {};
 	if (!spanId) {
 		logRoute("get_missing_span", {});
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.AI_ANALYSIS_GET_FAILURE,
+			startTimestamp,
+			properties: { reason: "missing_span" },
+		});
 		return Response.json("No span id provided", { status: 400 });
 	}
 
-	const databaseConfigId = await getDatabaseConfigId();
+	const databaseConfigId = await resolveDatabaseConfigId(auth.databaseConfigId);
 	const scope = getScope(request);
-	logRoute("get_start", { spanId, scope, databaseConfigId });
-	const { data, err } = await getTraceImprovement(spanId, databaseConfigId, scope);
+	const environment = getEnvironment(request);
+	const traceId = getTraceId(request);
+	logRoute("get_start", { spanId, traceId, scope, environment, databaseConfigId });
+	const { data, err } = await getTraceImprovement(
+		spanId,
+		databaseConfigId,
+		scope,
+		environment,
+		traceId
+	);
 	if (err) {
 		logRoute("get_failed", { spanId, scope, err });
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.AI_ANALYSIS_GET_FAILURE,
+			startTimestamp,
+			properties: { spanId, scope, databaseConfigId, error: err },
+		});
 		return Response.json(err, { status: 400 });
 	}
 	logRoute("get_done", {
@@ -57,14 +86,25 @@ async function getHandler(request: Request, context: any) {
 		rootSpanId: data?.rootSpanId,
 		runCount: data?.runs?.length || 0,
 	});
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.AI_ANALYSIS_GET_SUCCESS,
+		startTimestamp,
+		properties: {
+			spanId,
+			scope,
+			databaseConfigId,
+			rootSpanId: data?.rootSpanId,
+			runCount: data?.runs?.length || 0,
+		},
+	});
 
 	return Response.json({ data: data || null });
 }
 
-async function postHandler(request: Request, context: any) {
+export async function POST(request: Request, context: any) {
 	const startTimestamp = Date.now();
-	const user = await getCurrentUser();
-	if (!user) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		logRoute("post_unauthorized", {});
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.AI_ANALYSIS_RUN_FAILURE,
@@ -85,13 +125,17 @@ async function postHandler(request: Request, context: any) {
 		return Response.json("No span id provided", { status: 400 });
 	}
 
-	const databaseConfigId = await getDatabaseConfigId();
+	const databaseConfigId = await resolveDatabaseConfigId(auth.databaseConfigId);
 	const scope = getScope(request);
-	logRoute("post_start", { spanId, scope, databaseConfigId });
+	const environment = getEnvironment(request);
+	const traceId = getTraceId(request);
+	logRoute("post_start", { spanId, traceId, scope, environment, databaseConfigId });
 	const { response, err } = await streamTraceImprovementAnalysis(
 		spanId,
 		databaseConfigId,
-		scope
+		scope,
+		environment,
+		traceId
 	);
 	if (err) {
 		logRoute("post_failed", { spanId, scope, err });
@@ -122,6 +166,3 @@ async function postHandler(request: Request, context: any) {
 
 	return response;
 }
-
-export const GET = withOtterDbReadAccess(getHandler);
-export const POST = withOtterDbChatAccess(postHandler);

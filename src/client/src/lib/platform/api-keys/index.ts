@@ -10,6 +10,19 @@ import { getCurrentOrganisation } from "@/lib/organisation";
 
 const APIKEY_PREFIX = "openlit-";
 
+function previewApiKey(apiKey: string): string {
+	const body = apiKey.startsWith(APIKEY_PREFIX)
+		? apiKey.slice(APIKEY_PREFIX.length)
+		: apiKey;
+	return `${APIKEY_PREFIX}${body.slice(0, 4)}…${body.slice(-6)}`;
+}
+
+export interface APIKeyInfo {
+	id: string;
+	databaseConfigId: string | null;
+	createdByUser?: { email: string } | null;
+}
+
 function createAPIKey() {
 	// Generate 32 random bytes
 	const key = crypto.randomBytes(32);
@@ -76,22 +89,26 @@ export async function getAPIKeyInfo({ apiKey }: { apiKey: string }) {
 					},
 				],
 			},
+			include: { createdByUser: { select: { email: true } } },
 		})
 	);
 }
 
-export async function getAllAPIKeys() {
-	const [err, dbConfig] = await asaw(getDBConfigByUser(true));
-	throwIfError(err, err);
-
-	throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
+export async function getAllAPIKeys(databaseConfigId?: string) {
+	let resolvedDatabaseConfigId = databaseConfigId?.trim() || undefined;
+	if (!resolvedDatabaseConfigId) {
+		const [err, dbConfig] = await asaw(getDBConfigByUser(true));
+		throwIfError(err, err);
+		throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
+		resolvedDatabaseConfigId = dbConfig.id;
+	}
 
 	const [, data] = await asaw(
 		prisma.aPIKeys.findMany({
 			where: {
 				AND: [
 					{
-						databaseConfigId: dbConfig?.id,
+						databaseConfigId: resolvedDatabaseConfigId,
 					},
 					{ isDeleted: false },
 				],
@@ -112,7 +129,15 @@ export async function getAllAPIKeys() {
 			},
 		})
 	);
-	return data;
+
+	if (!Array.isArray(data)) {
+		return data;
+	}
+
+	return data.map(({ apiKey, ...rest }) => ({
+		...rest,
+		apiKeyPreview: previewApiKey(apiKey),
+	}));
 }
 
 export async function deleteAPIKey(id: string) {

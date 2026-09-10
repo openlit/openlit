@@ -1,13 +1,16 @@
+import OpenTelemetrySvg from "@/components/svg/opentelemetry";
 import { getEnterpriseSidebarItems } from "@/features/sidebar";
 import getMessage from "@/constants/messages";
 import { SidebarItemProps } from "@/types/sidebar";
 import {
 	Activity,
+	Cable,
 	BookKey,
 	BookOpen,
 	BookText,
 	Bot,
 	Boxes,
+	BrainCircuit,
 	Building2,
 	CircleDollarSign,
 	Component,
@@ -72,7 +75,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						link: "/costs",
 						type: "action",
 					},
-					...getEnterpriseSidebarItems("configuration", ICON_CLASSES),
+					{
+						icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
+						text: "Fleet Hub",
+						link: "/fleet-hub",
+						type: "action",
+					},
 				],
 			},
 			{
@@ -97,6 +105,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						type: "action",
 					},
 					{
+						icon: <BrainCircuit className={ICON_CLASSES} />,
+						text: m.FEATURE_MEMORY,
+						link: "/memory",
+						type: "action",
+					},
+					{
 						icon: <SlidersHorizontal className={ICON_CLASSES} />,
 						text: "Rule Engine",
 						link: "/rule-engine",
@@ -108,6 +122,18 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						link: "/openground",
 						type: "action",
 					},
+				],
+			},
+			{
+				title: "Configuration",
+				children: [
+					{
+						icon: <Cable className={ICON_CLASSES} />,
+						text: "Connectors",
+						link: "/connectors",
+						type: "action",
+					},
+					...getEnterpriseSidebarItems("configuration", ICON_CLASSES),
 				],
 			},
 		],
@@ -127,7 +153,7 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			{
 				icon: <FolderKanban className={ICON_CLASSES} />,
 				text: m.SIDEBAR_PROJECTS,
-				link: "/organisation?tab=projects",
+				link: "/organisation/projects",
 				type: "action",
 			},
 			{
@@ -144,7 +170,7 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			},
 			{
 				icon: <BookOpen className={ICON_CLASSES} />,
-				text: "OpenAPI Spec",
+				text: m.OPENAPI_SPEC_NAV,
 				link: "/openapi-spec",
 				type: "action",
 			},

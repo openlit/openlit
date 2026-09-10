@@ -1,8 +1,12 @@
 import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
 import { getFilterWhereCondition } from "@/helpers/server/platform";
+import { externalResultGenerationByOperation } from "./external";
 
 export async function getResultGenerationByOperation(params: MetricParams) {
+	const external = await externalResultGenerationByOperation(params);
+	if (external) return external;
+
 	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("operation")}']`;
 	const query = `SELECT 
     ${keyPath} AS operation,

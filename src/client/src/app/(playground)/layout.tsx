@@ -6,7 +6,6 @@ import PostHogScope from "@/components/(playground)/posthog-scope";
 import NavigationEvents from "@/components/common/navigation-events";
 import AppInit from "@/components/common/app-init";
 import { PortalProvider } from "@/components/(playground)/header-portal";
-import ChatFloatingButton from "@/components/(playground)/chat/chat-floating-button";
 import PlaygroundShell from "@/components/(playground)/playground-shell";
 import {
 	EnterpriseFeatureAccessProvider,
@@ -34,7 +33,6 @@ export default async function PlaygroundLayout({
 								</EnterpriseFeatureRouteGate>
 							</ClickhouseConnectivityWrapper>
 						</PlaygroundShell>
-						<ChatFloatingButton />
 					</PortalProvider>
 				</EnterpriseFeatureAccessProvider>
 			</TooltipProvider>

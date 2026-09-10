@@ -10,6 +10,7 @@ import GroupedTable, {
 import { getPingStatus } from "@/selectors/database-config";
 import {
 	getFilterDetails,
+	getUpdateAttributeKeys,
 	getUpdateConfig,
 	getUpdateFilter,
 } from "@/selectors/filter";
@@ -20,6 +21,8 @@ import { toast } from "sonner";
 import { ObservabilitySignalConfig } from "./registry";
 import SignalSummary from "./signal-summary";
 import SignalRecords from "./signal-records";
+import GenerationHealthBar from "./generation-health-bar";
+import AgentLoopBar from "./agent-loop-bar";
 import { TraceDetailView } from "./trace-detail-page";
 import { MetricDetailView } from "./metric-detail-page";
 import { LogDetailView } from "./log-detail-page";
@@ -29,6 +32,8 @@ import { Maximize2, X } from "lucide-react";
 import getMessage from "@/constants/messages";
 import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
+import { useIsAgentScoped } from "@/components/(playground)/agents/agent-scope-provider";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
 
 const DETAIL_SHEET_CONTENT_CLASS =
 	"right-2 top-2 bottom-2 flex h-auto w-auto max-w-none flex-col gap-0 border-0 bg-transparent p-0 shadow-none focus-visible:outline-none sm:max-w-none";
@@ -95,22 +100,45 @@ export default function ObservabilitySignalList({
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
 	const updateConfig = useRootStore(getUpdateConfig);
+	const updateAttributeKeys = useRootStore(getUpdateAttributeKeys);
+	const currentProjectEnvironment = useRootStore(getCurrentProjectEnvironment);
 	const pingStatus = useRootStore(getPingStatus);
+	// `serviceNames` is the agent-detail scope lock, owned exclusively by
+	// AgentScopeProvider. When this list renders OUTSIDE that provider (the
+	// global Telemetry page), a leftover lock must never scope the query.
+	const isAgentScoped = useIsAgentScoped();
 	const visibilityColumns = useRootStore((state) =>
 		getVisibilityColumnsOfPage(state, config.visibilityPage)
 	);
 	const [previewSpanId, setPreviewSpanId] = useState<string | null>(null);
 	const skipSelectedHydrationRef = useRef(false);
 	const selectedParam = searchParams.get("selected");
-	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const selectedEnvironment = currentProjectEnvironment || undefined;
+	const { data, fireRequest, reset, isFetched, isLoading, error: listError } = useFetchWrapper();
 	const {
 		data: summaryData,
 		fireRequest: fireSummaryRequest,
+		reset: resetSummary,
 		isLoading: isSummaryLoading,
+		error: summaryError,
 	} = useFetchWrapper();
 
 	useEffect(() => {
-		prepareObservabilitySignalChange(updateConfig, updateFilter);
+		prepareObservabilitySignalChange(
+			updateConfig,
+			updateFilter,
+			updateAttributeKeys,
+			isAgentScoped
+				? {
+						serviceNames: filter.selectedConfig?.serviceNames,
+						services: filter.selectedConfig?.services,
+						environments: filter.selectedConfig?.environments,
+						versionFilter: filter.selectedConfig?.versionFilter,
+					}
+				: null
+		);
+		// Only re-run when the signal changes. isAgentScoped / current scope
+		// are read at that moment so we can preserve the agent lock.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [config.key]);
 
@@ -147,8 +175,11 @@ export default function ObservabilitySignalList({
 		!config.supportGrouping || !filter.groupBy || !!filter.groupValue;
 
 	const fetchData = useCallback(() => {
+		const requestFilter = selectedEnvironment
+			? { ...effectiveFilter, environment: selectedEnvironment }
+			: effectiveFilter;
 		fireRequest({
-			body: JSON.stringify(effectiveFilter),
+			body: JSON.stringify(requestFilter),
 			requestType: "POST",
 			url: config.listUrl,
 			failureCb: (err?: string) => {
@@ -157,17 +188,39 @@ export default function ObservabilitySignalList({
 				});
 			},
 		});
-	}, [config.key, config.listUrl, effectiveFilter, fireRequest, m.OBSERVABILITY_NO_SERVER_CONNECTION]);
+	}, [config.key, config.listUrl, effectiveFilter, fireRequest, m.OBSERVABILITY_NO_SERVER_CONNECTION, selectedEnvironment]);
 
 	const fetchSummary = useCallback(() => {
+		const requestFilter = selectedEnvironment
+			? { ...effectiveFilter, environment: selectedEnvironment }
+			: effectiveFilter;
 		fireSummaryRequest({
-			body: JSON.stringify(effectiveFilter),
+			body: JSON.stringify(requestFilter),
 			requestType: "POST",
 			url: config.summaryUrl,
 		});
-	}, [config.summaryUrl, effectiveFilter, fireSummaryRequest]);
+	}, [config.summaryUrl, effectiveFilter, fireSummaryRequest, selectedEnvironment]);
 
 	useEffect(() => {
+		reset();
+		resetSummary();
+	}, [reset, resetSummary, selectedEnvironment]);
+
+	useEffect(() => {
+		// Defensively strip a leaked agent scope before any request fires. On
+		// the global Telemetry surface (`isAgentScoped === false`) a lingering
+		// `serviceNames` lock — e.g. left in the shared store by the agent
+		// Monitoring tab during a route transition — would otherwise collapse the
+		// list to a single service. Clearing it re-runs this effect with an empty
+		// scope, so the very first query already covers every service.
+		if (
+			!isAgentScoped &&
+			Array.isArray(filter.selectedConfig?.serviceNames) &&
+			filter.selectedConfig.serviceNames.length > 0
+		) {
+			updateFilter("selectedConfig.serviceNames", []);
+			return;
+		}
 		if (
 			effectiveFilter.filterReady &&
 			effectiveFilter.timeLimit.start &&
@@ -178,13 +231,14 @@ export default function ObservabilitySignalList({
 			if (showFlatList) fetchData();
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [effectiveFilter, pingStatus, showFlatList]);
+	}, [effectiveFilter, pingStatus, showFlatList, isAgentScoped, selectedEnvironment]);
 
 	const rows = useMemo(() => {
 		const records = (data as any)?.records || [];
 		return config.normalize ? records.map(config.normalize) : records;
 	}, [config, data]);
 	const total = (data as any)?.total || 0;
+	const telemetryError = summaryError || listError;
 	const isTraceSignal = config.key === "traces" || config.key === "exceptions";
 	const isMetricSignal = config.key === "metrics";
 	const isLogSignal = config.key === "logs";
@@ -195,12 +249,18 @@ export default function ObservabilitySignalList({
 	const isSessionSignal = config.key === "sessions";
 
 	const setSelectedInUrl = useCallback(
-		(id: string | null) => {
+		(id: string | null, traceId?: string | null) => {
 			const params = new URLSearchParams(searchParams.toString());
 			if (id) {
 				params.set("selected", id);
+				if (traceId) {
+					params.set("traceId", String(traceId));
+				} else if (traceId === null) {
+					params.delete("traceId");
+				}
 			} else {
 				params.delete("selected");
+				params.delete("traceId");
 			}
 			const query = params.toString();
 			router.replace(`${pathname}${query ? `?${query}` : ""}`, {
@@ -233,6 +293,32 @@ export default function ObservabilitySignalList({
 		if (!isTraceSignal && !isSessionSignal) setPreviewSpanId(null);
 	}, [isTraceSignal, isSessionSignal, previewSpanId, selectedParam]);
 
+	useEffect(() => {
+		if (!isTraceSignal || isLoading || !isFetched || !selectedParam) return;
+		// An open sheet (`previewSpanId`) can point `?selected=` at a child
+		// span in the hierarchy tree that is not a list row. Closing on
+		// "not in this page" would dismiss the detail view on every tree
+		// click. Keep the sheet; only drop a stale URL selection when
+		// nothing is open.
+		if (previewSpanId) return;
+		const visible = rows.some(
+			(row: any) => config.getRowId(row) === selectedParam
+		);
+		if (visible) return;
+		skipSelectedHydrationRef.current = true;
+		setPreviewSpanId(null);
+		setSelectedInUrl(null);
+	}, [
+		config,
+		isFetched,
+		isLoading,
+		isTraceSignal,
+		previewSpanId,
+		rows,
+		selectedParam,
+		setSelectedInUrl,
+	]);
+
 	const selectedMetricRow = useMemo(() => {
 		if (!isMetricSignal || !selectedParam) return null;
 		return (
@@ -252,7 +338,7 @@ export default function ObservabilitySignalList({
 		if (isTraceSignal) {
 			skipSelectedHydrationRef.current = false;
 			setPreviewSpanId(row.spanId);
-			setSelectedInUrl(row.spanId);
+			setSelectedInUrl(row.spanId, row.traceId);
 			return;
 		}
 		if (isSessionSignal) {
@@ -268,7 +354,7 @@ export default function ObservabilitySignalList({
 			if (!targetSpanId) return;
 			skipSelectedHydrationRef.current = false;
 			setPreviewSpanId(targetSpanId);
-			setSelectedInUrl(targetSpanId);
+			setSelectedInUrl(targetSpanId, safe.trace_id || safe.TraceId || null);
 			return;
 		}
 		if (isMetricSignal) {
@@ -351,12 +437,20 @@ export default function ObservabilitySignalList({
 
 	return (
 		<>
-			<div className="mb-3">
+			<div className="mb-3 flex flex-col gap-2">
 				<SignalSummary
 					key={`summary-${config.key}`}
 					config={config}
 					data={summaryData as any}
 					isLoading={isSummaryLoading || pingStatus === "pending"}
+					footer={
+						config.key === "traces" ? (
+							<div className="mt-2 flex min-w-0 flex-wrap items-stretch gap-y-1.5 border-t border-stone-200 pt-2 dark:border-stone-800 [&>*+*]:ml-3 [&>*+*]:border-l [&>*+*]:border-stone-200 [&>*+*]:pl-3 dark:[&>*+*]:border-stone-700">
+								<GenerationHealthBar />
+								<AgentLoopBar />
+							</div>
+						) : null
+					}
 				/>
 			</div>
 			<TracesFilter
@@ -373,6 +467,13 @@ export default function ObservabilitySignalList({
 				showGroupBy={!!config.supportGrouping}
 				showVisibilityColumns
 				extraControls={toolbarExtraControls}
+				signal={
+					config.key === "metrics"
+						? "metrics"
+						: config.key === "logs"
+							? "logs"
+							: "traces"
+				}
 			/>
 
 			{config.supportGrouping && filter.groupBy && (
@@ -382,6 +483,12 @@ export default function ObservabilitySignalList({
 					rootLabel={`All ${config.label}`}
 					updateFilter={updateFilter}
 				/>
+			)}
+
+			{telemetryError && (
+				<div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+					{String(telemetryError)}
+				</div>
 			)}
 
 			{config.supportGrouping && filter.groupBy && !filter.groupValue ? (
@@ -531,6 +638,11 @@ export default function ObservabilitySignalList({
 							{selectedLogRow && (
 								<LogDetailView
 									id={config.getRowId(selectedLogRow)}
+									aroundTimestamp={
+										selectedLogRow.Timestamp
+											? String(selectedLogRow.Timestamp)
+											: null
+									}
 									from={
 										typeof window !== "undefined"
 											? `${window.location.pathname}${window.location.search}`

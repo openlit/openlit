@@ -41,6 +41,9 @@ import {
 	FILTER_PARAM_KEYS,
 	getFilterStorageKey,
 } from "@/helpers/client/filter-persistence";
+import type { Signal } from "@/utils/hooks/useSignalCapabilities";
+import { GENERATION_HEALTH_CHIPS, parseGenerationHealthChips } from "@/lib/platform/generation-health/classify";
+import { generationHealthChipLabel } from "@/lib/platform/generation-health/format";
 
 const m = getMessage();
 
@@ -165,6 +168,8 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	params.delete("metricTypes");
 	// remove all existing cf entries
 	params.delete("cf");
+	params.delete("gh");
+	params.delete("al");
 
 	if (config.models?.length) params.set("models", config.models.join(","));
 	if (config.providers?.length) params.set("providers", config.providers.join(","));
@@ -182,6 +187,10 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 			params.append("cf", [attributeType, key, value].join(CF_SEP));
 		}
 	});
+	if (config.generationHealth?.length) {
+		params.set("gh", config.generationHealth.join(","));
+	}
+	if (config.agentLoop) params.set("al", "1");
 }
 
 function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
@@ -219,6 +228,11 @@ function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
 			};
 		}).filter((f) => f.key && f.value);
 	}
+	const gh = params.get("gh");
+	if (gh) {
+		config.generationHealth = parseGenerationHealthChips(gh.split(","));
+	}
+	if (params.get("al") === "1") config.agentLoop = true;
 	return config;
 }
 
@@ -292,6 +306,7 @@ const DynamicFilters = ({
 			case "severities":
 			case "metricNames":
 			case "metricTypes":
+			case "generationHealth":
 				if (operationType === "add") {
 					setSelectedFilterValues((s) => {
 						const typeArray = s[type] || [];
@@ -514,6 +529,19 @@ const DynamicFilters = ({
 							type="providers"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.providers}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{pageName === "request" ? (
+						<ComboDropdown
+							options={GENERATION_HEALTH_CHIPS.map((chip) => ({
+								label: generationHealthChipLabel(chip),
+								value: chip,
+							}))}
+							title={m.GENERATION_HEALTH_CHIP_GROUP}
+							type="generationHealth"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.generationHealth}
 							clearItem={clearFilter}
 						/>
 					) : null}
@@ -986,7 +1014,8 @@ function loadFilterFromStorage(storageKey: string): PersistedFilter | null {
 function applyStoredFilter(
 	saved: PersistedFilter,
 	updateFilter: (key: string, value: any, extraParams?: any) => void,
-	validTimeRanges: Set<string>
+	validTimeRanges: Set<string>,
+	currentFilter?: FilterType
 ) {
 	// Time limit first (it resets selectedConfig, so must come before selectedConfig)
 	if (saved.timeLimitType === "CUSTOM" && saved.timeLimitStart && saved.timeLimitEnd) {
@@ -995,7 +1024,17 @@ function applyStoredFilter(
 			end: new Date(saved.timeLimitEnd),
 		});
 	} else if (validTimeRanges.has(saved.timeLimitType)) {
-		updateFilter("timeLimit.type", saved.timeLimitType as TIME_RANGES);
+		// Skip re-stamping relative ranges when the store already holds the same
+		// type with a recent end — remounts would otherwise bust the telemetry
+		// request cache by changing end=now() every navigation.
+		const sameType = currentFilter?.timeLimit?.type === saved.timeLimitType;
+		const endMs = currentFilter?.timeLimit?.end
+			? new Date(currentFilter.timeLimit.end).getTime()
+			: 0;
+		const recentEnough = endMs > 0 && Date.now() - endMs < 30_000;
+		if (!(sameType && recentEnough)) {
+			updateFilter("timeLimit.type", saved.timeLimitType as TIME_RANGES);
+		}
 	}
 	if (saved.limit) updateFilter("limit", saved.limit);
 	if (saved.selectedConfig && hasActiveConfig(saved.selectedConfig)) {
@@ -1048,7 +1087,14 @@ function useFilterUrlSync(
 						});
 					}
 				} else {
-					updateFilter("timeLimit.type", tr);
+					const sameType = filter.timeLimit?.type === tr;
+					const endMs = filter.timeLimit?.end
+						? new Date(filter.timeLimit.end).getTime()
+						: 0;
+					const recentEnough = endMs > 0 && Date.now() - endMs < 30_000;
+					if (!(sameType && recentEnough)) {
+						updateFilter("timeLimit.type", tr);
+					}
 				}
 			}
 			const limitParam = params.get("limit");
@@ -1070,7 +1116,7 @@ function useFilterUrlSync(
 		} else {
 			// ── Fall back to localStorage ─────────────────────────────────────
 			const saved = loadFilterFromStorage(storageKey);
-			if (saved) applyStoredFilter(saved, updateFilter, VALID_TIME_RANGES);
+			if (saved) applyStoredFilter(saved, updateFilter, VALID_TIME_RANGES, filter);
 		}
 
 		// Signal that the initial filter read (URL / localStorage) is complete.
@@ -1136,11 +1182,12 @@ export default function TracesFilter({
 	customSortOptions,
 	pageName,
 	columns,
-	configUrl = "/api/metrics/request/config",
-	attributeKeysUrl = "/api/metrics/request/attribute-keys",
+	configUrl = "/api/telemetry/request/config",
+	attributeKeysUrl = "/api/telemetry/request/attribute-keys",
 	customAttributeTypes = ["SpanAttributes", "ResourceAttributes", "Field"],
 	filterStorageScope,
 	extraControls,
+	signal,
 }: {
 	total?: number;
 	supportDynamicFilters?: boolean;
@@ -1164,6 +1211,8 @@ export default function TracesFilter({
 	// coding-agent pages to drop in a User picker that's visually
 	// part of the same control cluster.
 	extraControls?: React.ReactNode;
+	/** Datasource signal whose capability limits drive the time selector. */
+	signal?: Signal;
 }) {
 	const [isVisibleFilters, setIsVisibileFilters] = useState<boolean>(false);
 	const filter = useRootStore(getFilterDetails);
@@ -1219,6 +1268,8 @@ export default function TracesFilter({
 			}
 			if (typeof filter.selectedConfig[key] === "number") {
 				return (filter.selectedConfig[key] as number) > 0;
+			} else if (typeof filter.selectedConfig[key] === "boolean") {
+				return Boolean(filter.selectedConfig[key]);
 			} else if (
 				typeof filter.selectedConfig[key] === "object" &&
 				(filter.selectedConfig[key] as string[]).length
@@ -1235,58 +1286,60 @@ export default function TracesFilter({
 	}, []);
 
 	return (
-		<div className="flex flex-col items-center w-full justify-between mb-4">
-			<div className="flex w-full gap-4">
-				<Filter />
-				{filterConfig && !!total && total > 0 && (
-					<TracesPagination
-						currentPage={filter.offset / filter.limit + 1}
-						currentSize={filter.limit}
-						totalPage={ceil(total / filter.limit)}
-						onClickPageAction={onClickPageAction}
-						onClickPageLimit={onClickPageLimit}
-					/>
-				)}
-				{showVisibilityColumns && (
-					<VisibilityColumns columns={columns} pageName={pageName} />
-				)}
-				{!!total && total > 0 && (
-					<Sorting
-						sorting={filter.sorting}
-						includeOnlySorting={includeOnlySorting}
-						customOptions={customSortOptions}
-					/>
-				)}
-				{supportDynamicFilters && showGroupBy && (
-					<GroupByDropdown
-						groupBy={filter.groupBy}
-						onChangeGroupBy={onChangeGroupBy}
-						customAttributeTypes={customAttributeTypes}
-					/>
-				)}
-				{extraControls}
-				{supportDynamicFilters && (
+		<div className="flex w-full min-w-0 flex-col items-stretch gap-2 mb-4">
+			<div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+				<Filter className="min-w-0 shrink-0" signal={signal} />
+				<div className="ml-auto flex shrink-0 items-center gap-2">
+					{filterConfig && !!total && total > 0 && (
+						<TracesPagination
+							currentPage={filter.offset / filter.limit + 1}
+							currentSize={filter.limit}
+							totalPage={ceil(total / filter.limit)}
+							onClickPageAction={onClickPageAction}
+							onClickPageLimit={onClickPageLimit}
+						/>
+					)}
+					{showVisibilityColumns && (
+						<VisibilityColumns columns={columns} pageName={pageName} />
+					)}
+					{!!total && total > 0 && (
+						<Sorting
+							sorting={filter.sorting}
+							includeOnlySorting={includeOnlySorting}
+							customOptions={customSortOptions}
+						/>
+					)}
+					{supportDynamicFilters && showGroupBy && (
+						<GroupByDropdown
+							groupBy={filter.groupBy}
+							onChangeGroupBy={onChangeGroupBy}
+							customAttributeTypes={customAttributeTypes}
+						/>
+					)}
+					{extraControls}
+					{supportDynamicFilters && (
+						<Button
+							variant="outline"
+							size="default"
+							className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px] relative"
+							onClick={toggleIsVisibleFilters}
+						>
+							<SlidersHorizontal className="w-3 h-3" />
+							{areFiltersApplied && (
+								<span className="w-2 h-2 bg-primary absolute top-1 right-1 rounded-full animate-ping" />
+							)}
+						</Button>
+					)}
 					<Button
 						variant="outline"
 						size="default"
-						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px] relative"
-						onClick={toggleIsVisibleFilters}
+						title={m.OBSERVABILITY_COPY_SHARE_LINK}
+						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px]"
+						onClick={onShareLink}
 					>
-						<SlidersHorizontal className="w-3 h-3" />
-						{areFiltersApplied && (
-							<span className="w-2 h-2 bg-primary absolute top-1 right-1 rounded-full animate-ping" />
-						)}
+						<Link2 className="w-3 h-3" />
 					</Button>
-				)}
-				<Button
-					variant="outline"
-					size="default"
-					title={m.OBSERVABILITY_COPY_SHARE_LINK}
-					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px]"
-					onClick={onShareLink}
-				>
-					<Link2 className="w-3 h-3" />
-				</Button>
+				</div>
 			</div>
 			{supportDynamicFilters && (
 				<DynamicFilters

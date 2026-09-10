@@ -2,6 +2,7 @@ import { OPENLIT_CRON_LOG_TABLE_NAME } from "./table-details";
 import { dataCollector } from "../common";
 import { CronLogData, CronRunStatus, GetCronLogsParams } from "@/types/cron";
 import { format } from "date-fns";
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 
 export async function insertCronLog(
 	data: CronLogData,
@@ -117,14 +118,21 @@ export async function getCronLogs({
 	};
 }
 
-export async function getLastRunCronLogByCronId(cronId: string) {
+export async function getLastRunCronLogByCronId(
+	cronId: string,
+	databaseConfigId?: string
+) {
 	const query = `
 		SELECT * FROM ${OPENLIT_CRON_LOG_TABLE_NAME} WHERE cron_id = '${cronId}' AND run_status = '${CronRunStatus.SUCCESS}'
 		ORDER BY started_at DESC
 		LIMIT 1
 	`;
 
-	const { data, err } = await dataCollector({ query }, "query");
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
 
 	if (err || !data) {
 		return null;
@@ -134,12 +142,13 @@ export async function getLastRunCronLogByCronId(cronId: string) {
 }
 
 export async function getLastFailureCronLogBySpanId(spanId: string) {
+	const safeSpanId = escapeClickHouseString(spanId);
 	const query = `
 		WITH last_failures AS (
     	SELECT error_stacktrace as errorStacktrace
 			FROM ${OPENLIT_CRON_LOG_TABLE_NAME}
 			WHERE run_status = '${CronRunStatus.FAILURE}' 
-			AND has(JSONExtractArrayRaw(meta['spanIds']), '"${spanId}"')
+			AND has(JSONExtractArrayRaw(meta['spanIds']), '"${safeSpanId}"')
 			ORDER BY started_at DESC
 			LIMIT 1
 		)
@@ -149,7 +158,7 @@ export async function getLastFailureCronLogBySpanId(spanId: string) {
 				SELECT 1
 				FROM ${OPENLIT_CRON_LOG_TABLE_NAME}
 				WHERE run_status = '${CronRunStatus.SUCCESS}'
-				AND has(JSONExtractArrayRaw(meta['spanIds']), '"${spanId}"')
+				AND has(JSONExtractArrayRaw(meta['spanIds']), '"${safeSpanId}"')
 			);
 	`;
 

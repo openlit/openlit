@@ -1,4 +1,4 @@
-import { dataCollector } from "../common";
+import { intelligenceDataCollector } from "../common";
 import {
 	OPENLIT_CHAT_CONVERSATION_TABLE,
 	OPENLIT_CHAT_MESSAGE_TABLE,
@@ -114,7 +114,7 @@ export async function getConversations(
 		LIMIT 50
 	`;
 
-	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
+	const { data, err } = await intelligenceDataCollector({ query }, "query", databaseConfigId);
 
 	if (err) {
 		return { err };
@@ -146,7 +146,7 @@ export async function getConversationWithMessages(
 		LIMIT 1
 	`;
 
-	const { data: convData, err: convErr } = await dataCollector(
+	const { data: convData, err: convErr } = await intelligenceDataCollector(
 		{ query: convQuery },
 		"query",
 		databaseConfigId
@@ -183,7 +183,7 @@ export async function getConversationWithMessages(
 		ORDER BY created_at ASC
 	`;
 
-	const { data: msgData, err: msgErr } = await dataCollector(
+	const { data: msgData, err: msgErr } = await intelligenceDataCollector(
 		{ query: msgQuery },
 		"query",
 		databaseConfigId
@@ -216,7 +216,7 @@ export async function createConversation(
 	const meta = JSON.stringify(options?.meta || {});
 	const conversationId = randomUUID();
 
-	const { err } = await dataCollector(
+	const { err } = await intelligenceDataCollector(
 		{
 			table: OPENLIT_CHAT_CONVERSATION_TABLE,
 			values: [
@@ -248,7 +248,7 @@ export async function deleteConversation(
 	const safeId = Sanitizer.sanitizeValue(conversationId);
 
 	// Delete messages first
-	const { err: msgErr } = await dataCollector(
+	const { err: msgErr } = await intelligenceDataCollector(
 		{
 			query: `DELETE FROM ${OPENLIT_CHAT_MESSAGE_TABLE} WHERE conversation_id = '${safeId}'`,
 		},
@@ -261,7 +261,7 @@ export async function deleteConversation(
 	}
 
 	// Delete conversation
-	const { err } = await dataCollector(
+	const { err } = await intelligenceDataCollector(
 		{
 			query: `DELETE FROM ${OPENLIT_CHAT_CONVERSATION_TABLE} WHERE id = '${safeId}'`,
 		},
@@ -301,7 +301,7 @@ export async function addMessage(
 	databaseConfigId?: string
 ): Promise<{ data?: string; err?: unknown }> {
 	const messageId = randomUUID();
-	const { err } = await dataCollector(
+	const { err } = await intelligenceDataCollector(
 		{
 			table: OPENLIT_CHAT_MESSAGE_TABLE,
 			values: [
@@ -366,7 +366,7 @@ export async function updateMessage(
 		WHERE id = '${safeId}'
 	`;
 
-	const { err } = await dataCollector({ query }, "exec", databaseConfigId);
+	const { err } = await intelligenceDataCollector({ query }, "exec", databaseConfigId);
 	return { err };
 }
 
@@ -409,7 +409,7 @@ export async function updateConversation(
 		WHERE id = '${safeId}'
 	`;
 
-	const { err } = await dataCollector({ query }, "exec", databaseConfigId);
+	const { err } = await intelligenceDataCollector({ query }, "exec", databaseConfigId);
 	return { err };
 }
 
@@ -439,7 +439,7 @@ export async function getConversationMessages(
 		LIMIT ${limit}
 	`;
 
-	const { data, err } = await dataCollector({ query }, "query", databaseConfigId);
+	const { data, err } = await intelligenceDataCollector({ query }, "query", databaseConfigId);
 
 	if (err) {
 		return { err };

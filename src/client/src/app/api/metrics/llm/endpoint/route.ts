@@ -6,6 +6,7 @@ import {
 } from "@/helpers/server/platform";
 import { getResultGenerationByEndpoint } from "@/lib/platform/llm/endpoint";
 import { OPERATION_TYPE } from "@/types/platform";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 async function POSTHandler(request: Request) {
 	const formData = await request.json();
@@ -16,6 +17,10 @@ async function POSTHandler(request: Request) {
 		timeLimit,
 		operationType,
 		selectedConfig: formData.selectedConfig,
+		environment:
+			typeof formData.environment === "string"
+				? formData.environment
+				: getRequestEnvironment(request),
 	};
 
 	const validationParam = validateMetricsRequest(

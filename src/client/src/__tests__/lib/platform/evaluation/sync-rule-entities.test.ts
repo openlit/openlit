@@ -229,6 +229,16 @@ describe("addRuleToEvaluationType", () => {
 
 		expect(mockJsonParse).toHaveBeenCalledWith("{}");
 	});
+
+	it("defaults types to an empty array when meta has no evaluationTypes key", async () => {
+		const config = { id: "cfg-1", meta: "{}" };
+		mockAsaw.mockResolvedValueOnce([null, config]);
+		mockJsonParse.mockReturnValue({});
+
+		await addRuleToEvaluationType("rule-1", "type-1");
+
+		expect(mockPrismaUpdate).not.toHaveBeenCalled();
+	});
 });
 
 describe("removeRuleFromEvaluationType", () => {
@@ -375,6 +385,17 @@ describe("removeRuleFromEvaluationType", () => {
 
 		expect(mockPrismaUpdate).toHaveBeenCalled();
 	});
+
+	it("handles empty meta string by defaulting to empty object, resulting in no matching type", async () => {
+		const config = { id: "cfg-1", meta: "" };
+		mockAsaw.mockResolvedValueOnce([null, config]);
+		mockJsonParse.mockReturnValue({});
+
+		await removeRuleFromEvaluationType("rule-1", "type-1");
+
+		expect(mockJsonParse).toHaveBeenCalledWith("{}");
+		expect(mockPrismaUpdate).not.toHaveBeenCalled();
+	});
 });
 
 describe("syncRuleEntitiesFromConfig", () => {
@@ -430,6 +451,21 @@ describe("syncRuleEntitiesFromConfig", () => {
 		await syncRuleEntitiesFromConfig();
 
 		expect(mockDeleteRuleEntity).not.toHaveBeenCalled();
+		expect(mockAddRuleEntity).not.toHaveBeenCalled();
+	});
+
+	it("defaults types to an empty array when meta has no evaluationTypes key, deleting all existing entities", async () => {
+		const config = { id: "cfg-1", meta: "" };
+		mockAsaw.mockResolvedValueOnce([null, config]);
+		mockJsonParse.mockReturnValue({});
+		const entities = [{ id: "entity-1", rule_id: "rule-1", entity_id: "type-1" }];
+		mockGetRuleEntities.mockResolvedValue({ err: undefined, data: entities } as any);
+		mockAsaw.mockResolvedValue([null, {}]);
+
+		await syncRuleEntitiesFromConfig();
+
+		expect(mockJsonParse).toHaveBeenCalledWith("{}");
+		expect(mockDeleteRuleEntity).toHaveBeenCalledWith("entity-1", { emitAlert: false });
 		expect(mockAddRuleEntity).not.toHaveBeenCalled();
 	});
 

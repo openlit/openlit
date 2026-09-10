@@ -34,6 +34,8 @@ import AddCodingAgentLOCSummaryFieldsMigration from "./add-coding-agent-loc-summ
 import CreateCodingAgentsAuditMigration from "./create-coding-agents-audit-migration";
 import DropVcsMigration from "./drop-vcs-migration";
 import AddProviderModelsCachePricesMigration from "./add-provider-models-cache-prices-migration";
+import CreateTelemetryRollupsMigration from "./create-telemetry-rollups-migration";
+import AlterTelemetryRollupsDimensionsMigration from "./alter-telemetry-rollups-dimensions-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	// Group 1: Independent table creations (safe to parallel)
@@ -96,6 +98,9 @@ export default async function migrations(databaseConfigId?: string) {
 	// ALTERs on a single table anyway, but ordering the awaits keeps
 	// the dependency explicit.
 	await AddCodingAgentLOCSummaryFieldsMigration(databaseConfigId);
+
+	await CreateTelemetryRollupsMigration(databaseConfigId);
+	await AlterTelemetryRollupsDimensionsMigration(databaseConfigId);
 
 	// Group 7: Drop the never-populated v2 GitHub App VCS tables that
 	// earlier deployments created via the now-removed

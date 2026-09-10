@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
 	ChevronRight,
+	Lock,
 	Search,
 	X,
 } from "lucide-react";
@@ -21,6 +22,8 @@ import {
 } from "@/components/ui/command";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SIDEBAR_ITEMS } from "@/constants/sidebar";
+import getMessage from "@/constants/messages";
+import { useIsNavLinkLocked } from "@/features/nav-locks";
 import { cn } from "@/lib/utils";
 import { getCurrentUserId } from "@/selectors/user";
 import { useRootStore } from "@/store";
@@ -39,13 +42,16 @@ import { useSidebarLayout } from "../sidebar-layout-context";
 const isActive = (pathname: string, item: SidebarActionItem, currentUrl: string) => {
 	if (!item.link) return false;
 	if (item.link.includes("?")) return currentUrl.startsWith(item.link);
-	// Organisation owns `/organisation` except the Projects tab, which has its
-	// own Settings entry (`/organisation?tab=projects`).
+	// Organisation owns `/organisation` except the Projects route, which has its
+	// own Settings entry (`/organisation/projects`).
 	if (item.link === "/organisation") {
 		return (
 			pathname.startsWith("/organisation") &&
-			!currentUrl.includes("tab=projects")
+			!pathname.startsWith("/organisation/projects")
 		);
+	}
+	if (item.link === "/organisation/projects") {
+		return pathname.startsWith("/organisation/projects");
 	}
 	if (item.link === "/dashboards") return pathname.startsWith("/dashboards") || pathname.startsWith("/d/");
 	if (item.link === "/dashboard") return pathname.startsWith("/dashboard") && !pathname.startsWith("/dashboards");
@@ -73,9 +79,17 @@ function NavigationLink({
 	onNavigate?: () => void;
 	compact?: boolean;
 }) {
+	const messages = getMessage();
+	const isLocked = useIsNavLinkLocked(item.link);
 	const content = <>
 		{item.icon}
 		<span className={cn("min-w-0 truncate", compact && "sr-only")}>{item.text}</span>
+		{isLocked && !compact ? (
+			<Lock
+				className="ml-auto size-3.5 shrink-0 text-amber-700 dark:text-amber-300"
+				aria-label={messages.NAV_FEATURE_LOCKED}
+			/>
+		) : null}
 	</>;
 	const className = cn(
 		"flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-stone-300 dark:focus-visible:ring-offset-stone-950",

@@ -15,6 +15,7 @@ export interface SecretInput extends Omit<Secret, "id"> {
 
 export interface SecretGetFilters {
 	databaseConfigId?: string;
+	createdBy?: string;
 	tags?: string[];
 	key?: string;
 }

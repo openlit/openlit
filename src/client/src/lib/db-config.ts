@@ -1,13 +1,27 @@
 import asaw from "@/utils/asaw";
 import prisma from "./prisma";
+import { removeLegacyConnector, syncDatabaseConfigConnector } from "@/lib/platform/connectors/instances";
 import { getCurrentUser } from "./session";
 import { DatabaseConfig, DatabaseConfigInvitedUser } from "@prisma/client";
 import migrations from "@/clickhouse/migrations";
 import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
 import { consoleLog } from "@/utils/log";
-import { getCurrentOrganisation, getCurrentProjectForOrganisation } from "./organisation";
+import { getCurrentOrganisation, getCurrentProjectForOrganisation } from "@/lib/organisation";
 import { validateDatabaseHost } from "@/utils/validation";
+import { createProjectEnvironment, normalizeProjectEnvironment } from "./project-environment";
+
+async function ensureEnvironmentDatabaseBindings(projectId: string, databaseConfigId: string, environment: string) {
+	if (!prisma.telemetrySourceBinding?.findUnique) return;
+	for (const signal of ["traces", "logs", "metrics", "intelligence"]) {
+		const existing = await prisma.telemetrySourceBinding.findUnique({
+			where: { projectId_signal_environment: { projectId, signal, environment } },
+		});
+		if (!existing) {
+			await prisma.telemetrySourceBinding.create({ data: { projectId, signal, environment, databaseConfigId } });
+		}
+	}
+}
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
@@ -19,7 +33,6 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const currentProject = currentOrg?.id
 		? await getCurrentProjectForOrganisation(currentOrg.id)
 		: null;
-
 	// Auto-migrate orphaned configs: If user has a current organisation, move any orphaned configs
 	// they have access to into its current project. This handles edge cases where migration didn't run
 	// or new orphaned configs were created.
@@ -123,6 +136,19 @@ export const getDBConfigById = async ({ id }: { id: string }) => {
 	return getDBConfigByIdForUser({ id, userId: user.id });
 };
 
+/**
+ * DatabaseConfig lookup for callers that already have an id and may run
+ * without a user session (cron materializer, auto-eval, auto-pricing).
+ * Interactive requests with a session stay user- and project-scoped.
+ */
+export const getDBConfigByIdForBackground = async ({ id }: { id: string }) => {
+	const user = await getCurrentUser();
+	if (!user) {
+		return getDBConfigByIdInternal({ id });
+	}
+	return getDBConfigByIdForUser({ id, userId: user.id });
+};
+
 export const getDBConfigByIdForUser = async ({
 	id,
 	userId,
@@ -170,7 +196,12 @@ export const upsertDBConfig = async (
 	if (!dbConfig.port) throw new Error("No port provided");
 	if (!dbConfig.database) throw new Error("No database provided");
 
-	const hostValidation = validateDatabaseHost(dbConfig.host);
+	// ClickHouse is an explicitly configured project connector. Local and
+	// private-network hosts are valid here (including the default 127.0.0.1
+	// database); HTTP telemetry connectors retain the stricter SSRF checks.
+	const hostValidation = validateDatabaseHost(dbConfig.host, {
+		allowPrivateNetwork: true,
+	});
 	if (!hostValidation.valid) {
 		throw new Error(hostValidation.error || "Invalid host");
 	}
@@ -188,11 +219,15 @@ export const upsertDBConfig = async (
 	const currentProject = currentOrg?.id
 		? await getCurrentProjectForOrganisation(currentOrg.id)
 		: null;
+	const environment = normalizeProjectEnvironment(dbConfig.environment || "production");
+	dbConfig.environment = environment;
+	if (currentProject?.id) await createProjectEnvironment(environment);
 
 	const existingDBName = await prisma.databaseConfig.findFirst({
 		where: {
 			name: dbConfig.name,
 			projectId: currentProject?.id || null,
+			environment,
 			NOT: {
 				id,
 			},
@@ -229,9 +264,10 @@ export const upsertDBConfig = async (
 	// When creating with a project, use compound unique constraint
 	else if (currentProject?.id) {
 		const whereObject = {
-			name_projectId: {
+			name_projectId_environment: {
 				name: dbConfig.name,
 				projectId: currentProject.id,
+				environment,
 			},
 		};
 		const [err, result] = await asaw(
@@ -287,7 +323,37 @@ export const upsertDBConfig = async (
 			canDelete: true,
 			canShare: true,
 		});
-		migrations(createddbConfig.id);
+		// A saved connector must be ready for every ClickHouse-backed feature
+		// before the API returns. In particular, Rule Engine must not race the
+		// asynchronous creation of its openlit_rules tables.
+		await migrations(createddbConfig.id);
+	}
+	if (createddbConfig.projectId) {
+		try {
+			await ensureEnvironmentDatabaseBindings(createddbConfig.projectId, createddbConfig.id, createddbConfig.environment || environment);
+		} catch (error) {
+			// Bindings are a routing projection. Do not roll back a valid database
+			// configuration when an older installation has not applied the binding
+			// migration yet; the next connector/environment read can repair it.
+			console.error("[connectors] ClickHouse signal binding projection failed", {
+				databaseConfigId: createddbConfig.id,
+				projectId: createddbConfig.projectId,
+				environment: createddbConfig.environment,
+				error,
+			});
+		}
+	}
+	// The legacy database config remains the write path for platform features.
+	// Connector indexing is a compatibility projection and must not make a
+	// valid ClickHouse configuration impossible to save if an older deployment
+	// has not applied the connector framework migration yet.
+	try {
+		await syncDatabaseConfigConnector(createddbConfig);
+	} catch (error) {
+		console.error("[connectors] ClickHouse connector projection failed", {
+			databaseConfigId: createddbConfig.id,
+			error,
+		});
 	}
 
 	return `${id ? "Updated" : "Added"} db details successfully`;
@@ -314,6 +380,7 @@ export async function deleteDBConfig(id: string) {
 			id,
 		},
 	});
+	await removeLegacyConnector("database-config", id);
 
 	return "Deleted successfully!";
 }

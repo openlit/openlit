@@ -5,10 +5,10 @@ import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { LucideIcon, TrendingDown, TrendingUp } from "lucide-react";
+import { LucideIcon, Loader2, TrendingDown, TrendingUp } from "lucide-react";
 import IntermediateState from "./intermediate-state";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
+import { formatCompactNumber } from "@/components/(playground)/manage-dashboard/board-creator/utils/formatters";
 
 type StatCardProps = {
 	heading?: string;
@@ -79,6 +79,8 @@ const StatCard = memo(
 			: 0;
 
 		const value = (data as Record<any, any>)?.[dataKey] || 0;
+		const parsedValue = typeof parser === "function" ? parser(value) : value;
+		const roundedValue = round(parsedValue, roundTo);
 
 		return (
 			<Card className="relative overflow-hidden">
@@ -95,20 +97,23 @@ const StatCard = memo(
 				<CardContent>
 					{isLoadingData ? (
 						<IntermediateState type="loading">
-							<Skeleton className={`h-4 w-full rounded-xl ${loadingClass}`} />
+							<div className="flex items-center gap-2">
+								<Loader2 className="h-4 w-4 animate-spin text-stone-500 dark:text-stone-400" />
+								<span className="text-sm text-stone-500 dark:text-stone-400">
+									Loading...
+								</span>
+							</div>
 						</IntermediateState>
 					) : (
 						<div
-							className={`font-semibold text-primary ${
+							className={`max-w-full truncate font-semibold text-primary ${
 								textClass.match(/text-(xs|sm|base|lg|xl|[2-9]xl)/)
 									? ""
 									: "text-3xl"
 							} ${textClass}`}
+							title={`${textPrefix}${roundedValue}${textSuffix}`}
 						>
-							{`${textPrefix}${round(
-								typeof parser === "function" ? parser(value) : value,
-								roundTo
-							)}${textSuffix}`}
+							{`${textPrefix}${formatCompactNumber(roundedValue)}${textSuffix}`}
 						</div>
 					)}
 					<span
