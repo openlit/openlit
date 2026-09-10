@@ -123,4 +123,30 @@ describe('PII Guard', () => {
     expect(result.action).toBe(GuardAction.WARN);
     expect(result.transformedText).toBeNull();
   });
+  it('redacts the whole value when two patterns overlap', () => {
+    // The env-secret span covers the email span; replacing the inner one first used
+    // to resize the string and leave the tail of the value behind.
+    const result = guard.evaluate('password: a@b.co:hunter2SuperSecret');
+    expect(result.transformedText).toBe('[REDACTED:env-secret]');
+  });
+
+  it('redacts the whole value when an ipv4 match nests inside a secret', () => {
+    const result = guard.evaluate('secret: 1.2.3.4-prod-fallback-value');
+    expect(result.transformedText).toBe('[REDACTED:env-secret]');
+  });
+
+  it('does not emit an orphan bracket when spans overlap partially', () => {
+    const result = guard.evaluate('my password: hunter2@corp.io then continue');
+    expect(result.transformedText).toBe('my [REDACTED:env-secret] then continue');
+  });
+
+  it('keeps the more specific label when two patterns match the same span', () => {
+    const result = guard.evaluate('Key: sk-ant-abcdefghij1234567890abcde');
+    expect(result.transformedText).toBe('Key: [REDACTED:anthropic-api-key]');
+  });
+
+  it('still redacts disjoint matches separately', () => {
+    const result = guard.evaluate('contact bob@example.com or call 415-555-0100');
+    expect(result.transformedText).toBe('contact [REDACTED:email] or call [REDACTED:phone-us]');
+  });
 });

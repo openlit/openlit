@@ -95,9 +95,24 @@ describe("observability platform queries", () => {
 		expect(result.total).toBe(12);
 		expect(result.records).toEqual([{ rowId: "1", Body: "hello" }]);
 		const query = (dataCollector as jest.Mock).mock.calls[1][0].query;
-		expect(query).toContain("ORDER BY SeverityText asc");
+		expect(query).toContain("ORDER BY SeverityText ASC");
 		expect(query).toContain("LIMIT 10");
 		expect(query).toContain("OFFSET 5");
+	});
+
+	it("does not interpolate injected ORDER BY direction", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [{ total: 1 }], err: null })
+			.mockResolvedValueOnce({ data: [], err: null });
+
+		await getLogs({
+			...params,
+			sorting: { type: "SeverityText", direction: "ASC; SELECT 1" },
+		} as any);
+
+		const query = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+		expect(query).toContain("ORDER BY SeverityText DESC");
+		expect(query).not.toContain("SELECT 1");
 	});
 
 	it("returns count errors before loading log records", async () => {
@@ -332,5 +347,92 @@ describe("observability platform queries", () => {
 		expect((dataCollector as jest.Mock).mock.calls[0][0].query).toContain(
 			"MetricName = 'cpu.usage'"
 		);
+	});
+
+	it("falls back to defaults when timeLimit and selectedConfig are missing", async () => {
+		await getLogsConfig({} as any);
+
+		const query = (dataCollector as jest.Mock).mock.calls[0][0].query;
+		expect(query).toContain("WHERE 1 = 1");
+	});
+
+	it("filters on a non-default environment", async () => {
+		await getLogsConfig({
+			...params,
+			selectedConfig: { environments: ["production"] },
+		} as any);
+
+		const query = (dataCollector as jest.Mock).mock.calls[0][0].query;
+		expect(query).toContain(
+			"ResourceAttributes['deployment.environment'] IN ('production')"
+		);
+	});
+
+	it("does not filter when the only environment is the synthetic default", async () => {
+		await getLogsConfig({
+			...params,
+			selectedConfig: { environments: ["default"] },
+		} as any);
+
+		const query = (dataCollector as jest.Mock).mock.calls[0][0].query;
+		expect(query).not.toContain("deployment.environment");
+	});
+
+	it("filters when multiple environments include default alongside others", async () => {
+		await getLogsConfig({
+			...params,
+			selectedConfig: { environments: ["default", "staging"] },
+		} as any);
+
+		const query = (dataCollector as jest.Mock).mock.calls[0][0].query;
+		expect(query).toContain(
+			"ResourceAttributes['deployment.environment'] IN ('default', 'staging')"
+		);
+	});
+
+	it("defaults attribute-key results to empty arrays when data is missing", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ err: null })
+			.mockResolvedValueOnce({ err: null })
+			.mockResolvedValueOnce({ err: null });
+
+		const logKeys = await getLogAttributeKeys(params as any);
+		expect(logKeys.logAttributeKeys).toEqual([]);
+		expect(logKeys.resourceAttributeKeys).toEqual([]);
+		expect(logKeys.scopeAttributeKeys).toEqual([]);
+
+		(dataCollector as jest.Mock).mockClear();
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ err: null })
+			.mockResolvedValueOnce({ err: null })
+			.mockResolvedValueOnce({ err: null });
+
+		const metricKeys = await getMetricAttributeKeys(params as any);
+		expect(metricKeys.metricAttributeKeys).toEqual([]);
+		expect(metricKeys.resourceAttributeKeys).toEqual([]);
+		expect(metricKeys.scopeAttributeKeys).toEqual([]);
+	});
+
+	it("treats missing bucket counts as zero when totaling and finding the peak", async () => {
+		(dataCollector as jest.Mock).mockResolvedValue({
+			data: [{ label: "05/16 01:00" }],
+			err: null,
+		});
+
+		const result = await getSignalSummary(params as any, "logs");
+
+		expect(result.total).toBe(0);
+		expect(result.peak).toBe(0);
+	});
+
+	it("defaults metric detail series and points to empty arrays when data is missing", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ err: null })
+			.mockResolvedValueOnce({ err: null });
+
+		const result = await getMetricDetail("cpu.usage");
+
+		expect(result.series).toEqual([]);
+		expect(result.points).toEqual([]);
 	});
 });

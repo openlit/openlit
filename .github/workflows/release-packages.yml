@@ -219,6 +219,9 @@ jobs:
 
   bump:
     name: Version and tag
+    # Unused component validators are skipped. GitHub still propagates that skip
+    # through Validate / Complete unless later jobs also use a status check.
+    if: always() && !cancelled() && needs.prepare.result == 'success' && needs.validate.result == 'success'
     needs: [prepare, validate]
     runs-on: ubuntu-24.04
     environment: release
@@ -315,7 +318,7 @@ jobs:
 
   publish-python:
     name: Publish / Python SDK
-    if: needs.prepare.outputs.publisher == 'python' && needs.prepare.outputs.dry_run != 'true'
+    if: always() && !cancelled() && needs.bump.result == 'success' && needs.prepare.outputs.publisher == 'python' && needs.prepare.outputs.dry_run != 'true'
     needs: [prepare, bump]
     uses: ./.github/workflows/release-python.yml
     permissions:
@@ -328,7 +331,7 @@ jobs:
 
   publish-typescript:
     name: Publish / TypeScript SDK
-    if: needs.prepare.outputs.publisher == 'typescript' && needs.prepare.outputs.dry_run != 'true'
+    if: always() && !cancelled() && needs.bump.result == 'success' && needs.prepare.outputs.publisher == 'typescript' && needs.prepare.outputs.dry_run != 'true'
     needs: [prepare, bump]
     uses: ./.github/workflows/release-typescript.yml
     permissions:
@@ -341,7 +344,7 @@ jobs:
 
   publish-go:
     name: Publish / Go SDK
-    if: needs.prepare.outputs.publisher == 'go' && needs.prepare.outputs.dry_run != 'true'
+    if: always() && !cancelled() && needs.bump.result == 'success' && needs.prepare.outputs.publisher == 'go' && needs.prepare.outputs.dry_run != 'true'
     needs: [prepare, bump]
     uses: ./.github/workflows/release-go.yml
     permissions:
@@ -352,7 +355,7 @@ jobs:
 
   publish-cli:
     name: Publish / CLI
-    if: needs.prepare.outputs.publisher == 'cli' && needs.prepare.outputs.dry_run != 'true'
+    if: always() && !cancelled() && needs.bump.result == 'success' && needs.prepare.outputs.publisher == 'cli' && needs.prepare.outputs.dry_run != 'true'
     needs: [prepare, bump]
     uses: ./.github/workflows/release-cli.yml
     permissions:
@@ -365,7 +368,7 @@ jobs:
 
   publish-controller:
     name: Publish / Controller
-    if: needs.prepare.outputs.publisher == 'controller' && needs.prepare.outputs.dry_run != 'true'
+    if: always() && !cancelled() && needs.bump.result == 'success' && needs.prepare.outputs.publisher == 'controller' && needs.prepare.outputs.dry_run != 'true'
     needs: [prepare, bump]
     uses: ./.github/workflows/release-controller.yml
     permissions:
@@ -379,7 +382,7 @@ jobs:
 
   publish-gpu-collector:
     name: Publish / GPU Collector
-    if: needs.prepare.outputs.publisher == 'gpu-collector' && needs.prepare.outputs.dry_run != 'true'
+    if: always() && !cancelled() && needs.bump.result == 'success' && needs.prepare.outputs.publisher == 'gpu-collector' && needs.prepare.outputs.dry_run != 'true'
     needs: [prepare, bump]
     uses: ./.github/workflows/release-gpu-collector.yml
     permissions:
@@ -393,7 +396,7 @@ jobs:
 
   publish-openlit:
     name: Publish / OpenLIT
-    if: needs.prepare.outputs.publisher == 'openlit' && needs.prepare.outputs.dry_run != 'true'
+    if: always() && !cancelled() && needs.bump.result == 'success' && needs.prepare.outputs.publisher == 'openlit' && needs.prepare.outputs.dry_run != 'true'
     needs: [prepare, bump]
     uses: ./.github/workflows/release-openlit.yml
     permissions:
@@ -408,7 +411,7 @@ jobs:
 
   github-release:
     name: Publish / GitHub release
-    if: always() && !cancelled() && !failure() && needs.prepare.outputs.dry_run != 'true'
+    if: always() && !cancelled() && !failure() && needs.prepare.outputs.dry_run != 'true' && needs.bump.result == 'success'
     needs:
       - prepare
       - bump
@@ -420,9 +423,17 @@ jobs:
       - publish-gpu-collector
       - publish-openlit
     runs-on: ubuntu-24.04
+    environment: release
     permissions:
       contents: write
     steps:
+      - name: Create release App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
       - uses: actions/download-artifact@v8
         with:
           name: release-preparation
@@ -438,13 +449,15 @@ jobs:
 
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           RELEASE_TITLE: ${{ needs.prepare.outputs.release_title }}
+          RELEASE_SHA: ${{ needs.bump.outputs.release_sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           gh release create "$RELEASE_TAG" \
             --repo "$REPOSITORY" \
+            --target "$RELEASE_SHA" \
             --title "$RELEASE_TITLE" \
             --notes-file release-output/release-notes.md
           if [ -d release-assets ] && find release-assets -type f -print -quit | grep -q .; then
@@ -453,7 +466,7 @@ jobs:
 
   homebrew:
     name: Publish / Homebrew
-    if: needs.prepare.outputs.publisher == 'cli' && needs.prepare.outputs.dry_run != 'true'
+    if: always() && !cancelled() && needs.github-release.result == 'success' && needs.prepare.outputs.publisher == 'cli' && needs.prepare.outputs.dry_run != 'true'
     needs: [prepare, github-release]
     runs-on: ubuntu-24.04
     steps:

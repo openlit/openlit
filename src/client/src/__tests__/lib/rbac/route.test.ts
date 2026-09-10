@@ -106,6 +106,20 @@ describe("withDbConfigAccess", () => {
 		expect(handler).not.toHaveBeenCalled();
 	});
 
+	it("allows API key requests via middleware x-database-config-id without a session", async () => {
+		(getCurrentUser as jest.Mock).mockResolvedValue(null);
+		const wrapped = withDbConfigAccess(handler);
+
+		await wrapped(
+			jsonRequest({}, { "x-database-config-id": "api-key-db" }),
+			{}
+		);
+
+		expect(handler).toHaveBeenCalledTimes(1);
+		expect(getCurrentUser).not.toHaveBeenCalled();
+		expect(getDBConfigByIdForUser).not.toHaveBeenCalled();
+	});
+
 	it("returns 403 when no db config id and org has no current project", async () => {
 		(getCurrentUser as jest.Mock).mockResolvedValue({ id: "u1" });
 		(getCurrentOrganisation as jest.Mock).mockResolvedValue({ id: "org1" });
@@ -198,9 +212,9 @@ describe("withDbConfigAccess", () => {
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
 
-	it("extracts database config id from request header", async () => {
+	it("does not bind tenant from a client x-openlit-database-config-id header", async () => {
 		(getCurrentUser as jest.Mock).mockResolvedValue({ id: "u1" });
-		(getDBConfigByIdForUser as jest.Mock).mockResolvedValue({ id: "hdr-db" });
+		(getCurrentOrganisation as jest.Mock).mockResolvedValue(null);
 		const wrapped = withDbConfigAccess(handler);
 
 		await wrapped(
@@ -211,10 +225,7 @@ describe("withDbConfigAccess", () => {
 			{}
 		);
 
-		expect(getDBConfigByIdForUser).toHaveBeenCalledWith({
-			id: "hdr-db",
-			userId: "u1",
-		});
+		expect(getDBConfigByIdForUser).not.toHaveBeenCalled();
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
 

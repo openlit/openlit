@@ -25,6 +25,7 @@ describe("filter persistence helpers", () => {
 			services: "api",
 			tr: "7D",
 			gb: "serviceName",
+			gh: "truncated",
 			limit: "50",
 		});
 
@@ -36,6 +37,7 @@ describe("filter persistence helpers", () => {
 		expect(params.has("services")).toBe(false);
 		expect(params.has("tr")).toBe(false);
 		expect(params.has("gb")).toBe(false);
+		expect(params.has("gh")).toBe(false);
 		expect(params.has("limit")).toBe(false);
 	});
 });

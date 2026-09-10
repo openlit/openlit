@@ -571,6 +571,9 @@ class SemanticConvention:
     GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = (
         "gen_ai.usage.completion_tokens_details.reasoning_tokens"
     )
+    # OTel GenAI semconv (experimental): reasoning output tokens are a subset of
+    # gen_ai.usage.output_tokens and MUST NOT be added on top of it.
+    GEN_AI_USAGE_REASONING_OUTPUT_TOKENS = "gen_ai.usage.reasoning.output_tokens"
     GEN_AI_USAGE_REASONING_TOKENS = "gen_ai.usage.reasoning_tokens"
     GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ = (
         "gen_ai.usage.prompt_tokens_details.cached_tokens"
@@ -697,6 +700,9 @@ class SemanticConvention:
     # (system prompt + tools + primary model + sampling config). Stamped on
     # every chat span/event so the server can group traffic by version.
     OPENLIT_AGENT_VERSION_HASH = "openlit.agent.version_hash"
+
+    # Correlate CI / evidence packages with a Trace Governance Passport export.
+    OPENLIT_GOVERNANCE_REPORT_ID = "openlit.governance.report_id"
 
     GEN_AI_AGENT_TYPE = "gen_ai.agent.type"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"

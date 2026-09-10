@@ -74,7 +74,17 @@ export class AISdkAdapter {
 			baseURL: 'https://openai-proxy.replicate.com/v1',
 			apiKey
 		}),
+		minimax: (apiKey: string) => createOpenAI({
+			baseURL: 'https://api.minimax.io/v1',
+			apiKey
+		}),
 	};
+
+	private static readonly SUPPORTED_PROVIDERS = [
+		'openai', 'anthropic', 'google', 'mistral', 'cohere',
+		'groq', 'perplexity', 'azure', 'together', 'fireworks',
+		'deepseek', 'xai', 'huggingface', 'replicate', 'minimax',
+	];
 
 	/**
 	 * Get provider factory with strict validation
@@ -82,14 +92,7 @@ export class AISdkAdapter {
 	 */
 	private static getProviderFactory(providerId: string): ProviderFactory | null {
 		// Explicit allowlist of valid provider IDs
-		const validProviders = [
-			'openai', 'anthropic', 'google', 'mistral', 'cohere',
-			'groq', 'perplexity', 'azure', 'together', 'fireworks',
-			'deepseek', 'xai', 'huggingface', 'replicate'
-		];
-		
-		// Check against allowlist first
-		if (!validProviders.includes(providerId)) {
+		if (!this.SUPPORTED_PROVIDERS.includes(providerId)) {
 			return null;
 		}
 		
@@ -188,12 +191,7 @@ export class AISdkAdapter {
 	 * Get list of supported provider IDs
 	 */
 	static getSupportedProviders(): string[] {
-		// Return only allowlisted providers for security
-		return [
-			'openai', 'anthropic', 'google', 'mistral', 'cohere',
-			'groq', 'perplexity', 'azure', 'together', 'fireworks',
-			'deepseek', 'xai', 'huggingface', 'replicate'
-		];
+		return [...this.SUPPORTED_PROVIDERS];
 	}
 
 	/**

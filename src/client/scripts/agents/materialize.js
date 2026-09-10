@@ -20,6 +20,7 @@ async function tick() {
 	try {
 		const response = await fetch(`${API_URL}/api/agents/materialize`, {
 			method: "POST",
+			redirect: "manual",
 			headers: {
 				"Content-Type": "application/json",
 				// Matches the middleware cron-auth check: send the configured
@@ -30,6 +31,12 @@ async function tick() {
 			},
 			body: JSON.stringify({ cronId: CRON_ID }),
 		});
+
+		if (response.status >= 300 && response.status < 400) {
+			throw new Error(
+				`HTTP ${response.status} redirect to ${response.headers.get("location") || "?"}`
+			);
+		}
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);

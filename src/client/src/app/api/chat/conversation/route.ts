@@ -2,16 +2,16 @@ import {
 	getConversations,
 	createConversation,
 } from "@/lib/platform/chat/conversation";
-import { getCurrentUser } from "@/lib/session";
+import { resolveRequestAuth } from "@/helpers/server/auth";
 import { NextRequest } from "next/server";
 
-export async function GET() {
-	const user = await getCurrentUser();
-	if (!user) {
+export async function GET(request: NextRequest) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
-	const { data, err } = await getConversations();
+	const { data, err } = await getConversations(auth.databaseConfigId);
 
 	if (err) {
 		return Response.json(err, { status: 400 });
@@ -21,8 +21,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-	const user = await getCurrentUser();
-	if (!user) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
@@ -31,7 +31,9 @@ export async function POST(request: NextRequest) {
 	const { data, err } = await createConversation(
 		body.title || "",
 		body.provider || "",
-		body.model || ""
+		body.model || "",
+		undefined,
+		auth.databaseConfigId
 	);
 
 	if (err) {

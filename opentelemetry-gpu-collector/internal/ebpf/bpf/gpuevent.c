@@ -8,6 +8,13 @@
 #include "bpf_tracing.h"
 #include "gpuevent.h"
 
+// libbpf historically defined PT_REGS_PARM1..5 only. x86-64 SysV passes the
+// 6th integer/pointer argument in r9. Keep this behind ifndef so newer
+// bpf_tracing.h (which does define PARM6) wins.
+#if defined(__TARGET_ARCH_x86) && !defined(PT_REGS_PARM6)
+#define PT_REGS_PARM6(x) ((x)->r9)
+#endif
+
 char LICENSE[] SEC("license") = "Dual MIT/GPL";
 
 struct {
@@ -30,12 +37,36 @@ struct {
     __type(value, __s32);
 } cuda_set_device_cache SEC(".maps");
 
+// Last successful cudaSetDevice per thread (pid_tgid). Stamped onto later
+// events so userspace can attribute hw.id on multi-GPU hosts without waiting
+// for the SetDevice ringbuf event to be processed. Userspace drops keys for
+// dead PIDs so a reused pid_tgid cannot inherit the previous process's index.
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 65536);
+    __type(key, __u64);
+    __type(value, __s32);
+} cuda_current_device SEC(".maps");
+
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __uint(max_entries, 1024);
     __type(key, __u64);
     __type(value, __u64);
 } cuda_malloc_size_cache SEC(".maps");
+
+struct cuda_memcpy_args_t {
+    __u64 size;
+    __u8 kind;
+    __u8 pad[7];
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 1024);
+    __type(key, __u64);
+    __type(value, struct cuda_memcpy_args_t);
+} cuda_memcpy_cache SEC(".maps");
 
 // CUDA 13 lazily converts the ELF host-function pointer into an opaque
 // cudaKernel_t via __cudaGetKernel, then passes that handle to
@@ -144,6 +175,13 @@ static __always_inline void fill_header(struct cuda_event_header_t *hdr, __u8 ty
     hdr->pad1 = 0;
     hdr->stream_id = stream_id;
     hdr->ktime_ns = bpf_ktime_get_ns();
+
+    __s32 *cur = bpf_map_lookup_elem(&cuda_current_device, &pid_tgid);
+    if (cur) {
+        __s32 d = *cur;
+        if (d >= 0 && d < 0xffff)
+            hdr->device_idx = (__u16)d;
+    }
 }
 
 // cudaLaunchKernel(const void *func, dim3 gridDim, dim3 blockDim,
@@ -293,12 +331,45 @@ int handle_cuda_free(struct pt_regs *ctx) {
     return 0;
 }
 
-// Synchronous cudaMemcpy → treat completion as device-wide sync (Datadog parity).
+// Synchronous cudaMemcpy → copy bytes plus device-wide sync (Datadog parity
+// for occupancy). Size/kind come from the entry probe; if that missses we
+// still emit the sync so spans close.
+SEC("uprobe/cudaMemcpy")
+int handle_cuda_memcpy_enter(struct pt_regs *ctx) {
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    struct cuda_memcpy_args_t args = {};
+    args.size = PT_REGS_PARM3(ctx);
+    args.kind = (__u8)PT_REGS_PARM4(ctx);
+    bpf_map_update_elem(&cuda_memcpy_cache, &pid_tgid, &args, BPF_ANY);
+    return 0;
+}
+
 SEC("uretprobe/cudaMemcpy")
 int handle_cuda_memcpy(struct pt_regs *ctx) {
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    struct cuda_memcpy_args_t *argp = bpf_map_lookup_elem(&cuda_memcpy_cache, &pid_tgid);
+    struct cuda_memcpy_args_t local = {};
+    int have_args = 0;
+    if (argp) {
+        local = *argp;
+        have_args = 1;
+        bpf_map_delete_elem(&cuda_memcpy_cache, &pid_tgid);
+    }
+
     long ret = (long)PT_REGS_RC(ctx);
     if (ret != 0)
         return 0;
+
+    if (have_args) {
+        struct gpu_memcpy_t *cp;
+        cp = bpf_ringbuf_reserve(&gpu_events, sizeof(*cp), 0);
+        if (cp) {
+            fill_header(&cp->hdr, EVENT_GPU_MEMCPY, 0);
+            cp->size = local.size;
+            cp->kind = local.kind;
+            bpf_ringbuf_submit(cp, 0);
+        }
+    }
 
     struct gpu_sync_t *ev;
     ev = bpf_ringbuf_reserve(&gpu_events, sizeof(*ev), 0);
@@ -408,6 +479,7 @@ int handle_cuda_set_device(struct pt_regs *ctx) {
     ev->hdr.device_idx = (__u16)device;
     ev->device = device;
     ev->pad = 0;
+    bpf_map_update_elem(&cuda_current_device, &pid_tgid, &device, BPF_ANY);
     bpf_ringbuf_submit(ev, 0);
     return 0;
 }

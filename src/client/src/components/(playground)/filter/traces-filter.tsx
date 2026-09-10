@@ -42,6 +42,8 @@ import {
 	getFilterStorageKey,
 } from "@/helpers/client/filter-persistence";
 import type { Signal } from "@/utils/hooks/useSignalCapabilities";
+import { GENERATION_HEALTH_CHIPS, parseGenerationHealthChips } from "@/lib/platform/generation-health/classify";
+import { generationHealthChipLabel } from "@/lib/platform/generation-health/format";
 
 const m = getMessage();
 
@@ -166,6 +168,8 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	params.delete("metricTypes");
 	// remove all existing cf entries
 	params.delete("cf");
+	params.delete("gh");
+	params.delete("al");
 
 	if (config.models?.length) params.set("models", config.models.join(","));
 	if (config.providers?.length) params.set("providers", config.providers.join(","));
@@ -183,6 +187,10 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 			params.append("cf", [attributeType, key, value].join(CF_SEP));
 		}
 	});
+	if (config.generationHealth?.length) {
+		params.set("gh", config.generationHealth.join(","));
+	}
+	if (config.agentLoop) params.set("al", "1");
 }
 
 function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
@@ -220,6 +228,11 @@ function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
 			};
 		}).filter((f) => f.key && f.value);
 	}
+	const gh = params.get("gh");
+	if (gh) {
+		config.generationHealth = parseGenerationHealthChips(gh.split(","));
+	}
+	if (params.get("al") === "1") config.agentLoop = true;
 	return config;
 }
 
@@ -293,6 +306,7 @@ const DynamicFilters = ({
 			case "severities":
 			case "metricNames":
 			case "metricTypes":
+			case "generationHealth":
 				if (operationType === "add") {
 					setSelectedFilterValues((s) => {
 						const typeArray = s[type] || [];
@@ -515,6 +529,19 @@ const DynamicFilters = ({
 							type="providers"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.providers}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{pageName === "request" ? (
+						<ComboDropdown
+							options={GENERATION_HEALTH_CHIPS.map((chip) => ({
+								label: generationHealthChipLabel(chip),
+								value: chip,
+							}))}
+							title={m.GENERATION_HEALTH_CHIP_GROUP}
+							type="generationHealth"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.generationHealth}
 							clearItem={clearFilter}
 						/>
 					) : null}
@@ -1241,6 +1268,8 @@ export default function TracesFilter({
 			}
 			if (typeof filter.selectedConfig[key] === "number") {
 				return (filter.selectedConfig[key] as number) > 0;
+			} else if (typeof filter.selectedConfig[key] === "boolean") {
+				return Boolean(filter.selectedConfig[key]);
 			} else if (
 				typeof filter.selectedConfig[key] === "object" &&
 				(filter.selectedConfig[key] as string[]).length

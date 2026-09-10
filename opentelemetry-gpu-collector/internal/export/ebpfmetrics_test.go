@@ -2,6 +2,7 @@ package export
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -21,14 +22,15 @@ func TestGraphLaunchDoesNotIncrementKernelCalls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer em.Close()
 
 	kernel := &gpuebpf.KernelLaunchEvent{KernelName: "vector_add", GridX: 2, GridY: 1, GridZ: 1, BlockX: 32, BlockY: 1, BlockZ: 1}
-	kernel.PID = 42
+	kernel.PID = uint32(os.Getpid())
 	kernel.TID = 43
 	em.HandleEvent(kernel)
 
 	graph := &gpuebpf.GraphLaunchEvent{}
-	graph.PID = 42
+	graph.PID = uint32(os.Getpid())
 	graph.TID = 43
 	em.HandleEvent(graph)
 
@@ -85,7 +87,7 @@ func TestDeviceAttrsSoleGPU(t *testing.T) {
 		&mockDevice{info: gpu.DeviceInfo{Vendor: gpu.VendorNVIDIA, UUID: "gpu-a", Index: 0, Name: "A100", PCIAddress: "0000:01:00.0"}},
 	}
 	em := &EBPFMetrics{devices: cudaspans.NewDeviceResolver(devs)}
-	attrs := em.deviceAttrs(1, 2)
+	attrs := em.deviceAttrs(1, 2, -1, "")
 	if len(attrs) < 2 {
 		t.Fatalf("expected sole-GPU attrs, got %#v", attrs)
 	}
@@ -104,18 +106,23 @@ func TestDeviceAttrsSoleGPU(t *testing.T) {
 	}
 }
 
-func TestDeviceAttrsMultiGPUNeedsSetDevice(t *testing.T) {
+func TestDeviceAttrsMultiGPUDefaultsToCUDAZero(t *testing.T) {
 	devs := []gpu.Device{
 		&mockDevice{info: gpu.DeviceInfo{Vendor: gpu.VendorNVIDIA, UUID: "gpu-a", Index: 0, Name: "A100"}},
 		&mockDevice{info: gpu.DeviceInfo{Vendor: gpu.VendorNVIDIA, UUID: "gpu-b", Index: 1, Name: "A100"}},
 	}
 	em := &EBPFMetrics{devices: cudaspans.NewDeviceResolver(devs)}
-	if attrs := em.deviceAttrs(1, 2); len(attrs) != 0 {
-		t.Fatalf("expected no attrs before SetDevice, got %#v", attrs)
+	attrs := em.deviceAttrs(1, 2, -1, "")
+	m := map[string]string{}
+	for _, a := range attrs {
+		m[string(a.Key)] = a.Value.Emit()
+	}
+	if m["hw.id"] != "gpu-a" {
+		t.Fatalf("hw.id = %q, want gpu-a (CUDA default device 0)", m["hw.id"])
 	}
 	em.devices.NoteSetDevice(1, 2, 1)
-	attrs := em.deviceAttrs(1, 2)
-	m := map[string]string{}
+	attrs = em.deviceAttrs(1, 2, -1, "")
+	m = map[string]string{}
 	for _, a := range attrs {
 		m[string(a.Key)] = a.Value.Emit()
 	}
@@ -127,14 +134,135 @@ func TestDeviceAttrsMultiGPUNeedsSetDevice(t *testing.T) {
 	}
 }
 
+func TestDeadPIDCountersStopExporting(t *testing.T) {
+	reader := metric.NewManualReader()
+	provider := metric.NewMeterProvider(metric.WithReader(reader))
+	defer func() { _ = provider.Shutdown(context.Background()) }()
+
+	em, err := NewEBPFMetrics(provider, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer em.Close()
+	em.pidAlive = func(pid uint32) bool { return pid == 1 }
+
+	live := &gpuebpf.KernelLaunchEvent{KernelName: "live"}
+	live.PID = 1
+	em.HandleEvent(live)
+	dead := &gpuebpf.KernelLaunchEvent{KernelName: "dead"}
+	dead.PID = 2
+	em.HandleEvent(dead)
+
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &rm); err != nil {
+		t.Fatal(err)
+	}
+	var pids []string
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != "gpu.kernel.launch.calls" {
+				continue
+			}
+			sum := m.Data.(metricdata.Sum[int64])
+			for _, dp := range sum.DataPoints {
+				v, _ := dp.Attributes.Value("process.pid")
+				pids = append(pids, v.AsString())
+			}
+		}
+	}
+	if len(pids) != 1 || pids[0] != "1" {
+		t.Fatalf("exported pids = %v, want [1]", pids)
+	}
+	if n := sumInt64Counter(t, rm, "gpu.kernel.launch.calls"); n != 1 {
+		t.Fatalf("calls = %d, want 1", n)
+	}
+}
+
+func TestDeviceAttrsPrefersEventDeviceIndex(t *testing.T) {
+	devs := []gpu.Device{
+		&mockDevice{info: gpu.DeviceInfo{Vendor: gpu.VendorNVIDIA, UUID: "gpu-a", Index: 0, Name: "A100"}},
+		&mockDevice{info: gpu.DeviceInfo{Vendor: gpu.VendorNVIDIA, UUID: "gpu-b", Index: 1, Name: "A100"}},
+	}
+	em := &EBPFMetrics{devices: cudaspans.NewDeviceResolver(devs)}
+	attrs := em.deviceAttrs(1, 2, 1, "")
+	m := map[string]string{}
+	for _, a := range attrs {
+		m[string(a.Key)] = a.Value.Emit()
+	}
+	if m["hw.id"] != "gpu-b" {
+		t.Fatalf("hw.id = %q, want gpu-b from event DeviceIdx", m["hw.id"])
+	}
+}
+
+func TestDeviceAttrsPrefersSpanUUID(t *testing.T) {
+	devs := []gpu.Device{
+		&mockDevice{info: gpu.DeviceInfo{Vendor: gpu.VendorNVIDIA, UUID: "gpu-a", Index: 0}},
+		&mockDevice{info: gpu.DeviceInfo{Vendor: gpu.VendorNVIDIA, UUID: "gpu-b", Index: 1}},
+	}
+	em := &EBPFMetrics{devices: cudaspans.NewDeviceResolver(devs)}
+	attrs := em.deviceAttrs(1, 2, 0, "gpu-b")
+	m := map[string]string{}
+	for _, a := range attrs {
+		m[string(a.Key)] = a.Value.Emit()
+	}
+	if m["hw.id"] != "gpu-b" {
+		t.Fatalf("hw.id = %q, want gpu-b from span UUID", m["hw.id"])
+	}
+}
+
 func TestDeviceAttrsIgnoresUnknownIndex(t *testing.T) {
 	devs := []gpu.Device{
 		&mockDevice{info: gpu.DeviceInfo{Vendor: gpu.VendorNVIDIA, UUID: "gpu-a", Index: 0}},
 	}
 	em := &EBPFMetrics{devices: cudaspans.NewDeviceResolver(devs)}
 	em.devices.NoteSetDevice(1, 2, 9) // unknown CUDA index — ignored
-	attrs := em.deviceAttrs(1, 2)
+	attrs := em.deviceAttrs(1, 2, -1, "")
 	if len(attrs) == 0 {
 		t.Fatal("sole GPU should still attribute")
+	}
+}
+
+func TestLaunchCounterUsesEventDeviceIndex(t *testing.T) {
+	reader := metric.NewManualReader()
+	provider := metric.NewMeterProvider(metric.WithReader(reader))
+	defer func() { _ = provider.Shutdown(context.Background()) }()
+
+	devs := []gpu.Device{
+		&mockDevice{info: gpu.DeviceInfo{Vendor: gpu.VendorNVIDIA, UUID: "gpu-a", Index: 0, Name: "A100"}},
+		&mockDevice{info: gpu.DeviceInfo{Vendor: gpu.VendorNVIDIA, UUID: "gpu-b", Index: 1, Name: "A100"}},
+	}
+	em, err := NewEBPFMetrics(provider, cudaspans.NewDeviceResolver(devs), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer em.Close()
+
+	kernel := &gpuebpf.KernelLaunchEvent{KernelName: "matmul"}
+	kernel.PID = uint32(os.Getpid())
+	kernel.DeviceIdx = 1
+	em.HandleEvent(kernel)
+
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &rm); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != "gpu.kernel.launch.calls" {
+				continue
+			}
+			sum := m.Data.(metricdata.Sum[int64])
+			for _, dp := range sum.DataPoints {
+				id, _ := dp.Attributes.Value("hw.id")
+				if id.AsString() != "gpu-b" {
+					t.Fatalf("hw.id = %q, want gpu-b", id.AsString())
+				}
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatal("gpu.kernel.launch.calls missing hw.id")
 	}
 }

@@ -15,10 +15,14 @@ import {
 	getControllerIdsForWorkload,
 	getControllerConfig,
 	saveControllerConfig,
+	getFeatureDesiredStates,
 	updateDesiredStatus,
+	getEnvironmentFeatureConfigs,
+	saveEnvironmentFeatureConfig,
 	queueAction,
 	getPendingActions,
 	markActionsAcknowledged,
+	getActionsByIds,
 	completeAction,
 } from "@/lib/platform/controller";
 
@@ -87,6 +91,71 @@ describe("getDesiredStatesForWorkloads", () => {
 		const call = mockedDataCollector.mock.calls[0];
 		expect((call[0] as any).query).toContain("wk-1");
 		expect((call[0] as any).query).toContain("wk-2");
+	});
+
+	it("propagates an error from the underlying query", async () => {
+		mockedDataCollector.mockResolvedValue({ err: "boom" } as any);
+		const result = await getDesiredStatesForWorkloads(["wk-1"], "default", "db-1");
+		expect(result).toEqual({ err: "boom" });
+	});
+
+	it("pivots feature rows into instrumentation/agent columns per workload", async () => {
+		mockedDataCollector.mockResolvedValue({
+			data: [
+				{ workload_key: "wk-1", feature: "instrumentation", desired_status: "instrumented" },
+				{ workload_key: "wk-1", feature: "agent", desired_status: "enabled" },
+				{ workload_key: "wk-2", feature: "unrelated-feature", desired_status: "x" },
+			],
+		} as any);
+
+		const result = await getDesiredStatesForWorkloads(["wk-1", "wk-2"], "default", "db-1");
+		expect(result.data).toEqual(
+			expect.arrayContaining([
+				{
+					workload_key: "wk-1",
+					desired_instrumentation_status: "instrumented",
+					desired_agent_status: "enabled",
+				},
+				{
+					workload_key: "wk-2",
+					desired_instrumentation_status: "none",
+					desired_agent_status: "none",
+				},
+			])
+		);
+	});
+
+	it("defaults to an empty result set when no data rows are returned", async () => {
+		mockedDataCollector.mockResolvedValue({} as any);
+		const result = await getDesiredStatesForWorkloads(["wk-1"], "default", "db-1");
+		expect(result).toEqual({ data: [] });
+	});
+});
+
+describe("getFeatureDesiredStates", () => {
+	it("returns empty array for empty workload keys", async () => {
+		const result = await getFeatureDesiredStates([], "default", undefined, "db-1");
+		expect(result).toEqual({ data: [] });
+		expect(mockedDataCollector).not.toHaveBeenCalled();
+	});
+
+	it("omits the feature filter when no features are provided", async () => {
+		mockedDataCollector.mockResolvedValue({ data: [] } as any);
+		await getFeatureDesiredStates(["wk-1"], "default", undefined, "db-1");
+		const q = (mockedDataCollector.mock.calls[0][0] as any).query;
+		expect(q).not.toContain("AND feature IN");
+	});
+
+	it("adds a feature filter when features are provided", async () => {
+		mockedDataCollector.mockResolvedValue({ data: [] } as any);
+		await getFeatureDesiredStates(
+			["wk-1"],
+			"default",
+			["instrumentation", "agent"],
+			"db-1"
+		);
+		const q = (mockedDataCollector.mock.calls[0][0] as any).query;
+		expect(q).toContain("AND feature IN ('instrumentation','agent')");
 	});
 });
 
@@ -240,6 +309,59 @@ describe("updateDesiredStatus", () => {
 		);
 		expect(features).toContain("instrumentation");
 		expect(features).toContain("agent");
+	});
+});
+
+describe("getEnvironmentFeatureConfigs", () => {
+	it("omits the feature filter when no features are provided", async () => {
+		mockedDataCollector.mockResolvedValue({ data: [] } as any);
+		await getEnvironmentFeatureConfigs("prod", "cluster-1", undefined, "db-1");
+		const q = (mockedDataCollector.mock.calls[0][0] as any).query;
+		expect(q).not.toContain("AND feature IN");
+	});
+
+	it("adds a feature filter when features are provided", async () => {
+		mockedDataCollector.mockResolvedValue({ data: [] } as any);
+		await getEnvironmentFeatureConfigs("prod", "cluster-1", ["agent"], "db-1");
+		const q = (mockedDataCollector.mock.calls[0][0] as any).query;
+		expect(q).toContain("AND feature IN ('agent')");
+		expect(q).toContain("prod");
+		expect(q).toContain("cluster-1");
+	});
+});
+
+describe("saveEnvironmentFeatureConfig", () => {
+	it("inserts an environment feature config row", async () => {
+		mockedDataCollector.mockResolvedValue({ data: "ok" } as any);
+		await saveEnvironmentFeatureConfig("prod", "cluster-1", "agent", "{}", "db-1");
+		const [args, action, dbId] = mockedDataCollector.mock.calls[0];
+		expect((args as any).values[0]).toEqual(
+			expect.objectContaining({
+				environment: "prod",
+				cluster_id: "cluster-1",
+				feature: "agent",
+				config: "{}",
+			})
+		);
+		expect(action).toBe("insert");
+		expect(dbId).toBe("db-1");
+	});
+});
+
+describe("getActionsByIds", () => {
+	it("returns an empty array for an empty id list", async () => {
+		const result = await getActionsByIds([], "ctrl-1", "db-1");
+		expect(result).toEqual({ data: [] });
+		expect(mockedDataCollector).not.toHaveBeenCalled();
+	});
+
+	it("queries actions filtered by ids and instance id", async () => {
+		mockedDataCollector.mockResolvedValue({ data: [] } as any);
+		await getActionsByIds(["act-1", "act-2"], "ctrl-1", "db-1");
+		const q = (mockedDataCollector.mock.calls[0][0] as any).query;
+		expect(q).toContain("act-1");
+		expect(q).toContain("act-2");
+		expect(q).toContain("ctrl-1");
 	});
 });
 

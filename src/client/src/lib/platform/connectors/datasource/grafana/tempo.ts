@@ -59,6 +59,16 @@ import {
 } from "../l1-compute";
 import { bucketSpansByInterval } from "../graph/sample-aggregate";
 import { clampQueryToSource } from "../http/limits";
+import {
+	GENERATION_HEALTH_SAMPLE_MAX,
+	GENERATION_HEALTH_SAMPLE_TRACES,
+	firstSpanMatchingGenerationHealth,
+	spanMatchesAnyGenerationHealthChip,
+} from "@/lib/platform/generation-health/classify";
+import {
+	listedSpansMatchingAgentLoop,
+	loopHitsByTraceId,
+} from "@/lib/platform/agent-loop/classify";
 
 const TTL_MS = 30_000;
 const MAX_TRACE_FETCH = 200;
@@ -347,6 +357,65 @@ function pickRootSpan(spans: NormalizedSpan[]): NormalizedSpan | undefined {
 		spans.find((s) => !s.parentSpanId || s.parentSpanId === "0".repeat(16)) ||
 		spans[0]
 	);
+}
+
+function groupSpansByTrace(
+	spans: NormalizedSpan[]
+): Map<string, NormalizedSpan[]> {
+	const grouped = new Map<string, NormalizedSpan[]>();
+	for (const span of spans) {
+		const id = String(span.traceId || "").trim();
+		if (!id) continue;
+		const group = grouped.get(id);
+		if (group) group.push(span);
+		else grouped.set(id, [span]);
+	}
+	return grouped;
+}
+
+function traceMatchesIssueQuery(
+	spans: NormalizedSpan[],
+	query: OpenLITQuery
+): boolean {
+	if (query.generationHealth?.length) {
+		const anyMatch = spans.some((span) =>
+			spanMatchesAnyGenerationHealthChip(
+				{
+					...span.resourceAttributes,
+					...span.spanAttributes,
+				},
+				query.generationHealth
+			)
+		);
+		if (!anyMatch) return false;
+	}
+	if (query.agentLoop) {
+		const traceId = String(spans[0]?.traceId || "").trim();
+		if (!traceId || !loopHitsByTraceId(spans).has(traceId)) return false;
+	}
+	return true;
+}
+
+function listedRowsForIssueQuery(
+	spans: NormalizedSpan[],
+	query: OpenLITQuery
+): NormalizedSpan[] {
+	const rows: NormalizedSpan[] = [];
+	for (const tree of Array.from(groupSpansByTrace(spans).values())) {
+		if (!traceMatchesIssueQuery(tree, query)) continue;
+		let listed: NormalizedSpan | undefined;
+		if (query.agentLoop) {
+			listed = listedSpansMatchingAgentLoop(tree, true)[0];
+		}
+		if (!listed && query.generationHealth?.length) {
+			listed = firstSpanMatchingGenerationHealth(tree, query.generationHealth);
+		}
+		if (!listed) listed = pickRootSpan(tree) || tree[0];
+		if (!listed) continue;
+		const hit = loopHitsByTraceId(tree).get(listed.traceId);
+		rows.push(hit ? { ...listed, agentLoop: hit } : listed);
+	}
+	return rows;
 }
 
 function traceqlValue(v: string): string {
@@ -1090,9 +1159,19 @@ export class TempoAdapter extends BaseExternalAdapter {
 		// Keep a reserve of candidates so an oversized/deleted trace does not
 		// collapse the list. Grafana Cloud can return a valid search hit whose
 		// full OTLP payload exceeds its per-trace response limit (HTTP 422).
+		// Issue chips also need extra candidates: TraceQL search is not
+		// pre-filtered, so we download more trees and keep only matches.
+		const issueQuery = Boolean(
+			query.generationHealth?.length || query.agentLoop
+		);
 		const candidateLimit = Math.min(
-			MAX_TRACE_FETCH,
-			Math.max(maxTraces, maxTraces * 2)
+			Math.max(
+				MAX_TRACE_FETCH,
+				issueQuery
+					? Math.max(maxTraces * 2, GENERATION_HEALTH_SAMPLE_TRACES)
+					: maxTraces * 2
+			),
+			GENERATION_HEALTH_SAMPLE_MAX
 		);
 		const ids = await this.searchTraceIds(query, candidateLimit);
 		const perTrace = await mapPool(
@@ -1108,13 +1187,38 @@ export class TempoAdapter extends BaseExternalAdapter {
 				}
 			}
 		);
-		return perTrace.filter((spans) => spans.length > 0).slice(0, maxTraces).flat();
+		const trees = perTrace.filter((spans) => {
+			if (!spans.length) return false;
+			return !issueQuery || traceMatchesIssueQuery(spans, query);
+		});
+		return trees.slice(0, maxTraces).flat();
 	}
 
 	async listSpans(query: OpenLITQuery): Promise<DataFrame<NormalizedSpan>> {
 		const start = Date.now();
 		const pageSize = Math.min(query.limit || 20, MAX_TRACE_FETCH);
 		const offset = Math.max(0, query.offset || 0);
+		if (query.generationHealth?.length || query.agentLoop) {
+			const budget = Math.max(
+				offset + pageSize,
+				GENERATION_HEALTH_SAMPLE_TRACES
+			);
+			const spans = await this.fetchSampledSpans(
+				query,
+				Math.min(budget, GENERATION_HEALTH_SAMPLE_MAX)
+			);
+			const rows = listedRowsForIssueQuery(spans, query);
+			const page = rows.slice(offset, offset + pageSize);
+			return {
+				fields: [],
+				rows: page,
+				meta: {
+					latencyMs: Date.now() - start,
+					truncated: rows.length >= offset + pageSize,
+					degraded: ["serverAggregation"],
+				},
+			};
+		}
 		// Prefer TraceQL search summaries for the Telemetry list (one row per
 		// trace). Full OTLP downloads are reserved for detail / graph sample
 		// paths — Explore also only loads a full tree on click.
@@ -1155,7 +1259,10 @@ export class TempoAdapter extends BaseExternalAdapter {
 		// Stratification (multi-service fan-out) lives in shared
 		// `fetchSpansForAggregation` so all L1 backends benefit. Per-service
 		// calls land here with a single service.name filter.
-		return this.fetchSampledSpans(query, Math.min(maxTraces, MAX_TRACE_FETCH));
+		return this.fetchSampledSpans(
+			query,
+			Math.min(maxTraces, GENERATION_HEALTH_SAMPLE_MAX)
+		);
 	}
 
 	/**

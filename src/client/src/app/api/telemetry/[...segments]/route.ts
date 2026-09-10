@@ -26,6 +26,8 @@ async function post(request: Request, context: RouteContext, path: string): Prom
 		"llm/model/top": () => import("@/app/api/metrics/llm/model/top/route"),
 		"llm/token/time": () => import("@/app/api/metrics/llm/token/time/route"),
 		"llm/token/request/average": () => import("@/app/api/metrics/llm/token/request/average/route"),
+		"llm/generation-health": () => import("@/app/api/metrics/llm/generation-health/route"),
+		"llm/agent-loop": () => import("@/app/api/metrics/llm/agent-loop/route"),
 		"vector/application": () => import("@/app/api/metrics/vector/application/route"),
 		"vector/environment": () => import("@/app/api/metrics/vector/environment/route"),
 		"vector/operation": () => import("@/app/api/metrics/vector/operation/route"),
@@ -53,6 +55,22 @@ async function GETHandler(request: NextRequest, context: RouteContext) {
 	const segments = context.params.segments;
 	if (segments.length === 4 && segments[0] === "request" && segments[1] === "span" && segments[3] === "heirarchy") {
 		const handler = (await import("@/app/api/metrics/request/span/[id]/heirarchy/route")).GET;
+		return handler(request, { params: { id: segments[2] } });
+	}
+	if (segments.length === 4 && segments[0] === "request" && segments[1] === "span" && segments[3] === "governance") {
+		const handler = (await import("@/app/api/metrics/request/span/[id]/governance/route")).GET;
+		return handler(request, { params: { id: segments[2] } });
+	}
+	if (
+		segments.length === 5 &&
+		segments[0] === "request" &&
+		segments[1] === "span" &&
+		segments[3] === "governance" &&
+		segments[4] === "export"
+	) {
+		const handler = (
+			await import("@/app/api/metrics/request/span/[id]/governance/export/route")
+		).GET;
 		return handler(request, { params: { id: segments[2] } });
 	}
 	if (segments.length === 3 && segments[0] === "request" && segments[1] === "span") {
