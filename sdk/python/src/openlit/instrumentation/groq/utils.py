@@ -287,6 +287,27 @@ def process_chunk(scope, chunk):
             scope._llmresponse += content
         append_scope_reasoning(scope, extract_reasoning_content(delta, "reasoning"))
 
+        delta_tools = delta.get("tool_calls")
+        if delta_tools:
+            scope._tools = scope._tools or []
+            for tool in delta_tools:
+                index = tool.get("index", 0)
+                scope._tools.extend([{}] * (index + 1 - len(scope._tools)))
+                function = tool.get("function", {})
+                if tool.get("id"):
+                    scope._tools[index] = {
+                        "id": tool["id"],
+                        "function": {
+                            "name": function.get("name", ""),
+                            "arguments": function.get("arguments", ""),
+                        },
+                        "type": tool.get("type", "function"),
+                    }
+                elif scope._tools[index] and "function" in tool:
+                    scope._tools[index]["function"]["arguments"] += function.get(
+                        "arguments", ""
+                    )
+
     if chunked.get("x_groq") is not None:
         if chunked.get("x_groq").get("usage") is not None:
             # Handle token usage including reasoning tokens and cached tokens
