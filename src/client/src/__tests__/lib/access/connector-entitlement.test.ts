@@ -11,6 +11,18 @@ describe("CE connector entitlement fallback", () => {
 		await expect(
 			assertPremiumConnectorAllowed("tempo")
 		).resolves.toBeUndefined();
+		await expect(
+			assertPremiumConnectorAllowed("mimir")
+		).resolves.toBeUndefined();
+		await expect(
+			assertPremiumConnectorAllowed("victoriametrics")
+		).resolves.toBeUndefined();
+		await expect(
+			assertPremiumConnectorAllowed("victorialogs")
+		).resolves.toBeUndefined();
+		await expect(
+			assertPremiumConnectorAllowed("victoriatraces")
+		).resolves.toBeUndefined();
 	});
 
 	it("returns an unlocked catalog with no premium types", async () => {

@@ -5,7 +5,7 @@ description: 'Connect OpenLIT to ClickHouse and OpenPlait-backed observability b
 icon: 'database'
 ---
 
-**Data-source connectors** attach OpenLIT to observability backends for reading traces, logs, and metrics. Each connector is atomic: one Tempo instance, one Loki instance, one Prometheus endpoint.
+**Data-source connectors** attach OpenLIT to observability backends for reading traces, logs, and metrics. Each connector is atomic: one Tempo instance, one Loki instance, one Prometheus, Mimir, or VictoriaMetrics endpoint, one VictoriaLogs instance, one VictoriaTraces instance.
 
 Configure them from **Configuration → Connectors** (`/connectors`) or manage bindings from **Organisation → Project → Connectors**. Select the correct [project](/latest/openlit/organisation/projects) and [environment](/latest/openlit/organisation/environments) before adding or binding connectors.
 
@@ -40,7 +40,7 @@ flowchart LR
 
 ## Supported connectors (OpenLIT + OpenPlait)
 
-These are the data-source connectors available in open-source OpenLIT. OpenPlait packages power the portable query adapters for ClickHouse, Tempo, Loki, Prometheus, and Jaeger.
+These are the data-source connectors available in open-source OpenLIT. OpenPlait packages power the portable query adapters for ClickHouse, Tempo, Loki, Prometheus-compatible metrics, and Jaeger.
 
 ### Built-in app store
 
@@ -54,12 +54,12 @@ These are the data-source connectors available in open-source OpenLIT. OpenPlait
 | --- | --- | --- | --- |
 | **Grafana Tempo** | `@openplait/adapter-tempo` | traces | TraceQL search, trace tree, span events |
 | **Grafana Loki** | `@openplait/adapter-loki` | logs | LogQL logs; correlate by trace id / service |
-| **Prometheus** | `@openplait/adapter-prometheus` | metrics | PromQL HTTP API (also works with Prometheus-compatible endpoints such as Mimir when you point at their query URL) |
+| **Prometheus** | `@openplait/adapter-prometheus` | metrics | PromQL HTTP API |
+| **Grafana Mimir** | `@openplait/adapter-prometheus` | metrics | PromQL HTTP API with Grafana Cloud Basic auth and `X-Scope-OrgID` |
+| **VictoriaMetrics** | `@openplait/adapter-prometheus` | metrics | PromQL HTTP API with Victoria `AccountID` / `ProjectID` headers |
+| **VictoriaLogs** | `@openplait/adapter-victorialogs` | logs | LogsQL over `/select/logsql/*`; correlate by trace id / service |
+| **VictoriaTraces** | `@openplait/adapter-jaeger` | traces | Jaeger Query API at `/select/jaeger`; correlate by trace / span / service |
 | **Jaeger** | `@openplait/adapter-jaeger` | traces | Jaeger Query HTTP API; sampled in-process aggregates |
-
-<Tip>
-Prometheus-compatible APIs (for example Grafana Mimir's PromQL endpoint) use the **Prometheus** connector — there is no separate Mimir connector type in open-source OpenLIT.
-</Tip>
 
 ## Capability matrix
 
@@ -69,6 +69,10 @@ Prometheus-compatible APIs (for example Grafana Mimir's PromQL endpoint) use the
 | Tempo | traces | Yes | Yes | No* | No | trace / span / service |
 | Loki | logs | — | — | No | No | trace id, service |
 | Prometheus | metrics | — | — | Yes | No | — |
+| Mimir | metrics | — | — | Yes | No | — |
+| VictoriaMetrics | metrics | — | — | Yes | No | — |
+| VictoriaLogs | logs | — | — | Yes | No | trace id, span id, service |
+| VictoriaTraces | traces | Yes | Yes | No* | No | trace / span / service |
 | Jaeger | traces | Yes | Yes | No* | No | trace / span / service |
 
 \* Aggregate graphs are reconstructed in-process from a bounded sample of full traces when the backend cannot aggregate server-side.
@@ -132,8 +136,9 @@ Backends hold all telemetry — not only AI. OpenLIT applies a layered **AI sele
 
 | Backend | Typical auth |
 | --- | --- |
-| **Grafana Cloud** (Tempo / Loki) | Basic: instance ID + access policy token (`traces:read` / `logs:read`). Use **query** URLs from the Cloud Portal. |
+| **Grafana Cloud** (Tempo / Loki / Mimir) | Basic: instance ID + access policy token (`traces:read` / `logs:read` / `metrics:read`). Use **query** URLs from the Cloud Portal. |
 | **Self-hosted Tempo / Loki / Prometheus / Jaeger** | None, Basic, or Bearer; optional tenant / `X-Scope-OrgID` |
+| **VictoriaMetrics / VictoriaLogs / VictoriaTraces** | None, Basic, or Bearer; optional `AccountID` and `ProjectID` headers |
 | **ClickHouse** | Username / password on the Database Config |
 
 ## Security and reliability

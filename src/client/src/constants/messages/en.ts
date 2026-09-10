@@ -2739,6 +2739,26 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		steps: ["Enter the Jaeger Query Service URL, commonly port 16686.", "Use the configured Basic/Bearer credentials if the query service is protected.", "Ensure the OpenLIT server can reach the query service over the network."],
 		docsUrl: "https://www.jaegertracing.io/docs/1.24/apis/",
 	},
+	mimir: {
+		summary: "Grafana Mimir exposes a Prometheus-compatible PromQL query API.",
+		steps: ["Enter the Mimir query URL. Grafana Cloud usually looks like https://prometheus-prod-xx.grafana.net/api/prom.", "For Grafana Cloud, use the Prometheus instance ID as Username and an access policy token with metrics:read as Password.", "For self-hosted Mimir, set Tenant / Org ID so OpenLIT sends X-Scope-OrgID, then test the connection."],
+		docsUrl: "https://grafana.com/docs/mimir/latest/",
+	},
+	victoriametrics: {
+		summary: "VictoriaMetrics exposes a Prometheus-compatible PromQL query API.",
+		steps: ["Enter the VictoriaMetrics query URL, commonly http://localhost:8428 for single-node.", "Optionally set Tenant / Org ID (AccountID) and Project ID for multi-tenant clusters.", "Use Basic or Bearer credentials if the query API is protected, then test the connection."],
+		docsUrl: "https://docs.victoriametrics.com/victoriametrics/single-server-victoriametrics/#prometheus-querying-api-usage",
+	},
+	victorialogs: {
+		summary: "VictoriaLogs is queried with LogsQL over HTTP, not Loki LogQL.",
+		steps: ["Enter the VictoriaLogs URL, commonly http://localhost:9428.", "Optionally set Tenant / Org ID (AccountID) and Project ID headers for multi-tenant installs.", "Bind the logs signal to this connector after a successful health check."],
+		docsUrl: "https://docs.victoriametrics.com/victorialogs/querying/",
+	},
+	victoriatraces: {
+		summary: "VictoriaTraces exposes a Jaeger Query API for trace search and detail.",
+		steps: ["Enter the VictoriaTraces HTTP URL, commonly http://localhost:10428. OpenLIT appends /select/jaeger.", "Optionally set Tenant / Org ID (AccountID) and Project ID headers for multi-tenant installs.", "Bind the traces signal to this connector after a successful health check."],
+		docsUrl: "https://docs.victoriametrics.com/victoriatraces/querying/",
+	},
 	claude: {
 		summary: "Connect OpenLIT to Claude memory stores.",
 		steps: ["Create an Anthropic API key with access to Memory Stores.", "Paste the API key into the credentials field.", "Save the connector, then pick a memory store when browsing or adding memories."],
@@ -2783,6 +2803,27 @@ export const DATA_SOURCE_FIELD_PASSWORD = "Password / Access policy token";
 export const DATA_SOURCE_FIELD_PASSWORD_PLACEHOLDER = "Basic-auth password or Cloud access policy token";
 export const DATA_SOURCE_FIELD_TENANT = "Tenant / Org ID";
 export const DATA_SOURCE_FIELD_TENANT_PLACEHOLDER = "X-Scope-OrgID or Victoria AccountID";
+export const DATA_SOURCE_FIELD_TENANT_HELP =
+	"Sent as X-Scope-OrgID (Grafana) or AccountID (Victoria). This is not stored in the vault.";
+export const DATA_SOURCE_FIELD_TENANT_PROJECT = "Project ID";
+export const DATA_SOURCE_FIELD_TENANT_PROJECT_PLACEHOLDER = "Victoria ProjectID (optional)";
+export const DATA_SOURCE_FIELD_TENANT_PROJECT_HELP =
+	"Sent as the ProjectID header for VictoriaMetrics, VictoriaLogs, and VictoriaTraces. Leave blank to use the default tenant project.";
+export const DATA_SOURCE_FIELD_DEFAULT_STEP = "Default query step";
+export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_MS = "Maximum query range (ms)";
+export const DATA_SOURCE_FIELD_DEFAULT_SELECTOR = "Default stream selector";
+export const DATA_SOURCE_TYPE_MIMIR = "Grafana Mimir";
+export const DATA_SOURCE_TYPE_MIMIR_DESCRIPTION =
+	"Metrics from Grafana Mimir's Prometheus-compatible query API.";
+export const DATA_SOURCE_TYPE_VICTORIAMETRICS = "VictoriaMetrics";
+export const DATA_SOURCE_TYPE_VICTORIAMETRICS_DESCRIPTION =
+	"Metrics from a VictoriaMetrics Prometheus-compatible query API.";
+export const DATA_SOURCE_TYPE_VICTORIALOGS = "VictoriaLogs";
+export const DATA_SOURCE_TYPE_VICTORIALOGS_DESCRIPTION =
+	"Logs from VictoriaLogs using LogsQL.";
+export const DATA_SOURCE_TYPE_VICTORIATRACES = "VictoriaTraces";
+export const DATA_SOURCE_TYPE_VICTORIATRACES_DESCRIPTION =
+	"Traces from VictoriaTraces using the Jaeger Query API.";
 export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS = "Maximum query window (days)";
 export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS_PLACEHOLDER = "30";
 export const DATA_SOURCE_MAX_TIME_RANGE_HINT = (days: number) =>

@@ -201,6 +201,19 @@ describe('checkAuth', () => {
       );
     });
 
+    it('allows the agents materialize cron route with a valid cron header', async () => {
+      (getToken as jest.Mock).mockRejectedValue(
+        new Error("The edge runtime does not support Node.js 'crypto' module.")
+      );
+      const req = makeRequest('POST', '/api/agents/materialize', '', {
+        'X-CRON-JOB': 'secret-token',
+      });
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.redirect).not.toHaveBeenCalled();
+      expect(getToken).not.toHaveBeenCalled();
+    });
+
     it('allows CRON job route with valid token header', async () => {
       (getToken as jest.Mock).mockResolvedValue(null);
       const req = makeRequest('GET', '/api/evaluation/auto', '', { 'X-CRON-JOB': 'secret-token' });
@@ -366,6 +379,19 @@ describe('checkAuth', () => {
       await middleware(req as any, makeFetchEvent());
       const redirectCall = (NextResponse.redirect as jest.Mock).mock.calls[0][0];
       expect(redirectCall.toString()).toContain('callbackUrl');
+    });
+
+    it('returns 401 for API routes when getToken throws, instead of redirecting to login', async () => {
+      (getToken as jest.Mock).mockRejectedValue(
+        new Error("The edge runtime does not support Node.js 'crypto' module.")
+      );
+      const req = makeRequest('GET', '/api/prompt');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+      expect(NextResponse.redirect).not.toHaveBeenCalled();
     });
 
     it('allows access to login page even when getToken throws', async () => {

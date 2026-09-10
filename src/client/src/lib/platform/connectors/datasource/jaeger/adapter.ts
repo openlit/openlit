@@ -32,13 +32,13 @@ import type {
 import { applyHttpAuthCredentials } from "../http/auth-headers";
 import { httpVendorFields } from "../config-fields";
 import getMessage from "@/constants/messages";
+import { resolveSourceSecret, redactableSecretValues, httpAuthNeedsVault } from "../http/secret";
 import {
 	safeFetch,
 	selfHostedNetworkOptions,
 	SourceResponseError,
 } from "../http/safe-fetch";
 import { cacheKey, cachedQuery } from "../http/cache";
-import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 import { spanMatchesAISelector, traceMatchesAISelector } from "../selector-match";
 import {
 	computeAggregateSpansL1,
@@ -65,6 +65,14 @@ const SPAN_INDEX_MAX = 5_000;
 /** Same budget as `countTraces` / list pagination so health counts see the traces the user can page to. */
 const TRACE_SEARCH_BUDGET = 200;
 const ZERO_PARENT = new Set(["", "0".repeat(16), "0".repeat(32)]);
+
+function requestHeadersFromInit(init?: RequestInit): Record<string, string> {
+	const raw = init?.headers;
+	if (!raw) return {};
+	if (raw instanceof Headers) return Object.fromEntries(raw.entries());
+	if (Array.isArray(raw)) return Object.fromEntries(raw);
+	return { ...raw };
+}
 
 const spanIndexBySource = new Map<string, Map<string, NormalizedSpan>>();
 const timedOutServices = new Map<string, number>();
@@ -199,12 +207,12 @@ export class JaegerAdapter extends BaseExternalAdapter {
 	readonly type = "jaeger";
 	/** Jaeger already fans out `/api/traces?service=` per service. */
 	readonly samplesAreServiceStratified = true;
-	private apiBaseUrl = this.baseUrl;
+	protected apiBaseUrl = this.baseUrl;
 
-	private get baseUrl(): string {
+	protected get baseUrl(): string {
 		return String(this.descriptor.settings.url || "").replace(/\/$/, "");
 	}
-	private get networkOpts() {
+	protected get networkOpts() {
 		return selfHostedNetworkOptions(this.descriptor.settings);
 	}
 	private get configuredServices(): string[] | undefined {
@@ -216,16 +224,41 @@ export class JaegerAdapter extends BaseExternalAdapter {
 		return Number(this.descriptor.settings.perServiceLimit) || 100;
 	}
 
-	private async authHeaders() {
-		const secret = await resolveSourceSecret(
-			this.descriptor.secretRef,
-			this.descriptor.dbConfigId,
-			this.descriptor.projectId
-		);
+	protected tenantHeader(): "X-Scope-OrgID" | "AccountID" | undefined {
+		return undefined;
+	}
+
+	protected extraAuthHeaders(): Record<string, string> {
+		return {};
+	}
+
+	protected async authHeaders() {
+		const authType = this.descriptor.settings.authType;
+		let secret: Awaited<ReturnType<typeof resolveSourceSecret>> = {
+			raw: "",
+			credentials: {},
+		};
+		if (httpAuthNeedsVault(authType)) {
+			secret = await resolveSourceSecret(
+				this.descriptor.secretRef,
+				this.descriptor.dbConfigId,
+				this.descriptor.projectId
+			);
+		}
+		const tenantHeader = this.tenantHeader();
 		return {
-			headers: applyHttpAuthCredentials(secret.credentials, {
-				authType: this.descriptor.settings.authType as string | undefined,
-			}),
+			headers: {
+				...applyHttpAuthCredentials(secret.credentials, {
+					authType: this.descriptor.settings.authType as string | undefined,
+					...(tenantHeader
+						? {
+								tenantHeader,
+								tenant: String(this.descriptor.settings.tenant || ""),
+							}
+						: {}),
+				}),
+				...this.extraAuthHeaders(),
+			},
 			redact: redactableSecretValues(secret),
 		};
 	}
@@ -245,9 +278,10 @@ export class JaegerAdapter extends BaseExternalAdapter {
 					: input instanceof URL
 						? input.toString()
 						: input.url;
-			const requestHeaders = Object.fromEntries(
-				new Headers(init?.headers).entries()
-			);
+			const requestHeaders = {
+				...requestHeadersFromInit(init),
+				...headers,
+			};
 			let payload: unknown;
 			try {
 				payload = await safeFetch<unknown>(url, {
@@ -322,9 +356,10 @@ export class JaegerAdapter extends BaseExternalAdapter {
 						: input instanceof URL
 							? input.toString()
 							: input.url;
-				const requestHeaders = Object.fromEntries(
-					new Headers(init?.headers).entries()
-				);
+				const requestHeaders = {
+					...requestHeadersFromInit(init),
+					...headers,
+				};
 				try {
 					const payload = await safeFetch<unknown>(url, {
 						method: init?.method || "GET",
@@ -366,15 +401,8 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				},
 				{ fetch: probeFetch }
 			);
-			const services = await probe.listServices();
+			await probe.listServices();
 			this.apiBaseUrl = probe.resolvedUrl;
-			if (!services.length) {
-				return {
-					ok: false,
-					latencyMs: Date.now() - start,
-					message: "Jaeger returned no services",
-				};
-			}
 			return { ok: true, latencyMs: Date.now() - start };
 		} catch (err) {
 			return { ok: false, message: String((err as Error)?.message || err) };
@@ -790,12 +818,36 @@ export class JaegerAdapter extends BaseExternalAdapter {
 	}
 }
 
-export const jaegerAdapterFactory = {
-	type: "jaeger",
-	create: (descriptor: TelemetrySourceDescriptor) => new JaegerAdapter(descriptor),
-	describe: (): SourceTypeDescriptor => ({
-		type: "jaeger",
-		displayName: "Jaeger",
+export function jaegerCompatibleDescriptor(opts: {
+	type: string;
+	displayName: string;
+	description?: string;
+	placeholder: string;
+	docsUrl?: string;
+	tenant?: boolean;
+	tenantProject?: boolean;
+}): SourceTypeDescriptor {
+	const messages = getMessage();
+	const configFields = [
+		...httpVendorFields({
+			placeholder: opts.placeholder,
+			tenant: opts.tenant,
+		}),
+	];
+	if (opts.tenantProject) {
+		configFields.push({
+			key: "tenantProject",
+			label: messages.DATA_SOURCE_FIELD_TENANT_PROJECT,
+			kind: "text",
+			group: "settings",
+			placeholder: messages.DATA_SOURCE_FIELD_TENANT_PROJECT_PLACEHOLDER,
+			description: messages.DATA_SOURCE_FIELD_TENANT_PROJECT_HELP,
+		});
+	}
+	return {
+		type: opts.type,
+		displayName: opts.displayName,
+		description: opts.description,
 		declaredSignals: ["traces"],
 		capabilities: {
 			traceTree: true,
@@ -810,10 +862,21 @@ export const jaegerAdapterFactory = {
 			crossSignal: true,
 			keys: ["traceId", "spanId", "service"],
 		},
-		configFields: httpVendorFields({
-			placeholder: "https://jaeger.example.com",
-		}),
+		configFields,
 		authStyle: "http",
-		authHelp: getMessage().DATA_SOURCE_AUTH_HELP_HTTP,
-	}),
+		authHelp: messages.DATA_SOURCE_AUTH_HELP_HTTP,
+		docsUrl: opts.docsUrl,
+	};
+}
+
+export const jaegerAdapterFactory = {
+	type: "jaeger",
+	create: (descriptor: TelemetrySourceDescriptor) => new JaegerAdapter(descriptor),
+	describe: (): SourceTypeDescriptor =>
+		jaegerCompatibleDescriptor({
+			type: "jaeger",
+			displayName: "Jaeger",
+			placeholder: "https://jaeger.example.com",
+			docsUrl: getMessage().DATA_SOURCE_SETUP_GUIDES.jaeger.docsUrl,
+		}),
 };

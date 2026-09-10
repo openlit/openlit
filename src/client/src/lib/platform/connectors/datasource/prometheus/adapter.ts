@@ -1,6 +1,6 @@
 import { PrometheusAdapter as OpenPlaitPrometheusAdapter } from "@openplait/adapter-prometheus";
 import { OpenPlaitHttpAdapter } from "../grafana/openplait-http";
-import type { DataFrame, HealthCheckResult, NormalizedMetricPoint, OpenLITQuery, QueryTimeRange, Signal, SourceCapabilities, SourceTypeDescriptor, TelemetrySourceDescriptor } from "../types";
+import type { DataFrame, FieldDef, HealthCheckResult, NormalizedMetricPoint, OpenLITQuery, QueryTimeRange, Signal, SourceCapabilities, SourceTypeDescriptor, TelemetrySourceDescriptor } from "../types";
 import { openPlaitFramesToRows } from "@/lib/platform/openplait/frames";
 import { computeIntervalMs, clampStepMs, intervalMsToLabel, rateIntervalMs } from "../downsample";
 import { httpVendorFields } from "../config-fields";
@@ -88,11 +88,39 @@ function selector(query: OpenLITQuery): string {
 }
 
 export class PrometheusAdapter extends OpenPlaitHttpAdapter {
-	readonly type = "prometheus";
+	readonly type: string = "prometheus";
 	constructor(descriptor: TelemetrySourceDescriptor) { super(descriptor); }
 	private async adapter(): Promise<OpenPlaitPrometheusAdapter> { const connection = await this.openPlaitConnection(); return new OpenPlaitPrometheusAdapter({ url: this.baseUrl, httpHeaders: connection.headers, allowNativeQueries: true, maxResultRows: this.positiveSetting("maxResultRows") || 100_000, maxSeries: this.positiveSetting("maxSeries") || 10_000, maxTimeRangeMs: this.positiveSetting("maxTimeRangeMs"), maxLookbackMs: this.positiveSetting("maxLookbackMs"), defaultStep: String(this.descriptor.settings.defaultStep || "30s") }, { fetch: connection.fetch }); }
 	capabilities(): SourceCapabilities { return { signals: ["metrics"], traceTree: false, spanEvents: false, serverAggregation: true, spanMutation: false, distinctValues: true, crossTraceSession: false, maxLookbackMs: this.positiveSetting("maxLookbackMs"), maxTimeRangeMs: this.positiveSetting("maxTimeRangeMs"), rawQuery: false }; }
-	async healthCheck(): Promise<HealthCheckResult> { const started = Date.now(); try { await (await this.adapter()).labelNames({ timeoutMs: 10_000 }); return { ok: true, latencyMs: Date.now() - started }; } catch (error) { return { ok: false, latencyMs: Date.now() - started, message: String((error as Error)?.message || error) }; } }
+	async healthCheck(): Promise<HealthCheckResult> {
+		return this.healthCheckLabelNames();
+	}
+
+	protected async healthCheckLabelNames(): Promise<HealthCheckResult> {
+		const started = Date.now();
+		try {
+			await (await this.adapter()).labelNames({ timeoutMs: 10_000 });
+			return { ok: true, latencyMs: Date.now() - started };
+		} catch (error) {
+			return { ok: false, latencyMs: Date.now() - started, message: String((error as Error)?.message || error) };
+		}
+	}
+
+	/** Prefer Prometheus `/api/v1/status/buildinfo`; fall back to label discovery. */
+	protected async healthCheckViaBuildinfo(): Promise<HealthCheckResult> {
+		const started = Date.now();
+		try {
+			const connection = await this.openPlaitConnection();
+			const url = new URL("api/v1/status/buildinfo", `${this.baseUrl}/`);
+			const response = await connection.fetch(url.toString(), { headers: connection.headers });
+			if (response.ok) {
+				return { ok: true, latencyMs: Date.now() - started };
+			}
+		} catch {
+			// Fall through to labelNames so self-hosted endpoints without buildinfo still work.
+		}
+		return this.healthCheckLabelNames();
+	}
 	private range(query: OpenLITQuery) { return { from: query.timeRange.start.toISOString(), to: query.timeRange.end.toISOString() }; }
 	private stepLabel(query: OpenLITQuery): string {
 		const rangeMs = Math.max(0, query.timeRange.end.getTime() - query.timeRange.start.getTime());
@@ -147,4 +175,83 @@ export class PrometheusAdapter extends OpenPlaitHttpAdapter {
 	}
 }
 
-export const prometheusAdapterFactory = { type: "prometheus", create: (descriptor: TelemetrySourceDescriptor) => new PrometheusAdapter(descriptor), describe: (): SourceTypeDescriptor => ({ type: "prometheus", displayName: "Prometheus", description: "Metrics from a Prometheus-compatible query API.", declaredSignals: ["metrics"], capabilities: { traceTree: false, spanEvents: false, serverAggregation: true, spanMutation: false, distinctValues: true, crossTraceSession: false, rawQuery: false }, correlation: { crossSignal: false, keys: ["service"] }, configFields: [...httpVendorFields({ placeholder: "http://localhost:9090", tenant: true }), { key: "defaultStep", label: "Default query step", kind: "text", group: "settings", placeholder: "30s", defaultValue: "30s" }, { key: "maxTimeRangeMs", label: "Maximum query range (ms)", kind: "text", group: "settings" }], authStyle: "http", authHelp: getMessage().DATA_SOURCE_AUTH_HELP_HTTP }) };
+export function prometheusCompatibleConfigFields(opts: {
+	placeholder: string;
+	tenantProject?: boolean;
+}): FieldDef[] {
+	const messages = getMessage();
+	const fields = [...httpVendorFields({ placeholder: opts.placeholder, tenant: true })];
+	if (opts.tenantProject) {
+		fields.push({
+			key: "tenantProject",
+			label: messages.DATA_SOURCE_FIELD_TENANT_PROJECT,
+			kind: "text",
+			group: "settings",
+			placeholder: messages.DATA_SOURCE_FIELD_TENANT_PROJECT_PLACEHOLDER,
+			description: messages.DATA_SOURCE_FIELD_TENANT_PROJECT_HELP,
+		});
+	}
+	fields.push(
+		{
+			key: "defaultStep",
+			label: messages.DATA_SOURCE_FIELD_DEFAULT_STEP,
+			kind: "text",
+			group: "settings",
+			placeholder: "30s",
+			defaultValue: "30s",
+		},
+		{
+			key: "maxTimeRangeMs",
+			label: messages.DATA_SOURCE_FIELD_MAX_TIME_RANGE_MS,
+			kind: "text",
+			group: "settings",
+		}
+	);
+	return fields;
+}
+
+export function prometheusCompatibleDescriptor(opts: {
+	type: string;
+	displayName: string;
+	description: string;
+	placeholder: string;
+	docsUrl?: string;
+	tenantProject?: boolean;
+}): SourceTypeDescriptor {
+	const messages = getMessage();
+	return {
+		type: opts.type,
+		displayName: opts.displayName,
+		description: opts.description,
+		declaredSignals: ["metrics"],
+		capabilities: {
+			traceTree: false,
+			spanEvents: false,
+			serverAggregation: true,
+			spanMutation: false,
+			distinctValues: true,
+			crossTraceSession: false,
+			rawQuery: false,
+		},
+		correlation: { crossSignal: false, keys: ["service"] },
+		configFields: prometheusCompatibleConfigFields({
+			placeholder: opts.placeholder,
+			tenantProject: opts.tenantProject,
+		}),
+		authStyle: "http",
+		authHelp: messages.DATA_SOURCE_AUTH_HELP_HTTP,
+		docsUrl: opts.docsUrl,
+	};
+}
+
+export const prometheusAdapterFactory = {
+	type: "prometheus",
+	create: (descriptor: TelemetrySourceDescriptor) => new PrometheusAdapter(descriptor),
+	describe: (): SourceTypeDescriptor =>
+		prometheusCompatibleDescriptor({
+			type: "prometheus",
+			displayName: "Prometheus",
+			description: "Metrics from a Prometheus-compatible query API.",
+			placeholder: "http://localhost:9090",
+		}),
+};
