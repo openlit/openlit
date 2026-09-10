@@ -72,6 +72,36 @@ describe("resolveCodingAgentsClickHouseDbConfigId", () => {
 		).resolves.toBe("db-intel");
 	});
 
+	it("forwards project and dbConfig scope so sessionless callers skip getCurrentUser", async () => {
+		(resolveSignalSource as jest.Mock)
+			.mockResolvedValueOnce({
+				hasSource: true,
+				descriptor: { type: "tempo" },
+			})
+			.mockResolvedValueOnce({
+				hasSource: true,
+				descriptor: { type: "clickhouse", dbConfigId: "db-intel" },
+			});
+
+		await expect(
+			resolveCodingAgentsClickHouseDbConfigId({
+				environment: "production",
+				projectId: "proj-1",
+				dbConfigId: "db-intel",
+			})
+		).resolves.toBe("db-intel");
+		expect(resolveSignalSource).toHaveBeenCalledWith("traces", {
+			environment: "production",
+			projectId: "proj-1",
+			dbConfigId: "db-intel",
+		});
+		expect(resolveSignalSource).toHaveBeenNthCalledWith(2, "intelligence", {
+			environment: "production",
+			projectId: "proj-1",
+			dbConfigId: "db-intel",
+		});
+	});
+
 	it("returns null when no ClickHouse binding exists", async () => {
 		(resolveSignalSource as jest.Mock)
 			.mockResolvedValueOnce({ hasSource: true, descriptor: { type: "tempo" } })

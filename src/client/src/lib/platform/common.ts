@@ -1,5 +1,5 @@
 import { Pool } from "generic-pool";
-import { getDBConfigById, getDBConfigByUser } from "../db-config";
+import { getDBConfigByIdForBackground, getDBConfigByUser } from "../db-config";
 import createClickhousePool from "./clickhouse/clickhouse-client";
 import asaw from "@/utils/asaw";
 import {
@@ -86,7 +86,7 @@ async function collectClickHouseData(
 ): Promise<DataCollectorType> {
 	let err, dbConfig;
 	if (dbConfigId) {
-		[err, dbConfig] = await asaw(getDBConfigById({ id: dbConfigId }));
+		[err, dbConfig] = await asaw(getDBConfigByIdForBackground({ id: dbConfigId }));
 	} else {
 		[err, dbConfig] = await asaw(getDBConfigByUser(true));
 	}
@@ -206,6 +206,24 @@ export async function dataCollector(
 		clientQueryType,
 		dbConfigId,
 		"openplait"
+	);
+}
+
+/**
+ * Connector adapter reads that need full `otel_traces` rows (trace trees,
+ * span lookup, session expansion). These bypass OpenPlait native SQL so the
+ * ClickHouse datasource adapter resolves the configured database table directly.
+ */
+export async function connectorDataCollector(
+	params: CollectorParams,
+	clientQueryType: CollectorQueryType = "query",
+	dbConfigId?: string
+): Promise<DataCollectorType> {
+	return collectClickHouseData(
+		params,
+		clientQueryType,
+		dbConfigId,
+		"direct"
 	);
 }
 

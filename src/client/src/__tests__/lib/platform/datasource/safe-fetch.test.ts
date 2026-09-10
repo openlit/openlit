@@ -1,9 +1,12 @@
 import {
 	assertPublicUrl,
+	isCloudMetadataAddress,
 	isPrivateAddress,
+	readLimitedResponseText,
 	redact,
-	resolveRedirectLocation,
 	safeFetch,
+	selfHostedNetworkOptions,
+	SourceResponseError,
 	SsrfError,
 } from "@/lib/platform/connectors/datasource/http/safe-fetch";
 
@@ -27,28 +30,26 @@ describe("isPrivateAddress", () => {
 		expect(isPrivateAddress("::ffff:127.0.0.1")).toBe(true);
 		expect(isPrivateAddress("2606:4700:4700::1111")).toBe(false);
 	});
+
+	it("is false for a non-IP-literal hostname", () => {
+		expect(isPrivateAddress("example.com")).toBe(false);
+	});
 });
 
-describe("resolveRedirectLocation", () => {
-	it("resolves path-relative Location headers from the origin", () => {
-		const current = new URL("https://api.example.com/v1/memories/abc/");
-		expect(resolveRedirectLocation("v1/memories/abc/", current).href).toBe(
-			"https://api.example.com/v1/memories/abc/"
-		);
-		const unslashed = new URL("https://api.example.com/v1/memories/abc");
-		expect(resolveRedirectLocation("v1/memories/abc/", unslashed).href).toBe(
-			"https://api.example.com/v1/memories/abc/"
-		);
+describe("isCloudMetadataAddress", () => {
+	it("flags any 169.254.x.x address, not just the well-known metadata IP", () => {
+		expect(isCloudMetadataAddress("169.254.1.1")).toBe(true);
+		expect(isCloudMetadataAddress("169.254.169.254")).toBe(true);
+		expect(isCloudMetadataAddress("8.8.8.8")).toBe(false);
 	});
 
-	it("keeps absolute paths and query-only locations on the current URL", () => {
-		const current = new URL("https://api.example.com/v1/memories/abc/");
-		expect(resolveRedirectLocation("/v1/other/", current).href).toBe(
-			"https://api.example.com/v1/other/"
-		);
-		expect(resolveRedirectLocation("?page=2", current).href).toBe(
-			"https://api.example.com/v1/memories/abc/?page=2"
-		);
+	it("flags the IPv4-mapped IPv6 form of a metadata address", () => {
+		expect(isCloudMetadataAddress("::ffff:169.254.169.254")).toBe(true);
+		expect(isCloudMetadataAddress("2606:4700:4700::1111")).toBe(false);
+	});
+
+	it("is false for a non-IP-literal hostname", () => {
+		expect(isCloudMetadataAddress("example.com")).toBe(false);
 	});
 });
 
@@ -158,18 +159,159 @@ describe("assertPublicUrl", () => {
 		expect(url.pathname).toBe("/path");
 	});
 
-	it("keeps a resource trailing slash so slash-required APIs are not redirected", async () => {
-		const url = await assertPublicUrl(
-			"https://public.example.com/v1/memories/abc/",
-			{ lookup }
-		);
-		expect(url.pathname).toBe("/v1/memories/abc/");
-		expect(url.href).toBe("https://public.example.com/v1/memories/abc/");
-	});
-
 	it("allows a public literal IP and blocks a private literal IP", async () => {
 		await expect(assertPublicUrl("https://8.8.8.8")).resolves.toBeInstanceOf(URL);
 		await expect(assertPublicUrl("https://10.1.2.3")).rejects.toThrow(SsrfError);
+	});
+
+	it("blocks a literal metadata IP that is not the well-known hardcoded hostname", async () => {
+		await expect(
+			assertPublicUrl("http://169.254.1.1", {
+				allowHttp: true,
+				allowPrivateNetwork: true,
+			})
+		).rejects.toThrow(SsrfError);
+	});
+
+	it("wraps a lookup failure in SsrfError", async () => {
+		const failingLookup = async () => {
+			throw new Error("DNS timeout");
+		};
+		await expect(
+			assertPublicUrl("https://api.example.com", { lookup: failingLookup })
+		).rejects.toThrow(/Could not resolve host/);
+	});
+
+	it("rejects a hostname that resolves to no addresses", async () => {
+		const emptyLookup = async () => [];
+		await expect(
+			assertPublicUrl("https://api.example.com", { lookup: emptyLookup })
+		).rejects.toThrow(/did not resolve to any address/);
+	});
+});
+
+describe("selfHostedNetworkOptions", () => {
+	it("defaults to allowing http and disallowing private network access", () => {
+		expect(selfHostedNetworkOptions()).toEqual({
+			allowHttp: true,
+			allowPrivateNetwork: false,
+		});
+		expect(selfHostedNetworkOptions({})).toEqual({
+			allowHttp: true,
+			allowPrivateNetwork: false,
+		});
+	});
+
+	it("disables http only when explicitly set to false or the string 'false'", () => {
+		expect(selfHostedNetworkOptions({ allowHttp: false }).allowHttp).toBe(false);
+		expect(selfHostedNetworkOptions({ allowHttp: "false" }).allowHttp).toBe(
+			false
+		);
+		expect(selfHostedNetworkOptions({ allowHttp: true }).allowHttp).toBe(true);
+		expect(selfHostedNetworkOptions({ allowHttp: "true" }).allowHttp).toBe(
+			true
+		);
+	});
+
+	it("enables private network access for every truthy setting variant", () => {
+		expect(
+			selfHostedNetworkOptions({ allowPrivateNetwork: true }).allowPrivateNetwork
+		).toBe(true);
+		expect(
+			selfHostedNetworkOptions({ allowPrivateNetwork: "true" })
+				.allowPrivateNetwork
+		).toBe(true);
+		expect(
+			selfHostedNetworkOptions({ allowPrivateNetwork: 1 }).allowPrivateNetwork
+		).toBe(true);
+		expect(
+			selfHostedNetworkOptions({ allowPrivateNetwork: "1" }).allowPrivateNetwork
+		).toBe(true);
+		expect(
+			selfHostedNetworkOptions({ allowPrivateNetwork: "yes" })
+				.allowPrivateNetwork
+		).toBe(false);
+	});
+});
+
+function streamBody(chunks: (Uint8Array | undefined)[]) {
+	let index = 0;
+	let cancelled = false;
+	return {
+		getReader() {
+			return {
+				read: async () => {
+					if (index >= chunks.length) {
+						return { done: true, value: undefined };
+					}
+					const value = chunks[index++];
+					return { done: false, value };
+				},
+				cancel: async () => {
+					cancelled = true;
+				},
+				releaseLock: () => undefined,
+				get cancelled() {
+					return cancelled;
+				},
+			};
+		},
+	};
+}
+
+describe("readLimitedResponseText", () => {
+	const encoder = new TextEncoder();
+
+	it("streams and decodes chunks via body.getReader when available", async () => {
+		const response = {
+			headers: { get: () => null },
+			body: streamBody([encoder.encode("hello "), encoder.encode("world")]),
+		} as unknown as Response;
+
+		const text = await readLimitedResponseText(response);
+		expect(text).toBe("hello world");
+	});
+
+	it("skips falsy chunk values while streaming", async () => {
+		const response = {
+			headers: { get: () => null },
+			body: streamBody([encoder.encode("a"), undefined, encoder.encode("b")]),
+		} as unknown as Response;
+
+		const text = await readLimitedResponseText(response);
+		expect(text).toBe("ab");
+	});
+
+	it("cancels the reader and throws once the streamed total exceeds maxBytes", async () => {
+		const body = streamBody([
+			encoder.encode("x".repeat(10)),
+			encoder.encode("y".repeat(10)),
+		]);
+		const response = {
+			headers: { get: () => null },
+			body,
+		} as unknown as Response;
+
+		await expect(readLimitedResponseText(response, 15)).rejects.toThrow(
+			/MiB safety limit/i
+		);
+	});
+
+	it("falls back to text().length when Buffer is unavailable and no reader is present", async () => {
+		const response = {
+			headers: { get: () => null },
+			text: async () => "plain body",
+		} as unknown as Response;
+
+		const originalBuffer = globalThis.Buffer;
+		// @ts-expect-error -- simulate a runtime without the Node Buffer global.
+		delete globalThis.Buffer;
+		try {
+			const text = await readLimitedResponseText(response);
+			expect(text).toBe("plain body");
+		} finally {
+			globalThis.Buffer = originalBuffer;
+		}
 	});
 });
 
@@ -282,102 +424,6 @@ describe("safeFetch", () => {
 		expect(fetchImpl).toHaveBeenCalledTimes(2);
 	});
 
-	it("follows a slash-adding redirect once instead of looping", async () => {
-		const publicLookup = async () => [{ address: "8.8.8.8" }];
-		const fetchImpl = jest.fn(async (url: string) => {
-			const href = String(url);
-			if (href.endsWith("/v1/memories/abc")) {
-				return {
-					status: 301,
-					headers: {
-						get: (header: string) => (header === "location" ? `${href}/` : null),
-					},
-					text: async () => "",
-				};
-			}
-			return {
-				ok: true,
-				status: 200,
-				headers: { get: () => null },
-				text: async () => JSON.stringify({ id: "abc" }),
-			};
-		});
-		await expect(
-			safeFetch("https://api.example.com/v1/memories/abc/", {
-				lookup: publicLookup,
-				fetchImpl: fetchImpl as unknown as typeof fetch,
-			})
-		).resolves.toEqual({ id: "abc" });
-		expect(fetchImpl).toHaveBeenCalledTimes(1);
-		expect(String(fetchImpl.mock.calls[0][0])).toBe(
-			"https://api.example.com/v1/memories/abc/"
-		);
-
-		fetchImpl.mockClear();
-		await expect(
-			safeFetch("https://api.example.com/v1/memories/abc", {
-				lookup: publicLookup,
-				fetchImpl: fetchImpl as unknown as typeof fetch,
-			})
-		).resolves.toEqual({ id: "abc" });
-		expect(fetchImpl).toHaveBeenCalledTimes(2);
-	});
-
-	it("does not nest a path-relative Location under the current resource", async () => {
-		const publicLookup = async () => [{ address: "8.8.8.8" }];
-		const fetchImpl = jest.fn(async (url: string) => {
-			const href = String(url);
-			if ((href.match(/v1\/memories/g) || []).length > 1) {
-				throw new Error(`nested path: ${href}`);
-			}
-			if (!href.endsWith("/")) {
-				return {
-					status: 301,
-					headers: {
-						get: (header: string) =>
-							header === "location" ? "v1/memories/abc/" : null,
-					},
-					text: async () => "",
-				};
-			}
-			return {
-				ok: true,
-				status: 200,
-				headers: { get: () => null },
-				text: async () => JSON.stringify({ id: "abc" }),
-			};
-		});
-		await expect(
-			safeFetch("https://api.example.com/v1/memories/abc", {
-				lookup: publicLookup,
-				fetchImpl: fetchImpl as unknown as typeof fetch,
-			})
-		).resolves.toEqual({ id: "abc" });
-		expect(fetchImpl).toHaveBeenCalledTimes(2);
-		expect(String(fetchImpl.mock.calls[1][0])).toBe(
-			"https://api.example.com/v1/memories/abc/"
-		);
-	});
-
-	it("detects a redirect loop", async () => {
-		const publicLookup = async () => [{ address: "8.8.8.8" }];
-		const fetchImpl = jest.fn().mockResolvedValue({
-			status: 302,
-			headers: {
-				get: (header: string) =>
-					header === "location" ? "https://api.example.com/a" : null,
-			},
-			text: async () => "",
-		});
-		await expect(
-			safeFetch("https://api.example.com/a", {
-				lookup: publicLookup,
-				fetchImpl: fetchImpl as unknown as typeof fetch,
-			})
-		).rejects.toThrow(/redirect loop/i);
-		expect(fetchImpl).toHaveBeenCalledTimes(1);
-	});
-
 	it("retries a transient 429 then succeeds when retry is enabled", async () => {
 		const fetchImpl = jest
 			.fn()
@@ -437,5 +483,207 @@ describe("safeFetch", () => {
 				maxResponseBytes: 1024,
 			})
 		).rejects.toThrow(/MiB safety limit/i);
+	});
+
+	it("returns the raw text when the response body is not valid JSON", async () => {
+		const fetchImpl = jest.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			headers: { get: () => null },
+			text: async () => "plain text response",
+		});
+		const result = await safeFetch("https://api.example.com", {
+			lookup,
+			fetchImpl: fetchImpl as unknown as typeof fetch,
+		});
+		expect(result).toBe("plain text response");
+	});
+
+	it("converts an AbortError into a timeout message", async () => {
+		const fetchImpl = jest.fn().mockImplementation(() => {
+			const err = new Error("aborted");
+			err.name = "AbortError";
+			return Promise.reject(err);
+		});
+		await expect(
+			safeFetch("https://api.example.com", {
+				lookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+			})
+		).rejects.toThrow(/timed out/i);
+	});
+
+	it("redacts secrets from a generic network error thrown by fetchImpl", async () => {
+		const fetchImpl = jest.fn().mockRejectedValue(new Error("fetch failed: secret-token-1"));
+		await expect(
+			safeFetch("https://api.example.com", {
+				lookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+				redactValues: ["secret-token-1"],
+			})
+		).rejects.toThrow(/\[REDACTED\]/);
+	});
+
+	it("throws SourceResponseError when a redirect has no Location header", async () => {
+		const fetchImpl = jest.fn().mockResolvedValue({
+			status: 302,
+			headers: { get: () => null },
+			text: async () => "",
+		});
+		await expect(
+			safeFetch("https://api.example.com", {
+				lookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+			})
+		).rejects.toBeInstanceOf(SourceResponseError);
+	});
+
+	it("throws SsrfError when the redirect Location cannot be parsed as a URL", async () => {
+		const fetchImpl = jest.fn().mockResolvedValue({
+			status: 302,
+			headers: { get: (h: string) => (h === "location" ? "http://[bad" : null) },
+			text: async () => "",
+		});
+		await expect(
+			safeFetch("https://api.example.com", {
+				lookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+			})
+		).rejects.toThrow(/invalid URL/i);
+	});
+
+	it("throws once the maximum number of redirects is exceeded", async () => {
+		const fetchImpl = jest.fn().mockResolvedValue({
+			status: 302,
+			headers: {
+				get: (h: string) => (h === "location" ? "https://api.example.com/next" : null),
+			},
+			text: async () => "",
+		});
+		await expect(
+			safeFetch("https://api.example.com", {
+				lookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+			})
+		).rejects.toThrow(/maximum number of redirects/i);
+	});
+
+	it("rewrites loopback endpoints for Docker when allowPrivateNetwork is set", async () => {
+		const fetchImpl = jest.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			headers: { get: () => null },
+			text: async () => JSON.stringify({ ok: true }),
+		});
+		const result = await safeFetch("http://localhost:9090", {
+			allowHttp: true,
+			allowPrivateNetwork: true,
+			fetchImpl: fetchImpl as unknown as typeof fetch,
+		});
+		expect(result).toEqual({ ok: true });
+		expect(fetchImpl).toHaveBeenCalledTimes(1);
+	});
+
+	it("runs under a per-source concurrency cap when concurrencyKey is set", async () => {
+		const fetchImpl = jest.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			headers: { get: () => null },
+			text: async () => JSON.stringify({ ok: true }),
+		});
+		const result = await safeFetch("https://api.example.com", {
+			lookup,
+			fetchImpl: fetchImpl as unknown as typeof fetch,
+			concurrencyKey: "safe-fetch-test-source",
+			maxConcurrent: 2,
+		});
+		expect(result).toEqual({ ok: true });
+	});
+
+	it("defaults maxConcurrent to 4 when a concurrencyKey is set without an explicit cap", async () => {
+		const fetchImpl = jest.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			headers: { get: () => null },
+			text: async () => JSON.stringify({ ok: true }),
+		});
+		const result = await safeFetch("https://api.example.com", {
+			lookup,
+			fetchImpl: fetchImpl as unknown as typeof fetch,
+			concurrencyKey: "safe-fetch-test-default-concurrency",
+		});
+		expect(result).toEqual({ ok: true });
+	});
+
+	it("falls back to the global fetch implementation when fetchImpl is not provided", async () => {
+		const globalFetch = jest.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			headers: { get: () => null },
+			text: async () => JSON.stringify({ fromGlobal: true }),
+		});
+		const originalFetch = (globalThis as { fetch?: typeof fetch }).fetch;
+		(globalThis as { fetch?: unknown }).fetch = globalFetch;
+		try {
+			const result = await safeFetch("https://api.example.com", { lookup });
+			expect(result).toEqual({ fromGlobal: true });
+			expect(globalFetch).toHaveBeenCalledTimes(1);
+		} finally {
+			if (originalFetch === undefined) {
+				delete (globalThis as { fetch?: unknown }).fetch;
+			} else {
+				(globalThis as { fetch?: typeof fetch }).fetch = originalFetch;
+			}
+		}
+	});
+
+	it("treats a boolean retry: true as default retry options", async () => {
+		const fetchImpl = jest
+			.fn()
+			.mockResolvedValueOnce({
+				ok: false,
+				status: 503,
+				text: async () => "down",
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				headers: { get: () => null },
+				text: async () => JSON.stringify({ ok: true }),
+			});
+		const result = await safeFetch("https://api.example.com", {
+			lookup,
+			fetchImpl: fetchImpl as unknown as typeof fetch,
+			retry: true,
+		});
+		expect(result).toEqual({ ok: true });
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
+	});
+
+	it("returns undefined for a successful response with an empty body", async () => {
+		const fetchImpl = jest.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			headers: { get: () => null },
+			text: async () => "",
+		});
+		const result = await safeFetch("https://api.example.com", {
+			lookup,
+			fetchImpl: fetchImpl as unknown as typeof fetch,
+		});
+		expect(result).toBeUndefined();
+	});
+
+	it("redacts secrets from a thrown non-Error value that has no message", async () => {
+		const fetchImpl = jest
+			.fn()
+			.mockRejectedValue("raw-secret-string-failure");
+		await expect(
+			safeFetch("https://api.example.com", {
+				lookup,
+				fetchImpl: fetchImpl as unknown as typeof fetch,
+				redactValues: ["raw-secret-string-failure"],
+			})
+		).rejects.toThrow(/\[REDACTED\]/);
 	});
 });

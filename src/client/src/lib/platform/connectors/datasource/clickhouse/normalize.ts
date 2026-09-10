@@ -136,6 +136,7 @@ export function denormalizeSpanToTraceRow(
 		Events: events,
 		Links: [],
 		Cost: span.cost,
+		agentLoop: span.agentLoop,
 	};
 }
 

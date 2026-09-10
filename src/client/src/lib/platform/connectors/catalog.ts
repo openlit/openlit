@@ -1,7 +1,7 @@
 import { ensureConnectorsRegistered } from "./bootstrap";
 import { availableSourceTypeDescriptors } from "@/lib/telemetry-source-crud";
 import { availableMemoryTypeDescriptors } from "./memory/crud";
-import { isVisibleConnectorType } from "./visible-types";
+import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
 import { connectorIconPath } from "./icons";
 
 /** Full type descriptors for every connector category this build can serve. */

@@ -248,6 +248,101 @@ interface AutoPricingPayload {
 	cronId: string;
 }
 
+async function fetchAutoPricingCandidateSpans({
+	databaseConfigId,
+	lastRunTime,
+}: {
+	databaseConfigId: string;
+	lastRunTime?: string | Date | null;
+}): Promise<{ traces: TraceRow[]; err?: string; persistCosts: boolean }> {
+	const lastRunIso =
+		lastRunTime instanceof Date
+			? lastRunTime.toISOString()
+			: lastRunTime || null;
+
+	try {
+		const { getTelemetryAdapterForDbConfig } = await import(
+			"@/lib/telemetry-source"
+		);
+		const { denormalizeSpanToTraceRow } = await import(
+			"@/lib/platform/connectors/datasource/clickhouse/normalize"
+		);
+		const resolved = await getTelemetryAdapterForDbConfig(
+			databaseConfigId,
+			"traces"
+		);
+		if (!resolved.isBuiltIn && resolved.descriptor.type !== "clickhouse") {
+			const end = new Date();
+			const start = lastRunIso
+				? new Date(lastRunIso)
+				: new Date(end.getTime() - 24 * 60 * 60 * 1000);
+			const frame = await resolved.adapter.listSpans({
+				signal: "traces",
+				timeRange: { start, end },
+				aiSelector: true,
+				limit: 500,
+				filters: [
+					{
+						target: "attribute",
+						scope: "span",
+						key: TYPE_KEY,
+						op: "in",
+						value: [...SUPPORTED_EVALUATION_OPERATIONS],
+					},
+				],
+			});
+			const traces = frame.rows
+				.map((span) => denormalizeSpanToTraceRow(span) as unknown as TraceRow)
+				.filter((trace) => {
+					const existing = Number(getAttr(trace, COST_KEY) || 0);
+					return !Number.isFinite(existing) || existing === 0;
+				});
+			return { traces, persistCosts: false };
+		}
+	} catch (err) {
+		return {
+			traces: [],
+			persistCosts: false,
+			err: String((err as Error)?.message || err),
+		};
+	}
+
+	// Only LLM-type spans with tokens recorded. Crucially, we skip
+	// any span that already carries a `gen_ai.usage.cost` from the
+	// instrumentation/hook. Vendor-emitted cost is authoritative
+	// (Cursor / Codex / Claude Code stamp the provider's actual
+	// billed price, which may differ from list pricing for enterprise
+	// tiers); recomputing would silently overwrite that with our
+	// pricing-table estimate. This makes auto-pricing a true *backfill*
+	// path — it only writes when nothing was captured at ingest.
+	const typeKeyPath = `SpanAttributes['${TYPE_KEY}']`;
+	const costKeyPath = `SpanAttributes['${COST_KEY}']`;
+	const operationList = SUPPORTED_EVALUATION_OPERATIONS.map(
+		(op) => `'${op}'`
+	).join(", ");
+
+	const query = `
+		SELECT SpanId, Timestamp, SpanAttributes
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${typeKeyPath} IN (${operationList})
+			AND (${costKeyPath} = '' OR toFloat64OrZero(${costKeyPath}) = 0)
+		${
+			lastRunIso
+				? `AND Timestamp >= parseDateTimeBestEffort('${lastRunIso}')`
+				: ""
+		}
+		ORDER BY Timestamp
+	`;
+
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
+	if (err) return { traces: [], persistCosts: true, err: String(err) };
+	return { traces: (data as TraceRow[]) || [], persistCosts: true };
+}
+
 /**
  * Auto pricing: fetch traces in the window since last cron run and
  * recompute + persist cost for each. Called by the /api/pricing/auto cron.
@@ -274,36 +369,15 @@ export async function autoUpdatePricing(payload: AutoPricingPayload) {
 		return { success: false, err: getMessage().DATABASE_CONFIG_NOT_FOUND };
 	}
 
-	const lastRunTime = await getLastRunCronLogByCronId(payload.cronId);
+	const lastRunTime = await getLastRunCronLogByCronId(
+		payload.cronId,
+		dbConfig.id
+	);
 
-	// Only LLM-type spans with tokens recorded. Crucially, we skip
-	// any span that already carries a `gen_ai.usage.cost` from the
-	// instrumentation/hook. Vendor-emitted cost is authoritative
-	// (Cursor / Codex / Claude Code stamp the provider's actual
-	// billed price, which may differ from list pricing for enterprise
-	// tiers); recomputing would silently overwrite that with our
-	// pricing-table estimate. This makes auto-pricing a true *backfill*
-	// path — it only writes when nothing was captured at ingest.
-	const typeKeyPath = `SpanAttributes['${TYPE_KEY}']`;
-	const costKeyPath = `SpanAttributes['${COST_KEY}']`;
-	const operationList = SUPPORTED_EVALUATION_OPERATIONS.map(
-		(op) => `'${op}'`
-	).join(", ");
-
-	const query = `
-		SELECT SpanId, Timestamp, SpanAttributes
-		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${typeKeyPath} IN (${operationList})
-			AND (${costKeyPath} = '' OR toFloat64OrZero(${costKeyPath}) = 0)
-		${
-			lastRunTime
-				? `AND Timestamp >= parseDateTimeBestEffort('${lastRunTime}')`
-				: ""
-		}
-		ORDER BY Timestamp
-	`;
-
-	const { data, err } = await dataCollector({ query }, "query", dbConfig.id);
+	const { traces, err, persistCosts } = await fetchAutoPricingCandidateSpans({
+		databaseConfigId: dbConfig.id,
+		lastRunTime,
+	});
 
 	if (err) {
 		const finishedAt = new Date();
@@ -322,7 +396,6 @@ export async function autoUpdatePricing(payload: AutoPricingPayload) {
 		return { success: false, err: err as string };
 	}
 
-	const traces = (data as TraceRow[]) || [];
 	let errorCount = 0;
 	let updatedCount = 0;
 	const errorObject: Record<string, string> = {};
@@ -333,6 +406,9 @@ export async function autoUpdatePricing(payload: AutoPricingPayload) {
 			const { cost } = await computeCostForTrace(trace, dbConfig.id);
 			if (cost === null) {
 				// Skip traces we can't price (no counting as error)
+				continue;
+			}
+			if (!persistCosts) {
 				continue;
 			}
 			const { err: writeErr } = await writeCostToTrace(

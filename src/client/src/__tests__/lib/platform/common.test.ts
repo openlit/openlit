@@ -1,6 +1,8 @@
 jest.mock('@/lib/db-config', () => ({
   getDBConfigByUser: jest.fn(),
   getDBConfigById: jest.fn(),
+  getDBConfigByIdInternal: jest.fn(),
+  getDBConfigByIdForBackground: jest.fn(),
 }));
 jest.mock('@/lib/platform/clickhouse/clickhouse-client', () => ({
   __esModule: true,
@@ -41,7 +43,7 @@ describe('dataCollector', () => {
       expect(result.data).toEqual([]);
     });
 
-    it('uses getDBConfigById when dbConfigId is provided', async () => {
+    it('uses getDBConfigByIdForBackground when dbConfigId is provided', async () => {
       (asaw as jest.Mock).mockResolvedValue(['DB config error', null]);
       const result = await dataCollector({ query: 'SELECT 1' }, 'query', 'db-config-id');
       expect(result.err).toBe('DB config error');
@@ -111,6 +113,32 @@ describe('dataCollector', () => {
 
       const result = await dataCollector({ query: 'SELECT 1' });
       expect(result.err).toBeTruthy();
+    });
+  });
+
+  describe('client acquisition failures (native ClickHouse path)', () => {
+    it('returns the error when clickhousePool.acquire() fails', async () => {
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce(['acquire failed', null]);
+
+      const result = await dataCollector({ table: 'test_table', values: [{ col: 1 }] }, 'insert');
+      expect(result.err).toBe('acquire failed');
+      expect(result.data).toEqual([]);
+    });
+
+    it('returns an unavailable-client error when acquire resolves without a client', async () => {
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, null]);
+
+      const result = await dataCollector({ table: 'test_table', values: [{ col: 1 }] }, 'insert');
+      expect(result.err).toBe('Clickhouse client is not available!');
+      expect(result.data).toEqual([]);
     });
   });
 
@@ -307,5 +335,52 @@ describe('intelligenceDataCollector', () => {
     expect(mockClient.query).toHaveBeenCalled();
     expect(executeOpenPlaitRead).not.toHaveBeenCalled();
     expect(mockPool.release).toHaveBeenCalledWith(mockClient);
+  });
+
+  it('returns an error when no query is provided (native query mode does not early-return through OpenPlait)', async () => {
+    const mockClient = makeClient();
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient]);
+
+    const result = await intelligenceDataCollector({}, 'query');
+
+    expect(result.err).toBe('No query specified!');
+    expect(executeOpenPlaitRead).not.toHaveBeenCalled();
+  });
+
+  it('applies readonly clickhouse_settings on the native query when enable_readonly is true', async () => {
+    const mockClient = makeClient();
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient])
+      .mockResolvedValueOnce([null, { json: jest.fn().mockResolvedValue([{ total: 2 }]) }])
+      .mockResolvedValueOnce([null, [{ total: 2 }]]);
+
+    await intelligenceDataCollector({ query: 'SELECT 1', enable_readonly: true });
+
+    const callArg = mockClient.query.mock.calls[0][0];
+    expect(callArg.clickhouse_settings).toEqual({ readonly: '1' });
+  });
+
+  it('defaults to an empty data array when the native query resolves without rows', async () => {
+    const mockClient = makeClient({
+      query: jest.fn().mockResolvedValue({ json: jest.fn().mockResolvedValue(null) }),
+    });
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient])
+      .mockResolvedValueOnce([null, { json: jest.fn().mockResolvedValue(null) }])
+      .mockResolvedValueOnce([null, null]);
+
+    const result = await intelligenceDataCollector({ query: 'SELECT 1' });
+
+    expect(result).toEqual({ err: null, data: [] });
   });
 });

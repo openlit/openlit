@@ -236,6 +236,76 @@ describe("TempoAdapter", () => {
 		);
 	});
 
+	it("retries Tempo 400s that report a range ceiling without the word duration", async () => {
+		const wideAdapter = new TempoAdapter({
+			...descriptor,
+			id: "src-tempo-range-wording",
+			settings: {
+				...descriptor.settings,
+				maxTimeRangeDays: 31,
+			},
+		});
+		const end = new Date("2026-08-06T11:24:17.901Z");
+		const start = new Date(end.getTime() - 31 * 24 * 60 * 60 * 1000);
+		mockSafeFetch
+			.mockRejectedValueOnce(
+				new SourceResponseError(
+					400,
+					"range specified by start and end exceeds 168h0m0s"
+				)
+			)
+			.mockResolvedValueOnce({
+				traces: [{
+					traceID: TRACE_1,
+					rootServiceName: "svc",
+					rootTraceName: "chat",
+					startTimeUnixNano: "1719792000000000000",
+					durationMs: 1000,
+				}],
+			});
+
+		const frame = await wideAdapter.listSpans({
+			signal: "traces",
+			timeRange: { start, end },
+			aiSelector: false,
+			limit: 1,
+		});
+
+		expect(frame.rows).toHaveLength(1);
+		expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+		const retriedSearch = new URL(mockSafeFetch.mock.calls[1][0] as string);
+		expect(Number(retriedSearch.searchParams.get("start"))).toBe(
+			Math.ceil(end.getTime() / 1000) - 7 * 24 * 60 * 60
+		);
+	});
+
+	it("caps unconfigured Tempo searches at 7 days before the first request", async () => {
+		const end = new Date("2026-08-06T11:24:17.901Z");
+		const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+		mockSafeFetch.mockResolvedValueOnce({
+			traces: [{
+				traceID: TRACE_1,
+				rootServiceName: "svc",
+				rootTraceName: "chat",
+				startTimeUnixNano: "1719792000000000000",
+				durationMs: 1000,
+			}],
+		});
+
+		await adapter.listSpans({
+			signal: "traces",
+			timeRange: { start, end },
+			aiSelector: false,
+			limit: 1,
+		});
+
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		const search = new URL(mockSafeFetch.mock.calls[0][0] as string);
+		expect(Number(search.searchParams.get("start"))).toBe(
+			Math.ceil(end.getTime() / 1000) - 7 * 24 * 60 * 60
+		);
+	});
+
 	it("does not retry a generic Tempo 400 by weakening the query", async () => {
 		mockSafeFetch.mockRejectedValueOnce(
 			new SourceResponseError(
@@ -715,6 +785,75 @@ describe("TempoAdapter", () => {
 		expect(spans[0]).toMatchObject({ traceId: TRACE_2, spanId: SPAN_2 });
 	});
 
+	it("lists the looping tool span when the agent-loop chip is on", async () => {
+		const loopTrace = {
+			batches: [
+				{
+					resource: otlpTrace.batches[0].resource,
+					scopeSpans: [
+						{
+							spans: [
+								{
+									...otlpTrace.batches[0].scopeSpans[0].spans[0],
+									traceId: TRACE_1,
+								},
+								...["aaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbb", "cccccccccccccccc"].map(
+									(spanId, index) => ({
+										traceId: TRACE_1,
+										spanId,
+										parentSpanId: SPAN_1,
+										name: "execute_tool search",
+										startTimeUnixNano: String(1719792000000000000 + index),
+										endTimeUnixNano: String(1719792001000000000 + index),
+										status: { code: 1 },
+										attributes: [
+											{
+												key: "gen_ai.tool.name",
+												value: { stringValue: "search" },
+											},
+											{
+												key: "gen_ai.tool.args",
+												value: { stringValue: '{"q":"orders"}' },
+											},
+											{
+												key: "gen_ai.conversation.id",
+												value: { stringValue: "chat-1" },
+											},
+										],
+									})
+								),
+							],
+						},
+					],
+				},
+			],
+		};
+		mockSafeFetch
+			.mockResolvedValueOnce({
+				traces: [{ traceID: TRACE_1 }, { traceID: TRACE_2 }],
+			})
+			.mockResolvedValueOnce(loopTrace)
+			.mockResolvedValueOnce(otlpForTrace(TRACE_2, SPAN_2));
+
+		const frame = await adapter.listSpans({
+			signal: "traces",
+			timeRange: window,
+			limit: 25,
+			aiSelector: false,
+			agentLoop: true,
+		});
+
+		expect(frame.rows).toHaveLength(1);
+		expect(frame.rows[0]).toMatchObject({
+			traceId: TRACE_1,
+			name: "execute_tool search",
+			agentLoop: expect.objectContaining({
+				toolName: "search",
+				count: 3,
+			}),
+		});
+	});
+
 	it("getSpan resolves via TraceQL search then a single OTLP download", async () => {
 		mockSafeFetch
 			.mockResolvedValueOnce({ traces: [{ traceID: TRACE_1 }] })
@@ -819,5 +958,60 @@ describe("buildAggregateDag", () => {
 		expect(agent?.totalCost).toBeCloseTo(0.01);
 		const edge = dag.edges.find((e) => e.from === "agent" && e.to === "llm");
 		expect(edge?.count).toBe(2);
+	});
+
+	it("defaults missing span name, statusCode, and durationNs to safe fallbacks", () => {
+		const spans = [
+			span({
+				spanId: "a",
+				name: undefined as unknown as string,
+				statusCode: undefined as unknown as string,
+				durationNs: undefined as unknown as number,
+			}),
+		];
+		const dag = buildAggregateDag(spans);
+		expect(dag.nodes).toHaveLength(1);
+		expect(dag.nodes[0]).toMatchObject({
+			name: "(unnamed)",
+			count: 1,
+			errorCount: 0,
+			p50DurationMs: 0,
+			p95DurationMs: 0,
+		});
+	});
+
+	it("defaults an unnamed parent span to '(unnamed)' in the edge's from field", () => {
+		const spans = [
+			span({ spanId: "parent", name: undefined as unknown as string }),
+			span({ spanId: "child", parentSpanId: "parent", name: "child-span" }),
+		];
+		const dag = buildAggregateDag(spans);
+		const edge = dag.edges.find((e) => e.to === "child-span");
+		expect(edge).toMatchObject({ from: "(unnamed)", to: "child-span", count: 1 });
+	});
+
+	it("returns empty nodes/edges for an empty span list", () => {
+		const dag = buildAggregateDag([]);
+		expect(dag).toEqual({
+			nodes: [],
+			edges: [],
+			sampledTraces: 0,
+			sampledSpans: 0,
+		});
+	});
+
+	it("does not create an edge when the parent span belongs to a different trace", () => {
+		const spans = [
+			span({ spanId: "p", traceId: "t1", name: "parent" }),
+			span({
+				spanId: "c",
+				traceId: "t2",
+				parentSpanId: "p",
+				name: "child",
+			}),
+		];
+		const dag = buildAggregateDag(spans);
+		expect(dag.edges).toHaveLength(0);
+		expect(dag.nodes.map((n) => n.name).sort()).toEqual(["child", "parent"]);
 	});
 });

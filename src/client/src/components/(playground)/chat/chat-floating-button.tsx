@@ -9,6 +9,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Otter from "@/components/svg/otter";
+import getMessage from "@/constants/messages";
 
 const OTTER_TOOLTIPS = [
 	"Hi, I'm Otter 🦦, ask me anything!",
@@ -61,6 +62,7 @@ export default function ChatFloatingButton() {
 }
 
 export function ChatHeaderButton() {
+	const messages = getMessage();
 	const tooltip = useMemo(
 		() => OTTER_TOOLTIPS[Math.floor(Math.random() * OTTER_TOOLTIPS.length)],
 		[]
@@ -69,17 +71,14 @@ export function ChatHeaderButton() {
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
-				<span className="relative isolate inline-flex overflow-hidden rounded-md p-px shadow-sm transition-shadow hover:shadow-primary/25">
-					<span className="absolute inset-[-250%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#f97316_0deg,#ec4899_90deg,#8b5cf6_180deg,#06b6d4_270deg,#f97316_360deg)]" />
-					<Link
-						href="/chat"
-						aria-label="Ask Otter"
-						className="group relative flex h-8 items-center gap-1.5 rounded-[5px] bg-white px-2.5 text-xs font-semibold text-stone-800 transition-colors hover:bg-stone-50 dark:bg-stone-950 dark:text-stone-100 dark:hover:bg-stone-900"
-					>
-						<Otter className="h-5 w-5 transition-transform group-hover:rotate-6" />
-						<span>Ask Otter</span>
-					</Link>
-				</span>
+				<Link
+					href="/chat"
+					aria-label={messages.CHAT_ASK_OTTER}
+					className="group inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary/90"
+				>
+					<Otter className="h-5 w-5 text-white transition-transform group-hover:rotate-6" />
+					<span>{messages.CHAT_ASK_OTTER}</span>
+				</Link>
 			</TooltipTrigger>
 			<TooltipContent side="bottom" className="max-w-xs text-xs"><p>{tooltip}</p></TooltipContent>
 		</Tooltip>

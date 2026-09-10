@@ -222,7 +222,7 @@ rm /usr/local/bin/opentelemetry-gpu-collector
     - For Docker: `--cap-add CAP_BPF --cap-add CAP_PERFMON`, `--pid=host`, and `--ulimit memlock=-1:-1` (BPF maps need locked memory; no CUDA mount needed)
     - For Kubernetes: `hostPID: true` plus BPF capabilities (or `SYS_ADMIN`); raise memlock if map create returns EPERM
     - If no CUDA process is running yet, the collector rescans `/proc` every 30s
-    - Verify a workload has loaded cudart: `grep libcudart /proc/*/maps 2>/dev/null | head`
+    - Verify a workload has loaded CUDA: `grep -E 'libcudart|libcuda.so' /proc/*/maps 2>/dev/null | head`
   </Accordion>
   <Accordion title="Connection refused / no data reaching backend">
     - Verify `OTEL_EXPORTER_OTLP_ENDPOINT` is reachable from the container: `curl http://<endpoint>/health`

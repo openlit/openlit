@@ -13,7 +13,7 @@ import { OPENLIT_VAULT_TABLE_NAME } from "./table-details";
 import { dataCollector } from "../common";
 import { jsonStringify } from "@/utils/json";
 import { getAPIKeyInfo, type APIKeyInfo } from "../api-keys";
-import { decryptValue, encryptValue, isEncrypted } from "@/utils/crypto";
+import { decryptValue, encryptValue } from "@/utils/crypto";
 import { emitManagementAlertSignalSafe } from "@/lib/platform/alerts/signals";
 import prisma from "@/lib/prisma";
 import { invalidateSourceSecretCache } from "@/lib/platform/connectors/datasource/http/secret";
@@ -313,10 +313,12 @@ export async function getSecretsFromDatabaseId(
 	);
 
 	const apiInfoForSecrets = apiInfo as APIKeyInfo | null | undefined;
+	const databaseConfigId =
+		filters.databaseConfigId || apiInfoForSecrets?.databaseConfigId || undefined;
 	const { err: secretErr, data: secretData } = await getSecrets(
 		{
 			...filters,
-			databaseConfigId: apiInfoForSecrets?.databaseConfigId || undefined,
+			databaseConfigId,
 			createdBy: apiInfoForSecrets?.createdByUser?.email,
 		},
 		{ selectValue: true }
@@ -339,28 +341,26 @@ export async function getSecretById(
 		projectId,
 	}: { logDecryptErrors?: boolean; projectId?: string } = {}
 ) {
-	const rawId = Sanitizer.sanitizeValue(id);
-	if (isEncrypted(rawId)) {
-		return { data: [] };
-	}
-	const safeId = escapeClickHouseString(rawId);
+	const safeId = escapeClickHouseString(Sanitizer.sanitizeValue(id));
 	let ownerCondition = "";
 	if (projectId) {
 		const source = await prisma.telemetrySource.findFirst({
 			where: { secretRef: id, projectId },
 			select: { id: true },
 		});
-		const connector = source
-			? null
-			: await prisma.connectorInstance.findFirst({
-					where: { secretRef: id, projectId },
-					select: { id: true },
-				});
-		if (!source && !connector) return { data: [] };
+		if (!source) return { data: [] };
 	} else {
 		const user = await getCurrentUser();
-		throwIfError(!user, getMessage().UNAUTHORIZED_USER);
-		ownerCondition = ` AND ${getOwnerEmailCondition(user!, "v")}`;
+		if (user) {
+			ownerCondition = ` AND ${getOwnerEmailCondition(user, "v")}`;
+		} else if (databaseConfigId) {
+			// Trusted DB-scoped lookup (Bearer API key / middleware binding).
+			// The caller already resolved a database config; secrets are queried
+			// only against that ClickHouse instance.
+			ownerCondition = "";
+		} else {
+			throwIfError(true, getMessage().UNAUTHORIZED_USER);
+		}
 	}
 	const query = `SELECT * ${
 		!!excludeVaultValue ? "EXCEPT value" : ""

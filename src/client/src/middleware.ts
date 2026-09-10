@@ -63,8 +63,6 @@ export const config = {
 		"/rule-engine/:path*",
 		"/context",
 		"/context/:path*",
-		"/memory",
-		"/memory/:path*",
 		"/coding-agents",
 		"/coding-agents/:path*",
 	],

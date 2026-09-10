@@ -15,8 +15,12 @@ export const CREATE_NEW_KEY = "Create a new api key";
 export const SETTINGS = "Settings";
 export const OPENAPI_SPECIFICATION = "OpenAPI Specification";
 export const OPENAPI_SPECIFICATION_UI = "OpenAPI Specification UI";
+export const OPENAPI_SPEC_NAV = "OpenAPI Spec";
+export const OPENAPI_SPEC_PAGE_TITLE = "Open API Spec";
 export const INTERACTIVE_API_REFERENCE = "Interactive API Reference";
 export const OPENAPI_SPEC_BEARER_AUTH = "OpenAPI 3.0 Spec • Bearer Auth Authorized";
+export const OPENAPI_SPEC_CONTEXT_HEADERS_HINT =
+	"org / project / environment headers required for signal routing";
 export const REQUEST_CURL_EXAMPLE = "Request Curl Example";
 export const COPY_SNIPPET = "Copy Snippet";
 export const COPIED = "Copied";
@@ -275,6 +279,58 @@ export const OBSERVABILITY_COPY_UNSUPPORTED =
 export const OBSERVABILITY_LINK_COPIED = "Link copied to clipboard";
 export const OBSERVABILITY_LINK_COPY_FAILED = "Could not copy link";
 export const OBSERVABILITY_COPY_SHARE_LINK = "Copy shareable link";
+export const GENERATION_HEALTH_TRUNCATED = "Truncated";
+export const GENERATION_HEALTH_FILTERED = "Filtered";
+export const GENERATION_HEALTH_EMPTY = "Empty";
+export const GENERATION_HEALTH_SWAPPED = "Model swapped";
+export const GENERATION_HEALTH_CHIP_GROUP = "Generation issues";
+export const GENERATION_HEALTH_CLICK_TO_FILTER =
+	"Click to show only these traces";
+export const GENERATION_HEALTH_CLICK_TO_CLEAR =
+	"Showing these traces — click to show all";
+export const GENERATION_HEALTH_STAT_OF_ELIGIBLE = "{count}/{eligible}";
+export const GENERATION_HEALTH_TIP_TRUNCATED =
+	"The reply stopped because the model hit its token limit.";
+export const GENERATION_HEALTH_TIP_FILTERED =
+	"A content or safety filter blocked the reply.";
+export const GENERATION_HEALTH_TIP_EMPTY =
+	"The model returned no completion tokens.";
+export const GENERATION_HEALTH_TIP_SWAPPED =
+	"The provider served a different model than the one requested.";
+export const GENERATION_HEALTH_TIP_COUNT =
+	"{count} of {eligible} traces in this window";
+export const GENERATION_HEALTH_TIP_NONE =
+	"None of {eligible} traces in this window";
+export const GENERATION_HEALTH_TIP_NO_ELIGIBLE =
+	"No traces in this window recorded the attributes needed for this check.";
+export const GENERATION_HEALTH_STAT_SKIPPED =
+	"{skipped} of {total} generations couldn't be checked — missing attributes.";
+export const GENERATION_HEALTH_DETAIL_TRUNCATED =
+	"Generation stopped because the model hit max tokens. Raise max_tokens or shorten the prompt.";
+export const GENERATION_HEALTH_DETAIL_FILTERED =
+	"Generation was blocked by a content filter or safety system.";
+export const GENERATION_HEALTH_DETAIL_EMPTY =
+	"The model returned no completion tokens.";
+export const GENERATION_HEALTH_DETAIL_SWAPPED =
+	"Requested {requested} but the provider served {served}.";
+export const GENERATION_HEALTH_BADGE_SWAPPED_TITLE =
+	"Requested {requested} → served {served}";
+export const AGENT_LOOP_CHIP = "Loop";
+export const AGENT_LOOP_CHIP_GROUP = "Agent loops";
+export const AGENT_LOOP_CLICK_TO_FILTER = "Click to show only looping traces";
+export const AGENT_LOOP_CLICK_TO_CLEAR =
+	"Showing looping traces — click to show all";
+export const AGENT_LOOP_TIP =
+	"The same tool was called with the same arguments at least {threshold} times in one conversation or session.";
+export const AGENT_LOOP_TIP_COUNT =
+	"{count} of {eligible} traces with tool calls in this window";
+export const AGENT_LOOP_TIP_NONE =
+	"None of {eligible} traces with tool calls in this window";
+export const AGENT_LOOP_TIP_NO_ELIGIBLE =
+	"No traces in this window recorded tool calls.";
+export const AGENT_LOOP_BADGE_TITLE = "{tool} × {count}";
+export const AGENT_LOOP_DETAIL =
+	"{tool} repeated {count} times — {tokens} tokens / ${cost} wasted.";
 export const OBSERVABILITY_TIME = "Time";
 export const OBSERVABILITY_SEVERITY = "Severity";
 export const OBSERVABILITY_BODY = "Body";
@@ -316,6 +372,10 @@ export const OBSERVABILITY_HIERARCHY_UNAVAILABLE =
 	"Span hierarchy is not available for this span.";
 export const OBSERVABILITY_TREE = "Tree";
 export const OBSERVABILITY_CHAT = "Chat";
+export const OBSERVABILITY_AGENT_LOOP = "Agent Loop";
+export const OBSERVABILITY_AGENT_LOOP_EMPTY =
+	"No repeated identical tool calls on this hierarchy.";
+export const OBSERVABILITY_AGENT_LOOP_SPANS = "Open looping spans";
 export const OBSERVABILITY_CHAT_FILTER_CONVERSATION = "Conversation";
 export const OBSERVABILITY_CHAT_FILTER_ALL = "All activity";
 export const OBSERVABILITY_CHAT_SUMMARY = (
@@ -336,6 +396,7 @@ export const OBSERVABILITY_SPAN_NAME_EXAMPLE = "e.g. SpanName";
 export const OBSERVABILITY_ATTRIBUTE_KEY_EXAMPLE = "e.g. gen_ai.system";
 export const OBSERVABILITY_FULL_SCREEN = "Full screen";
 export const OBSERVABILITY_EVALUATION_PANEL = "Evaluation";
+export const OBSERVABILITY_SPAN_DETAILS = "Span details";
 export const OBSERVABILITY_ROW = "row";
 export const OBSERVABILITY_TRACE = "trace";
 export const OBSERVABILITY_SPAN = "span";
@@ -756,6 +817,10 @@ export const CODING_AGENT_SESSION_SUBAGENTS_HINT =
 // Agents - No Controller
 export const AGENTS_NO_CONTROLLERS_TITLE = "No controllers detected";
 export const AGENTS_NO_CONTROLLERS_DESCRIPTION = "Install the OpenLIT Controller to automatically discover and instrument LLM API calls using eBPF.";
+export const AGENTS_NO_SDK_AGENTS_TITLE = "No instrumented applications yet";
+export const AGENTS_NO_SDK_AGENTS_DESCRIPTION =
+	"Applications that send traces with the OpenLIT SDK will appear here. Add the SDK to your app, then come back once telemetry is flowing.";
+export const AGENTS_NO_SDK_AGENTS_CTA = "View SDK setup";
 export const AGENTS_API_KEY_PREFILLED_MESSAGE = "Commands below are pre-filled with your API key and dashboard URL. The controller will authenticate automatically.";
 export const AGENTS_API_KEY_RECOMMENDED_PREFIX = "Recommended:";
 export const AGENTS_API_KEY_RECOMMENDED_BEFORE_LINK = " Create an API key in ";
@@ -1243,6 +1308,7 @@ export const MANAGE_DB_CONFIG = "Manage DB Config";
 export const MODIFYING_DB_CONFIG = "Modifying database config...";
 export const DB_CONFIG_UPDATED = "Database config updated";
 export const DB_CONFIG_UPDATE_FAILED = "Database config update failed";
+export const DB_CONFIG_LIST_FAILED = "Failed to load database configs";
 export const DB_CONFIG_SET_ACTIVE = (name: string) =>
 	`Database config: ${name} is being set active`;
 export const DB_CONFIG_FIELD_CONFIG_NAME = "Config Name";
@@ -1322,6 +1388,9 @@ export const PROJECT_DETAILS_DESCRIPTION =
 	"Review project identity, current status, and database configuration.";
 export const PROJECT_ENVIRONMENT = "Environments";
 export const PROJECT_ID = "Project ID";
+export const ORGANISATION_ID = "Organisation ID";
+export const ENVIRONMENT_NAME = "Environment";
+export const COPY_CONTEXT_VALUE = (label: string) => `Copy ${label}`;
 export const PROJECT_CONNECTION_COUNT = "ClickHouse connections";
 export const PROJECT_DATABASE_CONFIGS = "Database configurations";
 export const PROJECT_DATABASE_CONFIGS_DESCRIPTION =
@@ -1416,6 +1485,7 @@ export const HOME_SETUP_DB_CONFIG_DESCRIPTION =
 export const HOME_SETUP_READY_STEP = "Devtool unlocked";
 export const HOME_SETUP_READY_DESCRIPTION =
 	"Your AI devtool is ready. Explore traces, prompts, evals, and the rest of the workspace.";
+export const HOME_SETUP_FINISH = "Finish setup";
 export const SLUG = "Slug";
 export const USER_ALREADY_INVITED = "User has already been invited to this organisation";
 export const INVITATION_NOT_FOR_YOU = "This invitation is not for you";
@@ -1562,6 +1632,26 @@ export const RULE_FIELD_TOTAL_COST = "Total Cost ($)";
 export const RULE_FIELD_TOTAL_COST_DESC = "Total cost of the request in USD.";
 export const RULE_FIELD_TEMPERATURE = "Temperature";
 export const RULE_FIELD_TEMPERATURE_DESC = "Sampling temperature used for the request (0\u20132).";
+export const RULE_FIELD_TOOL_NAME = "Tool name";
+export const RULE_FIELD_TOOL_NAME_DESC = "gen_ai.tool.name on tool or function-call spans.";
+export const RULE_FIELD_TOOL_CALL_NAME = "Tool call name";
+export const RULE_FIELD_TOOL_CALL_NAME_DESC = "gen_ai.tool.call.name for individual tool invocations.";
+export const RULE_FIELD_CODING_CLIENT = "Coding agent client";
+export const RULE_FIELD_CODING_CLIENT_DESC = "coding_agent.client (cursor, claude_code, codex, \u2026).";
+export const RULE_FIELD_CODING_PERMISSION_MODE = "Permission mode";
+export const RULE_FIELD_CODING_PERMISSION_MODE_DESC =
+	"coding_agent.policy.permission_mode (default, plan, acceptEdits, bypassPermissions, \u2026).";
+export const RULE_FIELD_CODING_CAPTURE_MODE = "Content capture mode";
+export const RULE_FIELD_CODING_CAPTURE_MODE_DESC =
+	"coding_agent.content_capture_mode (minimal, metadata_only, full).";
+export const RULE_FIELD_CODING_CLASSIFICATION = "User classification";
+export const RULE_FIELD_CODING_CLASSIFICATION_DESC =
+	"coding_agent.user.classification (work, personal, disputed).";
+export const RULE_FIELD_CODING_SESSION_OUTCOME = "Session outcome";
+export const RULE_FIELD_CODING_SESSION_OUTCOME_DESC =
+	"coding_agent.session.outcome (completed, abandoned, cancelled, \u2026).";
+export const RULE_FIELD_CODING_TOOL_NAME = "Coding agent tool";
+export const RULE_FIELD_CODING_TOOL_NAME_DESC = "coding_agent.tool.name on coding-agent tool spans.";
 
 // Context
 export const CONTEXT_CREATED = "Context created successfully!";
@@ -1798,6 +1888,7 @@ export const NO_DASH = "-";
 
 // Chat
 export const CHAT_TITLE = "Otter";
+export const CHAT_ASK_OTTER = "Ask Otter";
 export const CHAT_DESCRIPTION = "Ask questions about your observability data using natural language";
 export const CHAT_SETTINGS_TITLE = "Chat Settings";
 export const CHAT_SETTINGS_DESCRIPTION = "Configure the AI provider for the chat feature";
@@ -1928,6 +2019,254 @@ export const TRACE_AI_ANALYZE = "Analyze";
 export const TRACE_AI_RERUN = "Rerun";
 export const TRACE_AI_ANALYZE_TRACE = "Analyze Trace";
 export const TRACE_AI_TAB_TITLE = "AI Analysis";
+export const GOVERNANCE_TAB_TITLE = "Governance";
+export const GOVERNANCE_LOADING = "Building governance report…";
+export const GOVERNANCE_LOAD_FAILED = "Failed to load governance report";
+export const GOVERNANCE_LOAD_FAILED_DETAIL = "{detail}";
+export const GOVERNANCE_EMPTY_TITLE = "No governance signals";
+export const GOVERNANCE_EMPTY_DESCRIPTION =
+	"This trace hierarchy has no rule matches, security findings, or evaluation results.";
+export const GOVERNANCE_LOADING_HINT = "Building the governance report from this hierarchy…";
+export const GOVERNANCE_SECTION_SUMMARY = "Summary";
+export const GOVERNANCE_SECTION_HARNESS = "Session metrics";
+export const GOVERNANCE_SECTION_RULES = "Matched rules";
+export const GOVERNANCE_SECTION_SECURITY = "Security & policy";
+export const GOVERNANCE_SECTION_EVALUATIONS = "Evaluations";
+export const GOVERNANCE_RISK_NONE = "No elevated risk";
+export const GOVERNANCE_RISK_INFO = "Informational";
+export const GOVERNANCE_RISK_MINOR = "Minor risk";
+export const GOVERNANCE_RISK_MAJOR = "Major risk";
+export const GOVERNANCE_RISK_CRITICAL = "Critical risk";
+export const GOVERNANCE_SUMMARY_CLEAN =
+	"No security findings, rule matches, or evaluation flags on this hierarchy.";
+export const GOVERNANCE_SUMMARY_FINDINGS = "{count} finding(s)";
+export const GOVERNANCE_SUMMARY_RULES = "{count} rule match(es)";
+export const GOVERNANCE_SUMMARY_EVALS = "{count} evaluation row(s)";
+export const GOVERNANCE_SUMMARY_MIXED = "Governance signals detected on this trace.";
+export const GOVERNANCE_FINDING_SPAN_ERROR_SUMMARY = "Span error: {name}";
+export const GOVERNANCE_FINDING_SPAN_ERROR_DETAIL =
+	"This span completed with an error status in the hierarchy.";
+export const GOVERNANCE_FINDING_CLASSIFICATION_DISPUTED_SUMMARY =
+	"Classification disputed";
+export const GOVERNANCE_FINDING_CLASSIFICATION_DISPUTED_DETAIL =
+	"A coding-agent session classification was disputed and may need review.";
+export const GOVERNANCE_FINDING_CLASSIFICATION_PERSONAL_SUMMARY =
+	"Personal-use classification";
+export const GOVERNANCE_FINDING_CLASSIFICATION_PERSONAL_DETAIL =
+	"This session was classified as personal use on a coding-agent span.";
+export const GOVERNANCE_FINDING_PERMISSION_MODE_SUMMARY =
+	"Permission mode: {mode}";
+export const GOVERNANCE_FINDING_PERMISSION_MODE_DETAIL =
+	"The coding agent reported a non-default permission mode for this session.";
+export const GOVERNANCE_FINDING_AGENT_LOOP_SUMMARY =
+	"Tool loop: {tool} × {count}";
+export const GOVERNANCE_FINDING_AGENT_LOOP_DETAIL =
+	"The same tool was called repeatedly with identical arguments, wasting {wasted_tokens} tokens (~${wasted_cost}).";
+export const GOVERNANCE_FINDING_AGENT_LOOP_DETAIL_NO_USAGE =
+	"The same tool was called {count} times with identical arguments. Cursor/tool spans do not carry per-call token or USD usage, so waste is measured by repeats{duration_suffix}.";
+export const GOVERNANCE_FINDING_AGENT_LOOP_DURATION_SUFFIX =
+	" (~{duration} of redundant tool time)";
+export const GOVERNANCE_USAGE_NOT_REPORTED = "not reported";
+export const GOVERNANCE_COST_NOT_REPORTED = "Not reported";
+export const GOVERNANCE_HARNESS_TOKENS = "Tokens";
+export const GOVERNANCE_COST_CURSOR_HINT =
+	"No USD cost on these spans. Cursor never sends cost; tokens (when present) come from session/stop events, not from tool.call spans.";
+export const GOVERNANCE_FINDING_TOOL_BURST_SUMMARY =
+	"High tool volume ({count} tool spans)";
+export const GOVERNANCE_FINDING_TOOL_BURST_DETAIL =
+	"This hierarchy executed many tool spans, which can indicate runaway agent behavior.";
+export const GOVERNANCE_FINDING_WIDE_BRANCH_SUMMARY = "Wide span branch";
+export const GOVERNANCE_FINDING_WIDE_BRANCH_DETAIL =
+	"One or more spans fan out into many child operations.";
+export const GOVERNANCE_REMEDIATION_SPAN_ERROR =
+	"Open the span details and Events tab, fix the failing operation, then re-run the agent step that produced the error.";
+export const GOVERNANCE_REMEDIATION_GENERATION_HEALTH =
+	"Inspect finish reasons and token limits on the span; raise max tokens or adjust the prompt when outputs are truncated or empty.";
+export const GOVERNANCE_REMEDIATION_MODEL_SWAP =
+	"Pin the requested model in the agent config, or accept the served model only if the swap is intentional.";
+export const GOVERNANCE_REMEDIATION_PERMISSION_MODE =
+	"Switch the coding-agent permission mode back to default, plan, or acceptEdits unless elevated access is intentional for this session.";
+export const GOVERNANCE_REMEDIATION_CLASSIFICATION =
+	"Confirm the session classification in Coding Agents and correct it if the dispute or personal tag is wrong.";
+export const GOVERNANCE_REMEDIATION_AGENT_LOOP =
+	"Coding agents like Cursor often cannot be interrupted mid-run. Add a durable rule to agent knowledge (AGENTS.md, .cursor/rules, or a skill) that forbids repeating this tool with identical arguments—require different path/args, a max attempt count, or escalate to the user. Use Copy agent rule or Ask Otter to draft it.";
+export const GOVERNANCE_REMEDIATION_TOOL_BURST =
+	"Review the tool list for redundant calls and add stop conditions or tighter tool policies before the next run.";
+export const GOVERNANCE_REMEDIATION_WIDE_BRANCH =
+	"Check whether fan-out is expected; otherwise limit parallel tool calls or subagent spawning.";
+export const GOVERNANCE_REMEDIATION_EVALUATION =
+	"Open Evaluations for this span, review the failing metric, and adjust the prompt, policy, or model before re-running.";
+export const GOVERNANCE_FINDING_CAPTURE_FULL_SUMMARY =
+	"Full content capture is enabled";
+export const GOVERNANCE_FINDING_CAPTURE_FULL_DETAIL =
+	"This session records prompts, tool arguments, and results. That is the highest-risk capture mode for secrets and personal data.";
+export const GOVERNANCE_FINDING_CAPTURE_MINIMAL_SUMMARY =
+	"Minimal content capture";
+export const GOVERNANCE_FINDING_CAPTURE_MINIMAL_DETAIL =
+	"Only session bookends and counters were captured, so this hierarchy has a weak audit trail.";
+export const GOVERNANCE_REMEDIATION_CONTENT_CAPTURE =
+	"Use metadata_only for normal work. Enable full capture only for an approved review, and keep secrets out of prompts and tool arguments.";
+export const GOVERNANCE_FINDING_OUTCOME_ABANDONED_SUMMARY =
+	"Session abandoned with uncommitted changes";
+export const GOVERNANCE_FINDING_OUTCOME_ABANDONED_DETAIL =
+	"The coding agent ended without a clean completion after making changes. Review leftover edits before they are committed or discarded.";
+export const GOVERNANCE_FINDING_OUTCOME_CANCELLED_SUMMARY =
+	"Session cancelled";
+export const GOVERNANCE_FINDING_OUTCOME_CANCELLED_DETAIL =
+	"The coding-agent session was cancelled before a completed outcome.";
+export const GOVERNANCE_REMEDIATION_SESSION_OUTCOME =
+	"Inspect the leftover diff, keep or revert the changes, and avoid leaving abandoned agent edits in the working tree.";
+export const GOVERNANCE_FINDING_EDIT_REJECT_SUMMARY =
+	"High edit rejection ({percent}%)";
+export const GOVERNANCE_FINDING_EDIT_REJECT_DETAIL =
+	"{rejected} of {total} recorded edit decisions were rejected.";
+export const GOVERNANCE_REMEDIATION_EDIT_REJECT =
+	"Tighten the task prompt or coding-agent rules so proposed edits match the intended files and style before the next run.";
+export const GOVERNANCE_FINDING_VCS_DIRTY_SUMMARY =
+	"Agent wrote on a dirty working tree";
+export const GOVERNANCE_FINDING_VCS_DIRTY_DETAIL =
+	"The repository already had uncommitted changes when the agent applied more edits, which mixes human and agent diffs.";
+export const GOVERNANCE_REMEDIATION_VCS_DIRTY =
+	"Commit or stash local work before launching the agent, then re-run so agent edits are reviewable on their own.";
+export const GOVERNANCE_FINDING_MCP_SCOPE_SUMMARY =
+	"User- or local-scoped MCP ({count})";
+export const GOVERNANCE_FINDING_MCP_SCOPE_DETAIL =
+	"MCP servers are bound outside project scope: {servers}.";
+export const GOVERNANCE_FINDING_MCP_MARKETPLACE_SUMMARY =
+	"Marketplace MCP server ({count})";
+export const GOVERNANCE_FINDING_MCP_MARKETPLACE_DETAIL =
+	"MCP servers from the marketplace were used: {servers}.";
+export const GOVERNANCE_REMEDIATION_MCP =
+	"Prefer project- or enterprise-scoped MCP servers, and review marketplace plugins before they can read the repo or secrets.";
+export const GOVERNANCE_FINDING_GIT_BLAST_SUMMARY =
+	"High git activity ({commits} commits, {prs} PRs)";
+export const GOVERNANCE_FINDING_GIT_BLAST_DETAIL =
+	"This session created several commits or pull requests. Confirm the changes were intended and reviewed.";
+export const GOVERNANCE_REMEDIATION_GIT_BLAST =
+	"Limit the agent to one focused commit or PR per task, and require human review before push.";
+export const GOVERNANCE_FINDING_SUBAGENT_SUMMARY =
+	"Subagent fan-out ({count})";
+export const GOVERNANCE_FINDING_SUBAGENT_DETAIL =
+	"This session spawned several subagents, which can multiply tool use, cost, and unreviewed edits.";
+export const GOVERNANCE_REMEDIATION_SUBAGENT =
+	"Cap parallel subagents in agent knowledge or settings unless fan-out is required for this task.";
+export const GOVERNANCE_FINDING_SECRET_SUMMARY =
+	"Possible secret or PII in captured payloads ({kinds})";
+export const GOVERNANCE_FINDING_SECRET_DETAIL =
+	"Tool or message payloads matched credential or PII patterns. The matching values are not stored on this finding.";
+export const GOVERNANCE_REMEDIATION_SECRET =
+	"Rotate any exposed credentials, switch capture mode to metadata_only, and keep secrets in a vault instead of prompts or tool arguments.";
+export const GOVERNANCE_COPY_AGENT_RULE = "Copy agent rule";
+export const GOVERNANCE_COPY_AGENT_RULE_DONE = "Copied";
+export const GOVERNANCE_ASK_OTTER_FIX = "Ask Otter";
+export const GOVERNANCE_ASK_OTTER_HIDE = "Hide Otter";
+export const GOVERNANCE_ASK_OTTER_TITLE = "Ask Otter for a fix";
+export const GOVERNANCE_ASK_OTTER_EMPTY =
+	"Otter drafts a paste-ready AGENTS.md / .cursor/rules / skill rule so the next coding-agent run stops this identical tool loop.";
+export const GOVERNANCE_ASK_OTTER_PLACEHOLDER =
+	"Draft an agent knowledge rule that stops this tool loop…";
+export const GOVERNANCE_ASK_OTTER_HINT =
+	"Paste Otter’s rule into AGENTS.md, .cursor/rules, or a skill—do not rely on interrupting the live agent.";
+export const GOVERNANCE_ASK_OTTER_SEND = "Get fix";
+export const GOVERNANCE_ASK_OTTER_DEFAULT_QUESTION =
+	"Draft a paste-ready coding-agent knowledge rule that prevents this identical tool retry loop.";
+export const GOVERNANCE_AGENT_LOOP_KNOWLEDGE_RULE = (
+	tool: string,
+	resource: string,
+	count: number
+) =>
+	[
+		`## Tool-loop guard (${tool})`,
+		"",
+		`OpenLIT detected \`${tool}\` repeating identical arguments ${count} time(s)${resource ? ` on \`${resource}\`` : ""}.`,
+		"",
+		`Do not call \`${tool}\` again with the same arguments after a completed attempt.`,
+		"If the previous result was incomplete or wrong:",
+		"- change the path or arguments, or",
+		"- stop and ask the user what to do next",
+		`Never retry identical \`${tool}\` calls in a loop. Prefer at most one retry with different args, then escalate to the user.`,
+		"",
+		"Where to put this: AGENTS.md, `.cursor/rules/`, or a project skill so every coding-agent session loads it.",
+	].join("\n");
+export const GOVERNANCE_AGENT_LOOP_OTTER_PROMPT = (
+	tool: string,
+	count: number,
+	resource: string,
+	fingerprint: string,
+	question: string
+) =>
+	[
+		"You are helping prevent a stuck coding-agent tool loop observed in OpenLIT telemetry.",
+		"Operators usually cannot interrupt Cursor or similar agents mid-run, so the fix must be durable agent knowledge—not a live interrupt.",
+		`Tool: ${tool}`,
+		`Repeat count: ${count}`,
+		resource ? `Resource: ${resource}` : "",
+		fingerprint ? `Args fingerprint: ${fingerprint}` : "",
+		"",
+		"Draft a short, paste-ready rule for AGENTS.md, .cursor/rules, or a Cursor skill that stops the agent from repeating this identical tool call.",
+		"Include concrete constraints: different path/args on retry, a max attempt count, and escalate to the user instead of looping.",
+		"Output only the rule markdown (heading + bullets). No preamble.",
+		"",
+		`User request: ${question}`,
+	]
+		.filter(Boolean)
+		.join("\n");
+export const GOVERNANCE_SPAN_REF = "Open span";
+export const GOVERNANCE_RULE_LINK = "Open rule";
+export const GOVERNANCE_HARNESS_SPANS = "Spans";
+export const GOVERNANCE_HARNESS_DEPTH = "Max depth";
+export const GOVERNANCE_HARNESS_LLM = "LLM calls";
+export const GOVERNANCE_HARNESS_TOOLS = "Tool calls";
+export const GOVERNANCE_HARNESS_RETRIEVAL = "Retrieval";
+export const GOVERNANCE_HARNESS_ERRORS = "Errors";
+export const GOVERNANCE_HARNESS_COST = "Trace cost";
+export const GOVERNANCE_HARNESS_DURATION = "Duration";
+export const GOVERNANCE_INVALID_SPAN_ID = "Invalid span id";
+export const GOVERNANCE_MISSING_SPAN_ID = "No span id provided";
+export const GOVERNANCE_RETRY = "Retry";
+export const GOVERNANCE_REFRESH = "Refresh";
+export const GOVERNANCE_EXPORT_JSON = "Export JSON";
+export const GOVERNANCE_EXPORT_FAILED =
+	"Could not export the governance passport. Try again.";
+export const GOVERNANCE_TRUNCATED_NOTE =
+	"Large trace: rule and evaluation coverage was limited to protect performance.";
+export const GOVERNANCE_AGENT_LOOP_BANNER =
+	"Stuck tool loop detected: {tool} repeated {count} times with the same arguments.";
+export const GOVERNANCE_EVAL_SCORE_PREFIX = "score";
+export const GOVERNANCE_FILTER_ALL = "All";
+export const GOVERNANCE_FILTER_CRITICAL = "Critical";
+export const GOVERNANCE_FILTER_MAJOR = "Major";
+export const GOVERNANCE_FILTER_MINOR = "Minor";
+export const GOVERNANCE_FILTER_INFO = "Info";
+export const GOVERNANCE_EVALUATIONS_LINK = "Open evaluations";
+export const GOVERNANCE_FINDING_WHAT = "What happened";
+export const GOVERNANCE_FINDING_WHERE = "Where";
+export const GOVERNANCE_FINDING_FIX = "How to fix";
+export const GOVERNANCE_FINDING_EVIDENCE = "Evidence";
+export const GOVERNANCE_FINDING_SPANS = "Related spans";
+export const GOVERNANCE_SHOW_MORE = "Show more";
+export const GOVERNANCE_SHOWING_OF = "Showing {shown} of {total}";
+export const GOVERNANCE_CATEGORY_AGENT_LOOP = "Tool loop";
+export const GOVERNANCE_CATEGORY_POLICY = "Policy";
+export const GOVERNANCE_CATEGORY_CODING_AGENT = "Coding agent";
+export const GOVERNANCE_CATEGORY_SPAN_ERROR = "Span error";
+export const GOVERNANCE_CATEGORY_GENERATION_HEALTH = "Generation health";
+export const GOVERNANCE_CATEGORY_HARNESS = "Harness";
+export const GOVERNANCE_CATEGORY_EVALUATION = "Evaluation";
+export const GOVERNANCE_CATEGORY_PROMPT_INJECTION = "Prompt injection";
+export const GOVERNANCE_CATEGORY_TOOL_MISUSE = "Tool misuse";
+export const GOVERNANCE_REMEDIATION_PROMPT_INJECTION =
+	"Harden system prompts, constrain tools, and re-run AI Analysis after mitigations.";
+export const GOVERNANCE_REMEDIATION_TOOL_MISUSE =
+	"Tighten tool allowlists, argument validation, and permission mode before re-running.";
+export const GOVERNANCE_SECTION_POLICY = "Policy controls";
+export const GOVERNANCE_POLICY_EMPTY = "No policy controls implicated by current findings.";
+export const GOVERNANCE_OTTER_MERGED =
+	"Includes Otter AI Analysis security dimensions (prompt injection, tool misuse) when a prior run exists.";
+export const GOVERNANCE_REPORT_ID_LABEL = "Report ID";
+export const GOVERNANCE_FILTER_EMPTY =
+	"No findings match this severity filter.";
+export const GOVERNANCE_SEVERITY_LABEL = "Severity";
 export const TRACE_AI_LOAD_FAILED = "Failed to load AI improvement analysis";
 export const TRACE_AI_RUN_FAILED = "Failed to run AI improvement analysis";
 export const TRACE_AI_TIMEOUT = "Analysis timed out. Please try again.";
@@ -2147,7 +2486,7 @@ export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =
 	"Store and search session memory and a knowledge graph with Zep.";
 export const MEMORY_CONNECTOR_FIELD_ORG_ID = "Mem0 organization ID";
 export const MEMORY_CONNECTOR_FIELD_PROJECT_ID = "Mem0 project ID";
-export const MEMORY_CONNECTOR_FIELD_STORE_ID = "Memory store ID";
+export const MEMORY_CONNECTOR_FIELD_STORE_ID = "Memory store";
 export const MEMORY_CONNECTOR_AUTH_HELP_CLAUDE =
 	"Use an Anthropic API key. Memory store calls send x-api-key with the agent-memory beta header.";
 export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
@@ -2159,7 +2498,7 @@ export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
 export const MEMORY_CONNECTOR_SETUP_CLAUDE_SUMMARY =
 	"Claude memory stores keep agent notes across Managed Agents sessions.";
 export const MEMORY_CONNECTOR_SETUP_MEM0_SUMMARY =
-	"Mem0 stores long-term memories that agents can search later.";
+	"Mem0 stores long-term memories scoped by user, run, or agent.";
 export const MEMORY_CONNECTOR_SETUP_MEMCODE_SUMMARY =
 	"MemCode stores long-term memories that agents can search later.";
 export const MEMORY_CONNECTOR_SETUP_ZEP_SUMMARY =
@@ -2173,12 +2512,26 @@ export const MEMORY_PROFILE = "Profile";
 export const MEMORY_SUMMARY = "Summary";
 export const MEMORY_SEARCH_PLACEHOLDER = "Search memories…";
 export const MEMORY_ASK_TITLE = "Ask Otter";
+export const MEMORY_ASK_EMPTY =
+	"Ask Otter about stored facts, users, or what to remember.";
 export const MEMORY_ASK_PLACEHOLDER = "Ask anything about your memories…";
 export const MEMORY_ASK_HINT =
 	"Otter searches this connector and answers here.";
 export const MEMORY_ASK_SEND = "Ask Otter";
 export const MEMORY_ASK_OTTER_PROMPT =
-	"Answer this from the project's stored memories. Use search_memories or list_memories before answering. Use add_memory, update_memory, or delete_memory only when the user asks to remember, change, or forget something.";
+	"Use add_memory / update_memory / delete_memory only when asked to remember, change, or forget something.";
+export const MEMORY_ASK_TOOLS_PROMPT =
+	"Memory page: fetch data with list_memories or search_memories (connector API). Prefer list_memories for inventory; search_memories for a specific fact. Do not invent memories.";
+export const MEMORY_ASK_FALLBACK_PROMPT =
+	"Memory page: this connector has no list/search API. Answer briefly from chat context only; say when you lack connector data.";
+export const MEMORY_ASK_REQUIRED_FILTERS = (filters: string) =>
+	`Pass these tool args when calling memory tools: ${filters}.`;
+export const MEMORY_ASK_SELECTED_CHIP = (summary: string) => `Selected: ${summary}`;
+export const MEMORY_ASK_SELECTED_PROMPT = (id: string, excerpt: string) =>
+	excerpt
+		? `Selected memory_id=${id}: ${excerpt}`
+		: `Selected memory_id=${id}.`;
+export const MEMORY_SPLIT_RESIZE = "Resize memories and Ask Otter panels";
 export const MEMORY_REFRESH = "Load";
 export const MEMORY_GRAPH_TITLE = "Memory graph";
 export const MEMORY_LIST_TITLE = "Memories";
@@ -2189,10 +2542,12 @@ export const MEMORY_PAGE_NEXT = "Next page";
 export const MEMORY_CONNECTOR_LABEL = "Memory connector";
 export const MEMORY_USER_FILTER = "User";
 export const MEMORY_SESSION_FILTER = "Session";
+export const MEMORY_RUN_FILTER = "Run";
 export const MEMORY_AGENT_FILTER = "Agent";
 export const MEMORY_FILTER_ALL = "All";
 export const MEMORY_FILTER_USE_VALUE = (value: string) => `Use “${value}”`;
 export const MEMORY_FILTER_CUSTOM_HINT = "Type a value and press Enter.";
+export const MEMORY_FILTER_PLACEHOLDER = "Select";
 export const MEMORY_SESSION_REQUIRED_HINT =
 	"Select a session to load memories from this connector.";
 export const MEMORY_FILTER_REQUIRED_HINT =
@@ -2392,7 +2747,7 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 	},
 	claude: {
 		summary: "Connect OpenLIT to Claude memory stores.",
-		steps: ["Create an Anthropic API key with access to Memory Stores.", "Paste the API key into the credentials field.", "Optionally pin a memory store ID, or pick a store from the Memory page session filter, then test the connection."],
+		steps: ["Create an Anthropic API key with access to Memory Stores.", "Paste the API key into the credentials field.", "Save the connector, then pick a memory store when browsing or adding memories."],
 		docsUrl: "https://platform.claude.com/docs/en/managed-agents/memory",
 	},
 	mem0: {

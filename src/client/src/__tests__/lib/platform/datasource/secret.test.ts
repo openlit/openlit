@@ -1,7 +1,10 @@
 import {
 	__resetSourceSecretCacheForTests,
+	invalidateSourceSecretCache,
+	redactableSecretValues,
 	resolveSourceSecret,
 } from "@/lib/platform/connectors/datasource/http/secret";
+import { encryptValue } from "@/utils/crypto";
 
 jest.mock("@/lib/platform/vault", () => ({
 	getSecretById: jest.fn(),
@@ -48,15 +51,6 @@ describe("resolveSourceSecret", () => {
 		expect(getSecretById).not.toHaveBeenCalled();
 	});
 
-	it("decrypts inline connector secrets without querying ClickHouse vault", async () => {
-		process.env.OPENLIT_VAULT_ENCRYPTION_KEY = "test-vault-key";
-		const { encryptValue } = await import("@/utils/crypto");
-		const secretRef = encryptValue(JSON.stringify({ apiKey: "m0-key" }));
-		const secret = await resolveSourceSecret(secretRef, undefined, "project-1");
-		expect(secret.credentials).toEqual({ apiKey: "m0-key" });
-		expect(getSecretById).not.toHaveBeenCalled();
-	});
-
 	it("does not query ClickHouse vault when clickHouseVault is disabled", async () => {
 		await expect(
 			resolveSourceSecret("vault-uuid", undefined, "project-1", {
@@ -88,6 +82,31 @@ describe("resolveSourceSecret", () => {
 			.rejects.toThrow(/could not be loaded from the OpenLIT vault/i);
 	});
 
+	it("reports the secret as not found when the vault returns no rows", async () => {
+		(getSecretById as jest.Mock).mockResolvedValue({ data: [] });
+		await expect(resolveSourceSecret("sec-empty")).rejects.toThrow(
+			/missing from the OpenLIT vault/i
+		);
+	});
+
+	it("reports the secret as not found when the row's value is an empty string", async () => {
+		(getSecretById as jest.Mock).mockResolvedValue({
+			data: [{ value: "" }],
+		});
+		await expect(resolveSourceSecret("sec-empty-value")).rejects.toThrow(
+			/missing from the OpenLIT vault/i
+		);
+	});
+
+	it("reports the secret as not found when the row's value is not a string", async () => {
+		(getSecretById as jest.Mock).mockResolvedValue({
+			data: [{ value: 12345 as unknown as string }],
+		});
+		await expect(resolveSourceSecret("sec-non-string-value")).rejects.toThrow(
+			/missing from the OpenLIT vault/i
+		);
+	});
+
 	it("treats a non-JSON vault value as a bearer token", async () => {
 		(getSecretById as jest.Mock).mockResolvedValue({
 			data: [{ value: "opaque-token" }],
@@ -115,5 +134,119 @@ describe("resolveSourceSecret", () => {
 		expect(second.credentials).toEqual({ token: "fresh" });
 		expect(getSecretById).toHaveBeenCalledTimes(2);
 		dateNow.mockRestore();
+	});
+
+	it("re-queries the vault after invalidating a specific secretRef's cache entry", async () => {
+		(getSecretById as jest.Mock).mockResolvedValue({
+			data: [{ value: '{"token":"first"}' }],
+		});
+		const first = await resolveSourceSecret("sec-invalidate");
+		expect(first.credentials).toEqual({ token: "first" });
+		expect(getSecretById).toHaveBeenCalledTimes(1);
+
+		// Cache hit: no additional vault query.
+		await resolveSourceSecret("sec-invalidate");
+		expect(getSecretById).toHaveBeenCalledTimes(1);
+
+		invalidateSourceSecretCache("sec-invalidate");
+
+		(getSecretById as jest.Mock).mockResolvedValue({
+			data: [{ value: '{"token":"second"}' }],
+		});
+		const second = await resolveSourceSecret("sec-invalidate");
+		expect(second.credentials).toEqual({ token: "second" });
+		expect(getSecretById).toHaveBeenCalledTimes(2);
+	});
+
+	it("leaves unrelated cache entries untouched when invalidating one secretRef", async () => {
+		(getSecretById as jest.Mock).mockResolvedValue({
+			data: [{ value: '{"token":"keep-me"}' }],
+		});
+		await resolveSourceSecret("sec-keep");
+		invalidateSourceSecretCache("sec-unrelated");
+
+		// Still cached: no additional vault query for the untouched ref.
+		await resolveSourceSecret("sec-keep");
+		expect(getSecretById).toHaveBeenCalledTimes(1);
+	});
+
+	it("fails closed when an inline encrypted secretRef cannot be decrypted", async () => {
+		await expect(
+			resolveSourceSecret("enc:v1:iv:tag:ciphertext")
+		).rejects.toThrow(/could not be decrypted/i);
+		expect(getSecretById).not.toHaveBeenCalled();
+	});
+
+	it("decrypts an inline encrypted secretRef without querying the vault", async () => {
+		const previous = process.env.NEXTAUTH_SECRET;
+		process.env.NEXTAUTH_SECRET = "test-only-encryption-secret";
+		try {
+			const encryptedRef = encryptValue(
+				JSON.stringify({ token: "direct-vault-value" })
+			);
+			const secret = await resolveSourceSecret(encryptedRef);
+			expect(secret.credentials).toEqual({ token: "direct-vault-value" });
+			expect(getSecretById).not.toHaveBeenCalled();
+		} finally {
+			if (previous === undefined) delete process.env.NEXTAUTH_SECRET;
+			else process.env.NEXTAUTH_SECRET = previous;
+		}
+	});
+
+	it("fails locally when the vault lookup throws and there is no usable stale cache", async () => {
+		(getSecretById as jest.Mock).mockRejectedValueOnce(
+			new Error("ECONNRESET")
+		);
+		await expect(resolveSourceSecret("sec-throws")).rejects.toThrow(
+			/could not be loaded from the OpenLIT vault/i
+		);
+	});
+
+	it("serves the stale cache when a rejected vault promise follows a prior hit", async () => {
+		const now = Date.now();
+		const dateNow = jest.spyOn(Date, "now").mockReturnValue(now);
+		(getSecretById as jest.Mock).mockResolvedValueOnce({
+			data: [{ value: JSON.stringify({ token: "fresh-reject" }) }],
+		});
+		const first = await resolveSourceSecret("sec-stale-reject");
+		expect(first.credentials).toEqual({ token: "fresh-reject" });
+
+		dateNow.mockReturnValue(now + 3 * 60_000);
+		(getSecretById as jest.Mock).mockRejectedValueOnce(
+			new Error("vault outage")
+		);
+		const second = await resolveSourceSecret("sec-stale-reject");
+		expect(second.credentials).toEqual({ token: "fresh-reject" });
+		dateNow.mockRestore();
+	});
+});
+
+describe("redactableSecretValues", () => {
+	it("collects the raw secret and every credential value", () => {
+		const values = redactableSecretValues({
+			raw: '{"token":"abc"}',
+			credentials: { token: "abc", extra: "def" },
+		});
+		expect(values.sort()).toEqual(['{"token":"abc"}', "abc", "def"].sort());
+	});
+
+	it("de-duplicates repeated values across raw and credentials", () => {
+		const values = redactableSecretValues({
+			raw: "shared-value",
+			credentials: { a: "shared-value", b: "shared-value" },
+		});
+		expect(values).toEqual(["shared-value"]);
+	});
+
+	it("skips falsy raw and falsy credential values", () => {
+		const values = redactableSecretValues({
+			raw: "",
+			credentials: { empty: "", present: "value" },
+		});
+		expect(values).toEqual(["value"]);
+	});
+
+	it("returns an empty array when there is nothing to redact", () => {
+		expect(redactableSecretValues({ raw: "", credentials: {} })).toEqual([]);
 	});
 });

@@ -74,13 +74,20 @@ def async_messages(
             self._server_address = server_address
             self._server_port = server_port
             self._event_provider = event_provider
+            self._streaming_response_processed = False
 
         async def __aenter__(self):
             await self.__wrapped__.__aenter__()
             return self
 
         async def __aexit__(self, exc_type, exc_value, traceback):
-            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+            try:
+                await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+            finally:
+                # Finalize on every exit: breaking out of the async loop
+                # never hits StopAsyncIteration, so the span would leak.
+                if not exc_type:
+                    self._finalize_streaming_span()
 
         def __aiter__(self):
             return self
@@ -95,22 +102,29 @@ def async_messages(
                 process_chunk(self, chunk)
                 return chunk
             except StopAsyncIteration:
-                try:
-                    with self._span:
-                        process_streaming_chat_response(
-                            self,
-                            pricing_info=pricing_info,
-                            environment=environment,
-                            application_name=application_name,
-                            metrics=metrics,
-                            capture_message_content=capture_message_content,
-                            disable_metrics=disable_metrics,
-                            version=version,
-                            event_provider=self._event_provider,
-                        )
-                except Exception as e:
-                    handle_exception(self._span, e)
+                self._finalize_streaming_span()
                 raise
+
+        def _finalize_streaming_span(self):
+            """Complete and end the span exactly once (see the sync twin)."""
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            try:
+                with self._span:
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=self._event_provider,
+                    )
+            except Exception as e:
+                handle_exception(self._span, e)
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
@@ -258,6 +272,7 @@ def async_messages_stream(
             self._server_address = server_address
             self._server_port = server_port
             self._event_provider = event_provider
+            self._streaming_response_processed = False
 
         def __aiter__(self):
             return self
@@ -306,22 +321,29 @@ def async_messages_stream(
                 process_chunk(self, chunk)
                 return chunk
             except StopAsyncIteration:
-                try:
-                    with self._span:
-                        process_streaming_chat_response(
-                            self,
-                            pricing_info=pricing_info,
-                            environment=environment,
-                            application_name=application_name,
-                            metrics=metrics,
-                            capture_message_content=capture_message_content,
-                            disable_metrics=disable_metrics,
-                            version=version,
-                            event_provider=self._event_provider,
-                        )
-                except Exception as e:
-                    handle_exception(self._span, e)
+                self._finalize_streaming_span()
                 raise
+
+        def _finalize_streaming_span(self):
+            """Complete and end the span exactly once (see the sync twin)."""
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            try:
+                with self._span:
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=self._event_provider,
+                    )
+            except Exception as e:
+                handle_exception(self._span, e)
 
     class TracedAsyncMessageStreamManager:
         """
@@ -346,6 +368,7 @@ def async_messages_stream(
             self._server_port = server_port
             self._event_provider = event_provider
             self._token = None
+            self._traced_stream = None
             self._attaching_task = None
 
         async def __aenter__(self):
@@ -358,7 +381,7 @@ def async_messages_stream(
 
             stream = await self._original_manager.__aenter__()
 
-            return TracedAsyncMessageStream(
+            self._traced_stream = TracedAsyncMessageStream(
                 stream,
                 self._span,
                 self._span_name,
@@ -367,6 +390,7 @@ def async_messages_stream(
                 self._server_port,
                 self._event_provider,
             )
+            return self._traced_stream
 
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             """
@@ -381,6 +405,12 @@ def async_messages_stream(
                 handle_exception(self._span, exc_val)
                 if self._span.is_recording():
                     self._span.end()
+            else:
+                # Early exit from the `async with` block: __anext__ never hit
+                # StopAsyncIteration, so finalize the span here or it is
+                # never exported (#1454).
+                if self._traced_stream is not None:
+                    self._traced_stream._finalize_streaming_span()
 
             return await self._original_manager.__aexit__(exc_type, exc_val, exc_tb)
 

@@ -14,8 +14,8 @@ import net from "net";
 import { promises as dns } from "dns";
 import getMessage from "@/constants/messages";
 import {
-	canonicalizeFetchUrl,
 	isEnabledSetting,
+	normalizeDatasourceEndpointUrl,
 	rewriteLoopbackEndpointForDocker,
 } from "./endpoint-url";
 import { withRetry, withSourceConcurrency, type RetryOptions } from "./limits";
@@ -135,7 +135,7 @@ export async function assertPublicUrl(
 ): Promise<URL> {
 	let url: URL;
 	try {
-		url = new URL(canonicalizeFetchUrl(rawUrl));
+		url = new URL(normalizeDatasourceEndpointUrl(rawUrl));
 	} catch {
 		throw new SsrfError("Invalid URL");
 	}
@@ -245,37 +245,6 @@ export interface SafeFetchOptions extends AssertUrlOptions {
 	maxConcurrent?: number;
 	/** Retry transient 429/5xx/network failures with exponential backoff. */
 	retry?: RetryOptions | boolean;
-}
-
-/**
- * Resolve a `Location` header against the current request URL.
- *
- * Path-relative locations (no leading slash, not `./` / `../` / `?` / `#`)
- * are resolved from the origin. WHATWG resolution against a trailing-slash
- * resource nests the path: `Location: v1/memories/id/` on
- * `https://api.example.com/v1/memories/id/` becomes
- * `https://api.example.com/v1/memories/id/v1/memories/id/`.
- */
-export function resolveRedirectLocation(location: string, current: URL): URL {
-	const trimmed = String(location || "").trim();
-	if (!trimmed) {
-		throw new SsrfError("Data source redirected to an invalid URL");
-	}
-	if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
-		return new URL(canonicalizeFetchUrl(trimmed));
-	}
-	if (trimmed.startsWith("//")) {
-		return new URL(`${current.protocol}${trimmed}`);
-	}
-	if (
-		trimmed.startsWith("/") ||
-		trimmed.startsWith("?") ||
-		trimmed.startsWith("#") ||
-		trimmed.startsWith(".")
-	) {
-		return new URL(trimmed, current);
-	}
-	return new URL(trimmed, `${current.origin}/`);
 }
 
 /** Default max vendor response body size (25 MiB). */
@@ -397,7 +366,6 @@ export async function safeFetch<T = unknown>(
 
 	const doFetch = async (): Promise<T> => {
 		let currentUrl = url;
-		const visited = new Set<string>([currentUrl.href]);
 		for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
 			let response: Awaited<ReturnType<typeof fetchImpl>>;
 			try {
@@ -421,9 +389,8 @@ export async function safeFetch<T = unknown>(
 				}
 				let next: URL;
 				try {
-					next = resolveRedirectLocation(location, currentUrl);
-				} catch (error) {
-					if (error instanceof SsrfError) throw error;
+					next = new URL(location, currentUrl);
+				} catch {
 					throw new SsrfError("Data source redirected to an invalid URL");
 				}
 				// Re-validate the redirect target; throws SsrfError if internal.
@@ -432,10 +399,6 @@ export async function safeFetch<T = unknown>(
 					allowPrivateNetwork: options.allowPrivateNetwork,
 					lookup: options.lookup,
 				});
-				if (visited.has(currentUrl.href)) {
-					throw new SsrfError("Data source redirect loop detected");
-				}
-				visited.add(currentUrl.href);
 				continue;
 			}
 

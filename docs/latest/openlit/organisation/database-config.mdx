@@ -40,7 +40,7 @@ A **Database Config** is the ClickHouse connection OpenLIT uses as its **app sto
 4. Optionally keep `INIT_DB_*` in Compose only so **new** installs still seed a default — do not rely on them for day-2 connection changes.
 
 <Warning>
-OpenLIT still requires a Database Config even when raw traces/logs/metrics are routed to Tempo, Loki, Prometheus, Datadog, or other [connectors](/latest/openlit/organisation/connectors). Evaluations, boards metadata, rules, vault secrets, and agent summaries stay in ClickHouse.
+OpenLIT still requires a Database Config even when raw traces/logs/metrics are routed to Tempo, Loki, Prometheus, Datadog, or other [data-source connectors](/latest/openlit/connectors/datasource). Evaluations, boards metadata, rules, vault secrets, and agent summaries stay in ClickHouse.
 </Warning>
 
 ## Add a database configuration
@@ -123,8 +123,8 @@ A Database Config can be shared with teammates by email with separate **edit**, 
 </AccordionGroup>
 
 <CardGroup cols={2}>
-  <Card title="Connectors" href="/latest/openlit/organisation/connectors" icon="plug">
-    Catalog of data-source connectors and actions.
+  <Card title="Connectors" href="/latest/openlit/connectors/overview" icon="plug">
+    Data-source and memory connectors and actions.
   </Card>
   <Card title="Configuration reference" href="/latest/openlit/configuration" icon="sliders">
     Full list of bootstrap and OAuth environment variables.

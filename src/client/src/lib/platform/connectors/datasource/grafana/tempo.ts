@@ -59,6 +59,16 @@ import {
 } from "../l1-compute";
 import { bucketSpansByInterval } from "../graph/sample-aggregate";
 import { clampQueryToSource } from "../http/limits";
+import {
+	GENERATION_HEALTH_SAMPLE_MAX,
+	GENERATION_HEALTH_SAMPLE_TRACES,
+	firstSpanMatchingGenerationHealth,
+	spanMatchesAnyGenerationHealthChip,
+} from "@/lib/platform/generation-health/classify";
+import {
+	listedSpansMatchingAgentLoop,
+	loopHitsByTraceId,
+} from "@/lib/platform/agent-loop/classify";
 
 const TTL_MS = 30_000;
 const MAX_TRACE_FETCH = 200;
@@ -71,6 +81,13 @@ const TRACE_FETCH_CONCURRENCY = 4;
 /** Cap how many span ids we remember for detail/hierarchy lookups. */
 const SPAN_INDEX_MAX = 5_000;
 const DEFAULT_TEMPO_METRICS_WINDOW_MS = 24 * 60 * 60 * 1_000;
+/**
+ * Conservative search ceiling when the source has no configured max and Tempo
+ * has not yet reported one. Self-hosted Tempo commonly sets
+ * `query_frontend.max_duration` to 168h; probing 7D/1M without a cap guarantees
+ * a 400 on those instances.
+ */
+const DEFAULT_TEMPO_SEARCH_RANGE_MS = 7 * 24 * 60 * 60 * 1_000;
 const TEMPO_PROFILE_TTL_MS = 10 * 60 * 1000;
 
 type CachedTempoProfile = TempoServerCapabilities & { expiresAt: number };
@@ -144,9 +161,24 @@ function goDurationMs(value: string): number | undefined {
 	return matched === value.length && total > 0 ? total : undefined;
 }
 
+/** True when a Tempo 400 is a search-window ceiling, not a generic query error. */
+function isSearchRangeLimitMessage(body: string): boolean {
+	if (
+		/(?:max(?:imum)?|limit).{0,40}duration|duration.{0,40}(?:max(?:imum)?|limit)/i.test(
+			body
+		)
+	) {
+		return true;
+	}
+	// query-frontend: "range specified by start and end exceeds 168h0m0s"
+	return /(?:range|exceed(?:s|ed)?).{0,80}\d+(?:\.\d+)?(?:ms|h|m|s)|\d+(?:\.\d+)?(?:ms|h|m|s).{0,80}(?:range|exceed(?:s|ed)?)/i.test(
+		body
+	);
+}
+
 /** Extract a Tempo-reported search ceiling without guessing from generic 400s. */
 function reportedMaxDurationMs(body: string): number | undefined {
-	if (!/(?:max(?:imum)?|limit).{0,40}duration|duration.{0,40}(?:max(?:imum)?|limit)/i.test(body)) {
+	if (!isSearchRangeLimitMessage(body)) {
 		return undefined;
 	}
 	const candidates: string[] = [];
@@ -325,6 +357,65 @@ function pickRootSpan(spans: NormalizedSpan[]): NormalizedSpan | undefined {
 		spans.find((s) => !s.parentSpanId || s.parentSpanId === "0".repeat(16)) ||
 		spans[0]
 	);
+}
+
+function groupSpansByTrace(
+	spans: NormalizedSpan[]
+): Map<string, NormalizedSpan[]> {
+	const grouped = new Map<string, NormalizedSpan[]>();
+	for (const span of spans) {
+		const id = String(span.traceId || "").trim();
+		if (!id) continue;
+		const group = grouped.get(id);
+		if (group) group.push(span);
+		else grouped.set(id, [span]);
+	}
+	return grouped;
+}
+
+function traceMatchesIssueQuery(
+	spans: NormalizedSpan[],
+	query: OpenLITQuery
+): boolean {
+	if (query.generationHealth?.length) {
+		const anyMatch = spans.some((span) =>
+			spanMatchesAnyGenerationHealthChip(
+				{
+					...span.resourceAttributes,
+					...span.spanAttributes,
+				},
+				query.generationHealth
+			)
+		);
+		if (!anyMatch) return false;
+	}
+	if (query.agentLoop) {
+		const traceId = String(spans[0]?.traceId || "").trim();
+		if (!traceId || !loopHitsByTraceId(spans).has(traceId)) return false;
+	}
+	return true;
+}
+
+function listedRowsForIssueQuery(
+	spans: NormalizedSpan[],
+	query: OpenLITQuery
+): NormalizedSpan[] {
+	const rows: NormalizedSpan[] = [];
+	for (const tree of Array.from(groupSpansByTrace(spans).values())) {
+		if (!traceMatchesIssueQuery(tree, query)) continue;
+		let listed: NormalizedSpan | undefined;
+		if (query.agentLoop) {
+			listed = listedSpansMatchingAgentLoop(tree, true)[0];
+		}
+		if (!listed && query.generationHealth?.length) {
+			listed = firstSpanMatchingGenerationHealth(tree, query.generationHealth);
+		}
+		if (!listed) listed = pickRootSpan(tree) || tree[0];
+		if (!listed) continue;
+		const hit = loopHitsByTraceId(tree).get(listed.traceId);
+		rows.push(hit ? { ...listed, agentLoop: hit } : listed);
+	}
+	return rows;
 }
 
 function traceqlValue(v: string): string {
@@ -659,6 +750,9 @@ export class TempoAdapter extends BaseExternalAdapter {
 	private get maxTimeRangeMs(): number | undefined {
 		const configured = this.configuredMaxTimeRangeMs;
 		const learned = learnedSearchRangeBySource.get(this.descriptor.id);
+		if (configured === undefined && learned === undefined) {
+			return DEFAULT_TEMPO_SEARCH_RANGE_MS;
+		}
 		if (configured === undefined) return learned;
 		return learned === undefined ? configured : Math.min(configured, learned);
 	}
@@ -825,6 +919,15 @@ export class TempoAdapter extends BaseExternalAdapter {
 	): Promise<Record<string, unknown>[]> {
 		const requestLimit = this.searchResultLimit(limit);
 		const adapter = await this.openPlaitAdapter();
+		const maxMs = this.maxTimeRangeMs;
+		const rangeMs = timeRange.end.getTime() - timeRange.start.getTime();
+		const searchRange =
+			maxMs !== undefined && rangeMs > maxMs
+				? {
+						start: new Date(timeRange.end.getTime() - maxMs),
+						end: timeRange.end,
+					}
+				: timeRange;
 		const resource: NativeQuery = {
 			apiVersion: OPENPLAIT_API_VERSION,
 			kind: "Query",
@@ -839,8 +942,8 @@ export class TempoAdapter extends BaseExternalAdapter {
 				extensions: {
 					"io.openplait.tempo": {
 						timeRange: {
-							from: timeRange.start.toISOString(),
-							to: timeRange.end.toISOString(),
+							from: searchRange.start.toISOString(),
+							to: searchRange.end.toISOString(),
 						},
 						limit: requestLimit,
 						spansPerSpanSet: 100,
@@ -856,7 +959,6 @@ export class TempoAdapter extends BaseExternalAdapter {
 			});
 			return openPlaitFramesToRows(result.frames);
 		} catch (error) {
-			const rangeMs = timeRange.end.getTime() - timeRange.start.getTime();
 			const status = adapterErrorStatus(error);
 			const body = adapterErrorBody(error);
 			const reportedMaxResults =
@@ -900,14 +1002,12 @@ export class TempoAdapter extends BaseExternalAdapter {
 			if (
 				compatibility.range !== false &&
 				reportedMaxMs !== undefined &&
-				rangeMs > reportedMaxMs
+				searchRange.end.getTime() - searchRange.start.getTime() > reportedMaxMs
 			) {
 				learnedSearchRangeBySource.set(this.descriptor.id, reportedMaxMs);
 				const compatibleRange = {
-					start: new Date(
-						timeRange.end.getTime() - reportedMaxMs
-					),
-					end: timeRange.end,
+					start: new Date(searchRange.end.getTime() - reportedMaxMs),
+					end: searchRange.end,
 				};
 				return this.openPlaitTraceSearchRows(
 					traceql,
@@ -1025,7 +1125,8 @@ export class TempoAdapter extends BaseExternalAdapter {
 		// made after the list query. Keep the span-only fallback aligned with
 		// the normal observability lookback.
 		const end = new Date();
-		const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1_000);
+		const lookbackMs = this.maxTimeRangeMs ?? 30 * 24 * 60 * 60 * 1_000;
+		const start = new Date(end.getTime() - lookbackMs);
 		const traceql = `{ span:id = ${traceqlValue(id)} }`;
 		try {
 			const traceIds = await this.openPlaitTraceSearch(
@@ -1058,9 +1159,19 @@ export class TempoAdapter extends BaseExternalAdapter {
 		// Keep a reserve of candidates so an oversized/deleted trace does not
 		// collapse the list. Grafana Cloud can return a valid search hit whose
 		// full OTLP payload exceeds its per-trace response limit (HTTP 422).
+		// Issue chips also need extra candidates: TraceQL search is not
+		// pre-filtered, so we download more trees and keep only matches.
+		const issueQuery = Boolean(
+			query.generationHealth?.length || query.agentLoop
+		);
 		const candidateLimit = Math.min(
-			MAX_TRACE_FETCH,
-			Math.max(maxTraces, maxTraces * 2)
+			Math.max(
+				MAX_TRACE_FETCH,
+				issueQuery
+					? Math.max(maxTraces * 2, GENERATION_HEALTH_SAMPLE_TRACES)
+					: maxTraces * 2
+			),
+			GENERATION_HEALTH_SAMPLE_MAX
 		);
 		const ids = await this.searchTraceIds(query, candidateLimit);
 		const perTrace = await mapPool(
@@ -1076,13 +1187,38 @@ export class TempoAdapter extends BaseExternalAdapter {
 				}
 			}
 		);
-		return perTrace.filter((spans) => spans.length > 0).slice(0, maxTraces).flat();
+		const trees = perTrace.filter((spans) => {
+			if (!spans.length) return false;
+			return !issueQuery || traceMatchesIssueQuery(spans, query);
+		});
+		return trees.slice(0, maxTraces).flat();
 	}
 
 	async listSpans(query: OpenLITQuery): Promise<DataFrame<NormalizedSpan>> {
 		const start = Date.now();
 		const pageSize = Math.min(query.limit || 20, MAX_TRACE_FETCH);
 		const offset = Math.max(0, query.offset || 0);
+		if (query.generationHealth?.length || query.agentLoop) {
+			const budget = Math.max(
+				offset + pageSize,
+				GENERATION_HEALTH_SAMPLE_TRACES
+			);
+			const spans = await this.fetchSampledSpans(
+				query,
+				Math.min(budget, GENERATION_HEALTH_SAMPLE_MAX)
+			);
+			const rows = listedRowsForIssueQuery(spans, query);
+			const page = rows.slice(offset, offset + pageSize);
+			return {
+				fields: [],
+				rows: page,
+				meta: {
+					latencyMs: Date.now() - start,
+					truncated: rows.length >= offset + pageSize,
+					degraded: ["serverAggregation"],
+				},
+			};
+		}
 		// Prefer TraceQL search summaries for the Telemetry list (one row per
 		// trace). Full OTLP downloads are reserved for detail / graph sample
 		// paths — Explore also only loads a full tree on click.
@@ -1123,7 +1259,10 @@ export class TempoAdapter extends BaseExternalAdapter {
 		// Stratification (multi-service fan-out) lives in shared
 		// `fetchSpansForAggregation` so all L1 backends benefit. Per-service
 		// calls land here with a single service.name filter.
-		return this.fetchSampledSpans(query, Math.min(maxTraces, MAX_TRACE_FETCH));
+		return this.fetchSampledSpans(
+			query,
+			Math.min(maxTraces, GENERATION_HEALTH_SAMPLE_MAX)
+		);
 	}
 
 	/**

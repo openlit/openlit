@@ -937,7 +937,8 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 		// ==================== MEMORY ====================
 
 		list_memories: tool<any, any>({
-			description: "List stored agent memories from the project's memory connectors. Use this when the user asks what is remembered, or to browse memories before answering.",
+			description:
+				"List stored agent memories from the project's memory connectors. Prefer this for inventory questions (who are the users, what is remembered, summarize memories). Pass connector_id and user_id/session_id/agent_id when the user or Memory page provided them. The result includes memories[].userId and filters.users.",
 			inputSchema: jsonSchema({
 				type: "object" as const,
 				properties: {
@@ -966,7 +967,8 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 		}),
 
 		search_memories: tool<any, any>({
-			description: "Search stored agent memories in the project's memory connectors. Use this to answer questions from long-term memory.",
+			description:
+				"Semantic search over stored agent memories. Use for a specific fact lookup, not for listing users or browsing everything. If search returns count=0, call list_memories with the same connector_id/user_id before saying nothing is stored. Always pass connector_id and user_id when provided.",
 			inputSchema: jsonSchema({
 				type: "object" as const,
 				properties: {
@@ -1572,6 +1574,14 @@ function summarizeMemoryToolResult(result: Awaited<ReturnType<typeof queryProjec
 		score: memory.score,
 		url: memoryEntityUrl(memory.id, result.connector?.id),
 	}));
+	const knownUserIds = Array.from(
+		new Set(
+			[
+				...(result.filters?.users || []),
+				...memories.map((memory) => memory.userId).filter(Boolean),
+			].map((value) => String(value))
+		)
+	);
 	return {
 		success: true,
 		hint: result.hint,
@@ -1586,6 +1596,11 @@ function summarizeMemoryToolResult(result: Awaited<ReturnType<typeof queryProjec
 		count: result.memories.length,
 		stats: result.stats,
 		filters: result.filters,
+		knownUserIds,
+		guidance:
+			result.memories.length === 0 && knownUserIds.length > 0
+				? "No memory rows matched this query, but knownUserIds lists users present on this connector. Call list_memories (without a semantic query) with connector_id/user_id to load their memories."
+				: undefined,
 		memories,
 	};
 }

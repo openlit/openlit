@@ -94,7 +94,7 @@ export async function resolveSourceSecret(
 
 	let result: Awaited<ReturnType<typeof getSecretById>>;
 	try {
-		result = await getSecretById(secretRef, dbConfigId, false, {
+		result = await getSecretById(ref, dbConfigId, false, {
 			logDecryptErrors: false,
 			projectId: projectId || undefined,
 		});

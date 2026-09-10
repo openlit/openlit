@@ -54,6 +54,28 @@ describe("new implementation route access wraps", () => {
 		}
 	});
 
+	it("wraps governance route with governance access/audit hooks", () => {
+		const source = readFileSync(
+			join(API_ROOT, "metrics/request/span/[id]/governance/route.ts"),
+			"utf8"
+		);
+		expect(source).toMatch(/withGovernanceAccess/);
+		expect(source).toMatch(/withGovernanceAudit/);
+		expect(source).toMatch(/withRouteAccess/);
+		expect(source).not.toMatch(/"[a-z_]+:[a-z_]+"/);
+	});
+
+	it("wraps governance export route with governance hooks", () => {
+		const source = readFileSync(
+			join(API_ROOT, "metrics/request/span/[id]/governance/export/route.ts"),
+			"utf8"
+		);
+		expect(source).toMatch(/withGovernanceAccess/);
+		expect(source).toMatch(/withGovernanceAudit/);
+		expect(source).toMatch(/withRouteAccess/);
+		expect(source).not.toMatch(/"[a-z_]+:[a-z_]+"/);
+	});
+
 	it("wraps telemetry query routes with withRouteAccess", () => {
 		const roots = ["metrics", "telemetry", "observability"].map((d) =>
 			join(API_ROOT, d)

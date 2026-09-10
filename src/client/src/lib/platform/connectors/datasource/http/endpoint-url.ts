@@ -5,9 +5,22 @@
  * (single slash). `URL` can still parse that, but we store the canonical form.
  */
 
-import { existsSync } from "fs";
-
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
+
+/** Resolve `fs.existsSync` only at call time so client bundles never import `fs`. */
+function defaultExists(path: string): boolean {
+	try {
+		// Keep Node `fs` out of client bundles; resolve only when `require` exists.
+		if (typeof require !== "function") return false;
+		// eslint-disable-next-line
+		const fs = require("fs") as {
+			existsSync?: (filePath: string) => boolean;
+		};
+		return Boolean(fs.existsSync?.(path));
+	} catch {
+		return false;
+	}
+}
 
 /** Repair `http:/host` / `https:/host` (single slash) without changing the path. */
 export function canonicalizeFetchUrl(raw: string): string {
@@ -45,7 +58,7 @@ export function normalizeDatasourceEndpointUrl(raw: string): string {
 
 /** True when the OpenLIT process is running inside a Docker container. */
 export function isRunningInDocker(
-	exists: (path: string) => boolean = existsSync
+	exists: (path: string) => boolean = defaultExists
 ): boolean {
 	try {
 		return exists("/.dockerenv");

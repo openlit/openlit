@@ -169,6 +169,13 @@ export interface CodingAgentSessionRow {
 	is_subagent: 0 | 1;
 	/** Count of `coding_agent.subagent` spans folded under this chat. */
 	subagent_event_count: number;
+	/** Stuck-tool loop on this session, attached after the sessions query. */
+	agentLoop?: {
+		toolName: string;
+		count: number;
+		wastedTokens: number;
+		wastedCost: number;
+	};
 }
 
 /**
@@ -730,6 +737,43 @@ function whereScope(opts?: {
 	`;
 }
 
+async function attachSessionLoopHits(
+	auth: CodingAgentAuth,
+	rows: CodingAgentSessionRow[],
+	opts: ListSessionsOptions
+): Promise<CodingAgentSessionRow[]> {
+	if (!rows.length) return rows;
+	try {
+		const { fetchLoopHitsByGroupIds } = await import(
+			"@/lib/platform/agent-loop/clickhouse"
+		);
+		const parts: string[] = [];
+		if (opts.since) {
+			parts.push(
+				`Timestamp >= parseDateTimeBestEffort('${opts.since.toISOString()}')`
+			);
+		}
+		if (opts.until) {
+			parts.push(
+				`Timestamp <= parseDateTimeBestEffort('${opts.until.toISOString()}')`
+			);
+		}
+		const baseWhere = parts.join(" AND ") || "1 = 1";
+		const hits = await fetchLoopHitsByGroupIds(
+			baseWhere,
+			rows.map((row) => row.session_id),
+			auth.dbConfigId
+		);
+		if (!hits.size) return rows;
+		return rows.map((row) => {
+			const hit = hits.get(row.session_id);
+			return hit ? { ...row, agentLoop: hit } : row;
+		});
+	} catch {
+		return rows;
+	}
+}
+
 /**
  * List recent coding-agent sessions for the active org/database.
  * Cursor is the started_at timestamp of the last row (descending paging).
@@ -829,13 +873,14 @@ export async function listSessions(
 		since: opts.since ?? null,
 		until: opts.until ?? null,
 	});
+	const withLoops = await attachSessionLoopHits(auth, projected, opts);
 	const totalRow = (totalData as Array<{ total: number | string }>) ?? [];
 	const total = opts.withTotal
 		? Number(totalRow[0]?.total ?? 0)
 		: null;
 
 	return {
-		rows: projected,
+		rows: withLoops,
 		nextCursor,
 		total,
 	};

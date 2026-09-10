@@ -51,6 +51,14 @@ describe("getChatModelCostPerM", () => {
 		);
 		expect(cost).toBeCloseTo(0.01035, 8);
 	});
+
+	it("defaults missing token/price fields to zero", () => {
+		const cost = getChatModelCostPerM(
+			{ inputPricePerMToken: 0, outputPricePerMToken: 0 },
+			{ promptTokens: 0, completionTokens: 0 }
+		);
+		expect(cost).toBe(0);
+	});
 });
 
 describe("promptTokensIncludeCache", () => {
@@ -64,10 +72,25 @@ describe("promptTokensIncludeCache", () => {
 	it("treats openai and litellm as inclusive", () => {
 		expect(promptTokensIncludeCache("openai", 6200, 5000, 1000)).toBe(true);
 		expect(promptTokensIncludeCache("litellm", 6200, 5000, 1000)).toBe(true);
+		expect(promptTokensIncludeCache("minimax", 6200, 5000, 1000)).toBe(true);
 	});
 
 	it("falls back to heuristic when provider unknown", () => {
 		expect(promptTokensIncludeCache("unknown", 6200, 5000, 1000)).toBe(true);
 		expect(promptTokensIncludeCache("unknown", 200, 5000, 1000)).toBe(false);
+	});
+
+	it("treats an empty provider name as falling through to the heuristic", () => {
+		expect(promptTokensIncludeCache("", 6200, 5000, 1000)).toBe(true);
+	});
+
+	it("treats a claude/agent hybrid provider name (not in the explicit set) as inclusive", () => {
+		expect(
+			promptTokensIncludeCache("some-claude-custom-agent", 100, 0, 0)
+		).toBe(true);
+	});
+
+	it("returns false from the heuristic when there are no cache tokens at all", () => {
+		expect(promptTokensIncludeCache("unknown", 0, 0, 0)).toBe(false);
 	});
 });

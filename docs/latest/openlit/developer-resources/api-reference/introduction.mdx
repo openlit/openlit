@@ -29,12 +29,41 @@ description: 'OpenAPI specification for API Endpoints in OpenLIT'
   </Card>
 </CardGroup>
 
+## Product surfaces
+
+In addition to the SDK-facing endpoints above, the OpenLIT client ships an interactive OpenAPI reference at **Settings → OpenAPI Spec** (`/openapi-spec`). That catalog also covers:
+
+- **AI Analysis** — `GET`/`POST /api/chat/improvement/{spanId}` for saved runs and streaming reviews of traces/spans
+- **Ask Otter** — `/api/chat/*` for config, conversations, streaming messages, SQL execute, widgets, and usage
+- **Telemetry** — logs, metrics, traces, exceptions, and span hierarchy APIs
+
+See [AI Analysis](/latest/openlit/observability/telemetry/ai-analysis) and [Chat with Otter](/latest/openlit/chat/overview) for product docs.
+
+## Request context headers
+
+OpenLIT scopes data by **Organisation → Project → Environment**. **Signal routing** (latest) picks the connector for each signal from the active project + environment.
+
+```http
+Authorization: Bearer <openlit-api-key>
+x-openlit-organisation-id: <organisation-id>
+x-openlit-project-id: <project-id>
+x-openlit-environment: production
+```
+
+### Non-SDK APIs (telemetry, Ask Otter, AI Analysis, …)
+
+Use signal routing headers only. Do **not** send `x-openlit-database-config-id`. The API key still binds a vault/credential database config (middleware injects `x-database-config-id`).
+
+### SDK-facing APIs (Prompt Hub, Vault, Rule Engine)
+
+Prefer signal routing (`project` + `environment`) to resolve the intelligence ClickHouse that stores prompts, secrets, and rules. Existing SDKs that only send `Authorization: Bearer …` keep working via the API key's bound database config. Those endpoints also accept an explicit `x-openlit-database-config-id` when it belongs to the same project as the key.
+
 ## Authentication
 
-Most SDK-facing endpoints (Prompt Hub, Vault, Rule Engine) use an Authorization header:
+All documented endpoints require an Authorization header:
 
 ```yaml
 Authorization: Bearer <api-key>
 ```
 
-[Manage Models](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/models) UI APIs use a signed-in OpenLIT session instead. The [public pricing export](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/public-pricing) requires no auth.
+[Manage Models](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/models) UI pages also accept a signed-in OpenLIT session in the browser. The [public pricing export](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/public-pricing) requires no auth.
