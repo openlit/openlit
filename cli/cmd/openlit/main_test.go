@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 )
 
@@ -20,7 +19,7 @@ func TestExecuteReportsUserFacingErrors(t *testing.T) {
 		{
 			name:     "invalid configure value",
 			args:     []string{"configure", "--content-capture", "oops"},
-			wantText: `invalid --content-capture "oops"`,
+			wantText: `invalid --content-capture "oops" (allowed: minimal, metadata_only, full)`,
 		},
 		{
 			name:     "missing install vendor",
@@ -47,14 +46,9 @@ func TestExecuteReportsUserFacingErrors(t *testing.T) {
 			if stdout.Len() != 0 {
 				t.Errorf("execute() stdout = %q, want empty", stdout.String())
 			}
-			if !strings.Contains(stderr.String(), tt.wantText) {
-				t.Errorf("execute() stderr = %q, want it to contain %q", stderr.String(), tt.wantText)
-			}
-			if count := strings.Count(stderr.String(), tt.wantText); count != 1 {
-				t.Errorf("execute() stderr contains error %d times, want once: %q", count, stderr.String())
-			}
-			if strings.Contains(stderr.String(), "Usage:") {
-				t.Errorf("execute() stderr contains usage output: %q", stderr.String())
+			wantStderr := "openlit: " + tt.wantText + "\n"
+			if got := stderr.String(); got != wantStderr {
+				t.Errorf("execute() stderr = %q, want %q", got, wantStderr)
 			}
 		})
 	}
