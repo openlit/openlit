@@ -488,6 +488,72 @@ async function loadAgents(params: ListAgentsParams): Promise<ListAgentsResult> {
 			);
 			const overlay = new Map<string, (typeof liveRows)[number]>();
 			for (const r of liveRows) overlay.set(r.agent_key, r);
+
+			// Summary is filled by the materialize cron. If cron auth fails or
+			// never ran, Telemetry can still show coding spans while this tab
+			// is empty — surface live discovery instead of overlaying nothing.
+			if (rows.length === 0 && liveRows.length > 0) {
+				const liveAgents = liveRows
+					.map((live) =>
+						rowToAgent({
+							agent_key: live.agent_key,
+							service_name: live.service_name,
+							environment: live.environment,
+							cluster_id: live.cluster_id,
+							workload_key: live.workload_key || "",
+							source: "coding",
+							controller_service_id: "",
+							controller_instance_id: "",
+							primary_model: "",
+							models: [],
+							providers: [],
+							tool_names: [],
+							tool_count: 0,
+							request_count_24h: 0,
+							current_version_hash: "",
+							current_version_number: 0,
+							sdk_version: live.sdk_version || "",
+							sdk_language: live.sdk_language || "",
+							instrumentation_status:
+								live.instrumentation_status || "instrumented",
+							first_seen: live.first_seen,
+							last_seen: live.last_seen,
+							updated_at: live.last_seen,
+							last_materialized_at: live.last_seen,
+							coding_agent_vendor: live.coding_agent_vendor,
+							coding_session_count_24h: live.coding_session_count_24h,
+							coding_cost_usd_24h: live.coding_cost_usd_24h,
+							coding_active_users_24h: live.coding_active_users_24h,
+							coding_lines_added_24h: live.coding_lines_added_24h,
+							coding_lines_removed_24h: live.coding_lines_removed_24h,
+							coding_lines_accepted_24h: live.coding_lines_accepted_24h,
+							coding_lines_rejected_24h: live.coding_lines_rejected_24h,
+							coding_edit_accept_24h: live.coding_edit_accept_24h,
+							coding_edit_reject_24h: live.coding_edit_reject_24h,
+							coding_commit_count_24h: live.coding_commit_count_24h,
+							coding_pr_count_24h: live.coding_pr_count_24h,
+						})
+					)
+					.map(redactControllerProduct)
+					.filter((agent): agent is UnifiedAgent => agent !== null)
+					.sort((a, b) => {
+						const bySeen =
+							new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime();
+						if (bySeen !== 0) return bySeen;
+						return b.agent_key.localeCompare(a.agent_key);
+					});
+				return {
+					data: liveAgents.slice(0, limit),
+					nextCursor:
+						liveAgents.length > limit
+							? {
+									last_seen: liveAgents[limit - 1].last_seen,
+									agent_key: liveAgents[limit - 1].agent_key,
+								}
+							: null,
+				};
+			}
+
 			for (let i = 0; i < rows.length; i++) {
 				const liveRow = overlay.get(rows[i].agent_key);
 				if (!liveRow) continue;

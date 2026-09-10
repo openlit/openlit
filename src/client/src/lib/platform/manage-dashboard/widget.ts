@@ -56,8 +56,76 @@ function getFilterPathValue(filter: unknown, path: string): unknown {
 	return current;
 }
 
+/** Truthiness for Mustache-style `{{#filter.*}}` / `{{^filter.*}}` sections. */
+function isFilterSectionTruthy(value: unknown): boolean {
+	if (value == null) return false;
+	if (typeof value === "boolean") return value;
+	if (typeof value === "number") return value !== 0 && !Number.isNaN(value);
+	if (typeof value === "string") return value.length > 0;
+	if (Array.isArray(value)) return value.length > 0;
+	if (typeof value === "object") {
+		return Object.keys(value as Record<string, unknown>).length > 0;
+	}
+	return Boolean(value);
+}
+
 /**
- * Substitute only `{{filter.*}}` / `{{{filter.*}}}` placeholders.
+ * Expand only `{{#filter.path}}…{{/filter.path}}` and
+ * `{{^filter.path}}…{{/filter.path}}` sections.
+ *
+ * Coding Agents (and other) seeded widgets rely on these to optionally inject
+ * vendor/user predicates. We deliberately do **not** hand the query to a
+ * template engine — only allow-listed `filter.<path>` section tags are
+ * recognized, so arbitrary Mustache (`{{#evil}}`, lambdas, partials) stays
+ * inert (CodeQL js/code-injection).
+ *
+ * Implemented as a left-to-right scan (no `[\s\S]*?` + backref replace) to
+ * avoid polynomial ReDoS on hostile templates (CodeQL js/polynomial-redos).
+ */
+function renderFilterSections(template: string, filter: MetricParams): string {
+	const openTag = /\{\{([#^])\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g;
+	let out = "";
+	let cursor = 0;
+
+	while (cursor < template.length) {
+		openTag.lastIndex = cursor;
+		const open = openTag.exec(template);
+		if (!open) {
+			out += template.slice(cursor);
+			break;
+		}
+
+		const openStart = open.index;
+		const openEnd = openTag.lastIndex;
+		const kind = open[1] as "#" | "^";
+		const path = open[2];
+		out += template.slice(cursor, openStart);
+
+		const closeNeedle = `{{/filter.${path}}}`;
+		const closeIndex = template.indexOf(closeNeedle, openEnd);
+		if (closeIndex === -1) {
+			// Unclosed section: keep the open tag literal and continue.
+			out += open[0];
+			cursor = openEnd;
+			continue;
+		}
+
+		const body = template.slice(openEnd, closeIndex);
+		const truthy = isFilterSectionTruthy(getFilterPathValue(filter, path));
+		if (kind === "#") {
+			out += truthy ? body : "";
+		} else {
+			out += truthy ? "" : body;
+		}
+		cursor = closeIndex + closeNeedle.length;
+	}
+
+	return out;
+}
+
+/**
+ * Substitute only `{{filter.*}}` / `{{{filter.*}}}` placeholders, after
+ * expanding `filter.*` section tags.
  *
  * Intentionally does **not** use Mustache (or any template engine): the
  * query string is user-controlled on the widget preview path, and treating
@@ -70,7 +138,8 @@ function renderFilterPlaceholders(
 	template: string,
 	filter: MetricParams
 ): string {
-	return template.replace(
+	const withSections = renderFilterSections(template, filter);
+	return withSections.replace(
 		/\{\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}\}|\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g,
 		(
 			_match,

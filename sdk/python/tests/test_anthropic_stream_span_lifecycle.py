@@ -1,4 +1,4 @@
-# pylint: disable=protected-access
+# pylint: disable=protected-access, missing-function-docstring
 """Regression tests: the Anthropic streaming wrappers must end their span on
 every exit path.
 

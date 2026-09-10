@@ -35,6 +35,7 @@ import {
 import AskOtterPanel from "@/components/(playground)/chat/ask-otter-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 type SeverityFilter = "all" | GovernanceSeverity;
 
@@ -131,6 +132,10 @@ function categoryLabel(category: GovernanceFindingCategory): string {
 			return m.GOVERNANCE_CATEGORY_HARNESS;
 		case "evaluation":
 			return m.GOVERNANCE_CATEGORY_EVALUATION;
+		case "prompt_injection":
+			return m.GOVERNANCE_CATEGORY_PROMPT_INJECTION;
+		case "tool_misuse":
+			return m.GOVERNANCE_CATEGORY_TOOL_MISUSE;
 		default:
 			return category;
 	}
@@ -478,18 +483,41 @@ export default function TraceGovernancePanel({
 		return counts;
 	}, [report]);
 
-	const exportReport = useCallback(() => {
-		if (!report) return;
-		const blob = new Blob([JSON.stringify(report, null, 2)], {
-			type: "application/json",
-		});
-		const url = URL.createObjectURL(blob);
-		const anchor = document.createElement("a");
-		anchor.href = url;
-		anchor.download = `governance-${report.trace_id || hierarchySpanId}.json`;
-		anchor.click();
-		URL.revokeObjectURL(url);
-	}, [report, hierarchySpanId]);
+	const exportReport = useCallback(async () => {
+		if (!hierarchySpanId) return;
+		const m = getMessage();
+		const params = new URLSearchParams();
+		if (traceId) params.set("traceId", traceId);
+		if (environment) params.set("environment", environment);
+		const qs = params.toString();
+		const url = `/api/telemetry/request/span/${encodeURIComponent(
+			hierarchySpanId
+		)}/governance/export${qs ? `?${qs}` : ""}`;
+		try {
+			const response = await fetch(url, { credentials: "include" });
+			if (!response.ok) {
+				toast.error(m.GOVERNANCE_EXPORT_FAILED, { id: "governance-export" });
+				return;
+			}
+			const payload = await response.json();
+			const passport = payload.passport || payload;
+			if (!passport?.schema_version || !passport?.report_id) {
+				toast.error(m.GOVERNANCE_EXPORT_FAILED, { id: "governance-export" });
+				return;
+			}
+			const blob = new Blob([JSON.stringify(passport, null, 2)], {
+				type: "application/json",
+			});
+			const objectUrl = URL.createObjectURL(blob);
+			const anchor = document.createElement("a");
+			anchor.href = objectUrl;
+			anchor.download = `governance-passport-${passport.report_id}.json`;
+			anchor.click();
+			URL.revokeObjectURL(objectUrl);
+		} catch {
+			toast.error(m.GOVERNANCE_EXPORT_FAILED, { id: "governance-export" });
+		}
+	}, [hierarchySpanId, traceId, environment]);
 
 	const severityFilters: Array<{ key: SeverityFilter; label: string }> = [
 		{ key: "all", label: m.GOVERNANCE_FILTER_ALL },
@@ -562,6 +590,16 @@ export default function TraceGovernancePanel({
 					{report.analysis_limited && (
 						<p className="mt-1 text-[11px] text-stone-500">
 							{m.GOVERNANCE_TRUNCATED_NOTE}
+						</p>
+					)}
+					{report.otter_run_id && (
+						<p className="mt-1 text-[11px] text-stone-500">
+							{m.GOVERNANCE_OTTER_MERGED}
+						</p>
+					)}
+					{report.report_id && (
+						<p className="mt-1 font-mono text-[10px] text-stone-500">
+							{m.GOVERNANCE_REPORT_ID_LABEL}: {report.report_id}
 						</p>
 					)}
 					{report.harness.agent_loop && (
@@ -725,6 +763,39 @@ export default function TraceGovernancePanel({
 							)}
 						</>
 					)}
+				</section>
+			)}
+
+			{(report.policy_controls?.length || 0) > 0 && (
+				<section>
+					<h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+						{m.GOVERNANCE_SECTION_POLICY} ({report.policy_controls!.length})
+					</h3>
+					<div className="divide-y divide-stone-200 overflow-hidden rounded-md border border-stone-200 dark:divide-stone-800 dark:border-stone-800">
+						{report.policy_controls!.map((control) => (
+							<div
+								key={`${control.framework}:${control.control_id}`}
+								className="flex flex-col gap-0.5 px-2.5 py-1.5 text-xs"
+							>
+								<div className="flex flex-wrap items-center gap-2">
+									<span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] uppercase text-stone-700 dark:bg-stone-800 dark:text-stone-300">
+										{control.framework}
+									</span>
+									<span className="font-mono text-[11px] font-medium text-stone-900 dark:text-stone-100">
+										{control.control_id}
+									</span>
+									<span className="text-stone-600 dark:text-stone-400">
+										{control.title}
+									</span>
+								</div>
+								{control.rationale ? (
+									<p className="pl-0.5 text-[10px] leading-snug text-stone-500 dark:text-stone-500">
+										{control.rationale}
+									</p>
+								) : null}
+							</div>
+						))}
+					</div>
 				</section>
 			)}
 

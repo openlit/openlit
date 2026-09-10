@@ -10,6 +10,7 @@ import {
 import { withRouteAccess } from "@/lib/access/route-access";
 import { fireGovernanceReportTelemetry } from "@/helpers/server/governance-analytics";
 import { buildTraceGovernanceReport } from "@/lib/platform/governance/trace-report";
+import { buildGovernancePassport } from "@/lib/platform/governance/passport";
 import { validateGovernanceSpanId } from "@/lib/platform/governance/validate";
 import { resolveIntelligenceClickHouseDbConfigId } from "@/lib/platform/intelligence/source";
 import { errorResponse } from "@/utils/api-response";
@@ -54,9 +55,6 @@ async function GETHandler(
 		url.searchParams.get("environment") || getRequestEnvironment(request);
 
 	try {
-		// Intelligence-layer tables (rules / evals) follow the connector binding for
-		// the selected environment; traces hierarchy uses the same environment via
-		// resolveTracesAdapter inside buildTraceGovernanceReport.
 		const databaseConfigId =
 			(await resolveIntelligenceClickHouseDbConfigId({ environment })) ||
 			undefined;
@@ -79,6 +77,8 @@ async function GETHandler(
 		}
 
 		const report = result.report!;
+		const passport = buildGovernancePassport(report);
+
 		fireGovernanceReportTelemetry({
 			success: true,
 			startTimestamp,
@@ -91,7 +91,14 @@ async function GETHandler(
 			analysisLimited: report.analysis_limited,
 		});
 
-		return Response.json({ report });
+		return Response.json(
+			{ passport },
+			{
+				headers: {
+					"Content-Disposition": `attachment; filename="governance-passport-${passport.report_id}.json"`,
+				},
+			}
+		);
 	} catch (error) {
 		fireGovernanceReportTelemetry({
 			success: false,
@@ -107,7 +114,7 @@ async function GETHandler(
 export const GET = withGovernanceAudit(
 	withRouteAccess(
 		"traces.read",
-		withGovernanceAccess("read", GETHandler),
+		withGovernanceAccess("export", GETHandler),
 		{ requireDbConfig: true }
 	)
 );
