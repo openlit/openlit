@@ -83,30 +83,36 @@ function ContextPill({ label, value }: { label: string; value?: unknown }) {
 export function LogDetailView({
 	id,
 	from,
+	aroundTimestamp,
 	variant = "page",
 	extraActions,
 }: {
 	id: string;
 	from?: string | null;
+	aroundTimestamp?: string | null;
 	variant?: "page" | "sheet";
 	extraActions?: ReactNode;
 }) {
 	const m = getMessage();
 	const router = useRouter();
-	const { data, fireRequest } = useFetchWrapper();
+	const searchParams = useSearchParams();
+	const { data, fireRequest, isFetched } = useFetchWrapper();
+	const tsHint = aroundTimestamp || searchParams.get("ts") || undefined;
 
 	const fetchData = useCallback(() => {
+		const qs = tsHint ? `?ts=${encodeURIComponent(String(tsHint))}` : "";
 		fireRequest({
 			requestType: "GET",
-			url: `/api/telemetry/logs/${id}`,
+			url: `/api/telemetry/logs/${id}${qs}`,
 		});
-	}, [fireRequest, id]);
+	}, [fireRequest, id, tsHint]);
 
 	useEffect(() => {
 		fetchData();
 	}, [fetchData]);
 
 	const record = (data as any)?.record;
+	const fetchError = (data as any)?.err;
 	const logAttributes = record?.LogAttributes || {};
 	const eventName = compactValue(logAttributes["event.name"]);
 	const logTitle =
@@ -173,6 +179,13 @@ export function LogDetailView({
 						<MetaTile icon={<MessageSquareText className="h-3.5 w-3.5" />} label="Event" value={eventName || record.Body} />
 						<MetaTile icon={<BadgeDollarSign className="h-3.5 w-3.5" />} label="Cost" value={logAttributes.cost_usd ? `$${formatNumber(logAttributes.cost_usd)}` : undefined} />
 						<MetaTile icon={<Zap className="h-3.5 w-3.5" />} label="Tokens" value={tokenSummary} />
+					</div>
+				) : isFetched && fetchError ? (
+					<div
+						role="alert"
+						className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200"
+					>
+						{String(fetchError)}
 					</div>
 				) : undefined
 			}

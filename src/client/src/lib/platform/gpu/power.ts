@@ -7,8 +7,15 @@ import {
 	OTEL_GPUS_TABLE_NAME,
 	dataCollector,
 } from "../common";
+import {
+	externalAveragePowerDraw,
+	externalPowerParamsPerTime,
+} from "./external";
 
 export async function getAveragePowerDraw(params: GPUMetricParams) {
+	const external = await externalAveragePowerDraw(params);
+	if (external) return external;
+
 	const query = `
 			SELECT
 				ROUND(AVG(Value), 2) as power_draw
@@ -23,6 +30,9 @@ export async function getAveragePowerDraw(params: GPUMetricParams) {
 }
 
 export async function getPowerParamsPerTime(params: GPUMetricParams) {
+	const external = await externalPowerParamsPerTime(params);
+	if (external) return external;
+
 	const keys = ["power.draw", "power.limit"];
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);

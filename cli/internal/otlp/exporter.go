@@ -457,7 +457,7 @@ func NewEmitter(_ context.Context, cfg *config.Resolved, vendor string, extraAtt
 	// Mark every span emitted from the hook path so the query layer
 	// can tell hook spans apart from a vendor's native OTel exporter
 	// (e.g. Claude Code's `CLAUDE_CODE_ENABLE_TELEMETRY=1` path). See
-	// `.cursor/rules/coding-agents-convention.mdc` §6 for the full
+	// `agent-guides/coding-agents-convention.md` §6 for the full
 	// dual-path coalesce contract; without this stamp, reads can't
 	// reliably prefer native cost/tokens over our hook estimates.
 	extra["coding_agent.signal_source"] = "hook"

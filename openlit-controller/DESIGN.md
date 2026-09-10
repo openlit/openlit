@@ -2,8 +2,9 @@
 
 This document explains how the controller works and the design principles that
 keep it correct. A condensed, enforceable version lives in
-`.cursor/rules/controller-design.mdc` (auto-attached when editing controller or
-Agents-backend code). Read this for the "why"; read the rule for the "must".
+`agent-guides/controller-design.md` (loaded by the controller Cursor rule and
+referenced by `AGENTS.md`). Read this for the "why"; read the guide for the
+"must".
 
 ---
 

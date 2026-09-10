@@ -1,8 +1,12 @@
 import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
 import { getFilterWhereCondition } from "@/helpers/server/platform";
+import { externalGenerationByCategories } from "./external";
 
 export async function getResultGenerationByCategories(params: MetricParams) {
+	const external = await externalGenerationByCategories(params);
+	if (external) return external;
+
 	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
 	const query = `SELECT 
     ${keyPath} AS category,

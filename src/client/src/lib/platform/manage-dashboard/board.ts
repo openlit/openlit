@@ -8,7 +8,8 @@ import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
 import { createWidget, deleteWidget, getWidgets } from "./widget";
 import { pluck } from "lodash/fp";
-import { jsonParse, jsonStringify } from "@/utils/json";
+import { jsonStringify } from "@/utils/json";
+import { normalizeImportedDashboard } from "./board-format";
 
 export function getBoardById(id: string) {
 	const query = `
@@ -252,10 +253,13 @@ export async function getBoardLayout(id: string, databaseConfigId?: string) {
 	let widgetsResult: Array<Widget> = [];
 
 	if (widgetIds?.length) {
-		const { data: widgetsData } = await getWidgets(
+		const { data: widgetsData, err: widgetsErr } = await getWidgets(
 			widgetIds,
 			databaseConfigId
 		);
+		if (widgetsErr) {
+			return { err: widgetsErr };
+		}
 		widgetsResult = (widgetsData || []) as typeof widgetsResult;
 	}
 
@@ -481,9 +485,8 @@ export async function getMainDashboard(layout?: boolean, databaseConfigId?: stri
 	return { data: (mainDashboardData as any[])[0], err: null };
 }
 
-// TODO: fix the type of data
 export async function importBoardLayout(
-	data: any,
+	data: unknown,
 	databaseConfigId?: string,
 	options?: {
 		// When true, widget ids from `data.widgets` are kept verbatim
@@ -506,35 +509,36 @@ export async function importBoardLayout(
 		preserveWidgetIds?: boolean;
 	}
 ) {
+	const normalized = normalizeImportedDashboard(data);
+	if ("err" in normalized) {
+		return { err: normalized.err };
+	}
+
 	const mainDashboard = await getMainDashboard(false, databaseConfigId);
+	const imported = normalized.data;
 
 	const boardData: Partial<Board> = {
-		title: data.title,
-		description: data.description,
-		isPinned: data.isPinned,
-		isMainDashboard: mainDashboard.data?.isMainDashboard ? false : data.isMainDashboard,
-		tags: data.tags ? jsonParse(data.tags) : [],
+		title: imported.title,
+		description: imported.description,
+		isPinned: imported.isPinned,
+		isMainDashboard: mainDashboard.data?.isMainDashboard
+			? false
+			: imported.isMainDashboard,
+		tags: imported.tags as unknown as string,
 	};
 
 	// Create the board first
 	const boardResult = await createBoard(boardData as Board, databaseConfigId);
 
-	if ('err' in boardResult) {
+	if ("err" in boardResult) {
 		return { err: boardResult.err };
 	}
 
 	const newBoardId = boardResult.data.id;
-
-	// Update the board layout with widgets and their positions
-	const layoutConfig = {
-		layouts: data.layouts,
-		widgets: data.widgets
-	};
-
 	const preserveWidgetIds = options?.preserveWidgetIds === true;
-	const widgetIdMap = new Map();
+	const widgetIdMap = new Map<string, string>();
 
-	const updatedWidgets = Object.values(layoutConfig.widgets).map((widget: any) => {
+	const updatedWidgets = Object.values(imported.widgets).map((widget) => {
 		const nextWidgetId = preserveWidgetIds
 			? widget.id
 			: crypto.randomUUID();
@@ -546,71 +550,69 @@ export async function importBoardLayout(
 		};
 	});
 
-	const updatedLayouts = layoutConfig.layouts.lg.map((layout: any) => {
-		return {
-			...layout,
-			i: widgetIdMap.get(layout.i)
-		}
-	});
+	const updatedLayouts = imported.layouts.lg
+		.map((layout) => {
+			const nextId = widgetIdMap.get(layout.i);
+			if (!nextId) return null;
+			return {
+				...layout,
+				i: nextId,
+			};
+		})
+		.filter((layout): layout is NonNullable<typeof layout> => !!layout);
 
-	// Fail closed: createWidget returns `{ err }` instead of throwing, so
-	// Promise.all alone cannot detect partial insert failures. Writing
+	const rollbackImport = async (widgetIds: string[]) => {
+		await deleteBoard(newBoardId, databaseConfigId);
+		await Promise.all(
+			widgetIds.map((widgetId) => deleteWidget(widgetId, databaseConfigId))
+		);
+	};
+
+	// createWidget returns `{ err }` instead of throwing, so a bare
+	// Promise.all cannot detect partial insert failures. Writing
 	// board_widget rows for widgets that never landed creates dangling
 	// refs that crash /home (React #130).
-	const createResults = await Promise.all(
-		updatedWidgets.map(async (widget: any) => {
-			const result = await createWidget(widget, databaseConfigId);
-			return { widgetId: widget.id as string, result };
-		})
-	);
-
-	const failedCreates = createResults.filter(({ result }) => Boolean(result.err));
-	if (failedCreates.length > 0) {
-		// Roll the board back so seed can retry a clean import next boot
-		// (boardExistsByTitle would otherwise treat this as "already seeded").
-		await deleteBoard(newBoardId, databaseConfigId);
-		// Best-effort cleanup of widgets that did insert. MergeTree has no
-		// uniqueness constraint, so leaving them would duplicate on retry
-		// when preserveWidgetIds is true.
-		await Promise.all(
-			createResults
-				.filter(({ result }) => !result.err)
-				.map(({ widgetId }) => deleteWidget(widgetId, databaseConfigId))
-		);
-		return {
-			err:
-				failedCreates[0]?.result.err ||
-				getMessage().BOARD_IMPORT_FAILED,
-		};
+	//
+	// Creates run sequentially: each createWidget is insert + readback,
+	// and the ClickHouse pool is max 20 / maxWaitingClients 5. Coding
+	// Agents seeds 21 widgets; parallel creates are a plausible cause
+	// of the original partial seed.
+	const createdWidgetIds: string[] = [];
+	for (const widget of updatedWidgets) {
+		const result = await createWidget(widget, databaseConfigId);
+		if (result.err) {
+			await rollbackImport(createdWidgetIds);
+			return {
+				err: result.err || getMessage().BOARD_IMPORT_FAILED,
+			};
+		}
+		createdWidgetIds.push(widget.id);
 	}
 
 	const layoutConfigData = {
 		layouts: {
-			lg: updatedLayouts
+			lg: updatedLayouts,
 		},
-		widgets: updatedWidgets.reduce((acc: any, widget: any) => {
-			acc[widget.id] = widget;
-			return acc;
-		}, {}),
-	}
+		widgets: updatedWidgets.reduce(
+			(acc: Record<string, (typeof updatedWidgets)[number]>, widget) => {
+				acc[widget.id] = widget;
+				return acc;
+			},
+			{}
+		),
+	};
 
-
-	const { data: layoutData, err: layoutErr } = await updateBoardLayout(newBoardId, layoutConfigData, databaseConfigId);
-
+	const { data: layoutData, err: layoutErr } = await updateBoardLayout(
+		newBoardId,
+		layoutConfigData,
+		databaseConfigId
+	);
 
 	if (layoutData) {
 		return { data: boardResult.data };
 	}
 
-	// Layout attach failed after widgets were created — roll back the board
-	// (and its mappings) so we do not leave an empty/partial seeded board.
-	await deleteBoard(newBoardId, databaseConfigId);
-	await Promise.all(
-		updatedWidgets.map((widget: any) =>
-			deleteWidget(widget.id, databaseConfigId)
-		)
-	);
-
+	await rollbackImport(createdWidgetIds);
 	return { err: layoutErr || getMessage().BOARD_IMPORT_FAILED };
 }
 

@@ -3,6 +3,10 @@ jest.mock("ai", () => ({
 	jsonSchema: jest.fn((schema) => schema),
 }));
 
+const mockGetLogs = jest.fn();
+const mockListMetricRecords = jest.fn();
+const mockResolveSignalSource = jest.fn();
+
 import { TextDecoder, TextEncoder } from "util";
 
 Object.assign(global, { TextDecoder, TextEncoder });
@@ -56,8 +60,48 @@ jest.mock("@/lib/platform/chat/improvement", () => ({
 	streamTraceImprovementAnalysis: jest.fn(),
 }));
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: jest.fn(),
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+	};
+});
+
+jest.mock("@/lib/platform/traces/read", () => ({
+	listTraceRecords: jest.fn(),
+}));
+
+jest.mock("@/lib/platform/logs/read", () => ({
+	getLogs: (...args: unknown[]) => mockGetLogs(...args),
+}));
+
+jest.mock("@/lib/platform/metrics/read", () => ({
+	listMetricRecords: (...args: unknown[]) => mockListMetricRecords(...args),
+}));
+
+jest.mock("@/lib/telemetry-source", () => ({
+	resolveSignalSource: (...args: unknown[]) => mockResolveSignalSource(...args),
+}));
+
+const mockQueryProjectMemories = jest.fn();
+const mockAddProjectMemories = jest.fn();
+const mockUpdateProjectMemory = jest.fn();
+const mockDeleteProjectMemory = jest.fn();
+const mockRequireMemoryAccess = jest.fn().mockResolvedValue(undefined);
+const mockRecordMemoryMutationAudit = jest.fn().mockResolvedValue(undefined);
+jest.mock("@/lib/platform/connectors/memory/read", () => ({
+	queryProjectMemories: (...args: unknown[]) => mockQueryProjectMemories(...args),
+}));
+jest.mock("@/lib/platform/connectors/memory/write", () => ({
+	addProjectMemories: (...args: unknown[]) => mockAddProjectMemories(...args),
+	updateProjectMemory: (...args: unknown[]) => mockUpdateProjectMemory(...args),
+	deleteProjectMemory: (...args: unknown[]) => mockDeleteProjectMemory(...args),
+}));
+jest.mock("@/lib/access/memory-route", () => ({
+	requireMemoryAccess: (...args: unknown[]) => mockRequireMemoryAccess(...args),
+	recordMemoryMutationAudit: (...args: unknown[]) =>
+		mockRecordMemoryMutationAudit(...args),
 }));
 
 jest.mock("@/utils/sanitizer", () => ({
@@ -95,6 +139,7 @@ import {
 	updateCustomModel,
 } from "@/lib/platform/providers/models-service";
 import { dataCollector } from "@/lib/platform/common";
+import { listTraceRecords } from "@/lib/platform/traces/read";
 import {
 	getTraceImprovement,
 	streamTraceImprovementAnalysis,
@@ -121,6 +166,8 @@ function ndjsonResponse(payload: string) {
 describe("getChatTools", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		mockRequireMemoryAccess.mockResolvedValue(undefined);
+		mockRecordMemoryMutationAudit.mockResolvedValue(undefined);
 	});
 
 	it("builds the expected tool set", () => {
@@ -140,6 +187,13 @@ describe("getChatTools", () => {
 				"get_trace_analysis",
 				"analyze_trace_batch",
 				"analyze_traces_by_attribute",
+				"get_telemetry_routing",
+				"query_telemetry",
+				"list_memories",
+				"search_memories",
+				"add_memory",
+				"update_memory",
+				"delete_memory",
 			])
 		);
 		expect(tools.create_rule.inputSchema.required).toEqual(["name"]);
@@ -147,6 +201,50 @@ describe("getChatTools", () => {
 			"key",
 			"value",
 		]);
+	});
+
+	it("reads Otter trace telemetry through the selected-source facade", async () => {
+		(listTraceRecords as jest.Mock).mockResolvedValue({
+			err: null,
+			records: [{ TraceId: "tempo-trace", SpanId: "tempo-span" }],
+			total: 1,
+		});
+		const tools = getChatTools("user-1", "db-1", "production") as any;
+
+		const result = await tools.query_telemetry.execute({
+			signal: "traces",
+			limit: 5,
+		});
+
+		expect(result).toMatchObject({ success: true, signal: "traces", total: 1 });
+		expect(listTraceRecords).toHaveBeenCalledWith(
+			expect.objectContaining({ environment: "production", limit: 5 })
+		);
+		expect(dataCollector).not.toHaveBeenCalled();
+	});
+
+	it("reports Tempo as Otter's routed trace connector", async () => {
+		mockResolveSignalSource.mockImplementation(async (signal: string) => ({
+			hasSource: true,
+			via: "binding",
+			descriptor: {
+				name: signal === "traces" ? "Production Tempo" : "ClickHouse",
+				type: signal === "traces" ? "tempo" : "clickhouse",
+				isBuiltIn: signal !== "traces",
+				environment: "production",
+			},
+		}));
+		const tools = getChatTools("user-1", "db-1", "production") as any;
+
+		const result = await tools.get_telemetry_routing.execute({});
+
+		expect(result.routing).toContainEqual(
+			expect.objectContaining({
+				signal: "traces",
+				connector: "Production Tempo",
+				connectorType: "tempo",
+			})
+		);
 	});
 
 	it("creates a rule and adds condition groups when provided", async () => {
@@ -164,12 +262,15 @@ describe("getChatTools", () => {
 				message: "Rule created",
 			})
 		);
-		expect(createRule).toHaveBeenCalledWith({
-			name: "Latency rule",
-			description: "",
-			group_operator: "AND",
-			status: "ACTIVE",
-		});
+		expect(createRule).toHaveBeenCalledWith(
+			{
+				name: "Latency rule",
+				description: "",
+				group_operator: "AND",
+				status: "ACTIVE",
+			},
+			{ databaseConfigId: "db-1" }
+		);
 	});
 
 	it("returns rule operation errors without throwing", async () => {
@@ -289,17 +390,24 @@ describe("getChatTools", () => {
 			entities: [{ id: "entity-1" }],
 		});
 
-		expect(updateRule).toHaveBeenCalledWith("rule-1", {
-			name: "Updated",
-			description: undefined,
-			group_operator: undefined,
-			status: undefined,
-		});
-		expect(addRuleEntity).toHaveBeenCalledWith({
-			rule_id: "rule-1",
-			entity_type: "context",
-			entity_id: "ctx-1",
-		});
+		expect(updateRule).toHaveBeenCalledWith(
+			"rule-1",
+			{
+				name: "Updated",
+				description: undefined,
+				group_operator: undefined,
+				status: undefined,
+			},
+			{ databaseConfigId: "db-1" }
+		);
+		expect(addRuleEntity).toHaveBeenCalledWith(
+			{
+				rule_id: "rule-1",
+				entity_type: "context",
+				entity_id: "ctx-1",
+			},
+			{ databaseConfigId: "db-1" }
+		);
 	});
 
 	it("executes context tools and serializes tags", async () => {
@@ -627,8 +735,12 @@ describe("getChatTools", () => {
 	});
 
 	it("analyzes traces by span attribute and returns trace refs", async () => {
-		(dataCollector as jest.Mock).mockResolvedValue({
-			data: [{ traceId: "trace-abc", spanId: "span-abc", spanCount: 3 }],
+		(listTraceRecords as jest.Mock).mockResolvedValue({
+			records: [
+				{ TraceId: "trace-abc", SpanId: "span-abc" },
+				{ TraceId: "trace-abc", SpanId: "span-def" },
+				{ TraceId: "trace-abc", SpanId: "span-ghi" },
+			],
 			err: null,
 		});
 		(getTraceImprovement as jest.Mock).mockResolvedValue({
@@ -678,14 +790,11 @@ describe("getChatTools", () => {
 			attribute_value: "session-1",
 		});
 
-		expect(dataCollector).toHaveBeenCalledWith(
-			expect.objectContaining({
-				query: expect.stringContaining("SpanAttributes['session.id'] = 'session-1'"),
-				enable_readonly: true,
-			}),
-			"query",
-			"db-1"
-		);
+		expect(listTraceRecords).toHaveBeenCalledWith(expect.objectContaining({
+			selectedConfig: {
+				customFilters: [{ key: "session.id", value: "session-1", scope: "span" }],
+			},
+		}));
 		expect(result.success).toBe(true);
 		expect(result.details).toContain("```trace-refs");
 		expect(result.matchedTraceCount).toBe(1);
@@ -1126,7 +1235,7 @@ describe("getChatTools", () => {
 			error: "Attribute key and value are required",
 		});
 
-		(dataCollector as jest.Mock).mockResolvedValueOnce({ err: "query failed" });
+		(listTraceRecords as jest.Mock).mockResolvedValueOnce({ err: "query failed" });
 		await expect(
 			tools.analyze_traces_by_attribute.execute({
 				attribute_key: "session.id",
@@ -1134,8 +1243,8 @@ describe("getChatTools", () => {
 			})
 		).resolves.toEqual({ success: false, error: "query failed" });
 
-		(dataCollector as jest.Mock).mockResolvedValueOnce({
-			data: [{ traceId: "t1", spanId: null }],
+		(listTraceRecords as jest.Mock).mockResolvedValueOnce({
+			records: [{ TraceId: "t1", SpanId: null }],
 			err: null,
 		});
 		await expect(
@@ -1242,7 +1351,7 @@ describe("getChatTools", () => {
 			error: "Failed to run batch trace analysis",
 		});
 
-		(dataCollector as jest.Mock).mockRejectedValueOnce(emptyError);
+		(listTraceRecords as jest.Mock).mockRejectedValueOnce(emptyError);
 		await expect(
 			tools.analyze_traces_by_attribute.execute({
 				attribute_key: "k",
@@ -1317,5 +1426,120 @@ describe("getChatTools", () => {
 		expect(batch.processed).toBe(1);
 		expect(batch.limitApplied).toBe(true);
 		expect(batch.results[0].success).toBe(true);
+	});
+
+	it("lists and searches memories through the memory connector facade", async () => {
+		mockQueryProjectMemories.mockResolvedValue({
+			connector: {
+				id: "memory:abc",
+				name: "Prod Mem0",
+				type: "mem0",
+				environment: "production",
+			},
+			memories: [
+				{
+					id: "m1",
+					content: "x".repeat(300),
+					userId: "ada",
+					kind: "summary",
+				},
+			],
+			stats: { total: 1 },
+		});
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		const listed = await tools.list_memories.execute({ user_id: "ada" });
+		expect(listed.success).toBe(true);
+		expect(listed.memories[0].content.endsWith("…")).toBe(true);
+		expect(listed.memories[0].url).toBe("/memory?id=m1&connectorId=memory%3Aabc");
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("read");
+		expect(mockQueryProjectMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ userId: "ada" })
+		);
+
+		await tools.search_memories.execute({ query: "tracing" });
+		expect(mockQueryProjectMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ query: "tracing" })
+		);
+		expect(tools.search_memories.inputSchema.required).toEqual(["query"]);
+	});
+
+	it("adds, updates, and deletes memories through the write facade", async () => {
+		mockAddProjectMemories.mockResolvedValue({
+			connector: { id: "memory:abc", name: "Prod Mem0", type: "mem0" },
+			memories: [{ id: "m1", content: "Prefers tabs", userId: "ada" }],
+		});
+		mockUpdateProjectMemory.mockResolvedValue({
+			connector: { id: "memory:abc" },
+			memory: { id: "m1", content: "Prefers spaces" },
+		});
+		mockDeleteProjectMemory.mockResolvedValue({
+			connector: { id: "memory:abc" },
+			ok: true,
+		});
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		const added = await tools.add_memory.execute({
+			content: "Prefers tabs",
+			user_id: "ada",
+		});
+		expect(added.success).toBe(true);
+		expect(added.url).toBe("/memory?id=m1&connectorId=memory%3Aabc");
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("create");
+		expect(mockAddProjectMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ content: "Prefers tabs", userId: "ada" })
+		);
+		expect(mockRecordMemoryMutationAudit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: "create",
+				targetId: "m1",
+				connectorId: "memory:abc",
+				userId: "ada",
+				contentLength: "Prefers tabs".length,
+				source: "chat",
+			})
+		);
+		expect(mockRecordMemoryMutationAudit.mock.calls[0][0]).not.toHaveProperty(
+			"content"
+		);
+		expect(tools.add_memory.inputSchema.required).toEqual(["content"]);
+
+		const updated = await tools.update_memory.execute({
+			id: "m1",
+			content: "Prefers spaces",
+		});
+		expect(updated.success).toBe(true);
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("update");
+		expect(mockUpdateProjectMemory).toHaveBeenCalledWith({
+			id: "m1",
+			content: "Prefers spaces",
+			connectorId: undefined,
+		});
+
+		const removed = await tools.delete_memory.execute({ id: "m1" });
+		expect(removed.success).toBe(true);
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("delete");
+		expect(mockDeleteProjectMemory).toHaveBeenCalledWith({
+			id: "m1",
+			connectorId: undefined,
+		});
+		expect(mockRecordMemoryMutationAudit).toHaveBeenCalledWith(
+			expect.objectContaining({ action: "delete", targetId: "m1", source: "chat" })
+		);
+	});
+
+	it("blocks Otter memory mutations when access is denied", async () => {
+		mockRequireMemoryAccess.mockRejectedValueOnce(
+			new Error("You do not have permission to perform this action.")
+		);
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		const added = await tools.add_memory.execute({ content: "secret" });
+		expect(added).toEqual({
+			success: false,
+			error: "You do not have permission to perform this action.",
+		});
+		expect(mockAddProjectMemories).not.toHaveBeenCalled();
+		expect(mockRecordMemoryMutationAudit).not.toHaveBeenCalled();
 	});
 });

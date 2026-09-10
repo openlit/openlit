@@ -15,7 +15,7 @@ function NumberStats() {
 					}}
 					heading="Total requests"
 					icon={RadioTower}
-					url="/api/metrics/request/total"
+					url="/api/telemetry/request/total"
 				/>
 				<StatCard
 					dataKey="average_duration"
@@ -28,26 +28,26 @@ function NumberStats() {
 					parser={(value: any) =>
 						integerParser(`${value}`, TraceMapping.requestDuration.offset)
 					}
-					url="/api/metrics/request/duration/average"
+					url="/api/telemetry/request/duration/average"
 				/>
 			</div>
 			<PieChartCard
 				categoryKey="count"
 				heading="Generation by system"
 				indexKey="system"
-				url="/api/metrics/vector/system"
+				url="/api/telemetry/vector/system"
 			/>
 			<PieChartCard
 				categoryKey="count"
 				heading="Generation by application"
 				indexKey="applicationName"
-				url="/api/metrics/vector/application"
+				url="/api/telemetry/vector/application"
 			/>
 			<PieChartCard
 				categoryKey="count"
 				heading="Generation by Environment"
 				indexKey="environment"
-				url="/api/metrics/vector/environment"
+				url="/api/telemetry/vector/environment"
 			/>
 		</div>
 	);

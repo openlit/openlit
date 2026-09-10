@@ -1,5 +1,3 @@
-import { withAudit } from "@/lib/audit/route";
-import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { SERVER_EVENTS } from "@/constants/events";
 import { RuleEntityInput } from "@/types/rule-engine";
 import { getRuleEntities, addRuleEntity, deleteRuleEntity } from "@/lib/platform/rule-engine";
@@ -9,8 +7,11 @@ import {
 } from "@/lib/platform/evaluation/sync-rule-entities";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
+import { resolveRuleEngineDatabaseConfigId } from "@/lib/platform/rule-engine/source";
 
-async function GETHandler(request: Request) {
+export async function GET(request: Request) {
+	const startTimestamp = Date.now();
+	const databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
 	const { searchParams } = new URL(request.url);
 	const filters = {
 		rule_id: searchParams.get("rule_id") || undefined,
@@ -18,17 +19,26 @@ async function GETHandler(request: Request) {
 		entity_id: searchParams.get("entity_id") || undefined,
 	};
 
-	const { err, data }: any = await getRuleEntities(filters);
+	const { err, data }: any = await getRuleEntities(filters, databaseConfigId);
 	if (err) {
+		PostHogServer.fireEvent({
+			event: SERVER_EVENTS.RULE_ENTITIES_LIST_FAILURE,
+			startTimestamp,
+		});
 		return Response.json(err, { status: 400 });
 	}
 
+	PostHogServer.fireEvent({
+		event: SERVER_EVENTS.RULE_ENTITIES_LIST_SUCCESS,
+		startTimestamp,
+	});
 	return Response.json(data);
 }
 
-async function POSTHandler(request: Request) {
+export async function POST(request: Request) {
 	const startTimestamp = Date.now();
 	const formData = await request.json();
+	const databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
 
 	const entityInput: Partial<RuleEntityInput> = {
 		rule_id: formData.rule_id,
@@ -36,7 +46,9 @@ async function POSTHandler(request: Request) {
 		entity_id: formData.entity_id,
 	};
 
-	const [err, res]: any = await asaw(addRuleEntity(entityInput));
+	const [err, res]: any = await asaw(
+		addRuleEntity(entityInput, { databaseConfigId })
+	);
 	if (err) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.RULE_ENTITIES_CREATE_FAILURE,
@@ -62,8 +74,9 @@ async function POSTHandler(request: Request) {
 	return Response.json(res);
 }
 
-async function DELETEHandler(request: Request) {
+export async function DELETE(request: Request) {
 	const startTimestamp = Date.now();
+	const databaseConfigId = await resolveRuleEngineDatabaseConfigId(request);
 	const { searchParams } = new URL(request.url);
 	let id = searchParams.get("id");
 	if (!id) {
@@ -76,10 +89,10 @@ async function DELETEHandler(request: Request) {
 
 	const { err: fetchErr, data: entities } = (await getRuleEntities({
 		id,
-	})) as { err?: any; data?: Array<{ id: string; rule_id: string; entity_type: string; entity_id: string }> };
+	}, databaseConfigId)) as { err?: any; data?: Array<{ id: string; rule_id: string; entity_type: string; entity_id: string }> };
 	const entity = !fetchErr && entities?.[0] ? entities[0] : null;
 
-	const [err, res] = await deleteRuleEntity(id);
+	const [err, res] = await deleteRuleEntity(id, { databaseConfigId });
 	if (err) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.RULE_ENTITIES_DELETE_FAILURE,
@@ -101,7 +114,3 @@ async function DELETEHandler(request: Request) {
 	});
 	return Response.json(res);
 }
-
-export const GET = withCurrentOrganisationPermission("rule_engine:read", GETHandler);
-export const POST = withAudit(withCurrentOrganisationPermission("rule_engine:configure", POSTHandler));
-export const DELETE = withAudit(withCurrentOrganisationPermission("rule_engine:configure", DELETEHandler));

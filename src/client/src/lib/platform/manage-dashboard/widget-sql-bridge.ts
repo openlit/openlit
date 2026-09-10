@@ -1,0 +1,757 @@
+/**
+ * Bridge legacy ClickHouse SQL widgets onto external traces sources.
+ * Seeded LLM dashboards store raw `otel_traces` SQL; when the project traces
+ * binding is Tempo/Jaeger/etc., we infer a structured OpenLITQuery and run it
+ * through the QueryPlanner instead of silently querying empty ClickHouse.
+ */
+
+import type { MetricParams } from "@/lib/platform/common";
+import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
+import {
+	intervalFromTimeRange,
+	planAndAggregateSpans,
+	planAndSpanTimeSeries,
+} from "@/lib/platform/connectors/datasource/query-planner";
+import { shouldPreferRollup } from "@/lib/platform/connectors/datasource/rollup-policy";
+import type {
+	Aggregation,
+	DataSourceAdapter,
+	OpenLITQuery,
+} from "@/lib/platform/connectors/datasource/types";
+import { getFilterPreviousParams } from "@/helpers/server/platform";
+
+export type InferredWidgetMode = "aggregate" | "timeseries";
+
+/**
+ * `default` is the synthetic environment used by the built-in ClickHouse
+ * setup. It must not be sent to an external telemetry backend as a real
+ * deployment.environment filter; doing so makes otherwise valid dashboard
+ * queries return zero rows.
+ */
+export function stripSyntheticDefaultEnvironment(
+	query: OpenLITQuery
+): OpenLITQuery {
+	const filters = query.filters?.filter((filter) => {
+		if (
+			filter.target !== "attribute" ||
+			filter.key !== "deployment.environment"
+		) {
+			return true;
+		}
+		const values = Array.isArray(filter.value) ? filter.value : [filter.value];
+		return !(values.length === 1 && String(values[0]) === "default");
+	});
+	return { ...query, filters: filters?.length ? filters : undefined };
+}
+
+export interface InferredWidgetQuery {
+	mode: InferredWidgetMode;
+	aggregations: Aggregation[];
+	groupBy?: string[];
+	/** Merge previous-period values + rate (stat cards). */
+	includePrevious: boolean;
+	primaryAlias: string;
+	previousAlias?: string;
+	rateAlias?: string;
+}
+
+/** True when SQL targets otel_traces and is not an evaluation-table query. */
+export function isLegacyOtelTracesSql(sql: string): boolean {
+	if (!/\botel_traces\b/i.test(sql)) return false;
+	if (/\bopenlit_evaluation\b/i.test(sql)) return false;
+	return true;
+}
+
+function firstAlias(sql: string, patterns: RegExp[]): string | undefined {
+	for (const re of patterns) {
+		const m = sql.match(re);
+		if (m?.[1]) return m[1];
+	}
+	return undefined;
+}
+
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Heuristic SQL → structured query for common seeded LLM widgets.
+ * Returns null when the query cannot be safely mapped (caller should error).
+ */
+export function inferStructuredFromClickHouseSql(
+	sql: string
+): InferredWidgetQuery | null {
+	if (!isLegacyOtelTracesSql(sql)) return null;
+
+	const includePrevious =
+		/prev_start_time|_previous\b/i.test(sql) &&
+		!/DATE_TRUNC|request_time\b/i.test(sql);
+
+	const isTimeseries =
+		/DATE_TRUNC|AS request_time|toStartOf/i.test(sql) &&
+		!includePrevious;
+
+	const aggregations: Aggregation[] = [];
+	const groupBy: string[] = [];
+
+	// Cost
+	if (/gen_ai\.usage\.cost/i.test(sql) && /sum/i.test(sql)) {
+		const as =
+			firstAlias(sql, [
+				/AS\s+(total_usage_cost)\b/i,
+				/AS\s+(total_cost)\b/i,
+			]) || "total_cost";
+		aggregations.push({
+			fn: "sum",
+			field: "gen_ai.usage.cost",
+			as,
+		});
+	} else if (/gen_ai\.usage\.cost/i.test(sql) && /avg/i.test(sql)) {
+		aggregations.push({
+			fn: "avg",
+			field: "gen_ai.usage.cost",
+			as:
+				firstAlias(sql, [/AS\s+(average_usage_cost)\b/i]) ||
+				"average_usage_cost",
+		});
+	}
+
+	// Tokens
+	if (/gen_ai\.usage\.total_tokens/i.test(sql) && /avg/i.test(sql)) {
+		aggregations.push({
+			fn: "avg",
+			field: "gen_ai.usage.total_tokens",
+			as: firstAlias(sql, [/AS\s+(total_tokens)\b/i]) || "total_tokens",
+		});
+	} else if (/gen_ai\.usage\.input_tokens|prompt.?token/i.test(sql) && /avg/i.test(sql)) {
+		aggregations.push({
+			fn: "avg",
+			field: "gen_ai.usage.input_tokens",
+			as: firstAlias(sql, [/AS\s+(\w+)\b/i]) || "total_tokens",
+		});
+	} else if (
+		/gen_ai\.usage\.output_tokens|completion.?token/i.test(sql) &&
+		/avg/i.test(sql)
+	) {
+		aggregations.push({
+			fn: "avg",
+			field: "gen_ai.usage.output_tokens",
+			as: firstAlias(sql, [/AS\s+(\w+)\b/i]) || "total_tokens",
+		});
+	} else if (/gen_ai\.usage\.total_tokens/i.test(sql) && /sum/i.test(sql)) {
+		aggregations.push({
+			fn: "sum",
+			field: "gen_ai.usage.total_tokens",
+			as: firstAlias(sql, [/AS\s+(total_tokens)\b/i]) || "total_tokens",
+		});
+		// Seeded "Tokens Usage" area chart needs prompt + completion series too.
+		if (/AS\s+prompt_tokens\b|gen_ai\.usage\.input_tokens/i.test(sql)) {
+			aggregations.push({
+				fn: "sum",
+				field: "gen_ai.usage.input_tokens",
+				as: "prompt_tokens",
+			});
+		}
+		if (/AS\s+completion_tokens\b|gen_ai\.usage\.output_tokens/i.test(sql)) {
+			aggregations.push({
+				fn: "sum",
+				field: "gen_ai.usage.output_tokens",
+				as: "completion_tokens",
+			});
+		}
+	}
+
+	// Duration (seconds)
+	if (/\bDuration\b/i.test(sql) && /avg/i.test(sql)) {
+		aggregations.push({
+			fn: "avg",
+			field: "duration",
+			as:
+				firstAlias(sql, [/AS\s+(average_duration)\b/i]) ||
+				"average_duration",
+		});
+	}
+
+	// Counts (default for request totals / group-by charts)
+	if (
+		aggregations.length === 0 ||
+		(/\bcount\s*\(/i.test(sql) || /\bcountIf\s*\(/i.test(sql))
+	) {
+		if (
+			aggregations.length === 0 ||
+			(!/gen_ai\.usage\.cost/i.test(sql) &&
+				!/gen_ai\.usage\.\w+_tokens/i.test(sql) &&
+				!/\bDuration\b/i.test(sql))
+		) {
+			const as =
+				firstAlias(sql, [
+					/AS\s+(total_model_count)\b/i,
+					/AS\s+(total_request)\b/i,
+					/AS\s+(total)\b/i,
+					/AS\s+(count)\b/i,
+					/AS\s+(model_count)\b/i,
+				]) || (isTimeseries ? "total" : "count");
+			if (!aggregations.some((a) => a.fn === "count")) {
+				aggregations.push({
+					fn: "count",
+					// Inner model×time buckets use model_count; fold later to total_model_count.
+					as: as === "total_model_count" ? "model_count" : as,
+				});
+			}
+		}
+	}
+
+	if (/gen_ai\.request\.model/i.test(sql) && /GROUP\s+BY/i.test(sql)) {
+		groupBy.push("gen_ai.request.model");
+	}
+	if (/gen_ai\.system/i.test(sql) && /GROUP\s+BY/i.test(sql)) {
+		groupBy.push("gen_ai.system");
+	}
+	if (/gen_ai\.operation\.name/i.test(sql) && /GROUP\s+BY/i.test(sql)) {
+		groupBy.push("gen_ai.operation.name");
+	}
+	if (
+		/ResourceAttributes\s*\[\s*'service\.name'\s*\]|service\.name/i.test(sql) &&
+		/GROUP\s+BY/i.test(sql)
+	) {
+		groupBy.push("service.name");
+	}
+	if (
+		/deployment\.environment/i.test(sql) &&
+		/GROUP\s+BY/i.test(sql)
+	) {
+		groupBy.push("deployment.environment");
+	}
+
+	if (!aggregations.length) return null;
+
+	const wantsModelsPerTime =
+		isTimeseries &&
+		(/AS\s+total_model_count\b/i.test(sql) ||
+			/ARRAY_AGG\s*\(\s*model\b/i.test(sql));
+
+	if (wantsModelsPerTime && !groupBy.includes("gen_ai.request.model")) {
+		groupBy.push("gen_ai.request.model");
+	}
+
+	const primaryAlias = wantsModelsPerTime
+		? "total_model_count"
+		: safeAlias(aggregations[0].as || "count", "count");
+	const previousAlias = includePrevious
+		? firstAlias(sql, [
+				/AS\s+(\w+_previous)\b/i,
+				new RegExp(
+					`AS\\s+(${escapeRegExp(primaryAlias)}_previous)\\b`,
+					"i"
+				),
+			]) || `${primaryAlias}_previous`
+		: undefined;
+
+	return {
+		mode: isTimeseries ? "timeseries" : "aggregate",
+		aggregations,
+		groupBy: groupBy.length ? groupBy : undefined,
+		includePrevious,
+		primaryAlias,
+		previousAlias,
+		rateAlias: includePrevious ? "rate" : undefined,
+	};
+}
+
+/** Match seed SQL: NULL rate when there is no previous-period baseline. */
+export function percentChange(
+	current: number,
+	previous: number
+): number | null {
+	if (previous === 0) return null;
+	return Number((((current - previous) / previous) * 100).toFixed(4));
+}
+
+function rowNumber(
+	row: Record<string, unknown> | undefined,
+	keys: string[]
+): number {
+	if (!row) return 0;
+	for (const key of keys) {
+		const n = Number(row[key]);
+		if (Number.isFinite(n)) return n;
+	}
+	return 0;
+}
+
+function renameGroupColumns(
+	rows: Record<string, unknown>[],
+	groupBy: string[] | undefined
+): Record<string, unknown>[] {
+	if (!groupBy?.length) return rows;
+	const field = groupBy[0];
+	const alias =
+		field === "gen_ai.request.model"
+			? "model"
+			: field === "gen_ai.system"
+				? "provider"
+				: field === "gen_ai.operation.name"
+					? "category"
+					: field === "service.name"
+						? "application"
+						: field === "deployment.environment"
+							? "environment"
+							: "group_value";
+	return rows.map((row) => {
+		const value =
+			row[alias] ??
+			row.group_value ??
+			row.g0 ??
+			row[field] ??
+			"";
+		const next: Record<string, unknown> = { ...row, [alias]: String(value) };
+		if (field === "service.name") {
+			next.applicationName = String(value);
+			next.application = String(value);
+		}
+		return next;
+	});
+}
+
+function escapeSql(value: string): string {
+	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+const SAFE_CH_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ALLOWED_CH_FIELDS = new Set([
+	"SpanId",
+	"TraceId",
+	"ParentSpanId",
+	"SpanName",
+	"ServiceName",
+	"Duration",
+	"Timestamp",
+	"StatusCode",
+	"StatusMessage",
+	"Kind",
+	"TraceType",
+]);
+
+function isSafeAlias(alias: string): boolean {
+	return (
+		alias !== "__proto__" &&
+		alias !== "constructor" &&
+		alias !== "prototype" &&
+		SAFE_CH_IDENTIFIER.test(alias)
+	);
+}
+
+function safeAlias(value: unknown, fallback: string): string {
+	const alias = String(value || fallback);
+	if (isSafeAlias(alias)) return alias;
+	if (isSafeAlias(fallback)) return fallback;
+	throw new Error("Invalid dashboard aggregation alias");
+}
+
+function fieldToClickHouseExpr(field: string, scope?: string): string {
+	if (field === "SpanName" || field === "duration" || field === "Duration") {
+		return field === "duration" ? "Duration" : field;
+	}
+	if (field === "service.name" || field === "ServiceName") {
+		return "ServiceName";
+	}
+	if (scope === "resource" || field.startsWith("deployment.") || field === "telemetry.sdk.name") {
+		return `ResourceAttributes['${escapeSql(field)}']`;
+	}
+	if (field.includes(".")) {
+		return `SpanAttributes['${escapeSql(field)}']`;
+	}
+	if (!ALLOWED_CH_FIELDS.has(field)) {
+		throw new Error(`Unsupported ClickHouse field: ${field}`);
+	}
+	return field;
+}
+
+function filterToClickHouseSql(filter: {
+	target?: string;
+	scope?: string;
+	key?: string;
+	op?: string;
+	value?: string | string[] | number;
+}): string | null {
+	const op = filter.op || "eq";
+	if (filter.target === "status") {
+		const values = Array.isArray(filter.value)
+			? filter.value.map(String)
+			: [String(filter.value ?? "")];
+		const list = values
+			.filter(Boolean)
+			.map((v) => `'${escapeSql(v)}'`)
+			.join(", ");
+		return list ? `StatusCode IN (${list})` : null;
+	}
+	if (filter.target === "spanName") {
+		const values = Array.isArray(filter.value)
+			? filter.value.map(String)
+			: [String(filter.value ?? "")];
+		if (op === "contains") {
+			return `positionCaseInsensitive(SpanName, '${escapeSql(values[0] || "")}') > 0`;
+		}
+		const list = values
+			.filter(Boolean)
+			.map((v) => `'${escapeSql(v)}'`)
+			.join(", ");
+		return list ? `SpanName IN (${list})` : null;
+	}
+	if (filter.target === "duration") {
+		const n = Number(filter.value);
+		if (!Number.isFinite(n)) return null;
+		if (op === "gt") return `Duration > ${n}`;
+		if (op === "gte") return `Duration >= ${n}`;
+		if (op === "lt") return `Duration < ${n}`;
+		if (op === "lte") return `Duration <= ${n}`;
+		return `Duration = ${n}`;
+	}
+	const key = filter.key || "";
+	if (!key) return null;
+	const expr = fieldToClickHouseExpr(key, filter.scope);
+	if (op === "exists") return `notEmpty(toString(${expr}))`;
+	if (op === "notExists") return `empty(toString(${expr}))`;
+	if (op === "contains") {
+		return `positionCaseInsensitive(toString(${expr}), '${escapeSql(
+			String(filter.value ?? "")
+		)}') > 0`;
+	}
+	if (op === "in" || op === "notIn") {
+		const values = Array.isArray(filter.value)
+			? filter.value.map(String)
+			: String(filter.value ?? "")
+					.split(",")
+					.map((v) => v.trim())
+					.filter(Boolean);
+		const list = values.map((v) => `'${escapeSql(v)}'`).join(", ");
+		if (!list) return null;
+		return op === "notIn"
+			? `toString(${expr}) NOT IN (${list})`
+			: `toString(${expr}) IN (${list})`;
+	}
+	const cmp =
+		op === "neq"
+			? "!="
+			: op === "gt"
+				? ">"
+				: op === "gte"
+					? ">="
+					: op === "lt"
+						? "<"
+						: op === "lte"
+							? "<="
+							: "=";
+	const raw = filter.value;
+	if (typeof raw === "number" || (typeof raw === "string" && /^-?\d+(\.\d+)?$/.test(raw))) {
+		return `toFloat64OrZero(toString(${expr})) ${cmp} ${Number(raw)}`;
+	}
+	return `toString(${expr}) ${cmp} '${escapeSql(String(raw ?? ""))}'`;
+}
+
+const AGG_SQL: Record<string, (field: string) => string> = {
+	count: () => "count()",
+	sum: (f) => `sum(toFloat64OrZero(${f}))`,
+	avg: (f) => `avg(toFloat64OrZero(${f}))`,
+	min: (f) => `min(toFloat64OrZero(${f}))`,
+	max: (f) => `max(toFloat64OrZero(${f}))`,
+	p50: (f) => `quantile(0.5)(toFloat64OrZero(${f}))`,
+	p90: (f) => `quantile(0.9)(toFloat64OrZero(${f}))`,
+	p95: (f) => `quantile(0.95)(toFloat64OrZero(${f}))`,
+	p99: (f) => `quantile(0.99)(toFloat64OrZero(${f}))`,
+	cardinality: (f) => `uniqExact(${f})`,
+};
+
+function resolveAggSql(fn: string): (field: string) => string {
+	// Explicit allow-list dispatch — never index AGG_SQL with a raw user string.
+	switch (fn) {
+		case "sum":
+			return AGG_SQL.sum;
+		case "avg":
+			return AGG_SQL.avg;
+		case "min":
+			return AGG_SQL.min;
+		case "max":
+			return AGG_SQL.max;
+		case "p50":
+			return AGG_SQL.p50;
+		case "p90":
+			return AGG_SQL.p90;
+		case "p95":
+			return AGG_SQL.p95;
+		case "p99":
+			return AGG_SQL.p99;
+		case "cardinality":
+			return AGG_SQL.cardinality;
+		case "count":
+		default:
+			return AGG_SQL.count;
+	}
+}
+
+function intervalToTrunc(interval?: string): string {
+	if (!interval) return "hour";
+	if (/d$/i.test(interval)) return "day";
+	if (/m$/i.test(interval) && !/mo/i.test(interval)) return "minute";
+	if (/s$/i.test(interval)) return "second";
+	return "hour";
+}
+
+/**
+ * Inverse of `inferStructuredFromClickHouseSql`: build a readable ClickHouse
+ * SELECT from an OpenLITQuery for the widget builder "view generated query"
+ * toggle and native built-in execution previews.
+ */
+export function openLITQueryToClickHouseSql(
+	query: Partial<OpenLITQuery> & { includePrevious?: boolean },
+	mode: "list" | "aggregate" | "timeseries" = "aggregate"
+): string {
+	const filterSql = (query.filters || [])
+		.map((f) => filterToClickHouseSql(f))
+		.filter(Boolean) as string[];
+	const whereParts = [
+		"Timestamp >= parseDateTimeBestEffort('{{filter.timeLimit.start}}')",
+		"Timestamp <= parseDateTimeBestEffort('{{filter.timeLimit.end}}')",
+		...filterSql,
+	];
+	if (query.aiSelector !== false) {
+		whereParts.push(
+			"(ResourceAttributes['telemetry.sdk.name'] = 'openlit' OR notEmpty(SpanAttributes['gen_ai.operation.name']) OR notEmpty(SpanAttributes['gen_ai.request.model']))"
+		);
+	}
+	const where = whereParts.join("\n\t\tAND ");
+
+	if (mode === "list") {
+		const limit = Number(query.limit || 100);
+		return `SELECT *\nFROM otel_traces\nWHERE ${where}\nORDER BY Timestamp DESC\nLIMIT ${limit}`;
+	}
+
+	const aggs = (query.aggregations?.length
+		? query.aggregations
+		: [{ fn: "count" as const, as: "count" }]
+	).map((a, i) => {
+		const render = resolveAggSql(String(a.fn || "count"));
+		const field = a.field ? fieldToClickHouseExpr(a.field) : "";
+		return `${render(field)} AS ${safeAlias(a.as, `agg${i}`)}`;
+	});
+
+	if (mode === "timeseries") {
+		const unit = intervalToTrunc(query.interval);
+		return `SELECT
+	formatDateTime(DATE_TRUNC('${unit}', Timestamp), '%Y/%m/%d %R') AS request_time,
+	${aggs.join(",\n\t")}
+FROM otel_traces
+WHERE ${where}
+GROUP BY request_time
+ORDER BY request_time`;
+	}
+
+	const groupBy = query.groupBy || [];
+	const groupSelects = groupBy.map(
+		(g, i) => `${fieldToClickHouseExpr(g)} AS g${i}`
+	);
+	const selects = [...groupSelects, ...aggs].join(",\n\t");
+	const groupClause = groupBy.length
+		? `\nGROUP BY ${groupBy.map((_, i) => `g${i}`).join(", ")}`
+		: "";
+	return `SELECT\n\t${selects}\nFROM otel_traces\nWHERE ${where}${groupClause}`;
+}
+
+/** Convert SQL-inferred shape into the widget `structuredQuery` config. */
+export function inferredToStructuredQuery(inferred: InferredWidgetQuery): {
+	mode: InferredWidgetMode;
+	query: Record<string, unknown>;
+} {
+	return {
+		mode: inferred.mode,
+		query: {
+			signal: "traces",
+			aiSelector: true,
+			aggregations: inferred.aggregations,
+			...(inferred.groupBy?.length ? { groupBy: inferred.groupBy } : {}),
+			...(inferred.mode === "timeseries" ? { interval: "1h" } : {}),
+			...(inferred.includePrevious
+				? { includePrevious: true, rateAlias: inferred.rateAlias || "rate" }
+				: {}),
+		},
+	};
+}
+
+function foldModelsPerTime(
+	rows: Record<string, unknown>[]
+): Record<string, unknown>[] {
+	const byTime = new Map<
+		string,
+		{ models: string[]; model_counts: number[]; total: number }
+	>();
+	for (const row of rows) {
+		const request_time = String(
+			row.label ?? row.request_time ?? row.bucket ?? ""
+		);
+		const model = String(
+			row.model ??
+				row.group_value ??
+				row.g0 ??
+				row["gen_ai.request.model"] ??
+				""
+		);
+		const count = Number(row.model_count ?? row.count ?? row.total ?? 0);
+		const entry = byTime.get(request_time) || {
+			models: [],
+			model_counts: [],
+			total: 0,
+		};
+		if (model) {
+			entry.models.push(model);
+			entry.model_counts.push(Number.isFinite(count) ? count : 0);
+		}
+		entry.total += Number.isFinite(count) ? count : 0;
+		byTime.set(request_time, entry);
+	}
+	return Array.from(byTime.entries())
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([request_time, entry]) => ({
+			request_time,
+			models: entry.models,
+			model_counts: entry.model_counts,
+			total_model_count: entry.total,
+			total: entry.total,
+		}));
+}
+
+function remapTimeseriesRows(
+	rows: Record<string, unknown>[],
+	inferred: InferredWidgetQuery
+): Record<string, unknown>[] {
+	const wantsModelsPerTime =
+		inferred.primaryAlias === "total_model_count" ||
+		(inferred.groupBy || []).includes("gen_ai.request.model");
+
+	if (wantsModelsPerTime) {
+		return foldModelsPerTime(rows);
+	}
+
+	const primary = safeAlias(inferred.primaryAlias || "total", "total");
+	return rows.map((row) => {
+		const primaryValue = Number(
+			row[primary] ?? row.total ?? row.count ?? row.model_count ?? 0
+		);
+		const safePrimary = Number.isFinite(primaryValue) ? primaryValue : 0;
+		const next: Record<string, unknown> = Object.assign(
+			Object.create(null),
+			row
+		);
+		next[primary] = safePrimary;
+		next.total = Number(row.total ?? safePrimary);
+		next.request_time = String(
+			row.label ?? row.request_time ?? row.bucket ?? ""
+		);
+		next.total_tokens = Number(row.total_tokens ?? row.tokens ?? 0);
+		next.prompt_tokens = Number(row.prompt_tokens ?? 0);
+		next.completion_tokens = Number(row.completion_tokens ?? 0);
+		next.total_cost = Number(row.total_cost ?? row.cost ?? 0);
+		return next;
+	});
+}
+
+/** Execute an inferred widget query via the QueryPlanner. */
+export async function executeInferredWidgetQuery(
+	adapter: DataSourceAdapter,
+	inferred: InferredWidgetQuery,
+	filter: MetricParams
+): Promise<{ data?: unknown[]; err?: string }> {
+	const preferRollup = shouldPreferRollup(filter);
+
+	const buildQuery = (params: MetricParams): OpenLITQuery => {
+		const mapped = metricParamsToOpenLITQuery(params, "traces");
+		return stripSyntheticDefaultEnvironment({
+			...mapped,
+			aggregations: inferred.aggregations,
+			groupBy: inferred.groupBy,
+			interval:
+				inferred.mode === "timeseries"
+					? intervalFromTimeRange(
+							mapped.timeRange.start,
+							mapped.timeRange.end
+						)
+					: mapped.interval,
+			aiSelector: true,
+		});
+	};
+
+	try {
+		if (inferred.mode === "timeseries") {
+			const frame = await planAndSpanTimeSeries(adapter, buildQuery(filter), {
+				preferRollup,
+			});
+			const data = remapTimeseriesRows(
+				frame.rows as Record<string, unknown>[],
+				inferred
+			);
+			return { data };
+		}
+
+		const currentFrame = await planAndAggregateSpans(
+			adapter,
+			buildQuery(filter),
+			{ preferRollup }
+		);
+		let rows = renameGroupColumns(
+			currentFrame.rows as Record<string, unknown>[],
+			inferred.groupBy
+		);
+
+		// Ensure primary alias is always present for bar/pie widgets.
+		rows = rows.map((row) => {
+			const primary = safeAlias(inferred.primaryAlias || "count", "count");
+			const value = Number(
+				row[primary] ?? row.count ?? row.total ?? row.model_count ?? 0
+			);
+			const next: Record<string, unknown> = Object.assign(
+				Object.create(null),
+				row
+			);
+			next[primary] = Number.isFinite(value) ? value : 0;
+			return next;
+		});
+
+		if (inferred.includePrevious && inferred.previousAlias) {
+			const previousFrame = await planAndAggregateSpans(
+				adapter,
+				buildQuery(getFilterPreviousParams(filter)),
+				{ preferRollup: false }
+			);
+			const currentVal = rowNumber(rows[0] as Record<string, unknown>, [
+				inferred.primaryAlias,
+				"count",
+				"total",
+			]);
+			const previousVal = rowNumber(
+				previousFrame.rows[0] as Record<string, unknown>,
+				[inferred.primaryAlias, "count", "total"]
+			);
+			const rate = percentChange(currentVal, previousVal);
+			const primaryKey = safeAlias(inferred.primaryAlias, "count");
+			const previousKey = inferred.previousAlias
+				? safeAlias(inferred.previousAlias, "previous")
+				: undefined;
+			const rateKey = inferred.rateAlias
+				? safeAlias(inferred.rateAlias, "rate")
+				: undefined;
+			const nextRow: Record<string, unknown> = Object.assign(
+				Object.create(null),
+				rows[0] || {}
+			);
+			nextRow[primaryKey] = currentVal;
+			if (previousKey) nextRow[previousKey] = previousVal;
+			if (rateKey && rate !== null) nextRow[rateKey] = rate;
+			rows = [nextRow];
+		}
+
+		return { data: rows };
+	} catch (err) {
+		return {
+			err: err instanceof Error ? err.message : String(err),
+		};
+	}
+}

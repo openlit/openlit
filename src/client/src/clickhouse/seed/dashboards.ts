@@ -162,6 +162,7 @@ export async function syncWidgetSqlFromSeed(
 		(existingWidgets ?? []).map((widget) => widget.id)
 	);
 
+	const healErrors: string[] = [];
 	for (const id of ids) {
 		const seed = widgets[id];
 		if (!seed) continue;
@@ -172,7 +173,7 @@ export async function syncWidgetSqlFromSeed(
 				databaseConfigId
 			);
 			if (createErr) {
-				throw new Error(
+				healErrors.push(
 					`Failed to recreate missing seeded widget ${id}: ${String(createErr)}`
 				);
 			}
@@ -188,9 +189,13 @@ export async function syncWidgetSqlFromSeed(
 			databaseConfigId
 		);
 		if (updateErr) {
-			throw new Error(
+			healErrors.push(
 				`Failed to sync seeded widget ${id}: ${String(updateErr)}`
 			);
 		}
+	}
+
+	if (healErrors.length > 0) {
+		throw new Error(healErrors.join("; "));
 	}
 }

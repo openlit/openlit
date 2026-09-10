@@ -4,12 +4,27 @@ import {
 	dateTruncGroupingLogic,
 	getFilterWhereCondition,
 } from "@/helpers/server/platform";
+import { externalModelsPerTime, externalTopModels } from "./external";
 
 export type ModelMetricParams = MetricParams & {
 	top: number;
 };
 
 export async function getTopModels(params: ModelMetricParams) {
+	const external = await externalTopModels(params);
+	if (external) {
+		return {
+			err: external.err,
+			data: (external.data || [])
+				.slice(0, params.top)
+				.map((row: any) => ({
+					model: row.model,
+					model_count: row.count,
+					total: row.count,
+				})),
+		};
+	}
+
 	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("model")}']`;
 	const query = `SELECT
 			${keyPath} AS model,
@@ -33,6 +48,9 @@ export async function getTopModels(params: ModelMetricParams) {
 }
 
 export async function getModelsPerTime(params: MetricParams) {
+	const external = await externalModelsPerTime(params);
+	if (external) return external;
+
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
 

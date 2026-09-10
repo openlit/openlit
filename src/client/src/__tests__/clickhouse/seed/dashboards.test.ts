@@ -78,10 +78,13 @@ describe("syncWidgetSqlFromSeed", () => {
 
 	it("throws when recreating a missing widget fails", async () => {
 		mockGetWidgets.mockResolvedValue({ data: [], err: null });
-		mockCreateWidget.mockResolvedValue({ err: "insert failed" });
+		mockCreateWidget
+			.mockResolvedValueOnce({ err: "insert failed" })
+			.mockResolvedValueOnce({ data: { id: "existing-id" } });
 
 		await expect(syncWidgetSqlFromSeed(layout, "db-1")).rejects.toThrow(
 			/Failed to recreate missing seeded widget missing-id/
 		);
+		expect(mockCreateWidget).toHaveBeenCalledTimes(2);
 	});
 });

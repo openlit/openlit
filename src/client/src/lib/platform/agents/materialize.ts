@@ -8,7 +8,7 @@
  * they read from the materialized tables.
  */
 
-import { dataCollector, OTEL_TRACES_TABLE_NAME } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import {
 	CONTROLLER_DESIRED_STATES_V2_TABLE,
 	CONTROLLER_SERVICES_TABLE,
@@ -18,7 +18,7 @@ import {
 	computeAgentKey,
 	invalidateAgent,
 	normalizeDeploymentEnvironment,
-} from "./index";
+} from "./agent-key";
 import { invalidatePrefix } from "./cache";
 import { agentsLogger } from "./logger";
 import {
@@ -29,6 +29,7 @@ import {
 import { AGENTS_SUMMARY_TABLE, AGENT_VERSIONS_TABLE } from "./table-details";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { mergeProviders } from "./provider-normalize";
+import { isControllerProductEnabled } from "@/lib/platform/controller/product";
 
 /** SQL: fold empty / local-dev env labels into `default` (matches normalizeDeploymentEnvironment). */
 const DEPLOYMENT_ENV_SQL = `multiIf(
@@ -106,6 +107,28 @@ interface DiscoveredAgent {
 
 const SDK_DISCOVERY_LOOKBACK_MINUTES = 30;
 
+/** Resolve an external traces adapter for this dbConfig, or null when built-in. */
+async function resolveExternalTracesAdapter(dbConfigId?: string) {
+	if (!dbConfigId) return null;
+	try {
+		const { getTelemetryAdapterForDbConfig } = await import(
+			"@/lib/telemetry-source"
+		);
+		const resolved = await getTelemetryAdapterForDbConfig(dbConfigId, "traces");
+		if (resolved.isBuiltIn) return null;
+		return resolved.adapter;
+	} catch (err) {
+		agentsLogger.error("materializer_external_adapter_resolve_failed", {
+			err,
+			dbConfigId,
+		});
+		// Fail closed. Returning null here used to make every downstream branch
+		// interpret an unavailable Tempo binding as "built-in ClickHouse" and
+		// silently discover agents from the wrong otel_traces table.
+		throw err;
+	}
+}
+
 async function discoverAgents(
 	dbConfigId?: string,
 	clusterFilter?: string
@@ -113,6 +136,12 @@ async function discoverAgents(
 	const clusterPredicate = clusterFilter
 		? `AND cluster_id = '${escape(clusterFilter)}'`
 		: "";
+
+	const tracesDbConfigId = await resolveCodingClickHouseDbConfigId(dbConfigId);
+	const { resolveTracesTableRef } = await import(
+		"@/lib/platform/connectors/datasource/clickhouse/direct-read"
+	);
+	const tracesTable = await resolveTracesTableRef(tracesDbConfigId);
 
 	// SDK-side: deduplicate per (service_name, environment, cluster_id) over a
 	// recent window. cluster_id defaults to 'default' for SDK-only agents.
@@ -160,7 +189,7 @@ async function discoverAgents(
 					ServiceName AS service_name,
 					${DEPLOYMENT_ENV_SQL} AS environment,
 					if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default') AS cluster_id
-				FROM ${OTEL_TRACES_TABLE_NAME}
+				FROM ${tracesTable}
 				WHERE Timestamp >= now() - INTERVAL ${SDK_DISCOVERY_LOOKBACK_MINUTES} MINUTE
 					AND (
 						ResourceAttributes['telemetry.distro.name'] = 'openlit-cli'
@@ -178,7 +207,7 @@ async function discoverAgents(
 				argMax(ResourceAttributes['telemetry.sdk.language'], Timestamp) AS sdk_language,
 				min(Timestamp) AS first_seen,
 				max(Timestamp) AS last_seen
-			FROM ${OTEL_TRACES_TABLE_NAME}
+			FROM ${tracesTable}
 			WHERE Timestamp >= now() - INTERVAL ${SDK_DISCOVERY_LOOKBACK_MINUTES} MINUTE
 				AND ServiceName != ''
 				AND ResourceAttributes['telemetry.sdk.name'] = 'openlit'
@@ -214,13 +243,7 @@ async function discoverAgents(
 		FROM sdk_seen
 	`;
 
-	const sdkRes = await dataCollector({ query: sdkQuery }, "query", dbConfigId);
-	if (sdkRes.err) {
-		agentsLogger.error("materializer_sdk_discovery_failed", {
-			err: sdkRes.err,
-		});
-	}
-	const sdkRows = (sdkRes.data as Array<{
+	let sdkRows: Array<{
 		service_name: string;
 		environment: string;
 		cluster_id: string;
@@ -229,7 +252,38 @@ async function discoverAgents(
 		sdk_language: string;
 		first_seen: string;
 		last_seen: string;
-	}>) || [];
+	}> = [];
+
+	const externalAdapter = await resolveExternalTracesAdapter(dbConfigId);
+	if (externalAdapter) {
+		const { discoverSdkRowsFromAdapter } = await import("./external-discovery");
+		sdkRows = await discoverSdkRowsFromAdapter(
+			externalAdapter,
+			SDK_DISCOVERY_LOOKBACK_MINUTES
+		);
+	} else {
+		const sdkRes = await intelligenceDataCollector(
+			{ query: sdkQuery },
+			"query",
+			tracesDbConfigId
+		);
+		if (sdkRes.err) {
+			agentsLogger.error("materializer_sdk_discovery_failed", {
+				err: sdkRes.err,
+			});
+		}
+		sdkRows =
+			(sdkRes.data as Array<{
+				service_name: string;
+				environment: string;
+				cluster_id: string;
+				workload_key: string;
+				sdk_version: string;
+				sdk_language: string;
+				first_seen: string;
+				last_seen: string;
+			}>) || [];
+	}
 
 	// The materializer needs to keep stopped workloads in agents_summary
 	// even after their last heartbeat aged out of the 24h window. We do
@@ -313,13 +367,7 @@ async function discoverAgents(
 			latest.last_seen AS last_seen
 		FROM latest
 	`;
-	const ctrlRes = await dataCollector({ query: ctrlQuery }, "query", dbConfigId);
-	if (ctrlRes.err) {
-		agentsLogger.error("materializer_controller_discovery_failed", {
-			err: ctrlRes.err,
-		});
-	}
-	const ctrlRows = (ctrlRes.data as Array<{
+	let ctrlRows: Array<{
 		id: string;
 		controller_instance_id: string;
 		cluster_id: string;
@@ -331,7 +379,17 @@ async function discoverAgents(
 		llm_providers: string[] | null;
 		first_seen: string;
 		last_seen: string;
-	}>) || [];
+	}> = [];
+	if (isControllerProductEnabled()) {
+		const ctrlRes = await intelligenceDataCollector({ query: ctrlQuery }, "query", dbConfigId);
+		if (ctrlRes.err) {
+			agentsLogger.error("materializer_controller_discovery_failed", {
+				err: ctrlRes.err,
+			});
+		}
+		ctrlRows =
+			(ctrlRes.data as typeof ctrlRows) || [];
+	}
 
 	const merged = new Map<string, DiscoveredAgent>();
 	// Secondary index: (cluster_id|workload_key) -> agent_key in `merged`.
@@ -517,10 +575,46 @@ export async function recomputeCodingAgentsForWindow(
 	return discoverCodingAgents(dbConfigId, window);
 }
 
+/**
+ * Coding-agent rollups are ClickHouse SQL (`coding_agent.*`, `greatest()`).
+ * Tempo/Jaeger sampling drops session/cost/edit stats and diverges from
+ * `/coding-agents`. SDK/controller discovery may still use the traces adapter.
+ */
+async function resolveCodingClickHouseDbConfigId(
+	dbConfigId?: string
+): Promise<string | undefined> {
+	if (!dbConfigId) return undefined;
+	try {
+		const { getDBConfigByIdInternal } = await import("@/lib/db-config");
+		const dbConfig = await getDBConfigByIdInternal({ id: dbConfigId });
+		const { resolveCodingAgentsClickHouseDbConfigId } = await import(
+			"@/lib/platform/coding-agents/source"
+		);
+		const routed = await resolveCodingAgentsClickHouseDbConfigId({
+			environment: dbConfig?.environment,
+			projectId: dbConfig?.projectId ?? null,
+			dbConfigId,
+		});
+		return routed || dbConfigId;
+	} catch (err) {
+		agentsLogger.error("materializer_coding_db_resolve_failed", {
+			err,
+			dbConfigId,
+		});
+		return dbConfigId;
+	}
+}
+
 async function discoverCodingAgents(
 	dbConfigId?: string,
 	window?: CodingAgentDiscoveryWindow
 ): Promise<DiscoveredAgent[]> {
+	const codingDbConfigId = await resolveCodingClickHouseDbConfigId(dbConfigId);
+	const { resolveTracesTableRef } = await import(
+		"@/lib/platform/connectors/datasource/clickhouse/direct-read"
+	);
+	const tracesTable = await resolveTracesTableRef(codingDbConfigId);
+
 	// Cost rollup notes:
 	//   * `coding_agent.session.cost_usd` is only stamped on the
 	//     session-root span at sessionEnd. Active / still-running
@@ -685,7 +779,7 @@ async function discoverCodingAgents(
 				min(Timestamp) AS chat_first_seen,
 				max(Timestamp) AS chat_last_seen,
 				argMax(SpanAttributes['coding_agent.client.version'], Timestamp) AS client_version
-			FROM ${OTEL_TRACES_TABLE_NAME}
+			FROM ${tracesTable}
 			WHERE ${buildCodingWindowClause(window)}
 				AND (
 					SpanAttributes['coding_agent.session.id'] != ''
@@ -706,7 +800,11 @@ async function discoverCodingAgents(
 		HAVING vendor != ''
 	`;
 
-	const res = await dataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector(
+		{ query },
+		"query",
+		codingDbConfigId
+	);
 	if (res.err) {
 		agentsLogger.error("materializer_coding_discovery_failed", {
 			err: res.err,
@@ -813,6 +911,14 @@ async function fetchRequestCounts(
 ): Promise<Map<string, number>> {
 	if (!agents.length) return new Map();
 
+	const externalAdapter = await resolveExternalTracesAdapter(dbConfigId);
+	if (externalAdapter) {
+		const { fetchRequestCountsFromAdapter } = await import(
+			"./external-discovery"
+		);
+		return fetchRequestCountsFromAdapter(externalAdapter, agents);
+	}
+
 	// Split coding agents from the rest. Their request_count is the
 	// total number of spans observed under the vendor in the last 24h
 	// (rolled up at discovery time as `session_count_24h`); the
@@ -826,6 +932,12 @@ async function fetchRequestCounts(
 	}
 	if (!traditional.length) return map;
 
+	const tracesDbConfigId = await resolveCodingClickHouseDbConfigId(dbConfigId);
+	const { resolveTracesTableRef } = await import(
+		"@/lib/platform/connectors/datasource/clickhouse/direct-read"
+	);
+	const tracesTable = await resolveTracesTableRef(tracesDbConfigId);
+
 	const serviceNames = Array.from(new Set(traditional.map((a) => a.service_name)));
 	const namesList = serviceNames.map((n) => `'${escape(n)}'`).join(", ");
 	const query = `
@@ -834,12 +946,12 @@ async function fetchRequestCounts(
 			${DEPLOYMENT_ENV_SQL} AS environment,
 			if(ResourceAttributes['k8s.cluster.name'] != '', ResourceAttributes['k8s.cluster.name'], 'default') AS cluster_id,
 			count() AS request_count_24h
-		FROM ${OTEL_TRACES_TABLE_NAME}
+		FROM ${tracesTable}
 		WHERE Timestamp >= now() - INTERVAL 24 HOUR
 			AND ServiceName IN (${namesList})
 		GROUP BY service_name, environment, cluster_id
 	`;
-	const res = await dataCollector({ query }, "query", dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", tracesDbConfigId);
 	if (res.err) {
 		agentsLogger.error("materializer_request_count_failed", {
 			err: res.err,
@@ -955,7 +1067,7 @@ export async function materializeAgents(
 		// openlit_agents_summary that overwrites the legitimate
 		// `source='coding'` row on the next FINAL read. The UI then
 		// renders the SDK Overview/Dashboard/Monitoring layout for what
-		// is in fact a coding agent. See coding-agents-hook.mdc §10.
+		// is in fact a coding agent. See agent-guides/coding-agents-hook.md §10.
 		const [sdkAll, codingAll] = await Promise.all([
 			discoverAgents(dbConfigId, scope.clusterId),
 			discoverCodingAgents(dbConfigId),
@@ -1026,6 +1138,26 @@ export async function materializeAgents(
 		dbConfigId
 	);
 
+	// Correlation boundary: resolve once whether the project's logs signal lives
+	// in this built-in ClickHouse store. When it doesn't, deriveSnapshot skips
+	// the trace->logs tool-definition enrichment instead of querying the wrong
+	// store. Never fails materialization; defaults to correlatable on error.
+	let logsCorrelatable = false;
+	try {
+		// Dynamic import keeps the auth/session (jose) chain out of the agents
+		// module graph; it is only pulled at materialization time.
+		const { isSignalServedByBuiltInClickHouse } = await import(
+			"@/lib/telemetry-source"
+		);
+		logsCorrelatable = await isSignalServedByBuiltInClickHouse("logs", {
+			dbConfigId,
+		});
+	} catch {
+		// Unknown routing is not permission to query ClickHouse logs. Snapshot
+		// derivation can proceed without the optional trace-to-log enrichment.
+		logsCorrelatable = false;
+	}
+
 	let processed = 0;
 	let newVersions = 0;
 	let errors = 0;
@@ -1040,13 +1172,30 @@ export async function materializeAgents(
 			// agent_versions with rows that have no system_prompt.
 			const snapshot = agent.source === "coding"
 				? null
-				: await deriveSnapshot({
-					serviceName: agent.service_name,
-					environment: agent.environment,
-					clusterId: agent.cluster_id,
-					lookbackMinutes,
-					dbConfigId,
-				});
+				: await (async () => {
+					const externalAdapter = await resolveExternalTracesAdapter(
+						dbConfigId
+					);
+					if (externalAdapter) {
+						const { deriveSnapshotFromAdapter } = await import(
+							"./external-discovery"
+						);
+						return deriveSnapshotFromAdapter(externalAdapter, {
+							serviceName: agent.service_name,
+							environment: agent.environment,
+							clusterId: agent.cluster_id,
+							lookbackMinutes,
+						});
+					}
+					return deriveSnapshot({
+						serviceName: agent.service_name,
+						environment: agent.environment,
+						clusterId: agent.cluster_id,
+						lookbackMinutes,
+						dbConfigId,
+						logsCorrelatable,
+					});
+				})();
 
 			let versionHash = "";
 			let versionNumber = 0;
@@ -1150,7 +1299,7 @@ export async function materializeAgents(
 		// the next FINAL read and the detail page flips layout. If we
 		// detect this, drop the offending rows and log loudly — the
 		// upstream code path is the bug, but we refuse to corrupt state
-		// regardless. See coding-agents-hook.mdc §10 for the structural
+		// regardless. See agent-guides/coding-agents-hook.md §10 for the structural
 		// fix chain.
 		const nonCodingKeys = summaryRows
 			.filter((r) => r.source !== "coding")
@@ -1159,7 +1308,7 @@ export async function materializeAgents(
 			const escaped = nonCodingKeys
 				.map((k) => `'${k.replace(/'/g, "''")}'`)
 				.join(", ");
-			const conflictRes = await dataCollector(
+			const conflictRes = await intelligenceDataCollector(
 				{
 					query: `
 						SELECT agent_key
@@ -1197,7 +1346,7 @@ export async function materializeAgents(
 			return { processed, newVersions, errors };
 		}
 
-		const res = await dataCollector(
+		const res = await intelligenceDataCollector(
 			{ table: AGENTS_SUMMARY_TABLE, values: summaryRows },
 			"insert",
 			dbConfigId
@@ -1231,7 +1380,7 @@ export async function materializeAgents(
 async function purgePlaceholderEnvironmentRows(
 	dbConfigId?: string
 ): Promise<void> {
-	const keysRes = await dataCollector(
+	const keysRes = await intelligenceDataCollector(
 		{
 			query: `
 				SELECT agent_key
@@ -1255,7 +1404,7 @@ async function purgePlaceholderEnvironmentRows(
 				.filter(Boolean)
 		: [];
 
-	const summaryRes = await dataCollector(
+	const summaryRes = await intelligenceDataCollector(
 		{
 			query: `
 				ALTER TABLE ${AGENTS_SUMMARY_TABLE}
@@ -1274,7 +1423,7 @@ async function purgePlaceholderEnvironmentRows(
 	if (!keys.length) return;
 
 	const escaped = keys.map((k) => `'${escape(k)}'`).join(", ");
-	const versionsRes = await dataCollector(
+	const versionsRes = await intelligenceDataCollector(
 		{
 			query: `
 				ALTER TABLE ${AGENT_VERSIONS_TABLE}

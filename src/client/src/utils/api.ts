@@ -1,5 +1,6 @@
 import { useRootStore } from "@/store";
 import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
+import { isCacheableTelemetryUrl, withTelemetryRequestCache } from "@/utils/telemetry-request-cache";
 
 type GET_DATA = {
 	body?: string;
@@ -9,11 +10,25 @@ type GET_DATA = {
 };
 
 function getActiveDatabaseConfigId() {
-	const databaseConfigList = useRootStore.getState().databaseConfig.list || [];
+	const list = useRootStore.getState().databaseConfig.list;
+	const databaseConfigList = Array.isArray(list) ? list : [];
 	return (
 		databaseConfigList.find((item) => item.isCurrent)?.id ||
 		databaseConfigList[0]?.id
 	);
+}
+
+/** Parse fetch body; successful responses must be JSON (not HTML login pages). */
+function parseFetchBody(raw: string, ok: boolean) {
+	if (!raw.trim()) return null;
+	try {
+		return JSON.parse(raw);
+	} catch {
+		if (ok) {
+			throw new Error("Unexpected non-JSON response from server.");
+		}
+		return raw;
+	}
 }
 
 function getOpenLitContextHeaders() {
@@ -24,15 +39,17 @@ function getOpenLitContextHeaders() {
 	const organisationId = state.organisation.current?.id;
 	const projectId = state.project.current?.id;
 	const databaseConfigId = getActiveDatabaseConfigId();
+	const environment = state.project.currentEnvironment;
 
 	if (organisationId) headers[OPENLIT_CONTEXT_HEADERS.organisationId] = organisationId;
 	if (projectId) headers[OPENLIT_CONTEXT_HEADERS.projectId] = projectId;
 	if (databaseConfigId) headers[OPENLIT_CONTEXT_HEADERS.databaseConfigId] = databaseConfigId;
+	if (environment) headers[OPENLIT_CONTEXT_HEADERS.environment] = environment;
 
 	return headers;
 }
 
-function getRequestHeaders(headers?: Record<string, string>) {
+export function getRequestHeaders(headers?: Record<string, string>) {
 	return {
 		...getOpenLitContextHeaders(),
 		...(headers || {}),
@@ -40,22 +57,41 @@ function getRequestHeaders(headers?: Record<string, string>) {
 }
 
 export async function getData({ body, method = "POST", url, data }: GET_DATA) {
-	const hasBody = !!(body || data);
-	const res = await fetch(url, {
-		body: body || (data ? JSON.stringify(data) : undefined),
-		method,
-		headers: getRequestHeaders(
-			hasBody ? { "Content-Type": "application/json" } : undefined
-		),
-	});
-	if (!res.ok) {
-		const error = await res.json();
-		throw new Error(
-			typeof error === "string" ? error : error?.error || error?.message || `Request failed (${res.status})`
-		);
-	}
+	const payload = body || (data ? JSON.stringify(data) : undefined);
+	const hasBody = !!payload;
+	const environment = getOpenLitContextHeaders()[OPENLIT_CONTEXT_HEADERS.environment];
+	// Keep environment out of the request URL, but include it in the client cache
+	// identity so switching environments cannot reuse another environment's data.
+	const cacheUrl = environment ? `${url}::${environment}` : url;
 
-	return res.json();
+	return withTelemetryRequestCache(cacheUrl, payload, async () => {
+		const controller = isCacheableTelemetryUrl(url) ? new AbortController() : undefined;
+		const timeout = controller ? setTimeout(() => controller.abort(), 15_000) : undefined;
+		try {
+		const res = await fetch(url, {
+			body: payload,
+			method,
+			signal: controller?.signal,
+			headers: getRequestHeaders(
+				hasBody ? { "Content-Type": "application/json" } : undefined
+			),
+		});
+		const raw = await res.text();
+		const parsed = parseFetchBody(raw, res.ok);
+		if (!res.ok) {
+			const error = parsed as any;
+			throw new Error(
+				typeof error === "string"
+					? error
+					: error?.err || error?.error || error?.message || `Request failed (${res.status})`
+			);
+		}
+		if (parsed === null) throw new Error("The telemetry service returned an empty response.");
+		return parsed;
+		} finally {
+			if (timeout !== undefined) clearTimeout(timeout);
+		}
+	});
 }
 
 type POST_DATA = {
@@ -69,14 +105,16 @@ export async function postData({ url, data }: POST_DATA) {
 		headers: getRequestHeaders({ "Content-Type": "application/json" }),
 		body: JSON.stringify(data),
 	});
+	const raw = await res.text();
+	const parsed = parseFetchBody(raw, res.ok);
 	if (!res.ok) {
-		const error = await res.json();
+		const error = parsed as any;
 		throw new Error(
-			typeof error === "string" ? error : error?.error || error?.message || `Request failed (${res.status})`
+			typeof error === "string" ? error : error?.err || error?.error || error?.message || `Request failed (${res.status})`
 		);
 	}
-
-	return res.json();
+	if (parsed === null) throw new Error("The telemetry service returned an empty response.");
+	return parsed;
 }
 
 type DELETE_DATA = {
@@ -88,12 +126,14 @@ export async function deleteData({ url }: DELETE_DATA) {
 		method: "DELETE",
 		headers: getRequestHeaders(),
 	});
+	const raw = await res.text();
+	const parsed = parseFetchBody(raw, res.ok);
 	if (!res.ok) {
-		const error = await res.json();
+		const error = parsed as any;
 		throw new Error(
-			typeof error === "string" ? error : error?.error || error?.message || `Request failed (${res.status})`
+			typeof error === "string" ? error : error?.err || error?.error || error?.message || `Request failed (${res.status})`
 		);
 	}
-
-	return res.json();
+	if (parsed === null) throw new Error("The telemetry service returned an empty response.");
+	return parsed;
 }

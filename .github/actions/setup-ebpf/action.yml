@@ -1,0 +1,26 @@
+name: Setup eBPF toolchain
+description: Install the pinned compiler dependencies and bpftool used by OpenLIT Go components
+
+inputs:
+  architecture:
+    description: bpftool release architecture
+    required: false
+    default: amd64
+
+runs:
+  using: composite
+  steps:
+    - name: Install eBPF dependencies
+      shell: bash
+      env:
+        BPFTOOL_ARCH: ${{ inputs.architecture }}
+        BPFTOOL_VERSION: v7.5.0
+      run: |
+        set -euo pipefail
+        sudo apt-get update -q
+        sudo apt-get install -y clang llvm libbpf-dev
+        curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
+          "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-${BPFTOOL_ARCH}.tar.gz" \
+          | sudo tar -xz -C /usr/local/bin/
+        sudo chmod +x /usr/local/bin/bpftool
+        /usr/local/bin/bpftool version

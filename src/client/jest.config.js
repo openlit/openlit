@@ -10,7 +10,14 @@ const config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // OpenPlait packages are ESM-only and expose their entry points through
+    // package export maps. Resolve them explicitly so Jest's CommonJS resolver
+    // can hand the files to Next's transformer.
+    '^@openplait/([^/]+)$': '<rootDir>/node_modules/@openplait/$1/dist/src/index.js',
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!(?:@openplait)/)',
+  ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',

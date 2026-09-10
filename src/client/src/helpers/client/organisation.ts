@@ -24,7 +24,7 @@ export const fetchOrganisationList = async () => {
 		return;
 	}
 
-	useRootStore.getState().organisation.setList(data || []);
+	useRootStore.getState().organisation.setList(Array.isArray(data) ? data : []);
 	posthog?.capture(CLIENT_EVENTS.ORGANISATION_LIST, {
 		count: Array.isArray(data) ? data.length : 0,
 	});

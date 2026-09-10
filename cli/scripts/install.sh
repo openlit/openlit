@@ -67,7 +67,7 @@ esac
 
 # --- Resolve the asset URL --------------------------------------------------
 
-# The cli-release.yml workflow uploads one tarball per OS/arch named
+# The release-cli.yml workflow uploads one tarball per OS/arch named
 # openlit-<os>-<arch>.tar.gz. Latest is a redirect; pinned versions
 # use the `cli-X.Y.Z` tag layout that the workflow keys off of.
 asset="openlit-${os}-${arch}.tar.gz"
@@ -90,7 +90,7 @@ if ! curl -fsSL --retry 3 --retry-delay 1 -o "$tmpdir/$asset" "$url"; then
 	fatal "download failed: $url"
 fi
 
-# Pull the matching `.sha256` sidecar uploaded by cli-release.yml and
+# Pull the matching `.sha256` sidecar uploaded by release-cli.yml and
 # verify the tarball before extracting. The sidecar is best-effort —
 # if the release predates the sidecar upload or the network drops the
 # second request, we warn but continue rather than hard-fail (the
@@ -119,7 +119,7 @@ fi
 
 # The tarball contains a single binary named openlit-<os>-<arch>; the
 # release-side packaging step doesn't rename it. Find it defensively
-# so a future rename in cli-release.yml doesn't silently break us.
+# so a future rename in release-cli.yml doesn't silently break us.
 extracted=$(find "$tmpdir" -maxdepth 2 -type f -name 'openlit*' ! -name '*.tar.gz' -print -quit)
 if [ -z "$extracted" ]; then
 	fatal "no openlit binary found inside ${asset}"

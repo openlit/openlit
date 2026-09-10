@@ -1,10 +1,11 @@
-import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getGroupedRequests } from "@/lib/platform/request";
+import { getTraceGrouped } from "@/lib/platform/traces/read";
+import { withRouteAccess } from "@/lib/access/route-access";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 async function POSTHandler(request: Request) {
 	const formData = await request.json();
@@ -19,7 +20,11 @@ async function POSTHandler(request: Request) {
 	const params: MetricParams = {
 		timeLimit,
 		selectedConfig,
-		statusCode: ["STATUS_CODE_ERROR", "Error"],
+		statusCode: ["STATUS_CODE_ERROR", "Error", "ERROR"],
+		environment:
+			typeof formData.environment === "string"
+				? formData.environment
+				: getRequestEnvironment(request),
 	};
 
 	const validationParam = validateMetricsRequest(
@@ -30,8 +35,8 @@ async function POSTHandler(request: Request) {
 	if (!validationParam.success)
 		return Response.json(validationParam.err, { status: 400 });
 
-	const res = await getGroupedRequests(params, groupBy);
+	const res = await getTraceGrouped(params, groupBy);
 	return Response.json(res);
 }
 
-export const POST = withRouteAccess("metrics.read", POSTHandler, { requireDbConfig: true });
+export const POST = withRouteAccess("traces.read", POSTHandler, { requireDbConfig: true });

@@ -1,5 +1,5 @@
 import getMessage from "@/constants/messages";
-import { dataCollector } from "../common";
+import { intelligenceDataCollector } from "../common";
 import {
 	OPENLIT_CHAT_CONVERSATION_TABLE,
 	OPENLIT_CHAT_MESSAGE_TABLE,
@@ -275,10 +275,10 @@ export async function getOtterUsage(
 	`;
 
 	const [chatMetricsResult, chatResult, analysisResult, otterRunsResult] = await Promise.allSettled([
-		dataCollector({ query: chatConversationMetricsQuery }, "query", databaseConfigId),
-		dataCollector({ query: chatQuery }, "query", databaseConfigId),
-		dataCollector({ query: analysisQuery }, "query", databaseConfigId),
-		dataCollector({ query: otterRunsQuery }, "query", databaseConfigId),
+		intelligenceDataCollector({ query: chatConversationMetricsQuery }, "query", databaseConfigId),
+		intelligenceDataCollector({ query: chatQuery }, "query", databaseConfigId),
+		intelligenceDataCollector({ query: analysisQuery }, "query", databaseConfigId),
+		intelligenceDataCollector({ query: otterRunsQuery }, "query", databaseConfigId),
 	]);
 
 	const chatMetricsRow =

@@ -383,5 +383,5 @@ For issues related to certificate management:
 - `server.conf` - Server certificate configuration
 - `server_ext.conf` - Server certificate extensions
 - `client.conf` - Client certificate configuration
-- `supervisor.yaml` - Development supervisor configuration
-- `supervisor-production.yaml` - Production supervisor template
+- `setup-supervisor.sh` generates the environment-specific `supervisor.yaml`
+  deployment configuration.

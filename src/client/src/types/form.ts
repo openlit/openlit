@@ -15,6 +15,7 @@ export interface CustomSelectProps {
 	hasOtherOption?: boolean;
 	name: string;
 	id?: string;
+	disabled?: boolean;
 }
 
 export type FieldTypes =

@@ -1,12 +1,12 @@
 import { generateText } from "ai";
 import { SERVER_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
+import { resolveRequestAuth } from "@/helpers/server/auth";
 import { getDBConfigByUser } from "@/lib/db-config";
 import { getChatConfigWithApiKey } from "@/lib/platform/chat/config";
 import { saveOtterRun } from "@/lib/platform/chat/otter-runs";
 import { getModelInstance } from "@/lib/platform/chat/stream";
 import PostHogServer from "@/lib/posthog";
-import { getCurrentUser } from "@/lib/session";
 import asaw from "@/utils/asaw";
 
 type PromptImprovementSuggestion = {
@@ -27,9 +27,10 @@ const DEFAULT_CRITERIA = [
 	m.PROMPT_OTTER_CRITERIA_AMBIGUITY,
 ];
 
-async function getDatabaseConfigId() {
+async function resolveDatabaseConfigId(authDatabaseConfigId?: string) {
+	if (authDatabaseConfigId) return authDatabaseConfigId;
 	const [, dbConfig] = await asaw(getDBConfigByUser(true));
-	return (dbConfig as any)?.id || "";
+	return (dbConfig as { id?: string } | null | undefined)?.id || "";
 }
 
 function stripCodeFence(text: string) {
@@ -65,8 +66,8 @@ function estimateCost(promptTokens: number, completionTokens: number) {
 
 export async function POST(request: Request) {
 	const startTimestamp = Date.now();
-	const user = await getCurrentUser();
-	if (!user) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		PostHogServer.fireEvent({
 			event: SERVER_EVENTS.PROMPT_IMPROVEMENT_FAILURE,
 			startTimestamp,
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
 		return Response.json({ err: m.PROMPT_HUB_CONTENT_REQUIRED }, { status: 400 });
 	}
 
-	const databaseConfigId = await getDatabaseConfigId();
+	const databaseConfigId = await resolveDatabaseConfigId(auth.databaseConfigId);
 	const { data: config, err } = await getChatConfigWithApiKey(databaseConfigId);
 	if (err || !config) {
 		PostHogServer.fireEvent({

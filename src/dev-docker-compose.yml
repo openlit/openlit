@@ -28,6 +28,10 @@ services:
       context: .
       dockerfile: ./Dockerfile
     container_name: openlit
+    # Reach host-published Loki/Tempo/Prometheus via host.docker.internal
+    # (Linux needs host-gateway; Docker Desktop already provides the alias).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       TELEMETRY_ENABLED: "true"
       INIT_DB_HOST: clickhouse

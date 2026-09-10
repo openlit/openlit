@@ -1,0 +1,78 @@
+name: Release / Python SDK
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      release_sha:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Final tag to publish
+        required: true
+        type: string
+      release_sha:
+        description: Immutable commit SHA referenced by the tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate / Component CI
+    uses: ./.github/workflows/ci-python.yml
+    with:
+      ref: ${{ inputs.release_sha }}
+
+  publish:
+    name: Publish / PyPI
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.release_sha }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+
+      - name: Verify final tag and package version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RELEASE_SHA"
+          VERSION=${RELEASE_TAG#py-}
+          PYPROJECT_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('sdk/python/pyproject.toml', 'rb'))['tool']['poetry']['version'])")
+          test "$PYPROJECT_VERSION" = "$VERSION"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry twine
+
+      - name: Build and validate package
+        working-directory: sdk/python
+        run: |
+          poetry build
+          twine check dist/*
+
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: sdk/python/dist
+          verbose: true

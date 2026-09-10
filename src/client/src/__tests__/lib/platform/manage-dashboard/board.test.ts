@@ -129,6 +129,47 @@ describe("getBoardLayout", () => {
 		expect(result.data?.widgets["widget-ok"].type).toBe("STAT_CARD");
 		expect(result.data?.widgets["widget-missing"]).toBeUndefined();
 	});
+
+	it("returns an error when widget fetch fails instead of treating every mapping as dangling", async () => {
+		mockDataCollector
+			.mockResolvedValueOnce({
+				data: [
+					{
+						boardId: "board-1",
+						boardTitle: "LLM dashboard",
+						boardDescription: "",
+						isMainDashboard: true,
+						isPinned: false,
+						boardCreatedAt: "2026-01-01",
+						boardUpdatedAt: "2026-01-01",
+						tags: "[]",
+					},
+				],
+				err: null,
+			})
+			.mockResolvedValueOnce({
+				data: [
+					{
+						boardWidgetId: "bw-ok",
+						widgetId: "widget-ok",
+						position: JSON.stringify({ x: 0, y: 0, w: 2, h: 2 }),
+						boardWidgetCreatedAt: "2026-01-01",
+						boardWidgetUpdatedAt: "2026-01-01",
+					},
+				],
+				err: null,
+			});
+
+		mockGetWidgets.mockResolvedValue({
+			data: undefined,
+			err: "Widget fetch failed!",
+		});
+
+		const result = await getBoardLayout("board-1", "db-1");
+
+		expect(result).toEqual({ err: "Widget fetch failed!" });
+		expect(result.data).toBeUndefined();
+	});
 });
 
 describe("importBoardLayout", () => {

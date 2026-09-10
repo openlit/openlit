@@ -40,6 +40,7 @@ import AssemblyAIInstrumentation from './assemblyai';
 import TransformersInstrumentation from './transformers';
 import PgInstrumentation from './pg';
 import FirecrawlInstrumentation from './firecrawl';
+import LettaInstrumentation from './letta';
 
 /**
  * OTel community instrumentations loaded dynamically (like Python SDK).
@@ -122,6 +123,7 @@ export default class Instrumentations {
     transformers: new TransformersInstrumentation(),
     pg: new PgInstrumentation(),
     firecrawl: new FirecrawlInstrumentation(),
+    letta: new LettaInstrumentation(),
   };
 
   static setup(

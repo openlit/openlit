@@ -1,7 +1,10 @@
 jest.mock('@/lib/platform/manage-dashboard/widget', () => ({
   createWidget: jest.fn(),
 }));
-jest.mock('@/lib/platform/common', () => ({ dataCollector: jest.fn() }));
+jest.mock('@/lib/platform/common', () => {
+  const collector = jest.fn();
+  return { dataCollector: collector, intelligenceDataCollector: collector };
+});
 jest.mock('@/lib/platform/manage-dashboard/table-details', () => ({
   OPENLIT_BOARD_WIDGET_TABLE_NAME: 'openlit_board_widget',
 }));
