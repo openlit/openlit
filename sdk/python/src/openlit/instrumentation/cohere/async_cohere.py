@@ -142,6 +142,7 @@ def async_chat_stream(
             self._cache_read_input_tokens = 0
             self._cache_creation_input_tokens = 0
             self._event_provider = event_provider
+            self._streaming_response_processed = False
 
             self._args = args
             self._kwargs = kwargs
@@ -154,11 +155,10 @@ def async_chat_stream(
             self._server_port = server_port
 
         async def __aenter__(self):
-            await self.__wrapped__.__aenter__()
             return self
 
         async def __aexit__(self, exc_type, exc_value, traceback):
-            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+            await self.close()
 
         def __aiter__(self):
             return self
@@ -167,29 +167,40 @@ def async_chat_stream(
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
+        async def close(self):
+            """Close the wrapped stream and finalize the span if it has not ended yet."""
+            try:
+                await self.__wrapped__.aclose()
+            finally:
+                self._finalize_streaming_span()
+
+        def _finalize_streaming_span(self):
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            try:
+                with self._span:
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=self._event_provider,
+                    )
+            except Exception as e:
+                handle_exception(self._span, e)
+
         async def __anext__(self):
             try:
                 chunk = await self.__wrapped__.__anext__()
                 process_chunk(self, chunk)
                 return chunk
             except StopAsyncIteration:
-                try:
-                    with self._span:
-                        process_streaming_chat_response(
-                            self,
-                            pricing_info=pricing_info,
-                            environment=environment,
-                            application_name=application_name,
-                            metrics=metrics,
-                            capture_message_content=capture_message_content,
-                            disable_metrics=disable_metrics,
-                            version=version,
-                            event_provider=self._event_provider,
-                        )
-
-                except Exception as e:
-                    handle_exception(self._span, e)
-
+                self._finalize_streaming_span()
                 raise
 
     async def wrapper(wrapped, instance, args, kwargs):
