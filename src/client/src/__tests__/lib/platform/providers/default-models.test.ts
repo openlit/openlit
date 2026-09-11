@@ -11,7 +11,7 @@ describe('default-models', () => {
     const expectedProviders = [
       'openai', 'anthropic', 'google', 'mistral', 'groq',
       'perplexity', 'azure', 'cohere', 'together', 'fireworks',
-      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax',
+      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax', 'orcarouter',
     ];
     for (const provider of expectedProviders) {
       expect(DEFAULT_MODELS_BY_PROVIDER).toHaveProperty(provider);
@@ -90,5 +90,42 @@ describe('default-models', () => {
       expect.arrayContaining(['function-calling', 'streaming', 'thinking'])
     );
     expect(m27?.capabilities).not.toContain('vision');
+  });
+
+  it('seeds OrcaRouter with documented provider-prefixed models', () => {
+    const orcaProvider = DEFAULT_PROVIDERS.find((p) => p.providerId === 'orcarouter');
+    expect(orcaProvider).toEqual(
+      expect.objectContaining({
+        displayName: 'OrcaRouter',
+        requiresVault: true,
+      })
+    );
+
+    const orcaModels = DEFAULT_MODELS_BY_PROVIDER.orcarouter;
+    expect(orcaModels.map((m) => m.id)).toEqual([
+      'orcarouter/auto',
+      'openai/gpt-5.5',
+      'anthropic/claude-opus-4.7',
+      'google/gemini-2.5-flash',
+    ]);
+
+    expect(orcaModels.find((m) => m.id === 'openai/gpt-5.5')).toMatchObject({
+      contextWindow: 400000,
+      inputPricePerMToken: 5.0,
+      outputPricePerMToken: 30.0,
+      cacheReadPricePerMToken: 0.5,
+    });
+    expect(orcaModels.find((m) => m.id === 'anthropic/claude-opus-4.7')).toMatchObject({
+      contextWindow: 1000000,
+      inputPricePerMToken: 5.0,
+      outputPricePerMToken: 25.0,
+      cacheReadPricePerMToken: 0.5,
+      cacheCreationPricePerMToken: 6.25,
+    });
+    expect(orcaModels.find((m) => m.id === 'google/gemini-2.5-flash')).toMatchObject({
+      contextWindow: 1000000,
+      inputPricePerMToken: 0.3,
+      outputPricePerMToken: 2.5,
+    });
   });
 });
