@@ -71,7 +71,11 @@ describe("EncryptVaultValuesMigration", () => {
 		const result = await EncryptVaultValuesMigration();
 
 		expect(prisma.clickhouseMigrations.create).not.toHaveBeenCalled();
-		expect(result).toEqual({ migrationExist: false, queriesRun: false });
+		expect(result).toEqual({
+			migrationExist: false,
+			queriesRun: false,
+			err: "default: Authentication failed: password is incorrect",
+		});
 	});
 
 	it("leaves the migration pending when a secret fails to encrypt", async () => {
@@ -90,7 +94,11 @@ describe("EncryptVaultValuesMigration", () => {
 		const result = await EncryptVaultValuesMigration();
 
 		expect(prisma.clickhouseMigrations.create).not.toHaveBeenCalled();
-		expect(result).toEqual({ migrationExist: false, queriesRun: false });
+		expect(result).toEqual({
+			migrationExist: false,
+			queriesRun: false,
+			err: "Vault encryption migration: 1 of 2 secrets still hold plaintext, leaving the migration pending",
+		});
 	});
 
 	it("records the migration when the vault holds no rows to encrypt", async () => {
@@ -103,7 +111,7 @@ describe("EncryptVaultValuesMigration", () => {
 		expect(result).toEqual({ migrationExist: false, queriesRun: true });
 	});
 
-	it("records the migration when the read returns no rows and no error", async () => {
+	it("leaves the migration pending when the vault read is not a row list", async () => {
 		(dataCollector as jest.Mock).mockReset();
 		(dataCollector as jest.Mock).mockResolvedValueOnce({
 			data: undefined,
@@ -112,7 +120,11 @@ describe("EncryptVaultValuesMigration", () => {
 
 		const result = await EncryptVaultValuesMigration();
 
-		expect(prisma.clickhouseMigrations.create).toHaveBeenCalledTimes(1);
-		expect(result).toEqual({ migrationExist: false, queriesRun: true });
+		expect(prisma.clickhouseMigrations.create).not.toHaveBeenCalled();
+		expect(result).toEqual({
+			migrationExist: false,
+			queriesRun: false,
+			err: "Vault encryption migration: unexpected vault read result",
+		});
 	});
 });

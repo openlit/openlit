@@ -52,13 +52,14 @@ export default async function EncryptVaultValuesMigration(
 			consoleLog(
 				`Vault encryption migration: could not read the vault table: ${readErr}`
 			);
-			return { migrationExist: false, queriesRun: false };
+			return { migrationExist: false, queriesRun: false, err: readErr };
 		}
 
 		if (!data || !Array.isArray(data)) {
-			consoleLog("Vault encryption migration: no data to migrate");
-			await markMigrationComplete(dbConfig.id);
-			return { migrationExist: false, queriesRun: true };
+			const unexpectedRead =
+				"Vault encryption migration: unexpected vault read result";
+			consoleLog(unexpectedRead);
+			return { migrationExist: false, queriesRun: false, err: unexpectedRead };
 		}
 
 		const plaintextSecrets = (data as any[]).filter(
@@ -97,10 +98,9 @@ export default async function EncryptVaultValuesMigration(
 		}
 
 		if (failedCount > 0) {
-			consoleLog(
-				`Vault encryption migration: ${failedCount} of ${plaintextSecrets.length} secrets still hold plaintext, leaving the migration pending`
-			);
-			return { migrationExist: false, queriesRun: false };
+			const pendingErr = `Vault encryption migration: ${failedCount} of ${plaintextSecrets.length} secrets still hold plaintext, leaving the migration pending`;
+			consoleLog(pendingErr);
+			return { migrationExist: false, queriesRun: false, err: pendingErr };
 		}
 
 		consoleLog(
@@ -112,7 +112,7 @@ export default async function EncryptVaultValuesMigration(
 		return { migrationExist: false, queriesRun: true };
 	} catch (migrationError) {
 		consoleLog(`Vault encryption migration error: ${migrationError}`);
-		return { migrationExist: false, queriesRun: false };
+		return { migrationExist: false, queriesRun: false, err: migrationError };
 	}
 }
 
