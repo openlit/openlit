@@ -114,6 +114,15 @@ describe('createContext', () => {
     const [{ table }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(table).toBe('openlit_contexts');
   });
+
+  it('defaults status to ACTIVE and falls back to the generated id in the alert message when name is omitted', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: {} });
+    const result = await createContext({ content: 'body' });
+    const [{ values }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(values[0].status).toBe('ACTIVE');
+    expect(values[0].description).toBe('');
+    expect(result.id).toBeTruthy();
+  });
 });
 
 describe('updateContext', () => {
@@ -143,6 +152,29 @@ describe('updateContext', () => {
     await updateContext('ctx-abc', { name: 'x', content: 'y' });
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).toContain('ctx-abc');
+  });
+
+  it('includes description, tags, meta_properties, and status set-clauses when provided', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'q1' } });
+    await updateContext('c1', {
+      name: 'x',
+      content: 'y',
+      description: 'a new description',
+      tags: '["a"]',
+      meta_properties: '{"k":"v"}',
+      status: 'INACTIVE',
+    });
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain("description = 'a new description'");
+    expect(query).toContain('tags = \'["a"]\'');
+    expect(query).toContain('meta_properties = \'{"k":"v"}\'');
+    expect(query).toContain("status = 'INACTIVE'");
+  });
+
+  it('falls back to the id in the alert message and empty name field when name is omitted', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'q1' } });
+    const result = await updateContext('ctx-no-name', { content: 'y' });
+    expect(result).toEqual({ message: 'Context updated!' });
   });
 });
 

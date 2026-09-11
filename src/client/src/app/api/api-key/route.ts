@@ -2,13 +2,9 @@ import { withAudit } from "@/lib/audit/route";
 import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { generateAPIKey, getAllAPIKeys } from "@/lib/platform/api-keys";
 import asaw from "@/utils/asaw";
-import { MIDDLEWARE_DATABASE_CONFIG_HEADER } from "@/constants/openlit-context";
 
-async function GETHandler(request: Request) {
-	const databaseConfigId =
-		request.headers?.get?.(MIDDLEWARE_DATABASE_CONFIG_HEADER)?.trim() ||
-		undefined;
-	const res: any = await getAllAPIKeys(databaseConfigId);
+async function GETHandler() {
+	const res: any = await getAllAPIKeys();
 	return Response.json(res);
 }
 

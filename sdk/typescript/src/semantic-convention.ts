@@ -180,6 +180,8 @@ export default class SemanticConvention {
   // (system prompt + tools + primary model + sampling config). Stamped on
   // every chat span/event so the server can group traffic by version.
   static OPENLIT_AGENT_VERSION_HASH = 'openlit.agent.version_hash';
+  /** Correlate CI / evidence packages with a Trace Governance Passport export. */
+  static OPENLIT_GOVERNANCE_REPORT_ID = 'openlit.governance.report_id';
   static GEN_AI_AGENT_SOURCE = 'gen_ai.agent.source';
   static GEN_AI_AGENT_ACTION_TOOL = 'gen_ai.agent.action.tool';
   static GEN_AI_AGENT_ACTION_TOOL_INPUT = 'gen_ai.agent.action.tool_input';

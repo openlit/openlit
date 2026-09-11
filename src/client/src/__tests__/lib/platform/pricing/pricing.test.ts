@@ -106,6 +106,7 @@ import { insertCronLog } from '@/lib/platform/cron-log';
 import getMessage from '@/constants/messages';
 import { throwIfError } from '@/utils/error';
 import asaw from '@/utils/asaw';
+import Sanitizer from '@/utils/sanitizer';
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -120,6 +121,10 @@ beforeEach(() => {
   (throwIfError as jest.Mock).mockImplementation((condition: boolean, msg: string) => {
     if (condition) throw new Error(msg);
   });
+
+  // Re-apply Sanitizer mock after resetAllMocks (aliased module factory
+  // implementations do not survive a reset, unlike e.g. the `lodash` mock).
+  (Sanitizer.sanitizeValue as jest.Mock).mockImplementation((v: string) => v);
 
   // Re-apply insertCronLog mock
   (insertCronLog as jest.Mock).mockResolvedValue({ err: null });
@@ -267,6 +272,56 @@ describe('setPricingForSpanId', () => {
     expect(result.err).toContain('Missing');
   });
 
+  it('returns error mentioning only "model" when provider is present but model is missing', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({
+      record: {
+        SpanId: 'span-1',
+        Timestamp: '2026-01-01',
+        SpanAttributes: { 'gen_ai.system': 'openai' },
+      },
+    });
+
+    const result = await setPricingForSpanId('span-1');
+
+    expect(result.success).toBe(false);
+    expect(result.err).toContain('Missing model');
+    expect(result.err).not.toContain(' and ');
+  });
+
+  it('returns error mentioning only "provider" when model is present but provider is missing', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({
+      record: {
+        SpanId: 'span-1',
+        Timestamp: '2026-01-01',
+        SpanAttributes: { 'gen_ai.request.model': 'gpt-4o' },
+      },
+    });
+
+    const result = await setPricingForSpanId('span-1');
+
+    expect(result.success).toBe(false);
+    expect(result.err).toContain('Missing provider');
+    expect(result.err).not.toContain(' and ');
+  });
+
+  it('handles a trace whose SpanAttributes object is entirely absent', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({
+      record: {
+        SpanId: 'span-1',
+        Timestamp: '2026-01-01',
+      },
+    });
+
+    const result = await setPricingForSpanId('span-1');
+
+    expect(result.success).toBe(false);
+    expect(result.err).toContain('Missing');
+    expect(result.err).toContain(' and ');
+  });
+
   it('throws when user is not authenticated', async () => {
     (getCurrentUser as jest.Mock).mockResolvedValue(null);
 
@@ -322,6 +377,80 @@ describe('setPricingForSpanId', () => {
 
     expect(result.success).toBe(false);
     expect(result.err).toBe('DB config not found');
+  });
+
+  it('falls back to the user default DB config when no pricing config row exists', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: mockTrace });
+    const prisma = require('@/lib/prisma').default;
+    prisma.pricingConfigs.findFirst.mockResolvedValue(null);
+    // The fallback uses asaw(getDBConfigByUser(true)) — return a real dbConfig
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'fallback-db' }]);
+    (ProviderRegistry.getModel as jest.Mock).mockResolvedValue({
+      id: 'gpt-4o',
+      inputPricePerMToken: 2.5,
+      outputPricePerMToken: 10.0,
+    });
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+
+    const result = await setPricingForSpanId('span-1');
+
+    expect(result.success).toBe(true);
+    expect(ProviderRegistry.getModel).toHaveBeenCalledWith(
+      'openai',
+      'gpt-4o',
+      'fallback-db'
+    );
+  });
+
+  it('passes environment and traceId from opts through to the routed lookup and logging', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: mockTrace });
+    (ProviderRegistry.getModel as jest.Mock).mockResolvedValue({
+      id: 'gpt-4o',
+      inputPricePerMToken: 2.5,
+      outputPricePerMToken: 10.0,
+    });
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+
+    const result = await setPricingForSpanId('span-1', {
+      environment: 'prod',
+      traceId: 'trace-99',
+    });
+
+    expect(result.success).toBe(true);
+    const { resolveTelemetrySourceDescriptor } = require('@/lib/telemetry-source');
+    expect(resolveTelemetrySourceDescriptor).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: 'traces', environment: 'prod' })
+    );
+    expect(getRequestViaSpanId).toHaveBeenCalledWith(
+      'span-1',
+      expect.objectContaining({ environment: 'prod', traceId: 'trace-99' })
+    );
+  });
+
+  it('reports the cost as unpersisted when routed to a non-clickhouse, non-builtin connector', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+    (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: mockTrace });
+    (ProviderRegistry.getModel as jest.Mock).mockResolvedValue({
+      id: 'gpt-4o',
+      inputPricePerMToken: 2.5,
+      outputPricePerMToken: 10.0,
+    });
+    const { resolveTelemetrySourceDescriptor } = require('@/lib/telemetry-source');
+    (resolveTelemetrySourceDescriptor as jest.Mock).mockResolvedValue({
+      type: 'jaeger',
+      id: 'src-1',
+      isBuiltIn: false,
+    });
+
+    const result = await setPricingForSpanId('span-1');
+
+    expect(result.success).toBe(true);
+    expect(result.data!.persisted).toBe(false);
+    expect(result.message).toContain('jaeger');
+    // Read-only external connector: no ALTER TABLE / exec write
+    expect(dataCollector).not.toHaveBeenCalled();
   });
 });
 
@@ -539,6 +668,162 @@ describe('autoUpdatePricing', () => {
       }),
       'db-1'
     );
+  });
+
+  it('computes lastRunIso from a Date instance and filters the SQL query by it', async () => {
+    (getPricingConfigById as jest.Mock).mockResolvedValue({
+      id: 'pc-1',
+      databaseConfigId: 'db-1',
+    });
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    const { getLastRunCronLogByCronId } = require('@/lib/platform/cron-log');
+    (getLastRunCronLogByCronId as jest.Mock).mockResolvedValueOnce(
+      new Date('2026-01-01T00:00:00.000Z')
+    );
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [] });
+
+    const result = await autoUpdatePricing({
+      pricingConfigId: 'pc-1',
+      cronId: 'cron-1',
+    });
+
+    expect(result.success).toBe(true);
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain(
+      "parseDateTimeBestEffort('2026-01-01T00:00:00.000Z')"
+    );
+  });
+
+  it('returns an empty trace list when the SELECT query resolves with no data and no error', async () => {
+    (getPricingConfigById as jest.Mock).mockResolvedValue({
+      id: 'pc-1',
+      databaseConfigId: 'db-1',
+    });
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ data: undefined, err: null });
+
+    const result = await autoUpdatePricing({
+      pricingConfigId: 'pc-1',
+      cronId: 'cron-1',
+    });
+
+    expect(result.success).toBe(true);
+    expect(insertCronLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({ totalSpans: 0 }),
+      }),
+      'db-1'
+    );
+  });
+
+  it('records a caught error from fetchAutoPricingCandidateSpans when the routed connector lookup throws', async () => {
+    (getPricingConfigById as jest.Mock).mockResolvedValue({
+      id: 'pc-1',
+      databaseConfigId: 'db-1',
+    });
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    const { getTelemetryAdapterForDbConfig } = require('@/lib/telemetry-source');
+    (getTelemetryAdapterForDbConfig as jest.Mock).mockRejectedValueOnce(
+      new Error('adapter unavailable')
+    );
+
+    const result = await autoUpdatePricing({
+      pricingConfigId: 'pc-1',
+      cronId: 'cron-1',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.err).toContain('adapter unavailable');
+    expect(insertCronLog).toHaveBeenCalledWith(
+      expect.objectContaining({ runStatus: 'FAILURE' }),
+      'db-1'
+    );
+  });
+
+  it('counts an exception thrown while computing/writing cost as an error and still marks partial success', async () => {
+    (getPricingConfigById as jest.Mock).mockResolvedValue({
+      id: 'pc-1',
+      databaseConfigId: 'db-1',
+    });
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    (dataCollector as jest.Mock).mockResolvedValueOnce({
+      data: [
+        {
+          SpanId: 'span-throws',
+          Timestamp: '2026-01-01',
+          SpanAttributes: {
+            'gen_ai.system': 'openai',
+            'gen_ai.request.model': 'gpt-4o',
+            'gen_ai.usage.input_tokens': '100',
+            'gen_ai.usage.output_tokens': '200',
+          },
+        },
+        {
+          SpanId: 'span-ok',
+          Timestamp: '2026-01-01',
+          SpanAttributes: {
+            'gen_ai.system': 'openai',
+            'gen_ai.request.model': 'gpt-4o',
+            'gen_ai.usage.input_tokens': '100',
+            'gen_ai.usage.output_tokens': '200',
+          },
+        },
+      ],
+    });
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null }); // ALTER for span-ok
+
+    (ProviderRegistry.getModel as jest.Mock)
+      .mockRejectedValueOnce(new Error('model lookup failed'))
+      .mockResolvedValueOnce({
+        id: 'gpt-4o',
+        inputPricePerMToken: 2.5,
+        outputPricePerMToken: 10.0,
+      });
+
+    const result = await autoUpdatePricing({
+      pricingConfigId: 'pc-1',
+      cronId: 'cron-1',
+    });
+
+    expect(result.success).toBe(true);
+    expect(insertCronLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runStatus: 'PARTIAL_SUCCESS',
+        errorStacktrace: expect.objectContaining({
+          'span-throws': 'model lookup failed',
+        }),
+        meta: expect.objectContaining({ totalUpdated: 1, totalFailed: 1 }),
+      }),
+      'db-1'
+    );
+  });
+
+  it('uses lastRunIso (not the 24h default) as the window start for the routed connector', async () => {
+    const listSpans = jest.fn().mockResolvedValue({ rows: [] });
+    const { getTelemetryAdapterForDbConfig } = require('@/lib/telemetry-source');
+    (getTelemetryAdapterForDbConfig as jest.Mock).mockResolvedValue({
+      isBuiltIn: false,
+      descriptor: { type: 'jaeger', isBuiltIn: false },
+      adapter: { listSpans },
+    });
+    (getPricingConfigById as jest.Mock).mockResolvedValue({
+      id: 'pc-1',
+      databaseConfigId: 'db-1',
+    });
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    const { getLastRunCronLogByCronId } = require('@/lib/platform/cron-log');
+    (getLastRunCronLogByCronId as jest.Mock).mockResolvedValueOnce(
+      '2026-02-01T00:00:00.000Z'
+    );
+
+    const result = await autoUpdatePricing({
+      pricingConfigId: 'pc-1',
+      cronId: 'cron-1',
+    });
+
+    expect(result.success).toBe(true);
+    const [{ timeRange }] = listSpans.mock.calls[0];
+    expect(timeRange.start).toEqual(new Date('2026-02-01T00:00:00.000Z'));
   });
 
   it('reads candidates from the routed traces connector and does not write otel_traces', async () => {

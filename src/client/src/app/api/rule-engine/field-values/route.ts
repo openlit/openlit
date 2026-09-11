@@ -10,6 +10,10 @@ const SUPPORTED_FIELDS = new Set([
 	"deployment.environment", "service.name", "gen_ai.system", "gen_ai.request.model",
 	"gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens",
 	"gen_ai.usage.total_cost", "gen_ai.request.temperature",
+	"gen_ai.tool.name", "gen_ai.tool.call.name",
+	"coding_agent.client", "coding_agent.policy.permission_mode",
+	"coding_agent.content_capture_mode", "coding_agent.user.classification",
+	"coding_agent.session.outcome", "coding_agent.tool.name",
 ]);
 
 export async function GET(request: NextRequest) {

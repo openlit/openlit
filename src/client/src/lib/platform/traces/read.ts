@@ -679,7 +679,8 @@ const BUCKET_INTERVAL: Record<string, string> = {
 /** Friendly filter-bar groupBy keys -> the attribute/field an adapter groups on. */
 const GROUP_BY_FIELD: Record<string, string> = {
 	model: "gen_ai.request.model",
-	provider: "gen_ai.system",
+	// Prefer provider.name; ClickHouse adapter coalesces legacy gen_ai.system.
+	provider: "gen_ai.provider.name",
 	spanName: "SpanName",
 	applicationName: "service.name",
 };
@@ -737,7 +738,12 @@ export async function getTraceFilterConfig(params: MetricParams) {
 		);
 		const { spans } = await fetchSpansForAggregation(adapter, query);
 		const models = distinctFromSpans(spans, "gen_ai.request.model");
-		const providers = distinctFromSpans(spans, "gen_ai.system");
+		const providers = Array.from(
+			new Set([
+				...distinctFromSpans(spans, "gen_ai.provider.name"),
+				...distinctFromSpans(spans, "gen_ai.system"),
+			])
+		).filter(Boolean);
 		// Prefer adapter-native enums (Jaeger /api/services/{svc}/operations) when
 		// available so Span Names match the Jaeger Search UI instead of a sample.
 		let spanNames: string[] = [];
