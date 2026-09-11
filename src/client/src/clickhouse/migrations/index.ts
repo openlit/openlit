@@ -105,7 +105,7 @@ export default async function migrations(databaseConfigId?: string) {
 		runMigration("create-provider-metadata", () => CreateProviderMetadataMigration(databaseConfigId)),
 		runMigration("drop-legacy-openground-tables", () => DropLegacyOpengroundTablesMigration(databaseConfigId)),
 	]);
-	await SeedOrcaRouterProviderMigration(databaseConfigId);
+	await runMigration("seed-orcarouter-provider", () => SeedOrcaRouterProviderMigration(databaseConfigId));
 
 	await runMigration("encrypt-vault-values", () => EncryptVaultValuesMigration(databaseConfigId));
 	await runMigration("add-chat-conversation-type", () => AddChatConversationTypeMigration(databaseConfigId));

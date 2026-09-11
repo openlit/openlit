@@ -26,6 +26,7 @@ const MIGRATION_MODULES = [
   "@/clickhouse/migrations/add-provider-models-cache-prices-migration",
   "@/clickhouse/migrations/create-provider-metadata-migration",
   "@/clickhouse/migrations/drop-legacy-openground-tables-migration",
+  "@/clickhouse/migrations/seed-orcarouter-provider-migration",
   "@/clickhouse/migrations/encrypt-vault-values-migration",
   "@/clickhouse/migrations/add-chat-conversation-type-migration",
   "@/clickhouse/migrations/add-chat-message-model-attribution-migration",
@@ -68,5 +69,41 @@ describe("ClickHouse migration orchestration", () => {
     // All independent creates may already be in flight, but dependent
     // groups must not start after the failed group completes.
     expect(mockMigration).toHaveBeenCalledTimes(12);
+  });
+
+  it("rejects when a migration returns no result", async () => {
+    let callCount = 0;
+    mockMigration.mockImplementation(async () => {
+      callCount += 1;
+      // Group 1 is 12 parallel creates; the first sequential migration is
+      // add-controller-cluster-id's predecessor, alter-controller-mode.
+      if (callCount === 13) return undefined;
+      return { migrationExist: true };
+    });
+
+    const { default: migrations } = await import("@/clickhouse/migrations");
+
+    await expect(migrations("db-1")).rejects.toThrow(
+      'ClickHouse migration "alter-controller-mode" failed: the migration did not report successful completion',
+    );
+    expect(mockMigration).toHaveBeenCalledTimes(13);
+  });
+
+  it("rejects when the OrcaRouter seed fails and does not continue", async () => {
+    let callCount = 0;
+    mockMigration.mockImplementation(async () => {
+      callCount += 1;
+      // 12 independent creates + 9 controller schema steps + create-providers
+      // + cache-prices + 2 parallel provider-group migrations + seed.
+      if (callCount === 26) return { err: "seed failed" };
+      return { migrationExist: true };
+    });
+
+    const { default: migrations } = await import("@/clickhouse/migrations");
+
+    await expect(migrations("db-1")).rejects.toThrow(
+      'ClickHouse migration "seed-orcarouter-provider" failed: seed failed',
+    );
+    expect(mockMigration).toHaveBeenCalledTimes(26);
   });
 });

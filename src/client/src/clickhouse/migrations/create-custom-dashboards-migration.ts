@@ -17,8 +17,21 @@ const EXPECTED_CUSTOM_DASHBOARD_TABLES = [
 ];
 
 async function verifyCustomDashboardTables(databaseConfigId?: string) {
+  // `system.tables` has a stable `name` column. `SHOW TABLES` JSONEachRow
+  // shapes have varied across ClickHouse versions; a parse miss here would
+  // fail this group-1 migration and skip every later schema migration.
+  const quotedNames = EXPECTED_CUSTOM_DASHBOARD_TABLES.map(
+    (tableName) => `'${tableName}'`
+  ).join(", ");
   const { data, err } = await intelligenceDataCollector(
-    { query: "SHOW TABLES" },
+    {
+      query: `
+        SELECT name
+        FROM system.tables
+        WHERE database = currentDatabase()
+          AND name IN (${quotedNames})
+      `,
+    },
     "query",
     databaseConfigId
   );
@@ -27,6 +40,7 @@ async function verifyCustomDashboardTables(databaseConfigId?: string) {
   const existingTables = new Set(
     (Array.isArray(data) ? data : [])
       .map((row) => {
+        if (typeof row === "string") return row;
         if (!row || typeof row !== "object") return "";
         const tableRow = row as { name?: unknown; table?: unknown };
         return String(tableRow.name ?? tableRow.table ?? "");
@@ -155,7 +169,9 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
   // retry them, but the seed path needs the same failure boundary; otherwise
   // startup can report success while dashboard inserts hit missing tables.
   if (!migrationExist && !queriesRun) {
-    return { migrationExist, queriesRun, err: migrationErr };
+    return migrationErr
+      ? { migrationExist, queriesRun, err: migrationErr }
+      : { migrationExist, queriesRun };
   }
 
   // Always run the seed -- it is idempotent per-title via

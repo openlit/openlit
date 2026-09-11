@@ -71,5 +71,12 @@ describe("custom dashboard migration", () => {
       ),
     });
     expect(mockSeed).not.toHaveBeenCalled();
+    expect(mockTableCollector).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.stringContaining("system.tables"),
+      }),
+      "query",
+      "db-1"
+    );
   });
 });
