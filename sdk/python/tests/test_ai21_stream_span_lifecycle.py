@@ -100,6 +100,10 @@ class FakeRawStream:
         self.closed = True
 
 
+async def _fake_create_async(*a, **k):
+    return FakeRawStream()
+
+
 def test_sync_early_break_ends_span():
     """Leaving iteration after one chunk must still end the span."""
     tracer, exporter = _tracer_with_exporter()
@@ -148,7 +152,7 @@ async def test_async_early_break_ends_span():
     tracer, exporter = _tracer_with_exporter()
     wrap = _factory(tracer, is_async=True)
 
-    stream = wrap(lambda *a, **k: FakeRawStream(), None, (), REQUEST_KWARGS)
+    stream = await wrap(_fake_create_async, None, (), REQUEST_KWARGS)
     async with stream:
         await anext(stream)
 
@@ -162,7 +166,7 @@ async def test_async_full_consumption_exports_exactly_one_span():
     tracer, exporter = _tracer_with_exporter()
     wrap = _factory(tracer, is_async=True)
 
-    stream = wrap(lambda *a, **k: FakeRawStream(), None, (), REQUEST_KWARGS)
+    stream = await wrap(_fake_create_async, None, (), REQUEST_KWARGS)
     async with stream:
         async for _ in stream:
             pass
