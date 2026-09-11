@@ -8,7 +8,8 @@ the wrapped stream, and the span ended solely in the `StopIteration` /
 exhaustion, or a bare `stream.close()`) left the span recording forever, so
 it was never exported and its telemetry was lost — the Ollama generate instance of the
 early-close streaming bug filed in #1561 and fixed for
-Anthropic in #1461, AI21 in #1553, Together AI in #1555 and Sarvam AI in #1559. These tests drive the real `chat` / `async_chat` wrapper factories
+Anthropic in #1461, AI21 in #1553, Together AI
+in #1555 and Sarvam AI in #1559. These tests drive the real `chat` / `async_chat` wrapper factories
 with synthetic OpenAI-shaped dict chunks, and assert the span ends exactly
 once on each exit path.
 """
