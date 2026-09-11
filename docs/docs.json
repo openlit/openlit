@@ -357,6 +357,7 @@
                 "pages": [
                   "latest/sdk/integrations/openai",
                   "latest/sdk/integrations/ollama",
+                  "latest/sdk/integrations/llmman",
                   "latest/sdk/integrations/anthropic",
                   "latest/sdk/integrations/deepseek",
                   "latest/sdk/integrations/gpt4all",
