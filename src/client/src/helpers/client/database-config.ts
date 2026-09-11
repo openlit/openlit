@@ -1,23 +1,43 @@
 import { DatabaseConfigWithActive } from "@/constants/dbConfig";
+import getMessage from "@/constants/messages";
 import { useRootStore } from "@/store";
 import { deleteData, getData } from "@/utils/api";
 import asaw from "@/utils/asaw";
 import { toast } from "sonner";
 
+export const projectHasDatabaseConfig = (
+	list: unknown[] | undefined | null
+): boolean => Array.isArray(list) && list.length > 0;
+
 export const fetchDatabaseConfigList = async (
-	successCb: (data: any[]) => void
+	successCb: (data: any[]) => void,
+	options: { projectId?: string } = {}
 ) => {
+	const requestedProjectId = options.projectId;
 	useRootStore.getState().databaseConfig.setIsLoading(true);
-	const [, data] = await asaw(
+	const [err, data] = await asaw(
 		getData({
 			method: "GET",
 			url: "/api/db-config",
 		})
 	);
 
-	const list = Array.isArray(data) ? data : [];
-	successCb(list);
-	useRootStore.getState().databaseConfig.setList(list);
+	const currentProjectId = useRootStore.getState().project?.current?.id;
+	if (requestedProjectId && currentProjectId && currentProjectId !== requestedProjectId) {
+		return;
+	}
+
+	if (err || !Array.isArray(data)) {
+		toast.error(err || getMessage().DB_CONFIG_LIST_FAILED, {
+			id: "db-config-list",
+		});
+		successCb([]);
+		useRootStore.getState().databaseConfig.setList([]);
+		return;
+	}
+
+	successCb(data);
+	useRootStore.getState().databaseConfig.setList(data);
 };
 
 export const pingActiveDatabaseConfig = async () => {

@@ -34,6 +34,7 @@ import AddCodingAgentLOCSummaryFieldsMigration from "./add-coding-agent-loc-summ
 import CreateCodingAgentsAuditMigration from "./create-coding-agents-audit-migration";
 import DropVcsMigration from "./drop-vcs-migration";
 import AddProviderModelsCachePricesMigration from "./add-provider-models-cache-prices-migration";
+import SeedOrcaRouterProviderMigration from "./seed-orcarouter-provider-migration";
 import CreateTelemetryRollupsMigration from "./create-telemetry-rollups-migration";
 import AlterTelemetryRollupsDimensionsMigration from "./alter-telemetry-rollups-dimensions-migration";
 
@@ -73,6 +74,7 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateProviderMetadataMigration(databaseConfigId),
 		DropLegacyOpengroundTablesMigration(databaseConfigId),
 	]);
+	await SeedOrcaRouterProviderMigration(databaseConfigId);
 
 	await EncryptVaultValuesMigration(databaseConfigId);
 	await AddChatConversationTypeMigration(databaseConfigId);

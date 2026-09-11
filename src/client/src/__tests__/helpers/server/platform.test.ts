@@ -46,6 +46,7 @@ describe('validateMetricsRequest', () => {
       'GET_TOTAL_EVALUATION_DETECTED',
       'GET_EVALUATION_ANALYTICS',
       'GENERATION_HEALTH',
+      'AGENT_LOOP',
     ] as const;
 
     timeLimitTypes.forEach((type) => {
@@ -371,6 +372,16 @@ describe('getFilterWhereCondition', () => {
     expect(result).toContain('gen_ai.request.model');
     expect(result).toContain('gen_ai.response.model');
     expect(result).toContain(' OR ');
+  });
+
+  it('adds a stuck-agent loop subquery when the loop chip is on', () => {
+    const result = getFilterWhereCondition(
+      { timeLimit, selectedConfig: { agentLoop: true } } as any,
+      true
+    );
+    expect(result).toContain('gen_ai.tool.name');
+    expect(result).toContain('HAVING count() >= 3');
+    expect(result).toContain('gen_ai.conversation.id');
   });
 
   it('adds notOrEmpty conditions', () => {

@@ -169,6 +169,7 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	// remove all existing cf entries
 	params.delete("cf");
 	params.delete("gh");
+	params.delete("al");
 
 	if (config.models?.length) params.set("models", config.models.join(","));
 	if (config.providers?.length) params.set("providers", config.providers.join(","));
@@ -189,6 +190,7 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	if (config.generationHealth?.length) {
 		params.set("gh", config.generationHealth.join(","));
 	}
+	if (config.agentLoop) params.set("al", "1");
 }
 
 function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
@@ -230,6 +232,7 @@ function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
 	if (gh) {
 		config.generationHealth = parseGenerationHealthChips(gh.split(","));
 	}
+	if (params.get("al") === "1") config.agentLoop = true;
 	return config;
 }
 
@@ -1265,6 +1268,8 @@ export default function TracesFilter({
 			}
 			if (typeof filter.selectedConfig[key] === "number") {
 				return (filter.selectedConfig[key] as number) > 0;
+			} else if (typeof filter.selectedConfig[key] === "boolean") {
+				return Boolean(filter.selectedConfig[key]);
 			} else if (
 				typeof filter.selectedConfig[key] === "object" &&
 				(filter.selectedConfig[key] as string[]).length

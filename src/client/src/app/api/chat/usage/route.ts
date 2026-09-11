@@ -1,18 +1,19 @@
+import { resolveRequestAuth } from "@/helpers/server/auth";
 import { getDBConfigByUser } from "@/lib/db-config";
 import { getOtterUsage } from "@/lib/platform/chat/usage";
-import { getCurrentUser } from "@/lib/session";
 import asaw from "@/utils/asaw";
 
-async function getDatabaseConfigId() {
+async function resolveDatabaseConfigId(authDatabaseConfigId?: string) {
+	if (authDatabaseConfigId) return authDatabaseConfigId;
 	const [, dbConfig] = await asaw(getDBConfigByUser(true));
-	return (dbConfig as any)?.id || "";
+	return (dbConfig as { id?: string } | null | undefined)?.id || "";
 }
 
 export async function GET(request: Request) {
-	const user = await getCurrentUser();
-	if (!user) return Response.json("Unauthorized", { status: 401 });
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) return Response.json("Unauthorized", { status: 401 });
 
-	const databaseConfigId = await getDatabaseConfigId();
+	const databaseConfigId = await resolveDatabaseConfigId(auth.databaseConfigId);
 	const searchParams = new URL(request.url).searchParams;
 	const start = searchParams.get("start") || undefined;
 	const end = searchParams.get("end") || undefined;

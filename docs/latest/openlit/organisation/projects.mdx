@@ -5,14 +5,14 @@ sidebarTitle: 'Projects'
 icon: 'folder'
 ---
 
-Everything under **Organisation → Projects** is project-scoped. You create a project first; then that project owns environments, ClickHouse **Database Configs**, data-source **connectors** (Tempo, Loki, Prometheus, Jaeger), and **signal routing**.
+Everything under **Organisation → Projects** is project-scoped. You create a project first; then that project owns environments, ClickHouse **Database Configs**, **connectors** (data sources and memory), and **signal routing**.
 
 ```text
 Organisation
   └── Project   ← create this first
         ├── Environments
         ├── Database Configs (ClickHouse)
-        ├── Connectors (Tempo / Loki / Prometheus / Jaeger)
+        ├── Connectors (data sources + memory)
         └── Signal routing
 ```
 
@@ -57,7 +57,7 @@ Use **environments** (`production`, `staging`, …) inside a project when you ne
 | --- | --- |
 | **Environments** | Named partitions (`production`, `staging`, …) |
 | **Database Configs** | ClickHouse app-store connections per environment |
-| **Connectors** | Tempo, Loki, Prometheus, Jaeger (and ClickHouse as built-in) |
+| **Connectors** | Data-source (Tempo, Loki, Prometheus, Jaeger, ClickHouse) and memory (Claude, Mem0, Zep) |
 | **Signal bindings** | Which connector serves traces / logs / metrics per environment |
 
 <Frame>
@@ -77,8 +77,8 @@ Project access controls which organisation members can use a project. Existing o
   <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
     Add ClickHouse connections on the project.
   </Card>
-  <Card title="Connectors" href="/latest/openlit/organisation/connectors" icon="plug">
-    Attach Tempo, Loki, Prometheus, or Jaeger.
+  <Card title="Connectors" href="/latest/openlit/connectors/overview" icon="plug">
+    Data-source and memory connectors on the project.
   </Card>
   <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
     Bind traces, logs, and metrics per environment.

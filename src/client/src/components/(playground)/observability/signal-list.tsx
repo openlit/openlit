@@ -22,6 +22,7 @@ import { ObservabilitySignalConfig } from "./registry";
 import SignalSummary from "./signal-summary";
 import SignalRecords from "./signal-records";
 import GenerationHealthBar from "./generation-health-bar";
+import AgentLoopBar from "./agent-loop-bar";
 import { TraceDetailView } from "./trace-detail-page";
 import { MetricDetailView } from "./metric-detail-page";
 import { LogDetailView } from "./log-detail-page";
@@ -294,6 +295,12 @@ export default function ObservabilitySignalList({
 
 	useEffect(() => {
 		if (!isTraceSignal || isLoading || !isFetched || !selectedParam) return;
+		// An open sheet (`previewSpanId`) can point `?selected=` at a child
+		// span in the hierarchy tree that is not a list row. Closing on
+		// "not in this page" would dismiss the detail view on every tree
+		// click. Keep the sheet; only drop a stale URL selection when
+		// nothing is open.
+		if (previewSpanId) return;
 		const visible = rows.some(
 			(row: any) => config.getRowId(row) === selectedParam
 		);
@@ -306,6 +313,7 @@ export default function ObservabilitySignalList({
 		isFetched,
 		isLoading,
 		isTraceSignal,
+		previewSpanId,
 		rows,
 		selectedParam,
 		setSelectedInUrl,
@@ -435,7 +443,14 @@ export default function ObservabilitySignalList({
 					config={config}
 					data={summaryData as any}
 					isLoading={isSummaryLoading || pingStatus === "pending"}
-					footer={config.key === "traces" ? <GenerationHealthBar /> : null}
+					footer={
+						config.key === "traces" ? (
+							<div className="mt-2 flex min-w-0 flex-wrap items-stretch gap-y-1.5 border-t border-stone-200 pt-2 dark:border-stone-800 [&>*+*]:ml-3 [&>*+*]:border-l [&>*+*]:border-stone-200 [&>*+*]:pl-3 dark:[&>*+*]:border-stone-700">
+								<GenerationHealthBar />
+								<AgentLoopBar />
+							</div>
+						) : null
+					}
 				/>
 			</div>
 			<TracesFilter

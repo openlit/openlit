@@ -1,4 +1,5 @@
 import {
+	asFiniteNumber,
 	fillTemplate,
 	generationHealthCountLine,
 	generationHealthSkippedLine,
@@ -29,5 +30,19 @@ describe("generation health copy", () => {
 	it("explains skipped spans only when some were ineligible", () => {
 		expect(generationHealthSkippedLine(0, 100)).toBeNull();
 		expect(generationHealthSkippedLine(60, 100)).toContain("60 of 100");
+	});
+
+	it("renders 0 instead of NaN for ClickHouse nan / missing metrics", () => {
+		expect(asFiniteNumber("nan")).toBe(0);
+		expect(asFiniteNumber(Number.NaN)).toBe(0);
+		expect(asFiniteNumber(Infinity)).toBe(0);
+		expect(fillTemplate("{count}/{eligible}", { count: NaN, eligible: 12 })).toBe(
+			"0/12"
+		);
+		expect(generationHealthCountLine(NaN, NaN)).toMatch(/attributes needed/i);
+		expect(generationHealthCountLine(NaN, 20)).toBe(
+			"None of 20 traces in this window"
+		);
+		expect(generationHealthSkippedLine(NaN, 100)).toBeNull();
 	});
 });

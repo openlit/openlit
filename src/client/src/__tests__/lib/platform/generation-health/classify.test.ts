@@ -1,12 +1,15 @@
 import {
 	classifyFromNormalizedTrace,
 	classifyGenerationHealth,
+	finishReasonTokens,
+	firstSpanMatchingGenerationHealth,
 	isGenerationHealthChip,
 	matchesGenerationHealthChip,
 	normalizeModelName,
 	parseGenerationHealthChips,
 	percentOfEligible,
 	listedSpansMatchingGenerationHealth,
+	spanGenerationHealthAttrs,
 	spanMatchesAnyGenerationHealthChip,
 	hasGenerationHealthFilter,
 	uniqueTraceCount,
@@ -110,6 +113,36 @@ describe("classifyGenerationHealth", () => {
 		expect(health.modelSwap).toBe(true);
 	});
 
+	it("returns defaults when attrs is undefined", () => {
+		const health = classifyGenerationHealth(undefined);
+		expect(health.finishReasonRaw).toBe("");
+		expect(health.requestedModel).toBe("");
+		expect(health.servedModel).toBe("");
+	});
+
+	it("treats a non-numeric output-tokens value as absent", () => {
+		const health = classifyGenerationHealth({
+			"gen_ai.usage.output_tokens": "not-a-number",
+		});
+		expect(health.hasOutputTokens).toBe(false);
+		expect(health.outputTokens).toBeNull();
+	});
+
+	it("defaults an unrecognized finish reason token to ok", () => {
+		const health = classifyGenerationHealth({
+			"gen_ai.response.finish_reasons": "some_unrecognized_reason",
+			"gen_ai.usage.output_tokens": "5",
+		});
+		expect(health.finishCategory).toBe("ok");
+	});
+
+	it("classifies as unknown when there is no finish reason and output tokens are absent", () => {
+		const health = classifyGenerationHealth({});
+		expect(health.finishCategory).toBe("unknown");
+		expect(health.hasFinishReason).toBe(false);
+		expect(health.hasOutputTokens).toBe(false);
+	});
+
 	it("still matches empty when a truncated call has 0 output tokens", () => {
 		const health = classifyGenerationHealth({
 			"gen_ai.response.finish_reasons": "length",
@@ -151,6 +184,60 @@ describe("helpers", () => {
 		expect(normalizeModelName(" OpenAI/GPT-4o ")).toBe("gpt-4o");
 	});
 
+	it("tokenizes a raw finish reason string", () => {
+		expect(finishReasonTokens("STOP")).toEqual(["stop"]);
+		expect(finishReasonTokens("")).toEqual([]);
+	});
+
+	it("returns no tokens when the raw finish reason has no alphanumeric characters", () => {
+		expect(finishReasonTokens("!!!")).toEqual([]);
+	});
+
+	it("merges resource and span attributes, spans winning on conflicts", () => {
+		expect(
+			spanGenerationHealthAttrs({
+				resourceAttributes: { "service.name": "svc", shared: "resource" },
+				spanAttributes: { "gen_ai.request.model": "gpt-4o", shared: "span" },
+			})
+		).toEqual({
+			"service.name": "svc",
+			shared: "span",
+			"gen_ai.request.model": "gpt-4o",
+		});
+	});
+
+	it("defaults to an empty object when neither attribute bag is present", () => {
+		expect(spanGenerationHealthAttrs({})).toEqual({});
+	});
+
+	it("finds the first span matching any selected chip", () => {
+		const spans = [
+			{ traceId: "t-1", spanAttributes: { "http.method": "GET" } },
+			{
+				traceId: "t-1",
+				spanAttributes: { "gen_ai.response.finish_reasons": "length" },
+			},
+		];
+		expect(firstSpanMatchingGenerationHealth(spans, ["truncated"])).toBe(
+			spans[1]
+		);
+	});
+
+	it("returns undefined from firstSpanMatchingGenerationHealth when no chips are selected", () => {
+		expect(
+			firstSpanMatchingGenerationHealth(
+				[{ traceId: "t-1", spanAttributes: {} }],
+				undefined
+			)
+		).toBeUndefined();
+		expect(
+			firstSpanMatchingGenerationHealth(
+				[{ traceId: "t-1", spanAttributes: {} }],
+				[]
+			)
+		).toBeUndefined();
+	});
+
 	it("parses chip lists", () => {
 		expect(isGenerationHealthChip("truncated")).toBe(true);
 		expect(isGenerationHealthChip("loop")).toBe(false);
@@ -181,6 +268,26 @@ describe("helpers", () => {
 				[]
 			)
 		).toBe(true);
+	});
+
+	it("returns all spans unchanged when no chips are selected", () => {
+		const spans = [{ traceId: "t-1", spanAttributes: {} }];
+		expect(listedSpansMatchingGenerationHealth(spans, undefined)).toBe(spans);
+		expect(listedSpansMatchingGenerationHealth(spans, [])).toBe(spans);
+	});
+
+	it("groups spans without a traceId under a per-index fallback key", () => {
+		const listed = listedSpansMatchingGenerationHealth(
+			[
+				{ spanAttributes: { "gen_ai.response.finish_reasons": "length" } },
+				{ spanAttributes: { "gen_ai.response.finish_reasons": "stop" } },
+			],
+			["truncated"]
+		);
+		expect(listed).toHaveLength(1);
+		expect(listed[0]?.spanAttributes?.["gen_ai.response.finish_reasons"]).toBe(
+			"length"
+		);
 	});
 
 	it("lists one matching span per trace", () => {
@@ -221,9 +328,15 @@ describe("helpers", () => {
 		).toBe(2);
 	});
 
+	it("falls back to the raw span count when no span has a traceId", () => {
+		expect(uniqueTraceCount([{}, {}, { traceId: "" }])).toBe(3);
+	});
+
 	it("returns 0% when the eligible set is empty", () => {
 		expect(percentOfEligible(4, 0)).toBe(0);
 		expect(percentOfEligible(4, 8)).toBe(50);
+		expect(percentOfEligible(NaN, 8)).toBe(0);
+		expect(percentOfEligible(4, NaN)).toBe(0);
 	});
 });
 

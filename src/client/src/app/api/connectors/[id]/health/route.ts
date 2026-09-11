@@ -6,6 +6,10 @@ import {
 	validateTelemetrySourceAISignal,
 } from "@/lib/telemetry-source-crud";
 import { withConnectorAccess, withConnectorAudit } from "@/lib/access/connector-route";
+import {
+	healthCheckMemoryConnector,
+	isMemoryConnectorId,
+} from "@/lib/platform/connectors/memory/crud";
 
 const DEFAULT_PROBE_MS = 60 * 60 * 1000;
 
@@ -14,6 +18,15 @@ function telemetrySourceId(id: string) {
 }
 
 async function healthAndValidate(id: string) {
+	if (isMemoryConnectorId(id)) {
+		const [healthErr, health] = await asaw(healthCheckMemoryConnector(id));
+		if (healthErr) return errorResponse(healthErr, "Connector health check failed");
+		return Response.json({
+			health,
+			validation: { supported: false },
+		});
+	}
+
 	const sourceId = telemetrySourceId(id);
 	const [healthErr, health] = await asaw(healthCheckTelemetrySource(sourceId));
 	if (healthErr) return errorResponse(healthErr, "Connector health check failed");

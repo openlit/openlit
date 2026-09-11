@@ -596,6 +596,17 @@ function publicBindingSourceId(row: {
 	return null;
 }
 
+function bindingSourceType(row: {
+	sourceId: string | null;
+	databaseConfigId: string | null;
+	source?: { type: string } | null;
+} | null | undefined): string | null {
+	if (!row) return null;
+	if (row.source?.type) return row.source.type;
+	if (row.databaseConfigId) return "clickhouse";
+	return null;
+}
+
 /** List the current project's per-signal source bindings. */
 export async function listTelemetrySourceBindings(environmentInput?: unknown) {
 	const projectId = await requireCurrentProjectId();
@@ -630,8 +641,10 @@ export async function setTelemetrySourceBinding(
 	const environment = normalizeEnvironment(environmentInput);
 	const existing = await prisma.telemetrySourceBinding.findUnique({
 		where: { projectId_signal_environment: { projectId, signal, environment } },
+		include: { source: true },
 	});
 	const previousSourceId = publicBindingSourceId(existing);
+	const previousSourceType = bindingSourceType(existing);
 	const normalizedSourceId = sourceId.startsWith("builtin:")
 		? sourceId
 		: normalizeTelemetrySourceId(sourceId);
@@ -666,6 +679,8 @@ export async function setTelemetrySourceBinding(
 			sourceId: normalizedSourceId,
 			environment,
 			previousSourceId,
+			previousSourceType,
+			nextSourceType: "clickhouse",
 		};
 	}
 	if (!source) throw new Error(TELEMETRY_SOURCE_NOT_FOUND);
@@ -703,6 +718,8 @@ export async function setTelemetrySourceBinding(
 		sourceId: binding.sourceId,
 		environment: binding.environment,
 		previousSourceId,
+		previousSourceType,
+		nextSourceType: source.type,
 	};
 }
 
@@ -713,11 +730,13 @@ export async function deleteTelemetrySourceBinding(signalInput: unknown, environ
 	const environment = normalizeEnvironment(environmentInput);
 	const existing = await prisma.telemetrySourceBinding.findFirst({
 		where: { projectId, signal, environment },
+		include: { source: true },
 	});
 	const previousSourceId = publicBindingSourceId(existing);
+	const previousSourceType = bindingSourceType(existing);
 	await prisma.telemetrySourceBinding.deleteMany({
 		where: { projectId, signal, environment },
 	});
 	invalidateTelemetryReadCaches();
-	return { signal, environment, previousSourceId };
+	return { signal, environment, previousSourceId, previousSourceType };
 }

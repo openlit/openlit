@@ -263,6 +263,7 @@ export function uniqueTraceCount(spans: Array<{ traceId?: string }>): number {
 }
 
 export function percentOfEligible(count: number, eligible: number): number {
-	if (!eligible || eligible <= 0) return 0;
+	if (!Number.isFinite(eligible) || eligible <= 0) return 0;
+	if (!Number.isFinite(count) || count <= 0) return 0;
 	return (count / eligible) * 100;
 }

@@ -44,6 +44,13 @@ export interface NormalizedSpan {
 	events?: NormalizedSpanEvent[];
 	/** Optional pre-resolved cost (USD) applied by cost overlay / vendor. */
 	cost?: number;
+	/** Stuck-tool loop on this trace/session, attached by the traces facade. */
+	agentLoop?: {
+		toolName: string;
+		count: number;
+		wastedTokens: number;
+		wastedCost: number;
+	};
 }
 
 export interface NormalizedSpanEvent {
@@ -160,6 +167,8 @@ export interface OpenLITQuery {
 	 * adapters sample full traces and apply the same classifier.
 	 */
 	generationHealth?: import("@/lib/platform/generation-health/classify").GenerationHealthChip[];
+	/** When true, keep traces that contain a stuck-tool loop. */
+	agentLoop?: boolean;
 	/**
 	 * Optional time-bucket size for time-series requests, e.g. "1m", "1h".
 	 * Adapters map this to their native bucketing.
