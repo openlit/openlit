@@ -287,4 +287,3 @@ def chat_rag(
             return response
 
     return wrapper
-
