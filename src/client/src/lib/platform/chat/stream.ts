@@ -40,6 +40,7 @@ const providerFactories: Record<string, ProviderFactory> = {
 	huggingface: (apiKey) => createOpenAI({ baseURL: "https://api-inference.huggingface.co/v1", apiKey }),
 	replicate: (apiKey) => createOpenAI({ baseURL: "https://openai-proxy.replicate.com/v1", apiKey }),
 	minimax: (apiKey) => createOpenAI({ baseURL: "https://api.minimax.io/v1", apiKey }),
+	orcarouter: (apiKey) => createOpenAI({ baseURL: "https://api.orcarouter.ai/v1", apiKey }),
 };
 
 const VALID_PROVIDERS = Object.keys(providerFactories);

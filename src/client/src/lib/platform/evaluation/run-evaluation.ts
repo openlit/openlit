@@ -108,6 +108,11 @@ function getModel(provider: string, model: string, apiKey: string) {
 				baseURL: "https://api.fireworks.ai/inference/v1",
 				apiKey,
 			})(model);
+		case "orcarouter":
+			return createOpenAI({
+				baseURL: "https://api.orcarouter.ai/v1",
+				apiKey,
+			})(model);
 		default:
 			throw new Error(`Provider ${provider} not supported for evaluation`);
 	}
