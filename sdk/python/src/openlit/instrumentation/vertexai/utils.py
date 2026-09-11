@@ -277,6 +277,9 @@ def process_chunk(scope, chunk):
     scope._output_tokens = (
         getattr(usage_metadata, "candidates_token_count", 0) if usage_metadata else 0
     )
+    scope._reasoning_tokens = (
+        getattr(usage_metadata, "thoughts_token_count", 0) if usage_metadata else 0
+    )
     scope._cache_read_input_tokens = (
         getattr(usage_metadata, "cached_content_token_count", 0)
         if usage_metadata
@@ -423,6 +426,17 @@ def common_chat_logic(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+
+    # Reasoning tokens
+    if (
+        hasattr(scope, "_reasoning_tokens")
+        and scope._reasoning_tokens
+        and scope._reasoning_tokens > 0
+    ):
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
+            scope._reasoning_tokens,
+        )
 
     # OTel cached token attributes (set even when 0)
     if hasattr(scope, "_cache_read_input_tokens"):
@@ -641,6 +655,9 @@ def process_chat_response(
     )
     scope._output_tokens = (
         getattr(usage_metadata, "candidates_token_count", 0) if usage_metadata else 0
+    )
+    scope._reasoning_tokens = (
+        getattr(usage_metadata, "thoughts_token_count", 0) if usage_metadata else 0
     )
     scope._cache_read_input_tokens = (
         getattr(usage_metadata, "cached_content_token_count", 0)
