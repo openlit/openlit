@@ -16,13 +16,34 @@ else
     echo "✅ Generated and saved new NextAuth secret to persistent storage"
 fi
 
+# Persist a per-install cron secret so internet callers cannot trigger
+# /api/*/auto and /api/agents/materialize with `X-CRON-JOB: true`.
+# Local `next dev` leaves CRON_JOB_SECRET unset and still accepts "true".
+CRON_JOB_SECRET_FILE="/app/client/data/.cron_job_secret"
+
+if [ -n "${CRON_JOB_SECRET:-}" ]; then
+    echo "$CRON_JOB_SECRET" > "$CRON_JOB_SECRET_FILE"
+    chmod 600 "$CRON_JOB_SECRET_FILE"
+    echo "✅ Using operator-provided cron job secret"
+elif [ -f "$CRON_JOB_SECRET_FILE" ]; then
+    export CRON_JOB_SECRET=$(cat "$CRON_JOB_SECRET_FILE")
+    echo "✅ Loaded existing cron job secret from persistent storage"
+else
+    export CRON_JOB_SECRET=$(openssl rand -base64 32)
+    echo "$CRON_JOB_SECRET" > "$CRON_JOB_SECRET_FILE"
+    chmod 600 "$CRON_JOB_SECRET_FILE"
+    echo "✅ Generated and saved new cron job secret to persistent storage"
+fi
+
 # Set NextAuth.js environment variables
 # remove any existing NEXTAUTH_SECRET line, then append the current value
 if [ -w /etc/environment ]; then
     sed -i '/^NEXTAUTH_SECRET=/d' /etc/environment
     echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment
+    sed -i '/^CRON_JOB_SECRET=/d' /etc/environment
+    echo "CRON_JOB_SECRET=$CRON_JOB_SECRET" >> /etc/environment
 else
-    echo "WARNING: /etc/environment is not writable; NEXTAUTH_SECRET will not be persisted there." >&2
+    echo "WARNING: /etc/environment is not writable; NEXTAUTH_SECRET and CRON_JOB_SECRET will not be persisted there." >&2
 fi
 
 # Do NOT pin NEXTAUTH_URL to localhost. When it is unset, NextAuth derives the

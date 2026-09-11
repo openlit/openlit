@@ -284,8 +284,8 @@ describe("executeOpenPlaitRead", () => {
 		const dbConfig = buildDbConfig();
 		await executeOpenPlaitRead({ query: "SELECT 1", dbConfig });
 
-		const samePassword = buildDbConfig({ password: "different-secret" });
-		await executeOpenPlaitRead({ query: "SELECT 1", dbConfig: samePassword });
+		const rotatedSecret = buildDbConfig({ password: "different-secret" });
+		await executeOpenPlaitRead({ query: "SELECT 1", dbConfig: rotatedSecret });
 
 		expect(mockAdapterCtor).toHaveBeenCalledTimes(1);
 		expect(mockAdapterClose).not.toHaveBeenCalled();

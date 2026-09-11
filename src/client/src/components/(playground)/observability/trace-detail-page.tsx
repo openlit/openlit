@@ -1022,9 +1022,9 @@ export function TraceDetailView({
 					)}
 					<GenerationHealthNote spanAttributes={spanAttributes} />
 					<AgentLoopNote hit={asAgentLoopHit(raw?.agentLoop)} />
-					<div className="hidden min-h-0 flex-1 overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
+					<div className="min-h-0 flex-1 overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
 						<ResizablePanelGroup direction="horizontal" className="h-full">
-							<ResizablePanel defaultSize={48} minSize={32} maxSize={68}>
+							<ResizablePanel defaultSize={48} minSize={28} maxSize={72}>
 								<div className="h-full min-h-0 overflow-hidden p-2">
 									<SpanHierarchyExplorer
 										hierarchySpanId={hierarchySpanIdRef.current}
@@ -1036,7 +1036,7 @@ export function TraceDetailView({
 								</div>
 							</ResizablePanel>
 							<ResizableHandle withHandle />
-							<ResizablePanel defaultSize={52} minSize={32}>
+							<ResizablePanel defaultSize={52} minSize={28}>
 								<div className="h-full min-h-0 overflow-auto p-2">
 									<DetailObjectTabs
 										tabs={detailTabs}
@@ -1046,19 +1046,6 @@ export function TraceDetailView({
 								</div>
 							</ResizablePanel>
 						</ResizablePanelGroup>
-					</div>
-					<div className="grid min-h-0 flex-1 gap-3 overflow-auto lg:hidden">
-						<SpanHierarchyExplorer
-							hierarchySpanId={hierarchySpanIdRef.current}
-							selectedSpanId={selectedSpanId}
-							traceId={knownTraceId || trace?.id}
-							onSelectSpan={selectSpanInCurrentTrace}
-						/>
-						<DetailObjectTabs
-							tabs={detailTabs}
-							extraTabs={extraDetailTabs}
-							extraTabsPlacement="before"
-						/>
 					</div>
 				</div>
 			)}

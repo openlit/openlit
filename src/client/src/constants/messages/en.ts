@@ -818,6 +818,10 @@ export const CODING_AGENT_SESSION_SUBAGENTS_HINT =
 // Agents - No Controller
 export const AGENTS_NO_CONTROLLERS_TITLE = "No controllers detected";
 export const AGENTS_NO_CONTROLLERS_DESCRIPTION = "Install the OpenLIT Controller to automatically discover and instrument LLM API calls using eBPF.";
+export const AGENTS_NO_SDK_AGENTS_TITLE = "No instrumented applications yet";
+export const AGENTS_NO_SDK_AGENTS_DESCRIPTION =
+	"Applications that send traces with the OpenLIT SDK will appear here. Add the SDK to your app, then come back once telemetry is flowing.";
+export const AGENTS_NO_SDK_AGENTS_CTA = "View SDK setup";
 export const AGENTS_API_KEY_PREFILLED_MESSAGE = "Commands below are pre-filled with your API key and dashboard URL. The controller will authenticate automatically.";
 export const AGENTS_API_KEY_RECOMMENDED_PREFIX = "Recommended:";
 export const AGENTS_API_KEY_RECOMMENDED_BEFORE_LINK = " Create an API key in ";
@@ -1131,6 +1135,7 @@ export const AGENTS_PROVIDER_GROQ = "Groq";
 export const AGENTS_PROVIDER_DEEPSEEK = "DeepSeek";
 export const AGENTS_PROVIDER_TOGETHER = "Together AI";
 export const AGENTS_PROVIDER_FIREWORKS = "Fireworks AI";
+export const AGENTS_PROVIDER_ORCAROUTER = "OrcaRouter";
 export const AGENTS_PROVIDER_VERCEL_AI = "Vercel AI Gateway";
 export const AGENTS_PROVIDER_VERTEX_AI = "Vertex AI";
 export const AGENTS_PROVIDER_AZURE_INFERENCE = "Azure AI Inference";
@@ -1305,6 +1310,7 @@ export const MANAGE_DB_CONFIG = "Manage DB Config";
 export const MODIFYING_DB_CONFIG = "Modifying database config...";
 export const DB_CONFIG_UPDATED = "Database config updated";
 export const DB_CONFIG_UPDATE_FAILED = "Database config update failed";
+export const DB_CONFIG_LIST_FAILED = "Failed to load database configs";
 export const DB_CONFIG_SET_ACTIVE = (name: string) =>
 	`Database config: ${name} is being set active`;
 export const DB_CONFIG_FIELD_CONFIG_NAME = "Config Name";
@@ -1481,6 +1487,7 @@ export const HOME_SETUP_DB_CONFIG_DESCRIPTION =
 export const HOME_SETUP_READY_STEP = "Devtool unlocked";
 export const HOME_SETUP_READY_DESCRIPTION =
 	"Your AI devtool is ready. Explore traces, prompts, evals, and the rest of the workspace.";
+export const HOME_SETUP_FINISH = "Finish setup";
 export const SLUG = "Slug";
 export const USER_ALREADY_INVITED = "User has already been invited to this organisation";
 export const INVITATION_NOT_FOR_YOU = "This invitation is not for you";
@@ -1627,6 +1634,26 @@ export const RULE_FIELD_TOTAL_COST = "Total Cost ($)";
 export const RULE_FIELD_TOTAL_COST_DESC = "Total cost of the request in USD.";
 export const RULE_FIELD_TEMPERATURE = "Temperature";
 export const RULE_FIELD_TEMPERATURE_DESC = "Sampling temperature used for the request (0\u20132).";
+export const RULE_FIELD_TOOL_NAME = "Tool name";
+export const RULE_FIELD_TOOL_NAME_DESC = "gen_ai.tool.name on tool or function-call spans.";
+export const RULE_FIELD_TOOL_CALL_NAME = "Tool call name";
+export const RULE_FIELD_TOOL_CALL_NAME_DESC = "gen_ai.tool.call.name for individual tool invocations.";
+export const RULE_FIELD_CODING_CLIENT = "Coding agent client";
+export const RULE_FIELD_CODING_CLIENT_DESC = "coding_agent.client (cursor, claude_code, codex, \u2026).";
+export const RULE_FIELD_CODING_PERMISSION_MODE = "Permission mode";
+export const RULE_FIELD_CODING_PERMISSION_MODE_DESC =
+	"coding_agent.policy.permission_mode (default, plan, acceptEdits, bypassPermissions, \u2026).";
+export const RULE_FIELD_CODING_CAPTURE_MODE = "Content capture mode";
+export const RULE_FIELD_CODING_CAPTURE_MODE_DESC =
+	"coding_agent.content_capture_mode (minimal, metadata_only, full).";
+export const RULE_FIELD_CODING_CLASSIFICATION = "User classification";
+export const RULE_FIELD_CODING_CLASSIFICATION_DESC =
+	"coding_agent.user.classification (work, personal, disputed).";
+export const RULE_FIELD_CODING_SESSION_OUTCOME = "Session outcome";
+export const RULE_FIELD_CODING_SESSION_OUTCOME_DESC =
+	"coding_agent.session.outcome (completed, abandoned, cancelled, \u2026).";
+export const RULE_FIELD_CODING_TOOL_NAME = "Coding agent tool";
+export const RULE_FIELD_CODING_TOOL_NAME_DESC = "coding_agent.tool.name on coding-agent tool spans.";
 
 // Context
 export const CONTEXT_CREATED = "Context created successfully!";
@@ -2201,6 +2228,8 @@ export const GOVERNANCE_MISSING_SPAN_ID = "No span id provided";
 export const GOVERNANCE_RETRY = "Retry";
 export const GOVERNANCE_REFRESH = "Refresh";
 export const GOVERNANCE_EXPORT_JSON = "Export JSON";
+export const GOVERNANCE_EXPORT_FAILED =
+	"Could not export the governance passport. Try again.";
 export const GOVERNANCE_TRUNCATED_NOTE =
 	"Large trace: rule and evaluation coverage was limited to protect performance.";
 export const GOVERNANCE_AGENT_LOOP_BANNER =
@@ -2226,6 +2255,17 @@ export const GOVERNANCE_CATEGORY_SPAN_ERROR = "Span error";
 export const GOVERNANCE_CATEGORY_GENERATION_HEALTH = "Generation health";
 export const GOVERNANCE_CATEGORY_HARNESS = "Harness";
 export const GOVERNANCE_CATEGORY_EVALUATION = "Evaluation";
+export const GOVERNANCE_CATEGORY_PROMPT_INJECTION = "Prompt injection";
+export const GOVERNANCE_CATEGORY_TOOL_MISUSE = "Tool misuse";
+export const GOVERNANCE_REMEDIATION_PROMPT_INJECTION =
+	"Harden system prompts, constrain tools, and re-run AI Analysis after mitigations.";
+export const GOVERNANCE_REMEDIATION_TOOL_MISUSE =
+	"Tighten tool allowlists, argument validation, and permission mode before re-running.";
+export const GOVERNANCE_SECTION_POLICY = "Policy controls";
+export const GOVERNANCE_POLICY_EMPTY = "No policy controls implicated by current findings.";
+export const GOVERNANCE_OTTER_MERGED =
+	"Includes Otter AI Analysis security dimensions (prompt injection, tool misuse) when a prior run exists.";
+export const GOVERNANCE_REPORT_ID_LABEL = "Report ID";
 export const GOVERNANCE_FILTER_EMPTY =
 	"No findings match this severity filter.";
 export const GOVERNANCE_SEVERITY_LABEL = "Severity";
