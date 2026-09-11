@@ -253,8 +253,8 @@ def test_responses_api_reasoning_tokens_are_subset_of_output():
     _assert_no_double_counting(exporter.get_finished_spans()[0].attributes, metrics)
 
 
-def test_no_reasoning_tokens_omits_reasoning_attribute():
-    """No completion_tokens_details: reasoning attribute absent, output intact."""
+def test_no_reasoning_tokens_marks_reasoning_unknown():
+    """No completion_tokens_details: facet value absent, reported marker false."""
     tracer, exporter = _tracer_and_exporter()
     metrics = _metrics_dict()
     response = {
@@ -291,6 +291,11 @@ def test_no_reasoning_tokens_omits_reasoning_attribute():
     attrs = exporter.get_finished_spans()[0].attributes
     assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 1000
     assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+    assert (
+        attrs[SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED]
+        is False
+    )
+    assert SemanticConvention.GEN_AI_USAGE_DERIVED_COMPLETED_OUTPUT_TOKENS not in attrs
 
     output_records = _output_token_usage_records(metrics)
     assert output_records
@@ -298,8 +303,8 @@ def test_no_reasoning_tokens_omits_reasoning_attribute():
         assert value == 1000
 
 
-def test_zero_reasoning_tokens_omits_reasoning_attribute():
-    """reasoning_tokens present but 0: no reasoning attrs, output intact."""
+def test_zero_reasoning_tokens_is_a_measurement():
+    """reasoning_tokens explicitly 0: a measurement (facet 0), not unknown."""
     tracer, exporter = _tracer_and_exporter()
     metrics = _metrics_dict()
     response = {
@@ -339,7 +344,18 @@ def test_zero_reasoning_tokens_omits_reasoning_attribute():
 
     attrs = exporter.get_finished_spans()[0].attributes
     assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 1000
-    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+    # An explicit 0 is a measurement: facet emitted as 0, marker true, and the
+    # derived completed figure equals the full output. The legacy alias stays
+    # absent so pre-OTel consumers are unaffected.
+    assert attrs[SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS] == 0
+    assert (
+        attrs[SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED]
+        is True
+    )
+    assert (
+        attrs[SemanticConvention.GEN_AI_USAGE_DERIVED_COMPLETED_OUTPUT_TOKENS]
+        == 1000
+    )
     assert SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS not in attrs
 
     for value, _attrs in _output_token_usage_records(metrics):
