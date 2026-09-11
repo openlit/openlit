@@ -14,6 +14,7 @@ once on each exit path.
 """
 
 import time
+from types import SimpleNamespace
 
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -30,9 +31,6 @@ REQUEST_KWARGS = {
     "messages": [{"role": "user", "content": "hi"}],
     "stream": True,
 }
-
-from types import SimpleNamespace
-
 
 def _chunk(content=None, finish=None):
     delta = SimpleNamespace(content=content)
