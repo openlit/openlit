@@ -1,10 +1,39 @@
-import { buildMemoryAskPrompt, memoryAskSelectedSummary } from "@/lib/platform/connectors/memory/ask";
+import {
+	buildMemoryAskPrompt,
+	memoryAskExcerpt,
+	memoryAskSelectedSummary,
+} from "@/lib/platform/connectors/memory/ask";
 import {
 	MEMORY_ASK_FALLBACK_PROMPT,
 	MEMORY_ASK_OTTER_PROMPT,
 	MEMORY_ASK_SELECTED_PROMPT,
 	MEMORY_ASK_TOOLS_PROMPT,
 } from "@/constants/messages/en";
+
+describe("memoryAskExcerpt", () => {
+	it("returns an empty string for missing or whitespace-only values", () => {
+		expect(memoryAskExcerpt(undefined)).toBe("");
+		expect(memoryAskExcerpt("   \n  ")).toBe("");
+	});
+
+	it("truncates text longer than the max length with an ellipsis", () => {
+		const long = "a".repeat(150);
+		const excerpt = memoryAskExcerpt(long);
+		expect(excerpt).toHaveLength(121);
+		expect(excerpt.endsWith("…")).toBe(true);
+	});
+});
+
+describe("memoryAskSelectedSummary", () => {
+	it("falls back to the memory id when there is no content to summarize", () => {
+		expect(memoryAskSelectedSummary({ memoryId: "mem-1" })).toBe("mem-1");
+	});
+
+	it("returns undefined when there is neither content nor a memory id", () => {
+		expect(memoryAskSelectedSummary({})).toBeUndefined();
+		expect(memoryAskSelectedSummary()).toBeUndefined();
+	});
+});
 
 describe("buildMemoryAskPrompt", () => {
 	it("stays compact and only passes filters the connector declares", () => {
@@ -57,6 +86,20 @@ describe("buildMemoryAskPrompt", () => {
 				memoryContent: "User visited New York",
 			})
 		).toBe("User visited New York");
+	});
+
+	it("allows every filter key when the connector declares no filterKeys", () => {
+		const prompt = buildMemoryAskPrompt("who talked to Ada?", {
+			connectorId: "memory:1",
+			userId: "ada",
+			agentId: "bot",
+			sessionId: "run-1",
+			canList: true,
+			canSearch: true,
+		});
+		expect(prompt).toContain("user_id=ada");
+		expect(prompt).toContain("agent_id=bot");
+		expect(prompt).toContain("session_id=run-1");
 	});
 
 	it("falls back when the connector has no list/search API", () => {

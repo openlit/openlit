@@ -56,8 +56,76 @@ function getFilterPathValue(filter: unknown, path: string): unknown {
 	return current;
 }
 
+/** Truthiness for Mustache-style `{{#filter.*}}` / `{{^filter.*}}` sections. */
+function isFilterSectionTruthy(value: unknown): boolean {
+	if (value == null) return false;
+	if (typeof value === "boolean") return value;
+	if (typeof value === "number") return value !== 0 && !Number.isNaN(value);
+	if (typeof value === "string") return value.length > 0;
+	if (Array.isArray(value)) return value.length > 0;
+	if (typeof value === "object") {
+		return Object.keys(value as Record<string, unknown>).length > 0;
+	}
+	return Boolean(value);
+}
+
 /**
- * Substitute only `{{filter.*}}` / `{{{filter.*}}}` placeholders.
+ * Expand only `{{#filter.path}}…{{/filter.path}}` and
+ * `{{^filter.path}}…{{/filter.path}}` sections.
+ *
+ * Coding Agents (and other) seeded widgets rely on these to optionally inject
+ * vendor/user predicates. We deliberately do **not** hand the query to a
+ * template engine — only allow-listed `filter.<path>` section tags are
+ * recognized, so arbitrary Mustache (`{{#evil}}`, lambdas, partials) stays
+ * inert (CodeQL js/code-injection).
+ *
+ * Implemented as a left-to-right scan (no `[\s\S]*?` + backref replace) to
+ * avoid polynomial ReDoS on hostile templates (CodeQL js/polynomial-redos).
+ */
+function renderFilterSections(template: string, filter: MetricParams): string {
+	const openTag = /\{\{([#^])\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g;
+	let out = "";
+	let cursor = 0;
+
+	while (cursor < template.length) {
+		openTag.lastIndex = cursor;
+		const open = openTag.exec(template);
+		if (!open) {
+			out += template.slice(cursor);
+			break;
+		}
+
+		const openStart = open.index;
+		const openEnd = openTag.lastIndex;
+		const kind = open[1] as "#" | "^";
+		const path = open[2];
+		out += template.slice(cursor, openStart);
+
+		const closeNeedle = `{{/filter.${path}}}`;
+		const closeIndex = template.indexOf(closeNeedle, openEnd);
+		if (closeIndex === -1) {
+			// Unclosed section: keep the open tag literal and continue.
+			out += open[0];
+			cursor = openEnd;
+			continue;
+		}
+
+		const body = template.slice(openEnd, closeIndex);
+		const truthy = isFilterSectionTruthy(getFilterPathValue(filter, path));
+		if (kind === "#") {
+			out += truthy ? body : "";
+		} else {
+			out += truthy ? "" : body;
+		}
+		cursor = closeIndex + closeNeedle.length;
+	}
+
+	return out;
+}
+
+/**
+ * Substitute only `{{filter.*}}` / `{{{filter.*}}}` placeholders, after
+ * expanding `filter.*` section tags.
  *
  * Intentionally does **not** use Mustache (or any template engine): the
  * query string is user-controlled on the widget preview path, and treating
@@ -70,7 +138,8 @@ function renderFilterPlaceholders(
 	template: string,
 	filter: MetricParams
 ): string {
-	return template.replace(
+	const withSections = renderFilterSections(template, filter);
+	return withSections.replace(
 		/\{\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}\}|\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g,
 		(
 			_match,
@@ -104,7 +173,10 @@ export async function getWidgetById(id: string) {
 	return { data: normalizeWidgetToClient((data as DatabaseWidget[])[0]) };
 }
 
-export async function getWidgets(widgetIds?: string[]) {
+export async function getWidgets(
+	widgetIds?: string[],
+	databaseConfigId?: string
+) {
 	let query = "";
 	if (!widgetIds || widgetIds.length === 0) {
 		query = `
@@ -129,13 +201,24 @@ export async function getWidgets(widgetIds?: string[]) {
 		`;
 	}
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
 
 	if (err) {
 		return { err: err.toString() || getMessage().WIDGET_FETCH_FAILED };
 	}
 
-	return { data: (data as Array<DatabaseWidget>).map(normalizeWidgetToClient) };
+	// normalizeWidgetToClient is typed from the narrow DatabaseWidget
+	// shape (properties/config strings). The SELECT always returns full
+	// widget rows, so widen back to Widget for callers.
+	return {
+		data: (data as Array<DatabaseWidget>).map(
+			normalizeWidgetToClient
+		) as unknown as Widget[],
+	};
 }
 
 export async function createWidget(widget: Widget, databaseConfigId?: string) {
@@ -210,7 +293,10 @@ export async function createWidget(widget: Widget, databaseConfigId?: string) {
 	};
 }
 
-export async function updateWidget(widget: Widget) {
+export async function updateWidget(
+	widget: Widget,
+	databaseConfigId?: string
+) {
 	const sanitizedWidget = sanitizeWidget(widget);
 
 	const updateValues = [
@@ -232,7 +318,11 @@ export async function updateWidget(widget: Widget) {
 		WHERE id = '${sanitizedWidget.id}'
 	`;
 
-	const { err, data } = await dataCollector({ query }, "exec");
+	const { err, data } = await dataCollector(
+		{ query },
+		"exec",
+		databaseConfigId
+	);
 
 	if (err || !(data as { query_id: string }).query_id) {
 		return { err: err || getMessage().WIDGET_UPDATE_FAILED };
@@ -241,13 +331,13 @@ export async function updateWidget(widget: Widget) {
 	return { data: getMessage().WIDGET_UPDATED_SUCCESSFULLY };
 }
 
-export function deleteWidget(id: string) {
+export function deleteWidget(id: string, databaseConfigId?: string) {
 	const query = `
 		DELETE FROM ${OPENLIT_WIDGET_TABLE_NAME} 
 		WHERE id = '${Sanitizer.sanitizeValue(id)}'
 	`;
 
-	return dataCollector({ query }, "exec");
+	return dataCollector({ query }, "exec", databaseConfigId);
 }
 
 function validateQuery(query: string): { valid: boolean; error?: string } {
