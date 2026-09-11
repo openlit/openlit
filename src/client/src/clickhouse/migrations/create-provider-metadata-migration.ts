@@ -6,7 +6,7 @@ import { DEFAULT_PROVIDERS } from "@/lib/platform/providers/default-models";
 const MIGRATION_ID = "create-provider-metadata-table";
 
 /**
- * Creates the openlit_provider_metadata table and seeds it with the 14
+ * Creates the openlit_provider_metadata table and seeds it with the
  * built-in providers. After this migration, providers are fully editable
  * and new ones can be added via the UI or import API.
  */

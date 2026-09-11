@@ -5,7 +5,7 @@ description: 'Route traces, logs, and metrics to different OpenLIT connectors pe
 icon: 'route'
 ---
 
-**Signal routing** decides which [connector](/latest/openlit/organisation/connectors) serves each telemetry signal for a project [environment](/latest/openlit/organisation/environments). Bindings are independent: traces can come from Tempo while logs come from Loki and metrics from Prometheus — in the same OpenLIT project.
+**Signal routing** decides which [data-source connector](/latest/openlit/connectors/datasource) serves each telemetry signal for a project [environment](/latest/openlit/organisation/environments). Bindings are independent: traces can come from Tempo while logs come from Loki and metrics from Prometheus — in the same OpenLIT project.
 
 ## Signals
 
@@ -113,8 +113,8 @@ Binding and unbinding are written to the organisation **audit log** (`connectors
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="Connectors catalog" href="/latest/openlit/organisation/connectors" icon="plug">
-    Supported OpenLIT + OpenPlait connectors and actions.
+  <Card title="Connectors catalog" href="/latest/openlit/connectors/datasource" icon="plug">
+    Supported OpenLIT + OpenPlait data-source connectors and actions.
   </Card>
   <Card title="Environments" href="/latest/openlit/organisation/environments" icon="layer-group">
     How bindings are partitioned by environment.

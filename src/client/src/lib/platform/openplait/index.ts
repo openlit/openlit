@@ -7,6 +7,7 @@ import {
 import {
 	ClickHouseAdapter,
 	OPENLIT_CLICKHOUSE_DATASETS,
+	OTEL_CLICKHOUSE_DATASETS,
 	type ClickHouseAdapterConfig,
 } from "@openplait/adapter-clickhouse";
 import { DatasourceRegistry, OpenPlaitRuntime } from "@openplait/runtime";
@@ -53,20 +54,17 @@ function positiveInteger(value: string | undefined, fallback: number): number {
 function configFingerprint(dbConfig: DatabaseConfig): string {
 	// Cache-bust key for connection settings — not a password hash.
 	// Password rotations bump `updatedAt`, so we never digest the secret itself.
+	const host = String(dbConfig.host ?? "");
+	const port = String(dbConfig.port ?? "");
+	const database = String(dbConfig.database ?? "");
+	const username = String(dbConfig.username ?? "");
+	const query = String(dbConfig.query || "");
+	const updatedAt =
+		dbConfig.updatedAt instanceof Date
+			? dbConfig.updatedAt.toISOString()
+			: String(dbConfig.updatedAt || "");
 	return createHash("sha256")
-		.update(
-			JSON.stringify({
-				host: dbConfig.host,
-				port: dbConfig.port,
-				database: dbConfig.database,
-				username: dbConfig.username,
-				query: dbConfig.query || "",
-				updatedAt:
-					dbConfig.updatedAt instanceof Date
-						? dbConfig.updatedAt.toISOString()
-						: String(dbConfig.updatedAt || ""),
-			})
-		)
+		.update([host, port, database, username, query, updatedAt].join("\0"))
 		.digest("hex");
 }
 
@@ -98,7 +96,7 @@ function connectionConfig(
 			process.env.OPENPLAIT_CLICKHOUSE_MAX_ROWS_TO_READ,
 			DEFAULT_MAX_ROWS_TO_READ
 		),
-		datasets: [...OPENLIT_CLICKHOUSE_DATASETS],
+		datasets: [...OTEL_CLICKHOUSE_DATASETS, ...OPENLIT_CLICKHOUSE_DATASETS],
 	};
 }
 

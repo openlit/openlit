@@ -43,6 +43,12 @@ export type FilterWhereConditionType = {
 		 */
 		generationHealth: GenerationHealthChip[];
 		/**
+		 * Stuck-agent loop chip. ClickHouse groups tool spans by conversation
+		 * / session / trace; other adapters sample full traces and apply the
+		 * same classifier.
+		 */
+		agentLoop: boolean;
+		/**
 		 * Version filter for agent-scoped views. When set, queries are scoped
 		 * to spans matching the version's hash attribute and/or the version's
 		 * first_seen/last_seen window (hybrid mode handles spans emitted by

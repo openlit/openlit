@@ -4,14 +4,14 @@ description: 'Organisation → Project → Environment → Database Config and c
 icon: 'building'
 ---
 
-Organisations in OpenLIT are shared workspaces for teams. Inside an organisation, **projects** own everything you configure for telemetry backends: environments, Database Configs, connectors, and signal bindings.
+Organisations in OpenLIT are shared workspaces for teams. Inside an organisation, **projects** own everything you configure for telemetry and memory: environments, Database Configs, connectors, and signal bindings.
 
 ```text
 Organisation
   └── Project   ← create / select a project first
         └── Environment
               ├── Database Config (ClickHouse app store)
-              ├── Connectors (Tempo, Loki, Prometheus, Jaeger)
+              ├── Connectors (data sources + memory)
               └── Signal routing (traces / logs / metrics)
 ```
 
@@ -41,8 +41,8 @@ Every organisation has a default project. Existing installations are mapped to a
   <Card title="Database Config" href="/latest/openlit/organisation/database-config" icon="database">
     Add ClickHouse on a project (seeded from INIT_DB_* then managed in the UI).
   </Card>
-  <Card title="Connectors" href="/latest/openlit/organisation/connectors" icon="plug">
-    Attach Tempo, Loki, Prometheus, or Jaeger on a project.
+  <Card title="Connectors" href="/latest/openlit/connectors/overview" icon="plug">
+    Data-source and memory connectors on a project.
   </Card>
   <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
     Bind traces, logs, and metrics independently per environment.

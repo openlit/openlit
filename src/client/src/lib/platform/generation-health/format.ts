@@ -1,14 +1,23 @@
 import getMessage from "@/constants/messages";
 import type { GenerationHealthChip } from "./classify";
 
+/** Coerce ClickHouse `nan` / missing metrics to 0 so chips never render "NaN". */
+export function asFiniteNumber(value: unknown, fallback = 0): number {
+	const numeric = typeof value === "number" ? value : Number(value);
+	return Number.isFinite(numeric) ? numeric : fallback;
+}
+
 export function fillTemplate(
 	template: string,
 	values: Record<string, string | number>
 ): string {
-	return Object.entries(values).reduce(
-		(text, [key, value]) => text.split(`{${key}}`).join(String(value)),
-		template
-	);
+	return Object.entries(values).reduce((text, [key, value]) => {
+		const rendered =
+			typeof value === "number" && !Number.isFinite(value)
+				? String(0)
+				: String(value);
+		return text.split(`{${key}}`).join(rendered);
+	}, template);
 }
 
 export function generationHealthChipLabel(chip: GenerationHealthChip): string {
@@ -32,20 +41,27 @@ export function generationHealthCountLine(
 	eligible: number
 ): string {
 	const m = getMessage();
-	if (eligible <= 0) return m.GENERATION_HEALTH_TIP_NO_ELIGIBLE;
-	if (count <= 0) {
-		return fillTemplate(m.GENERATION_HEALTH_TIP_NONE, { eligible });
+	const safeCount = asFiniteNumber(count);
+	const safeEligible = asFiniteNumber(eligible);
+	if (safeEligible <= 0) return m.GENERATION_HEALTH_TIP_NO_ELIGIBLE;
+	if (safeCount <= 0) {
+		return fillTemplate(m.GENERATION_HEALTH_TIP_NONE, { eligible: safeEligible });
 	}
-	return fillTemplate(m.GENERATION_HEALTH_TIP_COUNT, { count, eligible });
+	return fillTemplate(m.GENERATION_HEALTH_TIP_COUNT, {
+		count: safeCount,
+		eligible: safeEligible,
+	});
 }
 
 export function generationHealthSkippedLine(
 	skipped: number,
 	total: number
 ): string | null {
-	if (skipped <= 0 || total <= 0) return null;
+	const safeSkipped = asFiniteNumber(skipped);
+	const safeTotal = asFiniteNumber(total);
+	if (safeSkipped <= 0 || safeTotal <= 0) return null;
 	return fillTemplate(getMessage().GENERATION_HEALTH_STAT_SKIPPED, {
-		skipped,
-		total,
+		skipped: safeSkipped,
+		total: safeTotal,
 	});
 }

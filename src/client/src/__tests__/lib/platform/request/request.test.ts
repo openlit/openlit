@@ -1,7 +1,16 @@
-jest.mock('@/lib/platform/common', () => ({
-  dataCollector: jest.fn(),
-  OTEL_TRACES_TABLE_NAME: 'otel_traces',
+jest.mock('@/lib/db-config', () => ({
+  getDBConfigByIdForBackground: jest.fn().mockResolvedValue({ database: 'openlit' }),
+  getDBConfigByUser: jest.fn(),
 }));
+jest.mock('@/lib/platform/common', () => {
+  const collector = jest.fn();
+  return {
+    dataCollector: collector,
+    connectorDataCollector: collector,
+    intelligenceDataCollector: collector,
+    OTEL_TRACES_TABLE_NAME: 'otel_traces',
+  };
+});
 
 import {
   getGroupByExpression,
@@ -178,6 +187,30 @@ describe('getRequests', () => {
     expect(query).toContain('toInt32OrZero(gen_ai.usage.prompt_tokens)');
   });
 
+  it('does not interpolate injected ORDER BY type or direction', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null })
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'Timestamp; DROP TABLE', direction: 'ASC' },
+    });
+    const typeQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(typeQuery).toContain('ORDER BY Timestamp DESC');
+    expect(typeQuery).not.toContain('DROP TABLE');
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'Timestamp', direction: 'ASC; SELECT 1' },
+    });
+    const directionQuery = (dataCollector as jest.Mock).mock.calls[3][0].query as string;
+    expect(directionQuery).toContain('ORDER BY Timestamp DESC');
+    expect(directionQuery).not.toContain('SELECT 1');
+  });
+
   it('lists one matching span per trace when generation-health chips are on', async () => {
     (dataCollector as jest.Mock)
       .mockResolvedValueOnce({ data: [{ total: 3 }], err: null })
@@ -192,6 +225,22 @@ describe('getRequests', () => {
     const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
     expect(countQuery).toContain('uniqExact(TraceId)');
     expect(countQuery).not.toContain('COUNT(*)');
+    expect(listQuery).toContain('LIMIT 1 BY TraceId');
+  });
+
+  it('lists one matching span per trace when the agent-loop chip is on', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 2 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      selectedConfig: { agentLoop: true },
+    } as typeof baseParams & { selectedConfig: { agentLoop: boolean } });
+
+    const countQuery = (dataCollector as jest.Mock).mock.calls[0][0].query as string;
+    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(countQuery).toContain('uniqExact(TraceId)');
     expect(listQuery).toContain('LIMIT 1 BY TraceId');
   });
 

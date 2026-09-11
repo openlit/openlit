@@ -1,9 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { isPlainObject } from "lodash";
+import { ClipboardCheck, Sparkles } from "lucide-react";
 import AttributeGrid from "./attribute-grid";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import getMessage from "@/constants/messages";
 
 type DetailObjectTab = {
 	id: string;
@@ -127,45 +130,90 @@ export function buildObjectTabs(
 	return [...rootTab, ...directTabs, ...groupedTabs];
 }
 
+function featuredIcon(tabId: string) {
+	if (tabId === "evaluations") return <ClipboardCheck className="h-3.5 w-3.5" />;
+	return <Sparkles className="h-3.5 w-3.5" />;
+}
+
+type CustomTab = {
+	id: string;
+	label: string;
+	content: ReactNode;
+};
+
 export default function DetailObjectTabs({
 	tabs,
 	extraTabs,
-	extraTabsPlacement = "after",
 }: {
 	tabs: DetailObjectTab[];
-	extraTabs?: Array<{
-		id: string;
-		label: string;
-		content: ReactNode;
-	}>;
+	extraTabs?: CustomTab[];
 	extraTabsPlacement?: "before" | "after";
 }) {
+	const m = getMessage();
 	const objectTabs = tabs.map((tab) => ({ ...tab, type: "object" as const }));
-	const customTabs = (extraTabs || []).map((tab) => ({
+	const featuredTabs = (extraTabs || []).map((tab) => ({
 		...tab,
 		type: "custom" as const,
 	}));
-	const allTabs =
-		extraTabsPlacement === "before"
-			? [...customTabs, ...objectTabs]
-			: [...objectTabs, ...customTabs];
-	if (!allTabs.length) return null;
+	const detailTabs = objectTabs;
+	const allTabs = [...featuredTabs, ...detailTabs];
+	const defaultTab = detailTabs[0]?.id || featuredTabs[0]?.id;
+	const [activeTab, setActiveTab] = useState(defaultTab);
+	const resolvedTab = useMemo(() => {
+		if (allTabs.some((tab) => tab.id === activeTab)) return activeTab;
+		return defaultTab;
+	}, [activeTab, allTabs, defaultTab]);
+
+	if (!allTabs.length || !resolvedTab) return null;
 
 	return (
-		<Tabs defaultValue={allTabs[0].id} className="min-w-0">
-			<div className="max-w-full overflow-x-auto overflow-y-hidden pb-1">
-				<TabsList className="h-9 w-max min-w-full justify-start rounded-md bg-stone-100 p-1 dark:bg-stone-900">
-					{allTabs.map((tab) => (
-						<TabsTrigger
-							key={tab.id}
-							value={tab.id}
-							className="shrink-0 px-3 py-1 text-xs"
-						>
-							{tab.label}
-						</TabsTrigger>
-					))}
-				</TabsList>
-			</div>
+		<Tabs
+			value={resolvedTab}
+			onValueChange={setActiveTab}
+			className="min-w-0"
+		>
+			{featuredTabs.length > 0 && (
+				<div className="mb-2 flex flex-wrap gap-1.5">
+					{featuredTabs.map((tab) => {
+						const selected = resolvedTab === tab.id;
+						return (
+							<button
+								key={tab.id}
+								type="button"
+								onClick={() => setActiveTab(tab.id)}
+								aria-pressed={selected}
+								className={cn(
+									"inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors",
+									selected
+										? "bg-primary text-white"
+										: "border border-stone-200 bg-white text-stone-700 hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200 dark:hover:bg-stone-900"
+								)}
+							>
+								{featuredIcon(tab.id)}
+								{tab.label}
+							</button>
+						);
+					})}
+				</div>
+			)}
+			{detailTabs.length > 0 && (
+				<div className="max-w-full overflow-x-auto overflow-y-hidden">
+					<TabsList
+						aria-label={m.OBSERVABILITY_SPAN_DETAILS}
+						className="h-8 w-max min-w-full justify-start gap-0 rounded-none border-b border-stone-200 bg-transparent p-0 dark:border-stone-800"
+					>
+						{detailTabs.map((tab) => (
+							<TabsTrigger
+								key={tab.id}
+								value={tab.id}
+								className="h-8 shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-2.5 text-xs shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-stone-900 data-[state=active]:shadow-none dark:data-[state=active]:text-stone-50"
+							>
+								{tab.label}
+							</TabsTrigger>
+						))}
+					</TabsList>
+				</div>
+			)}
 			{allTabs.map((tab) => (
 				<TabsContent key={tab.id} value={tab.id} className="mt-3">
 					{tab.type === "object" ? (

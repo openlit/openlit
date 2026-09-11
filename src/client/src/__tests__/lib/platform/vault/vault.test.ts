@@ -61,6 +61,14 @@ jest.mock('@/utils/crypto', () => ({
 jest.mock('@/lib/platform/alerts/signals', () => ({
   emitManagementAlertSignalSafe: jest.fn(),
 }));
+jest.mock('@/lib/prisma', () => ({
+  __esModule: true,
+  default: {
+    telemetrySource: {
+      findFirst: jest.fn(),
+    },
+  },
+}));
 
 import { getSecretByName, checkNameValidity, deleteSecret, getSecrets, getSecretById, upsertSecret, getSecretsFromDatabaseId } from '@/lib/platform/vault/index';
 import { dataCollector } from '@/lib/platform/common';
@@ -152,6 +160,27 @@ describe('getSecrets', () => {
 	    expect(query).toContain("v.key = 'a\\\\b\\'c'");
 	  });
 
+	  it('escapes SQL breakout payloads in key filters', async () => {
+	    await getSecrets({ key: "' OR 1=1" });
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).toContain("v.key = '\\' OR 1=1'");
+	    expect(query).not.toMatch(/v\.key = '' OR 1=1/);
+	  });
+
+	  it('builds the owner condition with an empty string when the current user has no email', async () => {
+	    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u1' });
+	    await getSecrets({});
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).toContain("v.created_by = ''");
+	  });
+
+	  it('uses the createdBy filter (not the owner condition) when there is no authenticated user', async () => {
+	    (getCurrentUser as jest.Mock).mockResolvedValue(null);
+	    await getSecrets({ createdBy: 'someone@example.com' });
+	    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+	    expect(query).toContain("v.created_by = 'someone@example.com'");
+	  });
+
   it('adds hasAny tags filter when tags are provided (covers lines 133-135)', async () => {
     await getSecrets({ tags: ['tagA', 'tagB'] });
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
@@ -164,6 +193,14 @@ describe('getSecrets', () => {
     await getSecrets({}, { selectValue: true });
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).not.toContain('EXCEPT value');
+  });
+
+  it('leaves non-string values untouched when decrypting selected secrets', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({
+      data: [{ id: 'v1', key: 'k', value: null }],
+    });
+    const result = await getSecrets({}, { selectValue: true });
+    expect((result.data as any[])[0].value).toBeNull();
   });
 
   it('excludes value in SELECT by default', async () => {
@@ -201,6 +238,50 @@ describe('getSecretById', () => {
     await getSecretById('v1', undefined, false);
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).not.toContain('EXCEPT value');
+  });
+
+  it('allows DB-scoped lookup without a session when databaseConfigId is set', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValueOnce(null);
+    await getSecretById('v1', 'db-1', false);
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain("v.id = 'v1'");
+    expect(query).not.toContain('created_by');
+    expect(dataCollector).toHaveBeenCalledWith(
+      expect.anything(),
+      'query',
+      'db-1'
+    );
+  });
+
+  it('rejects unauthenticated lookups without databaseConfigId', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValueOnce(null);
+    await expect(getSecretById('v1')).rejects.toThrow('Unauthorized');
+  });
+
+  it('scopes the lookup to a project via secretRef when projectId is provided, without any owner condition', async () => {
+    const prisma = require('@/lib/prisma').default;
+    prisma.telemetrySource.findFirst.mockResolvedValue({ id: 'source-1' });
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ id: 'v1', key: 'k' }] });
+
+    const result = await getSecretById('v1', undefined, true, { projectId: 'proj-1' });
+
+    expect(prisma.telemetrySource.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { secretRef: 'v1', projectId: 'proj-1' } })
+    );
+    expect(getCurrentUser).not.toHaveBeenCalled();
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).not.toContain('created_by');
+    expect(result.data).toEqual([{ id: 'v1', key: 'k' }]);
+  });
+
+  it('returns an empty list when no telemetry source references the secret under the given project', async () => {
+    const prisma = require('@/lib/prisma').default;
+    prisma.telemetrySource.findFirst.mockResolvedValue(null);
+
+    const result = await getSecretById('v1', undefined, true, { projectId: 'proj-missing' });
+
+    expect(result).toEqual({ data: [] });
+    expect(dataCollector).not.toHaveBeenCalled();
   });
 });
 
@@ -287,6 +368,46 @@ describe('upsertSecret', () => {
       const [insertParams] = (dataCollector as jest.Mock).mock.calls[1];
       expect(insertParams.values[0].created_by).toBe('user@example.com');
     });
+
+    it('falls back to an empty string owner email and key when the user has no email and no key is given', async () => {
+      (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u1' });
+      (dataCollector as jest.Mock)
+        .mockResolvedValueOnce({ data: [], err: null })
+        .mockResolvedValueOnce({ err: null });
+      await upsertSecret({ value: 'v' });
+      // checkNameValidity's underlying query only has a key='' condition —
+      // both the key and createdBy fallbacks resolved to falsy empty strings.
+      const [nameCheckParams] = (dataCollector as jest.Mock).mock.calls[0];
+      expect(nameCheckParams.query).toContain("key=''");
+      expect(nameCheckParams.query).not.toContain('created_by');
+      const [insertParams] = (dataCollector as jest.Mock).mock.calls[1];
+      expect(insertParams.values[0].created_by).toBeUndefined();
+      expect(insertParams.values[0].key).toBeUndefined();
+    });
+
+    it('stores an empty string value when no value is provided', async () => {
+      (dataCollector as jest.Mock)
+        .mockResolvedValueOnce({ data: [], err: null })
+        .mockResolvedValueOnce({ err: null });
+      await upsertSecret({ key: 'k' });
+      const [insertParams] = (dataCollector as jest.Mock).mock.calls[1];
+      expect(insertParams.values[0].value).toBe('');
+    });
+
+    it('falls back to an empty string key in the "created" alert message when no key is given', async () => {
+      (dataCollector as jest.Mock)
+        .mockResolvedValueOnce({ data: [], err: null })
+        .mockResolvedValueOnce({ err: null });
+      await upsertSecret({ value: 'v' });
+      const { emitManagementAlertSignalSafe } = require('@/lib/platform/alerts/signals');
+      expect(emitManagementAlertSignalSafe).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'vault_secret_created',
+          message: 'Vault key  was created.',
+          fields: expect.objectContaining({ key: '' }),
+        })
+      );
+    });
   });
 
   describe('UPDATE path (id provided)', () => {
@@ -355,6 +476,34 @@ describe('upsertSecret', () => {
     it('throws SECRET_NOT_SAVED when query_id is missing from response', async () => {
       (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: null });
       await expect(upsertSecret({ id: 'sid', key: 'k' })).rejects.toThrow('Secret not saved');
+    });
+
+    it('falls back to empty/null defaults in the "updated" alert when the sanitized secret has no id or key', async () => {
+      (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });
+      const Sanitizer = require('@/utils/sanitizer').default;
+      // Force sanitizeObject to drop `id` for this call only, simulating a
+      // defensive edge case where the sanitized secret ends up without an id.
+      (Sanitizer.sanitizeObject as jest.Mock).mockImplementationOnce(
+        (o: Record<string, unknown>) => {
+          const { id, key, ...rest } = o;
+          return rest;
+        }
+      );
+
+      await upsertSecret({ id: 'sid', value: 'v' });
+
+      const { emitManagementAlertSignalSafe } = require('@/lib/platform/alerts/signals');
+      expect(emitManagementAlertSignalSafe).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'vault_secret_updated',
+          message: 'Vault key  was updated.',
+          sourceId: null,
+          fields: expect.objectContaining({ secret_id: '', key: '' }),
+        })
+      );
+      // The UPDATE query's WHERE id clause also fell back to an empty string.
+      const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+      expect(query).toContain("WHERE id = ''");
     });
   });
 });
@@ -427,5 +576,31 @@ describe('getSecretsFromDatabaseId', () => {
     // dataCollector third arg is databaseConfigId
     const [,, dbConfigId] = (dataCollector as jest.Mock).mock.calls[0];
     expect(dbConfigId).toBe('db-99');
+  });
+
+  it('prefers an explicit filters.databaseConfigId over the one derived from the API key', async () => {
+    (getAPIKeyInfo as jest.Mock).mockResolvedValue([null, { databaseConfigId: 'db-from-key' }]);
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ key: 'K', value: 'V' }], err: null });
+    (normalizeSecretDataForSDK as jest.Mock).mockReturnValue({ K: 'V' });
+
+    await getSecretsFromDatabaseId({ apiKey: 'valid-key', databaseConfigId: 'db-explicit' });
+
+    const [,, dbConfigId] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(dbConfigId).toBe('db-explicit');
+  });
+
+  it('scopes the secrets lookup to the API key owner via createdByUser.email', async () => {
+    (getAPIKeyInfo as jest.Mock).mockResolvedValue([
+      null,
+      { databaseConfigId: 'db-1', createdByUser: { email: 'owner@example.com' } },
+    ]);
+    (getCurrentUser as jest.Mock).mockResolvedValue(null);
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ key: 'K', value: 'V' }], err: null });
+    (normalizeSecretDataForSDK as jest.Mock).mockReturnValue({ K: 'V' });
+
+    await getSecretsFromDatabaseId({ apiKey: 'valid-key' });
+
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain("v.created_by = 'owner@example.com'");
   });
 });

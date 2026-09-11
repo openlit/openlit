@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
 			? SERVER_EVENTS.DASHBOARD_QUERY_RUN_FAILURE
 			: SERVER_EVENTS.DASHBOARD_QUERY_RUN_SUCCESS,
 		startTimestamp,
+		sampleKey: widgetId,
 	});
 	return Response.json(res);
 }

@@ -71,6 +71,8 @@ export interface FilterConfig {
 	customFilters?: CustomFilter[];
 	/** Truncated / filtered / empty / model-swapped chips on traces. */
 	generationHealth?: GenerationHealthChip[];
+	/** Stuck-tool loop chip on traces (same tool + args ≥ N times). */
+	agentLoop?: boolean;
 	/** Locked agent version scope used by the agent detail page. */
 	versionFilter?: VersionFilter;
 }

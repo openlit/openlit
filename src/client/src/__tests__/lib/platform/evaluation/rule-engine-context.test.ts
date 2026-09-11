@@ -47,6 +47,35 @@ describe('extractRuleEngineFieldsFromTrace', () => {
     expect(fields['gen_ai.request.model']).toBe('gpt-4');
   });
 
+  it('maps gen_ai.tool.call.name as its own rule field', () => {
+    const fields = extractRuleEngineFieldsFromTrace(
+      makeTrace({
+        SpanAttributes: {
+          'gen_ai.system': 'openai',
+          'gen_ai.request.model': 'gpt-4',
+          'gen_ai.tool.call.name': 'search_docs',
+        },
+      })
+    );
+    expect(fields['gen_ai.tool.call.name']).toBe('search_docs');
+    expect(fields['gen_ai.tool.name']).toBe('search_docs');
+  });
+
+  it('prefers gen_ai.tool.name over call.name for the tool.name field', () => {
+    const fields = extractRuleEngineFieldsFromTrace(
+      makeTrace({
+        SpanAttributes: {
+          'gen_ai.system': 'openai',
+          'gen_ai.request.model': 'gpt-4',
+          'gen_ai.tool.name': 'legacy_tool',
+          'gen_ai.tool.call.name': 'search_docs',
+        },
+      })
+    );
+    expect(fields['gen_ai.tool.name']).toBe('legacy_tool');
+    expect(fields['gen_ai.tool.call.name']).toBe('search_docs');
+  });
+
   it('skips fields with null values', () => {
     const trace = makeTrace({ ServiceName: null });
     const fields = extractRuleEngineFieldsFromTrace(trace);

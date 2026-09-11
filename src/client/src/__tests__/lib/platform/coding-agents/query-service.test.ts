@@ -22,6 +22,11 @@ jest.mock("@/clickhouse/migrations/create-coding-agents-audit-migration", () => 
 	CODING_AGENT_DISPUTES_TABLE: "coding_agent_disputes",
 }));
 
+jest.mock("@/lib/platform/agent-loop/clickhouse", () => ({
+	fetchLoopHitsByTraceIds: jest.fn(async () => new Map()),
+	fetchLoopHitsByGroupIds: jest.fn(async () => new Map()),
+}));
+
 const mockDataCollector = jest.mocked(dataCollector);
 
 const auth: CodingAgentAuth = {
