@@ -4,6 +4,7 @@ import pytest
 
 from openlit.guard._base import GuardDeniedError
 from openlit.guard._integration import (
+    GUARDED_METHODS,
     _extract_openai_input,
     _extract_anthropic_input,
     _extract_generic_input,
@@ -77,6 +78,20 @@ class TestExtractors:
         kwargs = {"prompt": "Generate something"}
         text = _extract_generic_input(kwargs)
         assert text == "Generate something"
+
+
+def test_guarded_methods_include_mistral_v1_and_v2_sdk_layouts():
+    """Mistral SDK 1.x and 2.x expose chat under different modules."""
+    def has_guarded_method(module_path, class_method):
+        return any(
+            method[0] == module_path and method[1] == class_method
+            for method in GUARDED_METHODS
+        )
+
+    assert has_guarded_method("mistralai.chat", "Chat.complete")
+    assert has_guarded_method("mistralai.chat", "Chat.complete_async")
+    assert has_guarded_method("mistralai.client.chat", "Chat.complete")
+    assert has_guarded_method("mistralai.client.chat", "Chat.complete_async")
 
 
 class TestPreflightIntegration:

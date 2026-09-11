@@ -249,6 +249,18 @@ GUARDED_METHODS: List[Tuple[str, str, Extractor, Extractor]] = [
         _extract_generic_input,
         _extract_generic_output,
     ),
+    (
+        "mistralai.client.chat",
+        "Chat.complete",
+        _extract_generic_input,
+        _extract_generic_output,
+    ),
+    (
+        "mistralai.client.chat",
+        "Chat.complete_async",
+        _extract_generic_input,
+        _extract_generic_output,
+    ),
     # Cohere
     (
         "cohere.client_v2",
