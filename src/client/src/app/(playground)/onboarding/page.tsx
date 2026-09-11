@@ -45,6 +45,7 @@ import {
 	fetchPendingInvitations,
 } from "@/helpers/client/organisation";
 import { fetchProjectList } from "@/helpers/client/project";
+import { useProjectDatabaseSetup } from "@/utils/hooks/use-project-database-setup";
 import { postData } from "@/utils/api";
 import asaw from "@/utils/asaw";
 import getMessage from "@/constants/messages";
@@ -53,6 +54,7 @@ import Link from "next/link";
 import Loader from "@/components/common/loader";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import ProjectEnvironmentSwitcher from "@/components/(playground)/organisation/project-environment-switcher";
+import DatabaseConfigPage from "@/components/(playground)/database-config/database-config-page";
 
 function TimelineStep({
 	active,
@@ -150,8 +152,8 @@ export default function OnboardingPage() {
 	const projects = useRootStore(getProjectList);
 	const currentProject = useRootStore(getCurrentProject);
 	const isProjectLoading = useRootStore(getProjectIsLoading);
-	const [connectorLoading, setConnectorLoading] = useState(false);
-	const [hasDbConfig, setHasDbConfig] = useState(false);
+	const { databaseConfigs, hasDbConfig, isDatabaseConfigLoading } =
+		useProjectDatabaseSetup();
 	const hasProject = Boolean(currentProject?.id && (projects?.length || 0) > 0);
 	const isSetupComplete = Boolean(currentOrg?.id && hasProject && hasDbConfig);
 	const isInitialising =
@@ -177,17 +179,6 @@ export default function OnboardingPage() {
 			fetchProjectList(currentOrg.id);
 		}
 	}, [currentOrg?.id]);
-
-	useEffect(() => {
-		if (currentProject?.id) {
-			setConnectorLoading(true);
-			fetch("/api/connectors")
-				.then((response) => response.ok ? response.json() : { connectors: [] })
-				.then((body) => setHasDbConfig((body.connectors || []).some((connector: { type?: string }) => connector.type === "clickhouse")))
-				.catch(() => setHasDbConfig(false))
-				.finally(() => setConnectorLoading(false));
-		}
-	}, [currentProject?.id]);
 
 	const handleCreateProject = async () => {
 		if (!currentOrg?.id || !projectName.trim()) return;
@@ -405,14 +396,11 @@ export default function OnboardingPage() {
 								title={messages.HOME_SETUP_DB_CONFIG_STEP}
 							>
 								{hasProject && !hasDbConfig && currentProject?.id ? (
-									<Button asChild size="sm" className="h-9">
-										<Link href={`/organisation/project/${currentProject.id}/connectors`}>
-											<Database className="mr-1.5 h-3.5 w-3.5" />
-											{connectorLoading
-												? messages.LOADING
-												: messages.ADD_NEW_CONFIG}
-										</Link>
-									</Button>
+									isDatabaseConfigLoading && databaseConfigs === undefined ? (
+										<p className="text-sm text-muted-foreground">{messages.LOADING}</p>
+									) : (
+										<DatabaseConfigPage hideHeader />
+									)
 								) : null}
 							</TimelineStep>
 			<TimelineStep
@@ -446,7 +434,7 @@ export default function OnboardingPage() {
 			>
 				{isSetupComplete ? (
 					<Button size="sm" className="h-9" onClick={() => currentOrg?.id && setCurrentOrgAndComplete(currentOrg.id)} disabled={isCompleting}>
-						{isCompleting ? messages.LOADING : "Finish setup"}
+						{isCompleting ? messages.LOADING : messages.HOME_SETUP_FINISH}
 					</Button>
 				) : null}
 			</TimelineStep>

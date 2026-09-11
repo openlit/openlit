@@ -23,7 +23,13 @@ jest.mock("@/lib/platform/connectors/datasource/facade", () => ({
 	},
 }));
 
-import { listMetricRecords, getMetricsSummary, getMetricsFilterConfig, getMetricAttributeKeysRecord } from "@/lib/platform/metrics/read";
+import {
+	listMetricRecords,
+	getMetricsSummary,
+	getMetricsFilterConfig,
+	getMetricAttributeKeysRecord,
+	getMetricDetailRecord,
+} from "@/lib/platform/metrics/read";
 import { AdapterError } from "@openplait/adapter-sdk";
 
 const params = {
@@ -179,6 +185,67 @@ describe("getMetricsSummary", () => {
 			buckets: [{ label: "2026-07-01T00:00:00.000Z", count: 4 }],
 		});
 	});
+
+	it("preserves existing aggregations instead of forcing a count", async () => {
+		const metricTimeSeries = jest.fn().mockResolvedValue({ fields: [], rows: [] });
+		mockResolveCtx.mockResolvedValue({
+			adapter: { metricTimeSeries },
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		await getMetricsSummary({
+			...(params as Record<string, unknown>),
+			selectedConfig: { aggregations: [{ fn: "sum", field: "value" }] },
+		} as never);
+
+		expect(metricTimeSeries).toHaveBeenCalled();
+	});
+
+	it("skips rows without a usable label or a finite count", async () => {
+		const metricTimeSeries = jest.fn().mockResolvedValue({
+			fields: [],
+			rows: [
+				{ value: 12 },
+				{ timestamp: "2026-07-01T00:00:00.000Z", value: "not-a-number" },
+			],
+		});
+		mockResolveCtx.mockResolvedValue({
+			adapter: { metricTimeSeries },
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricsSummary(params);
+		expect(res).toMatchObject({ total: 0, peak: 0, buckets: [] });
+	});
+
+	it("returns the empty summary when getMetricsSummary fails", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				metricTimeSeries: jest.fn().mockRejectedValue(new Error("summary boom")),
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricsSummary(params);
+		expect(res).toMatchObject({ err: "summary boom", buckets: [], total: 0, peak: 0 });
+	});
+
+	it("rethrows AdapterError from getMetricsSummary", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				metricTimeSeries: jest
+					.fn()
+					.mockRejectedValue(new AdapterError("EXECUTION_FAILED", "boom")),
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		await expect(getMetricsSummary(params)).rejects.toBeInstanceOf(AdapterError);
+	});
 });
 
 describe("getMetricsFilterConfig", () => {
@@ -224,6 +291,52 @@ describe("getMetricsFilterConfig", () => {
 		const res = await getMetricsFilterConfig(params);
 		expect(res.data?.[0]?.services).toEqual(["prometheus"]);
 	});
+
+	it("skips distinctValues when the adapter has no support for it", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				capabilities: () => ({ distinctValues: false }),
+				metricNames: jest.fn().mockResolvedValue(["up"]),
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricsFilterConfig(params);
+		expect(res.data?.[0]?.services).toEqual([]);
+	});
+
+	it("returns an error payload when getMetricsFilterConfig fails", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				metricNames: jest.fn().mockResolvedValue([]),
+				capabilities: () => {
+					throw new Error("filter config boom");
+				},
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricsFilterConfig(params);
+		expect(res.err).toBe("filter config boom");
+		expect(res.data?.[0]).toMatchObject({ services: [], metricNames: [] });
+	});
+
+	it("rethrows AdapterError from getMetricsFilterConfig", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				metricNames: jest.fn().mockResolvedValue([]),
+				capabilities: () => {
+					throw new AdapterError("EXECUTION_FAILED", "boom");
+				},
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		await expect(getMetricsFilterConfig(params)).rejects.toBeInstanceOf(AdapterError);
+	});
 });
 
 describe("getMetricAttributeKeysRecord", () => {
@@ -241,5 +354,151 @@ describe("getMetricAttributeKeysRecord", () => {
 			metricAttributeKeys: ["service_name", "job"],
 			resourceAttributeKeys: ["service_name", "job"],
 		});
+	});
+
+	it("returns the empty payload when attribute discovery fails", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				attributeKeys: jest.fn().mockRejectedValue(new Error("attr boom")),
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricAttributeKeysRecord(params);
+		expect(res).toMatchObject({
+			err: "attr boom",
+			spanAttributeKeys: [],
+			resourceAttributeKeys: [],
+			metricAttributeKeys: [],
+			scopeAttributeKeys: [],
+		});
+	});
+
+	it("rethrows AdapterError from getMetricAttributeKeysRecord", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				attributeKeys: jest
+					.fn()
+					.mockRejectedValue(new AdapterError("EXECUTION_FAILED", "boom")),
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		await expect(getMetricAttributeKeysRecord(params)).rejects.toBeInstanceOf(
+			AdapterError
+		);
+	});
+});
+
+describe("getMetricDetailRecord", () => {
+	it("builds a sorted series and raw points from metric time series", async () => {
+		const metricTimeSeries = jest.fn().mockResolvedValue({
+			fields: [],
+			rows: [
+				{
+					metricName: "cpu",
+					timestamp: "2026-07-01T00:01:00.000Z",
+					value: 20,
+					unit: "percent",
+					description: "CPU usage",
+					serviceName: "api",
+					attributes: { host: "a" },
+					resourceAttributes: { "service.name": "api" },
+				},
+				{
+					metricName: "cpu",
+					timestamp: "2026-07-01T00:00:00.000Z",
+					value: 10,
+					serviceName: "api",
+					attributes: {},
+					resourceAttributes: {},
+				},
+			],
+		});
+		mockResolveCtx.mockResolvedValue({
+			adapter: { metricTimeSeries },
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricDetailRecord("cpu", "gauge", "api", params);
+
+		expect(metricTimeSeries).toHaveBeenCalledWith(
+			expect.objectContaining({
+				filters: expect.arrayContaining([
+					{ target: "spanName", op: "in", value: ["cpu"] },
+				]),
+			})
+		);
+		expect(res.err).toBeNull();
+		expect(res.series).toEqual([
+			{ request_time: "2026-07-01T00:00:00.000Z", value: 10 },
+			{ request_time: "2026-07-01T00:01:00.000Z", value: 20 },
+		]);
+		expect(res.points).toEqual([
+			expect.objectContaining({
+				MetricName: "cpu",
+				metric_type: "gauge",
+				metric_value: 20,
+				MetricUnit: "percent",
+				MetricDescription: "CPU usage",
+				ServiceName: "api",
+				Attributes: { host: "a" },
+				ResourceAttributes: { "service.name": "api" },
+			}),
+			expect.objectContaining({
+				MetricName: "cpu",
+				metric_type: "gauge",
+				metric_value: 10,
+				MetricUnit: "",
+				MetricDescription: "",
+				ServiceName: "api",
+				Attributes: {},
+				ResourceAttributes: {},
+			}),
+		]);
+	});
+
+	it("defaults the metric type to gauge and works without params", async () => {
+		const metricTimeSeries = jest.fn().mockResolvedValue({ fields: [], rows: [] });
+		mockResolveCtx.mockResolvedValue({
+			adapter: { metricTimeSeries },
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricDetailRecord("cpu");
+		expect(res).toEqual({ err: null, series: [], points: [] });
+	});
+
+	it("returns an error payload when getMetricDetailRecord fails", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				metricTimeSeries: jest.fn().mockRejectedValue(new Error("detail boom")),
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		const res = await getMetricDetailRecord("cpu", "gauge", "api", params);
+		expect(res).toEqual({ err: "detail boom", series: [], points: [] });
+	});
+
+	it("rethrows AdapterError from getMetricDetailRecord", async () => {
+		mockResolveCtx.mockResolvedValue({
+			adapter: {
+				metricTimeSeries: jest
+					.fn()
+					.mockRejectedValue(new AdapterError("EXECUTION_FAILED", "boom")),
+			},
+			descriptor: {},
+			isBuiltIn: false,
+		});
+
+		await expect(
+			getMetricDetailRecord("cpu", "gauge", "api", params)
+		).rejects.toBeInstanceOf(AdapterError);
 	});
 });

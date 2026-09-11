@@ -37,9 +37,15 @@ jobs:
           RELEASE_SHA: ${{ inputs.release_sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::release_sha must be a full commit SHA"
+            exit 1
+          fi
           REMOTE_SHA=$(git ls-remote --refs "https://github.com/$REPOSITORY.git" "refs/tags/$RELEASE_TAG" | awk '{print $1}')
-          test -n "$REMOTE_SHA"
-          test "$REMOTE_SHA" = "$RELEASE_SHA"
+          if [ -z "$REMOTE_SHA" ] || [ "$REMOTE_SHA" != "$RELEASE_SHA" ]; then
+            echo "::error::release tag does not resolve to the requested SHA"
+            exit 1
+          fi
 
   validate:
     name: Validate / Component CI
@@ -62,12 +68,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.release_sha }}
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Verify checked-out commit
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
 
       - uses: actions/setup-go@v6
         with:
           go-version-file: openlit-controller/go.mod
-          cache-dependency-path: openlit-controller/go.sum
+          cache: false
 
       - name: Set up eBPF toolchain
         uses: ./.github/actions/setup-ebpf
@@ -117,7 +129,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.release_sha }}
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Verify checked-out commit
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -151,7 +169,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.release_sha }}
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Verify checked-out commit
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -198,8 +222,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           build-args: VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           annotations: |
             ${{ steps.meta.outputs.annotations }},
             io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,

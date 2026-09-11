@@ -1,12 +1,18 @@
 """Tests for auto-guard integration (no real LLM calls)."""
 
+import asyncio
+import sys
+import types
+
 import pytest
 
+from openlit.guard import _integration
 from openlit.guard._base import GuardDeniedError
 from openlit.guard._integration import (
     _extract_openai_input,
     _extract_anthropic_input,
     _extract_generic_input,
+    _extract_generic_output,
     _apply_preflight,
     _apply_postflight,
 )
@@ -182,3 +188,78 @@ class TestPostflightIntegration:
 
         result = _apply_postflight(pipeline, FakeResponse(), _extract_openai_output)
         assert result is not None
+
+
+class TestAsyncMethodDetection:
+    """``setup_auto_guards`` picks the wrapper from the method, not its name."""
+
+    @staticmethod
+    def _fake_provider_module():
+        """Build a provider module that names its coroutine method ``*_async``."""
+
+        # pylint: disable=too-few-public-methods,missing-class-docstring
+        class Message:
+            def __init__(self):
+                self.content = "Reach me at victim@example.com"
+
+        class Choice:
+            def __init__(self):
+                self.message = Message()
+
+        class Response:
+            def __init__(self):
+                self.choices = [Choice()]
+
+        class Chat:
+            def complete(self, **kwargs):
+                """Mistral-style sync chat method."""
+                return Response()
+
+            async def complete_async(self, **kwargs):
+                """Mistral-style async chat method - no ``Async`` in the name."""
+                return Response()
+
+        module = types.ModuleType("fake_provider_sdk")
+        module.Chat = Chat
+        return module
+
+    def test_detects_coroutine_regardless_of_name(self, monkeypatch):
+        """The check resolves the attribute rather than matching on the name."""
+        module = self._fake_provider_module()
+        monkeypatch.setitem(sys.modules, "fake_provider_sdk", module)
+
+        assert _integration._is_async_method("fake_provider_sdk", "Chat.complete_async")
+        assert not _integration._is_async_method("fake_provider_sdk", "Chat.complete")
+
+    def test_underscore_async_method_runs_postflight(self, monkeypatch):
+        """A ``complete_async`` coroutine is guarded like its sync twin."""
+        module = self._fake_provider_module()
+        monkeypatch.setitem(sys.modules, "fake_provider_sdk", module)
+        monkeypatch.setattr(
+            _integration,
+            "GUARDED_METHODS",
+            [
+                (
+                    "fake_provider_sdk",
+                    "Chat.complete",
+                    _extract_generic_input,
+                    _extract_generic_output,
+                ),
+                (
+                    "fake_provider_sdk",
+                    "Chat.complete_async",
+                    _extract_generic_input,
+                    _extract_generic_output,
+                ),
+            ],
+        )
+
+        _integration.setup_auto_guards([PII(action="redact")])
+
+        chat = module.Chat()
+        kwargs = {"messages": [{"content": "hello"}]}
+        sync_response = chat.complete(**kwargs)
+        async_response = asyncio.run(chat.complete_async(**kwargs))
+
+        assert "[REDACTED:email]" in sync_response.choices[0].message.content
+        assert "[REDACTED:email]" in async_response.choices[0].message.content
