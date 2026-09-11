@@ -53,44 +53,55 @@ async function GETHandler(
 	const environment =
 		url.searchParams.get("environment") || getRequestEnvironment(request);
 
-	// Intelligence-layer tables (rules / evals) follow the connector binding for
-	// the selected environment; traces hierarchy uses the same environment via
-	// resolveTracesAdapter inside buildTraceGovernanceReport.
-	const databaseConfigId =
-		(await resolveIntelligenceClickHouseDbConfigId({ environment })) ||
-		undefined;
+	try {
+		// Intelligence-layer tables (rules / evals) follow the connector binding for
+		// the selected environment; traces hierarchy uses the same environment via
+		// resolveTracesAdapter inside buildTraceGovernanceReport.
+		const databaseConfigId =
+			(await resolveIntelligenceClickHouseDbConfigId({ environment })) ||
+			undefined;
 
-	const result = await buildTraceGovernanceReport(spanId, {
-		traceId,
-		environment,
-		databaseConfigId,
-	});
+		const result = await buildTraceGovernanceReport(spanId, {
+			traceId,
+			environment,
+			databaseConfigId,
+		});
 
-	if (result.err) {
+		if (result.err) {
+			fireGovernanceReportTelemetry({
+				success: false,
+				startTimestamp,
+				spanId,
+				traceId,
+				error: String(result.err),
+			});
+			return errorResponse(result.err, String(result.err), 400);
+		}
+
+		const report = result.report!;
+		fireGovernanceReportTelemetry({
+			success: true,
+			startTimestamp,
+			spanId,
+			traceId: report.trace_id,
+			riskLevel: report.risk_level,
+			findingCount: report.finding_count,
+			ruleMatchCount: report.rule_match_count,
+			evaluationCount: report.evaluations.length,
+			analysisLimited: report.analysis_limited,
+		});
+
+		return Response.json({ report });
+	} catch (error) {
 		fireGovernanceReportTelemetry({
 			success: false,
 			startTimestamp,
 			spanId,
 			traceId,
-			error: String(result.err),
+			error: String(error),
 		});
-		return errorResponse(result.err, String(result.err), 400);
+		return errorResponse(error, String(error), 500);
 	}
-
-	const report = result.report!;
-	fireGovernanceReportTelemetry({
-		success: true,
-		startTimestamp,
-		spanId,
-		traceId: report.trace_id,
-		riskLevel: report.risk_level,
-		findingCount: report.finding_count,
-		ruleMatchCount: report.rule_match_count,
-		evaluationCount: report.evaluations.length,
-		analysisLimited: report.analysis_limited,
-	});
-
-	return Response.json({ report });
 }
 
 export const GET = withGovernanceAudit(

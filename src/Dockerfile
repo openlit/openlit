@@ -10,6 +10,15 @@ WORKDIR /app/client
 # Copy package.json and package-lock.json to the working directory & the rest of the application code
 COPY ./client/ .
 
+# Bake Prisma CLI/Schema engines for the Alpine builder and the Debian
+# bookworm runtime (OpenSSL 3). schema.prisma `binaryTargets` only covers the
+# Query Engine; CLI engines are resolved at install time for the builder
+# platform. This env replaces native detection, so both musl builder
+# targets must stay listed — release publishes linux/amd64 and linux/arm64/v8.
+# Without the matching glibc engines, entrypoint.sh (`prisma migrate deploy`
+# / `prisma generate`) downloads from binaries.prisma.sh and fails air-gapped.
+ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x,linux-musl-arm64-openssl-3.0.x,debian-openssl-3.0.x,linux-arm64-openssl-3.0.x
+
 # Install dependencies, generate Prisma client & Build the Next.js application
 RUN npm install && npx prisma generate && npm run build
 

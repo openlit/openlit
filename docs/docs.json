@@ -89,6 +89,7 @@
                   "latest/openlit/observability/telemetry/overview",
                   "latest/openlit/observability/telemetry/traces",
                   "latest/openlit/observability/telemetry/ai-analysis",
+                  "latest/openlit/observability/telemetry/trace-governance",
                   "latest/openlit/observability/telemetry/metrics",
                   "latest/openlit/observability/telemetry/logs"
                 ]
@@ -116,7 +117,9 @@
                   "latest/openlit/coding-agents/sessions",
                   "latest/openlit/coding-agents/users",
                   "latest/openlit/coding-agents/privacy-and-governance",
-                  "latest/openlit/coding-agents/troubleshooting"
+                  "latest/openlit/coding-agents/troubleshooting",
+                  "latest/openlit/coding-agents/onboarding",
+                  "latest/openlit/coding-agents/architecture"
                 ]
               }
             ]
