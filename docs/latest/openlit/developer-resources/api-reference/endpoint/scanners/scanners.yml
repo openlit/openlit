@@ -221,6 +221,10 @@ components:
           type: string
         ref:
           type: string
+        cliVersion:
+          type: string
+          description: Trustabl CLI version used for this job.
+          example: v0.1.8
         startedAt:
           type: string
           format: date-time

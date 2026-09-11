@@ -10,7 +10,7 @@ import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import ScannerRuntimePanel from "@/components/(playground)/scanner/scanner-runtime-panel";
 import ScannerFindingSheet from "@/components/(playground)/scanner/scanner-finding-sheet";
 import ScannerRunParamsDialog, {
-	EMPTY_SCANNER_RUN_DEFAULTS,
+	emptyScannerRunDefaults,
 	type ScannerRunDefaults,
 } from "@/components/(playground)/scanner/scanner-run-params-dialog";
 import ScannerWorkspace from "@/components/(playground)/scanner/scanner-workspace";
@@ -40,7 +40,9 @@ import { getCurrentProject, getCurrentProjectEnvironment } from "@/selectors/pro
 import { useRootStore } from "@/store";
 import { getRequestHeaders } from "@/utils/api";
 import { connectorIconPath } from "@/lib/platform/connectors/icons";
-import type { ScannerFinding, ScannerJob, ScannerScanInput } from "@/lib/platform/connectors/scanner/types";
+import { trustablRunParamFields } from "@/lib/platform/connectors/scanner/config-fields";
+import type { ScannerCliSchema } from "@/lib/platform/connectors/scanner/cli-schema";
+import type { ScannerFinding, ScannerJob, ScannerScanInput, ScannerRuntimeInfo } from "@/lib/platform/connectors/scanner/types";
 
 type ScannerConnector = {
 	id: string;
@@ -69,23 +71,19 @@ function asBool(value: unknown, fallback = false): boolean {
 	return fallback;
 }
 
-function connectorRunDefaults(settings?: string): ScannerRunDefaults {
+function connectorRunDefaults(
+	settings?: string,
+	fields = trustablRunParamFields()
+): ScannerRunDefaults {
 	const parsed = parseSettings(settings);
-	return {
-		...EMPTY_SCANNER_RUN_DEFAULTS,
-		target: String(parsed.target || ""),
-		ref: String(parsed.ref || ""),
-		detectors: String(parsed.detectors || ""),
-		strict: asBool(parsed.strict),
-		secretScan: asBool(parsed.secretScan),
-		vulnScan: asBool(parsed.vulnScan),
-		licenseScan: asBool(parsed.licenseScan),
-		requireSigned: asBool(parsed.requireSigned, true),
-		rulesRepo: String(parsed.rulesRepo || ""),
-		rulesRef: String(parsed.rulesRef || ""),
-		rulesSource: String(parsed.rulesSource || "environment"),
-		noRulesUpdate: asBool(parsed.noRulesUpdate),
-	};
+	const next = emptyScannerRunDefaults(fields);
+	for (const field of fields) {
+		const raw = parsed[field.key];
+		if (raw == null) continue;
+		if (field.kind === "switch") next[field.key] = asBool(raw, Boolean(field.defaultValue));
+		else next[field.key] = String(raw);
+	}
+	return next;
 }
 
 function ConnectorMark({ type, size = 16 }: { type: string; size?: number }) {
@@ -121,6 +119,10 @@ export default function ScannerPage() {
 	const [jobId, setJobId] = useState(queryJobId);
 	const [finding, setFinding] = useState<ScannerFinding | null>(null);
 	const [descriptors, setDescriptors] = useState<TypeDescriptor[]>([]);
+	const [cliSchema, setCliSchema] = useState<ScannerCliSchema | undefined>();
+	const handleRuntimeChange = useCallback((runtime: ScannerRuntimeInfo | null) => {
+		setCliSchema(runtime?.schema);
+	}, []);
 
 	const emptySteps = [
 		{
@@ -160,8 +162,8 @@ export default function ScannerPage() {
 		return index >= 0 ? jobs[index + 1] : undefined;
 	}, [jobs, selectedJob]);
 	const runDefaults = useMemo(
-		() => connectorRunDefaults(selected?.settings),
-		[selected?.settings]
+		() => connectorRunDefaults(selected?.settings, trustablRunParamFields(cliSchema)),
+		[cliSchema, selected?.settings]
 	);
 
 	const load = useCallback(async () => {
@@ -330,7 +332,10 @@ export default function ScannerPage() {
 							</Select>
 							{selected?.type === "trustabl" ? (
 								<div className="ml-auto">
-									<ScannerRuntimePanel compact />
+									<ScannerRuntimePanel
+										compact
+										onRuntimeChange={handleRuntimeChange}
+									/>
 								</div>
 							) : null}
 						</div>
@@ -466,6 +471,7 @@ export default function ScannerPage() {
 				<ScannerRunParamsDialog
 					open={paramsOpen}
 					defaults={runDefaults}
+					schema={cliSchema}
 					onClose={() => setParamsOpen(false)}
 					onRun={(input) => void runScan(input)}
 				/>

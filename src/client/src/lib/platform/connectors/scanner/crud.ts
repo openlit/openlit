@@ -49,6 +49,7 @@ import {
 	normalizeScannerTarget,
 } from "./target";
 import { parseScannerScanInput } from "./scan-params";
+import { isScannerExtraSettingKey } from "./cli-schema";
 import { newScannerJobId } from "./report";
 
 export const SCANNER_CONNECTOR_PREFIX = "scanner:";
@@ -227,6 +228,21 @@ function normalizeSettingsObject(settings: Record<string, unknown>): Record<stri
 		const flag = normalizeBooleanSetting(next[key]);
 		if (flag === undefined) delete next[key];
 		else next[key] = flag;
+	}
+	for (const [key, value] of Object.entries(next)) {
+		if (!isScannerExtraSettingKey(key)) continue;
+		if (typeof value === "boolean") continue;
+		if (value === "true" || value === "false") {
+			next[key] = value === "true";
+			continue;
+		}
+		if (typeof value === "string") {
+			const trimmed = value.trim().slice(0, 500);
+			if (!trimmed || /[\r\n\0]/.test(trimmed) || trimmed.startsWith("-")) delete next[key];
+			else next[key] = trimmed;
+			continue;
+		}
+		delete next[key];
 	}
 	return next;
 }

@@ -10,7 +10,13 @@ import getMessage from "@/constants/messages";
 import { getRequestHeaders } from "@/utils/api";
 import type { ScannerRuntimeInfo } from "@/lib/platform/connectors/scanner/types";
 
-export default function ScannerRuntimePanel({ compact = false }: { compact?: boolean }) {
+export default function ScannerRuntimePanel({
+	compact = false,
+	onRuntimeChange,
+}: {
+	compact?: boolean;
+	onRuntimeChange?: (runtime: ScannerRuntimeInfo | null) => void;
+}) {
 	const messages = getMessage();
 	const [runtime, setRuntime] = useState<ScannerRuntimeInfo | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -23,12 +29,14 @@ export default function ScannerRuntimePanel({ compact = false }: { compact?: boo
 			const body = await response.json();
 			if (!response.ok) throw new Error(body?.err || messages.SCANNER_LOAD_FAILED);
 			setRuntime(body.runtime || null);
+			onRuntimeChange?.(body.runtime || null);
 		} catch {
 			setRuntime(null);
+			onRuntimeChange?.(null);
 		} finally {
 			setLoading(false);
 		}
-	}, [messages.SCANNER_LOAD_FAILED]);
+	}, [messages.SCANNER_LOAD_FAILED, onRuntimeChange]);
 
 	useEffect(() => {
 		void load();
@@ -48,6 +56,7 @@ export default function ScannerRuntimePanel({ compact = false }: { compact?: boo
 			const body = await response.json();
 			if (!response.ok) throw new Error(body?.err || messages.SCANNER_INSTALL_FAILED);
 			setRuntime(body.runtime || null);
+			onRuntimeChange?.(body.runtime || null);
 			toast.success(
 				upgrade ? messages.SCANNER_UPGRADE : messages.SCANNER_STATUS_READY,
 				{ id: "scanner-install" }

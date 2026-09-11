@@ -2044,6 +2044,9 @@ components:
           $ref: '#/components/schemas/ScannerScanParams'
         report:
           $ref: '#/components/schemas/ScannerReportSummary'
+        cliVersion:
+          type: string
+          example: v0.1.8
 
     ScannerConnector:
       type: object

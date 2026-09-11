@@ -132,6 +132,10 @@ export default function ScannerWorkspace({
 	const openDelta = previousJob ? findingCount(selectedJob) - findingCount(previousJob) : null;
 	const mediumDelta = previousJob ? mediumPlusCount(selectedJob) - mediumPlusCount(previousJob) : null;
 	const params = selectedJob?.params;
+	const extras = selectedJob?.report?.extras;
+	const extraFlags = Object.entries(params?.extras || {})
+		.filter(([, value]) => value === true || (typeof value === "string" && value))
+		.map(([key, value]) => (value === true ? key : `${key}=${value}`));
 	const enabledFlags = [
 		params?.strict ? messages.SCANNER_FIELD_STRICT : "",
 		params?.secretScan ? messages.SCANNER_FIELD_SECRET_SCAN : "",
@@ -139,6 +143,7 @@ export default function ScannerWorkspace({
 		params?.licenseScan ? messages.SCANNER_FIELD_LICENSE_SCAN : "",
 		params?.noRulesUpdate ? messages.SCANNER_FIELD_NO_RULES_UPDATE : "",
 		params?.verbose ? messages.SCANNER_FIELD_VERBOSE : "",
+		...extraFlags,
 	].filter(Boolean);
 
 	return (
@@ -190,6 +195,7 @@ export default function ScannerWorkspace({
 								value={selectedJob?.exitCode != null ? String(selectedJob.exitCode) : undefined}
 							/>
 							<MetaPill label={messages.SCANNER_JOB_ID} value={selectedJob?.id} />
+							<MetaPill label={messages.SCANNER_CLI_VERSION} value={selectedJob?.cliVersion} />
 							<MetaPill label={messages.SCANNER_FIELD_REF} value={selectedJob?.ref} />
 							<MetaPill label={messages.SCANNER_RULES_SOURCE} value={params?.rulesSource || selectedJob?.report?.rulesSource} />
 							<MetaPill label={messages.SCANNER_RULES_VERSION} value={selectedJob?.report?.rulesVersion} />
@@ -199,6 +205,11 @@ export default function ScannerWorkspace({
 							<MetaPill label={messages.SCANNER_INVENTORY} value={inventoryLabel(messages, selectedJob)} />
 							<MetaPill label={messages.SCANNER_COVERAGE} value={coverageLabel(selectedJob)} />
 							<MetaPill label={messages.SCANNER_RUN_PARAMS_SCAN_SECTION} value={enabledFlags.join(" · ") || undefined} />
+							{extras
+								? Object.entries(extras).map(([key, value]) => (
+										<MetaPill key={key} label={key} value={value} />
+									))
+								: null}
 						</div>
 						{selectedJob?.report?.noAgentSurfaces ? (
 							<p className="text-[11px] text-muted-foreground">{messages.SCANNER_NO_AGENT_SURFACES}</p>
@@ -271,7 +282,9 @@ function JobsPane({
 								<div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
 									<span className="truncate font-mono">{job.ref || job.target}</span>
 									<span className="shrink-0 tabular-nums">
-										{findingCount(job)} · {formatDuration(job.durationMs)}
+										{[job.cliVersion, `${findingCount(job)} · ${formatDuration(job.durationMs)}`]
+											.filter(Boolean)
+											.join(" · ")}
 									</span>
 								</div>
 							</button>

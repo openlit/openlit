@@ -9,6 +9,7 @@
 
 import type { ConnectorHealthResult, ConnectorRuntime } from "../types";
 import type { AuthStyle, FieldDef } from "../datasource/types";
+import type { ScannerCliSchema } from "./cli-schema";
 
 export interface ScannerCapabilities {
 	install: boolean;
@@ -38,6 +39,7 @@ export interface ScannerFinding {
 	helpUrl?: string;
 	fix?: string;
 	confidence?: string;
+	extras?: Record<string, string>;
 }
 
 /** Resolved Trustabl `scan` flags persisted on the job (no secrets). */
@@ -53,6 +55,7 @@ export interface ScannerScanParams {
 	rulesSource?: string;
 	noRulesUpdate?: boolean;
 	verbose?: boolean;
+	extras?: Record<string, string | boolean>;
 }
 
 /** Per-run overrides. Missing fields fall back to connector defaults. */
@@ -82,6 +85,7 @@ export interface ScannerReportSummary {
 	filesParsed?: number;
 	filesSkipped?: number;
 	noAgentSurfaces?: boolean;
+	extras?: Record<string, string>;
 }
 
 export interface ScannerJob {
@@ -99,6 +103,8 @@ export interface ScannerJob {
 	findings?: ScannerFinding[];
 	params?: ScannerScanParams;
 	report?: ScannerReportSummary;
+	/** Trustabl CLI version used for this job, e.g. `v0.1.8`. */
+	cliVersion?: string;
 }
 
 export type ScannerRepoFindingsMatch = {
@@ -133,6 +139,7 @@ export interface ScannerRuntimeInfo {
 	binaryVersion?: string;
 	latestVersion?: string;
 	upgradeAvailable?: boolean;
+	schema?: ScannerCliSchema;
 }
 
 export interface ScannerSourceDescriptor {

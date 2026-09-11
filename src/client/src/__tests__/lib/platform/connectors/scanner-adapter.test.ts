@@ -13,6 +13,8 @@ jest.mock("@/lib/platform/connectors/scanner/runtime", () => ({
 		binaryVersion: "v0.1.8",
 	})),
 	resolveTrustablBinary: jest.fn(async () => ({ bin: "/opt/trustabl", source: "cache" })),
+	scannerCliVersionLabel: (runtime: { binaryVersion?: string; version?: string }) =>
+		runtime.binaryVersion || runtime.version,
 }));
 
 jest.mock("@/lib/platform/connectors/scanner/install", () => ({
@@ -81,6 +83,7 @@ describe("Trustabl adapter", () => {
 		expect(job.report?.overallScore).toBe(0.72);
 		expect(job.params?.rulesSource).toBe("production");
 		expect(job.params?.requireSigned).toBe(false);
+		expect(job.cliVersion).toBe("v0.1.8");
 	});
 
 	it("lets per-run flags override connector defaults", async () => {

@@ -92,6 +92,33 @@ describe("scanner report parsing", () => {
 		);
 	});
 
+	it("keeps unknown report and finding fields for newer CLI versions", () => {
+		const parsed = parseScannerReport(
+			JSON.stringify({
+				scan_id: "scan-2",
+				policy_pack: "agent-reliability-v2",
+				attested: true,
+				findings: [
+					{
+						rule_id: "SBOM-001",
+						severity: "low",
+						title: "Unpinned component",
+						purl: "pkg:npm/left-pad@1.3.0",
+					},
+				],
+			})
+		);
+		expect(parsed.report?.extras).toEqual(
+			expect.objectContaining({
+				policy_pack: "agent-reliability-v2",
+				attested: "true",
+			})
+		);
+		expect(parsed.findings[0].extras).toEqual(
+			expect.objectContaining({ purl: "pkg:npm/left-pad@1.3.0" })
+		);
+	});
+
 	it("returns no findings for empty or invalid stdout", () => {
 		expect(parseScannerReport("").findings).toEqual([]);
 		expect(parseScannerReport("not json").findings).toEqual([]);

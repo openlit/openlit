@@ -40,6 +40,83 @@ function confidenceText(value: unknown): string | undefined {
 	return clip(value) || undefined;
 }
 
+function extraFields(
+	row: Record<string, unknown>,
+	consumed: Set<string>
+): Record<string, string> | undefined {
+	const extras: Record<string, string> = {};
+	let count = 0;
+	for (const [key, value] of Object.entries(row)) {
+		if (consumed.has(key) || count >= 24) continue;
+		const rendered = renderExtra(value);
+		if (!rendered) continue;
+		extras[key] = rendered;
+		count += 1;
+	}
+	return count ? extras : undefined;
+}
+
+function renderExtra(value: unknown): string | undefined {
+	if (value == null) return undefined;
+	if (typeof value === "boolean" || typeof value === "number") return String(value).slice(0, 200);
+	if (typeof value === "string") return clip(value).slice(0, 200) || undefined;
+	if (Array.isArray(value)) {
+		if (!value.length) return undefined;
+		if (value.every((item) => typeof item === "string" || typeof item === "number")) {
+			return value
+				.slice(0, 8)
+				.map((item) => clip(item).slice(0, 80))
+				.filter(Boolean)
+				.join(", ");
+		}
+		return String(value.length);
+	}
+	const rec = asRecord(value);
+	if (rec && (typeof rec.name === "string" || typeof rec.id === "string")) {
+		return clip(rec.name || rec.id).slice(0, 200) || undefined;
+	}
+	return undefined;
+}
+
+const FINDING_CONSUMED = new Set([
+	"id",
+	"finding_id",
+	"rule_id",
+	"ruleId",
+	"rule",
+	"check_id",
+	"title",
+	"summary",
+	"message",
+	"explanation",
+	"description",
+	"severity",
+	"level",
+	"category",
+	"detector",
+	"kind",
+	"scope",
+	"tool_name",
+	"toolName",
+	"file_path",
+	"path",
+	"file",
+	"filename",
+	"start_line",
+	"line",
+	"end_line",
+	"location",
+	"region",
+	"help_url",
+	"helpUrl",
+	"docs_url",
+	"suggested_fix",
+	"fix",
+	"remediation",
+	"confidence",
+	"score",
+]);
+
 function normalizeFinding(value: unknown, index: number): ScannerFinding | null {
 	const row = asRecord(value);
 	if (!row) return null;
@@ -61,6 +138,7 @@ function normalizeFinding(value: unknown, index: number): ScannerFinding | null 
 	const endRaw = row.end_line ?? location.end_line ?? location.endLine;
 	const line = typeof lineRaw === "number" ? lineRaw : Number.parseInt(String(lineRaw || ""), 10);
 	const endLine = typeof endRaw === "number" ? endRaw : Number.parseInt(String(endRaw || ""), 10);
+	const extras = extraFields(row, FINDING_CONSUMED);
 	return {
 		id: findingId(row, index),
 		ruleId: ruleId || `UNKNOWN-${index + 1}`,
@@ -76,6 +154,7 @@ function normalizeFinding(value: unknown, index: number): ScannerFinding | null 
 		helpUrl: clip(row.help_url || row.helpUrl || row.docs_url) || undefined,
 		fix: clip(row.suggested_fix || row.fix || row.remediation) || undefined,
 		confidence: confidenceText(row.confidence ?? row.score),
+		extras,
 	};
 }
 
@@ -133,6 +212,40 @@ function parseReportSummary(value: unknown): ScannerReportSummary | undefined {
 			typeof coverage.files_skipped === "number" ? coverage.files_skipped : undefined,
 		noAgentSurfaces: row.no_agent_surfaces === true || undefined,
 	};
+	const consumed = new Set([
+		"findings",
+		"results",
+		"runs",
+		"coverage",
+		"scan_id",
+		"scanId",
+		"repo",
+		"overall_score",
+		"overallScore",
+		"rules_source",
+		"rulesSource",
+		"rules_version",
+		"rulesVersion",
+		"rules_from_cache",
+		"rulesFromCache",
+		"rules_stale",
+		"rulesStale",
+		"rules_origin",
+		"languages",
+		"sdks",
+		"sdks_detected",
+		"tools",
+		"agents",
+		"mcp_servers",
+		"mcpServers",
+		"skills",
+		"subagents",
+		"vulnerabilities",
+		"secrets",
+		"no_agent_surfaces",
+	]);
+	const extras = extraFields(row, consumed);
+	if (extras) summary.extras = extras;
 	return Object.values(summary).some((item) => item !== undefined) ? summary : undefined;
 }
 

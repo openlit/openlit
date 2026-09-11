@@ -2,6 +2,7 @@ import { access, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { SCANNER_RUNTIME_VERSION_FAILED } from "@/constants/messages/en";
+import { scannerCliSchemaFromHelp, type ScannerCliSchema } from "./cli-schema";
 import { getScannerProcessRunner } from "./process";
 import { compareScannerVersions, normalizeScannerVersion } from "./release";
 import type { ScannerRuntimeInfo } from "./types";
@@ -10,6 +11,8 @@ export const TRUSTABL_FALLBACK_VERSION = "v0.1.8";
 /** @deprecated Use TRUSTABL_FALLBACK_VERSION. Kept for adapter tests and descriptors. */
 export const TRUSTABL_PINNED_VERSION = TRUSTABL_FALLBACK_VERSION;
 const VERSION_TIMEOUT_MS = 20_000;
+const HELP_TIMEOUT_MS = 15_000;
+const schemaCache = new Map<string, ScannerCliSchema>();
 
 function cacheRoot(): string {
 	return (
@@ -73,6 +76,41 @@ export async function resolveTrustablBinary(
 	return { bin: fromPath, source: "path" };
 }
 
+export function __resetScannerCliSchemaCacheForTests(): void {
+	schemaCache.clear();
+}
+
+async function describeScanSchema(bin: string, version?: string | null): Promise<ScannerCliSchema | undefined> {
+	const cacheKey = `${bin}::${version || "unknown"}`;
+	const cached = schemaCache.get(cacheKey);
+	if (cached) return cached;
+	try {
+		const result = await getScannerProcessRunner().run({
+			bin,
+			argv: ["scan", "--help"],
+			env: process.env,
+			timeoutMs: HELP_TIMEOUT_MS,
+		});
+		let text = `${result.stdout || ""}\n${result.stderr || ""}`;
+		let schema = scannerCliSchemaFromHelp(text, version || undefined);
+		if (!schema.flags.length) {
+			const fallback = await getScannerProcessRunner().run({
+				bin,
+				argv: ["help", "scan"],
+				env: process.env,
+				timeoutMs: HELP_TIMEOUT_MS,
+			});
+			text = `${fallback.stdout || ""}\n${fallback.stderr || ""}`;
+			schema = scannerCliSchemaFromHelp(text, version || undefined);
+		}
+		if (!schema.flags.length) return undefined;
+		schemaCache.set(cacheKey, schema);
+		return schema;
+	} catch {
+		return undefined;
+	}
+}
+
 async function reportedVersion(bin: string): Promise<string | null> {
 	try {
 		const result = await getScannerProcessRunner().run({
@@ -109,6 +147,10 @@ export async function probeTrustablRuntime(latestTag?: string): Promise<ScannerR
 	}
 	const installedVersion = normalizeScannerVersion(reported);
 	const latest = normalizeScannerVersion(latestVersion);
+	const schema = await describeScanSchema(
+		resolved.bin,
+		resolved.binaryVersion || (installedVersion ? `v${installedVersion}` : reported)
+	);
 	return {
 		installed: true,
 		version: reported,
@@ -116,7 +158,19 @@ export async function probeTrustablRuntime(latestTag?: string): Promise<ScannerR
 		binaryVersion: resolved.binaryVersion || (installedVersion ? `v${installedVersion}` : undefined),
 		latestVersion,
 		upgradeAvailable: Boolean(latest) && compareScannerVersions(installedVersion, latest) < 0,
+		schema,
 	};
+}
+
+export function scannerCliVersionLabel(
+	runtime: Pick<ScannerRuntimeInfo, "version" | "binaryVersion">
+): string | undefined {
+	const fromBinary = normalizeScannerVersion(runtime.binaryVersion);
+	if (fromBinary) return `v${fromBinary}`;
+	const fromReported = normalizeScannerVersion(runtime.version);
+	if (fromReported) return `v${fromReported}`;
+	const raw = String(runtime.version || "").trim();
+	return raw || undefined;
 }
 
 export async function runTrustablVersion(version?: string): Promise<ScannerRuntimeInfo> {

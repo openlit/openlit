@@ -2537,6 +2537,7 @@ export const SCANNER_RUNTIME_SECTION = "Trustabl CLI";
 export const SCANNER_RUNTIME_SECTION_DESCRIPTION =
 	"The CLI runs on the OpenLIT server. Install it once, then scans use the cached binary.";
 export const SCANNER_VERSION_INSTALLED = "Installed";
+export const SCANNER_CLI_VERSION = "CLI";
 export const SCANNER_VERSION_LATEST = "Latest";
 export const SCANNER_VERSION_UNKNOWN = "Not installed";
 export const SCANNER_RUNTIME_CHECKING = "Checking CLI";
@@ -2620,6 +2621,15 @@ export const SCANNER_FIELD_VERBOSE = "Verbose diagnostics";
 export const SCANNER_FIELD_VERBOSE_HELP =
 	"Keep extra scanner diagnostics on failed jobs so you can see why a scan broke.";
 export const SCANNER_FIELD_GITHUB_TOKEN = "GitHub token";
+export const SCANNER_CLI_FLAG_LABEL = (flag: string) =>
+	flag
+		.split("-")
+		.filter(Boolean)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+export const SCANNER_CLI_FLAG_HELP = "This option is provided by the installed Trustabl CLI.";
+export const SCANNER_FINDING_EXTRA = "Additional fields";
+export const SCANNER_REPORT_EXTRA = "Report extras";
 export const SCANNER_AUTH_HELP_TRUSTABL =
 	"Default token for private repositories on every scan. Stored on the connector, not in ClickHouse.";
 export const SCANNER_DEFAULTS_SECTION = "Default scan parameters";

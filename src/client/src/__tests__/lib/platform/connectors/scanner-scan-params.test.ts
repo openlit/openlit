@@ -19,6 +19,19 @@ describe("scanner scan params", () => {
 		);
 	});
 
+	it("captures extra flags from a JSON body", () => {
+		expect(
+			parseScannerScanInput({
+				target: "https://github.com/acme/checkout-agent",
+				sbomScan: true,
+			})
+		).toEqual(
+			expect.objectContaining({
+				target: "https://github.com/acme/checkout-agent",
+				extras: { sbomScan: true },
+			})
+		);
+	});
 	it("uses per-run overrides over connector defaults and environment rules source", () => {
 		const params = resolveScannerScanParams(
 			{ detectors: "mcp", strict: true, rulesSource: "environment" },

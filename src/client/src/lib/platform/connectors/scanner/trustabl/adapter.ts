@@ -5,9 +5,10 @@ import { BaseScannerAdapter } from "../base-adapter";
 import { trustablConfigFields } from "../config-fields";
 import { getScannerProcessRunner } from "../process";
 import { newScannerJobId, parseScannerReport, formatScannerError } from "../report";
-import { TRUSTABL_PINNED_VERSION, probeTrustablRuntime, resolveTrustablBinary } from "../runtime";
+import { TRUSTABL_PINNED_VERSION, probeTrustablRuntime, resolveTrustablBinary, scannerCliVersionLabel } from "../runtime";
 import { describeTrustablRuntime, installTrustablCli } from "../install";
-import { compactScannerScanParams, resolveScannerScanParams } from "../scan-params";
+import type { ScannerCliSchema } from "../cli-schema";
+import { compactScannerScanParams, resolveScannerScanParams, buildScannerScanArgv } from "../scan-params";
 import {
 	normalizeScannerRef,
 	normalizeScannerTarget,
@@ -37,20 +38,12 @@ const TRUSTABL_CAPABILITIES: ScannerCapabilities = {
 
 const SCAN_TIMEOUT_MS = 8 * 60 * 1000;
 
-export function buildTrustablScanArgv(target: string, params: ScannerScanParams): string[] {
-	const argv = ["scan", target, "--format", "json", "--no-progress", "--no-color"];
-	if (params.detectors) argv.push("--detectors", params.detectors);
-	if (params.strict) argv.push("--strict");
-	if (params.secretScan) argv.push("--secret-scan");
-	if (params.vulnScan) argv.push("--vuln-scan");
-	if (params.licenseScan) argv.push("--license-scan");
-	if (params.rulesRepo) argv.push("--rules-repo", params.rulesRepo);
-	if (params.rulesRef) argv.push("--rules-ref", params.rulesRef);
-	if (params.rulesSource) argv.push("--rules-source", params.rulesSource);
-	if (params.requireSigned && params.rulesSource !== "git") argv.push("--require-signed");
-	if (params.noRulesUpdate) argv.push("--no-rules-update");
-	if (params.verbose) argv.push("--verbose");
-	return argv;
+export function buildTrustablScanArgv(
+	target: string,
+	params: ScannerScanParams,
+	schema?: ScannerCliSchema
+): string[] {
+	return buildScannerScanArgv(target, params, schema);
 }
 
 export class TrustablAdapter extends BaseScannerAdapter {
@@ -97,10 +90,11 @@ export class TrustablAdapter extends BaseScannerAdapter {
 			this.descriptor.settings,
 			this.descriptor.environment
 		);
-		const argv = buildTrustablScanArgv(cloneTarget, params);
 		const persistedParams = compactScannerScanParams(params);
 
 		const runtime = await probeTrustablRuntime();
+		const cliVersion = scannerCliVersionLabel(runtime);
+		const argv = buildTrustablScanArgv(cloneTarget, params, runtime.schema);
 		const resolved = runtime.installed ? await resolveTrustablBinary() : null;
 		if (!runtime.installed || !resolved) {
 			return {
@@ -109,6 +103,7 @@ export class TrustablAdapter extends BaseScannerAdapter {
 				target: cloneTarget,
 				ref,
 				params: persistedParams,
+				cliVersion,
 				startedAt: startedAt.toISOString(),
 				finishedAt: new Date().toISOString(),
 				error: SCANNER_RUNTIME_NOT_INSTALLED,
@@ -147,6 +142,7 @@ export class TrustablAdapter extends BaseScannerAdapter {
 				target: cloneTarget,
 				ref,
 				params: persistedParams,
+				cliVersion,
 				startedAt: startedAt.toISOString(),
 				finishedAt: finishedAt.toISOString(),
 				durationMs: finishedAt.getTime() - startedAt.getTime(),
@@ -176,6 +172,7 @@ export class TrustablAdapter extends BaseScannerAdapter {
 			mediumPlusCount: parsed.mediumPlusCount,
 			findings: parsed.findings,
 			report: parsed.report,
+			cliVersion,
 		};
 	}
 }

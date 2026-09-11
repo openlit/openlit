@@ -96,6 +96,7 @@ export default function ScannerFindingSheet({
 			confidence: finding.confidence,
 			job: job?.id,
 			target: job?.target,
+			...(finding.extras || {}),
 		};
 	}, [finding, job?.id, job?.target, location]);
 
@@ -137,6 +138,7 @@ export default function ScannerFindingSheet({
 									<MetaPill label={messages.SCANNER_PATH} value={location || undefined} />
 									<MetaPill label={messages.SCANNER_TOOL_NAME} value={finding.toolName} />
 									<MetaPill label={messages.SCANNER_JOB_ID} value={job?.id} />
+									<MetaPill label={messages.SCANNER_CLI_VERSION} value={job?.cliVersion} />
 									<MetaPill label={messages.SCANNER_TARGET} value={job?.target} />
 								</div>
 							</div>

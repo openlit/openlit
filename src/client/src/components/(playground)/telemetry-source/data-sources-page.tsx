@@ -54,6 +54,9 @@ import FeatureAccess from "@/components/rbac/feature-access";
 import ScannerRuntimePanel from "@/components/(playground)/scanner/scanner-runtime-panel";
 
 import type { FieldDef } from "@/lib/platform/connectors/datasource/types";
+import { trustablConfigFields } from "@/lib/platform/connectors/scanner/config-fields";
+import type { ScannerCliSchema } from "@/lib/platform/connectors/scanner/cli-schema";
+import type { ScannerRuntimeInfo } from "@/lib/platform/connectors/scanner/types";
 import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import { getCurrentProjectEnvironment } from "@/selectors/project";
@@ -1099,6 +1102,10 @@ export function SourceFormDialog({
 	const [values, setValues] = useState<Record<string, string | boolean>>({});
 	const [saving, setSaving] = useState(false);
 	const [testing, setTesting] = useState(false);
+	const [cliSchema, setCliSchema] = useState<ScannerCliSchema | undefined>();
+	const handleRuntimeChange = useCallback((runtime: ScannerRuntimeInfo | null) => {
+		setCliSchema(runtime?.schema);
+	}, []);
 
 	useEffect(() => {
 		fetch("/api/project/environment")
@@ -1108,8 +1115,12 @@ export function SourceFormDialog({
 	}, [environment]);
 
 	const fields = useMemo(
-		() => type === "clickhouse" ? clickHouseFields : fieldsForType(descriptors, type),
-		[clickHouseFields, descriptors, type]
+		() => {
+			if (type === "clickhouse") return clickHouseFields;
+			if (type === "trustabl" && cliSchema) return trustablConfigFields(cliSchema);
+			return fieldsForType(descriptors, type);
+		},
+		[clickHouseFields, cliSchema, descriptors, type]
 	);
 
 	// Seed defaults + stored settings whenever the type (or source) changes.
@@ -1366,7 +1377,9 @@ export function SourceFormDialog({
 						</details>
 					)}
 
-					{activeDescriptor?.category === "scanner" ? <ScannerRuntimePanel /> : null}
+					{activeDescriptor?.category === "scanner" ? (
+						<ScannerRuntimePanel onRuntimeChange={handleRuntimeChange} />
+					) : null}
 
 					<section className="space-y-3 rounded-lg border border-stone-200 p-4 dark:border-stone-800">
 						<div>
