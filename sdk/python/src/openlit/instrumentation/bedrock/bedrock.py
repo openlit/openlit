@@ -178,6 +178,7 @@ def converse_stream(
             self._server_address = server_address
             self._server_port = server_port
             self._event_provider = event_provider
+            self._streaming_response_processed = False
 
         def __enter__(self):
             if hasattr(self.__wrapped_stream, "__enter__"):
@@ -185,8 +186,17 @@ def converse_stream(
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
-            if hasattr(self.__wrapped_stream, "__exit__"):
-                self.__wrapped_stream.__exit__(exc_type, exc_value, traceback)
+            try:
+                if hasattr(self.__wrapped_stream, "__exit__"):
+                    self.__wrapped_stream.__exit__(exc_type, exc_value, traceback)
+            finally:
+                # Finalize on every exit: a break before exhaustion never
+                # hits StopIteration, so the span would leak otherwise. Also
+                # finalize on exception exits (exc_type set) — the flag in
+                # _finalize_streaming_span keeps a double call a no-op, so the
+                # span is still exported even when the caller aborts the
+                # with-block with an error that never reaches StopIteration.
+                self._finalize_streaming_span()
 
         def __iter__(self):
             return self
@@ -213,24 +223,42 @@ def converse_stream(
                 process_chunk(self, chunk)
                 return chunk
             except StopIteration:
-                try:
-                    with self._span:
-                        process_streaming_chat_response(
-                            self,
-                            pricing_info=pricing_info,
-                            environment=environment,
-                            application_name=application_name,
-                            metrics=metrics,
-                            capture_message_content=capture_message_content,
-                            disable_metrics=disable_metrics,
-                            version=version,
-                            event_provider=self._event_provider,
-                        )
-
-                except Exception as e:
-                    handle_exception(self._span, e)
-
+                self._finalize_streaming_span()
                 raise
+
+        def _finalize_streaming_span(self):
+            """Complete and end the span exactly once.
+
+            Called on stream exhaustion and again from close()/manager exit;
+            the flag keeps the double call a no-op so early exits that never
+            see StopIteration still export the span instead of leaking it.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            try:
+                with self._span:
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=self._event_provider,
+                    )
+            except Exception as e:
+                handle_exception(self._span, e)
+
+        def close(self):
+            """Close the wrapped stream and finalize the span if not ended."""
+            try:
+                if hasattr(self.__wrapped_stream, "close"):
+                    self.__wrapped_stream.close()
+            finally:
+                self._finalize_streaming_span()
 
     def wrapper(wrapped, instance, args, kwargs):
         """
