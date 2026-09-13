@@ -5,7 +5,7 @@ import { BaseExternalAdapter } from "../base-adapter";
 import type { TelemetrySourceDescriptor } from "../types";
 import { applyHttpAuthCredentials } from "../http/auth-headers";
 import { normalizeDatasourceEndpointUrl, rewriteLoopbackEndpointForDocker } from "../http/endpoint-url";
-import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
+import { resolveSourceSecret, redactableSecretValues, httpAuthNeedsVault } from "../http/secret";
 import { safeFetch, selfHostedNetworkOptions, SourceResponseError } from "../http/safe-fetch";
 
 const AUTH_TTL_MS = 30_000;
@@ -31,27 +31,71 @@ export abstract class OpenPlaitHttpAdapter extends BaseExternalAdapter {
 		return Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
 	}
 
+	/** Grafana LGTM uses X-Scope-OrgID; Victoria backends use AccountID. */
+	protected tenantHeader(): "X-Scope-OrgID" | "AccountID" {
+		return "X-Scope-OrgID";
+	}
+
+	/**
+	 * Extra auth headers from settings. `tenantProject` maps to Victoria
+	 * `ProjectID` and must not reuse `descriptor.projectId` (OpenLIT project).
+	 */
+	protected extraAuthHeaders(): Record<string, string> {
+		const tenantProject = String(this.descriptor.settings.tenantProject || "").trim();
+		return tenantProject ? { ProjectID: tenantProject } : {};
+	}
+
+	private httpAuthType(): string {
+		return String(this.descriptor.settings.authType || "none").trim().toLowerCase();
+	}
+
 	private async auth() {
 		if (this.authCache && this.authCache.expiresAt > Date.now()) return this.authCache;
-		const secret = await resolveSourceSecret(this.descriptor.secretRef, this.descriptor.dbConfigId, this.descriptor.projectId);
-		const headers = applyHttpAuthCredentials(secret.credentials, {
-			authType: this.descriptor.settings.authType as string | undefined,
-			tenantHeader: "X-Scope-OrgID",
-		});
+		const authType = this.httpAuthType();
+		let secret: Awaited<ReturnType<typeof resolveSourceSecret>> = {
+			raw: "",
+			credentials: {},
+		};
+		if (httpAuthNeedsVault(authType)) {
+			secret = await resolveSourceSecret(
+				this.descriptor.secretRef,
+				this.descriptor.dbConfigId,
+				this.descriptor.projectId
+			);
+		}
+		const headers = {
+			...applyHttpAuthCredentials(secret.credentials, {
+				authType: this.descriptor.settings.authType as string | undefined,
+				tenantHeader: this.tenantHeader(),
+				tenant: String(this.descriptor.settings.tenant || ""),
+			}),
+			...this.extraAuthHeaders(),
+		};
 		this.authCache = { expiresAt: Date.now() + AUTH_TTL_MS, headers, redact: redactableSecretValues(secret) };
 		return this.authCache;
 	}
 
 	protected async openPlaitConnection(): Promise<{ headers: Record<string, string>; fetch: typeof fetch }> {
-		const { headers, redact } = await this.auth();
+		const { headers: authHeaders, redact } = await this.auth();
 		const network = selfHostedNetworkOptions(this.descriptor.settings);
 		const sourceId = this.descriptor.id;
 		const guarded = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
 			const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+			const body = typeof init?.body === "string" ? init.body : undefined;
+			const raw = init?.headers;
+			const requestHeaders = {
+				...(raw instanceof Headers
+					? Object.fromEntries(raw.entries())
+					: Array.isArray(raw)
+						? Object.fromEntries(raw)
+						: { ...(raw || {}) }),
+				...authHeaders,
+			};
 			try {
 				const payload = await safeFetch<unknown>(url, {
 					method: init?.method || "GET",
-					headers: Object.fromEntries(new Headers(init?.headers).entries()),
+					headers: requestHeaders,
+					body,
 					...network,
 					redactValues: redact,
 					timeoutMs: 15_000,
@@ -65,7 +109,8 @@ export abstract class OpenPlaitHttpAdapter extends BaseExternalAdapter {
 					statusText: "OK",
 					headers: new Headers({ "Content-Type": "application/json" }),
 					json: async () => payload,
-					text: async () => JSON.stringify(payload),
+					text: async () =>
+						typeof payload === "string" ? payload : JSON.stringify(payload),
 				} as Response;
 			} catch (error) {
 				if (error instanceof SourceResponseError) return {
@@ -79,7 +124,7 @@ export abstract class OpenPlaitHttpAdapter extends BaseExternalAdapter {
 				throw error;
 			}
 		}) as typeof fetch;
-		return { headers, fetch: guarded };
+		return { headers: authHeaders, fetch: guarded };
 	}
 
 	protected async executeNative(

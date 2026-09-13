@@ -19,6 +19,10 @@ jest.mock("@/lib/platform/connectors/datasource/http/safe-fetch", () => ({
 jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 	resolveSourceSecret: jest.fn().mockResolvedValue({ raw: "", credentials: {} }),
 	redactableSecretValues: () => [],
+	httpAuthNeedsVault: (authType: unknown) => {
+		const type = String(authType || "none").trim().toLowerCase();
+		return type === "basic" || type === "bearer";
+	},
 }));
 jest.mock("@/utils/log", () => ({ consoleLog: jest.fn() }));
 

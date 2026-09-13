@@ -275,6 +275,11 @@ export interface FieldDef {
 	kind: "text" | "password" | "url" | "switch" | "select";
 	group: FieldGroup;
 	placeholder?: string;
+	/**
+	 * When true, a settings field is shown in Authentication (not the
+	 * connection settings list). Used for `authType` and tenant/org id.
+	 */
+	authentication?: boolean;
 	/** Optional help text shown under the control. */
 	description?: string;
 	options?: { value: string; label: string }[];
