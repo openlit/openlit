@@ -1,6 +1,7 @@
 """Initializer of Auto Instrumentation of Together AI Functions"""
 
-from typing import Collection
+from typing import Collection, Sequence
+import importlib
 import importlib.metadata
 from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
@@ -14,6 +15,38 @@ from openlit.instrumentation.together.async_together import (
 )
 
 _instruments = ("together >= 1.3.5",)
+
+# together 2.0 renamed every resource class this instrumentor wraps. The 2.x
+# name comes first, the 1.x name second, so both layouts stay instrumented
+# across the ">= 1.3.5" range declared above.
+CHAT_CLASSES = ("CompletionsResource", "ChatCompletions")
+ASYNC_CHAT_CLASSES = ("AsyncCompletionsResource", "AsyncChatCompletions")
+IMAGE_CLASSES = ("ImagesResource", "Images")
+ASYNC_IMAGE_CLASSES = ("AsyncImagesResource", "AsyncImages")
+
+
+def _wrap_first_present(
+    module_path: str, class_names: Sequence[str], method: str, wrapper
+) -> bool:
+    """Wrap ``<class>.<method>`` for the first class name present on the module.
+
+    ``wrap_function_wrapper`` resolves the target eagerly, so naming a class
+    that no longer exists raises ``PathResolutionError`` and aborts the rest of
+    ``_instrument``. Resolving the name here keeps the instrumentor working
+    across renames, and skips quietly when no candidate matches.
+
+    Returns True when a target was wrapped.
+    """
+    try:
+        module = importlib.import_module(module_path)
+    except ImportError:
+        return False
+
+    for class_name in class_names:
+        if getattr(module, class_name, None) is not None:
+            wrap_function_wrapper(module_path, f"{class_name}.{method}", wrapper)
+            return True
+    return False
 
 
 class TogetherInstrumentor(BaseInstrumentor):
@@ -34,68 +67,43 @@ class TogetherInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("together")
 
-        # Chat completions
-        wrap_function_wrapper(
-            "together.resources.chat.completions",
-            "ChatCompletions.create",
-            completion(
-                version,
-                environment,
-                application_name,
-                tracer,
-                pricing_info,
-                capture_message_content,
-                metrics,
-                disable_metrics,
-            ),
-        )
-
-        # Image generate
-        wrap_function_wrapper(
-            "together.resources.images",
-            "Images.generate",
-            image_generate(
-                version,
-                environment,
-                application_name,
-                tracer,
-                pricing_info,
-                capture_message_content,
-                metrics,
-                disable_metrics,
-            ),
+        args = (
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
         )
 
         # Chat completions
-        wrap_function_wrapper(
+        _wrap_first_present(
             "together.resources.chat.completions",
-            "AsyncChatCompletions.create",
-            async_completion(
-                version,
-                environment,
-                application_name,
-                tracer,
-                pricing_info,
-                capture_message_content,
-                metrics,
-                disable_metrics,
-            ),
+            CHAT_CLASSES,
+            "create",
+            completion(*args),
+        )
+        _wrap_first_present(
+            "together.resources.chat.completions",
+            ASYNC_CHAT_CLASSES,
+            "create",
+            async_completion(*args),
         )
 
         # Image generate
-        wrap_function_wrapper(
+        _wrap_first_present(
             "together.resources.images",
-            "AsyncImages.generate",
-            async_image_generate(
-                version,
-                environment,
-                application_name,
-                tracer,
-                pricing_info,
-                capture_message_content,
-                metrics,
-                disable_metrics,
-            ),
+            IMAGE_CLASSES,
+            "generate",
+            image_generate(*args),
+        )
+        _wrap_first_present(
+            "together.resources.images",
+            ASYNC_IMAGE_CLASSES,
+            "generate",
+            async_image_generate(*args),
         )
 
     def _uninstrument(self, **kwargs):
