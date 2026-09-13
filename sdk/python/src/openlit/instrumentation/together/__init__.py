@@ -28,12 +28,16 @@ ASYNC_IMAGE_CLASSES = ("AsyncImagesResource", "AsyncImages")
 def _wrap_first_present(
     module_path: str, class_names: Sequence[str], method: str, wrapper
 ) -> bool:
-    """Wrap ``<class>.<method>`` for the first class name present on the module.
+    """Wrap ``<class>.<method>`` for the first candidate that provides it.
 
     ``wrap_function_wrapper`` resolves the target eagerly, so naming a class
     that no longer exists raises ``PathResolutionError`` and aborts the rest of
     ``_instrument``. Resolving the name here keeps the instrumentor working
     across renames, and skips quietly when no candidate matches.
+
+    A candidate must carry ``method`` to be chosen: during a partial rename a
+    release can expose both class names while only one still implements it, and
+    picking on class name alone would raise exactly the error this avoids.
 
     Returns True when a target was wrapped.
     """
@@ -43,7 +47,8 @@ def _wrap_first_present(
         return False
 
     for class_name in class_names:
-        if getattr(module, class_name, None) is not None:
+        candidate = getattr(module, class_name, None)
+        if candidate is not None and hasattr(candidate, method):
             wrap_function_wrapper(module_path, f"{class_name}.{method}", wrapper)
             return True
     return False

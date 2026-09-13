@@ -76,6 +76,73 @@ def test_wrap_first_present_tolerates_a_missing_module():
     )
 
 
+def test_wrap_first_present_skips_a_candidate_that_lacks_the_method():
+    """A class present without the method must not be chosen.
+
+    During a partial rename a release can expose both names while only one
+    still implements the method; picking on class name alone would raise the
+    PathResolutionError this helper exists to avoid.
+    """
+    calls = []
+
+    class Stub:
+        pass
+
+    module = importlib.import_module(CHAT_MODULE)
+    module.StubWithoutCreate = Stub
+    try:
+        wrapped = _wrap_first_present(
+            CHAT_MODULE,
+            ("StubWithoutCreate",) + tuple(CHAT_CLASSES),
+            "create",
+            lambda *a: calls.append(a),
+        )
+    finally:
+        delattr(module, "StubWithoutCreate")
+
+    assert wrapped is True
+
+
+def test_instrument_binds_every_target(monkeypatch):
+    """Guards the wiring, not just the constants.
+
+    Without this, an _instrument() reverted to stale hardcoded targets still
+    passes every other test in this file while Together goes untraced.
+    """
+    from openlit._config import OpenlitConfig
+    from openlit.instrumentation import together as together_module
+
+    # normally populated by openlit.init(); not needed to check the wiring
+    monkeypatch.setattr(OpenlitConfig, "metrics_dict", {}, raising=False)
+
+    wrapped = []
+    monkeypatch.setattr(
+        together_module,
+        "wrap_function_wrapper",
+        lambda module_path, class_method, _wrapper: wrapped.append(
+            (module_path, class_method)
+        ),
+    )
+
+    TogetherInstrumentor()._instrument()
+
+    assert len(wrapped) == 4, f"expected 4 wrapped targets, got {wrapped}"
+
+    modules = {module_path for module_path, _ in wrapped}
+    assert modules == {CHAT_MODULE, IMAGE_MODULE}
+
+    methods = sorted(class_method.split(".", 1)[1] for _, class_method in wrapped)
+    assert methods == ["create", "create", "generate", "generate"]
+
+    # every wrapped path must resolve on the installed together
+    for module_path, class_method in wrapped:
+        module = importlib.import_module(module_path)
+        class_name, method = class_method.split(".", 1)
+        resolved = getattr(module, class_name, None)
+        assert resolved is not None, f"{class_method} does not exist on {module_path}"
+        assert hasattr(resolved, method), f"{class_name} has no .{method}()"
+
+
 def test_instrumentation_dependencies_declared():
     assert any(
         "together" in dep
