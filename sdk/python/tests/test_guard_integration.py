@@ -88,6 +88,7 @@ class TestExtractors:
 
 def test_guarded_methods_include_mistral_v1_and_v2_sdk_layouts():
     """Mistral SDK 1.x and 2.x expose chat under different modules."""
+
     def has_guarded_method(module_path, class_method):
         return any(
             method[0] == module_path and method[1] == class_method

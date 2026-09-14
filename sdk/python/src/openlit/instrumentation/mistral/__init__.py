@@ -7,7 +7,6 @@ from opentelemetry import _logs
 from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
-from wrapt.exceptions import TargetModuleNotFoundError
 
 from openlit._config import OpenlitConfig
 from openlit.instrumentation.mistral.mistral import complete, stream, embed
@@ -21,17 +20,26 @@ _instruments = ("mistralai >= 1.0.0",)
 
 logger = logging.getLogger(__name__)
 
+# 1.x keeps chat/embeddings at the package root. 2.x moved them under
+# mistralai.client. Both layouts expose the same class and method names.
 _CHAT_MODULES = ("mistralai.chat", "mistralai.client.chat")
 _EMBEDDINGS_MODULES = ("mistralai.embeddings", "mistralai.client.embeddings")
 
 
 def _safe_wrap(module, class_method, wrapper):
-    """Wrap a function, skipping SDK module layouts that are not installed."""
+    """Wrap a function, skipping SDK module layouts that are not installed.
+
+    wrapt 2.x imports the target module immediately, so wrapping the 1.x
+    path on mistralai 2.x (and vice versa) raises ``ModuleNotFoundError``.
+    wrapt 2.4+ wraps that as ``TargetModuleNotFoundError``, a
+    ``ModuleNotFoundError`` subclass, so catching the base exception covers
+    both. wrapt 1.x registers a post-import hook instead and does not raise.
+    """
     try:
         wrap_function_wrapper(module, class_method, wrapper)
-    except (ModuleNotFoundError, TargetModuleNotFoundError, AttributeError):
+    except (ModuleNotFoundError, AttributeError):
         logger.debug(
-            "Skipping %s.%s — not available in this mistralai version",
+            "Skipping %s.%s - not available in this mistralai version",
             module,
             class_method,
         )
