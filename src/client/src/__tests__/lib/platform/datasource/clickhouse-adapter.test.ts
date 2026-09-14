@@ -346,6 +346,18 @@ describe("ClickHouseAdapter", () => {
 		expect(sql).toContain("ResourceAttributes['deployment.environment'] AS g0");
 	});
 
+	it("aggregateSpans coalesces gen_ai.provider.name with legacy gen_ai.system", async () => {
+		mockDataCollector.mockResolvedValue({ data: [] });
+		await adapter.aggregateSpans({
+			...baseQuery,
+			groupBy: ["gen_ai.provider.name"],
+		});
+		const sql = (mockDataCollector.mock.calls[0][0] as { query: string }).query;
+		expect(sql).toContain("SpanAttributes['gen_ai.provider.name']");
+		expect(sql).toContain("SpanAttributes['gen_ai.system']");
+		expect(sql).toContain("coalesce");
+	});
+
 	it("aggregateSpans resolves the duration field to seconds", async () => {
 		mockDataCollector.mockResolvedValue({ data: [] });
 		await adapter.aggregateSpans({
@@ -355,7 +367,8 @@ describe("ClickHouseAdapter", () => {
 		});
 		const sql = (mockDataCollector.mock.calls[0][0] as { query: string }).query;
 		expect(sql).toContain("Duration / 1000000000 AS g0");
-		expect(sql).toContain("avg(toFloat64OrZero(Duration / 1000000000)) AS avgDur");
+		expect(sql).toContain("avg(Duration / 1000000000) AS avgDur");
+		expect(sql).not.toContain("toFloat64OrZero(Duration / 1000000000)");
 	});
 
 	it("aggregateSpans resolves plain allowed field names (SpanName/ServiceName/Duration)", async () => {

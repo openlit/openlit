@@ -1,12 +1,16 @@
-import crypto from "crypto";
-
+/**
+ * Cron route auth. This module is imported by Edge middleware, so it must not
+ * use Node.js `crypto` or `Buffer`.
+ */
 function timingSafeEqualString(a: string, b: string): boolean {
-	const aBuf = Buffer.from(a);
-	const bBuf = Buffer.from(b);
-	if (aBuf.length !== bBuf.length) {
+	if (a.length !== b.length) {
 		return false;
 	}
-	return crypto.timingSafeEqual(aBuf, bBuf);
+	let mismatch = 0;
+	for (let i = 0; i < a.length; i++) {
+		mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	}
+	return mismatch === 0;
 }
 
 /**

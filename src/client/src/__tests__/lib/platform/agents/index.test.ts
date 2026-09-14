@@ -519,6 +519,47 @@ describe("listAgents", () => {
 		expect(result.data[0].coding_commit_count_24h).toBe(2);
 	});
 
+	it("surfaces live coding discovery when the summary table has no coding rows", async () => {
+		mockedDataCollector
+			.mockResolvedValueOnce({ data: [] })
+			.mockResolvedValueOnce({
+				data: [
+					{
+						vendor: "cursor",
+						client_version: "1.0.0",
+						first_seen: "2026-05-11 20:00:00",
+						last_seen: "2026-05-11 22:30:00",
+						session_count_24h: 4,
+						cost_usd_24h: 0.5,
+						active_users_24h: 2,
+						lines_added_24h: 3,
+						lines_removed_24h: 1,
+						lines_accepted_24h: 2,
+						lines_rejected_24h: 0,
+						edit_accept_24h: 1,
+						edit_reject_24h: 0,
+						commit_count_24h: 1,
+						pr_count_24h: 0,
+					},
+				],
+			});
+
+		const result = await listAgents({
+			filters: { source: ["coding"] },
+			timeStart: "2026-05-11 00:00:00",
+			timeEnd: "2026-05-11 23:59:59",
+		});
+
+		expect(result.data).toHaveLength(1);
+		expect(result.data[0].source).toBe("coding");
+		expect(result.data[0].service_name).toBe("cursor");
+		expect(result.data[0].coding_session_count_24h).toBe(4);
+		expect(result.data[0].coding_cost_usd_24h).toBe(0.5);
+		expect(result.data[0].agent_key).toBe(
+			computeAgentKey("coding", "default", "cursor")
+		);
+	});
+
 	it("swallows coding overlay failures without failing the list", async () => {
 		mockedDataCollector
 			.mockResolvedValueOnce({

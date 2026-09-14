@@ -3,6 +3,7 @@ package export
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -10,6 +11,8 @@ import (
 
 	gpuebpf "github.com/openlit/openlit/opentelemetry-gpu-collector/internal/ebpf"
 )
+
+func testPID() uint32 { return uint32(os.Getpid()) }
 
 func newTestSpanFanout(t *testing.T) (*SpanFanout, *metric.ManualReader, func()) {
 	t.Helper()
@@ -25,6 +28,7 @@ func newTestSpanFanout(t *testing.T) (*SpanFanout, *metric.ManualReader, func())
 	}
 	return NewSpanFanout(em, occ), reader, func() {
 		occ.Close()
+		em.Close()
 		_ = provider.Shutdown(context.Background())
 	}
 }
@@ -34,14 +38,14 @@ func TestKernelDurationLaunchToSync(t *testing.T) {
 	defer cleanup()
 
 	launch := &gpuebpf.KernelLaunchEvent{KernelName: "matmul"}
-	launch.PID = 10
+	launch.PID = testPID()
 	launch.TID = 11
 	launch.StreamID = 7
 	launch.KtimeNs = 1_000_000_000
 	fanout.HandleEvent(launch)
 
 	sync := &gpuebpf.SyncEvent{}
-	sync.PID = 10
+	sync.PID = testPID()
 	sync.TID = 11
 	sync.StreamID = 7
 	sync.KtimeNs = 1_500_000_000
@@ -82,14 +86,14 @@ func TestGraphDurationLaunchToSync(t *testing.T) {
 	defer cleanup()
 
 	launch := &gpuebpf.GraphLaunchEvent{}
-	launch.PID = 10
+	launch.PID = testPID()
 	launch.TID = 11
 	launch.StreamID = 7
 	launch.KtimeNs = 1_000_000_000
 	fanout.HandleEvent(launch)
 
 	sync := &gpuebpf.SyncEvent{}
-	sync.PID = 10
+	sync.PID = testPID()
 	sync.TID = 11
 	sync.StreamID = 7
 	sync.KtimeNs = 1_500_000_000
@@ -160,14 +164,14 @@ func TestKernelDurationSkipsInvertedWindow(t *testing.T) {
 	defer cleanup()
 
 	launch := &gpuebpf.KernelLaunchEvent{KernelName: "late"}
-	launch.PID = 1
+	launch.PID = testPID()
 	launch.TID = 1
 	launch.StreamID = 1
 	launch.KtimeNs = 2_000_000_000
 	fanout.HandleEvent(launch)
 
 	sync := &gpuebpf.SyncEvent{}
-	sync.PID = 1
+	sync.PID = testPID()
 	sync.TID = 1
 	sync.StreamID = 1
 	sync.KtimeNs = 1_000_000_000

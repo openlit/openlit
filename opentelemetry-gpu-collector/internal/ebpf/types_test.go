@@ -69,6 +69,15 @@ func TestMemcpyKindString(t *testing.T) {
 	}
 }
 
+func TestDeviceIndexUnknown(t *testing.T) {
+	if DeviceIndex(DeviceIdxUnknown) != -1 {
+		t.Fatalf("unknown should be -1")
+	}
+	if DeviceIndex(0) != 0 || DeviceIndex(1) != 1 {
+		t.Fatal("known indices should pass through")
+	}
+}
+
 func TestCUDAEventInterface(t *testing.T) {
 	// Verify all event types satisfy the CUDAEvent interface at compile time.
 	var _ CUDAEvent = (*KernelLaunchEvent)(nil)

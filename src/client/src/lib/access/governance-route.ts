@@ -2,7 +2,7 @@
  * CE fallback for governance route protection and audit hooks.
  * Enterprise replaces this neutral module through its path aliases.
  */
-export type GovernanceAction = "read";
+export type GovernanceAction = "read" | "export";
 
 export function withGovernanceAccess<THandler>(
 	_action: GovernanceAction,
