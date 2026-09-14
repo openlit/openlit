@@ -4,6 +4,7 @@ import {
 	buildAITelemetrySelector,
 	evalOperationClauseToClickHouse,
 	operationTypeClauseToClickHouse,
+	type AITelemetrySelector,
 } from "@/lib/platform/connectors/datasource/ai-selector";
 import { CODING_AGENT_SPAN_NAMES } from "@/lib/platform/coding-agents/table-details";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
@@ -144,6 +145,159 @@ describe("AI telemetry selector", () => {
 			SUPPORTED_EVALUATION_OPERATIONS.forEach((op) => {
 				expect(clause).toContain(`'${op}'`);
 			});
+		});
+	});
+
+	describe("conditionToClickHouse via custom selectors (session-2 branch coverage)", () => {
+		it("maps the log and metric attribute scopes to their ClickHouse columns", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [
+					{ allOf: [{ target: "attribute", scope: "log", key: "k1", op: "exists" }] },
+					{
+						allOf: [
+							{ target: "attribute", scope: "metric", key: "k2", op: "exists" },
+						],
+					},
+				],
+			};
+			const sql = aiSelectorToClickHouse(selector);
+			expect(sql).toContain("notEmpty(LogAttributes['k1'])");
+			expect(sql).toContain("notEmpty(Attributes['k2'])");
+		});
+
+		it("translates a spanName 'eq' condition with a string value", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [
+					{ allOf: [{ target: "spanName", op: "eq", value: "chat completion" }] },
+				],
+			};
+			const sql = aiSelectorToClickHouse(selector);
+			expect(sql).toBe("(SpanName = 'chat completion')");
+		});
+
+		it("throws for a spanName condition with an unsupported op", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [
+					{
+						allOf: [
+							{ target: "spanName", op: "exists" as unknown as "eq" },
+						],
+					},
+				],
+			};
+			expect(() => aiSelectorToClickHouse(selector)).toThrow(
+				"Unsupported spanName op: exists"
+			);
+		});
+
+		it("throws for a spanName 'eq' condition whose value isn't a string", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [
+					{ allOf: [{ target: "spanName", op: "eq", value: ["a", "b"] }] },
+				],
+			};
+			expect(() => aiSelectorToClickHouse(selector)).toThrow(
+				"Unsupported spanName op: eq"
+			);
+		});
+
+		it("throws for a spanName 'in' condition whose value isn't an array", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [{ allOf: [{ target: "spanName", op: "in", value: "solo" }] }],
+			};
+			expect(() => aiSelectorToClickHouse(selector)).toThrow(
+				"Unsupported spanName op: in"
+			);
+		});
+
+		it("translates an attribute 'in' condition with an array value to an IN clause", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [
+					{
+						allOf: [
+							{
+								target: "attribute",
+								scope: "span",
+								key: "gen_ai.system",
+								op: "in",
+								value: ["openai", "anthropic"],
+							},
+						],
+					},
+				],
+			};
+			const sql = aiSelectorToClickHouse(selector);
+			expect(sql).toContain(
+				"SpanAttributes['gen_ai.system'] IN ('openai', 'anthropic')"
+			);
+		});
+
+		it("translates an attribute 'in' condition with a scalar (non-array) value", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [
+					{
+						allOf: [
+							{
+								target: "attribute",
+								scope: "span",
+								key: "gen_ai.system",
+								op: "in",
+								value: "openai",
+							},
+						],
+					},
+				],
+			};
+			const sql = aiSelectorToClickHouse(selector);
+			expect(sql).toContain("SpanAttributes['gen_ai.system'] IN ('openai')");
+		});
+
+		it("defaults the attribute key to an empty string when none is provided", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [{ allOf: [{ target: "attribute", scope: "span", op: "exists" }] }],
+			};
+			const sql = aiSelectorToClickHouse(selector);
+			expect(sql).toContain("notEmpty(SpanAttributes[''])");
+		});
+
+		it("defaults an attribute 'eq' condition's value to an empty string when none is provided", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [
+					{ allOf: [{ target: "attribute", scope: "span", key: "k", op: "eq" }] },
+				],
+			};
+			const sql = aiSelectorToClickHouse(selector);
+			expect(sql).toContain("SpanAttributes['k'] = ''");
+		});
+
+		it("defaults an attribute 'in' condition's scalar value to an empty string when none is provided", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [
+					{ allOf: [{ target: "attribute", scope: "span", key: "k", op: "in" }] },
+				],
+			};
+			const sql = aiSelectorToClickHouse(selector);
+			expect(sql).toContain("SpanAttributes['k'] IN ('')");
+		});
+
+		it("throws for an attribute condition with an unsupported op", () => {
+			const selector: AITelemetrySelector = {
+				anyOf: [
+					{
+						allOf: [
+							{
+								target: "attribute",
+								scope: "span",
+								key: "k",
+								op: "unsupported" as unknown as "exists",
+							},
+						],
+					},
+				],
+			};
+			expect(() => aiSelectorToClickHouse(selector)).toThrow(
+				"Unsupported attribute op: unsupported"
+			);
 		});
 	});
 });

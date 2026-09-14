@@ -7,6 +7,7 @@ import {
 	withRetry,
 	defaultIsRetryable,
 	__resetConcurrencyForTests,
+	queryBudgetForSource,
 } from "@/lib/platform/connectors/datasource/http/limits";
 import type { OpenLITQuery } from "@/lib/platform/connectors/datasource/types";
 import { SourceResponseError } from "@/lib/platform/connectors/datasource/http/safe-fetch";
@@ -98,6 +99,29 @@ describe("clampQueryBudget", () => {
 	});
 });
 
+describe("queryBudgetForSource", () => {
+	it("applies the source's maxLookbackMs when maxTimeRangeMs is absent", () => {
+		const maxLookbackMs = 3 * 24 * 60 * 60 * 1000;
+		const source = { capabilities: () => ({ maxLookbackMs }) };
+		const budget = queryBudgetForSource(source);
+		expect(budget.maxLookbackMs).toBe(maxLookbackMs);
+		expect(budget.maxRangeMs).toBe(DEFAULT_QUERY_BUDGET.maxRangeMs);
+	});
+
+	it("falls back to the base budget when capabilities() throws", () => {
+		const source = {
+			capabilities: () => {
+				throw new Error("capabilities unavailable");
+			},
+		};
+		expect(queryBudgetForSource(source)).toEqual(DEFAULT_QUERY_BUDGET);
+	});
+
+	it("falls back to the base budget when the source has no capabilities method", () => {
+		expect(queryBudgetForSource({})).toEqual(DEFAULT_QUERY_BUDGET);
+	});
+});
+
 describe("Semaphore", () => {
 	it("caps concurrent holders and releases in order", async () => {
 		const sem = new Semaphore(2);
@@ -146,6 +170,12 @@ describe("defaultIsRetryable", () => {
 		expect(defaultIsRetryable(new Error("fetch failed"))).toBe(true);
 		expect(defaultIsRetryable(new Error("bad request"))).toBe(false);
 	});
+
+	it("treats an error without a message as non-retryable", () => {
+		expect(defaultIsRetryable(new Error())).toBe(false);
+		expect(defaultIsRetryable(undefined)).toBe(false);
+		expect(defaultIsRetryable("plain string")).toBe(false);
+	});
 });
 
 describe("withRetry", () => {
@@ -189,5 +219,10 @@ describe("withRetry", () => {
 			)
 		).rejects.toBeInstanceOf(SourceResponseError);
 		expect(calls).toBe(3);
+	});
+
+	it("uses default retries/backoff/sleep when no options are provided", async () => {
+		const result = await withRetry(async () => "ok");
+		expect(result).toBe("ok");
 	});
 });

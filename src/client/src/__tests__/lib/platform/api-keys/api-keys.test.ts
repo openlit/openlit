@@ -112,12 +112,15 @@ describe('getAllAPIKeys', () => {
   it('returns API keys for the current db config', async () => {
     (asaw as jest.Mock)
       .mockResolvedValueOnce([null, { id: 'db-1' }])
-      .mockResolvedValueOnce([null, [{ name: 'key1', apiKey: 'openlit-abc' }]]);
+      .mockResolvedValueOnce([null, [{ name: 'key1', apiKey: 'openlit-abcdXXXXXXyyyyyy' }]]);
     (prisma.aPIKeys.findMany as jest.Mock).mockResolvedValue([{ name: 'key1' }]);
 
     const result = await getAllAPIKeys();
     expect(prisma.aPIKeys.findMany).toHaveBeenCalledTimes(1);
-    expect(result).toEqual([{ name: 'key1', apiKey: 'openlit-abc' }]);
+    expect(result).toEqual([
+      { name: 'key1', apiKeyPreview: 'openlit-abcd…yyyyyy' },
+    ]);
+    expect(result[0].apiKey).toBeUndefined();
   });
 
   it('uses an explicit databaseConfigId without session db lookup', async () => {

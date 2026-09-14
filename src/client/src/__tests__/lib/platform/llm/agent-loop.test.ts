@@ -32,6 +32,7 @@ import {
 	summarizeAgentLoopFromSpans,
 } from "@/lib/platform/llm/agent-loop";
 import { resolveTelemetrySourceDescriptor } from "@/lib/telemetry-source";
+import { UnsupportedCapabilityError } from "@/lib/platform/connectors/datasource/types";
 
 const mockedDataCollector = dataCollector as jest.MockedFunction<
 	typeof dataCollector
@@ -192,6 +193,84 @@ describe("getAgentLoop", () => {
 			"traces"
 		);
 	});
+
+	it("returns unsupported (without throwing) when sampling raises UnsupportedCapabilityError", async () => {
+		mockedResolve.mockResolvedValue({
+			isBuiltIn: false,
+			type: "tempo",
+		} as any);
+		const { resolveSignalReadContext } = await import(
+			"@/lib/platform/connectors/datasource/facade"
+		);
+		const sampleTracesForGraph = jest.fn(async () => {
+			throw new UnsupportedCapabilityError("tempo", "sampleTracesForGraph");
+		});
+		(resolveSignalReadContext as jest.Mock).mockResolvedValue({
+			adapter: { sampleTracesForGraph },
+			descriptor: { type: "tempo" },
+		});
+
+		const result = await getAgentLoop(params);
+
+		expect(result.err).toBeUndefined();
+		expect(result.data?.[0]?.unsupported).toBe(true);
+	});
+
+	it("surfaces unexpected sampling errors as a top-level error instead of throwing", async () => {
+		mockedResolve.mockResolvedValue({
+			isBuiltIn: false,
+			type: "tempo",
+		} as any);
+		const { resolveSignalReadContext } = await import(
+			"@/lib/platform/connectors/datasource/facade"
+		);
+		const boom = new Error("adapter exploded");
+		const sampleTracesForGraph = jest.fn(async () => {
+			throw boom;
+		});
+		(resolveSignalReadContext as jest.Mock).mockResolvedValue({
+			adapter: { sampleTracesForGraph },
+			descriptor: { type: "tempo" },
+		});
+
+		const result = await getAgentLoop(params);
+
+		expect(result.err).toBe(boom);
+		expect(result.data).toEqual([]);
+	});
+
+	it("propagates a ClickHouse query error", async () => {
+		mockedDataCollector.mockResolvedValue({ err: "query failed", data: [] });
+
+		const result = await getAgentLoop(params);
+
+		expect(result.err).toBe("query failed");
+		expect(result.data).toEqual([]);
+	});
+
+	it("defaults to an empty rows array and empty current row when the query returns no data", async () => {
+		mockedDataCollector.mockResolvedValue({ err: null, data: undefined });
+
+		const result = await getAgentLoop(params);
+
+		expect(result.data?.[0]).toMatchObject({
+			tool_traces: 0,
+			loops: 0,
+			previous_tool_traces: 0,
+			previous_loops: 0,
+		});
+	});
+
+	it("defaults the current row to an empty object when the result set is empty", async () => {
+		mockedDataCollector.mockResolvedValue({ err: null, data: [] });
+
+		const result = await getAgentLoop(params);
+
+		expect(result.data?.[0]).toMatchObject({
+			tool_traces: 0,
+			loops: 0,
+		});
+	});
 });
 
 describe("summarizeAgentLoopFromSpans", () => {
@@ -225,5 +304,21 @@ describe("summarizeAgentLoopFromSpans", () => {
 		]);
 		expect(row.tool_traces).toBe(2);
 		expect(row.loops).toBe(1);
+	});
+
+	it("skips spans that are not tool calls", () => {
+		const row = summarizeAgentLoopFromSpans([
+			{
+				traceId: "t-1",
+				spanAttributes: { "gen_ai.tool.name": "search", "gen_ai.tool.args": "{}" },
+			},
+			{
+				// No tool name/args — not a tool span, must not count toward tool_traces.
+				traceId: "t-2",
+				spanAttributes: { "gen_ai.system": "openai" },
+			},
+		]);
+		expect(row.tool_traces).toBe(1);
+		expect(row.loops).toBe(0);
 	});
 });

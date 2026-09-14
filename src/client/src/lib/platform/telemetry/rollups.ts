@@ -83,9 +83,9 @@ function inListSql(column: string, values: string[]): string {
 	return `AND ${column} IN (${values.map((v) => `'${escape(v)}'`).join(", ")})`;
 }
 
-function isFresh(updatedAt: unknown): boolean {
-	const t = new Date(String(updatedAt || 0)).getTime();
-	return Number.isFinite(t) && Date.now() - t <= ROLLUP_FRESHNESS_MS;
+/** `updatedAtMs` is already a resolved epoch-ms timestamp (see the `newest` reducers below). */
+function isFresh(updatedAtMs: number): boolean {
+	return Number.isFinite(updatedAtMs) && Date.now() - updatedAtMs <= ROLLUP_FRESHNESS_MS;
 }
 
 /**

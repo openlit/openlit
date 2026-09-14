@@ -50,7 +50,7 @@ jest.mock('path', () => ({
   join: jest.fn((...args: string[]) => args.join('/')),
 }));
 
-import { getPricingConfig, setPricingConfig, restorePricingCronJobs } from '@/lib/platform/pricing/config';
+import { getPricingConfig, getPricingConfigById, setPricingConfig, restorePricingCronJobs } from '@/lib/platform/pricing/config';
 import { getDBConfigByUser } from '@/lib/db-config';
 import prisma from '@/lib/prisma';
 import asaw from '@/utils/asaw';
@@ -58,7 +58,7 @@ import { throwIfError } from '@/utils/error';
 import Cron from '@/helpers/server/cron';
 import getMessage from '@/constants/messages';
 import { randomUUID } from 'crypto';
-import { jsonParse } from '@/utils/json';
+import { jsonParse, jsonStringify } from '@/utils/json';
 
 const mockDBConfig = { id: 'db-1', name: 'test-db' };
 
@@ -86,6 +86,9 @@ beforeEach(() => {
   (jsonParse as jest.Mock).mockImplementation((v: string) => {
     try { return JSON.parse(v); } catch { return {}; }
   });
+  // Re-apply jsonStringify mock after resetAllMocks (unlike the `lodash` mock,
+  // this aliased module's factory implementation does not survive a reset).
+  (jsonStringify as jest.Mock).mockImplementation((v: unknown) => JSON.stringify(v));
 
   // Default asaw: wrap a promise into [err, data]
   (asaw as jest.Mock).mockImplementation(async (promise: Promise<any>) => {
@@ -126,6 +129,38 @@ describe('getPricingConfig', () => {
     (getDBConfigByUser as jest.Mock).mockRejectedValue(new Error('no db'));
 
     const result = await getPricingConfig();
+
+    expect(result).toBeNull();
+  });
+
+  it('uses the provided dbConfig and skips getDBConfigByUser when it already has an id', async () => {
+    const mockConfig = { id: 'pc-1', auto: false, recurringTime: '', meta: '{}', databaseConfigId: 'db-provided' };
+    (prisma.pricingConfigs.findFirst as jest.Mock).mockResolvedValue(mockConfig);
+
+    const result = await getPricingConfig({ id: 'db-provided' } as any);
+
+    expect(getDBConfigByUser).not.toHaveBeenCalled();
+    expect(prisma.pricingConfigs.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { databaseConfigId: 'db-provided' } })
+    );
+    expect(result).toEqual(mockConfig);
+  });
+});
+
+describe('getPricingConfigById', () => {
+  it('returns the config when found', async () => {
+    const mockConfig = { id: 'pc-1', auto: true, recurringTime: '* * * * *', meta: '{}', databaseConfigId: 'db-1' };
+    (prisma.pricingConfigs.findFirst as jest.Mock).mockResolvedValue(mockConfig);
+
+    const result = await getPricingConfigById('pc-1');
+
+    expect(result).toEqual(mockConfig);
+  });
+
+  it('returns null when not found', async () => {
+    (prisma.pricingConfigs.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const result = await getPricingConfigById('nonexistent');
 
     expect(result).toBeNull();
   });
@@ -209,6 +244,44 @@ describe('setPricingConfig', () => {
 
     const cronInstance = (Cron as jest.Mock).mock.results[0].value;
     expect(cronInstance.deleteCronJob).toHaveBeenCalledWith('existing-cron-id');
+  });
+
+  it('generates a fresh cronJobId and defaults meta to {} when the previous config lookup returns nothing', async () => {
+    (getDBConfigByUser as jest.Mock).mockResolvedValue(mockDBConfig);
+    // previousConfig lookup (getPricingConfigById -> prisma.findFirst) returns null
+    (prisma.pricingConfigs.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.pricingConfigs.update as jest.Mock).mockResolvedValue({ id: 'pc-missing' });
+
+    await setPricingConfig(
+      { id: 'pc-missing', auto: false, recurringTime: '', meta: '{}' },
+      'http://localhost:3000'
+    );
+
+    expect(prisma.pricingConfigs.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          meta: JSON.stringify({ cronJobId: 'test-cron-uuid' }),
+        }),
+      })
+    );
+  });
+
+  it('defaults meta to {} on create when an empty meta string is provided', async () => {
+    (getDBConfigByUser as jest.Mock).mockResolvedValue(mockDBConfig);
+    (prisma.pricingConfigs.create as jest.Mock).mockResolvedValue({ id: 'pc-new' });
+
+    await setPricingConfig(
+      { auto: false, recurringTime: '', meta: '' },
+      'http://localhost:3000'
+    );
+
+    expect(prisma.pricingConfigs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          meta: JSON.stringify({ cronJobId: 'test-cron-uuid' }),
+        }),
+      })
+    );
   });
 });
 
@@ -300,5 +373,16 @@ describe('restorePricingCronJobs', () => {
     await expect(
       restorePricingCronJobs('http://localhost:3000')
     ).resolves.toBeUndefined();
+  });
+
+  it('skips a config with a falsy meta string (defaults to {} then has no cronJobId)', async () => {
+    (prisma.pricingConfigs.findMany as jest.Mock).mockResolvedValue([
+      { id: 'pc-1', auto: true, recurringTime: '* * * * *', meta: '' },
+    ]);
+
+    await restorePricingCronJobs('http://localhost:3000');
+
+    const cronInstance = (Cron as jest.Mock).mock.results[0]?.value;
+    expect(cronInstance.updateCrontab).not.toHaveBeenCalled();
   });
 });

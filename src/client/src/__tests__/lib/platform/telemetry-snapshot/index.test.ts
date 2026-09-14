@@ -176,4 +176,64 @@ describe("captureInstanceSnapshot", () => {
 
 		expect(result.properties?.spans_total).toBe(0);
 	});
+
+	it("falls back to the raw payload and treats a non-array result as zero when the response has no .data array", async () => {
+		process.env.npm_package_version = "1.0.0";
+
+		// No wrapping `.data` property at all: the `?.data ?? data` fallback
+		// must use the raw payload, which here is itself an array.
+		(dataCollector as jest.Mock).mockResolvedValueOnce([{ c: 8 }]);
+		const arrayResult = await captureInstanceSnapshot();
+		expect(arrayResult.properties?.spans_total).toBe(8);
+
+		// `.data` is explicitly null (nullish): falls back to the raw
+		// payload, which is a non-array object, so `first` stays undefined.
+		(dataCollector as jest.Mock).mockResolvedValue({ data: null });
+		const nonArrayResult = await captureInstanceSnapshot();
+		expect(nonArrayResult.properties?.spans_total).toBe(0);
+	});
+
+	it("reads the version from package.json and falls back to unknown when the field is missing", async () => {
+		(readFileSync as jest.Mock).mockReturnValue(JSON.stringify({}));
+
+		const result = await captureInstanceSnapshot();
+
+		expect(result.properties?.openlit_version).toBe("unknown");
+	});
+
+	it("defaults to an empty database config list and zero counts when the lookup fails", async () => {
+		process.env.npm_package_version = "1.0.0";
+		(prisma.databaseConfig.findMany as jest.Mock).mockRejectedValue(
+			new Error("db down")
+		);
+
+		const result = await captureInstanceSnapshot();
+
+		expect(result.success).toBe(true);
+		expect(result.properties).toMatchObject({
+			spans_total: 0,
+			traces_total: 0,
+			app_agents_total: 0,
+		});
+		expect(dataCollector).not.toHaveBeenCalled();
+	});
+
+	it("falls back to zero/false for aggregate counts when the underlying prisma queries fail to resolve", async () => {
+		process.env.npm_package_version = "1.0.0";
+		(prisma.user.count as jest.Mock).mockResolvedValue(undefined);
+		(prisma.organisation.count as jest.Mock).mockResolvedValue(null);
+		(prisma.project.count as jest.Mock).mockRejectedValue(new Error("boom"));
+		(prisma.databaseConfig.count as jest.Mock).mockResolvedValue(undefined);
+		(prisma.pricingConfigs.count as jest.Mock).mockResolvedValue(undefined);
+
+		const result = await captureInstanceSnapshot();
+
+		expect(result.properties).toMatchObject({
+			users_total: 0,
+			organisations_total: 0,
+			projects_total: 0,
+			db_configs_total: 0,
+			pricing_auto_enabled: false,
+		});
+	});
 });

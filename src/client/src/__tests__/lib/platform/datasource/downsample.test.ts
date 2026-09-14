@@ -63,6 +63,28 @@ describe("computeIntervalMs", () => {
 		expect(ms).toBe(5 * MIN);
 	});
 
+	it("defaults maxDataPoints to DEFAULT_MAX_DATA_POINTS when omitted", () => {
+		const withDefault = computeIntervalMs({
+			timeRange: range(HOUR),
+			maxDataPoints: DEFAULT_MAX_DATA_POINTS,
+		});
+		const omitted = computeIntervalMs({ timeRange: range(HOUR) });
+		expect(omitted).toBe(withDefault);
+	});
+
+	it("treats a zero or negative maxDataPoints as unset", () => {
+		const withDefault = computeIntervalMs({
+			timeRange: range(HOUR),
+			maxDataPoints: DEFAULT_MAX_DATA_POINTS,
+		});
+		expect(computeIntervalMs({ timeRange: range(HOUR), maxDataPoints: 0 })).toBe(
+			withDefault
+		);
+		expect(computeIntervalMs({ timeRange: range(HOUR), maxDataPoints: -5 })).toBe(
+			withDefault
+		);
+	});
+
 	it("wider ranges produce coarser steps", () => {
 		const hour = computeIntervalMs({ timeRange: range(HOUR), maxDataPoints: 300 });
 		const week = computeIntervalMs({
@@ -84,6 +106,11 @@ describe("rateIntervalMs", () => {
 });
 
 describe("clampStepMs", () => {
+	it("floors a zero or negative step to the minimum interval", () => {
+		expect(clampStepMs(HOUR, 0)).toBe(MIN_INTERVAL_MS);
+		expect(clampStepMs(HOUR, -1000)).toBe(MIN_INTERVAL_MS);
+	});
+
 	it("widens the step when points would exceed the cap", () => {
 		const rangeMs = MAX_SERIES_POINTS * 10_000 * 2; // 2x the cap at 10s steps
 		const step = clampStepMs(rangeMs, 10_000);
@@ -126,6 +153,13 @@ describe("interval formatting", () => {
 });
 
 describe("alignRangeToStep", () => {
+	it("returns the range unchanged when stepMs is zero or negative", () => {
+		const start = new Date(1_000_000_000_123);
+		const end = new Date(1_000_000_030_456);
+		expect(alignRangeToStep({ start, end }, 0)).toEqual({ start, end });
+		expect(alignRangeToStep({ start, end }, -1000)).toEqual({ start, end });
+	});
+
 	it("floors start and ceils end to the step so windows dedupe", () => {
 		const start = new Date(1_000_000_000_123);
 		const end = new Date(1_000_000_030_456);

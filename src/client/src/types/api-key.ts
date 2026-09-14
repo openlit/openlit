@@ -1,9 +1,10 @@
 export type ApiKey = {
-	apiKey: string;
+	apiKey?: string;
+	apiKeyPreview?: string;
 	createdAt: string;
 	createdByUser: {
 		email: string;
 	};
 	id: string;
 	name: string;
-}
+};

@@ -1,5 +1,6 @@
 import {
 	displayEvaluationTypeName,
+	getEvaluationStoredNameVariants,
 	normalizeEvaluationStoredName,
 	resolveEvaluationType,
 } from "@/helpers/client/evaluation-type";
@@ -49,5 +50,64 @@ describe("evaluation-type resolve", () => {
 		expect(displayEvaluationTypeName("Hallucination evaluation context")).toBe(
 			"Hallucination"
 		);
+	});
+
+	it("resolves a built-in type by its multi-word label when the id uses underscores", () => {
+		expect(resolveEvaluationType("Instruction Following")).toEqual({
+			id: "instruction_following",
+			label: "Instruction Following",
+		});
+	});
+
+	it("falls back to a formatted label when a custom type matched by id has no label", () => {
+		const custom = [{ id: "no_label_type", label: "" }];
+		expect(resolveEvaluationType("no_label_type", custom)).toEqual({
+			id: "no_label_type",
+			label: "No Label Type",
+		});
+	});
+
+	it("matches a custom type by its compact label even when its label is empty", () => {
+		const custom = [{ id: "weird", label: "" }];
+		expect(resolveEvaluationType("___", custom)).toEqual({
+			id: "weird",
+			label: "Weird",
+		});
+	});
+
+	it("resolves an empty stored value to an empty display name", () => {
+		expect(resolveEvaluationType("")).toBeNull();
+		expect(displayEvaluationTypeName("")).toBe("");
+	});
+});
+
+describe("getEvaluationStoredNameVariants", () => {
+	it("uses the provided label to build stored-name variants", () => {
+		const variants = getEvaluationStoredNameVariants("custom_id", "Custom Label");
+		expect(variants).toEqual([
+			"custom_id",
+			"Custom Label",
+			"Custom Label evaluation context",
+			"custom_id evaluation context",
+		]);
+	});
+
+	it("looks up the built-in label when none is provided", () => {
+		const variants = getEvaluationStoredNameVariants("hallucination");
+		expect(variants).toEqual(
+			expect.arrayContaining([
+				"hallucination",
+				"Hallucination",
+				"Hallucination evaluation context",
+			])
+		);
+	});
+
+	it("falls back to the id when no label is provided and no built-in type matches", () => {
+		const variants = getEvaluationStoredNameVariants("custom_unmatched_id");
+		expect(variants).toEqual([
+			"custom_unmatched_id",
+			"custom_unmatched_id evaluation context",
+		]);
 	});
 });

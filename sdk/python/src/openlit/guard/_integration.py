@@ -24,6 +24,8 @@ completions. Preflight guards always run.
 
 from __future__ import annotations
 
+import importlib
+import inspect
 import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -353,6 +355,21 @@ def _apply_postflight(
     return response
 
 
+def _is_async_method(module_path: str, class_method: str) -> bool:
+    """Return True when the provider method has to be awaited.
+
+    The name is not a reliable signal: Mistral spells its async chat method
+    ``Chat.complete_async``, so a ``"Async" in class_method`` check installs the
+    sync wrapper on a coroutine function and the postflight guards never run.
+    Resolve the attribute instead, unwrapping the instrumentor wrapper that is
+    already installed on it by the time guards are set up.
+    """
+    class_name, method_name = class_method.split(".", 1)
+    module = importlib.import_module(module_path)
+    method = getattr(getattr(module, class_name), method_name)
+    return inspect.iscoroutinefunction(inspect.unwrap(method))
+
+
 def _make_sync_guard_wrapper(
     pipeline: Pipeline,
     extract_input: Extractor,
@@ -403,9 +420,8 @@ def setup_auto_guards(
 
     wrapped_count = 0
     for module_path, class_method, extract_in, extract_out in GUARDED_METHODS:
-        is_async = "Async" in class_method
         try:
-            if is_async:
+            if _is_async_method(module_path, class_method):
                 wrapper = _make_async_guard_wrapper(pipeline, extract_in, extract_out)
             else:
                 wrapper = _make_sync_guard_wrapper(pipeline, extract_in, extract_out)

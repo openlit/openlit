@@ -49,6 +49,26 @@ jest.mock("@/utils/log", () => ({
 	consoleLog: jest.fn(),
 }));
 
+let headerValues: Record<string, string | null> = {};
+jest.mock("next/headers", () => ({
+	headers: jest.fn(async () => ({
+		get: (key: string) => headerValues[key] ?? null,
+	})),
+}));
+
+// Wrap the real adapter registry so most tests exercise genuine adapter
+// construction (as before), while a couple of defensive-fallback tests can
+// force a single `createAdapter` call to miss without disabling the registry.
+jest.mock("@/lib/platform/connectors/datasource/registry", () => {
+	const actual = jest.requireActual(
+		"@/lib/platform/connectors/datasource/registry"
+	);
+	return { ...actual, createAdapter: jest.fn(actual.createAdapter) };
+});
+
+import { OPENLIT_CONTEXT_HEADERS, MIDDLEWARE_DATABASE_CONFIG_HEADER } from "@/constants/openlit-context";
+import { createAdapter as mockedCreateAdapter } from "@/lib/platform/connectors/datasource/registry";
+import { headers as mockedHeaders } from "next/headers";
 import {
 	builtInDescriptor,
 	getTelemetryAdapter,
@@ -86,6 +106,22 @@ const dbConfig = {
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	headerValues = {};
+	// These mocks return real domain data (DatabaseConfig/TelemetrySource rows,
+	// org/project ids) that several tests configure with a sticky
+	// `mockResolvedValue`. `clearAllMocks` only clears call history, not that
+	// configured value, so explicitly reset them here to avoid one test's
+	// setup leaking into the next test's "no data configured" expectations.
+	mockFindUnique.mockReset();
+	mockFindFirst.mockReset();
+	mockFindMany.mockReset();
+	mockBindingFindUnique.mockReset();
+	mockDatabaseConfigFindFirst.mockReset();
+	mockGetDBConfigByUser.mockReset();
+	mockGetDBConfigById.mockReset();
+	mockGetDBConfigByIdInternal.mockReset();
+	mockGetCurrentOrganisation.mockReset();
+	mockGetCurrentProjectForOrganisation.mockReset();
 });
 
 describe("parseSignals", () => {
@@ -158,6 +194,84 @@ describe("toDescriptor", () => {
 			projectId: "proj-1",
 			name: "Prod Datadog",
 		});
+	});
+});
+
+describe("request-context header resolution (getCurrentProjectId)", () => {
+	it("uses the x-openlit-project-id header directly, skipping org lookup", async () => {
+		headerValues[OPENLIT_CONTEXT_HEADERS.projectId] = "proj-header";
+		mockFindFirst.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		await resolveTelemetrySourceDescriptor();
+
+		expect(mockGetCurrentOrganisation).not.toHaveBeenCalled();
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { projectId: "proj-header", isDefault: true },
+			orderBy: { createdAt: "asc" },
+		});
+	});
+
+	it("resolves the project via the middleware database-config header when no project header is present", async () => {
+		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "db-header";
+		mockGetDBConfigByIdInternal.mockResolvedValue({
+			id: "db-header",
+			projectId: "proj-fromheader",
+		});
+		mockFindFirst.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		await resolveTelemetrySourceDescriptor();
+
+		expect(mockGetDBConfigByIdInternal).toHaveBeenCalledWith({ id: "db-header" });
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { projectId: "proj-fromheader", isDefault: true },
+			orderBy: { createdAt: "asc" },
+		});
+	});
+
+	it("falls through to org lookup when the header database config has no projectId", async () => {
+		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "db-header";
+		mockGetDBConfigByIdInternal.mockResolvedValue({ id: "db-header" });
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		mockFindFirst.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		await resolveTelemetrySourceDescriptor();
+
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { projectId: "proj-1", isDefault: true },
+			orderBy: { createdAt: "asc" },
+		});
+	});
+
+	it("treats a request-context header read failure (e.g. outside a request scope) as no headers", async () => {
+		(mockedHeaders as jest.Mock).mockRejectedValueOnce(new Error("no request context"));
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		mockFindFirst.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		const d = await resolveTelemetrySourceDescriptor();
+
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { projectId: "proj-1", isDefault: true },
+			orderBy: { createdAt: "asc" },
+		});
+		expect(d).toMatchObject({ type: "clickhouse", isBuiltIn: true });
+	});
+
+	it("returns a null project id when the organisation lookup throws", async () => {
+		mockGetCurrentOrganisation.mockRejectedValue(new Error("org lookup down"));
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		const d = await resolveTelemetrySourceDescriptor();
+
+		// No project -> step 2 (project default) is skipped entirely, falling
+		// straight through to the built-in ClickHouse source.
+		expect(mockFindFirst).not.toHaveBeenCalled();
+		expect(d).toMatchObject({ type: "clickhouse", isBuiltIn: true });
 	});
 });
 
@@ -308,6 +422,36 @@ describe("resolveTelemetrySourceDescriptor precedence", () => {
 			isBuiltIn: true,
 		});
 	});
+
+	it("resolves a builtin: sourceId override for the non-signal-aware path", async () => {
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		mockDatabaseConfigFindFirst.mockResolvedValue({
+			id: "db-9",
+			name: "Staging CH",
+			projectId: "proj-1",
+		});
+
+		const d = await resolveTelemetrySourceDescriptor({ sourceId: "builtin:db-9" });
+
+		expect(d).toMatchObject({ id: "builtin:db-9", type: "clickhouse", dbConfigId: "db-9" });
+		expect(mockDatabaseConfigFindFirst).toHaveBeenCalledWith({
+			where: { id: "db-9", projectId: "proj-1" },
+		});
+	});
+
+	it("uses an explicit projectId option instead of resolving the current project", async () => {
+		mockFindFirst.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		await resolveTelemetrySourceDescriptor({ projectId: "proj-explicit" });
+
+		expect(mockGetCurrentOrganisation).not.toHaveBeenCalled();
+		expect(mockFindFirst).toHaveBeenCalledWith({
+			where: { projectId: "proj-explicit", isDefault: true },
+			orderBy: { createdAt: "asc" },
+		});
+	});
 });
 
 describe("resolveSignalSource (signal-aware routing)", () => {
@@ -433,6 +577,114 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 			},
 		});
 	});
+
+	it("falls through to binding/built-in resolution when a builtin: sourceId is not found in the project", async () => {
+		mockDatabaseConfigFindFirst.mockResolvedValue(null);
+		mockBindingFindUnique.mockResolvedValue({
+			source: srcRow({ id: "tempo-1", type: "tempo", signals: "traces" }),
+		});
+
+		const res = await resolveSignalSource("traces", {
+			sourceId: "builtin:missing-db",
+		});
+
+		expect(res.via).toBe("binding");
+		expect(res.descriptor.id).toBe("tempo-1");
+	});
+
+	it("resolves an explicit external sourceId override that serves the requested signal", async () => {
+		mockFindFirst.mockResolvedValue(
+			srcRow({ id: "tempo-1", type: "tempo", signals: "traces" })
+		);
+
+		const res = await resolveSignalSource("traces", { sourceId: "tempo-1" });
+
+		expect(res.via).toBe("override");
+		expect(res.hasSource).toBe(true);
+		expect(res.servesSignal).toBe(true);
+		expect(res.descriptor.id).toBe("tempo-1");
+	});
+
+	it("resolves an explicit external sourceId override that does NOT serve the requested signal", async () => {
+		mockFindFirst.mockResolvedValue(
+			srcRow({ id: "prom-1", type: "prometheus", signals: "metrics" })
+		);
+
+		const res = await resolveSignalSource("traces", { sourceId: "prom-1" });
+
+		expect(res.via).toBe("override");
+		expect(res.hasSource).toBe(true);
+		expect(res.servesSignal).toBe(false);
+		expect(res.descriptor.id).toBe("prom-1");
+	});
+
+	it("falls back to 'production' when an invalid environment string is supplied", async () => {
+		mockBindingFindUnique.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		const res = await resolveSignalSource("traces", { environment: "Not Valid!!" });
+
+		expect(mockBindingFindUnique).toHaveBeenCalledWith({
+			where: {
+				projectId_signal_environment: {
+					projectId: "proj-1",
+					signal: "traces",
+					environment: "production",
+				},
+			},
+			include: { source: true, databaseConfig: true },
+		});
+		// An explicitly requested (if invalid) environment still fails closed
+		// when nothing is routed for it, rather than silently using a default.
+		expect(res.via).toBe("none");
+	});
+
+	it("scopes resolveActiveCredentialDatabase to null when an explicit projectId is given without a dbConfigId", async () => {
+		mockBindingFindUnique.mockResolvedValue({
+			source: srcRow({ id: "tempo-1", type: "tempo", signals: "traces" }),
+		});
+		// If resolveActiveCredentialDatabase fell through to the user-DB lookup
+		// instead of short-circuiting on the explicit projectId, this value
+		// would leak into the resolved descriptor's dbConfigId.
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		const res = await resolveSignalSource("traces", { projectId: "proj-1" });
+
+		expect(mockGetDBConfigByUser).not.toHaveBeenCalled();
+		expect(res.descriptor.dbConfigId).toBeUndefined();
+	});
+
+	it("resolves the active vault database from the middleware header when no dbConfigId/projectId override is given", async () => {
+		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "db-header";
+		mockGetDBConfigByIdInternal.mockResolvedValue({
+			...dbConfig,
+			id: "db-header",
+			environment: "production",
+		});
+		mockBindingFindUnique.mockResolvedValue({
+			source: srcRow({ id: "tempo-1", type: "tempo", signals: "traces" }),
+		});
+
+		const res = await resolveSignalSource("traces");
+
+		expect(mockGetDBConfigByIdInternal).toHaveBeenCalledWith({ id: "db-header" });
+		expect(res.descriptor).toMatchObject({ id: "tempo-1", dbConfigId: "db-header" });
+	});
+
+	it("treats a failed active-database lookup as no active database instead of throwing", async () => {
+		// Only the first getDBConfigByUser call (inside
+		// resolveActiveCredentialDatabase) should be affected by the failure;
+		// the built-in fallback's own lookup resolves normally afterward.
+		mockGetDBConfigByUser
+			.mockRejectedValueOnce(new Error("db down"))
+			.mockResolvedValueOnce(undefined);
+		mockBindingFindUnique.mockResolvedValue(null);
+
+		const res = await resolveSignalSource("traces");
+
+		expect(res.hasSource).toBe(false);
+		expect(res.via).toBe("none");
+	});
 });
 
 describe("getTelemetryAdapter fail-closed", () => {
@@ -455,6 +707,54 @@ describe("getTelemetryAdapter fail-closed", () => {
 
 		await expect(getTelemetryAdapter()).rejects.toThrow(
 			/No adapter is registered/
+		);
+	});
+
+	it("resolves via resolveSignalSource when called with a signal and no descriptor", async () => {
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		mockBindingFindUnique.mockResolvedValue({
+			source: srcRow({ id: "tempo-1", type: "tempo", signals: "traces" }),
+		});
+
+		const adapter = await getTelemetryAdapter({ signal: "traces" });
+		expect(adapter).toBeDefined();
+	});
+
+	it("throws the typed no-source error when the requested signal has no source", async () => {
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		mockBindingFindUnique.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(undefined);
+
+		await expect(getTelemetryAdapter({ signal: "traces" })).rejects.toThrow(
+			/No connector is configured/
+		);
+	});
+
+	it("falls back to a fresh built-in ClickHouse adapter when the resolved adapter transiently fails to construct", async () => {
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		mockFindFirst.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+		(mockedCreateAdapter as jest.Mock).mockReturnValueOnce(undefined);
+
+		const adapter = await getTelemetryAdapter();
+		expect(adapter).toBeDefined();
+		expect(mockedCreateAdapter).toHaveBeenCalledTimes(2);
+	});
+
+	it("throws when even the built-in ClickHouse fallback factory is unavailable", async () => {
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		mockFindFirst.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+		(mockedCreateAdapter as jest.Mock)
+			.mockReturnValueOnce(undefined)
+			.mockReturnValueOnce(undefined);
+
+		await expect(getTelemetryAdapter()).rejects.toThrow(
+			/built-in ClickHouse factory missing/
 		);
 	});
 });
@@ -512,6 +812,94 @@ describe("getTelemetryAdapterForDbConfig", () => {
 			descriptor: { id: "jaeger-1", type: "jaeger", dbConfigId: "db-1" },
 		});
 		expect(mockGetDBConfigById).not.toHaveBeenCalled();
+	});
+
+	it("throws the typed no-source error when the DatabaseConfig's environment has no routed connector", async () => {
+		mockGetDBConfigByIdInternal.mockResolvedValue({
+			...dbConfig,
+			environment: "production",
+		});
+		mockBindingFindUnique.mockResolvedValue(null);
+
+		await expect(
+			getTelemetryAdapterForDbConfig("db-1", "traces")
+		).rejects.toThrow(/No connector is configured/);
+	});
+
+	it("resolves the isBuiltIn descriptor unchanged (no dbConfigId re-attachment) when the binding routes to the built-in store", async () => {
+		mockGetDBConfigByIdInternal.mockResolvedValue({
+			...dbConfig,
+			environment: "production",
+		});
+		mockBindingFindUnique.mockResolvedValue({ databaseConfig: dbConfig });
+
+		const result = await getTelemetryAdapterForDbConfig("db-1", "traces");
+
+		expect(result.isBuiltIn).toBe(true);
+		expect(result.descriptor).toMatchObject({ id: "builtin:db-1", dbConfigId: "db-1" });
+	});
+
+	it("throws ADAPTER_UNAVAILABLE when the routed external source type has no registered factory", async () => {
+		mockGetDBConfigByIdInternal.mockResolvedValue({
+			...dbConfig,
+			environment: "production",
+		});
+		mockBindingFindUnique.mockResolvedValue({
+			source: srcRow({ id: "mystery-1", type: "unknownvendor", signals: "traces" }),
+		});
+
+		await expect(
+			getTelemetryAdapterForDbConfig("db-1", "traces")
+		).rejects.toThrow(/No adapter is registered/);
+	});
+
+	it("falls back to a fresh built-in ClickHouse adapter when the routed built-in adapter transiently fails to construct", async () => {
+		mockGetDBConfigByIdInternal.mockResolvedValue({
+			...dbConfig,
+			environment: "production",
+		});
+		mockBindingFindUnique.mockResolvedValue({ databaseConfig: dbConfig });
+		(mockedCreateAdapter as jest.Mock).mockReturnValueOnce(undefined);
+
+		const result = await getTelemetryAdapterForDbConfig("db-1", "traces");
+
+		expect(result.isBuiltIn).toBe(true);
+		expect(result.descriptor).toMatchObject({ id: "builtin:db-1" });
+		expect(mockedCreateAdapter).toHaveBeenCalledTimes(2);
+	});
+
+	it("throws when even the built-in ClickHouse fallback factory is unavailable", async () => {
+		mockGetDBConfigByIdInternal.mockResolvedValue({
+			...dbConfig,
+			environment: "production",
+		});
+		mockBindingFindUnique.mockResolvedValue({ databaseConfig: dbConfig });
+		(mockedCreateAdapter as jest.Mock)
+			.mockReturnValueOnce(undefined)
+			.mockReturnValueOnce(undefined);
+
+		await expect(
+			getTelemetryAdapterForDbConfig("db-1", "traces")
+		).rejects.toThrow(/built-in ClickHouse factory missing/);
+	});
+
+	it("re-resolves the built-in descriptor by id when the DatabaseConfig row itself could not be loaded", async () => {
+		// `getDBConfigByIdInternal` (used for the outer DatabaseConfig lookup)
+		// fails, but the signal still routes to a real built-in via a
+		// different lookup (`getDBConfigById`) inside resolveBuiltInDescriptor.
+		mockGetDBConfigByIdInternal.mockResolvedValue(null);
+		mockGetDBConfigById.mockResolvedValue({
+			id: "db-1",
+			name: "Real CH",
+			projectId: "proj-1",
+		});
+		(mockedCreateAdapter as jest.Mock).mockReturnValueOnce(undefined);
+
+		const result = await getTelemetryAdapterForDbConfig("db-1", "traces");
+
+		expect(result.isBuiltIn).toBe(true);
+		expect(result.descriptor).toMatchObject({ id: "builtin:db-1", name: "Real CH" });
+		expect(mockGetDBConfigById).toHaveBeenCalledWith({ id: "db-1" });
 	});
 });
 
@@ -577,6 +965,10 @@ describe("isNativeSqlChatAvailable", () => {
 			updatedAt: new Date(),
 			createdByUserId: null,
 		});
+		// A real, reachable built-in ClickHouse must be routed for the
+		// "builtin" via-path check to even consider the legacy default-source
+		// fallback below.
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
 
 		const res = await isNativeSqlChatAvailable();
 		expect(res).toMatchObject({

@@ -100,6 +100,72 @@ describe('ProviderRegistry', () => {
         ProviderRegistry.getAvailableProviders('db-1')
       ).rejects.toThrow('Failed to load provider metadata');
     });
+
+    it('defaults description and configSchema when missing/invalid on the row', async () => {
+      mockGetAvailableProviders(
+        [
+          {
+            provider_id: 'bare',
+            display_name: 'Bare Provider',
+            description: undefined,
+            requires_vault: false,
+            config_schema: undefined,
+            is_default: false,
+          },
+        ],
+        []
+      );
+
+      const providers = await ProviderRegistry.getAvailableProviders('db-1');
+      const bare = providers.find((p) => p.providerId === 'bare');
+      expect(bare!.description).toBe('');
+      expect(bare!.configSchema).toEqual({});
+    });
+
+    it('keeps configSchema empty when config_schema is invalid JSON', async () => {
+      mockGetAvailableProviders(
+        [
+          {
+            provider_id: 'broken',
+            display_name: 'Broken Provider',
+            description: 'desc',
+            requires_vault: false,
+            config_schema: '{not valid json',
+            is_default: false,
+          },
+        ],
+        []
+      );
+
+      const providers = await ProviderRegistry.getAvailableProviders('db-1');
+      const broken = providers.find((p) => p.providerId === 'broken');
+      expect(broken!.configSchema).toEqual({});
+    });
+
+    it('defaults to an empty provider list when data is undefined (no rows, no error)', async () => {
+      (dataCollector as jest.Mock).mockResolvedValue({ data: undefined });
+
+      const providers = await ProviderRegistry.getAvailableProviders('db-1');
+      expect(providers).toEqual([]);
+    });
+
+    it('defaults numeric fields and capabilities when missing from model rows', async () => {
+      mockGetAvailableProviders(mockProviderRows, [
+        { provider: 'openai', id: 'gpt-min' },
+      ]);
+
+      const providers = await ProviderRegistry.getAvailableProviders('db-1');
+      const openai = providers.find((p) => p.providerId === 'openai');
+      const minModel = openai!.supportedModels.find((m) => m.id === 'gpt-min');
+      expect(minModel).toMatchObject({
+        contextWindow: 0,
+        inputPricePerMToken: 0,
+        outputPricePerMToken: 0,
+        cacheReadPricePerMToken: 0,
+        cacheCreationPricePerMToken: 0,
+        capabilities: [],
+      });
+    });
   });
 
   describe('getProviderById', () => {
@@ -128,6 +194,13 @@ describe('ProviderRegistry', () => {
         ProviderRegistry.getProviderById('openai', 'db-1')
       ).rejects.toThrow('Failed to load provider openai');
     });
+
+    it('defaults to an empty row list when data is undefined (no rows, no error)', async () => {
+      (dataCollector as jest.Mock).mockResolvedValue({ data: undefined });
+
+      const provider = await ProviderRegistry.getProviderById('openai', 'db-1');
+      expect(provider).toBeNull();
+    });
   });
 
   describe('getModel', () => {
@@ -144,6 +217,30 @@ describe('ProviderRegistry', () => {
 
       const model = await ProviderRegistry.getModel('openai', 'gpt-99', 'db-1');
       expect(model).toBeNull();
+    });
+
+    it('propagates DB errors from the underlying models query', async () => {
+      (dataCollector as jest.Mock).mockResolvedValue({ err: 'models query failed' });
+
+      await expect(
+        ProviderRegistry.getModel('openai', 'gpt-4o', 'db-1')
+      ).rejects.toThrow('Failed to load models for provider openai');
+    });
+
+    it('defaults numeric fields and capabilities when missing from the row', async () => {
+      (dataCollector as jest.Mock).mockResolvedValue({
+        data: [{ provider: 'openai', id: 'gpt-min' }],
+      });
+
+      const model = await ProviderRegistry.getModel('openai', 'gpt-min', 'db-1');
+      expect(model).toMatchObject({
+        contextWindow: 0,
+        inputPricePerMToken: 0,
+        outputPricePerMToken: 0,
+        cacheReadPricePerMToken: 0,
+        cacheCreationPricePerMToken: 0,
+        capabilities: [],
+      });
     });
   });
 
@@ -178,6 +275,13 @@ describe('ProviderRegistry', () => {
       const models = await ProviderRegistry.getProviderModels('openai', 'db-1');
       expect(models).toHaveLength(1);
       expect(models[0].id).toBe('gpt-4o');
+    });
+
+    it('defaults to an empty list when data is undefined (no rows, no error)', async () => {
+      (dataCollector as jest.Mock).mockResolvedValue({ data: undefined });
+
+      const models = await ProviderRegistry.getProviderModels('openai', 'db-1');
+      expect(models).toEqual([]);
     });
   });
 });

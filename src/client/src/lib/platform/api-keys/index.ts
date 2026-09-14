@@ -10,6 +10,13 @@ import { getCurrentOrganisation } from "@/lib/organisation";
 
 const APIKEY_PREFIX = "openlit-";
 
+function previewApiKey(apiKey: string): string {
+	const body = apiKey.startsWith(APIKEY_PREFIX)
+		? apiKey.slice(APIKEY_PREFIX.length)
+		: apiKey;
+	return `${APIKEY_PREFIX}${body.slice(0, 4)}…${body.slice(-6)}`;
+}
+
 export interface APIKeyInfo {
 	id: string;
 	databaseConfigId: string | null;
@@ -122,7 +129,15 @@ export async function getAllAPIKeys(databaseConfigId?: string) {
 			},
 		})
 	);
-	return data;
+
+	if (!Array.isArray(data)) {
+		return data;
+	}
+
+	return data.map(({ apiKey, ...rest }) => ({
+		...rest,
+		apiKeyPreview: previewApiKey(apiKey),
+	}));
 }
 
 export async function deleteAPIKey(id: string) {

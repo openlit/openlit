@@ -212,9 +212,9 @@ describe("withDbConfigAccess", () => {
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
 
-	it("extracts database config id from request header", async () => {
+	it("does not bind tenant from a client x-openlit-database-config-id header", async () => {
 		(getCurrentUser as jest.Mock).mockResolvedValue({ id: "u1" });
-		(getDBConfigByIdForUser as jest.Mock).mockResolvedValue({ id: "hdr-db" });
+		(getCurrentOrganisation as jest.Mock).mockResolvedValue(null);
 		const wrapped = withDbConfigAccess(handler);
 
 		await wrapped(
@@ -225,10 +225,7 @@ describe("withDbConfigAccess", () => {
 			{}
 		);
 
-		expect(getDBConfigByIdForUser).toHaveBeenCalledWith({
-			id: "hdr-db",
-			userId: "u1",
-		});
+		expect(getDBConfigByIdForUser).not.toHaveBeenCalled();
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
 

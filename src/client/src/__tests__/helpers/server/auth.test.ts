@@ -28,14 +28,14 @@ describe("resolveDbConfigId", () => {
 		jest.clearAllMocks();
 	});
 
-	it("prefers the x-database-config-id header", async () => {
-		(getAPIKeyInfo as jest.Mock).mockResolvedValue([null, null]);
+	it("does not bind tenant from a client x-database-config-id header without Bearer", async () => {
+		(getCurrentUser as jest.Mock).mockResolvedValue({ id: "u1" });
 		await expect(
 			resolveDbConfigId(
-				makeRequest({ [MIDDLEWARE_DATABASE_CONFIG_HEADER]: "db-header" })
+				makeRequest({ [MIDDLEWARE_DATABASE_CONFIG_HEADER]: "victim-db" })
 			)
-		).resolves.toEqual([null, "db-header"]);
-		expect(getCurrentUser).not.toHaveBeenCalled();
+		).resolves.toEqual([null, undefined]);
+		expect(getAPIKeyInfo).not.toHaveBeenCalled();
 	});
 
 	it("returns unauthorized when there is no header and no user", async () => {
@@ -89,5 +89,18 @@ describe("resolveRequestAuth", () => {
 			null,
 			{ databaseConfigId: undefined, userId: "u1", via: "session" },
 		]);
+	});
+
+	it("ignores a forged tenant header on session requests", async () => {
+		(getCurrentUser as jest.Mock).mockResolvedValue({ id: "u1" });
+		await expect(
+			resolveRequestAuth(
+				makeRequest({ [MIDDLEWARE_DATABASE_CONFIG_HEADER]: "victim-db" })
+			)
+		).resolves.toEqual([
+			null,
+			{ databaseConfigId: undefined, userId: "u1", via: "session" },
+		]);
+		expect(getAPIKeyInfo).not.toHaveBeenCalled();
 	});
 });

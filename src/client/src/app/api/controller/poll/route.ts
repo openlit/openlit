@@ -16,9 +16,12 @@ import {
 import { KNOWN_ACTIONS } from "@/types/controller";
 import { getAllFeatureHandlers } from "@/lib/platform/controller/features";
 import type { ReportedService } from "@/lib/platform/controller/features";
-import { getAPIKeyInfo, hasAnyAPIKeys } from "@/lib/platform/api-keys";
-import { getFirstDBConfig } from "@/lib/db-config";
+import { getAPIKeyInfo } from "@/lib/platform/api-keys";
 import type { ControllerConfig, FeatureDesiredState } from "@/types/controller";
+import {
+	isControllerProductEnabled,
+	controllerProductDisabledResponse,
+} from "@/lib/platform/controller/product";
 import crypto from "crypto";
 
 function deterministicServiceId(
@@ -51,38 +54,8 @@ function sanitizeLogValue(val: unknown): string {
 async function authenticatePollRequest(
 	request: Request
 ): Promise<{ dbId: string } | Response> {
-	const dbConfigIdHeader = request.headers.get("x-database-config-id");
-	if (dbConfigIdHeader) {
-		return { dbId: dbConfigIdHeader };
-	}
-
 	const authHeader = request.headers.get("Authorization") || "";
-
-	if (authHeader.startsWith("Bearer ")) {
-		const apiKey = authHeader.replace(/^Bearer /, "").trim();
-		if (!apiKey) {
-			return Response.json(
-				{ error: "Invalid API key" },
-				{ status: 401 }
-			);
-		}
-		const [keyErr, apiInfo] = await getAPIKeyInfo({ apiKey });
-		if (keyErr || !apiInfo?.databaseConfigId) {
-			return Response.json(
-				{ error: "Invalid API key" },
-				{ status: 401 }
-			);
-		}
-		return { dbId: apiInfo.databaseConfigId };
-	}
-
-	// Auth model (intentional, for fast onboarding):
-	//   - If any API key exists, the controller MUST send a valid one.
-	//   - If no API key has been created yet, the controller may poll without
-	//     one so it can come up before the operator finishes onboarding. The
-	//     moment the first key is created, this path closes automatically.
-	const keysExist = await hasAnyAPIKeys();
-	if (keysExist) {
+	if (!authHeader.startsWith("Bearer ")) {
 		return Response.json(
 			{
 				error:
@@ -92,14 +65,15 @@ async function authenticatePollRequest(
 		);
 	}
 
-	const dbConfig = await getFirstDBConfig();
-	if (!dbConfig) {
-		return Response.json(
-			{ error: "No database configuration found. Complete onboarding first." },
-			{ status: 503 }
-		);
+	const apiKey = authHeader.replace(/^Bearer /, "").trim();
+	if (!apiKey) {
+		return Response.json({ error: "Invalid API key" }, { status: 401 });
 	}
-	return { dbId: dbConfig.id };
+	const [keyErr, apiInfo] = await getAPIKeyInfo({ apiKey });
+	if (keyErr || !apiInfo?.databaseConfigId) {
+		return Response.json({ error: "Invalid API key" }, { status: 401 });
+	}
+	return { dbId: apiInfo.databaseConfigId };
 }
 
 // --- Phase 2: Upsert instance ---
@@ -530,6 +504,9 @@ async function phaseGatherActions(instanceId: string, dbId: string) {
 // --- Main handler ---
 
 export async function POST(request: Request) {
+	if (!isControllerProductEnabled()) {
+		return controllerProductDisabledResponse();
+	}
 	try {
 		const authResult = await authenticatePollRequest(request);
 		if (authResult instanceof Response) return authResult;

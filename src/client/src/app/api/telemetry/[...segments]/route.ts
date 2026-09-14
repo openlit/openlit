@@ -57,6 +57,22 @@ async function GETHandler(request: NextRequest, context: RouteContext) {
 		const handler = (await import("@/app/api/metrics/request/span/[id]/heirarchy/route")).GET;
 		return handler(request, { params: { id: segments[2] } });
 	}
+	if (segments.length === 4 && segments[0] === "request" && segments[1] === "span" && segments[3] === "governance") {
+		const handler = (await import("@/app/api/metrics/request/span/[id]/governance/route")).GET;
+		return handler(request, { params: { id: segments[2] } });
+	}
+	if (
+		segments.length === 5 &&
+		segments[0] === "request" &&
+		segments[1] === "span" &&
+		segments[3] === "governance" &&
+		segments[4] === "export"
+	) {
+		const handler = (
+			await import("@/app/api/metrics/request/span/[id]/governance/export/route")
+		).GET;
+		return handler(request, { params: { id: segments[2] } });
+	}
 	if (segments.length === 3 && segments[0] === "request" && segments[1] === "span") {
 		const handler = (await import("@/app/api/metrics/request/span/[id]/route")).GET;
 		return handler(request, { params: { id: segments[2] } });

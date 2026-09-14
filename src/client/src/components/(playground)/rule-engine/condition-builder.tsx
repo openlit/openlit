@@ -49,6 +49,14 @@ export const CONDITION_FIELDS = () => {
 		{ value: "gen_ai.usage.output_tokens", label: m.RULE_FIELD_OUTPUT_TOKENS, dataType: "number", description: m.RULE_FIELD_OUTPUT_TOKENS_DESC },
 		{ value: "gen_ai.usage.total_cost", label: m.RULE_FIELD_TOTAL_COST, dataType: "number", description: m.RULE_FIELD_TOTAL_COST_DESC },
 		{ value: "gen_ai.request.temperature", label: m.RULE_FIELD_TEMPERATURE, dataType: "number", description: m.RULE_FIELD_TEMPERATURE_DESC },
+		{ value: "gen_ai.tool.name", label: m.RULE_FIELD_TOOL_NAME, dataType: "string", description: m.RULE_FIELD_TOOL_NAME_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "gen_ai.tool.call.name", label: m.RULE_FIELD_TOOL_CALL_NAME, dataType: "string", description: m.RULE_FIELD_TOOL_CALL_NAME_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.client", label: m.RULE_FIELD_CODING_CLIENT, dataType: "string", description: m.RULE_FIELD_CODING_CLIENT_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.policy.permission_mode", label: m.RULE_FIELD_CODING_PERMISSION_MODE, dataType: "string", description: m.RULE_FIELD_CODING_PERMISSION_MODE_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.content_capture_mode", label: m.RULE_FIELD_CODING_CAPTURE_MODE, dataType: "string", description: m.RULE_FIELD_CODING_CAPTURE_MODE_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.user.classification", label: m.RULE_FIELD_CODING_CLASSIFICATION, dataType: "string", description: m.RULE_FIELD_CODING_CLASSIFICATION_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.session.outcome", label: m.RULE_FIELD_CODING_SESSION_OUTCOME, dataType: "string", description: m.RULE_FIELD_CODING_SESSION_OUTCOME_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.tool.name", label: m.RULE_FIELD_CODING_TOOL_NAME, dataType: "string", description: m.RULE_FIELD_CODING_TOOL_NAME_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
 	];
 };
 

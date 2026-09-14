@@ -50,7 +50,7 @@ jobs:
         if: steps.convention.outputs.valid != 'true'
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          PR_TITLE_LLM_MODEL: ${{ vars.PR_TITLE_LLM_MODEL || 'nvidia/nemotron-nano-9b-v2:free' }}
+          PR_TITLE_LLM_MODEL: ${{ vars.PR_TITLE_LLM_MODEL || 'openrouter/auto' }}
           PR_TITLE_LLM_FALLBACK_MODEL: ${{ vars.PR_TITLE_LLM_FALLBACK_MODEL || 'openrouter/free' }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

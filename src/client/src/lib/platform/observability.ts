@@ -14,6 +14,7 @@ import {
 	getFilterWhereCondition,
 } from "@/helpers/server/platform";
 import { CustomFilterAttributeType } from "@/types/store/filter";
+import { sanitizeOrderByDirection } from "@/lib/clickhouse-escape";
 
 type FilterTable = "logs" | "metrics";
 type SummarySignal = "traces" | "exceptions" | "logs" | "metrics";
@@ -245,7 +246,7 @@ export async function getLogs(params: MetricParams) {
 	if (countErr) return { err: countErr };
 
 	const orderBy = params.sorting?.type
-		? `${params.sorting.type.replace(/[^A-Za-z0-9_.]/g, "")} ${params.sorting.direction}`
+		? `${params.sorting.type.replace(/[^A-Za-z0-9_.]/g, "")} ${sanitizeOrderByDirection(params.sorting.direction)}`
 		: "Timestamp desc";
 	const query = `
 		SELECT

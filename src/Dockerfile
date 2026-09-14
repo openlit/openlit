@@ -10,6 +10,15 @@ WORKDIR /app/client
 # Copy package.json and package-lock.json to the working directory & the rest of the application code
 COPY ./client/ .
 
+# Bake Prisma CLI/Schema engines for the Alpine builder and the Debian
+# bookworm runtime (OpenSSL 3). schema.prisma `binaryTargets` only covers the
+# Query Engine; CLI engines are resolved at install time for the builder
+# platform. This env replaces native detection, so both musl builder
+# targets must stay listed — release publishes linux/amd64 and linux/arm64/v8.
+# Without the matching glibc engines, entrypoint.sh (`prisma migrate deploy`
+# / `prisma generate`) downloads from binaries.prisma.sh and fails air-gapped.
+ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x,linux-musl-arm64-openssl-3.0.x,debian-openssl-3.0.x,linux-arm64-openssl-3.0.x
+
 # Install dependencies, generate Prisma client & Build the Next.js application
 RUN npm install && npx prisma generate && npm run build
 
@@ -79,8 +88,9 @@ RUN echo "Downloading binaries for architecture: ${TARGETARCH}" && \
     echo "opampsupervisor binary info:" && file opampsupervisor
 
 
-# Final runtime image - Node 20 (OpenPlait adapters declare engines.node >=20)
-FROM node:20-bullseye-slim@sha256:65ef49f7d24aefd012a7fc6f9a2b734bcc19e424976a81f60c86b47266ef5b28
+# Final runtime image - Node 20 on Debian bookworm (bullseye-security
+# package indexes now 404 openssl 1.1.1w updates required by bullseye-slim)
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
 
 # Accept build arguments to pass version and architecture info
 # TARGETARCH is automatically provided by Docker buildx based on --platform
@@ -94,8 +104,9 @@ ARG TARGETPLATFORM
 ENV OPAMP_SUPERVISOR_VERSION=${OPAMP_SUPERVISOR_VERSION}
 ENV TARGETARCH=${TARGETARCH}
 
-# Install only the additional runtime dependencies needed
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install only the additional runtime dependencies needed.
+# Skip Valid-Until so a briefly stale security index cannot fail the image build.
+RUN apt-get update -o Acquire::Check-Valid-Until=false && apt-get install -y --no-install-recommends \
     bash \
     openssl \
     ca-certificates \
@@ -130,7 +141,7 @@ COPY --from=otel-downloader /tmp/otelcol-contrib /app/opamp/otelcontribcol
 COPY --from=otel-downloader /tmp/opampsupervisor /app/opamp/opampsupervisor
 
 # Verify binary architectures match runtime
-RUN apt-get update && apt-get install -y --no-install-recommends file && \
+RUN apt-get update -o Acquire::Check-Valid-Until=false && apt-get install -y --no-install-recommends file && \
     echo "Verifying binary architectures..." && \
     echo "Runtime architecture: $(uname -m)" && \
     echo "otelcontribcol:" && file /app/opamp/otelcontribcol && \

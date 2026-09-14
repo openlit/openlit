@@ -33,6 +33,39 @@ describe("validateEmail", () => {
 		expect(validateEmail("user@example-.com").valid).toBe(false);
 		expect(validateEmail("user@example.c").valid).toBe(false);
 	});
+
+	it("rejects missing or non-string emails", () => {
+		expect(validateEmail("")).toEqual({
+			valid: false,
+			error: "Email is required",
+		});
+		expect(validateEmail(undefined as unknown as string)).toEqual({
+			valid: false,
+			error: "Email is required",
+		});
+	});
+
+	it("rejects emails that are too long", () => {
+		const longEmail = `${"a".repeat(260)}@example.com`;
+
+		expect(validateEmail(longEmail)).toEqual({
+			valid: false,
+			error: "Email is too long",
+		});
+	});
+
+	it("rejects emails without exactly one @ sign", () => {
+		expect(validateEmail("userexample.com").valid).toBe(false);
+		expect(validateEmail("user@sub@example.com").valid).toBe(false);
+	});
+
+	it("rejects local parts with disallowed characters", () => {
+		expect(validateEmail("user,name@example.com").valid).toBe(false);
+	});
+
+	it("rejects domains with consecutive dots", () => {
+		expect(validateEmail("user@example..com").valid).toBe(false);
+	});
 });
 
 describe("validateDatabaseHost", () => {
@@ -72,6 +105,41 @@ describe("validateDatabaseHost", () => {
 		expect(validateDatabaseHost("[fe80::1]").valid).toBe(false);
 		expect(validateDatabaseHost("[fc00::1]").valid).toBe(false);
 		expect(validateDatabaseHost("host$name").valid).toBe(false);
+	});
+
+	it("rejects unique-local IPv6 addresses identified only by the fd prefix", () => {
+		expect(validateDatabaseHost("[fd00::1]")).toEqual({
+			valid: false,
+			error: "Private, loopback, and link-local IP addresses are not allowed",
+		});
+	});
+
+	it("allows an explicitly configured private IPv6 host, but not link-local", () => {
+		expect(validateDatabaseHost("[fc00::1]", { allowPrivateNetwork: true }).valid).toBe(true);
+		expect(validateDatabaseHost("[fd00::1]", { allowPrivateNetwork: true }).valid).toBe(true);
+		expect(validateDatabaseHost("[fe80::1]", { allowPrivateNetwork: true }).valid).toBe(false);
+	});
+
+	it("rejects the unspecified IPv4 address", () => {
+		expect(validateDatabaseHost("0.0.0.0")).toEqual({
+			valid: false,
+			error: "Private, loopback, and link-local IP addresses are not allowed",
+		});
+	});
+
+	it("does not apply IPv4-only private-range checks to public, unbracketed IPv6 addresses", () => {
+		expect(validateDatabaseHost("2001:4860:4860::88ff").valid).toBe(true);
+	});
+
+	it("rejects a missing or non-string host", () => {
+		expect(validateDatabaseHost("")).toEqual({
+			valid: false,
+			error: "Host is required",
+		});
+		expect(validateDatabaseHost(null as unknown as string)).toEqual({
+			valid: false,
+			error: "Host is required",
+		});
 	});
 });
 
@@ -141,6 +209,10 @@ describe("sanitizeErrorMessage", () => {
 		expect(sanitizeErrorMessage("/home/app/file.ts")).toBe(
 			"An unexpected error occurred"
 		);
+	});
+
+	it("returns the fallback when an Error has an empty message", () => {
+		expect(sanitizeErrorMessage(new Error(""))).toBe("An unexpected error occurred");
 	});
 
 	it("keeps safe user-facing messages", () => {

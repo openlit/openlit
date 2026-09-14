@@ -132,6 +132,17 @@ describe('getRuleById', () => {
     });
   });
 
+  it('defaults groups/conditions to empty arrays when data is missing', async () => {
+    const rule = { id: 'r1', name: 'Test Rule' };
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [rule], err: null })
+      .mockResolvedValueOnce({ data: null, err: null })
+      .mockResolvedValueOnce({ data: undefined, err: null });
+
+    const result = await getRuleById('r1');
+    expect(result.data).toMatchObject({ id: 'r1', condition_groups: [] });
+  });
+
   it('attaches conditions to their parent group', async () => {
     const rule = { id: 'r1', name: 'Rule' };
     const group1 = { id: 'g1', rule_id: 'r1' };
@@ -189,6 +200,12 @@ describe('createRule', () => {
     await createRule({ name: 'r' }, { databaseConfigId: 'db-2' });
     expect(dataCollector).toHaveBeenCalledWith(expect.any(Object), 'exec', 'db-2');
   });
+
+  it('falls back to the generated rule id in the alert message when name is missing', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: {} });
+    const result = await createRule({});
+    expect(result).toMatchObject({ message: 'Rule created!' });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -222,6 +239,26 @@ describe('updateRule', () => {
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).toContain('rule-abc');
   });
+
+  it('routes the update to the selected database config and skips the alert', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'q1' } });
+    await updateRule(
+      'r1',
+      { name: 'Updated', description: '', group_operator: 'OR', status: 'INACTIVE' },
+      { databaseConfigId: 'db-2', emitAlert: false }
+    );
+    expect(dataCollector).toHaveBeenCalledWith(expect.any(Object), 'exec', 'db-2');
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain("description = ''");
+    expect(query).toContain("group_operator = 'OR'");
+    expect(query).toContain("status = 'INACTIVE'");
+  });
+
+  it('falls back to the rule id in the alert message when name is missing', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'q1' } });
+    const result = await updateRule('r1', {});
+    expect(result).toEqual({ message: 'Rule updated!' });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -254,6 +291,15 @@ describe('deleteRule', () => {
     expect(queries.some((q: string) => q.includes('openlit_rule_condition_groups'))).toBe(true);
     expect(queries.some((q: string) => q.includes('openlit_rule_conditions'))).toBe(true);
     expect(queries.some((q: string) => q.includes('openlit_rule_entities'))).toBe(true);
+  });
+
+  it('routes all 4 parallel deletes to the selected database config', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+    await deleteRule('r1', { databaseConfigId: 'db-9', emitAlert: false });
+    expect(dataCollector).toHaveBeenCalledTimes(4);
+    for (const call of (dataCollector as jest.Mock).mock.calls) {
+      expect(call[2]).toBe('db-9');
+    }
   });
 });
 
@@ -307,6 +353,47 @@ describe('addConditionGroupsToRule', () => {
     const result = await addConditionGroupsToRule('r1', [group as any]);
     expect(result).toEqual({ message: 'Group added!' });
   });
+
+  it('routes every delete/insert query to the selected database config', async () => {
+    const group = { condition_operator: 'AND', conditions: [{ field: 'f', operator: 'equals', value: 'v' }] };
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+    await addConditionGroupsToRule('r1', [group as any], { databaseConfigId: 'db-7', emitAlert: false });
+    expect(dataCollector).toHaveBeenCalledTimes(4);
+    for (const call of (dataCollector as jest.Mock).mock.calls) {
+      expect(call[2]).toBe('db-7');
+    }
+  });
+
+  it('defaults the condition_operator to AND when the group omits it', async () => {
+    const group = { conditions: [] as any[] };
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+    await addConditionGroupsToRule('r1', [group as any]);
+    const insertGroupCall = (dataCollector as jest.Mock).mock.calls.find((c: any[]) =>
+      String(c[0].query).includes('INSERT INTO openlit_rule_condition_groups')
+    );
+    expect(insertGroupCall[0].query).toContain("'AND'");
+  });
+
+  it('treats a missing conditions array on the group as empty', async () => {
+    const group = { condition_operator: 'AND' };
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+    const result = await addConditionGroupsToRule('r1', [group as any]);
+    expect(result).toEqual({ message: 'Group added!' });
+    // Only the 2 deletes + 1 group insert — no conditions insert.
+    expect(dataCollector).toHaveBeenCalledTimes(3);
+  });
+
+  it('throws when the conditions insert fails', async () => {
+    const group = { condition_operator: 'AND', conditions: [{ field: 'f', operator: 'equals', value: 'v' }] };
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ err: null }) // delete groups
+      .mockResolvedValueOnce({ err: null }) // delete conditions
+      .mockResolvedValueOnce({ err: null }) // insert group
+      .mockResolvedValueOnce({ err: new Error('cond insert error') }); // insert conditions fails
+    await expect(addConditionGroupsToRule('r1', [group as any])).rejects.toThrow(
+      'cond insert error'
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -340,6 +427,21 @@ describe('addRuleEntity', () => {
     const [{ table }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(table).toBe('openlit_rule_entities');
   });
+
+  it('routes the insert to the selected database config', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+    await addRuleEntity(
+      { rule_id: 'r1', entity_type: 'context', entity_id: 'e1' },
+      { databaseConfigId: 'db-3' }
+    );
+    expect(dataCollector).toHaveBeenCalledWith(expect.any(Object), 'insert', 'db-3');
+  });
+
+  it('falls back to defaults in the alert payload when entity fields are missing', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+    const result = await addRuleEntity({});
+    expect(result).toEqual({ message: 'Entity associated!' });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -368,7 +470,12 @@ describe('deleteRuleEntity', () => {
     await deleteRuleEntity('entity-xyz');
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).toContain('entity-xyz');
-    expect(query).toContain('openlit_rule_entities');
+  });
+
+  it('routes the delete to the selected database config', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+    await deleteRuleEntity('e1', { databaseConfigId: 'db-4', emitAlert: false });
+    expect(dataCollector).toHaveBeenCalledWith(expect.any(Object), 'exec', 'db-4');
   });
 });
 

@@ -75,6 +75,13 @@ describe('getCustomModels', () => {
     const result = await getCustomModels('user-1', 'db-1');
     expect(result.err).toBe('DB error');
   });
+
+  it('defaults to an empty array when data is undefined (no rows, no error)', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: undefined, err: null });
+
+    const result = await getCustomModels('user-1', 'db-1');
+    expect(result.data).toEqual([]);
+  });
 });
 
 describe('getCustomModelsGroupedByProvider', () => {
@@ -225,6 +232,20 @@ describe('updateCustomModel', () => {
       'exec',
       'db-1'
     );
+  });
+
+  it('includes cache pricing fields in the UPDATE when provided', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null });
+
+    const result = await updateCustomModel('user-1', 'db-1', 'id', {
+      cacheReadPricePerMToken: 0.3,
+      cacheCreationPricePerMToken: 3.75,
+    });
+
+    expect(result.data).toBe(true);
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain('cache_read_price_per_m_token = 0.3');
+    expect(query).toContain('cache_creation_price_per_m_token = 3.75');
   });
 
   it('returns error when ALTER UPDATE fails', async () => {

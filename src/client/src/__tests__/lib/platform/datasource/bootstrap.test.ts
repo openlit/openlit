@@ -1,9 +1,14 @@
+jest.mock("@/lib/db-config", () => ({
+	getDBConfigByIdForBackground: jest.fn(),
+	getDBConfigByUser: jest.fn(),
+}));
 jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 	resolveSourceSecret: jest.fn(),
 	redactableSecretValues: () => [],
 }));
 jest.mock("@/lib/platform/common", () => ({
 	dataCollector: jest.fn(),
+	connectorDataCollector: jest.fn(),
 	OTEL_TRACES_TABLE_NAME: "otel_traces",
 	OTEL_LOGS_TABLE_NAME: "otel_logs",
 }));

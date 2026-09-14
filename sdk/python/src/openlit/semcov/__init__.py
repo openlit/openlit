@@ -701,6 +701,9 @@ class SemanticConvention:
     # every chat span/event so the server can group traffic by version.
     OPENLIT_AGENT_VERSION_HASH = "openlit.agent.version_hash"
 
+    # Correlate CI / evidence packages with a Trace Governance Passport export.
+    OPENLIT_GOVERNANCE_REPORT_ID = "openlit.governance.report_id"
+
     GEN_AI_AGENT_TYPE = "gen_ai.agent.type"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
     GEN_AI_AGENT_ROLE = "gen_ai.agent.role"

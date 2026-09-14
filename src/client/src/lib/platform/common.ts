@@ -210,6 +210,24 @@ export async function dataCollector(
 }
 
 /**
+ * Connector adapter reads that need full `otel_traces` rows (trace trees,
+ * span lookup, session expansion). These bypass OpenPlait native SQL so the
+ * ClickHouse datasource adapter resolves the configured database table directly.
+ */
+export async function connectorDataCollector(
+	params: CollectorParams,
+	clientQueryType: CollectorQueryType = "query",
+	dbConfigId?: string
+): Promise<DataCollectorType> {
+	return collectClickHouseData(
+		params,
+		clientQueryType,
+		dbConfigId,
+		"direct"
+	);
+}
+
+/**
  * Deliberate exception for OpenLIT's internal intelligence/materialization
  * layer. These queries read and write OpenLIT-owned ClickHouse state directly;
  * they are not datasource signal reads and must not pass through OpenPlait.

@@ -1,6 +1,7 @@
 import { getControllerInstanceById } from "@/lib/platform/controller";
+import { withControllerProduct } from "@/lib/platform/controller/product";
 
-export async function GET(
+async function GETHandler(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
@@ -16,3 +17,5 @@ export async function GET(
 
 	return Response.json({ data: res.data[0] });
 }
+
+export const GET = withControllerProduct(GETHandler);

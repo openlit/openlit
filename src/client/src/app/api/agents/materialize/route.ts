@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import asaw from "@/utils/asaw";
 import { materializeAgents } from "@/lib/platform/agents/materialize";
 import { materializeTelemetryRollups } from "@/lib/platform/telemetry/rollups";
+import { isValidCronJobRequest } from "@/helpers/server/cron-auth";
 
 /**
  * Cron-triggered endpoint that refreshes openlit_agents_summary +
@@ -95,7 +96,7 @@ async function releaseConfigLease(lease: Lease) {
 }
 
 export async function POST(request: Request) {
-	if (request.headers.get("x-cron-job") !== "true") {
+	if (!isValidCronJobRequest(request)) {
 		return Response.json({ error: "Forbidden" }, { status: 403 });
 	}
 

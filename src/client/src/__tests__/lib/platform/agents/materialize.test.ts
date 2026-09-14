@@ -55,6 +55,10 @@ jest.mock("@/lib/platform/coding-agents/source", () => ({
 	resolveCodingAgentsClickHouseDbConfigId: (...args: unknown[]) =>
 		mockResolveCodingAgentsClickHouseDbConfigId(...args),
 }));
+jest.mock("@/lib/platform/connectors/datasource/clickhouse/direct-read", () => ({
+	resolveTracesTableRef: jest.fn().mockResolvedValue("otel_traces"),
+	queryConnectorTraces: jest.fn(),
+}));
 
 import { intelligenceDataCollector } from "@/lib/platform/common";
 import { materializeAgents } from "@/lib/platform/agents/materialize";
@@ -90,24 +94,33 @@ function queueDiscovery(
 	sdkRows: Array<Record<string, unknown>>,
 	ctrlRows: Array<Record<string, unknown>>,
 	requestCountRows: Array<Record<string, unknown>> = [],
-	codingRows: Array<Record<string, unknown>> = []
+	codingRows: Array<Record<string, unknown>> = [],
+	onInsert?: (config: { table?: string; values?: unknown[] }) => void
 ) {
-	// `materializeAgents` fires `Promise.all([discoverAgents(),
-	// discoverCodingAgents()])`. Inside `discoverAgents` two queries run
-	// sequentially (SDK then controller); `discoverCodingAgents` fires
-	// one. The microtask order under `Promise.all` is therefore:
-	//   1) SDK discovery (kicked off first inside discoverAgents)
-	//   2) Coding-agent discovery (kicked off by the second Promise.all entry)
-	//   3) Controller discovery (resumes after SDK resolves)
-	//   4) Request-count rollup (after both discovery functions resolve)
-	mockedDC
-		.mockResolvedValueOnce({ data: sdkRows } as any)
-		.mockResolvedValueOnce({ data: codingRows } as any)
-		.mockResolvedValueOnce({ data: ctrlRows } as any)
-		.mockResolvedValueOnce({ data: requestCountRows } as any);
+	mockedDC.mockImplementation(async (config: any, op?: string) => {
+		if (op === "insert") {
+			onInsert?.(config);
+			return { data: [] } as any;
+		}
+		const query = String(config?.query || "");
+		if (query.includes("sdk_seen AS")) {
+			return { data: sdkRows } as any;
+		}
+		if (query.includes("openlit_controller_services")) {
+			return { data: ctrlRows } as any;
+		}
+		if (query.includes("chat_id") && query.includes("coding_agent")) {
+			return { data: codingRows } as any;
+		}
+		if (query.includes("request_count_24h")) {
+			return { data: requestCountRows } as any;
+		}
+		return { data: [] } as any;
+	});
 }
 
 beforeEach(() => {
+	process.env.OPENLIT_EDITION = "enterprise";
 	mockedDC.mockReset();
 	mockGetTelemetryAdapterForDbConfig.mockReset();
 	mockGetDBConfigByIdInternal.mockReset();
@@ -120,11 +133,16 @@ beforeEach(() => {
 	mockResolveCodingAgentsClickHouseDbConfigId.mockResolvedValue("db-1");
 });
 
+afterAll(() => {
+	delete process.env.OPENLIT_EDITION;
+});
+
 describe("materializeAgents — connector routing purity", () => {
 	it("fails closed instead of reading ClickHouse traces when the routed external adapter cannot resolve", async () => {
 		mockGetTelemetryAdapterForDbConfig.mockRejectedValue(
 			new Error("Tempo credentials unavailable")
 		);
+		mockedDC.mockResolvedValue({ data: [] });
 		await expect(materializeAgents({ dbConfigId: "db-1" })).rejects.toThrow(
 			"Tempo credentials unavailable"
 		);
@@ -184,6 +202,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// catalogues the same container as `demo-openai-app` (container_name).
 		// Both carry workload_key='docker:demo-openai-app' — the SDK because
 		// the controller injected it via OTEL_RESOURCE_ATTRIBUTES.
+		const inserts: RecordedInsert[] = [];
 		queueDiscovery(
 			[
 				{
@@ -211,29 +230,16 @@ describe("materializeAgents — workload_key dedup", () => {
 					first_seen: "2026-05-11 21:50:00",
 					last_seen: "2026-05-11 22:10:00",
 				},
-			]
-		);
-		const inserts: RecordedInsert[] = [];
-		// First three calls are the queued discovery queries; capture the
-		// insert that follows.
-		// `mockImplementation` (not `Once`) intentionally: the materializer
-		// now runs an extra conflict-resolution SELECT before the final
-		// summary INSERT when summaryRows contain any non-coding source.
-		// That probe must be covered too, otherwise the unmocked call
-		// returns `undefined` and the production code blows up reading
-		// `res.err`. The implementation here short-circuits every non-
-		// insert call with `{ data: [] }` so the conflict query sees
-		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op?: string) => {
-			if (op === "insert") {
+			],
+			[],
+			[],
+			(c) => {
 				inserts.push({
 					table: String(c.table),
-					values: (c.values || []) as any,
+					values: (c.values || []) as Array<Record<string, unknown>>,
 				});
-				return { data: [] } as any;
 			}
-			return { data: [] } as any;
-		});
+		);
 
 		await materializeAgents();
 
@@ -253,6 +259,7 @@ describe("materializeAgents — workload_key dedup", () => {
 	});
 
 	it("keeps SDK-only and controller-only rows as separate agents when their workload_key doesn't match", async () => {
+		const inserts: RecordedInsert[] = [];
 		queueDiscovery(
 			[
 				{
@@ -278,27 +285,16 @@ describe("materializeAgents — workload_key dedup", () => {
 					first_seen: "2026-05-11 22:00:00",
 					last_seen: "2026-05-11 22:10:00",
 				},
-			]
-		);
-		const inserts: RecordedInsert[] = [];
-		// `mockImplementation` (not `Once`) intentionally: the materializer
-		// now runs an extra conflict-resolution SELECT before the final
-		// summary INSERT when summaryRows contain any non-coding source.
-		// That probe must be covered too, otherwise the unmocked call
-		// returns `undefined` and the production code blows up reading
-		// `res.err`. The implementation here short-circuits every non-
-		// insert call with `{ data: [] }` so the conflict query sees
-		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op?: string) => {
-			if (op === "insert") {
+			],
+			[],
+			[],
+			(c) => {
 				inserts.push({
 					table: String(c.table),
-					values: (c.values || []) as any,
+					values: (c.values || []) as Array<Record<string, unknown>>,
 				});
-				return { data: [] } as any;
 			}
-			return { data: [] } as any;
-		});
+		);
 
 		await materializeAgents();
 
@@ -333,9 +329,9 @@ describe("materializeAgents — workload_key dedup", () => {
 
 		await materializeAgents();
 
-		// First query is the SDK discovery CTE.
+		// First SDK discovery query (coding-agent discovery may run in parallel).
 		expect(queries.length).toBeGreaterThan(0);
-		const sdkQuery = queries[0];
+		const sdkQuery = queries.find((q) => q.includes("sdk_seen AS")) || "";
 		expect(sdkQuery).toContain("telemetry.distro.name");
 		expect(sdkQuery).toContain("opentelemetry-ebpf-instrumentation");
 		expect(sdkQuery).toMatch(
@@ -349,6 +345,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// env var yet, so the SDK's traces have no workload_key. We fall
 		// back to the legacy service_name match so we don't briefly
 		// double-list the agent during rollout.
+		const inserts: RecordedInsert[] = [];
 		queueDiscovery(
 			[
 				{
@@ -374,27 +371,16 @@ describe("materializeAgents — workload_key dedup", () => {
 					first_seen: "2026-05-11 22:00:00",
 					last_seen: "2026-05-11 22:10:00",
 				},
-			]
-		);
-		const inserts: RecordedInsert[] = [];
-		// `mockImplementation` (not `Once`) intentionally: the materializer
-		// now runs an extra conflict-resolution SELECT before the final
-		// summary INSERT when summaryRows contain any non-coding source.
-		// That probe must be covered too, otherwise the unmocked call
-		// returns `undefined` and the production code blows up reading
-		// `res.err`. The implementation here short-circuits every non-
-		// insert call with `{ data: [] }` so the conflict query sees
-		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op?: string) => {
-			if (op === "insert") {
+			],
+			[],
+			[],
+			(c) => {
 				inserts.push({
 					table: String(c.table),
-					values: (c.values || []) as any,
+					values: (c.values || []) as Array<Record<string, unknown>>,
 				});
-				return { data: [] } as any;
 			}
-			return { data: [] } as any;
-		});
+		);
 
 		await materializeAgents();
 
@@ -414,6 +400,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// import-scan and surfaces them in openlit_controller_services
 		// .llm_providers — we union those into providers so the table
 		// renders the logos even before the first request lands.
+		const inserts: RecordedInsert[] = [];
 		queueDiscovery(
 			[],
 			[
@@ -429,27 +416,16 @@ describe("materializeAgents — workload_key dedup", () => {
 					first_seen: "2026-05-11 22:00:00",
 					last_seen: "2026-05-11 22:10:00",
 				},
-			]
-		);
-		const inserts: RecordedInsert[] = [];
-		// `mockImplementation` (not `Once`) intentionally: the materializer
-		// now runs an extra conflict-resolution SELECT before the final
-		// summary INSERT when summaryRows contain any non-coding source.
-		// That probe must be covered too, otherwise the unmocked call
-		// returns `undefined` and the production code blows up reading
-		// `res.err`. The implementation here short-circuits every non-
-		// insert call with `{ data: [] }` so the conflict query sees
-		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op?: string) => {
-			if (op === "insert") {
+			],
+			[],
+			[],
+			(c) => {
 				inserts.push({
 					table: String(c.table),
-					values: (c.values || []) as any,
+					values: (c.values || []) as Array<Record<string, unknown>>,
 				});
-				return { data: [] } as any;
 			}
-			return { data: [] } as any;
-		});
+		);
 
 		await materializeAgents();
 
@@ -489,5 +465,23 @@ describe("materializeAgents — workload_key dedup", () => {
 		expect(ctrlQuery).toBeDefined();
 		expect(ctrlQuery!).toMatch(/argMax\(s\.llm_providers,\s*s\.last_seen\)/);
 		expect(ctrlQuery!).toMatch(/latest\.llm_providers\s+AS\s+llm_providers/);
+	});
+
+	it("skips the controller discovery query when edition is oss", async () => {
+		process.env.OPENLIT_EDITION = "oss";
+		const queries: string[] = [];
+		mockedDC.mockImplementation(async (config: any, op?: string) => {
+			if (op === "query") {
+				queries.push(String(config.query));
+				return { data: [] } as any;
+			}
+			return { data: [] } as any;
+		});
+
+		await materializeAgents();
+
+		expect(
+			queries.some((q) => q.includes("openlit_controller_services"))
+		).toBe(false);
 	});
 });

@@ -13,6 +13,7 @@ func TestGeneratedSpecIncludesCUDA13KernelHandleProbes(t *testing.T) {
 	for _, name := range []string{
 		"handle_cuda_get_kernel_enter",
 		"handle_cuda_get_kernel_exit",
+		"handle_cuda_memcpy_enter",
 		"handle_cu_launch_kernel",
 		"handle_cu_launch_kernel_exit",
 		"handle_cu_launch_kernel_ex",
@@ -30,6 +31,8 @@ func TestGeneratedSpecIncludesCUDA13KernelHandleProbes(t *testing.T) {
 	for _, name := range []string{
 		"cuda_get_kernel_cache",
 		"cuda_kernel_handles",
+		"cuda_current_device",
+		"cuda_memcpy_cache",
 		"cudart_pids",
 		"cu_func_names",
 	} {

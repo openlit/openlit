@@ -1,6 +1,7 @@
 import { withAudit } from "@/lib/audit/route";
 import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
 import { getFeatureHandler } from "@/lib/platform/controller/features";
+import { withControllerProduct } from "@/lib/platform/controller/product";
 
 async function POSTHandler(
 	request: Request,
@@ -11,4 +12,6 @@ async function POSTHandler(
 	return handler.applyOperation(id, "disable", {});
 }
 
-export const POST = withAudit(withCurrentOrganisationPermission("controller:operate", POSTHandler));
+export const POST = withControllerProduct(
+	withAudit(withCurrentOrganisationPermission("controller:operate", POSTHandler))
+);

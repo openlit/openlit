@@ -49,4 +49,91 @@ describe("rollup-policy", () => {
 			})
 		).toBe(false);
 	});
+
+	it("detects deployment.environment as a scope filter", () => {
+		expect(
+			queryHasScopeFilters({
+				signal: "traces",
+				timeRange: { start: new Date(), end: new Date() },
+				filters: [
+					{
+						target: "attribute",
+						scope: "resource",
+						key: "deployment.environment",
+						op: "eq",
+						value: "prod",
+					},
+				],
+			})
+		).toBe(true);
+	});
+
+	it("detects openlit.agent.version_hash as a scope filter", () => {
+		expect(
+			queryHasScopeFilters({
+				signal: "traces",
+				timeRange: { start: new Date(), end: new Date() },
+				filters: [
+					{
+						target: "attribute",
+						scope: "span",
+						key: "openlit.agent.version_hash",
+						op: "eq",
+						value: "abc123",
+					},
+				],
+			})
+		).toBe(true);
+	});
+
+	it("ignores non-attribute targets and filters without a key", () => {
+		expect(
+			queryHasScopeFilters({
+				signal: "traces",
+				timeRange: { start: new Date(), end: new Date() },
+				filters: [
+					{
+						target: "duration",
+						scope: "resource",
+						key: "service.name",
+						op: "eq",
+						value: "api",
+					},
+				],
+			})
+		).toBe(false);
+		expect(
+			queryHasScopeFilters({
+				signal: "traces",
+				timeRange: { start: new Date(), end: new Date() },
+				filters: [
+					{
+						target: "attribute",
+						scope: "resource",
+						key: "",
+						op: "eq",
+						value: "api",
+					},
+				],
+			})
+		).toBe(false);
+	});
+
+	it("ignores unrelated attribute keys", () => {
+		expect(
+			queryHasScopeFilters({
+				signal: "traces",
+				timeRange: { start: new Date(), end: new Date() },
+				filters: [
+					{
+						target: "attribute",
+						scope: "span",
+						key: "http.status_code",
+						op: "eq",
+						value: "200",
+					},
+				],
+			})
+		).toBe(false);
+	});
 });

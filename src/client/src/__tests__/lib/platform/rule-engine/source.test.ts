@@ -102,4 +102,35 @@ describe("resolveRuleEngineDatabaseConfigId", () => {
 			resolveRuleEngineDatabaseConfigId(requestWithContext({ environment: "staging" }))
 		).rejects.toThrow("requires a ClickHouse datasource");
 	});
+
+	it("rejects a forged ClickHouse id when getDBConfigByUser does not return an array", async () => {
+		(getDBConfigByUser as jest.Mock).mockResolvedValue(undefined);
+
+		await expect(
+			resolveRuleEngineDatabaseConfigId(requestWithContext({ databaseConfigId: "db-forged" }))
+		).rejects.toThrow("not available in the current project");
+	});
+
+	it("falls back to the project's default intelligence ClickHouse binding when nothing is selected", async () => {
+		(resolveSignalSource as jest.Mock).mockResolvedValue({
+			hasSource: true,
+			descriptor: { type: "clickhouse", dbConfigId: "db-default" },
+		});
+
+		await expect(resolveRuleEngineDatabaseConfigId(requestWithContext())).resolves.toBe(
+			"db-default"
+		);
+		expect(resolveSignalSource).toHaveBeenCalledWith("intelligence", {});
+	});
+
+	it("fails closed when no environment or header is set and there is no default ClickHouse", async () => {
+		(resolveSignalSource as jest.Mock).mockResolvedValue({
+			hasSource: false,
+			descriptor: { type: "tempo", dbConfigId: undefined },
+		});
+
+		await expect(resolveRuleEngineDatabaseConfigId(requestWithContext())).rejects.toThrow(
+			"requires a ClickHouse datasource"
+		);
+	});
 });

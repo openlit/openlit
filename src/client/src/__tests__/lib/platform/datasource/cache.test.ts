@@ -2,6 +2,7 @@ import {
 	__clearCache,
 	cachedQuery,
 	cacheKey,
+	estimateCacheBytes,
 } from "@/lib/platform/connectors/datasource/http/cache";
 
 beforeEach(() => __clearCache());
@@ -12,6 +13,12 @@ describe("cacheKey", () => {
 	});
 	it("differs by source id", () => {
 		expect(cacheKey("s1", { a: 1 })).not.toBe(cacheKey("s2", { a: 1 }));
+	});
+	it("stringifies array-valued parts element-by-element", () => {
+		expect(cacheKey("s1", { filters: [1, "a", { b: 2 }] })).toBe(
+			cacheKey("s1", { filters: [1, "a", { b: 2 }] })
+		);
+		expect(cacheKey("s1", [1, 2])).not.toBe(cacheKey("s1", [2, 1]));
 	});
 });
 
@@ -63,5 +70,40 @@ describe("cachedQuery", () => {
 		const stats = __cacheStats();
 		expect(stats.entries).toBeLessThan(4);
 		expect(stats.bytes).toBeLessThanOrEqual(MAX_CACHE_BYTES);
+	});
+});
+
+describe("estimateCacheBytes", () => {
+	it("charges a fixed cost for values JSON.stringify cannot serialize", () => {
+		const circular: Record<string, unknown> = {};
+		circular.self = circular;
+		expect(estimateCacheBytes(circular)).toBe(4 * 1024);
+	});
+
+	it("charges a fixed cost for BigInt values", () => {
+		expect(estimateCacheBytes(BigInt(10))).toBe(4 * 1024);
+	});
+
+	it("estimates the UTF-8 byte length for serializable values", () => {
+		expect(estimateCacheBytes({ a: 1 })).toBe(
+			Buffer.byteLength(JSON.stringify({ a: 1 }), "utf8")
+		);
+	});
+
+	it("treats a top-level undefined value as the literal string 'null'", () => {
+		// JSON.stringify(undefined) returns undefined, exercising the `?? "null"` fallback.
+		expect(estimateCacheBytes(undefined)).toBe(Buffer.byteLength("null", "utf8"));
+	});
+
+	it("falls back to string length when Buffer is unavailable", () => {
+		const originalBuffer = globalThis.Buffer;
+		// @ts-expect-error -- simulate a runtime without the Node Buffer global.
+		delete globalThis.Buffer;
+		try {
+			const value = { a: 1 };
+			expect(estimateCacheBytes(value)).toBe(JSON.stringify(value).length);
+		} finally {
+			globalThis.Buffer = originalBuffer;
+		}
 	});
 });
