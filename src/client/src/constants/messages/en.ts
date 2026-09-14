@@ -2492,6 +2492,8 @@ export const SCANNER_CONNECTOR_INLINE_SECRET_REQUIRED =
 export const SCANNER_TARGET_REQUIRED = "A GitHub repository URL is required.";
 export const SCANNER_TARGET_INVALID =
 	"Enter an https://github.com/owner/repo URL. Local paths are not allowed.";
+export const SCANNER_PROCESS_REJECTED =
+	"Scanner command arguments were rejected as unsafe.";
 export const SCANNER_REF_INVALID =
 	"Ref must use letters, numbers, dots, slashes, hyphens, or underscores.";
 export const SCANNER_DETECTORS_INVALID =
@@ -2538,7 +2540,8 @@ export const SCANNER_FINDING_NUMBER = (n: number) => `#${n}`;
 export const SCANNER_SEVERITY_WITH_LEVEL = (severity: string) => `${severity} severity`;
 export const SCANNER_DETECTED = "Detected";
 export const SCANNER_BACK_TO_FINDINGS = "Back to findings";
-export const SCANNER_JOB_RUN_OPTION = (parts: string[]) => parts.filter(Boolean).join(" · ");
+export const SCANNER_JOB_RUN_OPTION = (parts: Array<string | undefined>) =>
+	parts.filter(Boolean).join(" · ");
 export const SCANNER_JOB_DETAILS = "Scan details";
 export const SCANNER_CLI_MENU = "CLI";
 export const SCANNER_PAGE_OF = (current: number, total: number) => `${current} of ${total}`;

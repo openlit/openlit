@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { execFile } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import {
 	SCANNER_RUNTIME_CHECKSUM_FAILED,
@@ -26,6 +26,44 @@ import type { ScannerRuntimeInfo } from "./types";
 
 const execFileAsync = promisify(execFile);
 const MAX_DOWNLOAD_BYTES = 80 * 1024 * 1024;
+const TRUSTABL_DOWNLOAD_HOSTS = new Set([
+	"github.com",
+	"api.github.com",
+	"objects.githubusercontent.com",
+	"release-assets.githubusercontent.com",
+]);
+
+function assertPathInside(root: string, candidate: string): string {
+	const resolvedRoot = resolve(root);
+	const resolved = resolve(candidate);
+	if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + sep)) {
+		throw new Error(SCANNER_RUNTIME_EXTRACT_FAILED);
+	}
+	return resolved;
+}
+
+export function assertTrustablDownloadUrl(url: string): string {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		throw new Error(SCANNER_RUNTIME_DOWNLOAD_FAILED);
+	}
+	if (parsed.protocol !== "https:") {
+		throw new Error(SCANNER_RUNTIME_DOWNLOAD_FAILED);
+	}
+	if (parsed.username || parsed.password) {
+		throw new Error(SCANNER_RUNTIME_DOWNLOAD_FAILED);
+	}
+	const host = parsed.hostname.toLowerCase();
+	if (
+		!TRUSTABL_DOWNLOAD_HOSTS.has(host) &&
+		!host.endsWith(".githubusercontent.com")
+	) {
+		throw new Error(SCANNER_RUNTIME_DOWNLOAD_FAILED);
+	}
+	return parsed.toString();
+}
 
 export type TrustablReleaseFetcher = (url: string) => Promise<Buffer>;
 
@@ -51,7 +89,8 @@ function githubHeaders(): Record<string, string> {
 }
 
 async function defaultReleaseFetcher(url: string): Promise<Buffer> {
-	const response = await fetch(url, {
+	const safeUrl = assertTrustablDownloadUrl(url);
+	const response = await fetch(safeUrl, {
 		headers: githubHeaders(),
 		redirect: "follow",
 	});
@@ -74,20 +113,30 @@ function assertChecksum(archive: Buffer, expectedHex: string): void {
 }
 
 async function extractArchive(archivePath: string, destDir: string): Promise<void> {
+	const safeArchive = assertPathInside(destDir, archivePath);
+	const safeDest = resolve(destDir);
+	if (!isAbsolute(safeArchive) || !isAbsolute(safeDest)) {
+		throw new Error(SCANNER_RUNTIME_EXTRACT_FAILED);
+	}
 	try {
-		await execFileAsync("tar", ["-xf", archivePath, "-C", destDir], { timeout: 60_000 });
+		await execFileAsync("tar", ["-xf", safeArchive, "-C", safeDest], {
+			timeout: 60_000,
+			shell: false,
+		});
 	} catch {
 		throw new Error(SCANNER_RUNTIME_EXTRACT_FAILED);
 	}
 }
 
-async function findExtractedBinary(dir: string): Promise<string> {
+async function findExtractedBinary(dir: string, root = dir): Promise<string> {
 	const wanted = process.platform === "win32" ? "trustabl.exe" : "trustabl";
-	const entries = await readdir(dir, { withFileTypes: true });
+	const safeDir = assertPathInside(root, dir);
+	const entries = await readdir(safeDir, { withFileTypes: true });
 	for (const entry of entries) {
-		const path = join(dir, entry.name);
+		if (entry.name === "." || entry.name === "..") continue;
+		const path = assertPathInside(root, join(safeDir, entry.name));
 		if (entry.isDirectory()) {
-			const nested = await findExtractedBinary(path).catch(() => "");
+			const nested = await findExtractedBinary(path, root).catch(() => "");
 			if (nested) return nested;
 		} else if (entry.name === wanted || entry.name === "trustabl") {
 			return path;
@@ -138,10 +187,11 @@ export async function installTrustablCli(input: { upgrade?: boolean } = {}): Pro
 
 	const staging = await mkdtemp(join(tmpdir(), "openlit-trustabl-"));
 	try {
-		const archivePath = join(staging, fileName);
+		const archiveName = process.platform === "win32" ? "package.zip" : "package.tar.gz";
+		const archivePath = join(staging, archiveName);
 		await writeFile(archivePath, archive);
 		await extractArchive(archivePath, staging);
-		const extracted = await findExtractedBinary(staging);
+		const extracted = assertPathInside(staging, await findExtractedBinary(staging));
 		const dest = trustablCacheBinary(tag);
 		await mkdir(join(dest, ".."), { recursive: true });
 		const binary = await readFile(extracted);

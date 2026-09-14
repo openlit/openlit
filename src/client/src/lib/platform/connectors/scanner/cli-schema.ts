@@ -163,7 +163,7 @@ export function parseTrustablScanHelp(text: string): ScannerCliFlag[] {
 		const match = line.trim().match(FLAG_PREFIX);
 		if (match) {
 			const flag = match[1];
-			let typeToken = match[2];
+			let typeToken: string | undefined = match[2];
 			let rest = match[3] || "";
 			if (typeToken && !isValueType(typeToken)) {
 				rest = `${typeToken} ${rest}`.trim();

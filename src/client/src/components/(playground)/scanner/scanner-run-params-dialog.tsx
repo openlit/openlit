@@ -74,7 +74,7 @@ function toScanInput(values: ScannerRunDefaults, fields: FieldDef[]): ScannerSca
 }
 
 function sameValues(left: ScannerRunDefaults, right: ScannerRunDefaults): boolean {
-	const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+	const keys = Array.from(new Set([...Object.keys(left), ...Object.keys(right)]));
 	for (const key of keys) {
 		if (left[key] !== right[key]) return false;
 	}

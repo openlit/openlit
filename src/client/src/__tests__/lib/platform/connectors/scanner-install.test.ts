@@ -4,7 +4,8 @@ import {
 	installTrustablCli,
 	setTrustablReleaseFetcherForTests,
 } from "@/lib/platform/connectors/scanner/install";
-import { SCANNER_RUNTIME_CHECKSUM_FAILED } from "@/constants/messages/en";
+import { SCANNER_RUNTIME_CHECKSUM_FAILED, SCANNER_RUNTIME_DOWNLOAD_FAILED } from "@/constants/messages/en";
+import { assertTrustablDownloadUrl } from "@/lib/platform/connectors/scanner/install";
 import { trustablAssetName } from "@/lib/platform/connectors/scanner/release";
 
 jest.mock("@/lib/platform/connectors/scanner/runtime", () => ({
@@ -35,5 +36,17 @@ describe("Trustabl CLI install", () => {
 			return archive;
 		});
 		await expect(installTrustablCli()).rejects.toThrow(SCANNER_RUNTIME_CHECKSUM_FAILED);
+	});
+
+	it("rejects downloads outside GitHub release hosts", () => {
+		expect(() => assertTrustablDownloadUrl("http://github.com/trustabl/trustabl")).toThrow(
+			SCANNER_RUNTIME_DOWNLOAD_FAILED
+		);
+		expect(() => assertTrustablDownloadUrl("https://evil.example/archive.tar.gz")).toThrow(
+			SCANNER_RUNTIME_DOWNLOAD_FAILED
+		);
+		expect(
+			assertTrustablDownloadUrl("https://github.com/trustabl/trustabl/releases/download/v0.1.8/checksums.txt")
+		).toContain("github.com");
 	});
 });
