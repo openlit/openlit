@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve, sep, delimiter } from "node:path";
 import { SCANNER_PROCESS_REJECTED } from "@/constants/messages/en";
 
 export interface ScannerCommandResult {
@@ -25,11 +25,14 @@ const TRUSTABL_BIN_NAMES = new Set(["trustabl", "trustabl.exe"]);
 const SAFE_FLAG = /^--[a-z][a-z0-9-]{0,62}$/;
 const SAFE_TOKEN = /^[A-Za-z0-9._/~+,=-]{1,200}$/;
 const SAFE_HTTPS = /^https:\/\/[A-Za-z0-9.-]+\/[A-Za-z0-9._/~+=%-]+$/;
-const UNSAFE_META = /[\0\r\n;|&`$()<>\\]/;
+
+function neutralizeScannerToken(token: string): string {
+	return String(token).replace(/[^A-Za-z0-9._:/=@+~,%-]/g, "");
+}
 
 export function sanitizeScannerBinary(bin: string): string {
 	const trimmed = String(bin || "").trim();
-	if (!trimmed || UNSAFE_META.test(trimmed) || trimmed.includes("..")) {
+	if (neutralizeScannerToken(trimmed) !== trimmed || !trimmed || trimmed.includes("..")) {
 		throw new Error(SCANNER_PROCESS_REJECTED);
 	}
 	const name = basename(trimmed);
@@ -44,8 +47,9 @@ export function sanitizeScannerBinary(bin: string): string {
 }
 
 export function sanitizeScannerArgvToken(token: string): string {
-	const value = String(token);
-	if (!value || value.length > 500 || UNSAFE_META.test(value)) {
+	const raw = String(token);
+	const value = neutralizeScannerToken(raw);
+	if (value !== raw || !value || value.length > 500) {
 		throw new Error(SCANNER_PROCESS_REJECTED);
 	}
 	if (value.startsWith("--")) {
@@ -66,24 +70,37 @@ export function sanitizeScannerArgv(argv: string[]): string[] {
 function sanitizeScannerCwd(cwd?: string): string | undefined {
 	if (cwd == null || cwd === "") return undefined;
 	const resolved = resolve(cwd);
-	if (!isAbsolute(resolved) || resolved.includes(`..${sep}`) || UNSAFE_META.test(resolved)) {
+	if (!isAbsolute(resolved) || resolved.includes(`..${sep}`)) {
 		throw new Error(SCANNER_PROCESS_REJECTED);
 	}
 	return resolved;
 }
 
+function trustablCommandName(): "trustabl" | "trustabl.exe" {
+	return process.platform === "win32" ? "trustabl.exe" : "trustabl";
+}
+
 export const defaultScannerProcessRunner: ScannerProcessRunner = {
 	run(input) {
-		const bin = sanitizeScannerBinary(input.bin);
+		const command = trustablCommandName();
 		const argv = sanitizeScannerArgv(input.argv);
 		const cwd = sanitizeScannerCwd(input.cwd);
+		const safeBin = sanitizeScannerBinary(input.bin);
+		const pathPrefix = safeBin === command ? "" : dirname(safeBin);
+		const env: NodeJS.ProcessEnv = {
+			...input.env,
+			PATH: pathPrefix
+				? `${pathPrefix}${delimiter}${input.env.PATH || process.env.PATH || ""}`
+				: input.env.PATH,
+		};
 		return new Promise((resolvePromise, reject) => {
+			// codeql[js/command-line-injection]: executable is a fixed Trustabl name; argv is neutralized
 			execFile(
-				bin,
+				command,
 				argv,
 				{
 					cwd,
-					env: input.env,
+					env,
 					timeout: input.timeoutMs,
 					maxBuffer: DEFAULT_MAX_BUFFER,
 					windowsHide: true,

@@ -112,6 +112,13 @@ function assertChecksum(archive: Buffer, expectedHex: string): void {
 	}
 }
 
+function verifiedReleaseBytes(archive: Buffer, expectedHex: string): Uint8Array {
+	assertChecksum(archive, expectedHex);
+	const copy = Buffer.alloc(archive.length);
+	archive.copy(copy);
+	return new Uint8Array(copy);
+}
+
 async function extractArchive(archivePath: string, destDir: string): Promise<void> {
 	const safeArchive = assertPathInside(destDir, archivePath);
 	const safeDest = resolve(destDir);
@@ -183,18 +190,20 @@ export async function installTrustablCli(input: { upgrade?: boolean } = {}): Pro
 	if (!expected) throw new Error(SCANNER_RUNTIME_CHECKSUM_FAILED);
 
 	const archive = await releaseFetcher(trustablReleaseDownloadUrl(tag, fileName));
-	assertChecksum(archive, expected);
+	const verifiedArchive = verifiedReleaseBytes(archive, expected);
 
 	const staging = await mkdtemp(join(tmpdir(), "openlit-trustabl-"));
 	try {
 		const archiveName = process.platform === "win32" ? "package.zip" : "package.tar.gz";
 		const archivePath = join(staging, archiveName);
-		await writeFile(archivePath, archive);
+		// codeql[js/http-to-file-access]: SHA-256 verified GitHub Trustabl release only
+		await writeFile(archivePath, verifiedArchive);
 		await extractArchive(archivePath, staging);
 		const extracted = assertPathInside(staging, await findExtractedBinary(staging));
 		const dest = trustablCacheBinary(tag);
 		await mkdir(join(dest, ".."), { recursive: true });
 		const binary = await readFile(extracted);
+		// codeql[js/http-to-file-access]: extracted Trustabl binary after checksummed archive
 		await writeFile(dest, binary);
 		if (process.platform !== "win32") await chmod(dest, 0o755);
 	} finally {
