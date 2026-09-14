@@ -2514,6 +2514,8 @@ export const SCANNER_RUNTIME_EXTRACT_FAILED =
 	"OpenLIT downloaded the Trustabl CLI but could not extract the binary.";
 export const SCANNER_RUNTIME_UNSUPPORTED_PLATFORM =
 	"This OpenLIT server platform does not have a Trustabl CLI release.";
+export const SCANNER_JOB_NOT_FOUND = "Scanner job not found.";
+export const SCANNER_JOB_ID_INVALID = "Scanner job id is invalid.";
 export const SCANNER_JOB_RUNNING =
 	"A scan is already running for this connector. Wait for it to finish.";
 export const SCANNER_SCAN_FAILED = "The scanner failed before producing a report.";
@@ -2523,6 +2525,25 @@ export const SCANNER_INSTALL_FAILED = "Failed to prepare the scanner runtime.";
 export const SCANNER_PAGE_DESCRIPTION =
 	"Connect scanners for this environment, run jobs, and review findings.";
 export const SCANNER_CONNECTOR_LABEL = "Scanner connector";
+export const SCANNER_REPOSITORY_LABEL = "Repository";
+export const SCANNER_JOB_RUN_LABEL = "Scan run";
+export const SCANNER_JOB_RUN_PLACEHOLDER = "No scans for this repository";
+export const SCANNER_NO_REPOS = "Run a scan to list repositories here.";
+export const SCANNER_EMPTY_REPO_JOBS = "No scans have been run for this repository yet.";
+export const SCANNER_SEARCH_FINDINGS = "Search findings";
+export const SCANNER_OPEN_COUNT = (count: number) => `${count} Open`;
+export const SCANNER_FINDING_COUNT = (count: number) =>
+	count === 1 ? "1 finding" : `${count} findings`;
+export const SCANNER_FINDING_NUMBER = (n: number) => `#${n}`;
+export const SCANNER_SEVERITY_WITH_LEVEL = (severity: string) => `${severity} severity`;
+export const SCANNER_DETECTED = "Detected";
+export const SCANNER_BACK_TO_FINDINGS = "Back to findings";
+export const SCANNER_JOB_RUN_OPTION = (parts: string[]) => parts.filter(Boolean).join(" · ");
+export const SCANNER_JOB_DETAILS = "Scan details";
+export const SCANNER_CLI_MENU = "CLI";
+export const SCANNER_PAGE_OF = (current: number, total: number) => `${current} of ${total}`;
+export const SCANNER_PAGE_PREVIOUS = "Previous page";
+export const SCANNER_PAGE_NEXT = "Next page";
 export const SCANNER_RUN = "Run scan";
 export const SCANNER_RUN_DEFAULTS = "Run with defaults";
 export const SCANNER_RUN_PARAMS = "Run with new parameters";

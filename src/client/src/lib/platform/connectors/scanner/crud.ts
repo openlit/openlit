@@ -37,6 +37,8 @@ import {
 	SCANNER_CONNECTOR_TYPE_UNKNOWN,
 	SCANNER_CONNECTOR_INLINE_SECRET_REQUIRED,
 	SCANNER_JOB_RUNNING,
+	SCANNER_JOB_NOT_FOUND,
+	SCANNER_JOB_ID_INVALID,
 	SCANNER_SCAN_FAILED,
 	TELEMETRY_SOURCE_INVALID_SETTINGS,
 } from "@/constants/messages/en";
@@ -51,6 +53,7 @@ import {
 import { parseScannerScanInput } from "./scan-params";
 import { isScannerExtraSettingKey } from "./cli-schema";
 import { newScannerJobId } from "./report";
+import { isScannerJobId, pageScannerJobFindings, type ScannerFindingPage } from "./job-findings";
 
 export const SCANNER_CONNECTOR_PREFIX = "scanner:";
 
@@ -515,6 +518,18 @@ export async function installScannerRuntime(id?: string, input: { upgrade?: bool
 	if (id) await getScannerRuntime(id);
 	const runtime = await installTrustablCli(input);
 	return { runtime };
+}
+
+export async function listScannerJobFindings(
+	id: string,
+	jobId: string,
+	input: { q?: unknown; severity?: unknown; page?: unknown; limit?: unknown } = {}
+): Promise<ScannerFindingPage> {
+	if (!isScannerJobId(jobId)) throw new Error(SCANNER_JOB_ID_INVALID);
+	const row = await getScannerConnector(id);
+	const job = jobsFromMetadata(row.metadata || "{}").find((item) => item.id === jobId);
+	if (!job) throw new Error(SCANNER_JOB_NOT_FOUND);
+	return pageScannerJobFindings(job, input);
 }
 
 export async function runScannerJob(id: string, input: ScannerScanInput = {}) {

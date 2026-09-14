@@ -6,6 +6,7 @@ jest.mock("@/lib/platform/connectors/scanner/crud", () => ({
 	runScannerJob: jest.fn(),
 	getScannerCliRuntime: jest.fn(),
 	installScannerRuntime: jest.fn(),
+	listScannerJobFindings: jest.fn(),
 }));
 jest.mock("@/lib/platform/connectors/scanner/lookup", () => ({
 	lookupLatestScannerFindingsForRepo: jest.fn(),
@@ -22,6 +23,7 @@ jest.mock("@/utils/asaw", () =>
 
 import { GET } from "@/app/api/scanners/route";
 import { GET as GETFindings } from "@/app/api/scanners/findings/route";
+import { GET as GETJobFindings } from "@/app/api/scanners/[id]/jobs/[jobId]/findings/route";
 import { POST } from "@/app/api/scanners/[id]/scan/route";
 import { GET as GETRuntime, POST as POSTRuntime } from "@/app/api/scanners/runtime/route";
 import { POST as POSTInstall } from "@/app/api/scanners/[id]/install/route";
@@ -30,10 +32,11 @@ import {
 	getScannerCliRuntime,
 	installScannerRuntime,
 	listScannerConnectors,
+	listScannerJobFindings,
 	runScannerJob,
 } from "@/lib/platform/connectors/scanner/crud";
 import { lookupLatestScannerFindingsForRepo } from "@/lib/platform/connectors/scanner/lookup";
-import { SCANNER_INVALID_JSON, SCANNER_TARGET_REQUIRED } from "@/constants/messages/en";
+import { SCANNER_INVALID_JSON, SCANNER_JOB_ID_INVALID, SCANNER_TARGET_REQUIRED } from "@/constants/messages/en";
 
 (globalThis as unknown as { Response: { json: unknown } }).Response = {
 	json: (body: unknown, init?: ResponseInit) => ({
@@ -231,6 +234,57 @@ describe("GET /api/scanners/findings", () => {
 		expect(body.mediumPlusCount).toBe(2);
 		expect(lookupLatestScannerFindingsForRepo).toHaveBeenCalledWith({
 			repoUrl: "https://github.com/acme/checkout-agent",
+		});
+	});
+});
+
+describe("GET /api/scanners/[id]/jobs/[jobId]/findings", () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+		(getCurrentUser as jest.Mock).mockResolvedValue({ id: "user-1" });
+	});
+
+	it("requires authentication", async () => {
+		(getCurrentUser as jest.Mock).mockResolvedValue(null);
+		const response = await GETJobFindings(
+			{ url: "http://localhost/api/scanners/scanner:abc/jobs/job:abee6854-450a-445d-98a9-8ed0076c05b7/findings" } as Request,
+			{ params: { id: "scanner:abc", jobId: "job:abee6854-450a-445d-98a9-8ed0076c05b7" } }
+		);
+		expect(response.status).toBe(401);
+		expect(listScannerJobFindings).not.toHaveBeenCalled();
+	});
+
+	it("rejects an invalid job id", async () => {
+		const response = await GETJobFindings(
+			{ url: "http://localhost/api/scanners/scanner:abc/jobs/../etc/passwd/findings" } as Request,
+			{ params: { id: "scanner:abc", jobId: "../etc/passwd" } }
+		);
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toEqual({ err: SCANNER_JOB_ID_INVALID });
+		expect(listScannerJobFindings).not.toHaveBeenCalled();
+	});
+
+	it("forwards search, severity, and pagination to the job findings reader", async () => {
+		(listScannerJobFindings as jest.Mock).mockResolvedValue({
+			findings: [],
+			total: 0,
+			page: 1,
+			pageSize: 25,
+			counts: { all: 0, critical: 0, high: 0, medium: 0, low: 0 },
+		});
+		const jobId = "job:abee6854-450a-445d-98a9-8ed0076c05b7";
+		const response = await GETJobFindings(
+			{
+				url: `http://localhost/api/scanners/scanner:abc/jobs/${jobId}/findings?q=mcp&severity=high&page=2&limit=10`,
+			} as Request,
+			{ params: { id: "scanner:abc", jobId } }
+		);
+		expect(response.status).toBe(200);
+		expect(listScannerJobFindings).toHaveBeenCalledWith("scanner:abc", jobId, {
+			q: "mcp",
+			severity: "high",
+			page: "2",
+			limit: "10",
 		});
 	});
 });

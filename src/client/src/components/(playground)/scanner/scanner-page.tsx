@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { ChevronDown, Cable, ExternalLink, ListChecks, Play, RefreshCw, ScanSearch, Settings2 } from "lucide-react";
+import { ChevronDown, Cable, ExternalLink, GitBranch, ListChecks, Play, RefreshCw, ScanSearch, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import FeatureAccess from "@/components/rbac/feature-access";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
@@ -31,7 +31,6 @@ import {
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import getMessage from "@/constants/messages";
@@ -42,6 +41,7 @@ import { getRequestHeaders } from "@/utils/api";
 import { connectorIconPath } from "@/lib/platform/connectors/icons";
 import { trustablRunParamFields } from "@/lib/platform/connectors/scanner/config-fields";
 import type { ScannerCliSchema } from "@/lib/platform/connectors/scanner/cli-schema";
+import { groupScannerJobsByRepo, scannerJobRepoKey } from "@/lib/platform/connectors/scanner/job-repos";
 import type { ScannerFinding, ScannerJob, ScannerScanInput, ScannerRuntimeInfo } from "@/lib/platform/connectors/scanner/types";
 
 type ScannerConnector = {
@@ -86,6 +86,33 @@ function connectorRunDefaults(
 	return next;
 }
 
+const toolbarSelectTriggerClass =
+	"h-9 w-fit max-w-[20rem] shrink-0 gap-2 bg-white px-2 text-left text-xs dark:bg-stone-950 [&>span]:line-clamp-none [&>span]:flex [&>span]:w-max [&>span]:max-w-full [&>svg]:ml-0 [&>svg]:size-3.5 [&>svg]:shrink-0";
+
+function ToolbarSelectValue({
+	icon,
+	label,
+	value,
+}: {
+	icon: ReactNode;
+	label: string;
+	value?: string;
+}) {
+	return (
+		<span className="flex w-max max-w-full items-center gap-2">
+			{icon}
+			<span className="min-w-0 max-w-full text-left leading-tight">
+				<span className="block text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
+					{label}
+				</span>
+				<span className="block max-w-[16rem] truncate font-medium text-stone-900 dark:text-stone-100">
+					{value || "—"}
+				</span>
+			</span>
+		</span>
+	);
+}
+
 function ConnectorMark({ type, size = 16 }: { type: string; size?: number }) {
 	const src = connectorIconPath(type);
 	if (!src) {
@@ -117,9 +144,13 @@ export default function ScannerPage() {
 	const [addOpen, setAddOpen] = useState(false);
 	const [paramsOpen, setParamsOpen] = useState(false);
 	const [jobId, setJobId] = useState(queryJobId);
+	const [repoKey, setRepoKey] = useState("");
 	const [finding, setFinding] = useState<ScannerFinding | null>(null);
+	const [alertNumber, setAlertNumber] = useState<number | undefined>();
 	const [descriptors, setDescriptors] = useState<TypeDescriptor[]>([]);
 	const [cliSchema, setCliSchema] = useState<ScannerCliSchema | undefined>();
+	const jobIdRef = useRef(jobId);
+	jobIdRef.current = jobId;
 	const handleRuntimeChange = useCallback((runtime: ScannerRuntimeInfo | null) => {
 		setCliSchema(runtime?.schema);
 	}, []);
@@ -152,19 +183,33 @@ export default function ScannerPage() {
 		[connectorId, connectors]
 	);
 	const jobs = selected?.jobs || [];
+	const defaultTarget = useMemo(() => {
+		const target = parseSettings(selected?.settings).target;
+		return typeof target === "string" ? target : "";
+	}, [selected?.settings]);
+	const repoGroups = useMemo(
+		() => groupScannerJobsByRepo(jobs, defaultTarget),
+		[defaultTarget, jobs]
+	);
+	const selectedRepo = useMemo(
+		() => repoGroups.find((group) => group.repoKey === repoKey) || repoGroups[0],
+		[repoGroups, repoKey]
+	);
+	const repoJobs = selectedRepo?.jobs || [];
 	const selectedJob = useMemo(
-		() => jobs.find((job) => job.id === jobId) || jobs[0],
-		[jobId, jobs]
+		() => repoJobs.find((job) => job.id === jobId) || repoJobs[0],
+		[jobId, repoJobs]
 	);
 	const previousJob = useMemo(() => {
 		if (!selectedJob) return undefined;
-		const index = jobs.findIndex((job) => job.id === selectedJob.id);
-		return index >= 0 ? jobs[index + 1] : undefined;
-	}, [jobs, selectedJob]);
-	const runDefaults = useMemo(
-		() => connectorRunDefaults(selected?.settings, trustablRunParamFields(cliSchema)),
-		[cliSchema, selected?.settings]
-	);
+		const index = repoJobs.findIndex((job) => job.id === selectedJob.id);
+		return index >= 0 ? repoJobs[index + 1] : undefined;
+	}, [repoJobs, selectedJob]);
+	const runDefaults = useMemo(() => {
+		const next = connectorRunDefaults(selected?.settings, trustablRunParamFields(cliSchema));
+		if (selectedRepo?.target) next.target = selectedRepo.target;
+		return next;
+	}, [cliSchema, selected?.settings, selectedRepo?.target]);
 
 	const load = useCallback(async () => {
 		if (!project?.id) {
@@ -190,13 +235,17 @@ export default function ScannerPage() {
 				? preferredId
 				: next[0]?.id || "";
 			setConnectorId(resolvedId);
-			const nextJobs = next.find((item) => item.id === resolvedId)?.jobs || [];
-			setJobId((current) => {
-				const preferredJob = current || queryJobId;
-				return nextJobs.some((job) => job.id === preferredJob)
-					? preferredJob
-					: nextJobs[0]?.id || "";
-			});
+			const resolved = next.find((item) => item.id === resolvedId);
+			const nextJobs = resolved?.jobs || [];
+			const nextDefault =
+				typeof parseSettings(resolved?.settings).target === "string"
+					? String(parseSettings(resolved?.settings).target)
+					: "";
+			const groups = groupScannerJobsByRepo(nextJobs, nextDefault);
+			const preferredJob = jobIdRef.current || queryJobId;
+			const resolvedJob = nextJobs.find((job) => job.id === preferredJob) || groups[0]?.jobs[0];
+			setJobId(resolvedJob?.id || "");
+			setRepoKey(resolvedJob ? scannerJobRepoKey(resolvedJob) : groups[0]?.repoKey || "");
 		} catch (error) {
 			setLoadError(error instanceof Error ? error.message : messages.SCANNER_LOAD_FAILED);
 		} finally {
@@ -214,14 +263,23 @@ export default function ScannerPage() {
 		setParamsOpen(false);
 		toast.loading(messages.SCANNER_RUN, { id: "scanner-run" });
 		try {
+			const payload: ScannerScanInput = { ...input };
+			if (!payload.target && selectedRepo?.target) {
+				payload.target = selectedRepo.target;
+			}
 			const response = await fetch(`/api/scanners/${encodeURIComponent(selected.id)}/scan`, {
 				method: "POST",
 				headers: getRequestHeaders({ "Content-Type": "application/json" }),
-				body: JSON.stringify(input),
+				body: JSON.stringify(payload),
 			});
 			const body = await response.json();
 			if (!response.ok) throw new Error(body?.err || messages.SCANNER_SCAN_FAILED);
-			if (typeof body?.job?.id === "string") setJobId(body.job.id);
+			if (typeof body?.job?.id === "string") {
+				setJobId(body.job.id);
+				if (typeof body.job.target === "string" && body.job.target) {
+					setRepoKey(scannerJobRepoKey(body.job as ScannerJob));
+				}
+			}
 			toast.success(messages.SCANNER_RUN, { id: "scanner-run" });
 			await load();
 		} catch (error) {
@@ -304,20 +362,34 @@ export default function ScannerPage() {
 			<FeatureAccess access="scanner.read" requireProject>
 				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 					{connectors.length > 0 ? (
-						<div className="flex flex-wrap items-center gap-2 border-b border-stone-200 px-4 py-2 dark:border-stone-800">
-							<label className="text-xs text-muted-foreground">{messages.SCANNER_CONNECTOR_LABEL}</label>
+						<div className="flex min-h-11 items-center gap-2 overflow-x-auto border-b border-stone-200 px-3 py-1.5 dark:border-stone-800">
 							<Select
 								value={selected?.id || ""}
 								onValueChange={(next) => {
 									setConnectorId(next);
-									const nextJobs = connectors.find((item) => item.id === next)?.jobs || [];
-									setJobId(nextJobs[0]?.id || "");
+									const connector = connectors.find((item) => item.id === next);
+									const nextJobs = connector?.jobs || [];
+									const nextDefault =
+										typeof parseSettings(connector?.settings).target === "string"
+											? String(parseSettings(connector?.settings).target)
+											: "";
+									const groups = groupScannerJobsByRepo(nextJobs, nextDefault);
+									setRepoKey(groups[0]?.repoKey || "");
+									setJobId(groups[0]?.jobs[0]?.id || "");
 									setFinding(null);
+									setAlertNumber(undefined);
 								}}
 								disabled={loading}
 							>
-								<SelectTrigger className="h-8 w-[280px] bg-white text-xs dark:bg-stone-950">
-									<SelectValue />
+								<SelectTrigger
+									aria-label={messages.SCANNER_CONNECTOR_LABEL}
+									className={toolbarSelectTriggerClass}
+								>
+									<ToolbarSelectValue
+										icon={<ConnectorMark type={selected?.type || "trustabl"} size={14} />}
+										label={messages.SCANNER_CONNECTOR_LABEL}
+										value={selected?.name}
+									/>
 								</SelectTrigger>
 								<SelectContent>
 									{connectors.map((connector) => (
@@ -330,8 +402,41 @@ export default function ScannerPage() {
 									))}
 								</SelectContent>
 							</Select>
+							{repoGroups.length ? (
+								<Select
+									value={selectedRepo?.repoKey}
+									onValueChange={(next) => {
+										const group = repoGroups.find((item) => item.repoKey === next);
+										setRepoKey(next);
+										setJobId(group?.jobs[0]?.id || "");
+										setFinding(null);
+										setAlertNumber(undefined);
+									}}
+									disabled={loading}
+								>
+									<SelectTrigger
+										aria-label={messages.SCANNER_REPOSITORY_LABEL}
+										className={toolbarSelectTriggerClass}
+									>
+										<ToolbarSelectValue
+											icon={<GitBranch className="size-3.5 shrink-0 text-stone-500" />}
+											label={messages.SCANNER_REPOSITORY_LABEL}
+											value={selectedRepo?.label}
+										/>
+									</SelectTrigger>
+									<SelectContent>
+										{repoGroups.map((group) => (
+											<SelectItem key={group.repoKey} value={group.repoKey}>
+												{group.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							) : (
+								<span className="shrink-0 text-xs text-muted-foreground">{messages.SCANNER_NO_REPOS}</span>
+							)}
 							{selected?.type === "trustabl" ? (
-								<div className="ml-auto">
+								<div className="ml-auto shrink-0">
 									<ScannerRuntimePanel
 										compact
 										onRuntimeChange={handleRuntimeChange}
@@ -453,14 +558,21 @@ export default function ScannerPage() {
 					) : (
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 							<ScannerWorkspace
-								jobs={jobs}
+								key={selectedRepo?.repoKey || "empty"}
+								connectorId={selected?.id}
+								repoLabel={selectedRepo?.label}
+								jobs={repoJobs}
 								selectedJob={selectedJob}
 								previousJob={previousJob}
 								onSelectJob={(next) => {
 									setJobId(next);
 									setFinding(null);
+									setAlertNumber(undefined);
 								}}
-								onOpenFinding={setFinding}
+								onOpenFinding={(item, number) => {
+									setFinding(item);
+									setAlertNumber(number);
+								}}
 							/>
 						</div>
 					)}
@@ -479,8 +591,12 @@ export default function ScannerPage() {
 			<ScannerFindingSheet
 				open={Boolean(finding)}
 				finding={finding}
+				alertNumber={alertNumber}
 				job={selectedJob}
-				onClose={() => setFinding(null)}
+				onClose={() => {
+					setFinding(null);
+					setAlertNumber(undefined);
+				}}
 			/>
 			{addOpen ? (
 				<SourceFormDialog
