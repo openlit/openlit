@@ -1,8 +1,9 @@
+import { getTraceExist } from "@/lib/platform/traces/read";
 import { withRouteAccess } from "@/lib/access/route-access";
-import { getRequestExist } from "@/lib/platform/request";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
-async function POSTHandler() {
-	const res = await getRequestExist();
+async function POSTHandler(request: Request) {
+	const res = await getTraceExist(getRequestEnvironment(request));
 	const { data } = res;
 	if ((data as any[])?.[0]?.total_requests > 0) {
 		return Response.json(true);
@@ -11,4 +12,4 @@ async function POSTHandler() {
 	return Response.json(false);
 }
 
-export const POST = withRouteAccess("metrics.read", POSTHandler, { requireDbConfig: true });
+export const POST = withRouteAccess("traces.read", POSTHandler, { requireDbConfig: true });

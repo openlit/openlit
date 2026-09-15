@@ -1,0 +1,34 @@
+openapi: 3.0.0
+info:
+  title: Public SDK Pricing Export
+  description: Unauthenticated pricing.json export for a database configuration id. Safe to pass to OpenLIT SDK pricing_json / pricingJson.
+  version: 1.0.0
+servers:
+  - url: /
+paths:
+  /api/pricing/export/{dbConfigId}:
+    get:
+      summary: Public pricing export
+      description: Returns SDK-compatible pricing for all models in that database config. No auth. Cached for 5 minutes.
+      operationId: publicPricingExport
+      parameters:
+        - name: dbConfigId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: pricing.json body
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  chat:
+                    gpt-4o:
+                      promptPrice: 0.0025
+                      completionPrice: 0.01
+        '404':
+          description: Database config not found

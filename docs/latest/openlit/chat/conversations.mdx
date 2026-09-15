@@ -1,0 +1,51 @@
+---
+title: "Chat with Otter"
+sidebarTitle: "Chat"
+description: "Use Otter's AI chat assistant to query observability data with natural language, save widgets, generate dashboards, and manage OpenLIT resources"
+---
+
+The main Otter screen is `/chat` (optional `?id=<conversation-id>` for a specific thread). Empty-state title: **Your AI-Powered Observability Copilot**.
+
+## Conversations
+
+- **New Chat** starts a conversation; titles are generated after the first exchange.
+- Search with **Search conversations...** in the sidebar.
+- Delete a conversation from its row (trash on hover).
+- Each conversation has its own URL so you can bookmark or share the link within your team.
+
+Placeholder for the composer: **Ask a question about your data...** (Enter to send, Shift+Enter for a new line).
+
+Empty-state example chips include analyzing slow traces from the last 24 hours, token usage and cost by model, recent errors for a busy service, creating a dashboard for volume/errors/latency/cost, improvement analysis on high-cost traces, and creating a rule for failures or slow requests.
+
+## Data questions and SQL
+
+When Otter answers with a query, you see a collapsible **SQL Query** block, **Copy** / **Execute** / **Running...**, and results you can view as **Table**, **Bar**, **Line**, or **Pie** (plus an auto **Stat Card** when it fits). Use **Save as Widget** to enter a required **Title**, choose a widget type (**Stat Card**, **Bar Chart**, **Line Chart**, **Pie Chart**, **Area Chart**, **Table**), and optionally add it to a dashboard.
+
+Queries are constrained to telemetry data (traces and metrics tables) in read-only mode with a result row cap - Otter is not a general-purpose database admin console.
+
+## Resources and dashboards
+
+Ask Otter to create or list rules, contexts, prompts, Vault secrets, custom models, and related resources. Created entities show up as cards with links into the product. For dashboards, Otter can return an importable layout with **Import Dashboard**, **Download JSON**, and **Open Dashboard** after import.
+
+Vault key names are normalized to `UPPER_SNAKE_CASE` when Otter creates secrets.
+
+## Analysis and prompt improvement
+
+You can ask Otter to analyze traces or spans (including by session or other attributes) or to review a Prompt Hub prompt by name or ID. Review-only asks suggest edits without saving; Otter only writes a new prompt version when you explicitly ask it to save, apply, update, publish, or create a version.
+
+For the telemetry-side UI of the same analysis pipeline, see [AI Analysis](/latest/openlit/observability/telemetry/ai-analysis).
+
+## Cost on each message
+
+Per-message tokens and estimated cost appear on each reply; the conversation list can show cost when it is greater than zero. Hover the info control near the input for **Active Configuration** details (provider, model, and pricing). Those prices come from [Manage Models](/latest/openlit/costs/manage-models/overview).
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Chat Settings" href="/latest/openlit/chat/settings" icon="gear">
+    Provider, model, and Vault API key
+  </Card>
+  <Card title="Otter usage" href="/latest/openlit/chat/usage" icon="chart-column">
+    Aggregate tokens and cost across Otter features
+  </Card>
+</CardGroup>

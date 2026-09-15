@@ -29,6 +29,7 @@ export function CustomSelect({
 	hasOtherOption,
 	name,
 	id,
+	disabled = false,
 }: CustomSelectProps) {
 	const [open, setOpen] = React.useState(false);
 	const [value, setValue] = React.useState(defaultValue);
@@ -94,6 +95,7 @@ export function CustomSelect({
 
 	return (
 		<div className="space-y-2">
+			<input type="hidden" name={name} value={inputValue} readOnly />
 			<Popover open={open} onOpenChange={setOpen}>
 				<PopoverTrigger asChild>
 					<Button
@@ -101,6 +103,7 @@ export function CustomSelect({
 						role="combobox"
 						aria-expanded={open}
 						className="w-full justify-between"
+						disabled={disabled}
 						ref={triggerRef}
 					>
 						{value === "other" && inputValue

@@ -16,7 +16,7 @@
 #     plugins/codex/                      -- mirrored from repo-root
 #
 # Run after editing any file under either source tree. CI verifies the
-# embedded copy is in sync (see .github/workflows/cli-tests.yml).
+# embedded copy is in sync (see .github/workflows/ci-cli.yml).
 
 set -euo pipefail
 

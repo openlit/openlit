@@ -17,11 +17,11 @@ interface BarChartProps {
 
 const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget, data }) => {
 	const updatedData = data?.map((item) => {
-		const yValue = parseFloat(item[widget.properties.yAxis]);
+		const yValue = parseFloat(String(item[widget.properties.yAxis] ?? ""));
 		return {
 			...item,
-			[widget.properties.xAxis]: item[widget.properties.xAxis],
-			[widget.properties.yAxis]: isNaN(yValue) ? 0 : yValue,
+			[widget.properties.xAxis]: item[widget.properties.xAxis] ?? "",
+			[widget.properties.yAxis]: Number.isFinite(yValue) ? yValue : 0,
 		};
 	}) || [];
 
@@ -43,6 +43,8 @@ const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget, data }) => {
 						dataKey={widget.properties.xAxis}
 						className="text-xs stroke-stone-300"
 						stroke="currentColor"
+						interval={0}
+						minTickGap={8}
 					/>
 					<YAxis
 						dataKey={widget.properties.yAxis}

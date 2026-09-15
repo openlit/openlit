@@ -1,0 +1,74 @@
+openapi: 3.0.0
+info:
+  title: Manage Models - Import Pricing
+  description: Bulk-import providers and models from structured JSON or SDK pricing_json. Skips existing provider+model_id pairs. Requires a signed-in OpenLIT session.
+  version: 1.0.0
+servers:
+  - url: /
+paths:
+  /api/openground/models/import:
+    post:
+      summary: Import pricing JSON
+      description: >-
+        Accepts a structured providers and models payload, or the SDK
+        pricing_json object shape keyed by model type (chat, embeddings, and so on).
+      operationId: importModelsPricing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                providers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      providerId:
+                        type: string
+                      displayName:
+                        type: string
+                      description:
+                        type: string
+                models:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      provider:
+                        type: string
+                      model_id:
+                        type: string
+                      displayName:
+                        type: string
+                      inputPricePerMToken:
+                        type: number
+                      outputPricePerMToken:
+                        type: number
+      responses:
+        '200':
+          description: Import summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported:
+                    type: number
+                  skipped:
+                    type: number
+                  providersImported:
+                    type: number
+                  providersSkipped:
+                    type: number
+        '401':
+          description: Not signed in
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+security:
+  - sessionAuth: []

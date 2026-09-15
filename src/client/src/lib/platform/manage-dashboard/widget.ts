@@ -8,9 +8,153 @@ import {
 	sanitizeWidget,
 	escapeSingleQuotes,
 } from "@/helpers/server/widget";
-import mustache from "mustache";
-
 import { jsonStringify } from "@/utils/json";
+// NOTE: `@/lib/telemetry-source` is imported lazily inside `runWidgetQuery`
+// (see below). `widget.ts` sits in a pre-existing common <-> board <-> widget
+// import cycle; importing telemetry-source eagerly here would pull the
+// datasource adapter graph (-> clickhouse/adapter -> @/lib/platform/common and
+// -> observability) into that cycle's scope-hoisting group and reintroduce a
+// "Cannot access X before initialization" TDZ in production builds.
+import type {
+	DataFrameMeta,
+	DataSourceAdapter,
+	OpenLITQuery,
+	Signal,
+} from "@/lib/platform/connectors/datasource/types";
+import { UnsupportedCapabilityError } from "@/lib/platform/connectors/datasource/types";
+import { logQueryObservability } from "@/lib/platform/connectors/datasource/query-observability";
+import {
+	clampQueryBudget,
+	DEFAULT_QUERY_BUDGET,
+} from "@/lib/platform/connectors/datasource/http/limits";
+import { metricParamsToOpenLITQuery } from "@/lib/platform/connectors/datasource/clickhouse/query-map";
+import {
+	executeInferredWidgetQuery,
+	inferStructuredFromClickHouseSql,
+	isLegacyOtelTracesSql,
+	stripSyntheticDefaultEnvironment,
+} from "@/lib/platform/manage-dashboard/widget-sql-bridge";
+import {
+	planAndAggregateSpans,
+	planAndSpanTimeSeries,
+} from "@/lib/platform/connectors/datasource/query-planner";
+import { shouldPreferRollup } from "@/lib/platform/connectors/datasource/rollup-policy";
+
+/**
+ * Resolve a dotted path under the filter object (e.g. `timeLimit.start`).
+ * Returns undefined when any segment is missing — callers treat that as "".
+ */
+function getFilterPathValue(filter: unknown, path: string): unknown {
+	const parts = path.split(".");
+	let current: unknown = filter;
+	for (const part of parts) {
+		if (current == null || typeof current !== "object") {
+			return undefined;
+		}
+		current = (current as Record<string, unknown>)[part];
+	}
+	return current;
+}
+
+/** Truthiness for Mustache-style `{{#filter.*}}` / `{{^filter.*}}` sections. */
+function isFilterSectionTruthy(value: unknown): boolean {
+	if (value == null) return false;
+	if (typeof value === "boolean") return value;
+	if (typeof value === "number") return value !== 0 && !Number.isNaN(value);
+	if (typeof value === "string") return value.length > 0;
+	if (Array.isArray(value)) return value.length > 0;
+	if (typeof value === "object") {
+		return Object.keys(value as Record<string, unknown>).length > 0;
+	}
+	return Boolean(value);
+}
+
+/**
+ * Expand only `{{#filter.path}}…{{/filter.path}}` and
+ * `{{^filter.path}}…{{/filter.path}}` sections.
+ *
+ * Coding Agents (and other) seeded widgets rely on these to optionally inject
+ * vendor/user predicates. We deliberately do **not** hand the query to a
+ * template engine — only allow-listed `filter.<path>` section tags are
+ * recognized, so arbitrary Mustache (`{{#evil}}`, lambdas, partials) stays
+ * inert (CodeQL js/code-injection).
+ *
+ * Implemented as a left-to-right scan (no `[\s\S]*?` + backref replace) to
+ * avoid polynomial ReDoS on hostile templates (CodeQL js/polynomial-redos).
+ */
+function renderFilterSections(template: string, filter: MetricParams): string {
+	const openTag = /\{\{([#^])\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g;
+	let out = "";
+	let cursor = 0;
+
+	while (cursor < template.length) {
+		openTag.lastIndex = cursor;
+		const open = openTag.exec(template);
+		if (!open) {
+			out += template.slice(cursor);
+			break;
+		}
+
+		const openStart = open.index;
+		const openEnd = openTag.lastIndex;
+		const kind = open[1] as "#" | "^";
+		const path = open[2];
+		out += template.slice(cursor, openStart);
+
+		const closeNeedle = `{{/filter.${path}}}`;
+		const closeIndex = template.indexOf(closeNeedle, openEnd);
+		if (closeIndex === -1) {
+			// Unclosed section: keep the open tag literal and continue.
+			out += open[0];
+			cursor = openEnd;
+			continue;
+		}
+
+		const body = template.slice(openEnd, closeIndex);
+		const truthy = isFilterSectionTruthy(getFilterPathValue(filter, path));
+		if (kind === "#") {
+			out += truthy ? body : "";
+		} else {
+			out += truthy ? "" : body;
+		}
+		cursor = closeIndex + closeNeedle.length;
+	}
+
+	return out;
+}
+
+/**
+ * Substitute only `{{filter.*}}` / `{{{filter.*}}}` placeholders, after
+ * expanding `filter.*` section tags.
+ *
+ * Intentionally does **not** use Mustache (or any template engine): the
+ * query string is user-controlled on the widget preview path, and treating
+ * it as an executable template is a code-injection sink (CodeQL
+ * js/code-injection / alert #126). Path lookup + stringification is enough
+ * for dashboard filter interpolation, and filter values are validated
+ * separately before substitution.
+ */
+function renderFilterPlaceholders(
+	template: string,
+	filter: MetricParams
+): string {
+	const withSections = renderFilterSections(template, filter);
+	return withSections.replace(
+		/\{\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}\}|\{\{\s*filter\.([a-zA-Z0-9_.]+)\s*\}\}/g,
+		(
+			_match,
+			unescapedPath: string | undefined,
+			escapedPath: string | undefined
+		) => {
+			const path = unescapedPath || escapedPath;
+			if (!path) return "";
+			const value = getFilterPathValue(filter, path);
+			if (value == null) return "";
+			if (typeof value === "object") return JSON.stringify(value);
+			return String(value);
+		}
+	);
+}
 
 export async function getWidgetById(id: string) {
 	const query = `
@@ -29,7 +173,10 @@ export async function getWidgetById(id: string) {
 	return { data: normalizeWidgetToClient((data as DatabaseWidget[])[0]) };
 }
 
-export async function getWidgets(widgetIds?: string[]) {
+export async function getWidgets(
+	widgetIds?: string[],
+	databaseConfigId?: string
+) {
 	let query = "";
 	if (!widgetIds || widgetIds.length === 0) {
 		query = `
@@ -54,13 +201,24 @@ export async function getWidgets(widgetIds?: string[]) {
 		`;
 	}
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
 
 	if (err) {
 		return { err: err.toString() || getMessage().WIDGET_FETCH_FAILED };
 	}
 
-	return { data: (data as Array<DatabaseWidget>).map(normalizeWidgetToClient) };
+	// normalizeWidgetToClient is typed from the narrow DatabaseWidget
+	// shape (properties/config strings). The SELECT always returns full
+	// widget rows, so widen back to Widget for callers.
+	return {
+		data: (data as Array<DatabaseWidget>).map(
+			normalizeWidgetToClient
+		) as unknown as Widget[],
+	};
 }
 
 export async function createWidget(widget: Widget, databaseConfigId?: string) {
@@ -135,7 +293,10 @@ export async function createWidget(widget: Widget, databaseConfigId?: string) {
 	};
 }
 
-export async function updateWidget(widget: Widget) {
+export async function updateWidget(
+	widget: Widget,
+	databaseConfigId?: string
+) {
 	const sanitizedWidget = sanitizeWidget(widget);
 
 	const updateValues = [
@@ -157,7 +318,11 @@ export async function updateWidget(widget: Widget) {
 		WHERE id = '${sanitizedWidget.id}'
 	`;
 
-	const { err, data } = await dataCollector({ query }, "exec");
+	const { err, data } = await dataCollector(
+		{ query },
+		"exec",
+		databaseConfigId
+	);
 
 	if (err || !(data as { query_id: string }).query_id) {
 		return { err: err || getMessage().WIDGET_UPDATE_FAILED };
@@ -166,13 +331,13 @@ export async function updateWidget(widget: Widget) {
 	return { data: getMessage().WIDGET_UPDATED_SUCCESSFULLY };
 }
 
-export function deleteWidget(id: string) {
+export function deleteWidget(id: string, databaseConfigId?: string) {
 	const query = `
 		DELETE FROM ${OPENLIT_WIDGET_TABLE_NAME} 
 		WHERE id = '${Sanitizer.sanitizeValue(id)}'
 	`;
 
-	return dataCollector({ query }, "exec");
+	return dataCollector({ query }, "exec", databaseConfigId);
 }
 
 function validateQuery(query: string): { valid: boolean; error?: string } {
@@ -185,12 +350,70 @@ function validateQuery(query: string): { valid: boolean; error?: string } {
 	return validateSafeQueryContent(trimmed);
 }
 
+/**
+ * Blank out the contents of single-quoted string literals so keyword /
+ * table / function scanning only inspects executable SQL. Attribute keys
+ * and values such as `SpanAttributes['gen_ai.system']` or
+ * `'openlit-cli'` are data, not SQL — without this a literal like
+ * `gen_ai.system` would false-positive on the `SYSTEM` keyword blocklist
+ * (word-bounded by `.` and `'`) and reject an otherwise safe SELECT.
+ * Handles both backslash (`\'`) and doubled (`''`) quote escapes.
+ *
+ * Implemented as a linear scan (not a regex) to avoid ReDoS from
+ * overlapping alternatives in patterns like `'(?:\\.|''|[^'])*'`.
+ * Unclosed literals are left unchanged, matching the previous regex.
+ */
+function stripStringLiterals(value: string): string {
+	let result = "";
+	let i = 0;
+	while (i < value.length) {
+		if (value[i] !== "'") {
+			result += value[i];
+			i += 1;
+			continue;
+		}
+
+		const start = i;
+		i += 1; // skip opening quote
+		let closed = false;
+		while (i < value.length) {
+			const ch = value[i];
+			if (ch === "\\" && i + 1 < value.length) {
+				i += 2;
+				continue;
+			}
+			if (ch === "'") {
+				if (i + 1 < value.length && value[i + 1] === "'") {
+					i += 2; // doubled-quote escape
+					continue;
+				}
+				i += 1; // closing quote
+				closed = true;
+				break;
+			}
+			i += 1;
+		}
+
+		if (closed) {
+			result += "''";
+		} else {
+			// No closing quote — leave the remainder intact so keyword
+			// scanners can still see executable SQL after the opener.
+			result += value.slice(start);
+			break;
+		}
+	}
+	return result;
+}
+
 function validateSafeQueryContent(value: string): { valid: boolean; error?: string } {
-	if (/\bsystem\./i.test(value)) {
+	const scannable = stripStringLiterals(value);
+
+	if (/\bsystem\./i.test(scannable)) {
 		return { valid: false, error: "Access to system tables is not allowed" };
 	}
 
-	if (/\binformation_schema\./i.test(value)) {
+	if (/\binformation_schema\./i.test(scannable)) {
 		return {
 			valid: false,
 			error: "Access to information_schema tables is not allowed",
@@ -199,13 +422,16 @@ function validateSafeQueryContent(value: string): { valid: boolean; error?: stri
 
 	const dangerousFunctions =
 		/\b(url|file|remote|mysql|jdbc|s3|hdfs|input|numbers_mt|generateRandom|clusterAllReplicas)\s*\(/i;
-	if (dangerousFunctions.test(value)) {
+	if (dangerousFunctions.test(scannable)) {
 		return { valid: false, error: "Query contains disallowed functions" };
 	}
 
+	// Do not match bare `SYSTEM` — attribute keys like `gen_ai.system` are common
+	// in OTel SQL. ClickHouse admin commands are `SYSTEM <verb>`; system tables
+	// are already blocked by the `system.` check above.
 	const dangerousKeywords =
-		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE|SYSTEM)\b/i;
-	if (dangerousKeywords.test(value)) {
+		/\b(DROP|ALTER|TRUNCATE|INSERT|UPDATE|DELETE|CREATE|GRANT|REVOKE|INTO\s+OUTFILE|ATTACH|DETACH|RENAME|OPTIMIZE)\b|\bSYSTEM\s+\w+/i;
+	if (dangerousKeywords.test(scannable)) {
 		return { valid: false, error: "Query contains disallowed operations" };
 	}
 
@@ -234,43 +460,270 @@ function validateFilterValues(value: unknown): { valid: boolean; error?: string 
 	return { valid: true };
 }
 
-export async function runWidgetQuery(
-	widgetId: string,
-	{
-		userQuery,
-		filter,
-	}: {
-		userQuery?: string;
-		filter: MetricParams;
-	}
+/** Run raw ClickHouse SQL for a widget (built-in source path). */
+async function runRawClickHouseWidgetQuery(
+	query: string,
+	filter: MetricParams,
+	dbConfigId?: string
 ) {
-	const { data: widget, err: widgetErr } = await getWidgetById(widgetId);
-
-	if (widgetErr || !widget) {
-		return { err: getMessage().WIDGET_FETCH_FAILED };
-	}
-
-	const query = userQuery
-		? userQuery
-		: widget.config?.query || "";
-
 	const filterValidation = validateFilterValues(filter);
 	if (!filterValidation.valid) {
 		return { err: filterValidation.error || "Invalid filter" };
 	}
 
-	const exactQuery = mustache.render(query, { filter });
+	const exactQuery = renderFilterPlaceholders(query, filter);
 
 	const validation = validateQuery(exactQuery);
 	if (!validation.valid) {
 		return { err: validation.error || "Invalid query" };
 	}
 
-	const { data, err } = await dataCollector({ query: exactQuery, enable_readonly: true });
+	const { data, err } = await dataCollector(
+		{ query: exactQuery, enable_readonly: true },
+		"query",
+		dbConfigId
+	);
 
 	if (err) {
 		return { err: "Query execution failed" };
 	}
 
 	return { data };
+}
+
+/** Build an OpenLITQuery time range from the dashboard filter's time limit. */
+function timeRangeFromFilter(filter: MetricParams): { start: Date; end: Date } {
+	const limit = (filter as { timeLimit?: { start?: unknown; end?: unknown } })
+		?.timeLimit;
+	const end = limit?.end ? new Date(limit.end as string) : new Date();
+	const start = limit?.start
+		? new Date(limit.start as string)
+		: new Date(end.getTime() - 24 * 60 * 60 * 1000);
+	return { start, end };
+}
+
+/**
+ * Execute a structured widget query against an external adapter, dispatching by
+ * signal + mode. Returns the DataFrame rows in the flat array shape the widget
+ * renderers already consume.
+ */
+async function executeStructuredWidgetQuery(
+	adapter: DataSourceAdapter,
+	structured: NonNullable<Widget["config"]["structuredQuery"]>,
+	filter: MetricParams
+) {
+	const base = (structured.query || {}) as Partial<OpenLITQuery>;
+	const signal = (base.signal || "traces") as Signal;
+	const fromFilter = metricParamsToOpenLITQuery(filter, signal);
+	const rawQuery = stripSyntheticDefaultEnvironment({
+		...base,
+		signal,
+		timeRange: timeRangeFromFilter(filter),
+		filters: [...(fromFilter.filters || []), ...(base.filters || [])],
+		aiSelector: base.aiSelector ?? fromFilter.aiSelector,
+	} as OpenLITQuery);
+	// Enforce per-query budgets so a widget can never ask a vendor for an
+	// unbounded scan (max rows + max time range + the vendor's lookback window).
+	const maxLookbackMs =
+		typeof adapter.capabilities === "function"
+			? adapter.capabilities().maxLookbackMs
+			: undefined;
+	const { query } = clampQueryBudget(rawQuery, {
+		...DEFAULT_QUERY_BUDGET,
+		...(maxLookbackMs !== undefined ? { maxLookbackMs } : {}),
+	});
+
+	const mode = structured.mode || "timeseries";
+	const observe = (frame: { rows: unknown[]; meta?: DataFrameMeta }) => {
+		logQueryObservability(
+			{
+				sourceType: adapter.type,
+				signal,
+				mode,
+				isBuiltIn: adapter.type === "clickhouse",
+			},
+			frame.meta,
+			frame.rows.length
+		);
+		return { data: frame.rows };
+	};
+	try {
+		if (signal === "logs") {
+			const frame =
+				mode === "list"
+					? await adapter.listLogs(query)
+					: await adapter.logTimeSeries(query);
+			return observe(frame);
+		}
+		if (signal === "metrics") {
+			const frame = await adapter.metricTimeSeries(query);
+			return observe(frame);
+		}
+		// Traces: prefer QueryPlanner so agent/dashboard filters + L1/L2 apply.
+		if (mode === "list") {
+			const frame = await adapter.listSpans(query);
+			return observe(frame);
+		}
+		const preferRollup = shouldPreferRollup(filter);
+		const frame =
+			mode === "aggregate"
+				? await planAndAggregateSpans(adapter, query, { preferRollup })
+				: await planAndSpanTimeSeries(adapter, query, { preferRollup });
+		return observe(frame);
+	} catch (e) {
+		if (e instanceof UnsupportedCapabilityError) {
+			return { err: e.message };
+		}
+		return { err: getMessage().WIDGET_STRUCTURED_QUERY_FAILED };
+	}
+}
+
+/**
+ * Legacy SQL widgets with no sourceId still hit ClickHouse unless the project
+ * traces binding is external — then infer a structured query and run it there.
+ *
+ * Coding-agent seed widgets are an exception: their SQL depends on ClickHouse
+ * session-rollup semantics and must never go through the Tempo/Jaeger bridge
+ * (which collapses them to a generic count and invents huge % deltas).
+ */
+async function runLegacyWidgetQuery(sql: string, filter: MetricParams) {
+	if (!isLegacyOtelTracesSql(sql)) {
+		return runRawClickHouseWidgetQuery(sql, filter);
+	}
+
+	const {
+		isCodingAgentClickHouseSql,
+		resolveCodingAgentsClickHouseDbConfigId,
+	} = await import("@/lib/platform/coding-agents/source");
+
+	if (isCodingAgentClickHouseSql(sql)) {
+		const dbConfigId = await resolveCodingAgentsClickHouseDbConfigId({
+			environment: filter.environment,
+		});
+		if (!dbConfigId) {
+			return { err: getMessage().CODING_AGENTS_REQUIRES_CLICKHOUSE };
+		}
+		return runRawClickHouseWidgetQuery(sql, filter, dbConfigId);
+	}
+
+	const {
+		getTelemetryAdapter,
+		resolveTelemetrySourceDescriptor,
+		sourceSupportsNativeSql,
+	} = await import("@/lib/telemetry-source");
+
+	let descriptor;
+	try {
+		descriptor = await resolveTelemetrySourceDescriptor({ signal: "traces", environment: filter.environment });
+	} catch {
+		return runRawClickHouseWidgetQuery(sql, filter);
+	}
+
+	if (sourceSupportsNativeSql(descriptor)) {
+		return runRawClickHouseWidgetQuery(sql, filter, descriptor.dbConfigId);
+	}
+
+	const inferred = inferStructuredFromClickHouseSql(sql);
+	if (!inferred) {
+		return { err: getMessage().WIDGET_RAW_SQL_SOURCE_ONLY(descriptor.name) };
+	}
+
+	const adapter = await getTelemetryAdapter({ signal: "traces", environment: filter.environment });
+	return executeInferredWidgetQuery(adapter, inferred, filter);
+}
+
+export async function runWidgetQuery(
+	widgetId: string,
+	{
+		userQuery,
+		filter,
+		sourceId: sourceIdOverride,
+		signal: signalOverride,
+		structuredQuery: structuredOverride,
+	}: {
+		userQuery?: string;
+		filter: MetricParams;
+		sourceId?: string | null;
+		signal?: Signal;
+		structuredQuery?: Widget["config"]["structuredQuery"];
+	}
+): Promise<{ data?: unknown; err?: string }> {
+	const { data: widget, err: widgetErr } = await getWidgetById(widgetId);
+
+	if (widgetErr || !widget) {
+		return { err: getMessage().WIDGET_FETCH_FAILED };
+	}
+
+	const config = widget.config || {};
+	const structured = structuredOverride ?? config.structuredQuery;
+	const requestedSql = userQuery || config.query || "";
+	const signal = (
+		signalOverride ??
+		config.signal ??
+		structured?.query?.signal ??
+		(isLegacyOtelTracesSql(requestedSql) ? "traces" : undefined)
+	) as Signal | undefined;
+	// Prefer an explicit override (query-run body / panel config). When unset,
+	// signal widgets follow the project's current per-signal binding.
+	const sourceId =
+		sourceIdOverride !== undefined
+			? sourceIdOverride
+			: (config.sourceId ?? null);
+
+	// Legacy trace SQL also follows the current traces binding. Built-in
+	// ClickHouse keeps raw SQL; external bindings use the SQL→structured bridge.
+	if (!structured && isLegacyOtelTracesSql(requestedSql)) {
+		return runLegacyWidgetQuery(requestedSql, filter);
+	}
+
+	// Non-signal legacy widgets retain their raw ClickHouse path.
+	if (!sourceId && !signal && !structured) {
+		return runLegacyWidgetQuery(
+			requestedSql,
+			filter
+		);
+	}
+
+	// Lazy import breaks the common <-> board <-> widget cycle (see top-of-file
+	// note): the datasource graph is only pulled in at call time, off the
+	// static concatenation path.
+	const {
+		getTelemetryAdapter,
+		resolveTelemetrySourceDescriptor,
+		sourceSupportsNativeSql,
+	} = await import("@/lib/telemetry-source");
+
+	const descriptor = await resolveTelemetrySourceDescriptor({ sourceId, signal, environment: filter.environment });
+
+	// Built-in ClickHouse: prefer structured OpenLITQuery when present so the
+	// Grafana-style builder works natively; otherwise fall back to raw SQL.
+	if (sourceSupportsNativeSql(descriptor)) {
+		if (structured && !userQuery) {
+			const adapter = await getTelemetryAdapter({ sourceId, signal, environment: filter.environment });
+			return executeStructuredWidgetQuery(adapter, structured, filter);
+		}
+		const sql =
+			userQuery ||
+			config.query ||
+			(structured
+				? (
+						await import("./widget-sql-bridge")
+					).openLITQueryToClickHouseSql(
+						(structured.query || {}) as any,
+						structured.mode || "aggregate"
+					)
+				: "");
+		return runRawClickHouseWidgetQuery(sql, filter, descriptor.dbConfigId);
+	}
+
+	// External source: raw SQL is not supported; require a structured query.
+	if (userQuery || (config.query && !structured)) {
+		return { err: getMessage().WIDGET_RAW_SQL_SOURCE_ONLY(descriptor.name) };
+	}
+	if (!structured) {
+		return { err: getMessage().WIDGET_NO_STRUCTURED_QUERY };
+	}
+
+	const adapter = await getTelemetryAdapter({ sourceId, signal, environment: filter.environment });
+	return executeStructuredWidgetQuery(adapter, structured, filter);
 }

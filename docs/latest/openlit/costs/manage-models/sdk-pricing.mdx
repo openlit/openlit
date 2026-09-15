@@ -1,0 +1,26 @@
+---
+title: "SDK pricing URL"
+description: "Use Manage Models' public SDK Pricing URL in openlit.init() so LLM token pricing stays synced without shipping a local pricing.json"
+---
+
+Each active database configuration exposes a public **SDK Pricing URL** on Manage Models:
+
+`/api/pricing/export/<database-config-id>`
+
+The bar under the page header shows the full URL for the currently selected database config. Click **Copy** to copy it. The endpoint needs no authentication - it only returns pricing data (no secrets or traces). Share it only with systems that should read your model prices.
+
+## SDK Usage dialog
+
+Click the code icon in the header (tooltip: **SDK Usage**), or the **SDK Usage** button on the empty editor state, to open **Use this pricing in your OpenLIT SDK**. The dialog shows the URL plus ready-to-paste Python, TypeScript, and Go snippets that pass it to `pricing_json` / `pricingJson` / `PricingJson` in `openlit.init()`.
+
+Pass your OpenLIT host and the copied path - do not hardcode a machine-local address in shared configs.
+
+The dialog note: the SDK fetches this URL on startup, and price edits here apply to **future tracing**. Historical spans still need [Configuration](/latest/openlit/costs/configuration) if you want them updated.
+
+Responses are cache-friendly (`Cache-Control: public, max-age=300`).
+
+## API
+
+<Card title="Public pricing export" href="/latest/openlit/developer-resources/api-reference/endpoint/manage-models/public-pricing" icon="cloud-arrow-down">
+  Full schema and SDK examples for GET /api/pricing/export/&#123;dbConfigId&#125;
+</Card>

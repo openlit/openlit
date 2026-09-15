@@ -58,6 +58,7 @@ const OPENAI_COMPATIBLE_PROVIDERS = new Set([
 	"deepseek",
 	"together",
 	"fireworks",
+	"orcarouter",
 	"azure_inference",
 	"azure_openai",
 	"vercel_ai",
@@ -94,6 +95,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 	deepseek: getMessage().AGENTS_PROVIDER_DEEPSEEK,
 	together: getMessage().AGENTS_PROVIDER_TOGETHER,
 	fireworks: getMessage().AGENTS_PROVIDER_FIREWORKS,
+	orcarouter: getMessage().AGENTS_PROVIDER_ORCAROUTER,
 	vercel_ai: getMessage().AGENTS_PROVIDER_VERCEL_AI,
 	vertex_ai: getMessage().AGENTS_PROVIDER_VERTEX_AI,
 	azure_inference: getMessage().AGENTS_PROVIDER_AZURE_INFERENCE,
@@ -287,7 +289,7 @@ function ResourceAttributesPanel({
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
 					{entries.map(([key, value]) => (
 						<div key={key} className="flex flex-col min-w-0">
-							<span className="text-[11px] text-stone-400 dark:text-stone-500 font-mono break-all">
+							<span className="text-[11px] text-stone-500 dark:text-stone-400 font-mono break-all">
 								{key}
 							</span>
 							<span className="text-sm text-stone-700 dark:text-stone-300 break-all">

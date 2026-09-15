@@ -1,16 +1,16 @@
 {
     "embeddings": {
         "text-embedding-ada-002": 0.0001,
-        "text-embedding-3-small": 0.00002,
+        "text-embedding-3-small": 2e-05,
         "text-embedding-3-large": 0.00013,
         "ada": 0.0001,
-        "ada-v2": 0.00010,
+        "ada-v2": 0.0001,
         "text-ada-001": 0.0001,
         "azure_text-embedding-ada-002": 0.0001,
-        "azure_text-embedding-3-small": 0.00002,
+        "azure_text-embedding-3-small": 2e-05,
         "azure_text-embedding-3-large": 0.00013,
         "azure_ada": 0.0001,
-        "azure_ada-v2": 0.00010,
+        "azure_ada-v2": 0.0001,
         "azure_text-ada-001": 0.0001,
         "embed-english-v3.0": 0.0001,
         "embed-multilingual-v3.0": 0.0001,
@@ -21,7 +21,7 @@
         "embed-multilingual-v2.0": 0.0001,
         "mistral-embed": 0.0001,
         "amazon.titan-embed-text-v1": 0.0001,
-        "amazon.titan-embed-text-v2": 0.00002,
+        "amazon.titan-embed-text-v2": 2e-05,
         "textembedding-gecko": 0.0001,
         "textembedding-gecko@001": 0.0001,
         "textembedding-gecko@002": 0.0001,
@@ -30,31 +30,31 @@
     "images": {
         "dall-e-3": {
             "standard": {
-                "1024x1024": 0.040,
-                "1024x1792": 0.020,
-                "1792x1024": 0.080
+                "1024x1024": 0.04,
+                "1024x1792": 0.02,
+                "1792x1024": 0.08
             },
             "hd": {
-                "1024x1024": 0.080,
-                "1024x1792": 0.120,
-                "1792x1024": 0.120
+                "1024x1024": 0.08,
+                "1024x1792": 0.12,
+                "1792x1024": 0.12
             }
         },
         "azure_dall-e-3": {
             "standard": {
-                "1024x1024": 0.040,
-                "1024x1792": 0.020,
-                "1792x1024": 0.080
+                "1024x1024": 0.04,
+                "1024x1792": 0.02,
+                "1792x1024": 0.08
             },
             "hd": {
-                "1024x1024": 0.080,
-                "1024x1792": 0.120,
-                "1792x1024": 0.120
+                "1024x1024": 0.08,
+                "1024x1792": 0.12,
+                "1792x1024": 0.12
             }
         },
         "dall-e-2": {
             "standard": {
-                "1024x1024": 0.020,
+                "1024x1024": 0.02,
                 "512x512": 0.018,
                 "256x256": 0.016
             }
@@ -112,8 +112,8 @@
         }
     },
     "audio": {
-        "tts-1" : 0.015,
-        "tts-1-hd": 0.030,
+        "tts-1": 0.015,
+        "tts-1-hd": 0.03,
         "eleven_multilingual_v2": 0.24,
         "eleven_multilingual_v1": 0.24,
         "eleven_monolingual_v1": 0.24,
@@ -122,11 +122,11 @@
         "eleven_english_sts_v2": 0.24,
         "eleven_multilingual_sts_v2": 0.24,
         "best": 0.00010277777,
-        "nano": 0.00003333333,
-        "whisper-large-v3": 0.00003083333,
-        "whisper-large-v3-turbo": 0.00001111111,
+        "nano": 3.333333e-05,
+        "whisper-large-v3": 3.083333e-05,
+        "whisper-large-v3-turbo": 1.111111e-05,
         "canopylabs/orpheus-v1-english": 0.022,
-        "canopylabs/orpheus-arabic-saudi": 0.040
+        "canopylabs/orpheus-arabic-saudi": 0.04
     },
     "chat": {
         "gpt-4.1-nano-2025-04-14": {
@@ -135,31 +135,38 @@
         },
         "gpt-4.1-nano": {
             "promptPrice": 0.0001,
-            "completionPrice": 0.0004
+            "completionPrice": 0.0004,
+            "cacheReadPrice": 2.5e-05
         },
         "gpt-4.1-mini-2025-04-14": {
             "promptPrice": 0.0004,
-            "completionPrice": 0.0016
+            "completionPrice": 0.0016,
+            "cacheReadPrice": 0.0001
         },
         "gpt-4.1-mini": {
             "promptPrice": 0.0004,
-            "completionPrice": 0.0016
+            "completionPrice": 0.0016,
+            "cacheReadPrice": 0.0001
         },
         "gpt-4.1-2025-04-14": {
             "promptPrice": 0.002,
-            "completionPrice": 0.008
+            "completionPrice": 0.008,
+            "cacheReadPrice": 0.0005
         },
         "gpt-4.1": {
             "promptPrice": 0.002,
-            "completionPrice": 0.008
+            "completionPrice": 0.008,
+            "cacheReadPrice": 0.0005
         },
         "gpt-4o": {
-            "promptPrice": 0.0005,
-            "completionPrice": 0.0015
+            "promptPrice": 0.0025,
+            "completionPrice": 0.01,
+            "cacheReadPrice": 0.00125
         },
         "gpt-4o-2024-08-06": {
             "promptPrice": 0.0025,
-            "completionPrice": 0.010
+            "completionPrice": 0.01,
+            "cacheReadPrice": 0.00125
         },
         "gpt-4o-2024-05-13": {
             "promptPrice": 0.005,
@@ -167,27 +174,33 @@
         },
         "gpt-4o-mini": {
             "promptPrice": 0.00015,
-            "completionPrice": 0.0006
+            "completionPrice": 0.0006,
+            "cacheReadPrice": 7.5e-05
         },
         "gpt-4o-mini-2024-07-18": {
             "promptPrice": 0.00015,
-            "completionPrice": 0.0006
+            "completionPrice": 0.0006,
+            "cacheReadPrice": 7.5e-05
         },
         "o1-mini": {
-            "promptPrice": 0.003,
-            "completionPrice": 0.012
+            "promptPrice": 0.0011,
+            "completionPrice": 0.0044,
+            "cacheReadPrice": 0.00055
         },
         "o1-mini-2024-09-12": {
-            "promptPrice": 0.003,
-            "completionPrice": 0.012
+            "promptPrice": 0.0011,
+            "completionPrice": 0.0044,
+            "cacheReadPrice": 0.00055
         },
         "o1-preview": {
             "promptPrice": 0.015,
-            "completionPrice": 0.06
+            "completionPrice": 0.06,
+            "cacheReadPrice": 0.0075
         },
         "o1-preview-2024-09-12": {
             "promptPrice": 0.015,
-            "completionPrice": 0.06
+            "completionPrice": 0.06,
+            "cacheReadPrice": 0.0075
         },
         "gpt-3.5-turbo": {
             "promptPrice": 0.0005,
@@ -207,7 +220,7 @@
         },
         "azure_gpt-35-turbo-instruct": {
             "promptPrice": 0.0015,
-            "completionPrice": 0.0020
+            "completionPrice": 0.002
         },
         "gpt-4": {
             "promptPrice": 0.03,
@@ -264,7 +277,7 @@
         "claude-3-haiku-20240307": {
             "promptPrice": 0.00025,
             "completionPrice": 0.00125,
-            "cacheReadPrice": 0.00003,
+            "cacheReadPrice": 3e-05,
             "cacheCreationPrice": 0.0003
         },
         "claude-3-5-sonnet-20240620": {
@@ -282,7 +295,7 @@
         "claude-3-5-haiku-20241022": {
             "promptPrice": 0.0008,
             "completionPrice": 0.004,
-            "cacheReadPrice": 0.00008,
+            "cacheReadPrice": 8e-05,
             "cacheCreationPrice": 0.001
         },
         "claude-3-7-sonnet-20250219": {
@@ -383,19 +396,23 @@
         },
         "gpt-5": {
             "promptPrice": 0.00125,
-            "completionPrice": 0.01
+            "completionPrice": 0.01,
+            "cacheReadPrice": 0.000125
         },
         "gpt-5-codex": {
             "promptPrice": 0.00125,
-            "completionPrice": 0.01
+            "completionPrice": 0.01,
+            "cacheReadPrice": 0.000125
         },
         "gpt-5-mini": {
             "promptPrice": 0.00025,
-            "completionPrice": 0.002
+            "completionPrice": 0.002,
+            "cacheReadPrice": 2.5e-05
         },
         "gpt-5-nano": {
-            "promptPrice": 0.00005,
-            "completionPrice": 0.0004
+            "promptPrice": 5e-05,
+            "completionPrice": 0.0004,
+            "cacheReadPrice": 5e-06
         },
         "gpt-5-pro": {
             "promptPrice": 0.015,
@@ -403,23 +420,28 @@
         },
         "gpt-5.1": {
             "promptPrice": 0.00125,
-            "completionPrice": 0.01
+            "completionPrice": 0.01,
+            "cacheReadPrice": 0.000125
         },
         "gpt-5.1-codex": {
             "promptPrice": 0.00125,
-            "completionPrice": 0.01
+            "completionPrice": 0.01,
+            "cacheReadPrice": 0.000125
         },
         "gpt-5.1-codex-max": {
             "promptPrice": 0.00125,
-            "completionPrice": 0.01
+            "completionPrice": 0.01,
+            "cacheReadPrice": 0.000125
         },
         "gpt-5.2": {
             "promptPrice": 0.00175,
-            "completionPrice": 0.014
+            "completionPrice": 0.014,
+            "cacheReadPrice": 0.000175
         },
         "gpt-5.2-codex": {
             "promptPrice": 0.00175,
-            "completionPrice": 0.014
+            "completionPrice": 0.014,
+            "cacheReadPrice": 0.000175
         },
         "gpt-5.2-pro": {
             "promptPrice": 0.021,
@@ -427,19 +449,23 @@
         },
         "gpt-5.3-codex": {
             "promptPrice": 0.00175,
-            "completionPrice": 0.014
+            "completionPrice": 0.014,
+            "cacheReadPrice": 0.000175
         },
         "gpt-5.4": {
             "promptPrice": 0.0025,
-            "completionPrice": 0.015
+            "completionPrice": 0.015,
+            "cacheReadPrice": 0.00025
         },
         "gpt-5.4-mini": {
             "promptPrice": 0.00075,
-            "completionPrice": 0.0045
+            "completionPrice": 0.0045,
+            "cacheReadPrice": 7.5e-05
         },
         "gpt-5.4-nano": {
             "promptPrice": 0.0002,
-            "completionPrice": 0.00125
+            "completionPrice": 0.00125,
+            "cacheReadPrice": 2e-05
         },
         "gpt-5.4-pro": {
             "promptPrice": 0.03,
@@ -447,7 +473,8 @@
         },
         "gpt-5.5": {
             "promptPrice": 0.005,
-            "completionPrice": 0.03
+            "completionPrice": 0.03,
+            "cacheReadPrice": 0.0005
         },
         "gpt-5.5-pro": {
             "promptPrice": 0.03,
@@ -455,15 +482,18 @@
         },
         "o3": {
             "promptPrice": 0.002,
-            "completionPrice": 0.008
+            "completionPrice": 0.008,
+            "cacheReadPrice": 0.0005
         },
         "o3-mini": {
             "promptPrice": 0.0011,
-            "completionPrice": 0.0044
+            "completionPrice": 0.0044,
+            "cacheReadPrice": 0.00055
         },
         "o4-mini": {
             "promptPrice": 0.0011,
-            "completionPrice": 0.0044
+            "completionPrice": 0.0044,
+            "cacheReadPrice": 0.000275
         },
         "command": {
             "promptPrice": 0.001,
@@ -555,7 +585,7 @@
         },
         "cohere.command-text-v14": {
             "promptPrice": 0.0015,
-            "completionPrice": 0.0020
+            "completionPrice": 0.002
         },
         "cohere.command-light-text-v14": {
             "promptPrice": 0.0003,
@@ -574,12 +604,16 @@
             "completionPrice": 0.0015
         },
         "gemini-1.5-flash": {
-            "promptPrice": 0.000075,
-            "completionPrice": 0.0003
+            "promptPrice": 7.5e-05,
+            "completionPrice": 0.0003,
+            "cacheReadPrice": 1.875e-05,
+            "cacheCreationPrice": 7.5e-05
         },
         "gemini-1.5-pro": {
             "promptPrice": 0.00125,
-            "completionPrice": 0.005
+            "completionPrice": 0.005,
+            "cacheReadPrice": 0.0003125,
+            "cacheCreationPrice": 0.00125
         },
         "gemini-1.0-pro-002": {
             "promptPrice": 0.0005,
@@ -591,63 +625,93 @@
         },
         "gemini-1.5-pro-preview-0409": {
             "promptPrice": 0.005,
-            "completionPrice": 0.015
+            "completionPrice": 0.015,
+            "cacheReadPrice": 0.00125,
+            "cacheCreationPrice": 0.005
         },
         "gemini-1.5-pro-preview-0514": {
             "promptPrice": 0.005,
-            "completionPrice": 0.015
+            "completionPrice": 0.015,
+            "cacheReadPrice": 0.00125,
+            "cacheCreationPrice": 0.005
         },
         "gemini-1.5-flash-preview-0514": {
             "promptPrice": 0.0005,
-            "completionPrice": 0.0015
+            "completionPrice": 0.0015,
+            "cacheReadPrice": 0.000125,
+            "cacheCreationPrice": 0.0005
         },
         "gemini-2.0-flash": {
             "promptPrice": 0.0001,
-            "completionPrice": 0.0004
+            "completionPrice": 0.0004,
+            "cacheReadPrice": 1e-05,
+            "cacheCreationPrice": 0.0001
         },
         "gemini-2.0-flash-lite": {
-            "promptPrice": 0.000075,
-            "completionPrice": 0.0003
+            "promptPrice": 7.5e-05,
+            "completionPrice": 0.0003,
+            "cacheReadPrice": 7.5e-06,
+            "cacheCreationPrice": 7.5e-05
         },
         "gemini-2.5-flash": {
             "promptPrice": 0.0003,
-            "completionPrice": 0.0025
+            "completionPrice": 0.0025,
+            "cacheReadPrice": 3e-05,
+            "cacheCreationPrice": 0.0003
         },
         "gemini-2.5-flash-preview": {
             "promptPrice": 0.0003,
-            "completionPrice": 0.0025
+            "completionPrice": 0.0025,
+            "cacheReadPrice": 3e-05,
+            "cacheCreationPrice": 0.0003
         },
         "gemini-2.5-flash-lite": {
             "promptPrice": 0.0001,
-            "completionPrice": 0.0004
+            "completionPrice": 0.0004,
+            "cacheReadPrice": 1e-05,
+            "cacheCreationPrice": 0.0001
         },
         "gemini-2.5-flash-lite-preview": {
             "promptPrice": 0.0001,
-            "completionPrice": 0.0004
+            "completionPrice": 0.0004,
+            "cacheReadPrice": 1e-05,
+            "cacheCreationPrice": 0.0001
         },
         "gemini-2.5-pro": {
             "promptPrice": 0.00125,
-            "completionPrice": 0.01
+            "completionPrice": 0.01,
+            "cacheReadPrice": 0.000125,
+            "cacheCreationPrice": 0.00125
         },
         "gemini-2.5-pro-preview": {
             "promptPrice": 0.00125,
-            "completionPrice": 0.01
+            "completionPrice": 0.01,
+            "cacheReadPrice": 0.000125,
+            "cacheCreationPrice": 0.00125
         },
         "gemini-3-flash": {
             "promptPrice": 0.0005,
-            "completionPrice": 0.003
+            "completionPrice": 0.003,
+            "cacheReadPrice": 5e-05,
+            "cacheCreationPrice": 0.0005
         },
         "gemini-3.1-flash-lite": {
             "promptPrice": 0.00025,
-            "completionPrice": 0.0015
+            "completionPrice": 0.0015,
+            "cacheReadPrice": 2.5e-05,
+            "cacheCreationPrice": 0.00025
         },
         "gemini-3.1-pro": {
             "promptPrice": 0.002,
-            "completionPrice": 0.012
+            "completionPrice": 0.012,
+            "cacheReadPrice": 0.0002,
+            "cacheCreationPrice": 0.002
         },
         "gemini-3.1-pro-preview": {
             "promptPrice": 0.002,
-            "completionPrice": 0.012
+            "completionPrice": 0.012,
+            "cacheReadPrice": 0.0002,
+            "cacheCreationPrice": 0.002
         },
         "text-bison": {
             "promptPrice": 0.001,
@@ -690,7 +754,7 @@
             "completionPrice": 0.002
         },
         "llama3-8b-8192": {
-            "promptPrice": 0.00005,
+            "promptPrice": 5e-05,
             "completionPrice": 0.0001
         },
         "llama3-70b-8192": {
@@ -734,8 +798,8 @@
             "completionPrice": 0.0001
         },
         "reka-spark": {
-            "promptPrice": 0.00005,
-            "completionPrice": 0.00005
+            "promptPrice": 5e-05,
+            "completionPrice": 5e-05
         },
         "grok-beta": {
             "promptPrice": 0.0005,
@@ -755,11 +819,13 @@
         },
         "grok-4": {
             "promptPrice": 0.002,
-            "completionPrice": 0.008
+            "completionPrice": 0.008,
+            "cacheReadPrice": 0.0003
         },
         "grok-4-fast": {
             "promptPrice": 0.0005,
-            "completionPrice": 0.0015
+            "completionPrice": 0.0015,
+            "cacheReadPrice": 7.5e-05
         },
         "grok-vision-beta": {
             "promptPrice": 0.0005,
@@ -777,61 +843,109 @@
             "promptPrice": 0.00088,
             "completionPrice": 0.00088
         },
-        "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo-vLLM-json":{
+        "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo-vLLM-json": {
             "promptPrice": 0.00088,
             "completionPrice": 0.00088
         },
-        "meta-llama/Meta-Llama-3.1-405B-Instruct-Lite-Pro-lora":{
+        "meta-llama/Meta-Llama-3.1-405B-Instruct-Lite-Pro-lora": {
             "promptPrice": 0.00088,
             "completionPrice": 0.00088
         },
-        "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo":{
+        "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": {
             "promptPrice": 0.00088,
             "completionPrice": 0.00088
         },
-        "Qwen/QwQ-32B-Preview":{
+        "Qwen/QwQ-32B-Preview": {
             "promptPrice": 0.0012,
             "completionPrice": 0.0012
         },
-        "codellama/CodeLlama-34b-Instruct-hf":{
-            "promptPrice": 0.0008,
-            "completionPrice":0.0008
-        },
-        "databricks/dbrx-instruct":{
-            "promptPrice": 0.0012,
-            "completionPrice": 0.0012
-        },
-        "deepseek-ai/deepseek-llm-67b-chat":{
-            "promptPrice": 0.0009,
-            "completionPrice": 0.0009
-        },
-        "google/gemma-2b-it":{
-            "promptPrice": 0.0001,
-            "completionPrice": 0.0001
-        },
-        "google/gemma-2-27b-it":{
+        "codellama/CodeLlama-34b-Instruct-hf": {
             "promptPrice": 0.0008,
             "completionPrice": 0.0008
         },
-        "google/gemma-2-9b-it":{
+        "databricks/dbrx-instruct": {
+            "promptPrice": 0.0012,
+            "completionPrice": 0.0012
+        },
+        "deepseek-ai/deepseek-llm-67b-chat": {
+            "promptPrice": 0.0009,
+            "completionPrice": 0.0009
+        },
+        "google/gemma-2b-it": {
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0001
+        },
+        "google/gemma-2-27b-it": {
+            "promptPrice": 0.0008,
+            "completionPrice": 0.0008
+        },
+        "google/gemma-2-9b-it": {
             "promptPrice": 0.0003,
             "completionPrice": 0.0003
         },
-        "Gryphe/MythoMax-L2-13b-Lite":{
+        "Gryphe/MythoMax-L2-13b-Lite": {
             "promptPrice": 0.0003,
             "completionPrice": 0.0003
         },
-        "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF":{
+        "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF": {
             "promptPrice": 0.0088,
             "completionPrice": 0.0088
         },
-        "deepseek-chat":{
+        "deepseek-chat": {
             "promptPrice": 0.00014,
             "completionPrice": 0.00028
         },
-        "deepseek-reasoner":{
+        "deepseek-reasoner": {
             "promptPrice": 0.00055,
             "completionPrice": 0.00219
+        },
+        "gpt-5.6-sol": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.03,
+            "cacheReadPrice": 0.0005,
+            "cacheCreationPrice": 0.00625
+        },
+        "gpt-5.6-terra": {
+            "promptPrice": 0.0025,
+            "completionPrice": 0.015,
+            "cacheReadPrice": 0.00025,
+            "cacheCreationPrice": 0.003125
+        },
+        "gpt-5.6-luna": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.006,
+            "cacheReadPrice": 0.0001,
+            "cacheCreationPrice": 0.00125
+        },
+        "moonshotai/kimi-k2-instruct": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.003,
+            "cacheReadPrice": 0.0005
+        },
+        "moonshotai/kimi-k2-instruct-0905": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.003,
+            "cacheReadPrice": 0.0005
+        },
+        "openai/gpt-oss-20b": {
+            "promptPrice": 7.5e-05,
+            "completionPrice": 0.0003,
+            "cacheReadPrice": 3.75e-05
+        },
+        "openai/gpt-oss-120b": {
+            "promptPrice": 0.00015,
+            "completionPrice": 0.0006,
+            "cacheReadPrice": 7.5e-05
+        },
+        "grok-4.5": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.006,
+            "cacheReadPrice": 0.0003
+        },
+        "grok-4.3": {
+            "promptPrice": 0.00125,
+            "completionPrice": 0.0025,
+            "cacheReadPrice": 0.0002
         }
     }
 }

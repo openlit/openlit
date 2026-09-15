@@ -1,13 +1,9 @@
-import { getRequestViaSpanId } from "@/lib/platform/request";
+import { getTraceSpanRecord } from "@/lib/platform/traces/read";
 import { getEvaluationSummaryForSpanId } from "@/lib/platform/evaluation";
-import { resolveDbConfigId } from "@/helpers/server/auth";
+import { consoleLog } from "@/utils/log";
+import { withRouteAccess } from "@/lib/access/route-access";
 
-export async function GET(request: Request, context: any) {
-	const [authErr, databaseConfigId] = await resolveDbConfigId(request);
-	if (authErr) {
-		return Response.json({ err: authErr }, { status: 401 });
-	}
-
+async function GETHandler(request: Request, context: any) {
 	const { id } = context.params || {};
 
 	if (!id)
@@ -15,14 +11,37 @@ export async function GET(request: Request, context: any) {
 			status: 400,
 		});
 
-	const [spanRes, evalSummary] = await Promise.all([
-		getRequestViaSpanId(id, databaseConfigId),
-		getEvaluationSummaryForSpanId(id, databaseConfigId),
-	]);
+	const traceId = new URL(request.url).searchParams.get("traceId") || undefined;
+	const environment = request.headers.get("x-openlit-environment") || undefined;
+	const startedAt = Date.now();
+	consoleLog("[api] span detail request", {
+		spanId: id,
+		traceId: traceId || null,
+		urlHasTraceId: !!traceId,
+	});
+
+	const spanRes = await getTraceSpanRecord(id, { traceId, environment });
+	let evalSummary = null;
+	if (spanRes.record) {
+		evalSummary = await Promise.race([
+			getEvaluationSummaryForSpanId(id).catch(() => null),
+			new Promise<null>((resolve) => setTimeout(() => resolve(null), 750)),
+		]);
+	}
 
 	const res: any = { ...spanRes };
 	if (evalSummary && evalSummary.runCount > 0) {
 		res.evaluationSummary = evalSummary;
 	}
+	consoleLog("[api] span detail response", {
+		spanId: id,
+		traceId: traceId || null,
+		found: !!spanRes.record,
+		error: spanRes.err || null,
+		evaluationSummary: !!res.evaluationSummary,
+		elapsedMs: Date.now() - startedAt,
+	});
 	return Response.json(res);
 }
+
+export const GET = withRouteAccess("traces.read", GETHandler, { requireDbConfig: true });

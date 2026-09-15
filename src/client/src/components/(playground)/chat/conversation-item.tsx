@@ -69,11 +69,11 @@ export default function ConversationItem({
 					{title || messages.CHAT_NEW_CONVERSATION}
 				</p>
 				<div className="flex items-center gap-2 mt-0.5">
-					<span className="text-xs text-stone-400 dark:text-stone-500">
+					<span className="text-xs text-stone-500 dark:text-stone-400">
 						{timeAgo}
 					</span>
 					{totalCost > 0 && (
-						<span className="flex items-center gap-0.5 text-xs text-stone-400 dark:text-stone-500">
+						<span className="flex items-center gap-0.5 text-xs text-stone-500 dark:text-stone-400">
 							<Coins className="h-2.5 w-2.5" />
 							${totalCost.toFixed(4)}
 						</span>

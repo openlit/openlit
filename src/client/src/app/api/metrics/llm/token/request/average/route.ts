@@ -8,6 +8,7 @@ import {
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 import { TimeLimit } from "@/lib/platform/common";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 async function POSTHandler(request: Request) {
 	const formData = await request.json();
@@ -17,6 +18,10 @@ async function POSTHandler(request: Request) {
 		timeLimit,
 		type: formData.type,
 		selectedConfig: formData.selectedConfig,
+		environment:
+			typeof formData.environment === "string"
+				? formData.environment
+				: getRequestEnvironment(request),
 	};
 
 	const validationParam = validateMetricsRequest(

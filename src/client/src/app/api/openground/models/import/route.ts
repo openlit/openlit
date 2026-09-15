@@ -72,6 +72,8 @@ async function POSTHandler(request: NextRequest) {
 		context_window: number;
 		input_price_per_m_token: number;
 		output_price_per_m_token: number;
+		cache_read_price_per_m_token: number;
+		cache_creation_price_per_m_token: number;
 		capabilities: string[];
 		is_default: boolean;
 		created_by_user_id: string;
@@ -87,6 +89,12 @@ async function POSTHandler(request: NextRequest) {
 			context_window: m.contextWindow || m.context_window || 4096,
 			input_price_per_m_token: m.inputPricePerMToken || m.input_price_per_m_token || 0,
 			output_price_per_m_token: m.outputPricePerMToken || m.output_price_per_m_token || 0,
+			cache_read_price_per_m_token:
+				m.cacheReadPricePerMToken || m.cache_read_price_per_m_token || 0,
+			cache_creation_price_per_m_token:
+				m.cacheCreationPricePerMToken ||
+				m.cache_creation_price_per_m_token ||
+				0,
 			capabilities: m.capabilities || [],
 			is_default: false,
 			created_by_user_id: session.user!.id!,
@@ -100,6 +108,8 @@ async function POSTHandler(request: NextRequest) {
 			for (const [modelId, pricing] of Object.entries(models as Record<string, any>)) {
 				let inputPrice = 0;
 				let outputPrice = 0;
+				let cacheReadPrice = 0;
+				let cacheCreationPrice = 0;
 
 				if (typeof pricing === "number") {
 					// embeddings / audio format
@@ -108,6 +118,8 @@ async function POSTHandler(request: NextRequest) {
 					if ("promptPrice" in pricing) {
 						inputPrice = (pricing.promptPrice || 0) * 1000;
 						outputPrice = (pricing.completionPrice || 0) * 1000;
+						cacheReadPrice = (pricing.cacheReadPrice || 0) * 1000;
+						cacheCreationPrice = (pricing.cacheCreationPrice || 0) * 1000;
 					} else if ("standard" in pricing) {
 						// images format
 						const firstRes = Object.values(pricing.standard || {})[0];
@@ -123,6 +135,8 @@ async function POSTHandler(request: NextRequest) {
 					context_window: 4096,
 					input_price_per_m_token: inputPrice,
 					output_price_per_m_token: outputPrice,
+					cache_read_price_per_m_token: cacheReadPrice,
+					cache_creation_price_per_m_token: cacheCreationPrice,
 					capabilities: [],
 					is_default: false,
 					created_by_user_id: session.user!.id!,

@@ -26,8 +26,7 @@ paths:
                   enum:
                     - context
                     - prompt
-                    - dataset
-                    - meta_config
+                    - evaluation
                   example: context
                   description: Filter results to entities of this type.
                 fields:
@@ -99,12 +98,19 @@ paths:
                   entity_data:
                     type: object
                     additionalProperties: true
+                    description: Full entity records, keyed as "entity_type:entity_id". Only populated for context and prompt entity types today - evaluation entities never populate entity_data.
                     example:
                       "context:b2c3d4e5-2345-6789-bcde-f01234567890":
                         id: b2c3d4e5-2345-6789-bcde-f01234567890
                         name: Premium System Prompt
+                        description: System prompt used for premium-tier users on gpt-4
                         content: You are a helpful AI assistant for premium users...
+                        tags: ["premium", "system"]
+                        meta_properties: { model: gpt-4, region: us }
                         status: ACTIVE
+                        created_by: jane@example.com
+                        created_at: "2026-01-15T10:32:00Z"
+                        updated_at: "2026-02-01T08:10:00Z"
         "400":
           description: Invalid request body or missing required fields.
           content:
@@ -114,7 +120,7 @@ paths:
                 properties:
                   err:
                     type: string
-                    example: "entity_type is required and must be one of: context, prompt, dataset, meta_config"
+                    example: "entity_type is required and must be one of: context, prompt, evaluation"
         "401":
           description: Missing or invalid API key.
           content:

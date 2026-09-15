@@ -1,0 +1,57 @@
+---
+title: "Overview"
+description: "Securely manage LLM API keys and other secrets in one place, then retrieve them at runtime from any application via SDK or API"
+---
+
+Vault is OpenLIT's built-in secrets manager for LLM API keys and other sensitive values. Instead of pasting an API key into every codebase, `.env` file, or teammate's laptop, you store it once in Vault and let any application fetch it at runtime - decoupling key rotation from redeploys.
+
+## What you get
+
+<CardGroup cols={3}>
+  <Card title="Manage Secrets" href="/latest/openlit/developer-resources/vault/manage-secrets" icon='key'>
+    Create, edit, tag, and delete secrets from the Vault list page
+  </Card>
+  <Card title="Security" href="/latest/openlit/developer-resources/vault/security" icon='shield-halved'>
+    Encryption at rest, per-user access, and CORS for browser calls
+  </Card>
+  <Card title="Retrieve Secrets" href="/latest/openlit/developer-resources/vault/retrieve-secrets" icon='cloud-arrow-down'>
+    Fetch secrets into your application with the Python or TypeScript SDK, or the REST API
+  </Card>
+</CardGroup>
+
+## Why Vault
+
+Vault has no direct built-in equivalent in most LLM observability tools - typically you're expected to manage API keys yourself, through your own environment variables or a general-purpose secrets manager. OpenLIT centralizes secrets so that any application (not just OpenLIT itself) can fetch them at runtime through the SDK or API. That means rotating a key in Vault takes effect the next time an application fetches it - no restarts or redeploys required.
+
+Vault secrets are also usable directly inside OpenLIT: the Evaluation configuration screen, the Chat settings screen, and OpenGround's provider configuration all let you pick - or create on the spot - a Vault secret as their API key, instead of requiring you to visit the Vault page first.
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
+    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
+  </Card>
+  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub/overview" icon='message'>
+    Version, deploy, and collaborate on prompts with centralized management and tracking
+  </Card>
+  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground/overview" icon='flask'>
+    Compare cost, duration, and response tokens across different LLMs to find the most efficient model
+  </Card>
+</CardGroup>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is Vault used for?">
+    Vault centrally stores secrets like LLM API keys, encrypted at rest with AES-256-GCM, so applications can retrieve them remotely via SDK or API instead of embedding keys in code or environment files.
+  </Accordion>
+  <Accordion title="Can secrets be rotated without redeploying?">
+    Yes. Since applications fetch secrets from Vault at runtime, rotating a key in Vault takes effect on the next fetch - no restarts or redeploys needed.
+  </Accordion>
+  <Accordion title="Is Vault safe to call from a browser?">
+    Vault enforces API-key authentication and CORS. Browser-based cross-origin calls require adding your app's origin to `OPENLIT_ALLOWED_CORS_ORIGINS`; server-to-server calls are unaffected.
+  </Accordion>
+  <Accordion title="Can I change a secret's Key after creating it, or view its Value later?">
+    No to both, by design. A secret's Key becomes read-only once it's created - you'd need to create a new secret under a different Key instead. The Value is write-only: it's never sent back to the browser, so the Value field is always blank when you open a secret to edit it. Leave it blank to keep the existing value, or type a new one to overwrite it.
+  </Accordion>
+</AccordionGroup>

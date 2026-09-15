@@ -217,6 +217,22 @@ class OpenAIInstrumentor(BaseInstrumentor):
             async_responses(*sa),
         )
 
+        # responses parse (may not exist in older SDK versions).
+        # parse() posts to /responses directly instead of delegating to
+        # create(), so it needs its own wrapper. ParsedResponse subclasses
+        # Response and parse() never streams, so the create wrapper's
+        # non-streaming path handles it unchanged.
+        _safe_wrap(
+            "openai.resources.responses.responses",
+            "Responses.parse",
+            responses(*sa),
+        )
+        _safe_wrap(
+            "openai.resources.responses.responses",
+            "AsyncResponses.parse",
+            async_responses(*sa),
+        )
+
         # responses retrieve (may not exist in older SDK versions)
         _safe_wrap(
             "openai.resources.responses.responses",

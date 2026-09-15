@@ -19,22 +19,20 @@
  * users' aggregate metrics.
  */
 
-import {
-	requireCodingAgentAuth,
-	CodingAgentUnauthorizedError,
-} from "@/lib/platform/coding-agents/auth";
-import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
+import { CodingAgentUnauthorizedError } from "@/lib/platform/coding-agents/auth";
+import { requireCodingAgentQueryContext } from "@/lib/platform/coding-agents/source";
 import { getCodingSessionDigest } from "@/lib/platform/coding-agents/queries";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 export const dynamic = "force-dynamic";
 
 async function GETHandler(
-	_request: Request,
+	request: Request,
 	context: { params: { sessionId: string } },
 ) {
 	let auth;
 	try {
-		auth = await requireCodingAgentAuth();
+		auth = await requireCodingAgentQueryContext(request);
 	} catch (err) {
 		if (err instanceof CodingAgentUnauthorizedError) {
 			return Response.json({ error: err.message }, { status: 401 });
@@ -59,4 +57,4 @@ async function GETHandler(
 	}
 }
 
-export const GET = withCurrentOrganisationPermission("coding_agents:read", GETHandler);
+export const GET = withRouteAccess("coding_agents.read", GETHandler);

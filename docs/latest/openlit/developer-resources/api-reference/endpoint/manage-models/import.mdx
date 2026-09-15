@@ -1,0 +1,30 @@
+---
+title: "Import Pricing"
+openapi: "POST /api/openground/models/import"
+---
+
+Bulk import used by **Import Pricing JSON** on Manage Models. Existing provider + model ID pairs are skipped.
+
+```bash
+curl -X POST "/api/openground/models/import" \
+  -H "Content-Type: application/json" \
+  -H "Cookie: <signed-in-session-cookie>" \
+  -d '{
+    "providers": [
+      {
+        "providerId": "my-provider",
+        "displayName": "My Provider",
+        "description": "Custom LLM provider"
+      }
+    ],
+    "models": [
+      {
+        "provider": "my-provider",
+        "model_id": "my-model-v1",
+        "displayName": "My Model v1",
+        "inputPricePerMToken": 2.5,
+        "outputPricePerMToken": 10
+      }
+    ]
+  }'
+```

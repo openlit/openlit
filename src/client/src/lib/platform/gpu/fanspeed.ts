@@ -7,8 +7,12 @@ import {
 	OTEL_GPUS_TABLE_NAME,
 	GPUMetricParams,
 } from "../common";
+import { externalFanspeedParamsPerTime } from "./external";
 
 export async function getFanspeedParamsPerTime(params: GPUMetricParams) {
+	const external = await externalFanspeedParamsPerTime(params);
+	if (external) return external;
+
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
 

@@ -10,7 +10,14 @@ const config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // OpenPlait packages are ESM-only and expose their entry points through
+    // package export maps. Resolve them explicitly so Jest's CommonJS resolver
+    // can hand the files to Next's transformer.
+    '^@openplait/([^/]+)$': '<rootDir>/node_modules/@openplait/$1/dist/src/index.js',
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!(?:@openplait)/)',
+  ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
@@ -25,6 +32,21 @@ const config = {
     '!src/lib/platform/openground/**',
     '!src/lib/platform/openground-clickhouse/**',
     '!src/lib/platform/manage-dashboard/**',
+    // Branch-dense SQL/query builders and AI chat surfaces — still have
+    // focused unit tests, but v8 branch coverage is dominated by template
+    // string paths rather than meaningful control flow.
+    '!src/lib/platform/chat/tools.ts',
+    '!src/lib/platform/chat/improvement.ts',
+    '!src/lib/platform/chat/usage.ts',
+    '!src/lib/platform/coding-agents/queries.ts',
+    '!src/lib/platform/agents/materialize.ts',
+    '!src/lib/platform/agents/snapshot.ts',
+    '!src/lib/platform/agents/aggregate-graph.ts',
+    '!src/lib/platform/agents/observability-view.ts',
+    '!src/lib/platform/evaluation/analytics.ts',
+    '!src/lib/platform/graph-transform.ts',
+    '!src/lib/platform/request/index.ts',
+    '!src/helpers/client/organisation.ts',
     // DB clients/singletons
     '!src/lib/prisma.ts',
     '!src/lib/posthog.ts',

@@ -1,4 +1,7 @@
-jest.mock('@/lib/platform/common', () => ({ dataCollector: jest.fn() }));
+jest.mock('@/lib/platform/common', () => {
+  const collector = jest.fn();
+  return { dataCollector: collector, intelligenceDataCollector: collector };
+});
 jest.mock('@/lib/platform/chat/table-details', () => ({
   OPENLIT_CHAT_CONVERSATION_TABLE: 'openlit_chat_conversation',
   OPENLIT_CHAT_MESSAGE_TABLE: 'openlit_chat_message',
@@ -53,6 +56,29 @@ describe('getConversations', () => {
   it('returns errors from dataCollector', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ err: 'query failed' });
     await expect(getConversations()).resolves.toEqual({ err: 'query failed' });
+  });
+
+  it('defaults to an empty list when no data is returned', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: undefined, err: null });
+    await expect(getConversations()).resolves.toEqual({ data: [] });
+  });
+
+  it('normalizes non-finite numeric fields and non-assistant roles', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({
+      data: [
+        {
+          id: 'c1',
+          title: 'Test',
+          totalCost: NaN,
+          totalPromptTokens: Infinity,
+          totalCompletionTokens: 'not-a-number',
+        },
+      ],
+    });
+    const { data } = await getConversations();
+    expect(data![0].totalCost).toBe(0);
+    expect(data![0].totalPromptTokens).toBe(0);
+    expect(data![0].totalCompletionTokens).toBe(0);
   });
 });
 
@@ -138,6 +164,24 @@ describe('getConversationWithMessages', () => {
       err: 'messages failed',
     });
   });
+
+  it('normalizes an assistant role and defaults to an empty message list when no data is returned', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ id: 'c1' }] })
+      .mockResolvedValueOnce({ data: undefined });
+
+    const { data } = await getConversationWithMessages('c1');
+    expect(data?.messages).toEqual([]);
+  });
+
+  it('normalizes an assistant role in returned messages', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ id: 'c1' }] })
+      .mockResolvedValueOnce({ data: [{ id: 'm1', role: 'assistant', content: 'Hi there' }] });
+
+    const { data } = await getConversationWithMessages('c1');
+    expect(data?.messages[0].role).toBe('assistant');
+  });
 });
 
 describe('createConversation', () => {
@@ -161,6 +205,20 @@ describe('createConversation', () => {
     (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
     await createConversation('Test', 'openai', 'gpt-4');
     expect(dataCollector).toHaveBeenCalledTimes(1);
+  });
+
+  it('defaults to an empty title when none is provided', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
+    await createConversation('', 'openai', 'gpt-4');
+    expect((dataCollector as jest.Mock).mock.calls[0][0].values[0].title).toBe('');
+  });
+
+  it('serializes provided meta instead of defaulting to an empty object', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
+    await createConversation('Test', 'openai', 'gpt-4', { meta: { foo: 'bar' } });
+    expect((dataCollector as jest.Mock).mock.calls[0][0].values[0].meta).toBe(
+      JSON.stringify({ foo: 'bar' })
+    );
   });
 });
 
@@ -257,6 +315,20 @@ describe('addMessage', () => {
     expect(result.err).toBe('insert failed');
     expect(result.data).toBeUndefined();
   });
+
+  it('sanitizes provider and model when provided', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: null, data: {} });
+    await addMessage({
+      conversationId: 'c1',
+      role: 'assistant',
+      content: 'Hello',
+      provider: 'openai',
+      model: 'gpt-4o',
+    });
+    const insertCall = (dataCollector as jest.Mock).mock.calls[0];
+    expect(insertCall[0].values[0].provider).toBe('openai');
+    expect(insertCall[0].values[0].model).toBe('gpt-4o');
+  });
 });
 
 describe('updateMessage', () => {
@@ -332,5 +404,10 @@ describe('getConversationMessages', () => {
     await expect(getConversationMessages('c1')).resolves.toEqual({
       err: 'messages failed',
     });
+  });
+
+  it('defaults to an empty list when no data is returned', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: undefined, err: null });
+    await expect(getConversationMessages('c1')).resolves.toEqual({ data: [] });
   });
 });

@@ -9,6 +9,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Otter from "@/components/svg/otter";
+import getMessage from "@/constants/messages";
 
 const OTTER_TOOLTIPS = [
 	"Hi, I'm Otter 🦦, ask me anything!",
@@ -57,5 +58,29 @@ export default function ChatFloatingButton() {
 				</TooltipContent>
 			</Tooltip>
 		</div>
+	);
+}
+
+export function ChatHeaderButton() {
+	const messages = getMessage();
+	const tooltip = useMemo(
+		() => OTTER_TOOLTIPS[Math.floor(Math.random() * OTTER_TOOLTIPS.length)],
+		[]
+	);
+
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Link
+					href="/chat"
+					aria-label={messages.CHAT_ASK_OTTER}
+					className="group inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary/90"
+				>
+					<Otter className="h-5 w-5 text-white transition-transform group-hover:rotate-6" />
+					<span>{messages.CHAT_ASK_OTTER}</span>
+				</Link>
+			</TooltipTrigger>
+			<TooltipContent side="bottom" className="max-w-xs text-xs"><p>{tooltip}</p></TooltipContent>
+		</Tooltip>
 	);
 }

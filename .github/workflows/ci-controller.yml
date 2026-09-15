@@ -1,0 +1,56 @@
+name: CI / Controller
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit SHA to validate
+        required: false
+        default: ''
+        type: string
+  push:
+    branches: ["main"]
+    paths:
+      - 'openlit-controller/**'
+      - '.github/actions/setup-ebpf/**'
+      - '.github/workflows/ci-controller.yml'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'openlit-controller/**'
+      - '.github/actions/setup-ebpf/**'
+      - '.github/workflows/ci-controller.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test / Go
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: openlit-controller/go.mod
+          cache-dependency-path: openlit-controller/go.sum
+
+      - name: Set up eBPF toolchain
+        uses: ./.github/actions/setup-ebpf
+
+      - name: Generate eBPF objects
+        working-directory: openlit-controller
+        run: make setup-bpf generate
+
+      - name: Run tests
+        working-directory: openlit-controller
+        run: go test -race -count=1 ./...
+
+      - name: Lint
+        working-directory: openlit-controller
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run ./...

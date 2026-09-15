@@ -1,6 +1,7 @@
 import { AISdkAdapter } from "./ai-sdk-adapter";
 import { getOpenGroundConfigWithSecret } from "@/lib/platform/providers/config";
 import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
+import { getChatModelCostPerM } from "@/lib/platform/pricing/chat-cost";
 import { createOpengroundEvaluation } from "@/lib/platform/openground-clickhouse";
 import type { ProviderResult } from "@/lib/platform/openground-clickhouse";
 import { getSpecificPrompt } from "@/lib/platform/prompt";
@@ -83,7 +84,9 @@ async function calculateCost(
 	model: string,
 	promptTokens: number,
 	completionTokens: number,
-	databaseConfigId: string
+	databaseConfigId: string,
+	cacheReadTokens: number = 0,
+	cacheCreationTokens: number = 0
 ): Promise<number> {
 	// Look up the model directly from the openlit_provider_models table
 	const modelMetadata = await ProviderRegistry.getModel(
@@ -97,11 +100,23 @@ async function calculateCost(
 		return 0;
 	}
 
-	const inputCost = (promptTokens / 1_000_000) * modelMetadata.inputPricePerMToken;
-	const outputCost =
-		(completionTokens / 1_000_000) * modelMetadata.outputPricePerMToken;
-
-	return inputCost + outputCost;
+	return getChatModelCostPerM(
+		{
+			inputPricePerMToken: modelMetadata.inputPricePerMToken,
+			outputPricePerMToken: modelMetadata.outputPricePerMToken,
+			cacheReadPricePerMToken: modelMetadata.cacheReadPricePerMToken,
+			cacheCreationPricePerMToken: modelMetadata.cacheCreationPricePerMToken,
+		},
+		{
+			promptTokens,
+			completionTokens,
+			cacheReadTokens,
+			cacheCreationTokens,
+		},
+		{
+			promptTokensIncludeCache: true,
+		}
+	);
 }
 
 /**

@@ -7,8 +7,15 @@ import {
 	OTEL_GPUS_TABLE_NAME,
 	dataCollector,
 } from "../common";
+import {
+	externalAverageTemperature,
+	externalAverageTemperatureParamsPerTime,
+} from "./external";
 
 export async function getAverageTemperature(params: GPUMetricParams) {
+	const external = await externalAverageTemperature(params);
+	if (external) return external;
+
 	const query = `
 			SELECT
 				ROUND(AVG(Value), 2) as temperature
@@ -27,6 +34,9 @@ export async function getAverageTemperature(params: GPUMetricParams) {
 export async function getAverageTemperatureParamsPerTime(
 	params: GPUMetricParams
 ) {
+	const external = await externalAverageTemperatureParamsPerTime(params);
+	if (external) return external;
+
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { usePostHog } from "posthog-js/react";
 import getMessage from "@/constants/messages";
+import { getRequestHeaders } from "@/utils/api";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { useRootStore } from "@/store";
 import {
@@ -20,6 +21,7 @@ interface ChatPanelProps {
 	hasConfig: boolean;
 	configInfo?: ChatConfigInfo | null;
 	onNewConversation: () => Promise<string | null>;
+	initialPrompt?: string | null;
 }
 
 export default function ChatPanel({
@@ -27,6 +29,7 @@ export default function ChatPanel({
 	hasConfig,
 	configInfo,
 	onNewConversation,
+	initialPrompt,
 }: ChatPanelProps) {
 	const posthog = usePostHog();
 	const messages = useRootStore(getChatMessages);
@@ -43,6 +46,8 @@ export default function ChatPanel({
 	const inputRef = useRef("");
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const skipNextLoadRef = useRef(false);
+	const sentInitialPromptRef = useRef(false);
+	const sendMessageRef = useRef<(text?: string) => Promise<void>>(async () => {});
 
 	// Input state — ref avoids re-renders, state keeps textarea controlled
 	const [inputValue, setInputValue] = useInputState(inputRef);
@@ -187,7 +192,7 @@ export default function ChatPanel({
 
 				const res = await fetch("/api/chat/message", {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: getRequestHeaders({ "Content-Type": "application/json" }),
 					body: JSON.stringify({ conversationId: currentConvId, content }),
 					signal: controller.signal,
 				});
@@ -283,6 +288,16 @@ export default function ChatPanel({
 		[conversationId, isStreaming, messages, onNewConversation, addMessage, posthog, updateLastMessage, updateLastMessageStep, setMessages, setIsStreaming, setInputValue, refreshConversation]
 	);
 
+	sendMessageRef.current = sendMessage;
+
+	useEffect(() => {
+		if (sentInitialPromptRef.current) return;
+		const prompt = initialPrompt?.trim();
+		if (!prompt || !hasConfig) return;
+		sentInitialPromptRef.current = true;
+		void sendMessageRef.current(prompt);
+	}, [initialPrompt, hasConfig]);
+
 	const handleExecuteQuery = useCallback(
 		async (query: string, messageId?: string) => {
 			try {
@@ -315,7 +330,7 @@ export default function ChatPanel({
 		[posthog]
 	);
 
-	const showEmptyState = !conversationId && messages.length === 0 && !isStreaming;
+	const showEmptyState = !conversationId && messages.length === 0 && !isStreaming && !initialPrompt?.trim();
 
 	return (
 		<div className="flex flex-col h-full">

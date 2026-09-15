@@ -21,7 +21,7 @@ import (
 // claudePayload covers the fields Claude Code sends across all hook
 // events. Unknown fields are ignored. See
 // https://code.claude.com/docs/en/hooks for the event-level schema and
-// `.cursor/rules/coding-agents-convention.mdc` §4 for the mapping
+// `agent-guides/coding-agents-convention.md` §4 for the mapping
 // onto our canonical attributes.
 type claudePayload struct {
 	SessionID      string          `json:"session_id"`
@@ -445,7 +445,7 @@ func splitAssistantContent(blocks []assistantContentBlock) (text, think string) 
 // to tail the transcript on every read. The prompt body itself is
 // gated by the content-capture mode — `full` keeps it verbatim,
 // `metadata_only` and `minimal` keep only the length. See
-// `.cursor/rules/coding-agents-convention.mdc` §4.
+// `agent-guides/coding-agents-convention.md` §4.
 func emitUserPrompt(in normalize.Input, p claudePayload) error {
 	now := time.Now()
 	turn := normalize.LLMTurn{

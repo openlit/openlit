@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { dataCollector } from "../common";
+import { intelligenceDataCollector } from "../common";
 import { OPENLIT_OTTER_RUNS_TABLE } from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
 
@@ -36,7 +36,7 @@ export async function saveOtterRun(
 	databaseConfigId?: string
 ): Promise<{ data?: string; err?: unknown }> {
 	const id = randomUUID();
-	const { err } = await dataCollector(
+	const { err } = await intelligenceDataCollector(
 		{
 			table: OPENLIT_OTTER_RUNS_TABLE,
 			values: [

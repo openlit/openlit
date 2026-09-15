@@ -17,6 +17,13 @@ import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Clock, Copy, Cpu, 
 import SpanHierarchyExplorer from "./span-hierarchy-explorer";
 import { Button } from "@/components/ui/button";
 import getMessage from "@/constants/messages";
+import {
+	classifyGenerationHealth,
+	matchesGenerationHealthChip,
+} from "@/lib/platform/generation-health/classify";
+import { fillTemplate } from "@/lib/platform/generation-health/format";
+import { asAgentLoopHit } from "@/lib/platform/agent-loop/classify";
+import { agentLoopDetailLine } from "@/lib/platform/agent-loop/format";
 import Evaluations from "@/components/(playground)/request/components/evaluations";
 import { RequestProvider } from "@/components/(playground)/request/request-context";
 import TraceAiAnalysisPanel from "@/components/(playground)/request/components/trace-ai-analysis-panel";
@@ -32,6 +39,8 @@ import {
 	hasCodingAgentVendorIcon,
 } from "@/components/svg/coding-agents";
 import { toast } from "sonner";
+import { useRootStore } from "@/store";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
 
 // Mirror of `durationLabel` in observability/columns.tsx — kept local
 // so the top-card override for coding-agent sessions can format the
@@ -52,6 +61,54 @@ function formatSessionDurationMs(ms: number): string {
 // non-`full` content-capture mode (CLI flag OPENLIT_CODING_CONTENT_CAPTURE).
 // We surface the one command that flips it on; everything else (modes,
 // scope, scrubbing guarantees) lives in the docs to keep this terse.
+function AgentLoopNote({ hit }: { hit: ReturnType<typeof asAgentLoopHit> }) {
+	if (!hit) return null;
+	return (
+		<div className="flex items-start gap-2 rounded-md border border-violet-200 bg-violet-50 px-2 py-1.5 text-[11px] text-violet-900 dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200">
+			<AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+			<span>{agentLoopDetailLine(hit)}</span>
+		</div>
+	);
+}
+
+function GenerationHealthNote({
+	spanAttributes,
+}: {
+	spanAttributes: Record<string, unknown>;
+}) {
+	const m = getMessage();
+	const health = classifyGenerationHealth(spanAttributes);
+	const notes: string[] = [];
+	if (matchesGenerationHealthChip(health, "truncated")) {
+		notes.push(m.GENERATION_HEALTH_DETAIL_TRUNCATED);
+	}
+	if (matchesGenerationHealthChip(health, "filtered")) {
+		notes.push(m.GENERATION_HEALTH_DETAIL_FILTERED);
+	}
+	if (matchesGenerationHealthChip(health, "empty")) {
+		notes.push(m.GENERATION_HEALTH_DETAIL_EMPTY);
+	}
+	if (health.modelSwap) {
+		notes.push(
+			fillTemplate(m.GENERATION_HEALTH_DETAIL_SWAPPED, {
+				requested: health.requestedModel,
+				served: health.servedModel,
+			})
+		);
+	}
+	if (!notes.length) return null;
+	return (
+		<div className="flex flex-col gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+			{notes.map((note) => (
+				<div key={note} className="flex items-start gap-2">
+					<AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+					<span>{note}</span>
+				</div>
+			))}
+		</div>
+	);
+}
+
 function ContentCaptureNote() {
 	const m = getMessage();
 	const command = m.CODING_AGENT_CONTENT_CAPTURE_NOTE_COMMAND;
@@ -103,16 +160,22 @@ function Stat({ icon, label, value }: { icon: ReactNode; label: string; value?: 
 function CostStat({
 	costValue,
 	spanId,
+	traceId,
 	hasModel,
 	onRecalculated,
 }: {
 	costValue?: string;
 	spanId?: string;
+	traceId?: string;
 	hasModel: boolean;
 	onRecalculated: () => void;
 }) {
 	const m = getMessage();
-	const hasCost = !!costValue && costValue !== "-";
+	const currentEnvironment = useRootStore(getCurrentProjectEnvironment);
+	const hasCost =
+		!!costValue &&
+		costValue !== "-" &&
+		costValue !== m.GOVERNANCE_COST_NOT_REPORTED;
 	const canRecalculate = hasModel && !!spanId;
 	const { fireRequest, isLoading } = useFetchWrapper<{
 		success: boolean;
@@ -125,7 +188,10 @@ function CostStat({
 		if (!spanId || isLoading) return;
 		fireRequest({
 			requestType: "POST",
-			url: `/api/pricing/${spanId}`,
+			url: `/api/pricing/${spanId}?${new URLSearchParams({
+				...(currentEnvironment ? { environment: currentEnvironment } : {}),
+				...(traceId ? { traceId } : {}),
+			})}`,
 			successCb: (response) => {
 				if (response?.success) {
 					toast.success(
@@ -311,6 +377,7 @@ export function TraceDetailView({
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const from = searchParams.get("from");
+	const urlTraceId = searchParams.get("traceId") || undefined;
 	const [selectedSpanId, setSelectedSpanId] = useState(spanId);
 	const [activeListSpanId, setActiveListSpanId] = useState(spanId);
 	// Per-session code-impact rollups (lines added / removed,
@@ -359,7 +426,7 @@ export function TraceDetailView({
 		total?: number;
 	} | null>(null);
 	const fromRef = useRef(from);
-	const listUrlRef = useRef(type === "exceptions" ? "/api/telemetry/exception" : "/api/telemetry/trace");
+	const listUrlRef = useRef(type === "exceptions" ? "/api/telemetry/exception" : "/api/telemetry/request");
 	const detailBasePathRef = useRef(
 		type === "exceptions" ? "/telemetry/exceptions" : "/telemetry/traces"
 	);
@@ -369,12 +436,27 @@ export function TraceDetailView({
 		fireRequest: fireListRequest,
 		isLoading: isListLoading,
 	} = useFetchWrapper<any>();
+	const listHintTraceId = useMemo(() => {
+		const row = (navigationRows || []).find(
+			(r: any) => r.spanId === selectedSpanId || r.spanId === activeListSpanId
+		);
+		return (
+			(row?.traceId as string | undefined) ||
+			(row?.id as string | undefined) ||
+			(row?.TraceId as string | undefined) ||
+			undefined
+		);
+	}, [navigationRows, selectedSpanId, activeListSpanId]);
+	const knownTraceId = urlTraceId || listHintTraceId;
 	const fetchData = useCallback(() => {
+		const qs = knownTraceId
+			? `?traceId=${encodeURIComponent(knownTraceId)}`
+			: "";
 		fireRequest({
 			requestType: "GET",
-			url: `/api/telemetry/trace/span/${selectedSpanId}`,
+			url: `/api/telemetry/request/span/${selectedSpanId}${qs}`,
 		});
-	}, [fireRequest, selectedSpanId]);
+	}, [fireRequest, selectedSpanId, knownTraceId]);
 
 	useEffect(() => {
 		hierarchySpanIdRef.current = spanId;
@@ -392,12 +474,15 @@ export function TraceDetailView({
 	}, [fetchData]);
 
 	const navigateToListSpan = useCallback(
-		(nextSpanId: string) => {
+		(nextSpanId: string, nextTraceId?: string) => {
 			hierarchySpanIdRef.current = nextSpanId;
 			setActiveListSpanId(nextSpanId);
 			setSelectedSpanId(nextSpanId);
 			const source = fromRef.current;
-			const qs = source ? `?from=${encodeURIComponent(source)}` : "";
+			const params = new URLSearchParams();
+			if (source) params.set("from", source);
+			if (nextTraceId) params.set("traceId", nextTraceId);
+			const qs = params.toString() ? `?${params.toString()}` : "";
 			if (variant === "page") {
 				router.replace(`${detailBasePathRef.current}/${nextSpanId}${qs}`, { scroll: false });
 			}
@@ -437,7 +522,7 @@ export function TraceDetailView({
 					const records = ((response as any)?.records || []).map(normalizeTrace);
 					const target =
 						direction === 1 ? records[0] : records[records.length - 1];
-					if (target?.spanId) {
+			if (target?.spanId) {
 						const nextSource = sourceWithOffset(fromRef.current, offset);
 						fromRef.current = nextSource;
 						setListOffset(offset);
@@ -447,7 +532,7 @@ export function TraceDetailView({
 							total: (response as any)?.total,
 						});
 						onNavigationPageChange?.(offset);
-						navigateToListSpan(target.spanId);
+				navigateToListSpan(target.spanId, target.id || target.traceId || target.TraceId);
 					}
 				},
 			});
@@ -647,6 +732,7 @@ export function TraceDetailView({
 					<RequestProvider syncUrl={false}>
 						<TraceAiAnalysisPanel
 							spanId={selectedSpanId}
+							traceId={knownTraceId || trace?.id}
 							scope="span"
 							description={m.TRACE_AI_IMPROVEMENT_SPAN_DESCRIPTION}
 						/>
@@ -660,14 +746,20 @@ export function TraceDetailView({
 			? [
 					{
 						id: "evaluations",
-						label: "Evaluations",
-						content: <Evaluations trace={trace} surface="observability" />,
+						label: m.EVALUATION_RESULTS,
+						content: (
+							<Evaluations
+								trace={trace}
+								surface="observability"
+							/>
+						),
 					},
 			  ]
 			: []),
 	];
 	const detailTabs = useMemo(
 		() => buildObjectTabs(raw, {
+			excludeKeys: ["agentLoop"],
 			labelOverrides: {
 				SpanAttributes: "Span Attributes",
 				ResourceAttributes: "Resource Attributes",
@@ -722,7 +814,8 @@ export function TraceDetailView({
 
 	const selectPrev = () => {
 		if (currentIndex > 0) {
-			navigateToListSpan(effectiveListRows[currentIndex - 1].spanId);
+			const previous = effectiveListRows[currentIndex - 1];
+			navigateToListSpan(previous.spanId, previous.id || previous.traceId || previous.TraceId);
 		} else if (effectiveListOffset > 0) {
 			fetchList(Math.max(0, effectiveListOffset - navigationLimit), -1);
 		}
@@ -730,7 +823,8 @@ export function TraceDetailView({
 
 	const selectNext = () => {
 		if (currentIndex >= 0 && currentIndex < effectiveListRows.length - 1) {
-			navigateToListSpan(effectiveListRows[currentIndex + 1].spanId);
+			const next = effectiveListRows[currentIndex + 1];
+			navigateToListSpan(next.spanId, next.id || next.traceId || next.TraceId);
 		} else if (effectiveListOffset + effectiveListRows.length < total) {
 			fetchList(effectiveListOffset + navigationLimit, 1);
 		}
@@ -779,6 +873,9 @@ export function TraceDetailView({
 	const tokensValue = codingTokensValue ?? trace?.totalTokens;
 	const costValue =
 		codingCostValue ?? (trace?.cost && trace.cost !== "-" ? `$${trace.cost}` : undefined);
+	const displayCostValue =
+		costValue ||
+		(isCodingAgentTrace ? m.GOVERNANCE_COST_NOT_REPORTED : undefined);
 	const durationValue =
 		codingDurationValue ||
 		(trace ? `${parseFloat(trace.requestDuration).toFixed(3)}s` : "");
@@ -788,6 +885,7 @@ export function TraceDetailView({
 		<DetailShell
 			title={title}
 			compact
+			fill
 			leadingActions={
 				variant === "page" ? (
 					<Button
@@ -810,8 +908,9 @@ export function TraceDetailView({
 						<Stat icon={<Clock className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_DURATION} value={durationValue} />
 						<Stat icon={<Zap className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_TOKENS} value={tokensValue} />
 						<CostStat
-							costValue={costValue}
+							costValue={displayCostValue}
 							spanId={trace.spanId}
+							traceId={knownTraceId}
 							hasModel={!!modelValue}
 							onRecalculated={fetchData}
 						/>
@@ -847,8 +946,8 @@ export function TraceDetailView({
 			}
 		>
 			{trace && (
-				<>
-					<div className="flex flex-wrap gap-1.5">
+				<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+					<div className="flex shrink-0 flex-wrap gap-1.5">
 						<MetaPill label={m.OBSERVABILITY_TRACE_ID} value={trace.id} />
 						<MetaPill label={m.OBSERVABILITY_SPAN_ID} value={trace.spanId} />
 						{!isCodingAgentTrace && (
@@ -911,20 +1010,23 @@ export function TraceDetailView({
 					{showContentCaptureNote && (
 						<ContentCaptureNote />
 					)}
-					<div className="hidden h-[min(860px,calc(100vh-12rem))] min-h-[620px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950 lg:block">
+					<GenerationHealthNote spanAttributes={spanAttributes} />
+					<AgentLoopNote hit={asAgentLoopHit(raw?.agentLoop)} />
+					<div className="min-h-0 flex-1 overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
 						<ResizablePanelGroup direction="horizontal" className="h-full">
-							<ResizablePanel defaultSize={48} minSize={32} maxSize={68}>
-								<div className="h-full min-h-0 p-2">
+							<ResizablePanel defaultSize={48} minSize={28} maxSize={72}>
+								<div className="h-full min-h-0 overflow-hidden p-2">
 									<SpanHierarchyExplorer
 										hierarchySpanId={hierarchySpanIdRef.current}
 										selectedSpanId={selectedSpanId}
+										traceId={knownTraceId || trace?.id}
 										onSelectSpan={selectSpanInCurrentTrace}
 										fill
 									/>
 								</div>
 							</ResizablePanel>
 							<ResizableHandle withHandle />
-							<ResizablePanel defaultSize={52} minSize={32}>
+							<ResizablePanel defaultSize={52} minSize={28}>
 								<div className="h-full min-h-0 overflow-auto p-2">
 									<DetailObjectTabs
 										tabs={detailTabs}
@@ -935,19 +1037,7 @@ export function TraceDetailView({
 							</ResizablePanel>
 						</ResizablePanelGroup>
 					</div>
-					<div className="grid gap-3 lg:hidden">
-						<SpanHierarchyExplorer
-							hierarchySpanId={hierarchySpanIdRef.current}
-							selectedSpanId={selectedSpanId}
-							onSelectSpan={selectSpanInCurrentTrace}
-						/>
-						<DetailObjectTabs
-							tabs={detailTabs}
-							extraTabs={extraDetailTabs}
-							extraTabsPlacement="before"
-						/>
-					</div>
-				</>
+				</div>
 			)}
 		</DetailShell>
 	);

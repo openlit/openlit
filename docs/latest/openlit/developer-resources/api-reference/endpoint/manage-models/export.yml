@@ -1,0 +1,37 @@
+openapi: 3.0.0
+info:
+  title: Manage Models - Export Pricing
+  description: Authenticated download of all model pricing as SDK-compatible pricing.json for the active database configuration.
+  version: 1.0.0
+servers:
+  - url: /
+paths:
+  /api/openground/models/export:
+    get:
+      summary: Export pricing JSON
+      description: Returns pricing grouped by model type (chat, embeddings, images, audio) in OpenLIT SDK pricing_json shape.
+      operationId: exportModelsPricing
+      responses:
+        '200':
+          description: pricing.json body
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  chat:
+                    gpt-4o:
+                      promptPrice: 0.0025
+                      completionPrice: 0.01
+                  embeddings:
+                    text-embedding-3-small: 0.00002
+        '401':
+          description: Not signed in
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+security:
+  - sessionAuth: []

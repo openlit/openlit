@@ -477,7 +477,7 @@ export default function NoCodingAgents({ compact = false }: NoCodingAgentsProps)
 							</ol>
 						</div>
 
-						<p className="text-xs text-stone-500 dark:text-stone-500">
+						<p className="text-xs text-stone-500 dark:text-stone-400">
 							Full reference (env vars, content-capture modes,
 							marketplace install):{" "}
 							<a

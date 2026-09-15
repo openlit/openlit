@@ -23,6 +23,11 @@ describe('validateMetricsRequest', () => {
       'AVERAGE_REQUEST_COST',
       'COST_BY_APPLICATION',
       'COST_BY_ENVIRONMENT',
+      'COST_BY_PROVIDER',
+      'COST_BY_MODEL',
+      'COST_PER_TIME',
+      'COST_SUMMARY',
+      'OPENGROUND_COST_ANALYTICS',
       'MODEL_PER_TIME',
       'GENERATION_BY_CATEGORY',
       'TOKENS_PER_TIME',
@@ -39,6 +44,9 @@ describe('validateMetricsRequest', () => {
       'GENERATION_BY_ENVIRONMENT',
       'GENERATION_BY_APPLICATION',
       'GET_TOTAL_EVALUATION_DETECTED',
+      'GET_EVALUATION_ANALYTICS',
+      'GENERATION_HEALTH',
+      'AGENT_LOOP',
     ] as const;
 
     timeLimitTypes.forEach((type) => {
@@ -211,6 +219,19 @@ describe('getFilterWhereCondition', () => {
     );
     expect(result).toContain("'openai'");
     expect(result).toContain("'anthropic'");
+    // Folds current OTel key, legacy fallback, vector-DB and coding-agent.
+    expect(result).toContain("SpanAttributes['gen_ai.provider.name'] IN");
+    expect(result).toContain("SpanAttributes['gen_ai.system'] IN");
+    expect(result).toContain("SpanAttributes['db.system'] IN");
+    expect(result).toContain("SpanAttributes['coding_agent.client'] IN");
+  });
+
+  it('honors UI services filter as ServiceName (not only serviceNames)', () => {
+    const result = getFilterWhereCondition(
+      { timeLimit, selectedConfig: { services: ['anthropic-chat-app'] } } as any,
+      true
+    );
+    expect(result).toContain("ServiceName IN ('anthropic-chat-app')");
   });
 
   it('adds traceType filter when filterSelectedConfig is true', () => {
@@ -341,6 +362,28 @@ describe('getFilterWhereCondition', () => {
     expect(result).toContain("= 'it\\'s'");
   });
 
+  it('adds generation health predicates for truncated and swapped chips', () => {
+    const result = getFilterWhereCondition(
+      { timeLimit, selectedConfig: { generationHealth: ['truncated', 'swapped'] } } as any,
+      true
+    );
+    expect(result).toContain('gen_ai.response.finish_reasons');
+    expect(result).toContain('length');
+    expect(result).toContain('gen_ai.request.model');
+    expect(result).toContain('gen_ai.response.model');
+    expect(result).toContain(' OR ');
+  });
+
+  it('adds a stuck-agent loop subquery when the loop chip is on', () => {
+    const result = getFilterWhereCondition(
+      { timeLimit, selectedConfig: { agentLoop: true } } as any,
+      true
+    );
+    expect(result).toContain('gen_ai.tool.name');
+    expect(result).toContain('HAVING count() >= 3');
+    expect(result).toContain('gen_ai.conversation.id');
+  });
+
   it('adds notOrEmpty conditions', () => {
     const result = getFilterWhereCondition({
       notOrEmpty: [{ key: 'SpanAttributes' }, { key: 'ServiceName' }],
@@ -369,6 +412,17 @@ describe('getFilterWhereCondition', () => {
       operationType: 'llm',
     } as any);
     expect(result).toContain("!= 'vectordb'");
+    expect(result).toContain("coding_agent.client");
+    expect(result).toContain("openlit-cli");
+    expect(result).toContain("NOT startsWith(SpanName, 'coding_agent.')");
+  });
+
+  it('does not exclude coding agents for vectordb operationType', () => {
+    const result = getFilterWhereCondition({
+      operationType: 'vectordb',
+    } as any);
+    expect(result).toContain("= 'vectordb'");
+    expect(result).not.toContain("openlit-cli");
   });
 
   it('joins multiple conditions with AND', () => {

@@ -37,7 +37,21 @@ import {
 	TraceAnalysisRun,
 } from "./improvement";
 import { TRACE_ANALYSIS_DIMENSIONS } from "@/types/trace-analysis";
-import { dataCollector } from "../common";
+import { listTraceRecords } from "../traces/read";
+import { getLogs } from "../logs/read";
+import { listMetricRecords } from "../metrics/read";
+import { resolveSignalSource } from "@/lib/telemetry-source";
+import {
+	recordMemoryMutationAudit,
+	requireMemoryAccess,
+	type MemoryMutationAuditInput,
+} from "@/lib/access/memory-route";
+import { queryProjectMemories } from "@/lib/platform/connectors/memory/read";
+import {
+	addProjectMemories,
+	deleteProjectMemory,
+	updateProjectMemory,
+} from "@/lib/platform/connectors/memory/write";
 import Sanitizer from "@/utils/sanitizer";
 import {
 	createAlertDestinationTool,
@@ -168,10 +182,11 @@ async function runTraceAnalysisTool(
 	spanId: string,
 	scope: OtterTraceAnalysisScope,
 	rerun: boolean,
-	databaseConfigId: string
+	databaseConfigId: string,
+	environment?: string
 ) {
 	if (!rerun) {
-		const existing = await getTraceImprovement(spanId, databaseConfigId, scope);
+		const existing = await getTraceImprovement(spanId, databaseConfigId, scope, environment);
 		if (existing.err) return { success: false, error: String(existing.err) };
 		const latest = existing.data?.runs?.at(-1);
 		if (latest) {
@@ -185,7 +200,7 @@ async function runTraceAnalysisTool(
 		}
 	}
 
-	const { response, err } = await streamTraceImprovementAnalysis(spanId, databaseConfigId, scope);
+	const { response, err } = await streamTraceImprovementAnalysis(spanId, databaseConfigId, scope, environment);
 	if (err || !response) {
 		return { success: false, error: String(err || "Failed to start trace analysis") };
 	}
@@ -219,7 +234,7 @@ function normalizeVaultKey(key: string): string {
 		.toUpperCase();
 }
 
-export function getChatTools(userId: string, databaseConfigId: string) {
+export function getChatTools(userId: string, databaseConfigId: string, environment?: string) {
 	return {
 		// ==================== RULE ENGINE ====================
 
@@ -265,10 +280,10 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 						description: params.description || "",
 						group_operator: params.group_operator || "AND",
 						status: params.status || "ACTIVE",
-					});
+					}, { databaseConfigId });
 					const ruleId = (result as any)?.id;
 					if (ruleId && params.condition_groups?.length > 0) {
-						await addConditionGroupsToRule(ruleId, params.condition_groups);
+						await addConditionGroupsToRule(ruleId, params.condition_groups, { databaseConfigId });
 					}
 					return { success: true, message: "Rule created", details: `Name: "${params.name}" | ID: ${ruleId} | Status: ${params.status || "ACTIVE"} | Conditions: ${params.condition_groups?.length || 0} groups` };
 				} catch (e: any) {
@@ -297,7 +312,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 						description: params.description,
 						group_operator: params.group_operator,
 						status: params.status,
-					});
+					}, { databaseConfigId });
 					return { success: true, message: "Rule updated", details: `ID: ${params.id}` };
 				} catch (e: any) {
 					return { success: false, error: e.message || "Failed to update rule" };
@@ -314,7 +329,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			}) as any,
 			execute: async (params: any) => {
 				try {
-					const [err] = await deleteRule(params.id);
+					const [err] = await deleteRule(params.id, { databaseConfigId });
 					if (err) return { success: false, error: err };
 					return { success: true, message: "Rule deleted", details: `ID: ${params.id}` };
 				} catch (e: any) {
@@ -328,7 +343,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			inputSchema: jsonSchema({ type: "object" as const, properties: {} }) as any,
 			execute: async () => {
 				try {
-					const { data, err } = await getRules();
+					const { data, err } = await getRules(databaseConfigId);
 					if (err) return { success: false, error: String(err) };
 					const rules = (data as any[]) || [];
 					return { success: true, count: rules.length, rules: rules.map((r: any) => ({ id: r.id, name: r.name, status: r.status, description: r.description })) };
@@ -347,7 +362,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			}) as any,
 			execute: async (params: any) => {
 				try {
-					const result = await getRuleById(params.id);
+					const result = await getRuleById(params.id, databaseConfigId);
 					if ((result as any).err) return { success: false, error: (result as any).err };
 					return { success: true, rule: (result as any).data };
 				} catch (e: any) {
@@ -373,7 +388,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 						rule_id: params.rule_id,
 						entity_type: params.entity_type,
 						entity_id: params.entity_id,
-					});
+					}, { databaseConfigId });
 					return { success: true, message: `${params.entity_type} linked to rule`, details: `Rule: ${params.rule_id} → ${params.entity_type}: ${params.entity_id}` };
 				} catch (e: any) {
 					return { success: false, error: e.message || "Failed to link entity" };
@@ -390,7 +405,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			}) as any,
 			execute: async (params: any) => {
 				try {
-					const [err] = await deleteRuleEntity(params.id);
+					const [err] = await deleteRuleEntity(params.id, { databaseConfigId });
 					if (err) return { success: false, error: err };
 					return { success: true, message: "Entity unlinked from rule" };
 				} catch (e: any) {
@@ -410,7 +425,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			}) as any,
 			execute: async (params: any) => {
 				try {
-					const { data, err } = await getRuleEntities(params);
+					const { data, err } = await getRuleEntities(params, databaseConfigId);
 					if (err) return { success: false, error: String(err) };
 					return { success: true, entities: data };
 				} catch (e: any) {
@@ -919,6 +934,196 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			},
 		}),
 
+		// ==================== MEMORY ====================
+
+		list_memories: tool<any, any>({
+			description:
+				"List stored agent memories from the project's memory connectors. Prefer this for inventory questions (who are the users, what is remembered, summarize memories). Pass connector_id and user_id/session_id/agent_id when the user or Memory page provided them. The result includes memories[].userId and filters.users.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					connector_id: { type: "string", description: "Memory connector id (memory:…)" },
+					user_id: { type: "string" },
+					agent_id: { type: "string" },
+					session_id: { type: "string", description: "Session, store, or run id when the connector requires one" },
+					limit: { type: "number", description: "Max memories to return (1-100)" },
+				},
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireMemoryAccess("read");
+					const result = await queryProjectMemories({
+						connectorId: params.connector_id,
+						userId: params.user_id,
+						agentId: params.agent_id,
+						sessionId: params.session_id,
+						limit: params.limit,
+					});
+					return summarizeMemoryToolResult(result);
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to list memories" };
+				}
+			},
+		}),
+
+		search_memories: tool<any, any>({
+			description:
+				"Semantic search over stored agent memories. Use for a specific fact lookup, not for listing users or browsing everything. If search returns count=0, call list_memories with the same connector_id/user_id before saying nothing is stored. Always pass connector_id and user_id when provided.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					query: { type: "string", description: "Natural-language search query" },
+					connector_id: { type: "string" },
+					user_id: { type: "string" },
+					agent_id: { type: "string" },
+					session_id: { type: "string" },
+					limit: { type: "number" },
+				},
+				required: ["query"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireMemoryAccess("read");
+					const result = await queryProjectMemories({
+						query: params.query,
+						connectorId: params.connector_id,
+						userId: params.user_id,
+						agentId: params.agent_id,
+						sessionId: params.session_id,
+						limit: params.limit,
+					});
+					return summarizeMemoryToolResult(result);
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to search memories" };
+				}
+			},
+		}),
+
+		add_memory: tool<any, any>({
+			description: "Create a stored memory on the project's memory connector. Use this when the user asks to remember a fact.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					content: { type: "string", description: "Memory text to store" },
+					connector_id: { type: "string" },
+					user_id: { type: "string" },
+					agent_id: { type: "string" },
+					session_id: { type: "string", description: "Required for some connectors such as Zep" },
+				},
+				required: ["content"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireMemoryAccess("create");
+					const result = await addProjectMemories({
+						content: params.content,
+						connectorId: params.connector_id,
+						userId: params.user_id,
+						agentId: params.agent_id,
+						sessionId: params.session_id,
+					});
+					const first = result.memories[0];
+					await auditMemoryToolMutation({
+						action: "create",
+						targetId: first?.id,
+						connectorId: result.connector?.id,
+						userId: params.user_id,
+						agentId: params.agent_id,
+						sessionId: params.session_id,
+						contentLength: typeof params.content === "string" ? params.content.length : undefined,
+					});
+					return {
+						success: true,
+						message: "Memory saved",
+						url: memoryEntityUrl(first?.id, result.connector?.id),
+						connector: result.connector
+							? { id: result.connector.id, name: result.connector.name, type: result.connector.type }
+							: null,
+						memories: result.memories.map((memory) => ({
+							id: memory.id,
+							content: memory.content,
+							userId: memory.userId,
+							sessionId: memory.sessionId,
+							agentId: memory.agentId,
+							url: memoryEntityUrl(memory.id, result.connector?.id),
+						})),
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to add memory" };
+				}
+			},
+		}),
+
+		update_memory: tool<any, any>({
+			description: "Update the text of an existing stored memory. Use list_memories or search_memories first to get the id.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					id: { type: "string", description: "Memory id" },
+					content: { type: "string", description: "Replacement memory text" },
+					connector_id: { type: "string" },
+				},
+				required: ["id", "content"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireMemoryAccess("update");
+					const result = await updateProjectMemory({
+						id: params.id,
+						content: params.content,
+						connectorId: params.connector_id,
+					});
+					await auditMemoryToolMutation({
+						action: "update",
+						targetId: result.memory.id,
+						connectorId: result.connector?.id || params.connector_id,
+						contentLength: typeof params.content === "string" ? params.content.length : undefined,
+					});
+					return {
+						success: true,
+						message: "Memory updated",
+						url: memoryEntityUrl(result.memory.id, result.connector?.id),
+						memory: {
+							id: result.memory.id,
+							content: result.memory.content,
+							url: memoryEntityUrl(result.memory.id, result.connector?.id),
+						},
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to update memory" };
+				}
+			},
+		}),
+
+		delete_memory: tool<any, any>({
+			description: "Delete a stored memory by id. Confirm the id with the user when possible.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					id: { type: "string", description: "Memory id" },
+					connector_id: { type: "string" },
+				},
+				required: ["id"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireMemoryAccess("delete");
+					const result = await deleteProjectMemory({
+						id: params.id,
+						connectorId: params.connector_id,
+					});
+					await auditMemoryToolMutation({
+						action: "delete",
+						targetId: params.id,
+						connectorId: result.connector?.id || params.connector_id,
+					});
+					return { success: true, message: "Memory deleted", id: params.id };
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to delete memory" };
+				}
+			},
+		}),
+
 		// ==================== CUSTOM MODELS ====================
 
 		create_custom_model: tool<any, any>({
@@ -1027,6 +1232,99 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			},
 		}),
 
+		get_telemetry_routing: tool<any, any>({
+			description: "Report the currently routed connector for traces, logs, metrics, and intelligence in the active environment. Always use this tool before answering which connector or database OpenLIT is using; never infer the answer from the ClickHouse schema or generated SQL.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {},
+			}) as any,
+			execute: async () => {
+				try {
+					const signals = ["traces", "logs", "metrics", "intelligence"] as const;
+					const routed = await Promise.all(
+						signals.map(async (signal) => {
+							const resolution = await resolveSignalSource(signal, { environment });
+							return {
+								signal,
+								environment: environment || resolution.descriptor.environment || "active",
+								connector: resolution.hasSource ? resolution.descriptor.name : null,
+								connectorType: resolution.hasSource ? resolution.descriptor.type : null,
+								isBuiltIn: resolution.hasSource ? resolution.descriptor.isBuiltIn : false,
+								configured: resolution.hasSource,
+								resolution: resolution.via,
+							};
+						})
+					);
+					return {
+						success: true,
+						environment: environment || "active",
+						routing: routed,
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to resolve telemetry connector routing" };
+				}
+			},
+		}),
+
+		query_telemetry: tool<any, any>({
+			description: "Read traces, logs, or metrics from the connector selected by the current project's signal routing. Use this for telemetry questions instead of generating ClickHouse SQL when the user asks about current observability data.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					signal: { type: "string", enum: ["traces", "logs", "metrics"] },
+					limit: { type: "number", description: "Maximum records to return, up to 100." },
+					start: { type: "string", description: "ISO start time. Defaults to the last 24 hours." },
+					end: { type: "string", description: "ISO end time. Defaults to now." },
+					service_name: { type: "string", description: "Optional service.name filter." },
+					attribute_key: { type: "string", description: "Optional span/log/metric attribute key." },
+					attribute_value: { type: "string", description: "Optional exact attribute value." },
+				},
+				required: ["signal"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					const signal = params.signal as "traces" | "logs" | "metrics";
+					const end = params.end ? new Date(params.end) : new Date();
+					const start = params.start
+						? new Date(params.start)
+						: new Date(end.getTime() - 24 * 60 * 60 * 1000);
+					if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+						return { success: false, error: "start and end must be valid ISO timestamps" };
+					}
+					const customFilters = [] as Array<Record<string, string>>;
+					if (params.service_name) {
+						customFilters.push({ key: "service.name", value: String(params.service_name), scope: signal === "logs" ? "resource" : "resource" });
+					}
+					if (params.attribute_key && params.attribute_value !== undefined) {
+						customFilters.push({ key: String(params.attribute_key), value: String(params.attribute_value), scope: signal === "logs" ? "log" : signal === "metrics" ? "metric" : "span" });
+					}
+					const queryParams = {
+						timeLimit: { type: "CUSTOM", start, end },
+						limit: Math.max(1, Math.min(Number(params.limit) || 25, 100)),
+						offset: 0,
+						sorting: { type: "Timestamp", direction: "desc" },
+						selectedConfig: customFilters.length ? { customFilters } : undefined,
+						environment,
+					};
+					const result = (signal === "traces"
+						? await listTraceRecords(queryParams)
+						: signal === "logs"
+							? await getLogs(queryParams)
+							: await listMetricRecords(queryParams)) as { err?: unknown; records?: unknown[]; total?: number };
+					if (result.err) return { success: false, error: String(result.err) };
+					return {
+						success: true,
+						signal,
+						count: result.records?.length || 0,
+						total: result.total || 0,
+						records: result.records || [],
+					};
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to read telemetry through the selected connector" };
+				}
+			},
+		}),
+
 		// ==================== TRACE ANALYSIS ====================
 
 		analyze_trace: tool<any, any>({
@@ -1047,7 +1345,8 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 						params.span_id,
 						scope,
 						Boolean(params.rerun),
-						databaseConfigId
+						databaseConfigId,
+						environment
 					);
 				} catch (e: any) {
 					return { success: false, error: e.message || "Failed to run trace analysis" };
@@ -1068,7 +1367,7 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			execute: async (params: any) => {
 				try {
 					const scope: OtterTraceAnalysisScope = params.scope === "span" ? "span" : "trace";
-					const { data, err } = await getTraceImprovement(params.span_id, databaseConfigId, scope);
+					const { data, err } = await getTraceImprovement(params.span_id, databaseConfigId, scope, environment);
 					if (err) return { success: false, error: String(err) };
 					const runs = data?.runs || [];
 					return {
@@ -1116,7 +1415,8 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 								spanId,
 								scope,
 								Boolean(params.rerun),
-								databaseConfigId
+								databaseConfigId,
+								environment
 							)
 						);
 					}
@@ -1154,25 +1454,35 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 						return { success: false, error: "Attribute key and value are required" };
 					}
 
-					const query = `
-						SELECT
-							TraceId AS traceId,
-							any(SpanId) AS spanId,
-							count() AS spanCount,
-							max(Timestamp) AS lastSeen
-						FROM otel_traces
-						WHERE SpanAttributes['${attributeKey}'] = '${attributeValue}'
-						GROUP BY TraceId
-						ORDER BY lastSeen DESC
-						LIMIT ${limit}
-					`;
-					const { data, err } = await dataCollector(
-						{ query, enable_readonly: true },
-						"query",
-						databaseConfigId
-					);
-					if (err) return { success: false, error: String(err) };
-					const matches = ((data as any[]) || []).filter((row) => row.spanId);
+					const end = new Date();
+					const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+					const telemetryResult = await listTraceRecords({
+						timeLimit: { type: "CUSTOM", start, end },
+						limit: 1000,
+						offset: 0,
+						sorting: { type: "Timestamp", direction: "desc" },
+						selectedConfig: {
+							customFilters: [{
+								key: attributeKey,
+								value: attributeValue,
+								scope: "span",
+							}],
+						},
+						environment,
+					});
+					if (telemetryResult.err) return { success: false, error: String(telemetryResult.err) };
+					const grouped = new Map<string, { traceId: string; spanId: string; spanCount: number }>();
+					for (const row of (telemetryResult.records || []) as any[]) {
+						if (!row.TraceId || !row.SpanId) continue;
+						const existing = grouped.get(String(row.TraceId));
+						if (existing) existing.spanCount += 1;
+						else grouped.set(String(row.TraceId), {
+							traceId: String(row.TraceId),
+							spanId: String(row.SpanId),
+							spanCount: 1,
+						});
+					}
+					const matches = Array.from(grouped.values()).slice(0, limit);
 					if (!matches.length) {
 						return {
 							success: false,
@@ -1190,7 +1500,8 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 								match.spanId,
 								"trace",
 								Boolean(params.rerun),
-								databaseConfigId
+								databaseConfigId,
+								environment
 							),
 						});
 					}
@@ -1229,5 +1540,67 @@ export function getChatTools(userId: string, databaseConfigId: string) {
 			},
 		}),
 
+	};
+}
+
+function memoryEntityUrl(id?: string, connectorId?: string) {
+	const params = new URLSearchParams();
+	if (id) params.set("id", id);
+	if (connectorId) params.set("connectorId", connectorId);
+	const query = params.toString();
+	return query ? `/memory?${query}` : "/memory";
+}
+
+async function auditMemoryToolMutation(input: MemoryMutationAuditInput) {
+	try {
+		await recordMemoryMutationAudit({ ...input, source: input.source || "chat" });
+	} catch {
+		// HTTP audit also fails open so a logging outage cannot block the write.
+	}
+}
+
+function summarizeMemoryToolResult(result: Awaited<ReturnType<typeof queryProjectMemories>>) {
+	const memories = result.memories.slice(0, 25).map((memory) => ({
+		id: memory.id,
+		content:
+			memory.content.length > 280
+				? `${memory.content.slice(0, 277).trimEnd()}…`
+				: memory.content,
+		userId: memory.userId,
+		agentId: memory.agentId,
+		sessionId: memory.sessionId,
+		kind: memory.kind,
+		createdAt: memory.createdAt,
+		score: memory.score,
+		url: memoryEntityUrl(memory.id, result.connector?.id),
+	}));
+	const knownUserIds = Array.from(
+		new Set(
+			[
+				...(result.filters?.users || []),
+				...memories.map((memory) => memory.userId).filter(Boolean),
+			].map((value) => String(value))
+		)
+	);
+	return {
+		success: true,
+		hint: result.hint,
+		connector: result.connector
+			? {
+					id: result.connector.id,
+					name: result.connector.name,
+					type: result.connector.type,
+					environment: result.connector.environment,
+				}
+			: null,
+		count: result.memories.length,
+		stats: result.stats,
+		filters: result.filters,
+		knownUserIds,
+		guidance:
+			result.memories.length === 0 && knownUserIds.length > 0
+				? "No memory rows matched this query, but knownUserIds lists users present on this connector. Call list_memories (without a semantic query) with connector_id/user_id to load their memories."
+				: undefined,
+		memories,
 	};
 }

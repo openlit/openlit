@@ -1,6 +1,7 @@
 import { listAgents } from "@/lib/platform/agents";
 import type { AgentListCursor, AgentListFilters, AgentSource } from "@/types/agents";
 import { withCacheHeaders } from "./_cache";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 // "coding" is intentionally allowed here so the Coding Agents tab can
 // pass `?source=coding` and read its rows out of the same endpoint.
@@ -22,7 +23,7 @@ function parseCsv(value: string | null): string[] {
 		.filter((v) => v.length > 0);
 }
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
 	const url = new URL(request.url);
 	const sp = url.searchParams;
 
@@ -86,3 +87,5 @@ export async function GET(request: Request) {
 		"list"
 	);
 }
+
+export const GET = withRouteAccess("observability.read", GETHandler, { requireDbConfig: true });

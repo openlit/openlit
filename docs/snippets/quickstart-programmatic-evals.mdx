@@ -1,140 +1,79 @@
-This guide demonstrates how to implement LLM evaluation tools to assess model output quality. With OpenLIT's programmatic evaluations, you can perform LLM hallucination detection, bias detection, and toxicity filtering using production-ready evaluation metrics.
-
-Learn how to use our `All` evaluator for comprehensive LLM output assessment, measuring hallucination, bias, and toxicity simultaneously. We'll also show you how to collect OpenTelemetry evaluation metrics for continuous model performance monitoring.
+This guide shows how to run OpenLIT evaluations programmatically from your own code - the same evaluation engine, evaluators, and Rule Engine used for online/auto evaluations, called directly via the SDK.
 
 <Steps>
-    <Step title="Initialize evaluations">
-      Set up evaluations for large language models with just two lines of code:
-      <Tabs>
-        <Tab title="Python">
-            ```python
-            import openlit
+  <Step title="Get an API key">
+    In OpenLIT, go to **Settings → API Keys** and create a key. Programmatic evaluations run against your OpenLIT server, so you'll need this key plus your OpenLIT URL.
+  </Step>
+  <Step title="Run an evaluation">
+    <Tabs>
+      <Tab title="Python">
+      ```python
+      import openlit
 
-            # Comprehensive LLM evaluation: hallucination detection, bias detection, toxicity filtering
-            evals = openlit.evals.All()
-            result = evals.measure()
-            ```
+      openlit.init(
+          openlit_url="http://localhost:3000",
+          openlit_api_key="openlit-xxxxx",
+      )
 
-            Full Example:
+      result = openlit.eval(
+          prompt="What is the capital of France?",
+          response="The capital of France is Lyon.",
+          contexts=["Paris is the capital and largest city of France."],
+      )
 
-            ```python example.py
-            import openlit
+      assert result.passed, f"Evaluation failed: {result.failed_evals}"
+      ```
+      </Tab>
+      <Tab title="Typescript">
+      ```typescript
+      import openlit, { isPassed, getFailedEvals } from "openlit"
 
-            # openlit can also read the OPENAI_API_KEY variable directy from env if not specified via function argument
-            openai_api_key=os.getenv("OPENAI_API_KEY")
-            
-            # Production-ready LLM evaluation tools for hallucination detection and bias screening
-            evals = openlit.evals.All(provider="openai", api_key=openai_api_key)
+      openlit.init({
+        openlitUrl: "http://localhost:3000",
+        openlitApiKey: "openlit-xxxxx",
+      })
 
-            contexts = ["Einstein won the Nobel Prize for his discovery of the photoelectric effect in 1921"]
-            prompt = "When and why did Einstein win the Nobel Prize?"
-            text = "Einstein won the Nobel Prize in 1969 for his discovery of the photoelectric effect"
+      const result = await openlit.eval({
+        prompt: "What is the capital of France?",
+        response: "The capital of France is Lyon.",
+        contexts: ["Paris is the capital and largest city of France."],
+      })
 
-            result = evals.measure(prompt=prompt, contexts=contexts, text=text)
-            ```
-
-            ```sh Output
-            verdict='yes' evaluation='Hallucination' score=0.9 classification='factual_inaccuracy' explanation='The text incorrectly states that Einstein won the Nobel Prize in 1969, while the context specifies that he won it in 1921 for his discovery of the photoelectric effect, leading to a significant factual inconsistency.'
-            ```
-        </Tab>
-        <Tab title="Typescript">
-            ```typescript
-            import openlit from "openlit"
-
-            // Comprehensive LLM evaluation: hallucination detection, bias detection, toxicity filtering
-            const evals = new openlit.evals.All()
-            const result = await evals.measure()
-            ```
-
-            Full Example:
-
-            ```typescript
-            import openlit from "openlit"
-
-            // Production-ready LLM evaluation tools for hallucination detection and bias screening
-            const evals = new openlit.evals.All({
-                provider: "openai",
-                apiKey: process.env.OPENAI_API_KEY,
-            })
-
-            const contexts = ["Einstein won the Nobel Prize for his discovery of the photoelectric effect in 1921"];
-            const prompt = "When and why did Einstein win the Nobel Prize?";
-            const text = "Einstein won the Nobel Prize in 1969 for his discovery of the photoelectric effect";
-
-            const result = await evals.measure({ prompt, contexts, text });
-            console.log(result)
-            ```
-        </Tab>
+      console.log(isPassed(result), getFailedEvals(result))
+      ```
+      </Tab>
     </Tabs>
-    The `All` evaluator assesses model outputs for hallucination detection, bias detection, and toxicity filtering simultaneously. For targeted model evaluation, use specific evaluators:
+    You can also set the URL and API key via `OPENLIT_URL` / `OPENLIT_API_KEY` environment variables instead of `init()`.
+  </Step>
+  <Step title="Evaluate a whole dataset">
+    Pass a list of prompt/response pairs to run them concurrently - useful as a CI/CD quality gate:
+    <Tabs>
+      <Tab title="Python">
+      ```python
+      batch_result = openlit.eval_batch(dataset=[
+          {"prompt": "What is 2+2?", "response": "2+2 equals 4."},
+          {"prompt": "Who wrote Hamlet?", "response": "Hamlet was written by Charles Dickens."},
+      ])
 
-    <CardGroup cols={3}>
-      <Card title="Hallucination detection" href="/latest/sdk/features/evaluations#hallucination-detection" icon="circle-exclamation">
-        Detect factual inaccuracies and false information in LLM responses
-      </Card>
-      <Card title="Bias detection" href="/latest/sdk/features/evaluations#bias-detection" icon="people-arrows">
-        Identify potential biases and unfair representations in AI outputs
-      </Card>
-      <Card title="Toxicity filtering" href="/latest/sdk/features/evaluations#toxicity-detection" icon="shield-virus">
-       Screen content for harmful, offensive, or inappropriate material
-      </Card>
-    </CardGroup>
+      assert batch_result.all_passed, f"Pass rate: {batch_result.pass_rate:.0%}"
+      ```
+      </Tab>
+      <Tab title="Typescript">
+      ```typescript
+      import openlit, { isAllPassed } from "openlit"
 
-    For advanced LLM evaluation metrics and supported providers, explore our [Evaluations Guide](/latest/sdk/features/evaluations).
-    </Step>
-    <Step title="Track LLM evaluation metrics">
-        To send evaluation scores to OpenTelemetry backends, your application needs to be instrumented via OpenLIT. Choose from three instrumentation methods, then simply add `collect_metrics=True` to track hallucination detection, bias screening, and toxicity filtering metrics.
-        <Tabs>
-          <Tab title="Zero-Code instrumentation">
-            No code changes needed - instrument via CLI:
-            
-            ```bash
-            # Run with zero-code instrumentation
-            openlit-instrument python your_app.py
-            ```
-            
-            Then in your application:
-            ```python
-            import openlit
-            
-            # Enable evaluation metrics tracking - OpenLIT instrumentation handles the rest
-            evals = openlit.evals.All(collect_metrics=True)
-            result = evals.measure(prompt=prompt, contexts=contexts, text=text)
-            ```
-          </Tab>
-          <Tab title="Manual instrumentation">
-            Add OpenLIT initialization to your application:
-            
-            ```python
-            import openlit
+      const batchResult = await openlit.evalBatch({
+        dataset: [
+          { prompt: "What is 2+2?", response: "2+2 equals 4." },
+          { prompt: "Who wrote Hamlet?", response: "Hamlet was written by Charles Dickens." },
+        ],
+      })
 
-            # Initialize OpenLIT for LLM evaluation metrics collection
-            openlit.init()
-
-            # Enable evaluation metric tracking for hallucination detection and bias screening
-            evals = openlit.evals.All(collect_metrics=True)
-            result = evals.measure(prompt=prompt, contexts=contexts, text=text)
-            ```
-            
-            TypeScript example:
-            ```typescript
-            import openlit from "openlit"
-
-            // Initialize OpenLIT instrumentation
-            openlit.init()
-            
-            // Automatic LLM evaluation metrics collection
-            const evals = new openlit.evals.All({ collectMetrics: true });
-            const result = await evals.measure({ prompt, contexts, text });
-            ```
-          </Tab>
-        </Tabs>
-        
-        Metrics are sent to the same OpenTelemetry backend conifgured during instrumentation, check our [support destinations](/latest/sdk/destinations/overview) for configuration details.
-    </Step>
-
+      console.log(isAllPassed(batchResult))
+      ```
+      </Tab>
+    </Tabs>
+  </Step>
 </Steps>
 
-You're all set! Your AI applications now have complete model evaluation capabilities with automated hallucination detection, bias screening, and toxicity filtering. Monitor LLM output quality with real-time evaluation metrics.
-
-If you have any questions or need support, reach out to our [community](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ).
+Evaluations run programmatically use the exact same evaluators, custom types, and [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview) context matching configured in your OpenLIT dashboard - trace attributes like `service.name` and `deployment.environment` are auto-resolved from `openlit.init()` for rule matching, or you can pass your own via the `attributes` parameter.

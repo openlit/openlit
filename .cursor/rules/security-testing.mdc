@@ -1,0 +1,7 @@
+---
+description: Authorization, input validation, CE boundary, secrets, and test guidance for OpenLIT server code.
+globs: src/client/src/app/api/**/*.ts,src/client/src/lib/**/*.ts,src/client/src/__tests__/**/*.ts,src/client/src/__tests__/**/*.tsx
+alwaysApply: false
+---
+
+@agent-guides/security-testing.md

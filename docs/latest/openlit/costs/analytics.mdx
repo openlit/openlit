@@ -1,0 +1,43 @@
+---
+title: "Analytics"
+description: "AI cost analytics for LLM spend - cost by environment and application, Auto Pricing run history, and optimization charts by provider and model"
+---
+
+The **Analytics** tab on **Costs** (`/costs`) is OpenLIT's AI cost analytics view. Use the time range tabs at the top (**24H**, **7D**, **1M**, **3M**, or **CUSTOM**) to scope the window, then review usage, Auto Pricing activity, and optimization charts.
+
+If Auto Pricing is off and LLM spans in the range are missing cost, a banner appears: **Some LLM traces are missing cost**, with CTA **Configure Auto Pricing** (switches to the [Configuration](/latest/openlit/costs/configuration) tab).
+
+## Cost usage
+
+Section title: **Cost usage**. Summary tiles:
+
+| Tile | Meaning |
+|------|---------|
+| **Total AI cost** | Platform-wide spend in the selected range |
+| **LLM cost** | Cost attributed to LLM/telemetry traffic |
+| **Evaluations cost** | Spend from running evaluations |
+| **Openground cost** | Spend from OpenGround comparisons |
+| **Avg cost per request** | Average cost per request |
+
+Charts in this section: **Cost by environment**, **Cost by application**.
+
+## Auto pricing runs
+
+Section title: **Auto pricing runs**. Tiles: **Cron runs**, **Successful runs**, **Costs applied**, **Spans scanned**. A run history table shows **Started**, **Status**, **Duration**, **Costs applied**, **Scanned**, **Skipped**, and **Failed**.
+
+Empty copy: *No Auto Pricing runs applied costs in this time range.* Hint CTA: **Enable Auto Pricing** → [Configuration](/latest/openlit/costs/configuration).
+
+## Cost optimization
+
+Section title: **Cost optimization**. Charts: **Cost over time**, **Cost by provider**, **Cost by model**, and **Openground spend by provider**.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Manage models" href="/latest/openlit/costs/manage-models/overview" icon="sliders">
+    Edit the prices Analytics uses for LLM cost
+  </Card>
+  <Card title="Configuration" href="/latest/openlit/costs/configuration" icon="gear">
+    Schedule Auto Pricing to fill missing costs
+  </Card>
+</CardGroup>

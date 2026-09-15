@@ -54,6 +54,30 @@ describe('middleware', () => {
     expect(config.matcher).toContain('/agents/:path*');
   });
 
+  // Regression: pages omitted from the matcher skip auth entirely and
+  // render the playground shell while unauthenticated (APIs still 307).
+  it('matches organisation, connectors, costs, and evaluations routes', () => {
+    expect(config.matcher).toContain('/organisation');
+    expect(config.matcher).toContain('/organisation/:path*');
+    expect(config.matcher).toContain('/connectors');
+    expect(config.matcher).toContain('/costs');
+    expect(config.matcher).toContain('/evaluations');
+    expect(config.matcher).toContain('/evaluations/:path*');
+  });
+
+  it('matches nested playground routes that previously bypassed auth', () => {
+    expect(config.matcher).toContain('/openground/:path*');
+    expect(config.matcher).toContain('/prompt-hub/:path*');
+    expect(config.matcher).toContain('/fleet-hub/:path*');
+    expect(config.matcher).toContain('/rule-engine');
+    expect(config.matcher).toContain('/rule-engine/:path*');
+    expect(config.matcher).toContain('/context');
+    expect(config.matcher).toContain('/context/:path*');
+    expect(config.matcher).toContain('/coding-agents/:path*');
+    expect(config.matcher).toContain('/pricing');
+    expect(config.matcher).toContain('/manage-models');
+  });
+
   // Regression guard for the `^/.*$` fallback: Next.js can't statically
   // analyze a spread of an imported binding in `config.matcher`, so it
   // silently matches every route — which made middleware run on static

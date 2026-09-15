@@ -96,19 +96,19 @@ const columns: Columns<ControllerColumnKey, ControllerInstance> = {
 				<div className="text-xs space-y-0.5">
 					{node && (
 						<div className="text-stone-600 dark:text-stone-400">
-							<span className="text-stone-400 dark:text-stone-500">{getMessage().AGENTS_METADATA_NODE_LABEL}</span>{" "}
+							<span className="text-stone-500 dark:text-stone-400">{getMessage().AGENTS_METADATA_NODE_LABEL}</span>{" "}
 							{node}
 						</div>
 					)}
 					{ns && (
 						<div className="text-stone-600 dark:text-stone-400">
-							<span className="text-stone-400 dark:text-stone-500">{getMessage().AGENTS_METADATA_NS_LABEL}</span>{" "}
+							<span className="text-stone-500 dark:text-stone-400">{getMessage().AGENTS_METADATA_NS_LABEL}</span>{" "}
 							{ns}
 						</div>
 					)}
 					{pod && (
 						<div className="text-stone-600 dark:text-stone-400 truncate max-w-[200px]">
-							<span className="text-stone-400 dark:text-stone-500">{getMessage().AGENTS_METADATA_POD_LABEL}</span>{" "}
+							<span className="text-stone-500 dark:text-stone-400">{getMessage().AGENTS_METADATA_POD_LABEL}</span>{" "}
 							{pod}
 						</div>
 					)}

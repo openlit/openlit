@@ -1,0 +1,20 @@
+---
+title: "Logs"
+description: "A searchable, filterable explorer for OTel log records ingested through OpenLIT's built-in OpenTelemetry Collector"
+---
+
+Navigate to **Telemetry > Logs** for a dedicated logs explorer - a searchable, filterable list of ingested log records with a detail view per log entry.
+
+OpenLIT ingests OTel logs the same way it ingests traces and metrics: through the built-in OpenTelemetry Collector's `otlp` receiver (gRPC `:4317`, HTTP `:4318`), which exports them into the `otel_logs` table in ClickHouse. Point your application's log exporter at the same OTLP endpoint you use for traces and metrics to have logs show up here automatically - no separate pipeline is required.
+
+The logs list shows, per entry: Time, Severity, Service, Body, Trace ID, and Span ID. Like traces and metrics, logs support attribute-based filtering - Log Attributes, Resource Attributes, Scope Attributes, or top-level Field - so you can narrow down to a specific service, severity, or custom field before inspecting individual entries.
+
+## Log detail view
+
+Opening a log entry shows a severity badge, meta tiles (Time, Service, Event, Cost, Tokens), a log summary grid (body, duration, input/output/cache tokens, request ID, model, source, session, prompt ID, terminal, user - with links out to the parent trace and span where available), and a tabbed attributes panel for Log Attributes, Resource Attributes, and Scope Attributes.
+
+---
+
+<Card title="Traces & Exceptions" href="/latest/openlit/observability/telemetry/traces" icon='diagram-project'>
+  Jump from a log's linked trace/span IDs into the full trace detail view
+</Card>

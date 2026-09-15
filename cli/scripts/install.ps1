@@ -71,7 +71,7 @@ try {
 
     Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
 
-    # cli-release.yml zips the binary as `openlit-windows-<arch>.exe`.
+    # release-cli.yml zips the binary as `openlit-windows-<arch>.exe`.
     # Find it defensively so a future rename in the workflow doesn't
     # silently break this installer.
     $extracted = Get-ChildItem -Path $tmpDir -Filter 'openlit*.exe' -Recurse |

@@ -1,0 +1,33 @@
+---
+title: "Overview"
+description: "AI cost tracking and AI cost analytics in OpenLIT - monitor LLM spend, manage model pricing, and backfill missing costs from Monitor → Costs"
+---
+
+**Costs** (`/costs`) is OpenLIT's AI cost tracking and analytics page under **Monitor**. It combines spend analytics, LLM model pricing (Manage models), and Auto Pricing configuration in one place - the old Pricing and Manage Models pages redirect here.
+
+Open it from **Monitor → Costs**. The page has three tabs:
+
+<CardGroup cols={3}>
+  <Card title="Analytics" href="/latest/openlit/costs/analytics" icon="chart-line">
+    Cost usage, Auto Pricing runs, and optimization charts
+  </Card>
+  <Card title="Manage models" href="/latest/openlit/costs/manage-models/overview" icon="sliders">
+    Providers, per-model token prices, import/export, SDK pricing URL
+  </Card>
+  <Card title="Configuration" href="/latest/openlit/costs/configuration" icon="gear">
+    Enable Auto Pricing and recalculate cost on individual traces
+  </Card>
+</CardGroup>
+
+Default tab is **Analytics** (`/costs`). Use `?tab=models` or `?tab=configuration` for the other tabs (`/pricing` redirects to configuration; `/manage-models` redirects to models).
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Where did Pricing and Manage Models go?">
+    They live on the Costs page under Monitor. Pricing settings are the **Configuration** tab; model catalog and prices are the **Manage models** tab.
+  </Accordion>
+  <Accordion title="How does OpenLIT calculate AI cost?">
+    From each span's input/output token counts times that model's input/output price per 1M tokens in Manage models. Analytics and Auto Pricing both use those prices.
+  </Accordion>
+</AccordionGroup>

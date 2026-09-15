@@ -21,7 +21,7 @@
  *     value with the literal string 'low_cohort'.
  */
 
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import {
 	CODING_AGENT_AUDIT_LOG_TABLE,
 	CODING_AGENT_DISPUTES_TABLE,
@@ -118,10 +118,11 @@ export interface CodingAgentSessionRow {
 	// across the session's spans). Empty when no LLM/tool span carried
 	// a model attribute.
 	model: string;
-	// Aggregate token totals — sumed across LLM-turn spans. Most CLI
-	// adapters set both halves; Cursor only emits output tokens for
-	// some events so input may be 0 when the upstream payload didn't
-	// include it.
+	// Aggregate token totals — prefer session-root gen_ai.usage.* when
+	// present, else sum non-session child spans. Cursor stamps real
+	// counters on `stop` (and drains them onto the session root at
+	// sessionEnd); older Cursor builds that omit usage fields leave
+	// these at 0 rather than inventing estimates.
 	input_tokens: number;
 	output_tokens: number;
 	total_tokens: number;
@@ -162,21 +163,29 @@ export interface CodingAgentSessionRow {
 	acceptance_pct: number;
 	commit_count: number;
 	pr_count: number;
-	// True when the chat is a subagent of another chat — i.e. any span
-	// in the rollup has `coding_agent.agent.parent_id` set or the CLI
-	// stamped `coding_agent.session.is_subagent`. listSessions hides
-	// these by default; they fold under the parent chat via the
-	// CHAT_ID_EXPR coalesce.
+	// True when this rollup is a subagent-only chat (no owner spans).
+	// listSessions hides these by default; linked subagents fold under
+	// the parent via CHAT_ID_EXPR and the parent row stays visible.
 	is_subagent: 0 | 1;
+	/** Count of `coding_agent.subagent` spans folded under this chat. */
+	subagent_event_count: number;
+	/** Stuck-tool loop on this session, attached after the sessions query. */
+	agentLoop?: {
+		toolName: string;
+		count: number;
+		wastedTokens: number;
+		wastedCost: number;
+	};
 }
 
 /**
  * Cost is rolled up two ways:
  *  - the session-level `coding_agent.session.cost_usd` attribute (set by
  *    Claude Code from transcript JSONL with realized prices)
- *  - sum of `gen_ai.usage.cost` across all child spans (used by Cursor,
- *    where we estimate cost from token-length heuristics on the
- *    LLM-turn spans because Cursor's hooks don't surface tokens).
+ *  - sum of `gen_ai.usage.cost` across non-session child spans (vendors
+ *    that stamp per-turn cost). Cursor does not emit USD — only real
+ *    token counters on `stop` / sessionEnd — so Cursor sessions
+ *    typically roll up to 0 cost rather than estimates.
  *
  * We take whichever is greater so a vendor's authoritative number wins
  * when present. Tool-call counts work the same way: prefer the session
@@ -278,10 +287,44 @@ const VENDOR_EXPR = `
 // launched inside a Cursor terminal) fold into TWO rows so each
 // agent's chat shows up under its own vendor regardless of which
 // editor hosted it.
+// CHAT_ID_EXPR folds linked subagent spans under their parent chat.
+// Only a *foreign* parent_id counts — Cursor often echoes
+// parent_conversation_id == conversation.id on the parent chat itself
+// ("self-parent"); treating that as a fold key is harmless for the
+// id value but we skip it so chat_id matches conversation/session
+// identity the same way is_subagent / the CLI foreignParentID do.
 const CHAT_ID_EXPR = `
 	coalesce(
-		nullIf(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'], ''),
-		nullIf(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'], ''),
+		nullIf(
+			if(
+				notEmpty(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'])
+				AND ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'] != coalesce(
+					nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
+					nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
+					nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+					nullIf(ResourceAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+					''
+				),
+				ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'],
+				''
+			),
+			''
+		),
+		nullIf(
+			if(
+				notEmpty(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'])
+				AND SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'] != coalesce(
+					nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
+					nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
+					nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+					nullIf(ResourceAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+					''
+				),
+				SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'],
+				''
+			),
+			''
+		),
 		nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
 		nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
 		nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
@@ -584,24 +627,55 @@ const SESSION_BASE_COLUMNS = `
 		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
 		toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
 	)                                                                  AS pr_count,
-	-- Is this chat a subagent of another chat? True when ANY span in
-	-- the group has a non-empty parent_id (resource OR span attr) OR
-	-- the CLI explicitly stamped coding_agent.session.is_subagent
-	-- on the session-root resource. listSessions hides these by
-	-- default - they fold under the parent chat via CHAT_ID_EXPR.
-	-- The check is intentionally lenient so a partial linkage (e.g.
-	-- parent_id only on a few spans, missing on the root) still
-	-- classifies the chat as a subagent.
+	-- Is this chat a subagent-only row (hide from Sessions by default)?
+	--
+	-- Historical bug: we used max(notEmpty(parent_id)), which also fired
+	-- when Cursor echoed parent_conversation_id == conversation_id on
+	-- parent-chat hooks ("self-parent"). Folded true subagents then
+	-- marked the WHOLE parent group as is_subagent=1 and the Sessions
+	-- tab hid the user's main chat while Overview still counted it.
+	--
+	-- Contract now:
+	--   • Explicit coding_agent.session.is_subagent='true' ⇒ subagent
+	--   • Foreign parent_id (differs from this span's own conversation
+	--     / session id) ⇒ subagent span
+	--   • Self-parent (parent_id == own conversation/session id) ⇒ ignore
+	--   • Group is_subagent=1 only when there are ZERO owner spans
+	--     (every span is flagged or has a foreign parent). Parent chats
+	--     that absorbed linked subagents still have owner spans and stay
+	--     visible; orphan subagent-only groups stay hidden.
 	if(
-		max(
-			notEmpty(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}']) OR
-			notEmpty(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}']) OR
-			ResourceAttributes['coding_agent.session.is_subagent'] = 'true' OR
-			SpanAttributes['coding_agent.session.is_subagent'] = 'true'
-		),
+		countIf(
+			NOT (
+				ResourceAttributes['coding_agent.session.is_subagent'] = 'true'
+				OR SpanAttributes['coding_agent.session.is_subagent'] = 'true'
+				OR (
+					notEmpty(ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'])
+					AND ResourceAttributes['${CODING_AGENT_ATTR.agentParentId}'] != coalesce(
+						nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
+						nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
+						nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+						nullIf(ResourceAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+						''
+					)
+				)
+				OR (
+					notEmpty(SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'])
+					AND SpanAttributes['${CODING_AGENT_ATTR.agentParentId}'] != coalesce(
+						nullIf(ResourceAttributes['gen_ai.conversation.id'], ''),
+						nullIf(SpanAttributes['gen_ai.conversation.id'], ''),
+						nullIf(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+						nullIf(ResourceAttributes['${CODING_AGENT_ATTR.sessionId}'], ''),
+						''
+					)
+				)
+			)
+		) = 0,
 		1,
 		0
-	) AS is_subagent
+	) AS is_subagent,
+	-- Linked subagent activity folded under this chat (for UI badge).
+	toInt64(countIf(SpanName = 'coding_agent.subagent')) AS subagent_event_count
 `;
 
 /**
@@ -609,7 +683,7 @@ const SESSION_BASE_COLUMNS = `
  *   - `ResourceAttributes['organization.id']` is the convention we
  *     plan to set in the materializer migration; for v1 we don't yet
  *     populate it, so the filter degrades into a per-database-config
- *     query (the dataCollector already scopes to the user's
+ *     query (the intelligence collector already scopes to the user's
  *     databaseConfigId via session). We still emit the WHERE so we
  *     don't have to migrate every consumer when v2 lights it up.
  *   - Span name in CODING_AGENT_SPAN_NAMES so unrelated traces don't
@@ -617,7 +691,7 @@ const SESSION_BASE_COLUMNS = `
  */
 // whereScope is the canonical WHERE block for every coding-agents
 // read query. Org isolation today happens at the ClickHouse layer
-// (one DB per org, picked by `dataCollector`), so we don't emit an
+// (one DB per org, picked by `intelligenceDataCollector`), so we don't emit an
 // `organization.id = ...` filter here unless the CLI has started
 // stamping the resource attribute AND the deployment has opted
 // into the extra filter via `OPENLIT_REQUIRE_ORG_FILTER=1`.
@@ -661,6 +735,43 @@ function whereScope(opts?: {
 		${until}
 		${orgScope}
 	`;
+}
+
+async function attachSessionLoopHits(
+	auth: CodingAgentAuth,
+	rows: CodingAgentSessionRow[],
+	opts: ListSessionsOptions
+): Promise<CodingAgentSessionRow[]> {
+	if (!rows.length) return rows;
+	try {
+		const { fetchLoopHitsByGroupIds } = await import(
+			"@/lib/platform/agent-loop/clickhouse"
+		);
+		const parts: string[] = [];
+		if (opts.since) {
+			parts.push(
+				`Timestamp >= parseDateTimeBestEffort('${opts.since.toISOString()}')`
+			);
+		}
+		if (opts.until) {
+			parts.push(
+				`Timestamp <= parseDateTimeBestEffort('${opts.until.toISOString()}')`
+			);
+		}
+		const baseWhere = parts.join(" AND ") || "1 = 1";
+		const hits = await fetchLoopHitsByGroupIds(
+			baseWhere,
+			rows.map((row) => row.session_id),
+			auth.dbConfigId
+		);
+		if (!hits.size) return rows;
+		return rows.map((row) => {
+			const hit = hits.get(row.session_id);
+			return hit ? { ...row, agentLoop: hit } : row;
+		});
+	} catch {
+		return rows;
+	}
 }
 
 /**
@@ -728,14 +839,14 @@ export async function listSessions(
 			LIMIT ${limit + 1}
 		`;
 
-	const dataPromise = dataCollector({ query: dataQuery });
+	const dataPromise = intelligenceDataCollector({ query: dataQuery }, "query", auth.dbConfigId);
 	const totalPromise = opts.withTotal
-		? dataCollector({
+		? intelligenceDataCollector({
 			query: `
 				${sessionsRawCte}
 				SELECT toInt64(count()) AS total FROM sessions_raw
 			`,
-		})
+		}, "query", auth.dbConfigId)
 		: Promise.resolve({ data: [] as Array<{ total: number }>, err: null });
 
 	const [{ data, err }, { data: totalData }] = await Promise.all([
@@ -762,13 +873,14 @@ export async function listSessions(
 		since: opts.since ?? null,
 		until: opts.until ?? null,
 	});
+	const withLoops = await attachSessionLoopHits(auth, projected, opts);
 	const totalRow = (totalData as Array<{ total: number | string }>) ?? [];
 	const total = opts.withTotal
 		? Number(totalRow[0]?.total ?? 0)
 		: null;
 
 	return {
-		rows: projected,
+		rows: withLoops,
 		nextCursor,
 		total,
 	};
@@ -1032,7 +1144,7 @@ export async function getCodingSessionDigest(
 		LIMIT 1
 	`;
 
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) throw err;
 	const row = (data as Array<Record<string, unknown>> | undefined)?.[0];
 	if (!row) return null;
@@ -1114,7 +1226,7 @@ async function countUserSessionsForCohort(
 			HAVING ${USER_EXPR} = '${safeUser}'
 		)
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// On error, fail closed: treat as below-floor for safety.
 		// A spurious 404 is preferable to leaking the digest.
@@ -1405,8 +1517,8 @@ export async function getCodingUserDigest(
 
 	const [{ data: digestData, err: digestErr }, { data: vendorsData }] =
 		await Promise.all([
-			dataCollector({ query: digestQuery }),
-			dataCollector({ query: vendorsQuery }),
+			intelligenceDataCollector({ query: digestQuery }, "query", auth.dbConfigId),
+			intelligenceDataCollector({ query: vendorsQuery }, "query", auth.dbConfigId),
 		]);
 	if (digestErr) throw digestErr;
 	const digestRow = (digestData as CodingUserDigest[] | undefined)?.[0];
@@ -1697,13 +1809,13 @@ export async function listCodingUsers(
 	`;
 
 	const totalPromise = opts.withTotal
-		? dataCollector({
+		? intelligenceDataCollector({
 			query: `SELECT toInt64(count()) AS total ${baseSubquery}`,
-		})
+		}, "query", auth.dbConfigId)
 		: Promise.resolve({ data: [] as Array<{ total: number }>, err: null });
 
 	const [{ data, err }, { data: totalData }] = await Promise.all([
-		dataCollector({ query: dataQuery }),
+		intelligenceDataCollector({ query: dataQuery }, "query", auth.dbConfigId),
 		totalPromise,
 	]);
 	if (err) throw err;
@@ -1789,7 +1901,7 @@ async function applyCohortFloor<T extends { user: string }>(
 		WHERE user IN (${inList})
 		GROUP BY user
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) throw err;
 	const counts = new Map<string, number>();
 	for (const row of (data || []) as { user: string; sessions: number }[]) {
@@ -1842,12 +1954,12 @@ export class DisputeError extends Error {
 
 // sessionExists checks whether the chat-id rolled-up
 // session is actually visible. Org scoping is enforced by
-// `dataCollector` picking the per-org ClickHouse database (see
+// `intelligenceDataCollector` picking the per-org ClickHouse database (see
 // `whereScope` for the explanation), so we don't need to wrap the
 // org id in the SQL. We do still constrain to coding-agent span
 // names so a request can't probe arbitrary trace ids.
 async function disputeSessionExists(
-	_auth: CodingAgentAuth,
+	auth: CodingAgentAuth,
 	sessionId: string
 ): Promise<boolean> {
 	const sid = escape(sessionId);
@@ -1862,7 +1974,7 @@ async function disputeSessionExists(
 			)
 		LIMIT 1
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// Treat lookup failure as "not present" — better to reject a
 		// dispute than to accept one that points at a non-existent
@@ -1894,7 +2006,7 @@ async function disputeAlreadyExists(
 			AND status = 'open'
 		LIMIT 1
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// Fail-closed: a lookup failure here means we can't tell if an
 		// open dispute already exists. The cost of a false-positive
@@ -1926,7 +2038,7 @@ async function disputeRateLimitExceeded(
 			AND action = 'coding_agent.classification.dispute'
 			AND created_at >= now() - INTERVAL ${DISPUTE_RATE_LIMIT_WINDOW_MIN} MINUTE
 	`;
-	const { data, err } = await dataCollector({ query });
+	const { data, err } = await intelligenceDataCollector({ query }, "query", auth.dbConfigId);
 	if (err) {
 		// Fail-closed: a lookup failure must NOT degrade into "no rate
 		// limit applied" — that turns this guard into a bypass-on-error
@@ -1979,7 +2091,7 @@ export async function submitClassificationDispute(
 
 	const id = crypto.randomUUID();
 
-	const { err: disputeErr } = await dataCollector(
+	const { err: disputeErr } = await intelligenceDataCollector(
 		{
 			table: CODING_AGENT_DISPUTES_TABLE,
 			values: [
@@ -1995,7 +2107,7 @@ export async function submitClassificationDispute(
 				},
 			],
 		},
-		"insert"
+		"insert", auth.dbConfigId
 	);
 	if (disputeErr) throw disputeErr;
 
@@ -2016,7 +2128,7 @@ export async function writeAuditLog(
 	auth: CodingAgentAuth,
 	entry: { action: string; subject?: string; payload?: string }
 ): Promise<void> {
-	const { err } = await dataCollector(
+	const { err } = await intelligenceDataCollector(
 		{
 			table: CODING_AGENT_AUDIT_LOG_TABLE,
 			values: [
@@ -2029,7 +2141,7 @@ export async function writeAuditLog(
 				},
 			],
 		},
-		"insert"
+		"insert", auth.dbConfigId
 	);
 	if (err) {
 		// We don't throw on audit failure — the user-visible action
@@ -2039,4 +2151,3 @@ export async function writeAuditLog(
 		console.error("coding_agent.audit_log.insert_failed", err);
 	}
 }
-

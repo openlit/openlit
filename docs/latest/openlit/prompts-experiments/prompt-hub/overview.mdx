@@ -1,0 +1,57 @@
+---
+title: "Overview"
+description: "Prompt Hub is OpenLIT's prompt management platform for versioning, publishing, and fetching prompts with dynamic variables at runtime"
+---
+
+Prompt Hub is OpenLIT's prompt management platform: a place to create prompts, save them as explicit versions, and fetch them at runtime from your application instead of hardcoding prompt text in your codebase. It's built for teams who want prompt changes to ship independently of a code deploy, with a full history of what changed and when.
+
+At a high level, Prompt Hub covers three things: **creating and editing** prompts in a dedicated editor with variable support, **versioning** each save as either a draft or a permanent published version, and **fetching** a prompt (by name or ID, optionally a specific version) from the SDK or API with `{{variableName}}` placeholders compiled in for you.
+
+<CardGroup cols={2}>
+  <Card title="Manage Prompts" href="/latest/openlit/prompts-experiments/prompt-hub/manage-prompts" icon='file-lines'>
+    Create, edit, tag, and delete prompts from the list and detail pages
+  </Card>
+  <Card title="Versioning" href="/latest/openlit/prompts-experiments/prompt-hub/versioning" icon='code-branch'>
+    Drafts, semantic versions, and how the Versions tab tracks history
+  </Card>
+  <Card title="AI Prompt Improvement" href="/latest/openlit/prompts-experiments/prompt-hub/ai-improvement" icon='wand-magic-sparkles'>
+    Let Otter review a prompt and suggest edits directly in the editor
+  </Card>
+  <Card title="Rules" href="/latest/openlit/prompts-experiments/prompt-hub/rules" icon='sliders'>
+    Link a prompt to Rule Engine rules so it's returned automatically at evaluation time
+  </Card>
+  <Card title="Retrieve a Prompt" href="/latest/openlit/prompts-experiments/prompt-hub/retrieve-a-prompt" icon='cloud-arrow-down'>
+    Fetch and compile prompts at runtime via the SDK or API
+  </Card>
+</CardGroup>
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is prompt management with Prompt Hub?">
+    Prompt Hub lets you treat prompts as versioned artifacts - create them once, save changes as a draft or a permanent version, and fetch them at runtime via SDK or API instead of hardcoding prompt text in your application.
+  </Accordion>
+  <Accordion title="Can I roll back a prompt version?">
+    There's no rollback or restore button in the UI - viewing an older version on the Versions tab is read-only. To bring old content back into the editor, you'd copy it into a new edit and save it as a new version. If you just want your application to use an older version's text, fetch that specific version directly via the SDK/API `version` parameter without touching the published history in the UI.
+  </Accordion>
+  <Accordion title="How do dynamic variables work?">
+    Use `{{variableName}}` placeholders anywhere in a prompt's content, then pass a `variables` map when fetching it via the SDK or API with compilation enabled - OpenLIT substitutes the values into the text at request time.
+  </Accordion>
+  <Accordion title="Do I need to publish a version, or can I just save a draft?">
+    Both are supported. Saving as a Draft keeps your work private and repeatedly editable without publishing anything. Choosing Major, Minor, or Patch always publishes a new, permanent version - publishing never overwrites an earlier one.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Manage LLM secrets" href="/latest/openlit/developer-resources/vault/overview" icon='vault'>
+    Centrally store LLM API keys that applications can retrieve remotely without restarts
+  </Card>
+  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground/overview" icon='flask'>
+    Run a saved prompt across multiple LLMs side-by-side and compare cost, speed, and quality
+  </Card>
+  <Card title="Rule Engine" href="/latest/openlit/prompts-experiments/rule-engine/overview" icon='gavel'>
+    Match runtime inputs against conditions to return prompts and other linked resources automatically
+  </Card>
+</CardGroup>

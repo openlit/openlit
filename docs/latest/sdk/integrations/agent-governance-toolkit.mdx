@@ -1,5 +1,6 @@
 ---
 title: 'Monitor AI Agent Governance using OpenTelemetry'
+description: "OpenLIT integrates with Microsoft's Agent Governance Toolkit for AI observability into policy evaluations, trust scores, and capability violations."
 sidebarTitle: 'Agent Governance Toolkit'
 ---
 
@@ -76,10 +77,10 @@ Agent Governance Toolkit emits OpenTelemetry signals for every governance decisi
 
 Create a governance-specific dashboard in OpenLIT to monitor:
 
-1. **Policy evaluation rate** — How many governance checks per minute
-2. **Violation trend** — Spikes in policy violations over time
-3. **Evaluation latency** — Are governance checks meeting the &lt;5ms SLA
-4. **Trust score distribution** — Current trust scores across your agent fleet
+1. **Policy evaluation rate** - How many governance checks per minute
+2. **Violation trend** - Spikes in policy violations over time
+3. **Evaluation latency** - Are governance checks meeting the &lt;5ms SLA
+4. **Trust score distribution** - Current trust scores across your agent fleet
 
 Use the [Dashboard Builder](/latest/openlit/dashboards/create-dashboard) with these metric names:
 
@@ -110,12 +111,12 @@ metrics.start()
 
 A pre-built **Governance Health** dashboard is available for import into OpenLIT. It provides:
 
-- **Total Policy Evaluations** — count with trend
-- **Total Violations** — count with severity breakdown
-- **Violations Over Time** — time-series chart
-- **Policy Eval Latency** — p50/p99 latency
-- **Violations by Agent** — which agents trigger the most violations
-- **Recent Violations** — audit table with agent, tool, policy, verdict
+- **Total Policy Evaluations** - count with trend
+- **Total Violations** - count with severity breakdown
+- **Violations Over Time** - time-series chart
+- **Policy Eval Latency** - p50/p99 latency
+- **Violations by Agent** - which agents trigger the most violations
+- **Recent Violations** - audit table with agent, tool, policy, verdict
 
 Import via **OpenLIT → Dashboards → Import** using the JSON below:
 
@@ -124,7 +125,7 @@ Import via **OpenLIT → Dashboards → Import** using the JSON below:
 {
   "id": "a1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e",
   "title": "Governance Health",
-  "description": "Monitor AI agent governance — policy evaluations, violations, trust scores, and enforcement latency across your agent fleet.",
+  "description": "Monitor AI agent governance - policy evaluations, violations, trust scores, and enforcement latency across your agent fleet.",
   "parentId": null,
   "isMainDashboard": false,
   "isPinned": false,

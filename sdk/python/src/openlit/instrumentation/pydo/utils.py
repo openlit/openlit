@@ -594,8 +594,15 @@ def common_chat_logic(
     if not scope._output_tokens:
         scope._output_tokens = general_tokens(scope._llmresponse or "")
 
+    # pydo sums Anthropic cache tokens into input_tokens (inclusive total).
     cost = get_chat_model_cost(
-        request_model, pricing_info, scope._input_tokens, scope._output_tokens
+        request_model,
+        pricing_info,
+        scope._input_tokens,
+        scope._output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
+        prompt_tokens_include_cache=True,
     )
 
     common_span_attributes(

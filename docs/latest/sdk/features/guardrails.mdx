@@ -5,7 +5,7 @@ description: 'Secure your app from Prompt Injection, Sensitive Topics, and Topic
 
 ## Overview
 
-With the OpenLIT SDK, you can set up guardrails to keep your apps safe by handling tricky or risky prompts sent to AI models. We offer four main guardrails:
+With the OpenLIT SDK, you can set up guardrails to keep your apps safe by handling tricky or risky prompts sent to AI models. We offer five main guardrails:
 
 <CardGroup cols={2}>
   <Card title="All" href="#all-detector">
@@ -19,6 +19,9 @@ With the OpenLIT SDK, you can set up guardrails to keep your apps safe by handli
   </Card>
   <Card title="Topic Restriction" href="#topic-restriction">
     Detects and ensures conversations stay within approved topics.
+  </Card>
+  <Card title="PII / Data Redaction" href="#pii-data-redaction">
+    Detects and redacts secrets, API keys, and personal data before it's sent or traced.
   </Card>
 </CardGroup>
 
@@ -682,6 +685,50 @@ The JSON object returned includes:
 
 </Accordion>
 
+### PII / Data Redaction
+
+Detects and redacts secrets, credentials, and personal data - API keys (OpenAI, Anthropic, AWS, GCP, GitHub, Stripe, Slack, and more), emails, phone numbers, SSNs, credit card numbers, IP addresses, bearer/basic auth headers, private keys, connection strings, and generic `password=`/`secret=` patterns - using built-in regex patterns, with support for your own custom patterns.
+
+Unlike the other guardrails, which return a yes/no verdict for you to act on, the PII guard is wired directly into `openlit.init()` and runs automatically around every instrumented LLM call - no separate `detect()` call needed.
+
+#### Usage
+
+```python
+import openlit
+
+openlit.init(
+    guards=[openlit.PII(action="redact")],
+    guard_fail_open=True,
+)
+```
+
+With `action="redact"`, matched text is replaced with `[REDACTED:<label>]` (e.g. `[REDACTED:email]`) both in the outgoing request and in the captured telemetry - so sensitive values never leave your stack or land in a trace.
+
+#### Parameters
+
+<AccordionGroup>
+<Accordion title="`openlit.PII()` Class Parameters">
+
+| Name | Description | Default Value | Example Value |
+|------|-------------|----------------|----------------|
+| `action` | What to do when PII is detected: `"redact"` replaces matches, `"deny"` blocks the call, `"warn"` logs without blocking. | `"redact"` | `"deny"` |
+| `custom_patterns` | Additional regex patterns to detect, as a `{label: regex}` mapping. Combined with the built-in patterns. | `None` | `{"internal_id": r"INT-\d{6}"}` |
+
+</Accordion>
+</AccordionGroup>
+
+#### How it works
+
+<Accordion title="Explanation">
+1. **Preflight**: Before an instrumented LLM call is made, the guard scans the outgoing prompt/messages. If `action="redact"`, matches are replaced before the request is sent - so the redacted text is what the model (and your telemetry) actually sees.
+2. **Postflight**: After a non-streaming response returns, the guard scans response content (e.g. `choices[].message.content`) the same way, on a best-effort basis.
+3. **Combine with other guardrails**: `PII` can be combined with `PromptInjection`, `SensitiveTopic`, `TopicRestriction`, and `Moderation` by passing multiple guards in the `guards=[...]` list - each runs as part of the same pipeline.
+
+<Warning>
+Streaming responses are not scanned postflight - redaction for streamed output content is a known limitation.
+</Warning>
+</Accordion>
+
 ---
 
 <CardGroup cols={3}>
@@ -695,10 +742,3 @@ The JSON object returned includes:
     Send elemetry to Datadog, Grafana, New Relic, and other observability stacks
   </Card>
 </CardGroup>
-<Card
-    title="Zero-code observability with the OpenLIT Controller"
-    icon="tower-broadcast"
-    href="/latest/controller/overview"
-  >
-  Discover and instrument LLM traffic across Kubernetes, Docker, and Linux using eBPF — no code changes required.
-  </Card>

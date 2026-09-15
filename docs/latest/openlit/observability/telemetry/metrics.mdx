@@ -1,0 +1,27 @@
+---
+title: "Metrics"
+description: "A dedicated explorer for every OTel metric OpenLIT has received, with a trend chart and data-point detail per metric"
+---
+
+Navigate to **Telemetry > Metrics** for a dedicated metrics explorer - a list of every metric OpenLIT has received, with a detail view per metric (`/telemetry/metrics/<name>`).
+
+The metrics list shows, per metric: Metric name, Type, Service, Unit, Latest value, number of Points, and Last Seen. Each metric can be filtered by:
+
+- **Attributes** - the metric's own data-point attributes.
+- **Resource attributes** - service, environment, and other resource-level attributes.
+- **Scope attributes** - instrumentation scope metadata.
+- **Field** - top-level metric fields (name, unit, type).
+
+Metrics cover gauge, sum, histogram, summary, and exponential-histogram types, matching the OpenTelemetry metrics data model.
+
+## Metric detail view
+
+Opening a metric shows summary tiles (Latest, Total, Average, Loaded Points, Last Seen), a **Metric Trend** area chart of its data points over time, and a tabbed attributes panel: Metric Attributes, Resource Attributes, Scope Attributes, plus raw **Points** and **Series** tabs for the underlying data.
+
+You can still build custom **Dashboard Widgets** on top of the same metrics data for cross-signal visualizations, trend charts, and alert-style stat tiles - the Metrics explorer and Dashboards read from the same underlying data and are complementary, not either/or.
+
+---
+
+<Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
+  Build cross-signal visualizations and trend charts on top of the same metrics data
+</Card>

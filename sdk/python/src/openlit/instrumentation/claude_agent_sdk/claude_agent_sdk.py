@@ -177,7 +177,7 @@ class _SubagentSpanTracker:
                 if total_tokens is not None:
                     try:
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
+                            SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
                             int(total_tokens),
                         )
                     except (TypeError, ValueError):

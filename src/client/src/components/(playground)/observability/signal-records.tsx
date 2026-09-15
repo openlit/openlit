@@ -19,6 +19,17 @@ import {
 	hasCodingAgentVendorIcon,
 } from "@/components/svg/coding-agents";
 import getMessage from "@/constants/messages";
+import {
+	classifyFromNormalizedTrace,
+	matchesGenerationHealthChip,
+	type GenerationHealthChip,
+} from "@/lib/platform/generation-health/classify";
+import {
+	fillTemplate,
+	generationHealthChipLabel,
+} from "@/lib/platform/generation-health/format";
+import { asAgentLoopHit } from "@/lib/platform/agent-loop/classify";
+import { agentLoopBadgeTitle } from "@/lib/platform/agent-loop/format";
 
 const m = getMessage();
 
@@ -101,10 +112,49 @@ function MiniMeta({
 	return (
 		<span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2 py-1 text-xs text-stone-600 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300">
 			{icon}
-			<span className="text-stone-400 dark:text-stone-500">{label}</span>
+			<span className="text-stone-500 dark:text-stone-400">{label}</span>
 			<span className="truncate font-medium tabular-nums text-stone-900 dark:text-stone-100">
 				{value || "-"}
 			</span>
+		</span>
+	);
+}
+
+function LoopBadge({
+	title,
+}: {
+	title?: string;
+}) {
+	const m = getMessage();
+	return (
+		<span
+			title={title || m.AGENT_LOOP_CHIP}
+			className="inline-flex items-center rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-800 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-200"
+		>
+			{m.AGENT_LOOP_CHIP}
+		</span>
+	);
+}
+
+function HealthBadge({
+	chip,
+	title,
+}: {
+	chip: GenerationHealthChip;
+	title?: string;
+}) {
+	const tone =
+		chip === "swapped"
+			? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+			: chip === "filtered"
+				? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+				: "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-200";
+	return (
+		<span
+			title={title || generationHealthChipLabel(chip)}
+			className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${tone}`}
+		>
+			{generationHealthChipLabel(chip)}
 		</span>
 	);
 }
@@ -123,6 +173,17 @@ function TraceRecord({
 	onOpen: (row: any) => void;
 }) {
 	const show = (key: string) => visibilityColumns[key] !== false;
+	const health = classifyFromNormalizedTrace(row);
+	const healthChips: GenerationHealthChip[] = (
+		["truncated", "filtered", "empty", "swapped"] as GenerationHealthChip[]
+	).filter((chip) => matchesGenerationHealthChip(health, chip));
+	const loopHit = asAgentLoopHit(row.agentLoop);
+	const swapTitle = health.modelSwap
+		? fillTemplate(m.GENERATION_HEALTH_BADGE_SWAPPED_TITLE, {
+				requested: health.requestedModel,
+				served: health.servedModel,
+			})
+		: undefined;
 	return (
 		<button
 			type="button"
@@ -136,10 +197,24 @@ function TraceRecord({
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div className="min-w-0">
 					<div className="flex min-w-0 items-center gap-2">
-						<span className={`h-2 w-2 rounded-full ${config.key === "exceptions" ? "bg-rose-500" : "bg-sky-500"}`} />
-						<h3 className="truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
+						<span className={`h-2 w-2 shrink-0 rounded-full ${config.key === "exceptions" ? "bg-rose-500" : "bg-sky-500"}`} />
+						<h3 className="min-w-0 truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
 							{show("spanName") ? row.spanName || row.id : row.id}
 						</h3>
+						{healthChips.length || loopHit ? (
+							<span className="flex shrink-0 flex-wrap items-center gap-1">
+								{healthChips.map((chip) => (
+									<HealthBadge
+										key={chip}
+										chip={chip}
+										title={chip === "swapped" ? swapTitle : undefined}
+									/>
+								))}
+								{loopHit ? (
+									<LoopBadge title={agentLoopBadgeTitle(loopHit)} />
+								) : null}
+							</span>
+						) : null}
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400">
 						{show("time") && <span>{row.time}</span>}
@@ -270,26 +345,34 @@ function MetricRecord({
 			onClick={() => onOpen(row)}
 			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
-					? "border-emerald-500 bg-emerald-50 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-500 dark:bg-emerald-950/30 dark:ring-emerald-900"
-					: "border-stone-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/60 dark:border-stone-800 dark:bg-stone-950 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/20"
+					? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/20 dark:border-primary dark:bg-primary/15"
+					: "border-stone-200 bg-white hover:border-primary/50 hover:bg-primary/5 dark:border-stone-800 dark:bg-stone-950 dark:hover:border-primary/60 dark:hover:bg-primary/10"
 			}`}
 		>
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div className="min-w-0">
 					<div className="flex min-w-0 items-center gap-2">
-						<span className="h-2 w-2 rounded-full bg-emerald-500" />
+						<span className="h-2 w-2 shrink-0 rounded-full bg-sky-500" />
 						<h3 className="truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
 							{show("metricName") ? row.metricName : m.OBSERVABILITY_METRIC}
 						</h3>
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-1.5">
-						{show("metricType") && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-							{row.metricType}
-						</span>}
-						{show("serviceName") && <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300">
-							{row.serviceName || "all services"}
-						</span>}
-						{show("lastSeen") && <span className="text-xs text-stone-500 dark:text-stone-400">{formatDate(row.lastSeen)}</span>}
+						{show("metricType") && (
+							<span className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] font-medium text-stone-600 dark:bg-stone-900 dark:text-stone-300">
+								{row.metricType}
+							</span>
+						)}
+						{show("serviceName") && (
+							<span className="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300">
+								{row.serviceName || "all services"}
+							</span>
+						)}
+						{show("lastSeen") && (
+							<span className="text-xs text-stone-500 dark:text-stone-400">
+								{formatDate(row.lastSeen)}
+							</span>
+						)}
 					</div>
 				</div>
 				<div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:justify-end">
@@ -328,9 +411,9 @@ function MetricRecord({
 			</div>
 			<div className="mt-3">
 				<div className="h-1.5 rounded-full bg-stone-100 dark:bg-stone-900">
-					<div className="h-full rounded-full bg-emerald-500" style={{ width }} />
+					<div className="h-full rounded-full bg-stone-400 dark:bg-stone-500" style={{ width }} />
 				</div>
-				<div className="mt-1 flex items-center justify-between text-[11px] text-stone-400 dark:text-stone-500">
+				<div className="mt-1 flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
 					<span>latest compared to max in this window</span>
 					<div className="flex gap-2">
 						<span>min {Number.isFinite(minValue) ? minValue.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "-"}</span>
@@ -485,15 +568,7 @@ function SessionRecord({
 	onOpen: (row: any) => void;
 }) {
 	const show = (key: string) => visibilityColumns[key] !== false;
-	const sessionId = row.session_id || "";
-	// Cursor session ids are long UUIDs — show enough characters to disambiguate
-	// at a glance but keep the row visually compact.
-	const shortSessionId = sessionId
-		? sessionId.length > 12
-			? `${sessionId.slice(0, 12)}…`
-			: sessionId
-		: "—";
-	const vendor = (row.vendor || "").toLowerCase();
+	const sessionId = row.session_id || "—";
 	const totalTokens = Number(
 		row.total_tokens ||
 			Number(row.input_tokens || 0) + Number(row.output_tokens || 0)
@@ -510,6 +585,7 @@ function SessionRecord({
 		: "";
 	const branchName = (row.branch || "").trim();
 	const folderLabel = (row.working_dir_label || "").trim();
+	const loopHit = asAgentLoopHit(row.agentLoop);
 	return (
 		<button
 			type="button"
@@ -522,41 +598,34 @@ function SessionRecord({
 		>
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div className="min-w-0">
-					<div className="flex min-w-0 items-start gap-2">
-						{hasCodingAgentVendorIcon(vendor) ? (
-							<CodingAgentVendorIcon
-								vendor={vendor}
-								className="mt-0.5 h-4 w-4 shrink-0"
-							/>
-						) : (
-							<Bot className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
-						)}
-						<div className="min-w-0">
-							<h3
-								className="truncate font-mono text-sm font-semibold text-stone-950 dark:text-stone-50"
-								title={sessionId}
-							>
-								{shortSessionId}
-							</h3>
-							<div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-								{/* Vendor pill removed — the vendor icon
-								    already sits to the left of the session id
-								    so showing "cursor" here is redundant. */}
-								{show("user") && row.user && (
-									<span className="truncate text-xs text-stone-500 dark:text-stone-400">
-										{row.user}
-									</span>
-								)}
-								{row.model && (
-									<span
-										className="truncate rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300"
-										title={row.model}
-									>
-										{row.model}
-									</span>
-								)}
-							</div>
+					{/* No vendor icon here — we're already on a vendor detail
+					    page, and the logo was pushing the session id / email
+					    out of alignment with the date row below. */}
+					<h3
+						className="break-all font-mono text-sm font-semibold text-stone-950 dark:text-stone-50"
+						title={sessionId}
+					>
+						{sessionId}
+					</h3>
+					{loopHit ? (
+						<div className="mt-1">
+							<LoopBadge title={agentLoopBadgeTitle(loopHit)} />
 						</div>
+					) : null}
+					<div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+						{show("user") && row.user && (
+							<span className="truncate text-xs text-stone-500 dark:text-stone-400">
+								{row.user}
+							</span>
+						)}
+						{row.model && (
+							<span
+								className="truncate rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600 dark:bg-stone-900 dark:text-stone-300"
+								title={row.model}
+							>
+								{row.model}
+							</span>
+						)}
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400">
 						{show("started") && <span>{formatDate(row.started_at)}</span>}
@@ -584,6 +653,16 @@ function SessionRecord({
 						{show("outcome") && (!row.outcome || row.outcome === "unknown") && (
 							<span className="rounded px-1.5 py-0.5 text-[11px] font-medium bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
 								running
+							</span>
+						)}
+						{Number(row.subagent_event_count || 0) > 0 && (
+							<span
+								className="rounded px-1.5 py-0.5 text-[11px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+								title={m.CODING_AGENT_SESSION_SUBAGENTS_HINT}
+							>
+								{m.CODING_AGENT_SESSION_SUBAGENTS(
+									Number(row.subagent_event_count || 0)
+								)}
 							</span>
 						)}
 						{show("classification") &&
@@ -780,7 +859,7 @@ export default function SignalRecords({
 						row={row}
 						config={config}
 						visibilityColumns={visibilityColumns}
-						isSelected={selectedId === row.spanId}
+						isSelected={selectedId === config.getRowId(row)}
 						onOpen={onOpen}
 					/>
 				)

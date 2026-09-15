@@ -17,14 +17,14 @@
  * `getFilterWhereCondition` and the requests query builder.
  */
 import {
-	dataCollector,
+	intelligenceDataCollector,
 	OTEL_TRACES_TABLE_NAME,
 } from "@/lib/platform/common";
 import type { VersionFilter } from "@/types/platform";
 import { swr, POLICY_VERSIONS } from "./cache";
 import { agentsLogger } from "./logger";
 import { getVersion } from "./snapshot";
-import { getAgent } from "./index";
+import { getAgent, deploymentEnvironmentSqlPredicate } from "./index";
 // Re-export the pure SQL builder so existing callers that import it from
 // `./version-filter` keep working. The actual implementation lives in
 // `version-where.ts` (zero side-effect imports) so leaf consumers don't
@@ -70,13 +70,58 @@ interface AttributeProbeParams {
 async function probeAttributeStamping(
 	params: AttributeProbeParams
 ): Promise<boolean> {
+	if (params.dbConfigId) {
+		try {
+			const { getTelemetryAdapterForDbConfig } = await import(
+				"@/lib/telemetry-source"
+			);
+			const resolved = await getTelemetryAdapterForDbConfig(
+				params.dbConfigId,
+				"traces"
+			);
+			if (!resolved.isBuiltIn) {
+				const first = new Date(params.firstSeen);
+				const last = new Date(params.lastSeen);
+				const frame = await resolved.adapter.listSpans({
+					signal: "traces",
+					timeRange: {
+						start: Number.isNaN(first.getTime())
+							? new Date(Date.now() - 24 * 60 * 60 * 1000)
+							: first,
+						end: Number.isNaN(last.getTime()) ? new Date() : last,
+					},
+					aiSelector: true,
+					limit: 1,
+					filters: [
+						{
+							target: "attribute",
+							scope: "resource",
+							key: "service.name",
+							op: "eq",
+							value: params.serviceName,
+						},
+						{
+							target: "attribute",
+							scope: "span",
+							key: "openlit.agent.version_hash",
+							op: "eq",
+							value: params.versionHash,
+						},
+					],
+				});
+				return frame.rows.length > 0;
+			}
+		} catch {
+			// Fall through to ClickHouse probe.
+		}
+	}
+
 	const first = toClickHouseDateTime(params.firstSeen);
 	const last = toClickHouseDateTime(params.lastSeen);
-	const env = params.environment || "default";
-	const envPredicate =
-		env === "default"
-			? `(ResourceAttributes['deployment.environment'] = 'default' OR ResourceAttributes['deployment.environment'] = '')`
-			: `ResourceAttributes['deployment.environment'] = '${escape(env)}'`;
+	const envPredicate = deploymentEnvironmentSqlPredicate(
+		params.environment,
+		escape
+	);
 	const query = `
 		SELECT 1 AS stamped
 		FROM ${OTEL_TRACES_TABLE_NAME}
@@ -86,7 +131,7 @@ async function probeAttributeStamping(
 			AND Timestamp BETWEEN parseDateTimeBestEffort('${first}') AND parseDateTimeBestEffort('${last}')
 		LIMIT 1
 	`;
-	const res = await dataCollector({ query }, "query", params.dbConfigId);
+	const res = await intelligenceDataCollector({ query }, "query", params.dbConfigId);
 	if (res.err) {
 		agentsLogger.error("probe_attribute_stamping_failed", {
 			err: res.err,
@@ -136,4 +181,3 @@ export async function getVersionWindow(
 		};
 	});
 }
-

@@ -1,0 +1,41 @@
+---
+title: "Link Rules"
+description: "Connect a context to Rule Engine rules from either the context's detail page or the rule's detail page"
+---
+
+A context only becomes retrievable at runtime once it's linked to at least one rule in the [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview). Linking can be done from either side - from the context's detail page, or from the rule's detail page.
+
+## From the context detail page
+
+Open a context's detail page. The **Rules** panel on the right shows every rule currently linked to this context. Each linked rule appears as a clickable row with its name, description, and status badge - clicking a row opens that rule's own detail page. If no rules are linked yet, the panel shows "No rules linked yet."
+
+You have two ways to add a link from here:
+
+### Create a new rule and link it
+
+Click **New Rule** to open a dialog that creates a brand-new rule already linked to this context. The dialog asks for:
+
+- **Name**
+- **Description**
+- **Group Operator** - AND or OR
+- **Status**
+
+Once saved, the new rule appears in the Rules panel and is linked to this context.
+
+### Link an existing rule
+
+Toggle **Link existing rule** to open a dropdown of rules that aren't yet linked to this context (placeholder "Select a rule...", or "All rules already linked" if there are none left to add). Pick a rule, then click **Associate** to confirm the link.
+
+### Unlinking
+
+There is no unlink control on the context detail page - once a rule is linked from this side, you can't remove that link from the Context page. To remove the link between a context and a rule, open the rule's own detail page instead and remove the association from its **Associated Entities** panel, where each linked entity has a remove control. See the Rule Engine's [Linked Entities](/latest/openlit/prompts-experiments/rule-engine/linked-entities) doc for details.
+
+## From the rule detail page
+
+You can also start from the other direction. Open a rule's detail page, and in its **Associated Entities** panel, choose entity type **Context** and pick an existing context to link. This creates the same link you'd get from the context side, and is also where you'd go to remove a link. See [Linked Entities](/latest/openlit/prompts-experiments/rule-engine/linked-entities) for the full flow.
+
+---
+
+<Card title="Retrieve Context" href="/latest/openlit/prompts-experiments/context/retrieve-context" icon='cloud-arrow-down'>
+  Call the evaluate API at runtime to fetch matching context content
+</Card>

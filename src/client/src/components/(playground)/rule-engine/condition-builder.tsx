@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useRootStore } from "@/store";
 import getMessage from "@/constants/messages";
+import { getRequestHeaders } from "@/utils/api";
 
 export const CONDITION_FIELDS = () => {
 	const m = getMessage();
@@ -48,6 +49,14 @@ export const CONDITION_FIELDS = () => {
 		{ value: "gen_ai.usage.output_tokens", label: m.RULE_FIELD_OUTPUT_TOKENS, dataType: "number", description: m.RULE_FIELD_OUTPUT_TOKENS_DESC },
 		{ value: "gen_ai.usage.total_cost", label: m.RULE_FIELD_TOTAL_COST, dataType: "number", description: m.RULE_FIELD_TOTAL_COST_DESC },
 		{ value: "gen_ai.request.temperature", label: m.RULE_FIELD_TEMPERATURE, dataType: "number", description: m.RULE_FIELD_TEMPERATURE_DESC },
+		{ value: "gen_ai.tool.name", label: m.RULE_FIELD_TOOL_NAME, dataType: "string", description: m.RULE_FIELD_TOOL_NAME_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "gen_ai.tool.call.name", label: m.RULE_FIELD_TOOL_CALL_NAME, dataType: "string", description: m.RULE_FIELD_TOOL_CALL_NAME_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.client", label: m.RULE_FIELD_CODING_CLIENT, dataType: "string", description: m.RULE_FIELD_CODING_CLIENT_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.policy.permission_mode", label: m.RULE_FIELD_CODING_PERMISSION_MODE, dataType: "string", description: m.RULE_FIELD_CODING_PERMISSION_MODE_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.content_capture_mode", label: m.RULE_FIELD_CODING_CAPTURE_MODE, dataType: "string", description: m.RULE_FIELD_CODING_CAPTURE_MODE_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.user.classification", label: m.RULE_FIELD_CODING_CLASSIFICATION, dataType: "string", description: m.RULE_FIELD_CODING_CLASSIFICATION_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.session.outcome", label: m.RULE_FIELD_CODING_SESSION_OUTCOME, dataType: "string", description: m.RULE_FIELD_CODING_SESSION_OUTCOME_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
+		{ value: "coding_agent.tool.name", label: m.RULE_FIELD_CODING_TOOL_NAME, dataType: "string", description: m.RULE_FIELD_CODING_TOOL_NAME_DESC, valueSource: "/api/rule-engine/field-values", allowCustomValue: true },
 	];
 };
 
@@ -142,6 +151,9 @@ function ConditionValueInput({
 	onChange: (v: string) => void;
 }) {
 	const messages = getMessage();
+	const currentEnvironment = useRootStore(
+		(s) => s.project?.currentEnvironment || "production"
+	);
 	const [open, setOpen] = useState(false);
 	const [inputValue, setInputValue] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -158,7 +170,11 @@ function ConditionValueInput({
 	const staticOptions = fieldDefinition?.valueOptions;
 	const staticOptionValues = staticOptions || [];
 	const staticOptionsKey = staticOptionValues.join("|");
-	const cacheKey = valueSourceUrl || (staticOptionValues.length ? `static:${field}:${staticOptionsKey}` : "");
+	const cacheKey = valueSourceUrl
+		? `${valueSourceUrl}::${currentEnvironment}`
+		: staticOptionValues.length
+			? `static:${field}:${staticOptionsKey}`
+			: "";
 	const cached = cacheKey ? fieldValuesCache[cacheKey] ?? null : null;
 	const labels = cacheKey ? fieldLabelsCache[cacheKey] ?? null : null;
 	const isLoading = cacheKey ? fieldValuesLoading[cacheKey] ?? false : false;
@@ -181,8 +197,11 @@ function ConditionValueInput({
 			return;
 		}
 		setFieldValuesLoading(cacheKey, true);
-		fetch(valueSourceUrl)
-			.then((r) => r.json())
+		fetch(valueSourceUrl, { headers: getRequestHeaders() })
+			.then((r) => {
+				if (!r.ok) throw new Error(`Field value request failed (${r.status})`);
+				return r.json();
+			})
 			.then((d) => {
 				setFieldValues(cacheKey, d.values ?? []);
 				if (d.labels && typeof d.labels === "object" && !Array.isArray(d.labels)) {
@@ -265,7 +284,7 @@ function ConditionValueInput({
 						<span className="text-xs truncate flex-1">
 							{value
 								? <span className="text-stone-700 dark:text-stone-300">{labels?.[value] ?? value}</span>
-								: <span className="text-stone-400 dark:text-stone-500">{messages.RULE_VALUE_PLACEHOLDER}</span>
+								: <span className="text-stone-500 dark:text-stone-400">{messages.RULE_VALUE_PLACEHOLDER}</span>
 							}
 						</span>
 					)}
@@ -294,7 +313,7 @@ function ConditionValueInput({
 							<>
 								<div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-stone-100 dark:border-stone-800">
 									<InfoIcon className="w-3 h-3 text-stone-400 flex-shrink-0" />
-									<span className="text-[10px] text-stone-400 dark:text-stone-500 leading-tight">
+									<span className="text-[10px] text-stone-500 dark:text-stone-400 leading-tight">
 										{messages.RULE_FIELD_VALUES_INFO}
 									</span>
 								</div>
@@ -429,7 +448,7 @@ export default function ConditionBuilder({
 	if (groups.length === 0) {
 		return (
 			<div className="flex flex-col items-center gap-3 py-6 border-2 border-dashed border-stone-200 dark:border-stone-700 rounded-lg">
-				<p className="text-sm text-stone-400 dark:text-stone-500">
+				<p className="text-sm text-stone-500 dark:text-stone-400">
 					{messages.RULE_NO_CONDITION_GROUPS}
 				</p>
 				<Button variant="outline" size="sm" type="button" onClick={addGroup}
@@ -463,7 +482,7 @@ export default function ConditionBuilder({
 						{/* Group header */}
 						<div className="flex items-center justify-between mb-3">
 							<div className="flex items-center gap-2">
-								<span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+								<span className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">
 									Group {groupIdx + 1}
 								</span>
 								<Select
@@ -478,7 +497,7 @@ export default function ConditionBuilder({
 										<SelectItem value="OR">{messages.OR}</SelectItem>
 									</SelectContent>
 								</Select>
-								<span className="text-[10px] text-stone-400 dark:text-stone-500">
+								<span className="text-[10px] text-stone-500 dark:text-stone-400">
 									{messages.RULE_WITHIN_GROUP}
 								</span>
 							</div>
@@ -496,7 +515,7 @@ export default function ConditionBuilder({
 										<div className="flex items-center gap-2 py-1 px-1">
 											<div className="flex-1 border-t border-dashed border-stone-200 dark:border-stone-700" />
 											<Badge variant="outline"
-												className="text-[9px] px-1.5 py-0 h-4 border-stone-300 dark:border-stone-600 text-stone-400 dark:text-stone-500 flex-shrink-0">
+												className="text-[9px] px-1.5 py-0 h-4 border-stone-300 dark:border-stone-600 text-stone-500 dark:text-stone-400 flex-shrink-0">
 												{group.condition_operator}
 											</Badge>
 											<div className="flex-1 border-t border-dashed border-stone-200 dark:border-stone-700" />

@@ -14,6 +14,7 @@ import { prepareObservabilitySignalChange } from "@/helpers/client/observability
 import { getUpdateConfig, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import getMessage from "@/constants/messages";
 
 export default function TelemetryPage() {
 	const searchParams = useSearchParams();
@@ -59,10 +60,10 @@ export default function TelemetryPage() {
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
-				eyebrow={"Telemetry"}
+				eyebrow={getMessage().SIDEBAR_MONITOR}
 				title={activeConfig.label}
 				icon={<ActiveIcon className="h-4 w-4" />}
-				tone={`rounded-md border p-1.5 ${activeConfig.tone}`}
+				tone={activeConfig.tone}
 				actions={(
 					<div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-end">
 						{/* The Coding Sessions + Coding Users signal

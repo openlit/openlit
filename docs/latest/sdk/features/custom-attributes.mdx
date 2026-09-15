@@ -1,0 +1,90 @@
+---
+title: "Custom Attributes"
+description: "Attach custom attributes to spans and metrics beyond OTEL_RESOURCE_ATTRIBUTES - globally, scoped to a block of code, or per agent"
+---
+
+[`OTEL_RESOURCE_ATTRIBUTES`](/latest/sdk/features/tracing#add-custom-resource-attributes) adds attributes to every span and metric at the resource level (set once, applies to the whole process). The APIs on this page let you go further - attach custom attributes globally from code, scope them to a specific block or function call, or tag spans with agent identity - without restarting your process or touching environment variables.
+
+## Global custom attributes
+
+Pass `custom_span_attributes` and/or `custom_metrics_attributes` to `openlit.init()` to have every auto-instrumented span or metric include them:
+
+```python
+import openlit
+
+openlit.init(
+    custom_span_attributes={"team": "platform", "tier": "premium"},
+    custom_metrics_attributes={"deployment": "us-east-1"},
+)
+```
+
+These behave like resource attributes but are set in code rather than via environment variable, and can be computed at startup (e.g. from config you've already loaded).
+
+## Scope attributes to a block of code
+
+`using_attributes()` attaches attributes only to spans created while it's active - as a context manager or as a decorator:
+
+```python
+import openlit
+
+# As a context manager
+with openlit.using_attributes(user_id="u_123", session_id="s_456"):
+    completion = client.chat.completions.create(...)
+
+# As a decorator
+@openlit.using_attributes(feature="checkout")
+def handle_checkout(order):
+    completion = client.chat.completions.create(...)
+```
+
+Attributes set this way apply only to spans created inside the `with` block or during the decorated function call - they don't leak into unrelated spans elsewhere in your application.
+
+## Attach attributes to a single call
+
+`inject_additional_attributes()` runs a callable with attributes attached for that call only, useful when you don't want to wrap a whole block:
+
+```python
+import openlit
+
+result = openlit.inject_additional_attributes(
+    lambda: client.chat.completions.create(...),
+    {"request_source": "batch_job"},
+)
+```
+
+## Tag spans with agent identity
+
+`agent_context()` and `agent_version_context()` tag spans and metrics with `gen_ai.agent.name` and `gen_ai.agent.version` respectively. These are what power the [Agents page's](/latest/openlit/observability/agents/overview) per-agent grouping and version snapshots - use them if you want explicit control over agent identity instead of relying on inferred grouping from `service.name`.
+
+```python
+import openlit
+
+with openlit.agent_context(name="support-agent"):
+    with openlit.agent_version_context(version="v3"):
+        completion = client.chat.completions.create(...)
+```
+
+## Manual spans with custom attributes
+
+For manually created spans (as opposed to attaching attributes to auto-instrumented ones), use `openlit.start_trace()` and set custom metadata directly on the returned span - see [Manual Tracing](/latest/sdk/features/tracing#manual-tracing) for the full `@openlit.trace` / `start_trace()` reference.
+
+```python
+with openlit.start_trace(name="checkout-flow") as trace:
+    completion = client.chat.completions.create(...)
+    trace.set_result(completion.choices[0].message.content)
+    trace.set_metadata({"order_id": "o_789", "cart_value": 129.99})
+```
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Tracing" href="/latest/sdk/features/tracing" icon='route'>
+    Custom tracers, resource attributes, and manual tracing
+  </Card>
+  <Card title="Agents" href="/latest/openlit/observability/agents/overview" icon='robot'>
+    How agent identity and versions surface in the product from these attributes
+  </Card>
+  <Card title="Guardrails" href="/latest/sdk/features/guardrails" icon='shield-halved'>
+    Redact sensitive data before it's captured in spans at all
+  </Card>
+</CardGroup>

@@ -1,8 +1,9 @@
 import { POLICY_VERSIONS, swr } from "@/lib/platform/agents/cache";
 import { getVersions } from "@/lib/platform/agents/snapshot";
 import { withCacheHeaders } from "../../_cache";
+import { withRouteAccess } from "@/lib/access/route-access";
 
-export async function GET(
+async function GETHandler(
 	request: Request,
 	{ params }: { params: Promise<{ agentKey: string }> }
 ) {
@@ -17,3 +18,5 @@ export async function GET(
 	);
 	return withCacheHeaders({ data: versions }, "versions");
 }
+
+export const GET = withRouteAccess("observability.read", GETHandler, { requireDbConfig: true });

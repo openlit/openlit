@@ -450,8 +450,17 @@ class VertexAIWrapper extends BaseWrapper {
     const cacheReadTokens = usageMetadata?.cachedContentTokenCount || 0;
     const cacheCreationTokens = usageMetadata?.cacheCreationInputTokens || 0;
 
+    // Vertex/Gemini promptTokenCount includes cached content tokens.
     const pricingInfo = OpenlitConfig.pricingInfo || {};
-    const cost = OpenLitHelper.getChatModelCost(requestModel, pricingInfo, inputTokens, outputTokens);
+    const cost = OpenLitHelper.getChatModelCost(
+      requestModel,
+      pricingInfo,
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheCreationTokens,
+      true
+    );
 
     VertexAIWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,

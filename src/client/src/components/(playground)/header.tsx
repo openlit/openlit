@@ -8,6 +8,7 @@ import HeaderAppTrail from "./header-app-trail";
 import HeaderPageTrail from "./header-page-trail";
 import { HeaderScopeSeparator } from "./header-scope-pill";
 import { playgroundTopBarClassName } from "./sidebar-layout-context";
+import { ChatHeaderButton } from "./chat/chat-floating-button";
 
 export function HeaderContextRow() {
 	const { setHeaderRef } = usePortal();
@@ -32,7 +33,7 @@ export function HeaderContextRow() {
 			<DatabaseConfigSwitch contentAlign="start" contentSide="bottom" />
 			<HeaderAppTrail />
 			<HeaderPageTrail />
-			<div ref={containerRef} className="ml-auto flex items-center" />
+			<div className="ml-auto flex items-center gap-2"><ChatHeaderButton /><div ref={containerRef} className="flex items-center" /></div>
 		</div>
 	);
 }

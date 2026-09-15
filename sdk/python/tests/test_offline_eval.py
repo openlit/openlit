@@ -309,6 +309,7 @@ def test_fetch_eval_types(mock_get):
                 "description": "Detects hallucinated content",
                 "enabled": True,
                 "is_custom": False,
+                "threshold_score": 0.7,
             },
             {
                 "id": "custom_safety",
@@ -330,8 +331,10 @@ def test_fetch_eval_types(mock_get):
     assert len(types) == 2
     assert types[0].id == "hallucination"
     assert types[0].is_custom is False
+    assert types[0].threshold_score == 0.7
     assert types[1].id == "custom_safety"
     assert types[1].is_custom is True
+    assert types[1].threshold_score is None
 
 
 # --- Terminal output ---

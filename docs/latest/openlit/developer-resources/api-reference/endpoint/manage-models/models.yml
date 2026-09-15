@@ -1,0 +1,129 @@
+openapi: 3.0.0
+info:
+  title: Manage Models - Models API
+  description: List, create or update, and delete LLM models and pricing for the active database configuration. Requires a signed-in OpenLIT session (same APIs the Manage Models UI calls).
+  version: 1.0.0
+servers:
+  - url: /
+paths:
+  /api/openground/models:
+    get:
+      summary: List models
+      description: Returns models grouped by provider. Optional `provider` query filters to one provider.
+      operationId: listModels
+      parameters:
+        - name: provider
+          in: query
+          required: false
+          schema:
+            type: string
+          example: openai
+      responses:
+        '200':
+          description: Models grouped by provider id, or a list when `provider` is set.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      model_id:
+                        type: string
+                      displayName:
+                        type: string
+                      modelType:
+                        type: string
+                      contextWindow:
+                        type: number
+                      inputPricePerMToken:
+                        type: number
+                      outputPricePerMToken:
+                        type: number
+                      capabilities:
+                        type: array
+                        items:
+                          type: string
+                      isDefault:
+                        type: boolean
+        '401':
+          description: Not signed in
+    post:
+      summary: Create or update a model
+      description: Upserts a model under a provider for the active database configuration.
+      operationId: upsertModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - provider
+                - model
+              properties:
+                provider:
+                  type: string
+                  example: openai
+                customId:
+                  type: string
+                  description: Existing row id when updating
+                model:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      example: gpt-4o-custom
+                    model_id:
+                      type: string
+                      example: gpt-4o-custom
+                    displayName:
+                      type: string
+                    modelType:
+                      type: string
+                      enum: [chat, embeddings, images, audio]
+                    contextWindow:
+                      type: number
+                    inputPricePerMToken:
+                      type: number
+                    outputPricePerMToken:
+                      type: number
+                    capabilities:
+                      type: array
+                      items:
+                        type: string
+      responses:
+        '200':
+          description: Model saved
+        '401':
+          description: Not signed in
+    delete:
+      summary: Delete a model
+      description: Deletes a model by `model_id` and `provider` query parameters.
+      operationId: deleteModel
+      parameters:
+        - name: model_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Model deleted
+        '401':
+          description: Not signed in
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+security:
+  - sessionAuth: []

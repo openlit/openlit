@@ -25,6 +25,25 @@
 - Database config reads, writes, selection, and ping state must be scoped by current project.
 - Billing, licensing, seats, and entitlements are organisation-scoped in enterprise.
 
+## UI and Security
+
+- Do not hard-code user-facing strings. Add CE strings to `src/client/src/constants/messages/en.ts`; enterprise-only strings belong in the private repository.
+- Keep organisation and project switchers in the header, with breadcrumbs below it. Cover loading, empty, disabled, and error states.
+- Server routes must enforce authorization; UI feature checks are presentation only.
+- Parse mutation JSON safely and return `400` for malformed input. Validate identifiers before mutations.
+- Do not persist or log raw passwords, tokens, cookies, API keys, license keys, or authorization headers. Redact audit metadata before persistence.
+- Use constant-time comparisons for internal API keys and verify payment-provider webhook signatures before processing payloads.
+
+## Scoped Guidance
+
+Read the relevant canonical guide in `agent-guides/` before changing these areas:
+
+- `documentation.md` for documentation and README work.
+- `frontend.md` and `security-testing.md` for OpenLIT client work.
+- `coding-agents-hook.md` for hook adapters and `coding-agents-convention.md` for their telemetry schema.
+- `controller-design.md` for controller and agent-discovery work.
+- `js-sdk-genai-instrumentation.md` or `js-sdk-genai-framework-instrumentation.md` for TypeScript SDK instrumentation.
+
 ## Validation
 
 - Add tests for changed security boundaries.

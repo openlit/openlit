@@ -57,6 +57,8 @@ export default function ModelManagementDialog({
 		contextWindow: 4096,
 		inputPricePerMToken: 0,
 		outputPricePerMToken: 0,
+		cacheReadPricePerMToken: 0,
+		cacheCreationPricePerMToken: 0,
 		capabilities: [],
 	});
 
@@ -90,6 +92,8 @@ export default function ModelManagementDialog({
 				contextWindow: formData.contextWindow || 4096,
 				inputPricePerMToken: formData.inputPricePerMToken || 0,
 				outputPricePerMToken: formData.outputPricePerMToken || 0,
+				cacheReadPricePerMToken: formData.cacheReadPricePerMToken || 0,
+				cacheCreationPricePerMToken: formData.cacheCreationPricePerMToken || 0,
 				capabilities: formData.capabilities || [],
 			},
 			customId: editingModel?.customId,
@@ -144,6 +148,8 @@ export default function ModelManagementDialog({
 			contextWindow: model.contextWindow,
 			inputPricePerMToken: model.inputPricePerMToken,
 			outputPricePerMToken: model.outputPricePerMToken,
+			cacheReadPricePerMToken: model.cacheReadPricePerMToken || 0,
+			cacheCreationPricePerMToken: model.cacheCreationPricePerMToken || 0,
 			capabilities: model.capabilities || [],
 		});
 		setIsEditing(true);
@@ -156,6 +162,8 @@ export default function ModelManagementDialog({
 			contextWindow: 4096,
 			inputPricePerMToken: 0,
 			outputPricePerMToken: 0,
+			cacheReadPricePerMToken: 0,
+			cacheCreationPricePerMToken: 0,
 			capabilities: [],
 		});
 		setIsEditing(false);
@@ -199,17 +207,18 @@ export default function ModelManagementDialog({
 							</div>
 						</div>
 
-						<div className="grid grid-cols-3 gap-4">
-							<div className="space-y-2">
-								<Label htmlFor="context-window">{getMessage().OPENGROUND_CONTEXT_WINDOW}</Label>
-								<Input
-									id="context-window"
-									type="number"
-									placeholder="4096"
-									value={formData.contextWindow}
-									onChange={(e) => setFormData({ ...formData, contextWindow: parseInt(e.target.value) || 0 })}
-								/>
-							</div>
+						<div className="space-y-2">
+							<Label htmlFor="context-window">{getMessage().OPENGROUND_CONTEXT_WINDOW}</Label>
+							<Input
+								id="context-window"
+								type="number"
+								placeholder="4096"
+								value={formData.contextWindow}
+								onChange={(e) => setFormData({ ...formData, contextWindow: parseInt(e.target.value) || 0 })}
+							/>
+						</div>
+
+						<div className="grid grid-cols-2 gap-4">
 							<div className="space-y-2">
 								<Label htmlFor="input-price">{getMessage().OPENGROUND_INPUT_PRICE_PER_M_TOKENS}</Label>
 								<Input
@@ -230,6 +239,43 @@ export default function ModelManagementDialog({
 									placeholder="1.5"
 									value={formData.outputPricePerMToken}
 									onChange={(e) => setFormData({ ...formData, outputPricePerMToken: parseFloat(e.target.value) || 0 })}
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="cache-read-price">
+									{getMessage().OPENGROUND_CACHE_READ_PRICE_PER_M_TOKENS}
+								</Label>
+								<Input
+									id="cache-read-price"
+									type="number"
+									step="0.001"
+									placeholder="0"
+									value={formData.cacheReadPricePerMToken}
+									onChange={(e) =>
+										setFormData({
+											...formData,
+											cacheReadPricePerMToken: parseFloat(e.target.value) || 0,
+										})
+									}
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="cache-creation-price">
+									{getMessage().OPENGROUND_CACHE_CREATION_PRICE_PER_M_TOKENS}
+								</Label>
+								<Input
+									id="cache-creation-price"
+									type="number"
+									step="0.001"
+									placeholder="0"
+									value={formData.cacheCreationPricePerMToken}
+									onChange={(e) =>
+										setFormData({
+											...formData,
+											cacheCreationPricePerMToken:
+												parseFloat(e.target.value) || 0,
+										})
+									}
 								/>
 							</div>
 						</div>

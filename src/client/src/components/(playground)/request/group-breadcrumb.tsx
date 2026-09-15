@@ -27,7 +27,7 @@ export default function GroupBreadcrumb({
 		<div className="flex items-center gap-1.5 mb-3 text-xs select-none">
 			<button
 				onClick={() => { updateFilter("groupValue", null); updateFilter("groupBy", null); }}
-				className="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors"
+				className="text-stone-500 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 transition-colors"
 			>
 				{rootLabel}
 			</button>

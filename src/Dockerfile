@@ -1,10 +1,7 @@
-# Node.js builder - pinned to alpine 3.21 with digest
-FROM alpine:3.21@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709 AS builder
+# Node.js builder - Node 20 Alpine (OpenPlait adapters require >=20)
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS builder
 
-# Installing node and npm
-RUN apk add --no-cache nodejs npm
-
-# Installing extra packages (openssl needed for Prisma engine detection on Alpine 3.21+)
+# Installing extra packages (openssl needed for Prisma engine detection on Alpine)
 RUN apk add --no-cache rust cargo build-base openssl
 
 # Set the working directory in the container
@@ -12,6 +9,15 @@ WORKDIR /app/client
 
 # Copy package.json and package-lock.json to the working directory & the rest of the application code
 COPY ./client/ .
+
+# Bake Prisma CLI/Schema engines for the Alpine builder and the Debian
+# bookworm runtime (OpenSSL 3). schema.prisma `binaryTargets` only covers the
+# Query Engine; CLI engines are resolved at install time for the builder
+# platform. This env replaces native detection, so both musl builder
+# targets must stay listed — release publishes linux/amd64 and linux/arm64/v8.
+# Without the matching glibc engines, entrypoint.sh (`prisma migrate deploy`
+# / `prisma generate`) downloads from binaries.prisma.sh and fails air-gapped.
+ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x,linux-musl-arm64-openssl-3.0.x,debian-openssl-3.0.x,linux-arm64-openssl-3.0.x
 
 # Install dependencies, generate Prisma client & Build the Next.js application
 RUN npm install && npx prisma generate && npm run build
@@ -82,9 +88,9 @@ RUN echo "Downloading binaries for architecture: ${TARGETARCH}" && \
     echo "opampsupervisor binary info:" && file opampsupervisor
 
 
-# Final runtime image - Use node:18-bullseye-slim pinned with digest
-# This replaces the unsafe `curl | bash` NodeSource install pattern
-FROM node:18-bullseye-slim@sha256:d69fb189fa7765636655db043a6a9e6be5ddf94bd1a8dc33fd0bcf4664606a9e
+# Final runtime image - Node 20 on Debian bookworm (bullseye-security
+# package indexes now 404 openssl 1.1.1w updates required by bullseye-slim)
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
 
 # Accept build arguments to pass version and architecture info
 # TARGETARCH is automatically provided by Docker buildx based on --platform
@@ -98,8 +104,9 @@ ARG TARGETPLATFORM
 ENV OPAMP_SUPERVISOR_VERSION=${OPAMP_SUPERVISOR_VERSION}
 ENV TARGETARCH=${TARGETARCH}
 
-# Install only the additional runtime dependencies needed
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install only the additional runtime dependencies needed.
+# Skip Valid-Until so a briefly stale security index cannot fail the image build.
+RUN apt-get update -o Acquire::Check-Valid-Until=false && apt-get install -y --no-install-recommends \
     bash \
     openssl \
     ca-certificates \
@@ -134,7 +141,7 @@ COPY --from=otel-downloader /tmp/otelcol-contrib /app/opamp/otelcontribcol
 COPY --from=otel-downloader /tmp/opampsupervisor /app/opamp/opampsupervisor
 
 # Verify binary architectures match runtime
-RUN apt-get update && apt-get install -y --no-install-recommends file && \
+RUN apt-get update -o Acquire::Check-Valid-Until=false && apt-get install -y --no-install-recommends file && \
     echo "Verifying binary architectures..." && \
     echo "Runtime architecture: $(uname -m)" && \
     echo "otelcontribcol:" && file /app/opamp/otelcontribcol && \

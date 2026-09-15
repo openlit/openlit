@@ -20,7 +20,7 @@ function NumberStats() {
 				}}
 				heading="Total requests"
 				icon={RadioTower}
-				url="/api/metrics/request/total"
+				url="/api/telemetry/request/total"
 			/>
 			<StatCard
 				dataKey="average_duration"
@@ -33,14 +33,14 @@ function NumberStats() {
 				parser={(value: any) =>
 					integerParser(`${value}`, TraceMapping.requestDuration.offset)
 				}
-				url="/api/metrics/request/duration/average"
+				url="/api/telemetry/request/duration/average"
 			/>
 			<StatCard
 				dataKey="total_tokens"
 				extraParams={{ type: "total" }}
 				heading="Avg tokens per request"
 				icon={Braces}
-				url="/api/metrics/llm/token/request/average"
+				url="/api/telemetry/llm/token/request/average"
 			/>
 			<StatCard
 				dataKey="total_usage_cost"
@@ -48,7 +48,7 @@ function NumberStats() {
 				icon={CircleDollarSign}
 				roundTo={7}
 				textPrefix="$"
-				url="/api/metrics/llm/cost/total"
+				url="/api/telemetry/llm/cost/total"
 			/>
 			<StatCard
 				dataKey="average_usage_cost"
@@ -56,7 +56,7 @@ function NumberStats() {
 				icon={Banknote}
 				roundTo={7}
 				textPrefix="$"
-				url="/api/metrics/llm/cost/request/average"
+				url="/api/telemetry/llm/cost/request/average"
 			/>
 			<StatCard
 				dataKey="total_evaluation_detected"

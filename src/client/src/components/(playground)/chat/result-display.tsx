@@ -107,7 +107,7 @@ export default function ResultDisplay({ data, stats, query }: ResultDisplayProps
 
 	if (!data || data.length === 0) {
 		return (
-			<div className="px-4 py-6 text-center text-sm text-stone-400 dark:text-stone-500">
+			<div className="px-4 py-6 text-center text-sm text-stone-500 dark:text-stone-400">
 				{m.CHAT_NO_DATA_RETURNED}
 			</div>
 		);
@@ -122,9 +122,11 @@ export default function ResultDisplay({ data, stats, query }: ResultDisplayProps
 					{VIZ_OPTIONS.map(({ type, icon: Icon, label }) => (
 						<Button
 							key={type}
-							variant={vizType === type ? "default" : "ghost"}
+							variant="ghost"
 							size="sm"
-							className="h-7 px-2 text-xs"
+							className={vizType === type
+								? "h-7 bg-stone-900 px-2 text-xs text-white hover:bg-stone-800 hover:text-white dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200 dark:hover:text-stone-900"
+								: "h-7 px-2 text-xs text-stone-700 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"}
 							onClick={() => setVizType(type)}
 						>
 							<Icon className="h-3 w-3 mr-1" />
@@ -134,7 +136,7 @@ export default function ResultDisplay({ data, stats, query }: ResultDisplayProps
 				</div>
 				<div className="flex items-center gap-3">
 					{stats && (
-						<span className="text-xs text-stone-400 dark:text-stone-500">
+						<span className="text-xs text-stone-500 dark:text-stone-400">
 							{data.length} {m.CHAT_ROWS}
 							{stats.executionTimeMs ? ` in ${stats.executionTimeMs}ms` : ""}
 						</span>
@@ -142,7 +144,7 @@ export default function ResultDisplay({ data, stats, query }: ResultDisplayProps
 					<Button
 						variant="outline"
 						size="sm"
-						className="h-7 px-2 text-xs border-stone-200 dark:border-stone-700"
+						className="h-7 border-stone-200 px-2 text-xs text-stone-700 dark:border-stone-700 dark:text-stone-200"
 						onClick={() => setShowSaveDialog(true)}
 					>
 						<Save className="h-3 w-3 mr-1" />

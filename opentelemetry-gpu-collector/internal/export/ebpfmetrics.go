@@ -4,34 +4,58 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
+	"strconv"
 	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/cudaspans"
 	gpuebpf "github.com/openlit/openlit/opentelemetry-gpu-collector/internal/ebpf"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/gpu/procname"
+	"github.com/openlit/openlit/opentelemetry-gpu-collector/internal/workload"
 )
 
 // EBPFMetrics records eBPF CUDA tracing events as OTel metrics.
+// Launch→sync duration samples come from cudaspans.ClosedSpan (shared with occupancy).
 type EBPFMetrics struct {
 	logger *slog.Logger
-	mu     sync.Mutex
 
-	kernelLaunchCalls metric.Int64Counter
-	kernelGridSize    metric.Float64Histogram
-	kernelBlockSize   metric.Float64Histogram
-	memoryAllocations metric.Int64Counter
-	memoryCopies      metric.Float64Histogram
+	kernelLaunchCalls  metric.Int64ObservableCounter
+	kernelGridSize     metric.Float64Histogram
+	kernelBlockSize    metric.Float64Histogram
+	kernelSharedMemory metric.Float64Histogram
+	kernelDuration     metric.Float64Histogram
+	graphLaunchCalls   metric.Int64ObservableCounter
+	memoryAllocations  metric.Int64ObservableCounter
+	memoryCopies       metric.Float64Histogram
+
+	launchCounts *liveCounter
+	graphCounts  *liveCounter
+	allocCounts  *liveCounter
+	pidAlive     func(uint32) bool
+	reg          metric.Registration
+
+	devices *cudaspans.DeviceResolver
+
+	kernelNamesMu sync.Mutex
+	kernelNames   map[string]struct{} // cardinality set for cuda.kernel.name
 }
 
+const maxKernelDurationNames = 64
+
 // NewEBPFMetrics creates OTel instruments for eBPF CUDA event metrics.
-func NewEBPFMetrics(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*EBPFMetrics, error) {
+// devices maps cudaSetDevice indices → hw.id / gpu.index when known.
+func NewEBPFMetrics(provider *sdkmetric.MeterProvider, devices *cudaspans.DeviceResolver, logger *slog.Logger) (*EBPFMetrics, error) {
 	meter := provider.Meter("otelcol.gpu.ebpf",
 		metric.WithInstrumentationVersion("1.0.0"),
 	)
 
-	kernelCalls, err := meter.Int64Counter("gpu.kernel.launch.calls",
+	kernelCalls, err := meter.Int64ObservableCounter("gpu.kernel.launch.calls",
 		metric.WithDescription("Number of CUDA kernel launches"),
 		metric.WithUnit("{call}"),
 	)
@@ -55,9 +79,33 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*EB
 		return nil, fmt.Errorf("creating gpu.kernel.block.size: %w", err)
 	}
 
-	memAlloc, err := meter.Int64Counter("gpu.memory.allocations",
-		metric.WithDescription("Total bytes allocated via cudaMalloc"),
-		metric.WithUnit("bytes"),
+	sharedMem, err := meter.Float64Histogram("gpu.kernel.shared_memory",
+		metric.WithDescription("Dynamic shared memory requested per CUDA kernel launch (cudaLaunchKernel sharedMem)"),
+		metric.WithUnit("By"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating gpu.kernel.shared_memory: %w", err)
+	}
+
+	kernelDur, err := meter.Float64Histogram("gpu.kernel.duration",
+		metric.WithDescription("Model estimate of CUDA kernel launch→sync duration (not hardware SM residency)"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating gpu.kernel.duration: %w", err)
+	}
+
+	graphCalls, err := meter.Int64ObservableCounter("gpu.graph.launch.calls",
+		metric.WithDescription("Number of CUDA graph replay invocations (cudaGraphLaunch/cuGraphLaunch). Counts replays, not the kernels executed inside each replay; that number is not observable at this API-tracing layer."),
+		metric.WithUnit("{call}"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating gpu.graph.launch.calls: %w", err)
+	}
+
+	memAlloc, err := meter.Int64ObservableCounter("gpu.memory.allocations",
+		metric.WithDescription("Total bytes allocated via cudaMalloc/cudaMallocAsync"),
+		metric.WithUnit("By"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating gpu.memory.allocations: %w", err)
@@ -65,50 +113,277 @@ func NewEBPFMetrics(provider *sdkmetric.MeterProvider, logger *slog.Logger) (*EB
 
 	memCopies, err := meter.Float64Histogram("gpu.memory.copies",
 		metric.WithDescription("Bytes copied per cudaMemcpy operation"),
-		metric.WithUnit("bytes"),
+		metric.WithUnit("By"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating gpu.memory.copies: %w", err)
 	}
 
-	return &EBPFMetrics{
-		logger:            logger,
-		kernelLaunchCalls: kernelCalls,
-		kernelGridSize:    gridSize,
-		kernelBlockSize:   blockSize,
-		memoryAllocations: memAlloc,
-		memoryCopies:      memCopies,
-	}, nil
+	em := &EBPFMetrics{
+		logger:             logger,
+		kernelLaunchCalls:  kernelCalls,
+		kernelGridSize:     gridSize,
+		kernelBlockSize:    blockSize,
+		kernelSharedMemory: sharedMem,
+		kernelDuration:     kernelDur,
+		graphLaunchCalls:   graphCalls,
+		memoryAllocations:  memAlloc,
+		memoryCopies:       memCopies,
+		launchCounts:       newLiveCounter(),
+		graphCounts:        newLiveCounter(),
+		allocCounts:        newLiveCounter(),
+		pidAlive:           pidExists,
+		devices:            devices,
+		kernelNames:        make(map[string]struct{}),
+	}
+
+	reg, err := meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+		alive := em.pidAlive
+		dead := map[uint32]struct{}{}
+		observe := func(inst metric.Int64ObservableCounter, c *liveCounter) {
+			series, dropped := c.collectLive(alive)
+			for _, s := range series {
+				o.ObserveInt64(inst, s.value, metric.WithAttributes(s.attrs...))
+			}
+			for _, pid := range dropped {
+				dead[pid] = struct{}{}
+			}
+		}
+		observe(em.kernelLaunchCalls, em.launchCounts)
+		observe(em.graphLaunchCalls, em.graphCounts)
+		observe(em.memoryAllocations, em.allocCounts)
+		if em.devices != nil {
+			for pid := range dead {
+				em.devices.ForgetPID(pid)
+			}
+		}
+		return nil
+	}, kernelCalls, graphCalls, memAlloc)
+	if err != nil {
+		return nil, fmt.Errorf("registering eBPF counter callback: %w", err)
+	}
+	em.reg = reg
+	return em, nil
 }
 
-// HandleEvent processes a single CUDA event and records it as OTel metrics.
-// This is the EventHandler passed to the eBPF Tracer.
+// Close unregisters observable callbacks.
+func (em *EBPFMetrics) Close() {
+	if em == nil || em.reg == nil {
+		return
+	}
+	_ = em.reg.Unregister()
+	em.reg = nil
+}
+
+type pidAttrCacheEntry struct {
+	attrs   []attribute.KeyValue
+	expires time.Time
+}
+
+var (
+	pidAttrMu    sync.Mutex
+	pidAttrCache = make(map[uint32]pidAttrCacheEntry)
+)
+
+const (
+	pidAttrTTL     = 5 * time.Second
+	pidAttrMaxSize = 4096
+)
+
+func cachedPIDAttrs(pid uint32) []attribute.KeyValue {
+	now := time.Now()
+	pidAttrMu.Lock()
+	if e, ok := pidAttrCache[pid]; ok && now.Before(e.expires) {
+		attrs := e.attrs
+		pidAttrMu.Unlock()
+		return attrs
+	}
+	pidAttrMu.Unlock()
+
+	attrs := []attribute.KeyValue{
+		attribute.String("process.pid", strconv.FormatUint(uint64(pid), 10)),
+	}
+	if pid <= math.MaxInt32 {
+		pid32 := int32(pid)
+		attrs = append(attrs, attribute.String("process.executable.name", procname.ExecutableName(pid32)))
+		if pod, ok := workload.ResolvePod(pid32); ok {
+			if pod.PodUID != "" {
+				attrs = append(attrs, attribute.String("k8s.pod.uid", pod.PodUID))
+			}
+			if pod.PodName != "" {
+				attrs = append(attrs, attribute.String("k8s.pod.name", pod.PodName))
+			}
+			if pod.Namespace != "" {
+				attrs = append(attrs, attribute.String("k8s.namespace.name", pod.Namespace))
+			}
+		}
+	}
+
+	pidAttrMu.Lock()
+	if len(pidAttrCache) >= pidAttrMaxSize {
+		for k, e := range pidAttrCache {
+			if now.After(e.expires) {
+				delete(pidAttrCache, k)
+			}
+		}
+		if len(pidAttrCache) >= pidAttrMaxSize {
+			n := 0
+			for k := range pidAttrCache {
+				delete(pidAttrCache, k)
+				n++
+				if n >= pidAttrMaxSize/2 {
+					break
+				}
+			}
+		}
+	}
+	pidAttrCache[pid] = pidAttrCacheEntry{attrs: attrs, expires: now.Add(pidAttrTTL)}
+	pidAttrMu.Unlock()
+	return attrs
+}
+
+func (em *EBPFMetrics) deviceAttrs(pid, tid uint32, explicitIdx int, explicitUUID string) []attribute.KeyValue {
+	if em.devices == nil {
+		return nil
+	}
+	idx := explicitIdx
+	if explicitUUID != "" && explicitUUID != "unknown" {
+		if uidx, ok := em.devices.IndexForUUID(explicitUUID); ok {
+			idx = uidx
+		}
+	}
+	if idx < 0 {
+		idx = em.devices.ResolveIndex(pid, tid)
+	}
+	return em.attrsForIndex(idx)
+}
+
+func (em *EBPFMetrics) attrsForIndex(idx int) []attribute.KeyValue {
+	uuid, name, pci, ok := em.devices.IndexInfo(idx)
+	if !ok {
+		return nil
+	}
+	attrs := []attribute.KeyValue{
+		attribute.String("hw.id", uuid),
+		attribute.String("hw.type", "gpu"),
+		attribute.String("hw.vendor", string(gpu.VendorNVIDIA)),
+		attribute.Int("gpu.index", idx),
+	}
+	if name != "" {
+		attrs = append(attrs,
+			attribute.String("hw.name", name),
+			attribute.String("hw.model", name),
+		)
+	}
+	if pci != "" {
+		attrs = append(attrs, attribute.String("gpu.pci_address", pci))
+	}
+	return attrs
+}
+
+func (em *EBPFMetrics) activityAttrList(pid, tid uint32, deviceIdx int, deviceUUID string, extra ...attribute.KeyValue) []attribute.KeyValue {
+	base := cachedPIDAttrs(pid)
+	dev := em.deviceAttrs(pid, tid, deviceIdx, deviceUUID)
+	attrs := make([]attribute.KeyValue, 0, len(base)+len(dev)+len(extra)+1)
+	attrs = append(attrs, base...)
+	attrs = append(attrs, attribute.String("gpu.measurement.source", "ebpf"))
+	attrs = append(attrs, dev...)
+	attrs = append(attrs, extra...)
+	return attrs
+}
+
+func (em *EBPFMetrics) activityAttrs(pid, tid uint32, deviceIdx int, deviceUUID string, extra ...attribute.KeyValue) metric.MeasurementOption {
+	return metric.WithAttributes(em.activityAttrList(pid, tid, deviceIdx, deviceUUID, extra...)...)
+}
+
+func kernelMetricName(e *gpuebpf.KernelLaunchEvent) string {
+	if e.KernelName != "" {
+		return e.KernelName
+	}
+	return "unknown"
+}
+
+func (em *EBPFMetrics) durationKernelName(raw string) string {
+	if raw == "" {
+		raw = "unknown"
+	}
+	em.kernelNamesMu.Lock()
+	defer em.kernelNamesMu.Unlock()
+	if _, ok := em.kernelNames[raw]; ok {
+		return raw
+	}
+	if len(em.kernelNames) >= maxKernelDurationNames {
+		return "other"
+	}
+	em.kernelNames[raw] = struct{}{}
+	return raw
+}
+
+// RecordClosedSpans emits gpu.kernel.duration from shared launch→sync closes.
+func (em *EBPFMetrics) RecordClosedSpans(ctx context.Context, spans []cudaspans.ClosedSpan) {
+	if em == nil || len(spans) == 0 {
+		return
+	}
+	for _, s := range spans {
+		if s.EndNs <= s.StartNs {
+			continue
+		}
+		durSec := float64(s.EndNs-s.StartNs) / 1e9
+		name := em.durationKernelName(s.KernelName)
+		extra := []attribute.KeyValue{attribute.String("cuda.kernel.name", name)}
+		if s.Kind == cudaspans.LaunchKindGraph {
+			extra = append(extra, attribute.String("cuda.launch.kind", "graph"))
+		}
+		attrs := em.activityAttrs(s.PID, s.TID, s.DeviceIndex, s.DeviceUUID, extra...)
+		em.kernelDuration.Record(ctx, durSec, attrs)
+	}
+}
+
+// RecordLaunchActivity records launch counters/histograms (not duration).
+func (em *EBPFMetrics) RecordLaunchActivity(ctx context.Context, e *gpuebpf.KernelLaunchEvent) {
+	kernelName := kernelMetricName(e)
+	extra := []attribute.KeyValue{attribute.String("cuda.kernel.name", kernelName)}
+	attrList := em.activityAttrList(e.PID, e.TID, gpuebpf.DeviceIndex(e.DeviceIdx), "", extra...)
+	attrs := metric.WithAttributes(attrList...)
+
+	em.launchCounts.add(e.PID, 1, attrList)
+
+	gridTotal := float64(e.GridX) * float64(e.GridY) * float64(e.GridZ)
+	em.kernelGridSize.Record(ctx, gridTotal, attrs)
+
+	blockTotal := float64(e.BlockX) * float64(e.BlockY) * float64(e.BlockZ)
+	em.kernelBlockSize.Record(ctx, blockTotal, attrs)
+
+	em.kernelSharedMemory.Record(ctx, float64(e.SharedMemBytes), attrs)
+}
+
+func (em *EBPFMetrics) RecordGraphLaunch(_ context.Context, e *gpuebpf.GraphLaunchEvent) {
+	em.graphCounts.add(e.PID, 1, em.activityAttrList(e.PID, e.TID, gpuebpf.DeviceIndex(e.DeviceIdx), ""))
+}
+
+// HandleEvent processes activity-only events when used without SpanFanout.
+// Prefer SpanFanout so occupancy and duration share one launch→sync store.
 func (em *EBPFMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 	ctx := context.Background()
 
 	switch e := ev.(type) {
-	case *gpuebpf.KernelLaunchEvent:
-		kernelName := e.KernelName
-		if kernelName == "" {
-			kernelName = fmt.Sprintf("0x%x", e.KernelAddr)
+	case *gpuebpf.SetDeviceEvent:
+		if em.devices != nil {
+			em.devices.NoteSetDevice(e.PID, e.TID, int(e.Device))
 		}
-		attrs := metric.WithAttributes(attribute.String("cuda.kernel.name", kernelName))
 
-		em.kernelLaunchCalls.Add(ctx, 1, attrs)
+	case *gpuebpf.KernelLaunchEvent:
+		em.RecordLaunchActivity(ctx, e)
 
-		gridTotal := float64(e.GridX) * float64(e.GridY) * float64(e.GridZ)
-		em.kernelGridSize.Record(ctx, gridTotal, attrs)
-
-		blockTotal := float64(e.BlockX) * float64(e.BlockY) * float64(e.BlockZ)
-		em.kernelBlockSize.Record(ctx, blockTotal, attrs)
+	case *gpuebpf.GraphLaunchEvent:
+		em.RecordGraphLaunch(ctx, e)
 
 	case *gpuebpf.MallocEvent:
-		em.memoryAllocations.Add(ctx, int64(e.Size))
+		em.allocCounts.add(e.PID, int64(e.Size), em.activityAttrList(e.PID, e.TID, gpuebpf.DeviceIndex(e.DeviceIdx), ""))
 
 	case *gpuebpf.MemcpyEvent:
-		attrs := metric.WithAttributes(
+		em.memoryCopies.Record(ctx, float64(e.Size), em.activityAttrs(e.PID, e.TID, gpuebpf.DeviceIndex(e.DeviceIdx), "",
 			attribute.String("cuda.memcpy.kind", gpuebpf.MemcpyKindString(e.Kind)),
-		)
-		em.memoryCopies.Record(ctx, float64(e.Size), attrs)
+		))
 	}
 }

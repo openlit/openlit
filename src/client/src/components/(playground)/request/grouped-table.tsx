@@ -13,7 +13,7 @@ import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 
 const PREDEFINED_FILTER_MAP: Record<string, { attributeType: CustomFilterAttributeType; key: string }> = {
 	model: { attributeType: "SpanAttributes", key: "gen_ai.request.model" },
-	provider: { attributeType: "SpanAttributes", key: "gen_ai.system" },
+	provider: { attributeType: "SpanAttributes", key: "gen_ai.provider.name" },
 	spanName: { attributeType: "Field", key: "SpanName" },
 	applicationName: { attributeType: "ResourceAttributes", key: "service.name" },
 };
@@ -128,7 +128,7 @@ function GroupRow({
 
 export default function GroupedTable({
 	groupBy,
-	apiUrl = "/api/metrics/request/grouped",
+	apiUrl = "/api/telemetry/request/grouped",
 }: {
 	groupBy: string;
 	apiUrl?: string;
@@ -199,7 +199,7 @@ export default function GroupedTable({
 
 			{/* Empty state */}
 			{isFetched && !isLoading && groups.length === 0 && (
-				<div className="flex items-center justify-center py-16 text-sm text-stone-400 dark:text-stone-500">
+				<div className="flex items-center justify-center py-16 text-sm text-stone-500 dark:text-stone-400">
 					No data found for the selected filters.
 				</div>
 			)}

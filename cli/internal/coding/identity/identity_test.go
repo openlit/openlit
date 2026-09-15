@@ -9,7 +9,7 @@ import (
 func TestResolveForVendor_ClaudeCodeReadsOAuthEmail(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	const wantEmail = "ishan.jain@grafana.com"
+	const wantEmail = "username@example.com"
 	body := `{"oauthAccount":{"accountUuid":"abc","emailAddress":"` + wantEmail + `"}}`
 	if err := os.WriteFile(filepath.Join(tmp, ".claude.json"), []byte(body), 0o600); err != nil {
 		t.Fatalf("write .claude.json: %v", err)

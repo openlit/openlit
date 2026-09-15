@@ -526,7 +526,10 @@ describe('Groq Cross-Language Trace Comparison', () => {
         'llama-3.1-8b-instant',
         expect.any(Object),
         100,
-        50
+        50,
+        0,
+        0,
+        true
       );
     });
   });

@@ -1,5 +1,8 @@
 jest.mock("crypto", () => ({ randomUUID: jest.fn(() => "run-1") }));
-jest.mock("@/lib/platform/common", () => ({ dataCollector: jest.fn() }));
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return { dataCollector: collector, intelligenceDataCollector: collector };
+});
 jest.mock("@/lib/platform/chat/table-details", () => ({
 	OPENLIT_OTTER_RUNS_TABLE: "openlit_otter_runs",
 }));

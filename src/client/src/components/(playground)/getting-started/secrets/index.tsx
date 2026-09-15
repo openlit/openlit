@@ -14,7 +14,7 @@ export default function SecretsGettingStarted({
         <h1 className="text-3xl font-semibold text-center mb-6 text-stone-800 dark:text-stone-200">
           {getMessage().GET_STARTED_WITH_VAULT}
         </h1>
-        <p className="text-center text-md mb-12 text-stone-500 dark:text-stone-500">
+        <p className="text-center text-md mb-12 text-stone-500 dark:text-stone-400">
           {getMessage().GET_STARTED_WITH_VAULT_DESCRIPTION}
         </p>
         <VaultHeader successCallback={successCallback} className="grid grid-cols-2 w-full items-center justify-center gap-6 mb-8 [&>*:first-child]:justify-self-end [&>*:nth-child(2)]:justify-self-start" />

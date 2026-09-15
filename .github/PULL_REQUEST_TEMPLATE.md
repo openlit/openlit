@@ -1,6 +1,7 @@
 > [!IMPORTANT]  
 > 1. We strictly follow a issue-first approach, please first open an [issue](https://github.com/openlit/openlit/issues) relating to this Pull Request.
-> 2. PR name follows conventional commit format: `feat: ...` or `fix: ....`
+> 2. PR title follows Conventional Commit format, for example `feat: ...` or
+>    `fix(client): ...`.
 
 **Issue number**:
 
@@ -10,7 +11,7 @@
 ### Checklist
 
 If your change doesn't seem to apply, please leave them unchecked.
-* [ ] PR name follows conventional commit format: `feat: ...` or `fix: ....`
+* [ ] PR title follows Conventional Commit format.
 * [ ] I have reviewed the [contributing guidelines](https://github.com/openlit/openlit/blob/main/CONTRIBUTING.md)
 * [ ] Have you checked to ensure there aren't other open [Pull Requests](https://github.com/openlit/openlit/pulls) for the same update/change?
 * [ ] I have performed a self-review of this change

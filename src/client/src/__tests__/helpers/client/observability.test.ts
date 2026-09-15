@@ -6,30 +6,39 @@ import { create } from "zustand";
 const createStore = () => create<any>()(withLenses({ filter: filterStoreSlice }));
 
 describe("prepareObservabilitySignalChange", () => {
-	it("clears transient grouping state without clearing selected filters", () => {
+	it("clears grouping, sorting, offset, and selected filters", () => {
 		const updateConfig = jest.fn();
 		const updateFilter = jest.fn();
+		const updateAttributeKeys = jest.fn();
 
-		prepareObservabilitySignalChange(updateConfig, updateFilter);
+		prepareObservabilitySignalChange(
+			updateConfig,
+			updateFilter,
+			updateAttributeKeys
+		);
 
 		expect(updateConfig).toHaveBeenCalledWith(undefined);
 		expect(updateFilter).toHaveBeenCalledWith("groupBy", null);
-		expect(updateFilter).not.toHaveBeenCalledWith(
+		expect(updateFilter).toHaveBeenCalledWith(
 			"selectedConfig",
-			expect.anything(),
-			expect.anything()
+			{},
+			{ clearFilter: true }
 		);
-		expect(updateFilter).not.toHaveBeenCalledWith(
-			"selectedConfig",
-			expect.anything()
-		);
+		expect(updateAttributeKeys).toHaveBeenCalledWith({
+			spanAttributeKeys: [],
+			resourceAttributeKeys: [],
+			logAttributeKeys: [],
+			scopeAttributeKeys: [],
+			metricAttributeKeys: [],
+		});
 	});
 
-	it("preserves selectedConfig when applied to the filter store", () => {
+	it("wipes selectedConfig so logs/metrics filters cannot leak across tabs", () => {
 		const store = createStore();
 
 		store.getState().filter.updateFilter("selectedConfig", {
-			models: ["gpt-4o-mini"],
+			metricNames: ["up"],
+			severities: ["error"],
 			services: ["api"],
 		});
 		store.getState().filter.updateFilter("groupBy", "serviceName");
@@ -39,30 +48,35 @@ describe("prepareObservabilitySignalChange", () => {
 			store.getState().filter.updateFilter
 		);
 
-		expect(store.getState().filter.details.selectedConfig).toEqual({
-			models: ["gpt-4o-mini"],
-			services: ["api"],
-		});
+		expect(store.getState().filter.details.selectedConfig).toEqual({});
 		expect(store.getState().filter.details.groupBy).toBeNull();
 	});
 
 	// E3: sort key applied on the previous tab gets reset so the
 	// new tab doesn't try to ORDER BY a column it doesn't have.
-	it("resets sorting and offset when changing signal", () => {
+	it("preserves agent scope fields when clearing signal filters", () => {
 		const store = createStore();
 
-		store.getState().filter.updateFilter("sorting", {
-			type: "Tokens",
-			direction: "asc",
+		store.getState().filter.updateFilter("selectedConfig", {
+			serviceNames: ["demo-openai-app"],
+			environments: ["production"],
+			metricNames: ["up"],
+			severities: ["error"],
 		});
-		store.getState().filter.updateFilter("offset", 50);
 
 		prepareObservabilitySignalChange(
 			store.getState().filter.updateConfig,
-			store.getState().filter.updateFilter
+			store.getState().filter.updateFilter,
+			undefined,
+			{
+				serviceNames: ["demo-openai-app"],
+				environments: ["production"],
+			}
 		);
 
-		expect(store.getState().filter.details.sorting).toEqual(DEFAULT_SORTING);
-		expect(store.getState().filter.details.offset).toBe(0);
+		expect(store.getState().filter.details.selectedConfig).toEqual({
+			serviceNames: ["demo-openai-app"],
+			environments: ["production"],
+		});
 	});
 });

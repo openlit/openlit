@@ -38,10 +38,117 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useDashboard } from "../context/dashboard-context";
 import QueryDebugger from "./query-debugger";
+import {
+	StructuredQueryBuilder,
+	type StructuredQueryValue,
+} from "./structured-query-builder";
 import { ColorSelector } from "./color-selector";
 import MarkdownWidgetComponent from "../widgets/markdown-widget";
 import { Tooltip, TooltipTrigger, TooltipPortal, TooltipContent } from "@/components/ui/tooltip";
 import { DEFAULT_PRIMARY_COLOR, SUPPORTED_WIDGETS } from "../constants";
+import {
+	WIDGET_DATA_SOURCE_LABEL,
+	WIDGET_DATA_SOURCE_BUILTIN,
+	WIDGET_DATA_SOURCE_EMPTY,
+	WIDGET_DATA_SOURCE_HINT,
+	WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED,
+	WIDGET_DATA_SOURCE_PROJECT_TRACES_HINT,
+	WIDGET_STRUCTURED_VIEW_GENERATED_QUERY,
+} from "@/constants/messages/en";
+import {
+	inferStructuredFromClickHouseSql,
+	inferredToStructuredQuery,
+	isLegacyOtelTracesSql,
+	openLITQueryToClickHouseSql,
+} from "@/lib/platform/manage-dashboard/widget-sql-bridge";
+import { useRootStore } from "@/store";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
+
+const BUILTIN_SOURCE_PREFIX = "builtin:";
+const DATABASE_CONNECTOR_PREFIX = "database:";
+
+interface TelemetrySourceOption {
+	id: string;
+	name: string;
+	type: string;
+	signals: string;
+	environment?: string;
+}
+
+interface SignalBindingOption {
+	sourceId: string;
+	sourceName: string;
+	sourceType: string;
+}
+
+interface TelemetrySourceTypeDescriptor {
+	type: string;
+	declaredSignals?: string[];
+	capabilities?: { serverAggregation?: boolean };
+}
+
+type Signal = "traces" | "logs" | "metrics";
+
+function parseSourceSignals(signals: string | undefined): Signal[] {
+	if (!signals) return ["traces", "logs", "metrics"];
+	return signals
+		.split(",")
+		.map((part) => part.trim())
+		.filter(
+			(part): part is Signal =>
+				part === "traces" || part === "logs" || part === "metrics"
+		);
+}
+
+function sourceServesSignal(
+	source: Pick<TelemetrySourceOption, "id" | "signals" | "type">,
+	signal: Signal
+): boolean {
+	if (
+		source.type === "clickhouse" ||
+		source.id.startsWith(BUILTIN_SOURCE_PREFIX)
+	) {
+		return true;
+	}
+	const declared = parseSourceSignals(source.signals);
+	return declared.length === 0 || declared.includes(signal);
+}
+
+function connectorToSourceOption(connector: {
+	id?: string;
+	name?: string;
+	type?: string;
+	signals?: string;
+	environment?: string;
+}): TelemetrySourceOption | null {
+	const type = String(connector.type || "");
+	const rawId = String(connector.id || "");
+	if (!rawId || !type) return null;
+	if (type === "clickhouse") {
+		const databaseConfigId = rawId.startsWith(DATABASE_CONNECTOR_PREFIX)
+			? rawId.slice(DATABASE_CONNECTOR_PREFIX.length)
+			: rawId;
+		if (!databaseConfigId) return null;
+		return {
+			id: `${BUILTIN_SOURCE_PREFIX}${databaseConfigId}`,
+			name: connector.name || WIDGET_DATA_SOURCE_BUILTIN,
+			type: "clickhouse",
+			signals: "traces,logs,metrics",
+			environment: connector.environment || "production",
+		};
+	}
+	const sourceId = rawId.startsWith("telemetry:")
+		? rawId.slice("telemetry:".length)
+		: rawId;
+	if (!sourceId) return null;
+	return {
+		id: sourceId,
+		name: connector.name || sourceId,
+		type,
+		signals: connector.signals || "traces,logs,metrics",
+		environment: connector.environment || "production",
+	};
+}
 
 interface NonMarkdownConfig {
 	query: string;
@@ -72,9 +179,292 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 	} = useEditWidget();
 
 	const { handleWidgetCrud, loadWidgetData } = useDashboard();
+	const currentEnvironment =
+		useRootStore(getCurrentProjectEnvironment) || "production";
 	const [queryResult, setQueryResult] = React.useState<any>(null);
 	const [queryError, setQueryError] = React.useState<string | null>(null);
 	const [isQueryLoading, setIsQueryLoading] = React.useState(false);
+	const [sources, setSources] = React.useState<TelemetrySourceOption[]>([]);
+	const [typeDescriptors, setTypeDescriptors] = React.useState<
+		TelemetrySourceTypeDescriptor[]
+	>([]);
+	const [bindingBySignal, setBindingBySignal] = React.useState<
+		Partial<Record<Signal, SignalBindingOption>>
+	>({});
+	const [showGeneratedQuery, setShowGeneratedQuery] = React.useState(false);
+	const inferredForWidgetRef = React.useRef<string | null>(null);
+	const autoSelectedWidgetRef = React.useRef<string | null>(null);
+
+	useEffect(() => {
+		let active = true;
+		const params = new URLSearchParams({ environment: currentEnvironment });
+		Promise.all([
+			fetch(`/api/connectors`).then((r) => (r.ok ? r.json() : null)),
+			fetch(`/api/telemetry-source?${params.toString()}`).then((r) =>
+				r.ok ? r.json() : null
+			),
+			fetch(`/api/telemetry-source/binding?${params.toString()}`).then((r) =>
+				r.ok ? r.json() : null
+			),
+		])
+			.then(([connectorsJson, sourcesJson, bindingsJson]) => {
+				if (!active) return;
+				const fromConnectors = Array.isArray(connectorsJson?.connectors)
+					? (connectorsJson.connectors as Array<Record<string, string>>)
+							.map((connector) => connectorToSourceOption(connector))
+							.filter((option): option is TelemetrySourceOption => !!option)
+					: [];
+				const fromSources = Array.isArray(sourcesJson?.sources)
+					? (sourcesJson.sources as TelemetrySourceOption[])
+					: [];
+				const merged = new Map<string, TelemetrySourceOption>();
+				for (const option of [...fromConnectors, ...fromSources]) {
+					merged.set(option.id, option);
+				}
+				setSources(Array.from(merged.values()));
+				if (sourcesJson?.availableTypeDescriptors) {
+					setTypeDescriptors(
+						sourcesJson.availableTypeDescriptors as TelemetrySourceTypeDescriptor[]
+					);
+				} else if (connectorsJson?.availableTypeDescriptors) {
+					setTypeDescriptors(
+						connectorsJson.availableTypeDescriptors as TelemetrySourceTypeDescriptor[]
+					);
+				}
+				const bindings = Array.isArray(bindingsJson?.bindings)
+					? (bindingsJson.bindings as Array<{
+							signal?: string;
+							sourceId?: string;
+							sourceName?: string | null;
+							sourceType?: string | null;
+						}>)
+					: [];
+				const nextBindings: Partial<Record<Signal, SignalBindingOption>> = {};
+				for (const binding of bindings) {
+					if (
+						(binding.signal === "traces" ||
+							binding.signal === "logs" ||
+							binding.signal === "metrics") &&
+						binding.sourceId
+					) {
+						nextBindings[binding.signal] = {
+							sourceId: binding.sourceId,
+							sourceName:
+								binding.sourceName ||
+								(binding.sourceType === "clickhouse"
+									? WIDGET_DATA_SOURCE_BUILTIN
+									: binding.sourceId),
+							sourceType: binding.sourceType || "clickhouse",
+						};
+					}
+				}
+				setBindingBySignal(nextBindings);
+			})
+			.catch(() => {});
+		return () => {
+			active = false;
+		};
+	}, [currentEnvironment]);
+
+	const currentConfig = (currentWidget?.config || {}) as Record<string, any>;
+	const selectedSignal = (
+		currentConfig.structuredQuery?.query?.signal ||
+		currentConfig.signal ||
+		"traces"
+	) as Signal;
+
+	const environmentSources = React.useMemo(() => {
+		const merged = new Map<string, TelemetrySourceOption>();
+		for (const source of sources) {
+			if ((source.environment || "production") !== currentEnvironment) continue;
+			merged.set(source.id, source);
+		}
+		// Always surface the project routers so the Select can show the bound value.
+		for (const binding of Object.values(bindingBySignal)) {
+			if (!binding?.sourceId || merged.has(binding.sourceId)) continue;
+			merged.set(binding.sourceId, {
+				id: binding.sourceId,
+				name: binding.sourceName,
+				type: binding.sourceType,
+				signals: "traces,logs,metrics",
+				environment: currentEnvironment,
+			});
+		}
+		return Array.from(merged.values());
+	}, [bindingBySignal, currentEnvironment, sources]);
+
+	const signalSourceOptions = React.useMemo(
+		() =>
+			environmentSources.filter((source) =>
+				sourceServesSignal(source, selectedSignal)
+			),
+		[environmentSources, selectedSignal]
+	);
+
+	const bindingSourceId = bindingBySignal[selectedSignal]?.sourceId || null;
+	const configuredSourceId =
+		typeof currentConfig.sourceId === "string" && currentConfig.sourceId
+			? currentConfig.sourceId
+			: null;
+	const preferredSourceId =
+		configuredSourceId ||
+		bindingSourceId ||
+		signalSourceOptions[0]?.id ||
+		"";
+	const selectedSourceId = signalSourceOptions.some(
+		(option) => option.id === preferredSourceId
+	)
+		? preferredSourceId
+		: signalSourceOptions[0]?.id || "";
+	const selectedSource =
+		signalSourceOptions.find((s) => s.id === selectedSourceId) ||
+		environmentSources.find((s) => s.id === selectedSourceId);
+	const isExternalSource =
+		!!selectedSource && selectedSource.type !== "clickhouse";
+	const usesProjectExternalTraces =
+		selectedSignal === "traces" &&
+		isExternalSource &&
+		typeof currentConfig.query === "string" &&
+		/\botel_traces\b/i.test(currentConfig.query) &&
+		!/\bopenlit_evaluation\b/i.test(currentConfig.query);
+	const hasStructuredQuery = !!currentConfig.structuredQuery;
+	const isOtelTracesSql =
+		typeof currentConfig.query === "string" &&
+		isLegacyOtelTracesSql(currentConfig.query);
+	const showStructuredBuilder =
+		isExternalSource ||
+		usesProjectExternalTraces ||
+		hasStructuredQuery ||
+		isOtelTracesSql ||
+		(!currentConfig.query && selectedSource?.type === "clickhouse");
+	const selectedTypeDescriptor = selectedSource
+		? typeDescriptors.find((d) => d.type === selectedSource.type)
+		: undefined;
+	// Each signal can be routed to a different datasource. Keep all three in
+	// the builder; changing signal immediately resolves that signal's binding.
+	const sourceSignals: Signal[] = ["traces", "logs", "metrics"];
+	const sourceSupportsAggregation =
+		selectedTypeDescriptor?.capabilities?.serverAggregation !== false ||
+		usesProjectExternalTraces ||
+		selectedSource?.type === "clickhouse" ||
+		!selectedSource;
+	const structuredValue: StructuredQueryValue | undefined =
+		currentConfig.structuredQuery
+			? {
+					mode: currentConfig.structuredQuery.mode || "timeseries",
+					query: currentConfig.structuredQuery.query || {},
+					draftFilters: currentConfig.structuredQuery
+						.draftFilters as StructuredQueryValue["draftFilters"],
+				}
+			: undefined;
+
+	const resolveSourceForSignal = React.useCallback(
+		(signal: Signal) =>
+			bindingBySignal[signal]?.sourceId ||
+			environmentSources.find((option) => sourceServesSignal(option, signal))
+				?.id ||
+			null,
+		[bindingBySignal, environmentSources]
+	);
+
+	const handleSourceChange = (nextSourceId: string) => {
+		if (!currentWidget) return;
+		updateWidget(currentWidget.id, {
+			config: {
+				...currentConfig,
+				sourceId: nextSourceId || null,
+				signal: selectedSignal,
+			},
+		});
+	};
+
+	// Reset auto-select tracking when switching widgets, then apply the
+	// project router for the current signal when the panel has no source yet.
+	React.useEffect(() => {
+		autoSelectedWidgetRef.current = null;
+	}, [currentWidget?.id]);
+
+	React.useEffect(() => {
+		if (!currentWidget || currentWidget.type === WidgetType.MARKDOWN) return;
+		if (autoSelectedWidgetRef.current === currentWidget.id) return;
+		if (configuredSourceId) {
+			autoSelectedWidgetRef.current = currentWidget.id;
+			return;
+		}
+		const defaultSourceId = resolveSourceForSignal(selectedSignal);
+		if (!defaultSourceId) return;
+		autoSelectedWidgetRef.current = currentWidget.id;
+		updateWidget(currentWidget.id, {
+			config: {
+				...currentConfig,
+				sourceId: defaultSourceId,
+				signal: selectedSignal,
+			},
+		});
+	}, [
+		configuredSourceId,
+		currentConfig,
+		currentWidget,
+		resolveSourceForSignal,
+		selectedSignal,
+		updateWidget,
+	]);
+
+	// Seed builder from legacy ClickHouse SQL when opening a seeded LLM widget.
+	React.useEffect(() => {
+		if (!currentWidget || currentWidget.type === WidgetType.MARKDOWN) return;
+		if (inferredForWidgetRef.current === currentWidget.id) return;
+		inferredForWidgetRef.current = currentWidget.id;
+		if (currentConfig.structuredQuery) return;
+		if (
+			typeof currentConfig.query !== "string" ||
+			!isLegacyOtelTracesSql(currentConfig.query)
+		) {
+			return;
+		}
+		const inferred = inferStructuredFromClickHouseSql(currentConfig.query);
+		if (!inferred) return;
+		const structured = inferredToStructuredQuery(inferred);
+		updateWidget(currentWidget.id, {
+			config: {
+				...currentConfig,
+				signal: "traces",
+				structuredQuery: structured,
+			},
+		});
+	}, [currentWidget?.id]);
+
+	const generatedQueryPreview = React.useMemo(() => {
+		if (!structuredValue) return "";
+		if (isExternalSource || usesProjectExternalTraces) {
+			return JSON.stringify(structuredValue, null, 2);
+		}
+		return openLITQueryToClickHouseSql(
+			structuredValue.query as any,
+			structuredValue.mode
+		);
+	}, [structuredValue, isExternalSource, usesProjectExternalTraces]);
+
+	const handleStructuredChange = (next: StructuredQueryValue) => {
+		if (!currentWidget) return;
+		const nextSignal = (next.query.signal as Signal) || "traces";
+		// Signal owns the router: always follow that signal's project binding
+		// so the two dropdowns don't fight each other.
+		const nextSourceId = resolveSourceForSignal(nextSignal);
+
+		updateWidget(currentWidget.id, {
+			config: {
+				...currentConfig,
+				sourceId: nextSourceId,
+				signal: nextSignal,
+				structuredQuery: {
+					mode: next.mode,
+					query: next.query,
+					draftFilters: next.draftFilters,
+				},
+			},
+		});
+	};
 
 	// if (!currentWidget) return null;
 
@@ -109,12 +499,25 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 	};
 
 	const handleRunQuery = async () => {
-		if (currentWidget?.type !== WidgetType.MARKDOWN && currentWidget?.config && 'query' in currentWidget.config) {
+		const cfg = (currentWidget?.config || {}) as Record<string, any>;
+		if (
+			currentWidget?.type !== WidgetType.MARKDOWN &&
+			currentWidget?.config &&
+			("query" in currentWidget.config || "structuredQuery" in currentWidget.config)
+		) {
 			setIsQueryLoading(true);
 			setQueryError(null);
 			try {
+				const useStructured =
+					!!cfg.structuredQuery &&
+					(isExternalSource ||
+						usesProjectExternalTraces ||
+						showStructuredBuilder);
 				const result = await runQuery(currentWidget.id, {
-					userQuery: (currentWidget.config as NonMarkdownConfig).query,
+					userQuery: useStructured ? undefined : cfg.query,
+					structuredQuery: useStructured ? cfg.structuredQuery : undefined,
+					signal: cfg.signal || selectedSignal,
+					sourceId: cfg.sourceId || selectedSourceId || null,
 				});
 				setQueryResult(result.data);
 				setQueryError(result.err);
@@ -558,22 +961,122 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 									{currentWidget.type !== WidgetType.MARKDOWN ? (
 										<>
 											<div className="space-y-2">
-												<div className="flex justify-between items-center">
-													<Label htmlFor="query" className="text-stone-900 dark:text-white">Query</Label>
-												</div>
-												<div className="border rounded-md h-[calc(100vh-400px)] bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
-													<CodeEditor
-														value={currentWidget.config && 'query' in currentWidget.config ? (currentWidget.config as NonMarkdownConfig).query : ""}
-														onChange={handleEditorChange}
-														language={editorLanguage}
-													/>
-												</div>
+												<Label
+													htmlFor="widget-source"
+													className="text-stone-900 dark:text-white"
+												>
+													{WIDGET_DATA_SOURCE_LABEL}
+												</Label>
+												{signalSourceOptions.length > 0 ? (
+													<Select
+														value={selectedSourceId || undefined}
+														onValueChange={handleSourceChange}
+													>
+														<SelectTrigger
+															id="widget-source"
+															className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700 dark:text-white"
+														>
+															<SelectValue
+																placeholder={WIDGET_DATA_SOURCE_LABEL}
+															/>
+														</SelectTrigger>
+														<SelectContent>
+															{signalSourceOptions.map((source) => (
+																<SelectItem key={source.id} value={source.id}>
+																	{source.name} ({source.type})
+																</SelectItem>
+															))}
+														</SelectContent>
+													</Select>
+												) : (
+													<div className="rounded-md border border-dashed border-stone-300 px-3 py-2 text-sm text-stone-500 dark:border-stone-700 dark:text-stone-400">
+														{WIDGET_DATA_SOURCE_EMPTY}
+													</div>
+												)}
+												<p className="text-xs text-stone-500 dark:text-stone-400">
+													{WIDGET_DATA_SOURCE_HINT}
+												</p>
+												{isExternalSource && (
+													<p className="text-xs text-stone-500 dark:text-stone-400 flex items-start gap-1">
+														<Info className="h-3 w-3 mt-0.5 shrink-0" />
+														{WIDGET_DATA_SOURCE_EXTERNAL_SQL_DISABLED}
+													</p>
+												)}
+												{usesProjectExternalTraces && selectedSource && (
+													<p className="text-xs text-stone-500 dark:text-stone-400 flex items-start gap-1">
+														<Info className="h-3 w-3 mt-0.5 shrink-0" />
+														{WIDGET_DATA_SOURCE_PROJECT_TRACES_HINT(
+															selectedSource.name,
+															selectedSource.type
+														)}
+													</p>
+												)}
 											</div>
+
+											{showStructuredBuilder ? (
+												<div className="space-y-3">
+													<StructuredQueryBuilder
+														signals={sourceSignals}
+														supportsAggregation={sourceSupportsAggregation}
+														capabilityAware={
+															isExternalSource || usesProjectExternalTraces
+														}
+														sourceId={
+															selectedSourceId &&
+															!selectedSourceId.startsWith(BUILTIN_SOURCE_PREFIX)
+																? selectedSourceId
+																: undefined
+														}
+														value={structuredValue}
+														onChange={handleStructuredChange}
+													/>
+													<label className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
+														<input
+															type="checkbox"
+															checked={showGeneratedQuery}
+															onChange={(e) =>
+																setShowGeneratedQuery(e.target.checked)
+															}
+															className="rounded border-stone-300 dark:border-stone-600"
+														/>
+														{WIDGET_STRUCTURED_VIEW_GENERATED_QUERY}
+													</label>
+													{showGeneratedQuery && (
+														<div className="border rounded-md h-48 bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
+															<CodeEditor
+																value={generatedQueryPreview}
+																onChange={() => {}}
+																language={
+																	isExternalSource || usesProjectExternalTraces
+																		? "json"
+																		: editorLanguage
+																}
+																readOnly={true}
+															/>
+														</div>
+													)}
+												</div>
+											) : (
+												<div className="space-y-2">
+													<div className="flex justify-between items-center">
+														<Label htmlFor="query" className="text-stone-900 dark:text-white">Query</Label>
+													</div>
+													<div className="border rounded-md h-[calc(100vh-400px)] bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
+														<CodeEditor
+															value={currentWidget.config && 'query' in currentWidget.config ? (currentWidget.config as NonMarkdownConfig).query : ""}
+															onChange={handleEditorChange}
+															language={editorLanguage}
+															readOnly={false}
+														/>
+													</div>
+												</div>
+											)}
 
 											<div className="flex justify-end">
 												<Button
 													size="sm"
 													onClick={handleRunQuery}
+													disabled={showStructuredBuilder && !hasStructuredQuery && !structuredValue}
 													className="bg-primary hover:bg-primary/90 text-white"
 												>
 													Run Query

@@ -1,6 +1,7 @@
 import { getAgent } from "@/lib/platform/agents";
 import { getLatestVersion } from "@/lib/platform/agents/snapshot";
 import { withCacheHeaders } from "../../_cache";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 /**
  * Returns the agent + its latest version. Backed by `getAgent` and
@@ -10,7 +11,7 @@ import { withCacheHeaders } from "../../_cache";
  * `getAgent` directly. Both routes now share `agents:detail:*` so an
  * invalidation on materialize / click reflects in both views together.
  */
-export async function GET(
+async function GETHandler(
 	_request: Request,
 	{ params }: { params: Promise<{ agentKey: string }> }
 ) {
@@ -24,3 +25,5 @@ export async function GET(
 	}
 	return withCacheHeaders({ data: { agent, version } }, "detail");
 }
+
+export const GET = withRouteAccess("observability.read", GETHandler, { requireDbConfig: true });

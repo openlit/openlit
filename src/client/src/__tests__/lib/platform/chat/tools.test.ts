@@ -3,6 +3,10 @@ jest.mock("ai", () => ({
 	jsonSchema: jest.fn((schema) => schema),
 }));
 
+const mockGetLogs = jest.fn();
+const mockListMetricRecords = jest.fn();
+const mockResolveSignalSource = jest.fn();
+
 import { TextDecoder, TextEncoder } from "util";
 
 Object.assign(global, { TextDecoder, TextEncoder });
@@ -56,8 +60,48 @@ jest.mock("@/lib/platform/chat/improvement", () => ({
 	streamTraceImprovementAnalysis: jest.fn(),
 }));
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: jest.fn(),
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+	};
+});
+
+jest.mock("@/lib/platform/traces/read", () => ({
+	listTraceRecords: jest.fn(),
+}));
+
+jest.mock("@/lib/platform/logs/read", () => ({
+	getLogs: (...args: unknown[]) => mockGetLogs(...args),
+}));
+
+jest.mock("@/lib/platform/metrics/read", () => ({
+	listMetricRecords: (...args: unknown[]) => mockListMetricRecords(...args),
+}));
+
+jest.mock("@/lib/telemetry-source", () => ({
+	resolveSignalSource: (...args: unknown[]) => mockResolveSignalSource(...args),
+}));
+
+const mockQueryProjectMemories = jest.fn();
+const mockAddProjectMemories = jest.fn();
+const mockUpdateProjectMemory = jest.fn();
+const mockDeleteProjectMemory = jest.fn();
+const mockRequireMemoryAccess = jest.fn().mockResolvedValue(undefined);
+const mockRecordMemoryMutationAudit = jest.fn().mockResolvedValue(undefined);
+jest.mock("@/lib/platform/connectors/memory/read", () => ({
+	queryProjectMemories: (...args: unknown[]) => mockQueryProjectMemories(...args),
+}));
+jest.mock("@/lib/platform/connectors/memory/write", () => ({
+	addProjectMemories: (...args: unknown[]) => mockAddProjectMemories(...args),
+	updateProjectMemory: (...args: unknown[]) => mockUpdateProjectMemory(...args),
+	deleteProjectMemory: (...args: unknown[]) => mockDeleteProjectMemory(...args),
+}));
+jest.mock("@/lib/access/memory-route", () => ({
+	requireMemoryAccess: (...args: unknown[]) => mockRequireMemoryAccess(...args),
+	recordMemoryMutationAudit: (...args: unknown[]) =>
+		mockRecordMemoryMutationAudit(...args),
 }));
 
 jest.mock("@/utils/sanitizer", () => ({
@@ -69,6 +113,7 @@ jest.mock("@/utils/sanitizer", () => ({
 
 import { getChatTools } from "@/lib/platform/chat/tools";
 import {
+	addConditionGroupsToRule,
 	addRuleEntity,
 	createRule,
 	deleteRule,
@@ -94,6 +139,7 @@ import {
 	updateCustomModel,
 } from "@/lib/platform/providers/models-service";
 import { dataCollector } from "@/lib/platform/common";
+import { listTraceRecords } from "@/lib/platform/traces/read";
 import {
 	getTraceImprovement,
 	streamTraceImprovementAnalysis,
@@ -120,6 +166,8 @@ function ndjsonResponse(payload: string) {
 describe("getChatTools", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		mockRequireMemoryAccess.mockResolvedValue(undefined);
+		mockRecordMemoryMutationAudit.mockResolvedValue(undefined);
 	});
 
 	it("builds the expected tool set", () => {
@@ -139,6 +187,13 @@ describe("getChatTools", () => {
 				"get_trace_analysis",
 				"analyze_trace_batch",
 				"analyze_traces_by_attribute",
+				"get_telemetry_routing",
+				"query_telemetry",
+				"list_memories",
+				"search_memories",
+				"add_memory",
+				"update_memory",
+				"delete_memory",
 			])
 		);
 		expect(tools.create_rule.inputSchema.required).toEqual(["name"]);
@@ -146,6 +201,50 @@ describe("getChatTools", () => {
 			"key",
 			"value",
 		]);
+	});
+
+	it("reads Otter trace telemetry through the selected-source facade", async () => {
+		(listTraceRecords as jest.Mock).mockResolvedValue({
+			err: null,
+			records: [{ TraceId: "tempo-trace", SpanId: "tempo-span" }],
+			total: 1,
+		});
+		const tools = getChatTools("user-1", "db-1", "production") as any;
+
+		const result = await tools.query_telemetry.execute({
+			signal: "traces",
+			limit: 5,
+		});
+
+		expect(result).toMatchObject({ success: true, signal: "traces", total: 1 });
+		expect(listTraceRecords).toHaveBeenCalledWith(
+			expect.objectContaining({ environment: "production", limit: 5 })
+		);
+		expect(dataCollector).not.toHaveBeenCalled();
+	});
+
+	it("reports Tempo as Otter's routed trace connector", async () => {
+		mockResolveSignalSource.mockImplementation(async (signal: string) => ({
+			hasSource: true,
+			via: "binding",
+			descriptor: {
+				name: signal === "traces" ? "Production Tempo" : "ClickHouse",
+				type: signal === "traces" ? "tempo" : "clickhouse",
+				isBuiltIn: signal !== "traces",
+				environment: "production",
+			},
+		}));
+		const tools = getChatTools("user-1", "db-1", "production") as any;
+
+		const result = await tools.get_telemetry_routing.execute({});
+
+		expect(result.routing).toContainEqual(
+			expect.objectContaining({
+				signal: "traces",
+				connector: "Production Tempo",
+				connectorType: "tempo",
+			})
+		);
 	});
 
 	it("creates a rule and adds condition groups when provided", async () => {
@@ -163,12 +262,15 @@ describe("getChatTools", () => {
 				message: "Rule created",
 			})
 		);
-		expect(createRule).toHaveBeenCalledWith({
-			name: "Latency rule",
-			description: "",
-			group_operator: "AND",
-			status: "ACTIVE",
-		});
+		expect(createRule).toHaveBeenCalledWith(
+			{
+				name: "Latency rule",
+				description: "",
+				group_operator: "AND",
+				status: "ACTIVE",
+			},
+			{ databaseConfigId: "db-1" }
+		);
 	});
 
 	it("returns rule operation errors without throwing", async () => {
@@ -288,17 +390,24 @@ describe("getChatTools", () => {
 			entities: [{ id: "entity-1" }],
 		});
 
-		expect(updateRule).toHaveBeenCalledWith("rule-1", {
-			name: "Updated",
-			description: undefined,
-			group_operator: undefined,
-			status: undefined,
-		});
-		expect(addRuleEntity).toHaveBeenCalledWith({
-			rule_id: "rule-1",
-			entity_type: "context",
-			entity_id: "ctx-1",
-		});
+		expect(updateRule).toHaveBeenCalledWith(
+			"rule-1",
+			{
+				name: "Updated",
+				description: undefined,
+				group_operator: undefined,
+				status: undefined,
+			},
+			{ databaseConfigId: "db-1" }
+		);
+		expect(addRuleEntity).toHaveBeenCalledWith(
+			{
+				rule_id: "rule-1",
+				entity_type: "context",
+				entity_id: "ctx-1",
+			},
+			{ databaseConfigId: "db-1" }
+		);
 	});
 
 	it("executes context tools and serializes tags", async () => {
@@ -626,8 +735,12 @@ describe("getChatTools", () => {
 	});
 
 	it("analyzes traces by span attribute and returns trace refs", async () => {
-		(dataCollector as jest.Mock).mockResolvedValue({
-			data: [{ traceId: "trace-abc", spanId: "span-abc", spanCount: 3 }],
+		(listTraceRecords as jest.Mock).mockResolvedValue({
+			records: [
+				{ TraceId: "trace-abc", SpanId: "span-abc" },
+				{ TraceId: "trace-abc", SpanId: "span-def" },
+				{ TraceId: "trace-abc", SpanId: "span-ghi" },
+			],
 			err: null,
 		});
 		(getTraceImprovement as jest.Mock).mockResolvedValue({
@@ -677,16 +790,756 @@ describe("getChatTools", () => {
 			attribute_value: "session-1",
 		});
 
-		expect(dataCollector).toHaveBeenCalledWith(
-			expect.objectContaining({
-				query: expect.stringContaining("SpanAttributes['session.id'] = 'session-1'"),
-				enable_readonly: true,
-			}),
-			"query",
-			"db-1"
-		);
+		expect(listTraceRecords).toHaveBeenCalledWith(expect.objectContaining({
+			selectedConfig: {
+				customFilters: [{ key: "session.id", value: "session-1", scope: "span" }],
+			},
+		}));
 		expect(result.success).toBe(true);
 		expect(result.details).toContain("```trace-refs");
 		expect(result.matchedTraceCount).toBe(1);
+	});
+
+	it("returns create_rule errors and skips condition groups when none are provided", async () => {
+		(createRule as jest.Mock)
+			.mockResolvedValueOnce({ id: "rule-2" })
+			.mockRejectedValueOnce(new Error("create failed"));
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		await expect(
+			tools.create_rule.execute({ name: "Simple", status: "INACTIVE" })
+		).resolves.toEqual(
+			expect.objectContaining({
+				success: true,
+				details: expect.stringContaining("Conditions: 0 groups"),
+			})
+		);
+		expect(addConditionGroupsToRule).not.toHaveBeenCalled();
+
+		await expect(tools.create_rule.execute({ name: "Bad" })).resolves.toEqual({
+			success: false,
+			error: "create failed",
+		});
+	});
+
+	it("covers remaining rule/context/prompt/vault error and success branches", async () => {
+		(getRules as jest.Mock).mockResolvedValue({
+			data: [{ id: "r1", name: "Rule", status: "ACTIVE", description: "d" }],
+			err: null,
+		});
+		(getRuleById as jest.Mock).mockResolvedValue({ err: "missing rule" });
+		(deleteRuleEntity as jest.Mock).mockResolvedValue(["unlink failed"]);
+		(getRuleEntities as jest.Mock).mockResolvedValue({ err: "entities failed" });
+		(deleteContext as jest.Mock).mockResolvedValue(["ctx delete failed"]);
+		(getContexts as jest.Mock).mockRejectedValue(new Error("contexts boom"));
+		(upsertPromptVersion as jest.Mock).mockResolvedValue(undefined);
+		(getPromptDetails as jest.Mock).mockResolvedValue({
+			data: [
+				{
+					promptId: "prompt-1",
+					versionId: "v1",
+					name: "p",
+					version: "1.0.0",
+					status: "DRAFT",
+					tags: [],
+					prompt: "hi",
+				},
+			],
+			err: null,
+		});
+		(deletePrompt as jest.Mock).mockResolvedValue(["prompt delete failed"]);
+		(getPrompts as jest.Mock).mockResolvedValue({ err: "prompts failed" });
+		(deleteSecret as jest.Mock).mockResolvedValue(["secret delete failed"]);
+		(getSecrets as jest.Mock).mockResolvedValue({ err: "secrets failed" });
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		await expect(tools.list_rules.execute({})).resolves.toEqual({
+			success: true,
+			count: 1,
+			rules: [{ id: "r1", name: "Rule", status: "ACTIVE", description: "d" }],
+		});
+		await expect(tools.get_rule.execute({ id: "missing" })).resolves.toEqual({
+			success: false,
+			error: "missing rule",
+		});
+		await expect(
+			tools.unlink_entity_from_rule.execute({ id: "link-1" })
+		).resolves.toEqual({ success: false, error: "unlink failed" });
+		await expect(
+			tools.list_rule_entities.execute({ rule_id: "r1" })
+		).resolves.toEqual({ success: false, error: "entities failed" });
+		await expect(tools.delete_context.execute({ id: "ctx" })).resolves.toEqual({
+			success: false,
+			error: "ctx delete failed",
+		});
+		await expect(tools.list_contexts.execute({})).resolves.toEqual({
+			success: false,
+			error: "contexts boom",
+		});
+		await expect(
+			tools.update_prompt_version.execute({
+				prompt_id: "prompt-1",
+				version: "2.0.0",
+			})
+		).resolves.toEqual(
+			expect.objectContaining({
+				success: true,
+				message: "New prompt version created",
+			})
+		);
+		await expect(
+			tools.get_prompt.execute({ prompt_id: "prompt-1", version: "1.0.0" })
+		).resolves.toEqual(expect.objectContaining({ success: true }));
+		expect(getPromptDetails).toHaveBeenCalledWith("prompt-1", { version: "1.0.0" });
+		await expect(tools.delete_prompt.execute({ id: "prompt-1" })).resolves.toEqual({
+			success: false,
+			error: "prompt delete failed",
+		});
+		await expect(tools.list_prompts.execute({})).resolves.toEqual({
+			success: false,
+			error: "prompts failed",
+		});
+		await expect(tools.delete_vault_secret.execute({ id: "s1" })).resolves.toEqual({
+			success: false,
+			error: "secret delete failed",
+		});
+		await expect(tools.list_vault_secrets.execute({})).resolves.toEqual({
+			success: false,
+			error: "secrets failed",
+		});
+	});
+
+	it("covers custom model error returns and alert tool passthrough", async () => {
+		(createCustomModel as jest.Mock).mockResolvedValue({ err: "create model failed" });
+		(updateCustomModel as jest.Mock).mockResolvedValue({ err: "update model failed" });
+		(deleteCustomModel as jest.Mock).mockResolvedValue({ err: "delete model failed" });
+		(getCustomModels as jest.Mock).mockResolvedValue({ err: "list models failed" });
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		await expect(
+			tools.create_custom_model.execute({
+				provider: "openai",
+				model_id: "m",
+				display_name: "M",
+			})
+		).resolves.toEqual({ success: false, error: "create model failed" });
+		await expect(
+			tools.update_custom_model.execute({ id: "model-1" })
+		).resolves.toEqual({ success: false, error: "update model failed" });
+		await expect(
+			tools.delete_custom_model.execute({ id: "model-1" })
+		).resolves.toEqual({ success: false, error: "delete model failed" });
+		await expect(tools.list_custom_models.execute({})).resolves.toEqual({
+			success: false,
+			error: "list models failed",
+		});
+
+		await expect(tools.create_alert.execute({ name: "A" })).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(tools.list_alerts.execute({})).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(tools.get_alert.execute({ id: "a1" })).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(
+			tools.update_alert.execute({ id: "a1", name: "B" })
+		).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(tools.delete_alert.execute({ id: "a1" })).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(
+			tools.create_alert_destination.execute({
+				name: "Slack",
+				providerType: "slack",
+				config: {},
+			})
+		).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(tools.list_alert_destinations.execute({})).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(tools.get_alert_destination.execute({ id: "d1" })).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(
+			tools.update_alert_destination.execute({ id: "d1", name: "X" })
+		).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(tools.delete_alert_destination.execute({ id: "d1" })).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(tools.test_alert.execute({ id: "a1" })).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+		await expect(tools.test_alert_destination.execute({ id: "d1" })).resolves.toEqual({
+			success: false,
+			error: "Alerting is not available in this edition.",
+		});
+	});
+
+	it("reruns analyze_trace and handles stream failure paths", async () => {
+		const tools = getChatTools("user-1", "db-1") as any;
+		const run = {
+			id: "run-2",
+			rootSpanId: "span-1",
+			selectedSpanId: "span-1",
+			runNumber: 2,
+			analysisJson: "{not-json",
+			summary: "",
+			modelProvider: "openai",
+			modelName: "gpt-4o",
+			promptTokens: 1,
+			completionTokens: 1,
+			cost: 0,
+			worstSeverity: "",
+			createdAt: "2026-01-01T00:00:00.000Z",
+		};
+
+		(streamTraceImprovementAnalysis as jest.Mock).mockResolvedValueOnce({
+			response: ndjsonResponse(
+				`${JSON.stringify({
+					type: "done",
+					data: { rootSpanId: "span-1", runs: [run] },
+				})}\n`
+			),
+		});
+		await expect(
+			tools.analyze_trace.execute({
+				span_id: "span-1",
+				scope: "span",
+				rerun: true,
+			})
+		).resolves.toEqual(
+			expect.objectContaining({
+				success: true,
+				existing: false,
+				message: "Span analysis completed",
+			})
+		);
+		expect(getTraceImprovement).not.toHaveBeenCalled();
+
+		(streamTraceImprovementAnalysis as jest.Mock).mockResolvedValueOnce({
+			err: "stream start failed",
+		});
+		await expect(
+			tools.analyze_trace.execute({ span_id: "span-1", rerun: true })
+		).resolves.toEqual({
+			success: false,
+			error: "stream start failed",
+		});
+
+		(streamTraceImprovementAnalysis as jest.Mock).mockResolvedValueOnce({
+			response: ndjsonResponse(
+				`${JSON.stringify({ type: "error", error: "model failed" })}\n`
+			),
+		});
+		await expect(
+			tools.analyze_trace.execute({ span_id: "span-1", rerun: true })
+		).resolves.toEqual({
+			success: false,
+			error: "model failed",
+		});
+
+		(streamTraceImprovementAnalysis as jest.Mock).mockResolvedValueOnce({
+			response: { body: null },
+		});
+		await expect(
+			tools.analyze_trace.execute({ span_id: "span-1", rerun: true })
+		).resolves.toEqual({
+			success: false,
+			error: "Trace analysis stream did not return a body",
+		});
+
+		(streamTraceImprovementAnalysis as jest.Mock).mockResolvedValueOnce({
+			response: ndjsonResponse(`${JSON.stringify({ type: "step", label: "x" })}\n`),
+		});
+		await expect(
+			tools.analyze_trace.execute({ span_id: "span-1", rerun: true })
+		).resolves.toEqual({
+			success: false,
+			error: "Trace analysis finished without a result",
+		});
+
+		(streamTraceImprovementAnalysis as jest.Mock).mockResolvedValueOnce({
+			response: ndjsonResponse(
+				`${JSON.stringify({
+					type: "done",
+					data: { rootSpanId: "span-1", runs: [] },
+				})}\n`
+			),
+		});
+		await expect(
+			tools.analyze_trace.execute({ span_id: "span-1", rerun: true })
+		).resolves.toEqual({
+			success: false,
+			error: "Trace analysis completed without a saved run",
+		});
+	});
+
+	it("returns existing span analysis and get_trace_analysis branches", async () => {
+		const tools = getChatTools("user-1", "db-1") as any;
+		(getTraceImprovement as jest.Mock).mockResolvedValueOnce({
+			err: "lookup failed",
+		});
+		await expect(
+			tools.analyze_trace.execute({ span_id: "span-1" })
+		).resolves.toEqual({ success: false, error: "lookup failed" });
+
+		(getTraceImprovement as jest.Mock).mockResolvedValueOnce({
+			data: {
+				rootSpanId: "span-child",
+				runs: [
+					{
+						id: "run-1",
+						rootSpanId: "span-child",
+						selectedSpanId: "span-child",
+						analysisType: "span_analysis",
+						runNumber: 1,
+						analysisJson: JSON.stringify({
+							traceId: "t-1",
+							summary: "Span ok",
+							strengths: [{}],
+							improvements: [],
+							wrong_turns: [],
+							cost: [],
+							token_efficiency: [],
+							path_analysis: [],
+							totals: { span_count: 1 },
+						}),
+						summary: "",
+						modelProvider: "openai",
+						modelName: "gpt-4o",
+						promptTokens: 1,
+						completionTokens: 1,
+						cost: 0,
+						worstSeverity: "info",
+						createdAt: "2026-01-01T00:00:00.000Z",
+					},
+				],
+			},
+		});
+		const existing = await tools.analyze_trace.execute({
+			span_id: "span-child",
+			scope: "span",
+		});
+		expect(existing).toEqual(
+			expect.objectContaining({
+				success: true,
+				existing: true,
+				message: "Existing span analysis found",
+			})
+		);
+		expect(existing.analysis.dimensionCounts.strengths).toBe(1);
+		expect(existing.details).toContain("```trace-refs");
+
+		(getTraceImprovement as jest.Mock).mockResolvedValueOnce({
+			data: { rootSpanId: "span-1", runs: [] },
+		});
+		await expect(
+			tools.get_trace_analysis.execute({ span_id: "span-1" })
+		).resolves.toEqual({
+			success: true,
+			rootSpanId: "span-1",
+			count: 0,
+			latest: null,
+			runs: [],
+		});
+
+		(getTraceImprovement as jest.Mock).mockResolvedValueOnce({ err: "get failed" });
+		await expect(
+			tools.get_trace_analysis.execute({ span_id: "span-1", scope: "span" })
+		).resolves.toEqual({ success: false, error: "get failed" });
+
+		(getTraceImprovement as jest.Mock).mockRejectedValueOnce(new Error("boom"));
+		await expect(
+			tools.get_trace_analysis.execute({ span_id: "span-1" })
+		).resolves.toEqual({ success: false, error: "boom" });
+	});
+
+	it("covers analyze_trace_batch empty, capped, and mixed results", async () => {
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		await expect(
+			tools.analyze_trace_batch.execute({ span_ids: [] })
+		).resolves.toEqual({
+			success: false,
+			error: "No span IDs were provided for batch analysis",
+		});
+
+		(getTraceImprovement as jest.Mock)
+			.mockResolvedValueOnce({
+				data: {
+					rootSpanId: "s1",
+					runs: [
+						{
+							id: "run-1",
+							rootSpanId: "s1",
+							selectedSpanId: "s1",
+							runNumber: 1,
+							analysisJson: "{}",
+							summary: "ok",
+							modelProvider: "openai",
+							modelName: "gpt-4o",
+							promptTokens: 1,
+							completionTokens: 1,
+							cost: 0,
+							worstSeverity: "info",
+							createdAt: "2026-01-01T00:00:00.000Z",
+						},
+					],
+				},
+			})
+			.mockResolvedValueOnce({ err: "missing" });
+
+		const batch = await tools.analyze_trace_batch.execute({
+			span_ids: ["s1", "s2", "s3", "s4", "s5", "s6"],
+			group_label: "latency",
+			scope: "span",
+		});
+
+		expect(batch.processed).toBe(5);
+		expect(batch.limitApplied).toBe(true);
+		expect(batch.groupLabel).toBe("latency");
+		expect(batch.success).toBe(false);
+		expect(batch.results[0].success).toBe(true);
+		expect(batch.results[1].success).toBe(false);
+	});
+
+	it("covers analyze_traces_by_attribute validation and empty/error paths", async () => {
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		await expect(
+			tools.analyze_traces_by_attribute.execute({
+				attribute_key: " ",
+				attribute_value: "x",
+			})
+		).resolves.toEqual({
+			success: false,
+			error: "Attribute key and value are required",
+		});
+
+		(listTraceRecords as jest.Mock).mockResolvedValueOnce({ err: "query failed" });
+		await expect(
+			tools.analyze_traces_by_attribute.execute({
+				attribute_key: "session.id",
+				attribute_value: "s1",
+			})
+		).resolves.toEqual({ success: false, error: "query failed" });
+
+		(listTraceRecords as jest.Mock).mockResolvedValueOnce({
+			records: [{ TraceId: "t1", SpanId: null }],
+			err: null,
+		});
+		await expect(
+			tools.analyze_traces_by_attribute.execute({
+				attribute_key: "session.id",
+				attribute_value: "s1",
+				limit: 99,
+			})
+		).resolves.toEqual({
+			success: false,
+			error: expect.stringContaining("No traces found"),
+		});
+	});
+
+	it("uses default catch messages when thrown errors have empty messages", async () => {
+		const tools = getChatTools("user-1", "db-1") as any;
+		const emptyError = Object.assign(new Error(""), { message: "" });
+
+		(deleteRule as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(tools.delete_rule.execute({ id: "r1" })).resolves.toEqual({
+			success: false,
+			error: "Failed to delete rule",
+		});
+
+		(updateContext as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(
+			tools.update_context.execute({ id: "c1", name: "only-name" })
+		).resolves.toEqual({
+			success: false,
+			error: "Failed to update context",
+		});
+
+		(upsertPromptVersion as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(
+			tools.update_prompt_version.execute({
+				prompt_id: "p1",
+				version: "1.0.0",
+				prompt: "hi",
+			})
+		).resolves.toEqual({
+			success: false,
+			error: "Failed to update prompt",
+		});
+
+		(upsertSecret as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(
+			tools.update_vault_secret.execute({ id: "s1", key: "k", value: "v" })
+		).resolves.toEqual({
+			success: false,
+			error: "Failed to update secret",
+		});
+
+		(getRules as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(tools.list_rules.execute({})).resolves.toEqual({
+			success: false,
+			error: "",
+		});
+
+		(getContexts as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(tools.list_contexts.execute({})).resolves.toEqual({
+			success: false,
+			error: "",
+		});
+
+		(getPrompts as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(tools.list_prompts.execute({})).resolves.toEqual({
+			success: false,
+			error: "",
+		});
+
+		(getSecrets as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(tools.list_vault_secrets.execute({})).resolves.toEqual({
+			success: false,
+			error: "",
+		});
+
+		(getCustomModels as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(tools.list_custom_models.execute({})).resolves.toEqual({
+			success: false,
+			error: "",
+		});
+
+		(getTraceImprovement as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(
+			tools.analyze_trace.execute({ span_id: "span-1" })
+		).resolves.toEqual({
+			success: false,
+			error: "Failed to run trace analysis",
+		});
+
+		(getTraceImprovement as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(
+			tools.get_trace_analysis.execute({ span_id: "span-1" })
+		).resolves.toEqual({
+			success: false,
+			error: "Failed to get trace analysis",
+		});
+
+		(getTraceImprovement as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(
+			tools.analyze_trace_batch.execute({ span_ids: ["s1"] })
+		).resolves.toEqual({
+			success: false,
+			error: "Failed to run batch trace analysis",
+		});
+
+		(listTraceRecords as jest.Mock).mockRejectedValueOnce(emptyError);
+		await expect(
+			tools.analyze_traces_by_attribute.execute({
+				attribute_key: "k",
+				attribute_value: "v",
+			})
+		).resolves.toEqual({
+			success: false,
+			error: "Failed to analyze traces by attribute",
+		});
+	});
+
+	it("updates context with only name and creates prompt version when version_id is omitted", async () => {
+		const tools = getChatTools("user-1", "db-1") as any;
+		(updateContext as jest.Mock).mockResolvedValueOnce(undefined);
+		await expect(
+			tools.update_context.execute({ id: "c1", name: "Renamed" })
+		).resolves.toEqual(
+			expect.objectContaining({ success: true, message: "Context updated" })
+		);
+		expect(updateContext).toHaveBeenCalledWith("c1", { name: "Renamed" });
+
+		(deleteRule as jest.Mock).mockResolvedValueOnce([null]);
+		await expect(tools.delete_rule.execute({ id: "r1" })).resolves.toEqual({
+			success: true,
+			message: "Rule deleted",
+			details: "ID: r1",
+		});
+
+		(upsertPromptVersion as jest.Mock).mockResolvedValueOnce(undefined);
+		await expect(
+			tools.update_prompt_version.execute({
+				prompt_id: "p1",
+				version: "2.0.0",
+				prompt: "new body",
+			})
+		).resolves.toEqual(
+			expect.objectContaining({
+				success: true,
+				message: "New prompt version created",
+			})
+		);
+	});
+
+	it("filters falsy span ids in batch analysis", async () => {
+		const tools = getChatTools("user-1", "db-1") as any;
+		(getTraceImprovement as jest.Mock).mockResolvedValueOnce({
+			data: {
+				rootSpanId: "s1",
+				runs: [
+					{
+						id: "run-1",
+						rootSpanId: "s1",
+						selectedSpanId: "s1",
+						runNumber: 1,
+						analysisJson: "{}",
+						summary: "ok",
+						modelProvider: "openai",
+						modelName: "gpt-4o",
+						promptTokens: 1,
+						completionTokens: 1,
+						cost: 0,
+						worstSeverity: "info",
+						createdAt: "2026-01-01T00:00:00.000Z",
+					},
+				],
+			},
+		});
+
+		const batch = await tools.analyze_trace_batch.execute({
+			span_ids: ["", "s1", null],
+		});
+		expect(batch.processed).toBe(1);
+		expect(batch.limitApplied).toBe(true);
+		expect(batch.results[0].success).toBe(true);
+	});
+
+	it("lists and searches memories through the memory connector facade", async () => {
+		mockQueryProjectMemories.mockResolvedValue({
+			connector: {
+				id: "memory:abc",
+				name: "Prod Mem0",
+				type: "mem0",
+				environment: "production",
+			},
+			memories: [
+				{
+					id: "m1",
+					content: "x".repeat(300),
+					userId: "ada",
+					kind: "summary",
+				},
+			],
+			stats: { total: 1 },
+		});
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		const listed = await tools.list_memories.execute({ user_id: "ada" });
+		expect(listed.success).toBe(true);
+		expect(listed.memories[0].content.endsWith("…")).toBe(true);
+		expect(listed.memories[0].url).toBe("/memory?id=m1&connectorId=memory%3Aabc");
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("read");
+		expect(mockQueryProjectMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ userId: "ada" })
+		);
+
+		await tools.search_memories.execute({ query: "tracing" });
+		expect(mockQueryProjectMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ query: "tracing" })
+		);
+		expect(tools.search_memories.inputSchema.required).toEqual(["query"]);
+	});
+
+	it("adds, updates, and deletes memories through the write facade", async () => {
+		mockAddProjectMemories.mockResolvedValue({
+			connector: { id: "memory:abc", name: "Prod Mem0", type: "mem0" },
+			memories: [{ id: "m1", content: "Prefers tabs", userId: "ada" }],
+		});
+		mockUpdateProjectMemory.mockResolvedValue({
+			connector: { id: "memory:abc" },
+			memory: { id: "m1", content: "Prefers spaces" },
+		});
+		mockDeleteProjectMemory.mockResolvedValue({
+			connector: { id: "memory:abc" },
+			ok: true,
+		});
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		const added = await tools.add_memory.execute({
+			content: "Prefers tabs",
+			user_id: "ada",
+		});
+		expect(added.success).toBe(true);
+		expect(added.url).toBe("/memory?id=m1&connectorId=memory%3Aabc");
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("create");
+		expect(mockAddProjectMemories).toHaveBeenCalledWith(
+			expect.objectContaining({ content: "Prefers tabs", userId: "ada" })
+		);
+		expect(mockRecordMemoryMutationAudit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: "create",
+				targetId: "m1",
+				connectorId: "memory:abc",
+				userId: "ada",
+				contentLength: "Prefers tabs".length,
+				source: "chat",
+			})
+		);
+		expect(mockRecordMemoryMutationAudit.mock.calls[0][0]).not.toHaveProperty(
+			"content"
+		);
+		expect(tools.add_memory.inputSchema.required).toEqual(["content"]);
+
+		const updated = await tools.update_memory.execute({
+			id: "m1",
+			content: "Prefers spaces",
+		});
+		expect(updated.success).toBe(true);
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("update");
+		expect(mockUpdateProjectMemory).toHaveBeenCalledWith({
+			id: "m1",
+			content: "Prefers spaces",
+			connectorId: undefined,
+		});
+
+		const removed = await tools.delete_memory.execute({ id: "m1" });
+		expect(removed.success).toBe(true);
+		expect(mockRequireMemoryAccess).toHaveBeenCalledWith("delete");
+		expect(mockDeleteProjectMemory).toHaveBeenCalledWith({
+			id: "m1",
+			connectorId: undefined,
+		});
+		expect(mockRecordMemoryMutationAudit).toHaveBeenCalledWith(
+			expect.objectContaining({ action: "delete", targetId: "m1", source: "chat" })
+		);
+	});
+
+	it("blocks Otter memory mutations when access is denied", async () => {
+		mockRequireMemoryAccess.mockRejectedValueOnce(
+			new Error("You do not have permission to perform this action.")
+		);
+		const tools = getChatTools("user-1", "db-1") as any;
+
+		const added = await tools.add_memory.execute({ content: "secret" });
+		expect(added).toEqual({
+			success: false,
+			error: "You do not have permission to perform this action.",
+		});
+		expect(mockAddProjectMemories).not.toHaveBeenCalled();
+		expect(mockRecordMemoryMutationAudit).not.toHaveBeenCalled();
 	});
 });

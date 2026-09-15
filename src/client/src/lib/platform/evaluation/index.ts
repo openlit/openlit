@@ -16,7 +16,7 @@ import {
 	EvaluationResponse,
 } from "@/types/evaluation";
 import { consoleLog } from "@/utils/log";
-import { getRequestViaSpanId } from "../request";
+import { getTraceSpanRecord } from "../traces/read";
 import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import {
 	getContextFromRuleEngineForTrace,
@@ -44,39 +44,181 @@ import {
 import { CronType, CronRunStatus, CronLogData } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
+import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
+import { getChatModelCostPerM } from "@/lib/platform/pricing/chat-cost";
 
-/** Approximate cost per 1K tokens (USD) for common models. Fallback for evaluation cost. */
-const EVAL_COST_PER_1K: Record<string, { prompt: number; completion: number }> = {
-	"gpt-4o": { prompt: 0.0025, completion: 0.01 },
-	"gpt-4o-mini": { prompt: 0.00015, completion: 0.0006 },
-	"gpt-4": { prompt: 0.03, completion: 0.06 },
-	"gpt-4-turbo": { prompt: 0.01, completion: 0.03 },
-	"gpt-3.5-turbo": { prompt: 0.0005, completion: 0.0015 },
-	"claude-3-5-sonnet": { prompt: 0.003, completion: 0.015 },
-	"claude-3-haiku": { prompt: 0.00025, completion: 0.00125 },
-	"claude-3-opus": { prompt: 0.015, completion: 0.075 },
+export type EvaluationTraceLookupOptions = {
+	traceId?: string;
+	environment?: string;
 };
 
-function estimateEvaluationCost(
+/**
+ * Cost from Manage Models (`openlit_provider_models`) — same source as
+ * Pricing / Openground. Returns 0 if the model is not configured.
+ */
+async function estimateEvaluationCost(
+	provider: string,
 	model: string,
 	promptTokens: number,
-	completionTokens: number
-): number {
-	const modelKey = Object.keys(EVAL_COST_PER_1K).find(
-		(k) => model.toLowerCase().includes(k) || k.includes(model.toLowerCase())
+	completionTokens: number,
+	databaseConfigId: string
+): Promise<number> {
+	if (!provider || !model || !databaseConfigId) return 0;
+	if (promptTokens === 0 && completionTokens === 0) return 0;
+
+	try {
+		const modelMeta = await ProviderRegistry.getModel(
+			provider,
+			model,
+			databaseConfigId
+		);
+		if (!modelMeta) {
+			consoleLog(
+				`Evaluation cost: model '${model}' not found under provider '${provider}' in Manage Models`
+			);
+			return 0;
+		}
+
+		return getChatModelCostPerM(
+			{
+				inputPricePerMToken: modelMeta.inputPricePerMToken,
+				outputPricePerMToken: modelMeta.outputPricePerMToken,
+				cacheReadPricePerMToken: modelMeta.cacheReadPricePerMToken,
+				cacheCreationPricePerMToken: modelMeta.cacheCreationPricePerMToken,
+			},
+			{ promptTokens, completionTokens },
+			{ promptTokensIncludeCache: true }
+		);
+	} catch (e) {
+		consoleLog("Evaluation cost lookup failed:", e);
+		return 0;
+	}
+}
+
+/** Span ids already handled by auto-eval (evaluated or sampling-skipped). */
+async function loadAutoHandledSpanIds(
+	databaseConfigId: string
+): Promise<Set<string>> {
+	const autoHandledSources = AUTO_EVALUATION_HANDLED_SOURCES.map(
+		(source) => `'${source}'`
+	).join(", ");
+	const query = `
+		SELECT DISTINCT span_id
+		FROM ${OPENLIT_EVALUATION_TABLE_NAME}
+		WHERE meta['source'] IN (${autoHandledSources})
+	`;
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
 	);
-	const rates = modelKey ? EVAL_COST_PER_1K[modelKey] : { prompt: 0.001, completion: 0.002 };
-	return (
-		(promptTokens / 1000) * rates.prompt +
-		(completionTokens / 1000) * rates.completion
+	if (err) return new Set();
+	return new Set(
+		((data as { span_id?: string }[]) || [])
+			.map((r) => r.span_id)
+			.filter((id): id is string => !!id)
 	);
 }
 
-export async function getEvaluationSummaryForSpanId(spanId: string, dbConfigId?: string) {
-	if (!dbConfigId) {
-		const user = await getCurrentUser();
-		if (!user) return null;
+/**
+ * Candidate spans for auto-evaluation. Built-in ClickHouse keeps the
+ * historical JOIN against otel_traces; external sources list via the
+ * traces adapter and exclude already-handled ids from the app-store eval table.
+ */
+async function fetchAutoEvalCandidateSpans({
+	databaseConfigId,
+	lastRunTime,
+}: {
+	databaseConfigId: string;
+	lastRunTime?: string | Date | null;
+}): Promise<{ data: TraceRow[]; err?: string }> {
+	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
+	const autoHandledSources = AUTO_EVALUATION_HANDLED_SOURCES.map(
+		(source) => `'${source}'`
+	).join(", ");
+	const lastRunIso =
+		lastRunTime instanceof Date
+			? lastRunTime.toISOString()
+			: lastRunTime || null;
+
+	try {
+		const { getTelemetryAdapterForDbConfig } = await import(
+			"@/lib/telemetry-source"
+		);
+		const { denormalizeSpanToTraceRow } = await import(
+			"@/lib/platform/connectors/datasource/clickhouse/normalize"
+		);
+		const resolved = await getTelemetryAdapterForDbConfig(
+			databaseConfigId,
+			"traces"
+		);
+		if (!resolved.isBuiltIn) {
+			const end = new Date();
+			const start = lastRunIso
+				? new Date(lastRunIso)
+				: new Date(end.getTime() - 24 * 60 * 60 * 1000);
+			const handled = await loadAutoHandledSpanIds(databaseConfigId);
+			const frame = await resolved.adapter.listSpans({
+				signal: "traces",
+				timeRange: { start, end },
+				aiSelector: true,
+				limit: 500,
+				filters: [
+					{
+						target: "attribute",
+						scope: "span",
+						key: "gen_ai.operation.name",
+						op: "in",
+						value: [...SUPPORTED_EVALUATION_OPERATIONS],
+					},
+				],
+			});
+			const rows = frame.rows
+				.filter((span) => !handled.has(span.spanId))
+				.map(
+					(span) =>
+						denormalizeSpanToTraceRow(span) as unknown as TraceRow
+				);
+			return { data: rows };
+		}
+	} catch (err) {
+		return {
+			data: [],
+			err: String((err as Error)?.message || err),
+		};
 	}
+
+	const query = `
+		SELECT t.*
+		FROM ${OTEL_TRACES_TABLE_NAME} AS t
+		LEFT JOIN (
+			SELECT span_id FROM ${OPENLIT_EVALUATION_TABLE_NAME}
+			WHERE meta['source'] IN (${autoHandledSources})
+		) AS e ON t.SpanId = e.span_id
+		WHERE ${keyPath} IN (${SUPPORTED_EVALUATION_OPERATIONS.map(
+		(operation) => `'${operation}'`
+	).join(", ")})
+		AND (e.span_id = '' OR e.span_id IS NULL)
+		${
+			lastRunIso
+				? `AND t.Timestamp >= parseDateTimeBestEffort('${lastRunIso}')`
+				: ""
+		}
+		ORDER BY t.Timestamp;
+	`;
+
+	const { data, err } = await dataCollector(
+		{ query },
+		"query",
+		databaseConfigId
+	);
+	if (err) return { data: [], err: String(err) };
+	return { data: (data as TraceRow[]) || [] };
+}
+
+export async function getEvaluationSummaryForSpanId(spanId: string) {
+	const user = await getCurrentUser();
+	if (!user) return null;
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
 	const query = `
@@ -88,7 +230,7 @@ export async function getEvaluationSummaryForSpanId(spanId: string, dbConfigId?:
 		WHERE span_id = '${sanitizedSpanId}' AND meta['source'] NOT IN ('${EVALUATION_SOURCE.MANUAL_FEEDBACK}', '${EVALUATION_SOURCE.AUTO_SKIPPED}');
 	`;
 
-	const { data, err } = await dataCollector({ query }, "query", dbConfigId);
+	const { data, err } = await dataCollector({ query });
 	if (err || !(data as any[])?.[0]) return null;
 
 	const row = (data as any[])[0];
@@ -99,7 +241,15 @@ export async function getEvaluationSummaryForSpanId(spanId: string, dbConfigId?:
 	};
 }
 
-export async function getEvaluationsForSpanId(spanId: string) {
+export async function getEvaluationsForSpanId(
+	spanId: string,
+	opts?: EvaluationTraceLookupOptions
+) {
+	consoleLog("[evaluation] load span evaluations", {
+		spanId,
+		traceId: opts?.traceId || null,
+		environment: opts?.environment || null,
+	});
 	const user = await getCurrentUser();
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
@@ -127,6 +277,7 @@ export async function getEvaluationsForSpanId(spanId: string) {
 	const { data, err } = await dataCollector({ query });
 
 	if (err) {
+		consoleLog("[evaluation] evaluation store query failed", { spanId, error: String(err) });
 		return { err };
 	}
 
@@ -176,8 +327,15 @@ export async function getEvaluationsForSpanId(spanId: string) {
 		}
 
 		// Include rule context that would be applied (for UI to show before running)
-		const { record: traceRecord } = await getRequestViaSpanId(sanitizedSpanId);
-		const trace = traceRecord as TraceRow;
+		const traceResult = await getTraceSpanRecord(sanitizedSpanId, opts);
+		consoleLog("[evaluation] trace lookup for evaluation", {
+			spanId,
+			traceId: opts?.traceId || null,
+			found: !!traceResult.record,
+			error: traceResult.err || null,
+		});
+		const { record: traceRecord } = traceResult;
+		const trace = traceRecord as unknown as TraceRow;
 		let ruleContext: {
 			matchingRuleIds: string[];
 			contextApplied: boolean;
@@ -239,8 +397,8 @@ export async function getEvaluationsForSpanId(spanId: string) {
 		contextEntityIds: [],
 	};
 	if (!evaluationConfigErr && evaluationConfigTyped?.id) {
-		const { record: traceRecord } = await getRequestViaSpanId(sanitizedSpanId);
-		const trace = traceRecord as TraceRow;
+		const { record: traceRecord } = await getTraceSpanRecord(sanitizedSpanId, opts);
+		const trace = traceRecord as unknown as TraceRow;
 		if (trace?.SpanId) {
 			const { matchingRuleIds, contextEntityIds } =
 				await getContextFromRuleEngineForTrace(
@@ -327,6 +485,14 @@ async function storeAutoEvaluationSkip(
 	sampleRate: number,
 	dbConfigId: string
 ) {
+	const serviceName =
+		String(
+			trace.ServiceName ||
+				(trace.ResourceAttributes as Record<string, unknown> | undefined)?.[
+					"service.name"
+				] ||
+				""
+		) || "";
 	return storeEvaluation(
 		trace.SpanId,
 		[],
@@ -334,6 +500,7 @@ async function storeAutoEvaluationSkip(
 			source: EVALUATION_SOURCE.AUTO_SKIPPED,
 			traceTimeStamp: String(trace.Timestamp ?? ""),
 			sampleRate: String(sampleRate),
+			...(serviceName ? { "service.name": serviceName } : {}),
 		},
 		dbConfigId
 	);
@@ -343,14 +510,31 @@ export async function storeManualFeedback(
 	spanId: string,
 	rating: "positive" | "negative" | "neutral",
 	comment?: string,
-	dbConfigId?: string
+	dbConfigId?: string,
+	opts?: EvaluationTraceLookupOptions
 ) {
+	consoleLog("[evaluation] save manual feedback", {
+		spanId,
+		rating,
+		traceId: opts?.traceId || null,
+		environment: opts?.environment || null,
+	});
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
-	const { record: spanData } = await getRequestViaSpanId(sanitizedSpanId);
-	throwIfError(!(spanData as any).SpanId, getMessage().TRACE_NOT_FOUND);
+	const traceResult = await getTraceSpanRecord(sanitizedSpanId, opts);
+	consoleLog("[evaluation] feedback trace lookup", {
+		spanId,
+		traceId: opts?.traceId || null,
+		found: !!traceResult.record,
+		error: traceResult.err || null,
+	});
+	const { record: spanData } = traceResult;
+	throwIfError(
+		!(spanData as any)?.SpanId,
+		(typeof traceResult.err === "string" ? traceResult.err : getMessage().TRACE_NOT_FOUND)
+	);
 
 	const meta: Record<string, string> = {
 		source: "manual_feedback",
@@ -405,22 +589,40 @@ export async function storeManualFeedback(
 	);
 
 	if (err) {
-		consoleLog(err);
+		consoleLog("[evaluation] feedback insert failed", { spanId, error: String(err) });
 		return { err };
 	}
 	return { data: true };
 }
 
-export async function setEvaluationsForSpanId(spanId: string) {
+export async function setEvaluationsForSpanId(
+	spanId: string,
+	opts?: EvaluationTraceLookupOptions
+) {
+	consoleLog("[evaluation] run evaluation", {
+		spanId,
+		traceId: opts?.traceId || null,
+		environment: opts?.environment || null,
+	});
 	const user = await getCurrentUser();
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
-	let { record: spanData } = await getRequestViaSpanId(sanitizedSpanId);
-	const spanDataTyped = spanData as TraceRow;
+	const traceResult = await getTraceSpanRecord(sanitizedSpanId, opts);
+	consoleLog("[evaluation] run trace lookup", {
+		spanId,
+		traceId: opts?.traceId || null,
+		found: !!traceResult.record,
+		error: traceResult.err || null,
+	});
+	const { record: spanData } = traceResult;
+	const spanDataTyped = spanData as unknown as TraceRow;
 
-	throwIfError(!(spanData as any).SpanId, getMessage().TRACE_NOT_FOUND);
+	throwIfError(
+		!(spanData as any)?.SpanId,
+		(typeof traceResult.err === "string" ? traceResult.err : getMessage().TRACE_NOT_FOUND)
+	);
 
 	const evaluationConfig = await getEvaluationConfig(undefined, false);
 	return await getEvaluationConfigForTrace(
@@ -431,14 +633,64 @@ export async function setEvaluationsForSpanId(spanId: string) {
 	);
 }
 
+/**
+ * Extract prompt/completion for evaluation, attribute-first for portability.
+ *
+ * The trace-detail chat view reads prompt/completion from span *attributes*
+ * (`gen_ai.input.messages` / `gen_ai.output.messages` + legacy variants), but
+ * evals historically read them from OTel span *events*
+ * (`Events.Attributes[0]['gen_ai.prompt']` / `[1]['gen_ai.completion']`).
+ * External observability backends (Datadog, New Relic, ...) do not reliably
+ * expose OTel span events, so we prefer span attributes and fall back to
+ * events. This also makes evals consistent with what the chat view renders.
+ */
+export function extractEvalPromptCompletion(trace: unknown): {
+	prompt: string;
+	response: string;
+} {
+	const attrs =
+		((trace as { SpanAttributes?: Record<string, string> })?.SpanAttributes ||
+			{}) as Record<string, string>;
+	const firstNonEmpty = (keys: string[]): string => {
+		for (const k of keys) {
+			const v = attrs[k];
+			if (typeof v === "string" && v.trim() !== "") return v;
+		}
+		return "";
+	};
+	const promptFromAttr = firstNonEmpty([
+		"gen_ai.input.messages",
+		"gen_ai.prompt",
+		"gen_ai.content.prompt",
+		"gen_ai.request.input",
+	]);
+	const responseFromAttr = firstNonEmpty([
+		"gen_ai.output.messages",
+		"gen_ai.completion",
+		"gen_ai.content.completion",
+		"gen_ai.response.output",
+	]);
+	const promptFromEvent = get(
+		trace,
+		getTraceMappingKeyFullPath("prompt", true)
+	) as string | undefined;
+	const responseFromEvent = get(
+		trace,
+		getTraceMappingKeyFullPath("response", true)
+	) as string | undefined;
+	return {
+		prompt: promptFromAttr || promptFromEvent || "",
+		response: responseFromAttr || responseFromEvent || "",
+	};
+}
+
 async function getEvaluationConfigForTrace(
 	trace: TraceRow,
 	evaluationConfig: EvaluationConfigWithSecret,
 	dbConfigId?: string,
 	source: "manual" | "auto" = "auto"
 ) {
-	const response = get(trace, getTraceMappingKeyFullPath("response", true));
-	const prompt = get(trace, getTraceMappingKeyFullPath("prompt", true));
+	const { prompt, response } = extractEvalPromptCompletion(trace);
 
 	const dbConfig = dbConfigId ?? evaluationConfig.databaseConfigId;
 	const evaluationTypes =
@@ -527,6 +779,14 @@ async function getEvaluationConfigForTrace(
 			return { success: false, error: data.error };
 		}
 
+		const serviceName =
+			String(
+				trace.ServiceName ||
+					(trace.ResourceAttributes as Record<string, unknown> | undefined)?.[
+						"service.name"
+					] ||
+					""
+			) || "";
 		const metaBase: Record<string, string> = {
 			model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
 			traceTimeStamp: String(trace.Timestamp ?? ""),
@@ -534,14 +794,17 @@ async function getEvaluationConfigForTrace(
 			contextIds: contextEntityIds.join(","),
 			contextApplied: contextContents.length > 0 ? "yes" : "no",
 			source,
+			...(serviceName ? { "service.name": serviceName } : {}),
 		};
 		if (data.usage) {
 			metaBase.promptTokens = String(data.usage.promptTokens);
 			metaBase.completionTokens = String(data.usage.completionTokens);
-			const cost = estimateEvaluationCost(
+			const cost = await estimateEvaluationCost(
+				evaluationConfig.provider,
 				evaluationConfig.model,
 				data.usage.promptTokens,
-				data.usage.completionTokens
+				data.usage.completionTokens,
+				dbConfig
 			);
 			if (cost > 0) metaBase.cost = cost.toFixed(8);
 		}
@@ -595,40 +858,14 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 	}
 
 	const lastRunTime = await getLastRunCronLogByCronId(
-		autoEvaluationConfig.cronId
-	);
-
-	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
-
-	// Exclude spans already handled by auto evaluation (evaluated or sampling-skipped).
-	// Manual feedback does not block auto evaluation. Manual runs are always allowed.
-	const autoHandledSources = AUTO_EVALUATION_HANDLED_SOURCES.map(
-		(source) => `'${source}'`
-	).join(", ");
-	const query = `
-		SELECT t.*
-		FROM ${OTEL_TRACES_TABLE_NAME} AS t
-		LEFT JOIN (
-			SELECT span_id FROM ${OPENLIT_EVALUATION_TABLE_NAME}
-			WHERE meta['source'] IN (${autoHandledSources})
-		) AS e ON t.SpanId = e.span_id
-		WHERE ${keyPath} IN (${SUPPORTED_EVALUATION_OPERATIONS.map(
-		(operation) => `'${operation}'`
-	).join(", ")})
-		AND (e.span_id = '' OR e.span_id IS NULL)
-		${
-			lastRunTime
-				? `AND t.Timestamp >= parseDateTimeBestEffort('${lastRunTime}')`
-				: ""
-		}
-		ORDER BY t.Timestamp;
-	`;
-
-	const { data, err } = await dataCollector(
-		{ query },
-		"query",
+		autoEvaluationConfig.cronId,
 		databaseConfig.id
 	);
+
+	const { data, err } = await fetchAutoEvalCandidateSpans({
+		databaseConfigId: databaseConfig.id,
+		lastRunTime,
+	});
 
 	if (err) {
 		const finishedAt = new Date();
@@ -747,6 +984,22 @@ export async function getEvaluationDetectedByType(
 	const currentWhereParams = params;
 	const previousWhereParams = getFilterPreviousParams(currentWhereParams);
 
+	const serviceNames = Array.isArray(
+		(params.selectedConfig as { serviceNames?: unknown } | undefined)
+			?.serviceNames
+	)
+		? (
+				(params.selectedConfig as { serviceNames?: string[] }).serviceNames ||
+				[]
+			).filter((s): s is string => typeof s === "string" && s.length > 0)
+		: [];
+	const serviceScopeSql =
+		serviceNames.length > 0
+			? `AND meta['service.name'] IN (${serviceNames
+					.map((s) => `'${Sanitizer.sanitizeValue(s)}'`)
+					.join(", ")})`
+			: "";
+
 	const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			COUNT(DISTINCT span_id) AS total_evaluation_detected,
@@ -758,6 +1011,7 @@ export async function getEvaluationDetectedByType(
 			AND evaluationData.verdict = 'yes'
 			AND parseDateTimeBestEffort(meta['traceTimeStamp']) >= parseDateTimeBestEffort('${parameters.timeLimit.start}') 
 			AND parseDateTimeBestEffort(meta['traceTimeStamp']) <= parseDateTimeBestEffort('${parameters.timeLimit.end}')
+			${serviceScopeSql}
 	`;
 
 	const query = `
@@ -933,10 +1187,12 @@ export async function runOfflineEvaluation(
 		if (data.usage) {
 			metaBase.promptTokens = String(data.usage.promptTokens);
 			metaBase.completionTokens = String(data.usage.completionTokens);
-			cost = estimateEvaluationCost(
+			cost = await estimateEvaluationCost(
+				evaluationConfig.provider,
 				evaluationConfig.model,
 				data.usage.promptTokens,
-				data.usage.completionTokens
+				data.usage.completionTokens,
+				databaseConfigId
 			);
 			if (cost > 0) metaBase.cost = cost.toFixed(8);
 		}

@@ -1,0 +1,105 @@
+openapi: 3.0.0
+info:
+  title: Manage Models - Providers API
+  description: List, create, update, and delete LLM providers for the active database configuration. Requires a signed-in OpenLIT session.
+  version: 1.0.0
+servers:
+  - url: /
+paths:
+  /api/openground/providers:
+    get:
+      summary: List providers
+      description: Returns providers with supported models. Optional `provider` or `search` query params.
+      operationId: listProviders
+      parameters:
+        - name: provider
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provider list or a single provider
+        '401':
+          description: Not signed in
+    post:
+      summary: Create a provider
+      operationId: createProvider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - providerId
+                - displayName
+              properties:
+                providerId:
+                  type: string
+                  example: my-provider
+                displayName:
+                  type: string
+                  example: My Provider
+                description:
+                  type: string
+                requiresVault:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Provider created
+        '401':
+          description: Not signed in
+    put:
+      summary: Update a provider
+      operationId: updateProvider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - providerId
+              properties:
+                providerId:
+                  type: string
+                displayName:
+                  type: string
+                description:
+                  type: string
+                requiresVault:
+                  type: boolean
+      responses:
+        '200':
+          description: Provider updated
+        '401':
+          description: Not signed in
+    delete:
+      summary: Delete a provider and its models
+      operationId: deleteProvider
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provider deleted
+        '401':
+          description: Not signed in
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+security:
+  - sessionAuth: []

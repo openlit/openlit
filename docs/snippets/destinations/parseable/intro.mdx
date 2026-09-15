@@ -1,0 +1,86 @@
+Send OpenLIT traces, metrics and logs to Parseable through an OpenTelemetry Collector.
+
+### 1. Configure OpenTelemetry Collector
+
+Parseable requires different dataset and source headers for each signal. Configure the Collector to add those headers and route each signal to its dataset.
+
+**Install the Collector**
+
+Skip installation when you run a Collector. To install one, follow the [OpenTelemetry Collector installation guide](https://opentelemetry.io/docs/collector/installation/).
+
+**Configure the Collector**
+
+The Collector accepts OTLP over HTTP and gRPC and sends each signal to a separate Parseable dataset.
+
+<Accordion title="Collector configuration">
+```yaml
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+  memory_limiter:
+    limit_mib: 1500
+    spike_limit_mib: 512
+    check_interval: 5s
+
+exporters:
+  otlphttp/parseable_traces:
+    endpoint: "${env:PARSEABLE_URL}"
+    encoding: json
+    headers:
+      X-API-Key: "${env:PARSEABLE_API_KEY}"
+      X-P-Stream: openlit-traces
+      X-P-Log-Source: otel-traces
+
+  otlphttp/parseable_metrics:
+    endpoint: "${env:PARSEABLE_URL}"
+    encoding: json
+    headers:
+      X-API-Key: "${env:PARSEABLE_API_KEY}"
+      X-P-Stream: openlit-metrics
+      X-P-Log-Source: otel-metrics
+
+  otlphttp/parseable_logs:
+    endpoint: "${env:PARSEABLE_URL}"
+    encoding: json
+    headers:
+      X-API-Key: "${env:PARSEABLE_API_KEY}"
+      X-P-Stream: openlit-logs
+      X-P-Log-Source: otel-logs
+
+service:
+  pipelines:
+    traces:
+      receivers: [ otlp ]
+      processors: [ memory_limiter, batch ]
+      exporters: [ otlphttp/parseable_traces ]
+    metrics:
+      receivers: [ otlp ]
+      processors: [ memory_limiter, batch ]
+      exporters: [ otlphttp/parseable_metrics ]
+    logs:
+      receivers: [ otlp ]
+      processors: [ memory_limiter, batch ]
+      exporters: [ otlphttp/parseable_logs ]
+```
+
+Set these environment variables before starting the Collector:
+
+```shell
+export PARSEABLE_URL="https://YOUR_PARSEABLE_HOST"
+export PARSEABLE_API_KEY="YOUR_PARSEABLE_API_KEY"
+```
+
+Replace:
+
+1. `YOUR_PARSEABLE_HOST` with your Parseable host. Do not append `/v1/traces`, `/v1/metrics`, or `/v1/logs`.
+2. `YOUR_PARSEABLE_API_KEY` with a Parseable API key that has ingest access.
+
+If your Parseable deployment uses Basic Auth, replace `X-API-Key` with `Authorization: "Basic YOUR_BASE64_CREDENTIALS"` in each exporter.
+</Accordion>

@@ -1,0 +1,65 @@
+---
+title: "Overview"
+description: "RAG context management for OpenLIT - store reusable content once and have the Rule Engine return the right piece automatically"
+---
+
+Context is OpenLIT's answer to RAG context management: a place to store reusable content for your RAG pipelines and AI applications, and have it returned automatically at runtime instead of hardcoding lookup logic in your application code.
+
+A context is simply a named, versionable piece of markdown - a system prompt, a knowledge snippet, a policy document, or any other reusable text - that you write once in OpenLIT and link to one or more rules in the [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview). When a linked rule matches at runtime (for example, `model` equals `gpt-4` and `user_tier` equals `premium`), the evaluate API returns that context's content alongside the match, ready to inject into your prompt or pipeline.
+
+## What you get
+
+<CardGroup cols={3}>
+  <Card title="Manage Contexts" href="/latest/openlit/prompts-experiments/context/manage-contexts" icon='file-lines'>
+    Create, edit, and delete contexts - name, description, markdown content, status, tags, and meta properties
+  </Card>
+  <Card title="Link Rules" href="/latest/openlit/prompts-experiments/context/link-rules" icon='link'>
+    Connect a context to one or more Rule Engine rules, from either the context or the rule side
+  </Card>
+  <Card title="Retrieve Context" href="/latest/openlit/prompts-experiments/context/retrieve-context" icon='cloud-arrow-down'>
+    Call the evaluate API at runtime to fetch matching context content for your application
+  </Card>
+</CardGroup>
+
+## Why Context
+
+Most prompt-management tools stop at versioning and deploying prompts. OpenLIT's Context goes a step further: paired with the Rule Engine, it lets you store reusable knowledge snippets or system-prompt fragments once, and have your application fetch the right one automatically based on runtime conditions - like the model in use or a user's plan tier - rather than writing that branching logic yourself. This combination of a reusable content store plus a conditional rule engine has no direct equivalent in comparable open-source LLM observability tools.
+
+---
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="What is Context used for?">
+    Context stores reusable markdown content - system prompts, knowledge snippets, policy text, or any other text your AI application needs - so you can write it once and reuse it across rules instead of duplicating it in code.
+  </Accordion>
+  <Accordion title="How is a context different from a prompt in Prompt Hub?">
+    Prompt Hub is for versioning and deploying structured prompts with variables. Context is a simpler, freeform markdown store meant to be paired with the Rule Engine so the right content is returned automatically based on runtime conditions, rather than fetched by name.
+  </Accordion>
+  <Accordion title="Do I need a rule to use a context?">
+    A context can be created and edited on its own, but it only becomes retrievable at runtime once it's linked to at least one Active rule in the Rule Engine.
+  </Accordion>
+  <Accordion title="Can I delete a context from its detail page?">
+    No. There is no delete control on the context detail page. Contexts are deleted from the list page, using the delete icon on that context's row.
+  </Accordion>
+  <Accordion title="Can I unlink a rule from the context detail page?">
+    Not from that side. Once a rule is linked to a context, removing the link is done from the rule's own detail page, in its Associated Entities panel. See [Link Rules](/latest/openlit/prompts-experiments/context/link-rules) for details.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Rule Engine" href="/latest/openlit/prompts-experiments/rule-engine/overview" icon='sliders'>
+    Create conditional rules to match inputs and retrieve linked contexts, prompts, and other resources
+  </Card>
+  <Card title="Prompt Hub" href="/latest/openlit/prompts-experiments/prompt-hub/overview" icon='shapes'>
+    Version, deploy, and collaborate on prompts with centralized management and tracking
+  </Card>
+  <Card title="SDK Rule Engine" href="/latest/sdk/features/rule-engine" icon='puzzle-piece'>
+    Use evaluate_rule() from Python, TypeScript, or Go with full parameter reference
+  </Card>
+  <Card title="API Reference: Evaluate" href="/latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate" icon='code'>
+    Full reference for the Rule Engine evaluate endpoint with request and response schemas
+  </Card>
+</CardGroup>

@@ -115,9 +115,11 @@ function EvaluationCard({
 
 function ManualFeedbackForm({
 	spanId,
+	traceId,
 	onSuccess,
 }: {
 	spanId: string;
+	traceId?: string;
 	onSuccess: () => void;
 }) {
 	const [rating, setRating] = useState<
@@ -128,8 +130,10 @@ function ManualFeedbackForm({
 
 	const handleSubmit = () => {
 		if (!rating) return;
+		const params = new URLSearchParams();
+		if (traceId) params.set("traceId", traceId);
 		fireRequest({
-			url: `/api/evaluation/${spanId}/feedback`,
+			url: `/api/evaluation/${spanId}/feedback${params.size ? `?${params}` : ""}`,
 			requestType: "POST",
 			body: JSON.stringify({ rating, comment: comment.trim() || undefined }),
 			successCb: () => {
@@ -230,7 +234,7 @@ function FeedbackList({ feedbacks }: { feedbacks: ManualFeedback[] }) {
 									{fb.comment}
 								</span>
 							)}
-							<span className="block text-stone-400 dark:text-stone-500 text-[10px] mt-0.5">
+							<span className="block text-stone-500 dark:text-stone-400 text-[10px] mt-0.5">
 								{fb.createdAt ? format(new Date(fb.createdAt), "MMM d, yyyy HH:mm") : "—"}
 							</span>
 						</div>
@@ -384,7 +388,7 @@ function EvaluationRunCard({
 						{dateStr}
 					</span>
 					{model && (
-						<span className="text-[10px] text-stone-400 dark:text-stone-500 truncate max-w-[120px]">
+						<span className="text-[10px] text-stone-500 dark:text-stone-400 truncate max-w-[120px]">
 							{model}
 						</span>
 					)}
@@ -442,8 +446,10 @@ export default function Evaluations({
 	} = useFetchWrapper();
 
 	const runEvaluation = () => {
+		const params = new URLSearchParams();
+		if (trace.id) params.set("traceId", String(trace.id));
 		runEvaluationRequest({
-			url: `/api/evaluation/${trace.spanId}`,
+			url: `/api/evaluation/${trace.spanId}${params.size ? `?${params}` : ""}`,
 			requestType: "POST",
 			responseDataKey: "data",
 			successCb: (data: { success: boolean; error?: string }) => {
@@ -460,8 +466,10 @@ export default function Evaluations({
 	};
 
 	const getEvaluations = () => {
+		const params = new URLSearchParams();
+		if (trace.id) params.set("traceId", String(trace.id));
 		fireRequest({
-			url: `/api/evaluation/${trace.spanId}`,
+			url: `/api/evaluation/${trace.spanId}${params.size ? `?${params}` : ""}`,
 			requestType: "GET",
 		});
 	};
@@ -533,7 +541,7 @@ export default function Evaluations({
 					{getMessage().EVALUATION_CONFIG_NOT_SET}
 				</div>
 				<Button variant="destructive" className="w-fit">
-					<Link href="/evaluations/settings">
+					<Link href="/evaluations?tab=configuration">
 						{getMessage().EVALUATION_CONFIG_SET}
 					</Link>
 				</Button>
@@ -622,7 +630,11 @@ export default function Evaluations({
 			{/* Manual feedback */}
 			<div className="space-y-3 pt-3">
 				<FeedbackList feedbacks={feedbacks} />
-				<ManualFeedbackForm spanId={trace.spanId} onSuccess={getEvaluations} />
+				<ManualFeedbackForm
+					spanId={trace.spanId}
+					traceId={trace.id}
+					onSuccess={getEvaluations}
+				/>
 			</div>
 		</div>,
 		{

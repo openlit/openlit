@@ -7,25 +7,25 @@ export default function DataCharts() {
 				categoryKey="count"
 				heading="Generation by categories"
 				indexKey="category"
-				url="/api/metrics/llm/category"
+				url="/api/telemetry/llm/category"
 			/>
 			<PieChartCard
 				categoryKey="count"
 				heading="Generation by provider"
 				indexKey="provider"
-				url="/api/metrics/llm/endpoint"
+				url="/api/telemetry/llm/endpoint"
 			/>
 			<PieChartCard
 				categoryKey="cost"
 				heading="Cost by Environment"
 				indexKey="environment"
-				url="/api/metrics/llm/cost/environment"
+				url="/api/telemetry/llm/cost/environment"
 			/>
 			<PieChartCard
 				categoryKey="cost"
 				heading="Cost by application"
 				indexKey="applicationName"
-				url="/api/metrics/llm/cost/application"
+				url="/api/telemetry/llm/cost/application"
 			/>
 		</div>
 	);

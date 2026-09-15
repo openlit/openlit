@@ -1,8 +1,9 @@
 import { getAgent } from "@/lib/platform/agents";
-import { POLICY_TOOLS, swr } from "@/lib/platform/agents/cache";
+import { POLICY_EMPTY_GRAPH, POLICY_TOOLS, swr } from "@/lib/platform/agents/cache";
 import { getAggregateGraph } from "@/lib/platform/agents/aggregate-graph";
 import { getVersionWindow } from "@/lib/platform/agents/version-filter";
 import { withCacheHeaders } from "../../_cache";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 /**
  * GET /api/agents/[agentKey]/graph?versionHash=...
@@ -11,7 +12,7 @@ import { withCacheHeaders } from "../../_cache";
  * `versionHash` is omitted, falls back to a 24h aggregate so the canvas
  * still has something to render before a version is picked.
  */
-export async function GET(
+async function GETHandler(
 	request: Request,
 	{ params }: { params: Promise<{ agentKey: string }> }
 ) {
@@ -19,24 +20,48 @@ export async function GET(
 	const url = new URL(request.url);
 	const versionHash = url.searchParams.get("versionHash") || undefined;
 
-	const cacheKey = `agents:graph:default:${agentKey}:${versionHash || "all"}`;
+	// v3: empty Tempo/Jaeger samples use a short TTL — v2 cached empties for 5m.
+	const cacheKey = `agents:graph:v3:${agentKey}:${versionHash || "all"}`;
 
-	const result = await swr(cacheKey, POLICY_TOOLS, async () => {
-		const agent = await getAgent({ agentKey });
-		if (!agent) return null;
-		const versionFilter = versionHash
-			? await getVersionWindow(agentKey, versionHash)
-			: null;
-		const graph = await getAggregateGraph({
-			serviceName: agent.service_name,
-			environment: agent.environment,
-			versionFilter,
-		});
-		return { agent, graph, versionFilter };
-	});
+	const result = await swr(
+		cacheKey,
+		POLICY_TOOLS,
+		async () => {
+			const agent = await getAgent({ agentKey });
+			if (!agent) return null;
+			const versionFilter = versionHash
+				? await getVersionWindow(agentKey, versionHash)
+				: null;
+			const startParam = url.searchParams.get("start");
+			const endParam = url.searchParams.get("end");
+			const timeRange =
+				startParam && endParam
+					? { start: new Date(startParam), end: new Date(endParam) }
+					: undefined;
+			const graph = await getAggregateGraph({
+				serviceName: agent.service_name,
+				environment: agent.environment,
+				versionFilter,
+				timeRange,
+			});
+			return { agent, graph, versionFilter };
+		},
+		{
+			policyFor: (value) =>
+				value?.graph &&
+				value.graph.nodes.length === 0 &&
+				value.graph.edges.length === 0
+					? POLICY_EMPTY_GRAPH
+					: POLICY_TOOLS,
+		}
+	);
 
 	if (!result) {
 		return Response.json({ error: "Agent not found" }, { status: 404 });
 	}
-	return withCacheHeaders({ data: result }, "graph");
+	const emptyGraph =
+		result.graph.nodes.length === 0 && result.graph.edges.length === 0;
+	return withCacheHeaders({ data: result }, emptyGraph ? "graphEmpty" : "graph");
 }
+
+export const GET = withRouteAccess("observability.read", GETHandler, { requireDbConfig: true });

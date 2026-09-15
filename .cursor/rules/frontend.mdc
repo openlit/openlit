@@ -1,0 +1,7 @@
+---
+description: UI, messaging, project hierarchy, and CE/enterprise-boundary guidance for OpenLIT client presentation code.
+globs: src/client/src/components/**/*.tsx,src/client/src/app/**/page.tsx,src/client/src/app/**/layout.tsx,src/client/src/app/**/loading.tsx,src/client/src/app/**/error.tsx
+alwaysApply: false
+---
+
+@agent-guides/frontend.md

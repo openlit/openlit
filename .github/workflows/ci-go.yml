@@ -1,0 +1,46 @@
+name: CI / Go SDK
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit SHA to validate
+        required: false
+        default: ''
+        type: string
+  push:
+    branches: ["main"]
+    paths:
+      - 'sdk/go/**'
+      - '.github/workflows/ci-go.yml'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'sdk/go/**'
+      - '.github/workflows/ci-go.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test / Go
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/go
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: sdk/go/go.mod
+      - name: Install dependencies
+        run: go mod download
+      - name: Build
+        run: go build ./...
+      - name: Run tests
+        run: go test ./...

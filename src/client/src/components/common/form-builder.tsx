@@ -37,7 +37,8 @@ const FormBuilder = ({
 			if (
 				field.fieldType === "INPUT" ||
 				field.fieldType === "TEXTAREA" ||
-				field.fieldType === "RADIOGROUP"
+				field.fieldType === "RADIOGROUP" ||
+				field.fieldType === "SELECT"
 			) {
 				if (
 					field.fieldTypeProps.name &&

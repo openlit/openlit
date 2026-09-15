@@ -11,11 +11,8 @@
  * UI doesn't claim definitive change of state.
  */
 
-import {
-	requireCodingAgentAuth,
-	CodingAgentUnauthorizedError,
-} from "@/lib/platform/coding-agents/auth";
-import { withCurrentOrganisationPermission } from "@/lib/rbac/current";
+import { CodingAgentUnauthorizedError } from "@/lib/platform/coding-agents/auth";
+import { requireCodingAgentQueryContext } from "@/lib/platform/coding-agents/source";
 import {
 	DisputeError,
 	submitClassificationDispute,
@@ -25,13 +22,14 @@ import {
 	validateClassificationDispute,
 	type CodingAgentClassificationDispute,
 } from "@/lib/platform/coding-agents/classifier";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 export const dynamic = "force-dynamic";
 
 async function POSTHandler(request: Request) {
 	let auth;
 	try {
-		auth = await requireCodingAgentAuth();
+		auth = await requireCodingAgentQueryContext(request);
 	} catch (err) {
 		if (err instanceof CodingAgentUnauthorizedError) {
 			return Response.json({ error: err.message }, { status: 401 });
@@ -84,4 +82,4 @@ async function POSTHandler(request: Request) {
 	}
 }
 
-export const POST = withCurrentOrganisationPermission("coding_agents:dispute", POSTHandler);
+export const POST = withRouteAccess("coding_agents.dispute", POSTHandler);

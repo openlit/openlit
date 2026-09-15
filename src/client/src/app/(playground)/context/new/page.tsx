@@ -150,7 +150,7 @@ export default function NewContextPage() {
 						<div className="flex flex-col gap-1.5 flex-shrink-0">
 							<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
 								{m.DESCRIPTION}
-								<span className="text-stone-400 dark:text-stone-500 font-normal ml-1 text-xs">
+								<span className="text-stone-500 dark:text-stone-400 font-normal ml-1 text-xs">
 									{m.CONTEXT_DESCRIPTION_OPTIONAL}
 								</span>
 							</Label>

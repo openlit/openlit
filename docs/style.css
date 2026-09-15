@@ -1,0 +1,43 @@
+/**
+ * OpenLIT docs visual language — aligned with the dashboard
+ * (stone surfaces, #F36C06 primary, Inter, compact cards).
+ */
+
+:root {
+  --openlit-primary: #f36c06;
+  --openlit-primary-hover: #d45a05;
+  --openlit-stone-50: #fafaf9;
+  --openlit-stone-100: #f5f5f4;
+  --openlit-stone-200: #e7e5e4;
+  --openlit-stone-700: #44403c;
+  --openlit-stone-800: #292524;
+  --openlit-stone-900: #1c1917;
+  --openlit-stone-950: #0c0a09;
+}
+
+html.dark body,
+html[data-theme="dark"] body {
+  background-color: var(--openlit-stone-950);
+}
+
+#navbar {
+  border-bottom-color: color-mix(in srgb, var(--openlit-stone-200) 70%, transparent);
+}
+
+html.dark #navbar,
+html[data-theme="dark"] #navbar {
+  border-bottom-color: color-mix(in srgb, var(--openlit-stone-800) 80%, transparent);
+}
+
+/* Card-like surfaces closer to dashboard settings panels */
+[data-component-name="card"],
+.card {
+  border-radius: 0.5rem;
+}
+
+/* Soften callouts to stone + primary accent */
+.tip,
+.note,
+.info {
+  border-radius: 0.5rem;
+}

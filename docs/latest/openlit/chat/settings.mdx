@@ -1,0 +1,35 @@
+---
+title: "Chat Settings"
+description: "Configure Otter's AI Provider, Model, and Vault API key on the Chat Settings page before using the AI chat assistant"
+---
+
+**Chat Settings** (`/chat/settings`) configures which model Otter uses. Page title: **Chat Settings**. Description: *Configure the AI provider for the chat feature*.
+
+Open it from the gear control in the Otter sidebar, or go directly to `/chat/settings`.
+
+## Fields
+
+| Setting | Label in UI | Notes |
+|---------|-------------|--------|
+| Provider | **AI Provider** | Providers come from [Manage Models](/latest/openlit/costs/manage-models/overview) (built-in plus any you added). |
+| Model | **Model** | Models for the selected provider, including custom ones. Hint: *Models are managed in Manage Models. Custom models you add there will appear here.* |
+| API key | **API Key (from Vault)** | Pick a Vault secret, or use **Create new** to open **Create a new secret** (Key, Value, Tags) without leaving Settings. |
+
+Click **Save Configuration** the first time, or **Update Configuration** when editing an existing setup. Success toast: **Chat configuration saved**.
+
+You must fill all three fields. If no provider is selected yet, the model field prompts you to select a provider first. A **Configured** chip shows the current provider / model / vault key when settings are already saved.
+
+## Related
+
+Models and prices are edited on Manage Models; secrets are stored in Vault. Otter only stores a reference to the Vault secret - the key is not sent to the browser as part of chat messages.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Manage Models" href="/latest/openlit/costs/manage-models/overview" icon="sliders">
+    Add providers and models Otter can select
+  </Card>
+  <Card title="Vault" href="/latest/openlit/developer-resources/vault/overview" icon="vault">
+    Store the provider API key Otter should use
+  </Card>
+</CardGroup>

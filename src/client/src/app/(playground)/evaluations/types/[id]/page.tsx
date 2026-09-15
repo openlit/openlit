@@ -4,6 +4,8 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -22,6 +24,7 @@ import { Link2, Plus, Trash2, ExternalLink, ArrowLeft, Sparkles, Layers } from "
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import getMessage from "@/constants/messages";
 
 interface RuleWithPriority {
 	ruleId: string;
@@ -37,6 +40,7 @@ interface EvaluationTypeConfig {
 	rules: RuleWithPriority[];
 	prompt?: string;
 	defaultPrompt?: string;
+	thresholdScore?: number;
 }
 
 export default function EvaluationTypeDetailPage() {
@@ -47,9 +51,11 @@ export default function EvaluationTypeDetailPage() {
 	const et = EVALUATION_TYPES.find((e) => e.id === typeId);
 
 	const [config, setConfig] = useState<EvaluationTypeConfig | null>(null);
-	const { fireRequest: getType, data: typeResponse } = useFetchWrapper<{
-		data?: EvaluationTypeConfig;
-	}>();
+	const [notFound, setNotFound] = useState(false);
+	const { fireRequest: getType, data: typeResponse, error: typeError, isFetched: typeFetched } =
+		useFetchWrapper<{
+			data?: EvaluationTypeConfig;
+		}>();
 	const { fireRequest: getRules, data: rules } = useFetchWrapper<Rule[]>();
 	const { fireRequest: getEvalEntities, data: evalEntities } = useFetchWrapper<
 		Array<{ rule_id: string; entity_id: string }>
@@ -62,10 +68,12 @@ export default function EvaluationTypeDetailPage() {
 		.map((e) => e.rule_id);
 
 	useEffect(() => {
+		setNotFound(false);
+		setConfig(null);
 		posthog?.capture(CLIENT_EVENTS.EVALUATION_TYPE_EDIT_PAGE_VISITED);
 		getType({
 			requestType: "GET",
-			url: `/api/evaluation/types/${typeId}`,
+			url: `/api/evaluation/types/${encodeURIComponent(typeId)}`,
 			responseDataKey: "data",
 		});
 		getRules({ requestType: "GET", url: "/api/rule-engine/rules" });
@@ -79,6 +87,7 @@ export default function EvaluationTypeDetailPage() {
 		const res = typeResponse as { data?: EvaluationTypeConfig } | undefined;
 		const data = res?.data ?? (typeResponse as EvaluationTypeConfig | undefined);
 		if (data?.id) {
+			setNotFound(false);
 			setConfig({
 				id: data.id,
 				enabled: data.enabled ?? false,
@@ -88,17 +97,28 @@ export default function EvaluationTypeDetailPage() {
 				rules: data.rules || [],
 				prompt: data.prompt,
 				defaultPrompt: data.defaultPrompt,
+				thresholdScore: data.thresholdScore,
 			});
-		} else if (et) {
+			return;
+		}
+
+		if (et) {
+			setNotFound(false);
 			setConfig({
 				id: et.id,
 				enabled: et.enabledByDefault,
 				rules: [],
 				prompt: data?.prompt,
 				defaultPrompt: data?.defaultPrompt,
+				thresholdScore: data?.thresholdScore,
 			});
+			return;
 		}
-	}, [typeResponse, et]);
+
+		if (typeFetched && (typeError || !data?.id)) {
+			setNotFound(true);
+		}
+	}, [typeResponse, et, typeFetched, typeError]);
 
 	const handleToggle = (enabled: boolean) => {
 		setConfig((prev) => (prev ? { ...prev, enabled } : null));
@@ -148,6 +168,7 @@ export default function EvaluationTypeDetailPage() {
 			enabled: config.enabled,
 			rules: config.rules.filter((r) => r.ruleId),
 			prompt: config.prompt?.trim() || undefined,
+			thresholdScore: config.thresholdScore,
 		};
 		if (config.isCustom) {
 			payload.isCustom = true;
@@ -183,7 +204,7 @@ export default function EvaluationTypeDetailPage() {
 			responseDataKey: "data",
 			successCb: () => {
 				toast.success("Custom evaluation type deleted");
-				router.push("/evaluations/types");
+				router.push("/evaluations?tab=evaluators");
 			},
 			failureCb: (err?: string) => toast.error(err || "Failed to delete"),
 		});
@@ -194,30 +215,58 @@ export default function EvaluationTypeDetailPage() {
 	const displayLabel = et?.label || config?.label || typeId;
 	const displayDescription = et?.description || config?.description || "";
 
+	const evaluatorsHref = "/evaluations?tab=evaluators";
+	const backLabel = getMessage().EVALUATION_BACK_TO_TYPES;
+
 	const header = (
 		<FeaturePageHeader
-			eyebrow="Configuration"
+			eyebrow={getMessage().FEATURE_EVALS}
 			title={displayLabel}
 			icon={<Layers className="h-4 w-4" />}
 			tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
+			leading={
+				<Button
+					asChild
+					variant="outline"
+					size="sm"
+					className="h-7 w-7 shrink-0 p-0"
+				>
+					<Link href={evaluatorsHref} title={backLabel} aria-label={backLabel}>
+						<ArrowLeft className="h-3.5 w-3.5" />
+					</Link>
+				</Button>
+			}
 			actions={
-				<div className="flex flex-wrap items-center gap-2">
-					{isCustom && (
-						<Badge variant="outline" className="h-8 gap-1 border-primary/30 text-primary">
-							<Sparkles className="size-3" />
-							Custom
-						</Badge>
-					)}
-					<Button asChild variant="outline" size="sm" className="h-8">
-						<Link href="/evaluations/types">
-							<ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-							Evaluation Types
-						</Link>
-					</Button>
-				</div>
+				isCustom ? (
+					<Badge variant="outline" className="h-8 gap-1 border-primary/30 text-primary">
+						<Sparkles className="size-3" />
+						Custom
+					</Badge>
+				) : null
 			}
 		/>
 	);
+
+	if (notFound) {
+		return (
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				{header}
+				<div className="flex flex-1 w-full flex-col items-center justify-center gap-3 p-4 text-center">
+					<p className="text-base font-medium text-stone-800 dark:text-stone-200">
+						{getMessage().EVALUATION_TYPE_NOT_FOUND}
+					</p>
+					<p className="max-w-md text-sm text-stone-500 dark:text-stone-400">
+						{getMessage().EVALUATION_TYPE_NOT_FOUND_DESCRIPTION}
+					</p>
+					<Button asChild variant="outline" size="sm" className="h-8">
+						<Link href="/evaluations?tab=evaluators">
+							{getMessage().EVALUATION_BACK_TO_TYPES}
+						</Link>
+					</Button>
+				</div>
+			</div>
+		);
+	}
 
 	if (!et && !config) {
 		return (
@@ -269,6 +318,62 @@ export default function EvaluationTypeDetailPage() {
 							</CardContent>
 						</Card>
 					)}
+
+					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+						<CardHeader className="pb-2">
+							<CardTitle className="text-base">
+								{getMessage().EVALUATION_TYPE_THRESHOLD_LABEL}
+							</CardTitle>
+							<p className="text-xs text-stone-500 dark:text-stone-400 font-normal">
+								{getMessage().EVALUATION_TYPE_THRESHOLD_DESCRIPTION}
+							</p>
+						</CardHeader>
+						<CardContent>
+							<div className="max-w-[160px]">
+								<Label className="sr-only">
+									{getMessage().EVALUATION_TYPE_THRESHOLD_LABEL}
+								</Label>
+								<Input
+									type="number"
+									min={0}
+									max={1}
+									step={0.05}
+									placeholder={
+										getMessage().EVALUATION_TYPE_THRESHOLD_PLACEHOLDER
+									}
+									value={config?.thresholdScore ?? ""}
+									onChange={(e) => {
+										const raw = e.target.value;
+										setConfig((prev) => {
+											if (!prev) return prev;
+											if (raw === "") {
+												return { ...prev, thresholdScore: undefined };
+											}
+											const nextValue = Number(raw);
+											// Ignore unparseable partial input (e.g. "-", "1..2",
+											// "abc") instead of propagating NaN into config and
+											// on to the API — keep the last valid value until the
+											// user types something parseable.
+											if (Number.isNaN(nextValue)) return prev;
+											return { ...prev, thresholdScore: nextValue };
+										});
+									}}
+									onBlur={(e) => {
+										const raw = e.target.value;
+										if (raw === "") return;
+										const parsed = Number(raw);
+										if (Number.isNaN(parsed)) return;
+										const clamped = Math.min(1, Math.max(0, parsed));
+										if (clamped !== parsed) {
+											setConfig((prev) =>
+												prev ? { ...prev, thresholdScore: clamped } : prev
+											);
+										}
+									}}
+								/>
+							</div>
+						</CardContent>
+					</Card>
 
 					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
 						<CardHeader className="pb-3">

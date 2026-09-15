@@ -27,6 +27,7 @@ export interface EvalType {
   description: string;
   enabled: boolean;
   isCustom: boolean;
+  thresholdScore?: number;
 }
 
 export interface BatchEvalResult {

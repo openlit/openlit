@@ -16,12 +16,18 @@ const contentSecurityPolicy = [
 const nextConfig = {
 	output: "standalone",
 	poweredByHeader: false,
+	transpilePackages: [
+		"@openplait/adapter-clickhouse",
+		"@openplait/adapter-jaeger",
+		"@openplait/adapter-loki",
+		"@openplait/adapter-prometheus",
+		"@openplait/adapter-tempo",
+		"@openplait/adapter-sdk",
+		"@openplait/core",
+		"@openplait/runtime",
+	],
 	images: {
 		remotePatterns: [
-			{
-				protocol: "https",
-				hostname: "*",
-			},
 			{
 				protocol: "https",
 				hostname: "raw.githubusercontent.com",

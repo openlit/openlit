@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { getRequestHeaders } from "@/utils/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -31,6 +32,7 @@ import {
 	TraceAnalysisDimension,
 	TraceAnalysisFinding,
 	emptyTraceAnalysis,
+	ensureTraceAnalysisDimensions,
 } from "@/types/trace-analysis";
 import { TRACE_ANALYSIS_DIMENSION_REGISTRY } from "@/lib/platform/chat/trace-analysis-registry";
 import { useRequest } from "../request-context";
@@ -108,7 +110,7 @@ function AnalysisStepTimeline({ steps }: { steps: ImprovementStep[] }) {
 								{step.label}
 							</div>
 							{step.detail ? (
-								<div className="truncate text-[11px] text-stone-500 dark:text-stone-500">
+								<div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
 									{step.detail}
 								</div>
 							) : null}
@@ -140,7 +142,7 @@ function AnalysisProgress({
 					<div className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
 						{title}
 					</div>
-					<div className="text-[11px] text-stone-400 dark:text-stone-500">
+					<div className="text-[11px] text-stone-500 dark:text-stone-400">
 						{completedCount}/{steps.length}
 					</div>
 				</div>
@@ -157,7 +159,7 @@ function AnalysisProgress({
 			>
 				<AccordionTrigger className="py-2 text-xs font-semibold uppercase tracking-wide text-stone-500 hover:no-underline dark:text-stone-400">
 					<span>{title}</span>
-					<span className="ml-auto mr-2 text-[11px] font-normal normal-case tracking-normal text-stone-400 dark:text-stone-500">
+					<span className="ml-auto mr-2 text-[11px] font-normal normal-case tracking-normal text-stone-500 dark:text-stone-400">
 						{completedCount}/{steps.length}
 					</span>
 				</AccordionTrigger>
@@ -245,6 +247,7 @@ function normalizeFindings(value: unknown): TraceAnalysisFinding[] {
 function normalizeTraceAnalysis(value: any): TraceAnalysis {
 	const base = emptyTraceAnalysis(String(value?.trace_id || value?.traceId || ""));
 	const totals = value?.totals && typeof value.totals === "object" ? value.totals : {};
+	const dimensionFindings = ensureTraceAnalysisDimensions(value);
 	const normalized: TraceAnalysis = {
 		...base,
 		...value,
@@ -259,7 +262,7 @@ function normalizeTraceAnalysis(value: any): TraceAnalysis {
 	};
 
 	for (const dimension of TRACE_ANALYSIS_DIMENSIONS) {
-		normalized[dimension] = normalizeFindings(value?.[dimension]);
+		normalized[dimension] = normalizeFindings(dimensionFindings[dimension]);
 	}
 
 	return normalized;
@@ -332,7 +335,7 @@ function DiffView({ patches }: { patches: FixPatch[] }) {
 							<span className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
 								{patch.field}
 							</span>
-							<span className="font-mono text-[10px] text-stone-400 dark:text-stone-500">
+							<span className="font-mono text-[10px] text-stone-500 dark:text-stone-400">
 								· {patch.span_ref.slice(0, 8)}…
 							</span>
 						</div>
@@ -483,11 +486,15 @@ function FindingCard({
 
 export default function TraceImprovementView({
 	spanId,
+	traceId,
+	environment,
 	scope = "trace",
 	title,
 	description,
 }: {
 	spanId: string;
+	traceId?: string;
+	environment?: string;
 	scope?: "trace" | "span";
 	title?: string;
 	description?: string;
@@ -524,8 +531,13 @@ export default function TraceImprovementView({
 	) => {
 		try {
 			setIsLoading(true);
-			const scopeParam = targetScope === "span" ? "?scope=span" : "";
-			const res = await fetch(`/api/chat/improvement/${targetSpanId}${scopeParam}`);
+			const params = new URLSearchParams();
+			if (targetScope === "span") params.set("scope", "span");
+			if (traceId) params.set("traceId", traceId);
+			const query = params.toString() ? `?${params.toString()}` : "";
+			const res = await fetch(`/api/chat/improvement/${targetSpanId}${query}`, {
+				headers: getRequestHeaders(),
+			});
 			if (!res.ok) {
 				const err = await res.json();
 				throw new Error(typeof err === "string" ? err : m.TRACE_AI_LOAD_FAILED);
@@ -610,10 +622,14 @@ export default function TraceImprovementView({
 		const timeoutId = setTimeout(() => abortController.abort(), 120_000);
 
 		try {
-			const scopeParam = scope === "span" ? "?scope=span" : "";
-			const res = await fetch(`/api/chat/improvement/${spanId}${scopeParam}`, {
+			const params = new URLSearchParams();
+			if (scope === "span") params.set("scope", "span");
+			if (traceId) params.set("traceId", traceId);
+			const query = params.toString() ? `?${params.toString()}` : "";
+			const res = await fetch(`/api/chat/improvement/${spanId}${query}`, {
 				method: "POST",
 				signal: abortController.signal,
+				headers: getRequestHeaders(),
 			});
 			if (!res.ok || !res.body) {
 				const err = await res.json();
@@ -679,8 +695,7 @@ export default function TraceImprovementView({
 		setIsFetched(false);
 		setSteps([]);
 		if (spanId) fetchAnalysis(spanId, scope, requestKey);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [spanId, scope]);
+	}, [spanId, scope, traceId, environment]);
 
 	const persistedRuns = useMemo<AnalysisRun[]>(() => {
 		const runs = analysis?.data?.runs || [];

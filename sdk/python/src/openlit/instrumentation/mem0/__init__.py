@@ -1,6 +1,20 @@
 # pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """
 Optimized Auto Instrumentation of mem0 Functions following OpenLIT Framework Guide.
+
+This module wraps mem0's ``Memory`` and ``AsyncMemory`` methods so that each
+memory operation is captured as an OpenTelemetry span. The two module-level
+constants drive that wrapping:
+
+- ``SYNC_METHODS``: configuration entries for the synchronous ``Memory`` API
+  (and its internal ``mem0.memory.main`` helpers). Each entry maps a
+  ``package``/``object`` to a human-readable span ``endpoint`` name and a
+  ``priority`` hint.
+- ``ASYNC_METHODS``: the equivalent configuration for the asynchronous
+  ``AsyncMemory`` API.
+
+At instrumentation time each entry is passed to ``wrap_function_wrapper`` so
+the matching method is patched with the appropriate sync/async wrapper.
 """
 
 from typing import Collection

@@ -65,7 +65,7 @@ info "Building from $cli_dir"
 	# -trimpath strips local filesystem paths from the binary so
 	# stack traces don't leak the developer's homedir; -ldflags
 	# -s -w drops the symbol + DWARF tables, which knocks ~30% off
-	# the binary size and matches what cli-release.yml produces.
+	# the binary size and matches what release-cli.yml produces.
 	# Keep these in sync with the release workflow so behaviour
 	# differences between source builds and release builds stay
 	# small.

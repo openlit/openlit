@@ -5,7 +5,6 @@ import {
 	getCurrentOrganisation,
 	getCurrentProjectForOrganisation,
 } from "@/lib/organisation";
-import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
 
 type RouteContext = {
 	params?: Record<string, string> | Promise<Record<string, string>>;
@@ -23,15 +22,14 @@ function firstString(...values: unknown[]) {
 	return undefined;
 }
 
-function extractDatabaseConfigId(body: any, request: Request) {
+function extractDatabaseConfigId(body: any) {
 	const selectedConfig = body?.selectedConfig;
 	return firstString(
 		body?.databaseConfigId,
 		body?.dbConfigId,
 		typeof selectedConfig === "string" ? selectedConfig : undefined,
 		selectedConfig?.databaseConfigId,
-		selectedConfig?.dbConfigId,
-		request.headers?.get?.(OPENLIT_CONTEXT_HEADERS.databaseConfigId)
+		selectedConfig?.dbConfigId
 	);
 }
 
@@ -55,6 +53,15 @@ export function withDbConfigAccess<THandler extends RouteHandler>(
 ): THandler {
 	return (async (request: Request, context: RouteContext = {}) => {
 		const messages = getMessage();
+
+		// API key first: middleware already verified Bearer and set x-database-config-id.
+		const apiKeyDatabaseConfigId = firstString(
+			request.headers?.get?.("x-database-config-id")
+		);
+		if (apiKeyDatabaseConfigId) {
+			return handler(request, context);
+		}
+
 		const user = await getCurrentUser();
 		if (!user) return Response.json({ error: messages.UNAUTHORIZED_USER }, { status: 401 });
 
@@ -62,7 +69,7 @@ export function withDbConfigAccess<THandler extends RouteHandler>(
 			typeof request.clone === "function"
 				? await request.clone().json().catch(() => ({}))
 				: {};
-		const databaseConfigId = extractDatabaseConfigId(body, request);
+		const databaseConfigId = extractDatabaseConfigId(body);
 		if (!databaseConfigId) {
 			const currentOrganisation = await getCurrentOrganisation();
 			const currentProject = currentOrganisation?.id

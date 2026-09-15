@@ -1,0 +1,28 @@
+---
+title: "Retrieve Context"
+description: "Fetch matching context content at runtime using the Rule Engine's evaluate API"
+---
+
+Contexts become useful once linked to at least one Active rule. Your application calls the Rule Engine's evaluate endpoint with `entity_type: "context"` and a set of input fields (like `model` or `user_tier`); OpenLIT checks all Active rules and returns which rules matched, plus references to their linked contexts.
+
+<Note>
+Creating, editing, and deleting contexts requires being logged into OpenLIT (session-based). Only this evaluate/retrieval step supports the Bearer-token API key flow described below.
+</Note>
+
+## Create an API Key
+
+- Navigate to **Settings → API Keys** in OpenLIT.
+- Click **Create API Key**, enter a name, and save the key securely.
+
+## Call the evaluate API
+
+Send a `POST` request to `/api/rule-engine/evaluate` with your input fields and `entity_type: "context"`. Set `include_entity_data: true` to receive the full context record (`id`, `name`, `description`, `content`, `tags`, `meta_properties`, `status`, `created_by`, `created_at`, `updated_at`) instead of just matching rule IDs and entity references.
+
+<CardGroup cols={2}>
+  <Card title="SDK Rule Engine" href="/latest/sdk/features/rule-engine" icon='puzzle-piece'>
+    Python, TypeScript, and Go examples for retrieving contexts, including full parameter tables and error handling
+  </Card>
+  <Card title="API Reference: Evaluate" href="/latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate" icon='code'>
+    Full request/response schema and a curl example for the evaluate endpoint
+  </Card>
+</CardGroup>

@@ -1,0 +1,39 @@
+---
+title: 'Monitor MCP using OpenTelemetry'
+description: 'OpenLIT auto-instruments Model Context Protocol (MCP) servers and clients via OpenTelemetry, tracing JSON-RPC calls, tool execution, and session lifecycle.'
+sidebarTitle: 'MCP'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor applications built on the Model Context Protocol (MCP). This includes tracing MCP server and client JSON-RPC calls, tool execution, and session lifecycle events, giving you AI observability into how your agents discover and call MCP tools.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
+
+The integration is compatible with the `mcp` Python SDK `>= 0.1.0`.
+
+## Get started
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+    ```shell
+    pip install openlit
+    ```
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: MCP Observability" href="/latest/openlit/quickstart-mcp-observability" icon='bolt'>
+    Production-ready MCP monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

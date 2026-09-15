@@ -165,7 +165,7 @@ export default function ModelListSidebar({
 									{isExpanded && (
 										<div className="ml-4 mt-1 space-y-1">
 											{providerModels.length === 0 ? (
-												<div className="text-xs text-stone-400 dark:text-stone-500 px-2 py-2">
+												<div className="text-xs text-stone-500 dark:text-stone-400 px-2 py-2">
 													{getMessage().OPENGROUND_NO_MODELS_FOUND}
 												</div>
 											) : (

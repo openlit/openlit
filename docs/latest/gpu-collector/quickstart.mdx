@@ -40,12 +40,13 @@ In this guide you'll pull the collector Docker image, point it at your OTel back
         docker run -d \
           --name otel-gpu-collector \
           --gpus all \
+          --pid=host \
           -e OTEL_SERVICE_NAME=my-app \
           -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
           -e OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
           ghcr.io/openlit/otel-gpu-collector:latest
         ```
-        Requires the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) on the host.
+        Requires the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) on the host. `--pid=host` is required for per-process GPU attribution (cmdline, PID, zombie state).
       </Tab>
       <Tab title="AMD GPU">
         ```bash
@@ -53,23 +54,26 @@ In this guide you'll pull the collector Docker image, point it at your OTel back
           --name otel-gpu-collector \
           --device /dev/kfd:/dev/kfd \
           --device /dev/dri:/dev/dri \
+          --pid=host \
           -e OTEL_SERVICE_NAME=my-app \
           -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
           -e OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
           ghcr.io/openlit/otel-gpu-collector:latest
         ```
+        `--pid=host` is required for per-process GPU attribution (cmdline, PID, zombie state).
       </Tab>
       <Tab title="Intel GPU">
         ```bash
         docker run -d \
           --name otel-gpu-collector \
           --device /dev/dri:/dev/dri \
+          --pid=host \
           -e OTEL_SERVICE_NAME=my-app \
           -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
           -e OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
           ghcr.io/openlit/otel-gpu-collector:latest
         ```
-        Requires Linux kernel 5.10+ with the i915 or Xe driver.
+        Requires Linux kernel 5.10+ with the i915 or Xe driver. `--pid=host` is required for per-process GPU attribution.
       </Tab>
       <Tab title="Host metrics only">
         ```bash
@@ -115,6 +119,7 @@ Add the collector as a service alongside your existing stack:
 services:
   otel-gpu-collector:
     image: ghcr.io/openlit/otel-gpu-collector:latest
+    pid: host
     environment:
       OTEL_SERVICE_NAME: my-app
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
@@ -130,6 +135,8 @@ services:
       - otel-collector
     restart: always
 ```
+
+`pid: host` (Docker `--pid=host`) is required so the collector can see host workload PIDs under `/proc` for per-process GPU metrics, cmdline, and zombie detection.
 
 ---
 

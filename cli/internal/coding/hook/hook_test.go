@@ -5,6 +5,33 @@ import (
 	"testing"
 )
 
+// TestForeignParentID ensures Cursor's self-parent echo
+// (parent_conversation_id == conversation.id) is not stamped as a
+// real parent link. That echo previously flipped is_subagent on the
+// parent chat and hid it from the Sessions list.
+func TestForeignParentID(t *testing.T) {
+	cases := []struct {
+		name           string
+		parent         string
+		conversationID string
+		sessionID      string
+		want           string
+	}{
+		{name: "empty", parent: "", conversationID: "c1", sessionID: "s1", want: ""},
+		{name: "foreign", parent: "parent-1", conversationID: "c1", sessionID: "s1", want: "parent-1"},
+		{name: "self_eq_conversation", parent: "c1", conversationID: "c1", sessionID: "s1", want: ""},
+		{name: "self_eq_session", parent: "s1", conversationID: "c1", sessionID: "s1", want: ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := foreignParentID(tc.parent, tc.conversationID, tc.sessionID); got != tc.want {
+				t.Fatalf("foreignParentID(%q,%q,%q) = %q, want %q",
+					tc.parent, tc.conversationID, tc.sessionID, got, tc.want)
+			}
+		})
+	}
+}
+
 // TestIsClaudeCodeVendor covers the small whitelist that drives the
 // host-mismatch guard's left-hand side. The list is small but the
 // downstream behaviour (emit vs. drop) is binary, so we want a

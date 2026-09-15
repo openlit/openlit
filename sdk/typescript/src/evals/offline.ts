@@ -353,6 +353,9 @@ export async function fetchEvalTypes(options: EvalTypesOptions = {}): Promise<Ev
       description: t.description || '',
       enabled: !!t.enabled,
       isCustom: !!t.is_custom,
+      ...(typeof t.threshold_score === 'number'
+        ? { thresholdScore: t.threshold_score }
+        : {}),
     }));
   } catch (e: any) {
     if (e?.name === 'AbortError') {

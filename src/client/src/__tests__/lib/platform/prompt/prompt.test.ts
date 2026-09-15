@@ -146,6 +146,14 @@ describe('upsertPromptVersion', () => {
       upsertPromptVersion({ promptId: 'p1' } as any)
     ).rejects.toThrow('Version object error');
   });
+
+  it('defaults version, status, and promptId to empty strings in the alert signal when omitted', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: { query_id: 'qid-1' } });
+    // No version, status, or promptId supplied -> exercises the `|| ""` fallbacks
+    // in the emitManagementAlertSignalSafe call.
+    const result = await upsertPromptVersion({} as any);
+    expect(result).toBe('Version saved!');
+  });
 });
 
 describe('updateDownloadDetails', () => {

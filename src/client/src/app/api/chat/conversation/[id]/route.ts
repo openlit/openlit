@@ -2,20 +2,23 @@ import {
 	getConversationWithMessages,
 	deleteConversation,
 } from "@/lib/platform/chat/conversation";
-import { getCurrentUser } from "@/lib/session";
+import { resolveRequestAuth } from "@/helpers/server/auth";
 import { NextRequest } from "next/server";
 
 export async function GET(
-	_: NextRequest,
+	request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
-	const user = await getCurrentUser();
-	if (!user) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
 	const { id } = await params;
-	const { data, err } = await getConversationWithMessages(id);
+	const { data, err } = await getConversationWithMessages(
+		id,
+		auth.databaseConfigId
+	);
 
 	if (err) {
 		return Response.json(err, { status: 400 });
@@ -25,16 +28,16 @@ export async function GET(
 }
 
 export async function DELETE(
-	_: NextRequest,
+	request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
-	const user = await getCurrentUser();
-	if (!user) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
 	const { id } = await params;
-	const { err } = await deleteConversation(id);
+	const { err } = await deleteConversation(id, auth.databaseConfigId);
 
 	if (err) {
 		return Response.json(err, { status: 400 });
