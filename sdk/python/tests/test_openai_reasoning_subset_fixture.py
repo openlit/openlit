@@ -28,7 +28,9 @@ from openlit._config import OpenlitConfig
 from openlit.instrumentation.openai.utils import (
     process_chat_chunk,
     process_chat_response,
+    process_response_chunk,
     process_streaming_chat_response,
+    process_streaming_response_response,
 )
 from openlit.semcov import SemanticConvention
 
@@ -239,3 +241,93 @@ def test_fixture_streaming_chat_path():
         == 300
     )
     assert all(value != 1700 for value in attrs.values())
+
+
+def _responses_stream_scope(span):
+    """Matches production Responses wrappers: no _reasoning_tokens until usage."""
+    return SimpleNamespace(
+        _span=span,
+        _llmresponse="",
+        _response_id="",
+        _response_model="",
+        _finish_reason="",
+        _input_tokens=0,
+        _output_tokens=0,
+        _operation_type="responses",
+        _service_tier="default",
+        _tools=None,
+        _response_tools=None,
+        _kwargs={
+            "model": "o3-mini",
+            "input": "think step by step",
+        },
+        _start_time=time.time(),
+        _end_time=None,
+        _timestamps=[],
+        _ttft=0,
+        _tbt=0,
+        _server_address="api.openai.com",
+        _server_port=443,
+    )
+
+
+def test_fixture_streaming_chat_without_usage_emits_nothing():
+    """No include_usage chunk: third state, no reasoning attributes at all."""
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _metrics_dict()
+    span = tracer.start_span("chat fixture stream no usage")
+    scope = _stream_scope(span)
+
+    process_chat_chunk(
+        scope,
+        {
+            "id": "chatcmpl_fixture_stream_no_usage",
+            "model": "o3-mini",
+            "choices": [{"delta": {"content": "The answer is 42."}}],
+        },
+    )
+    with span:
+        process_streaming_chat_response(
+            scope,
+            pricing_info={},
+            environment="test-env",
+            application_name="test-app",
+            metrics=metrics,
+            capture_message_content=False,
+            disable_metrics=False,
+            version="test-version",
+        )
+
+    attrs = exporter.get_finished_spans()[0].attributes
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED not in attrs
+    assert SemanticConvention.GEN_AI_USAGE_DERIVED_COMPLETED_OUTPUT_TOKENS not in attrs
+
+
+def test_fixture_streaming_responses_without_completed_emits_nothing():
+    """Responses stream with no usage payload must not look like measured zero."""
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _metrics_dict()
+    span = tracer.start_span("responses fixture stream no completed")
+    scope = _responses_stream_scope(span)
+
+    process_response_chunk(
+        scope,
+        {"type": "response.output_text.delta", "delta": "The answer is 42."},
+    )
+    with span:
+        process_streaming_response_response(
+            scope,
+            pricing_info={},
+            environment="test-env",
+            application_name="test-app",
+            metrics=metrics,
+            capture_message_content=False,
+            disable_metrics=False,
+            version="test-version",
+        )
+
+    attrs = exporter.get_finished_spans()[0].attributes
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED not in attrs
+    assert SemanticConvention.GEN_AI_USAGE_DERIVED_COMPLETED_OUTPUT_TOKENS not in attrs
