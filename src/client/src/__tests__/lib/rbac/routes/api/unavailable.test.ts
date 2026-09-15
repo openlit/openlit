@@ -1,4 +1,5 @@
 import { alertingUnavailable } from "@/lib/rbac/routes/api/alerts/unavailable";
+import { fleetHubUnavailable } from "@/lib/rbac/routes/api/fleet-hub/unavailable";
 
 beforeAll(() => {
 	Object.defineProperty(global, "Response", {
@@ -19,6 +20,17 @@ describe("alertingUnavailable", () => {
 		expect(response.status).toBe(402);
 		expect(response.json()).resolves.toEqual({
 			error: "Alerting is not available in this edition.",
+		});
+	});
+});
+
+describe("fleetHubUnavailable", () => {
+	it("returns a 402 upgrade-required response with a CE-safe error message", () => {
+		const response: any = fleetHubUnavailable();
+
+		expect(response.status).toBe(402);
+		expect(response.json()).resolves.toEqual({
+			error: "Fleet Hub is not available in this edition.",
 		});
 	});
 });

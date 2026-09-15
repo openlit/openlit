@@ -1,4 +1,3 @@
-import OpenTelemetrySvg from "@/components/svg/opentelemetry";
 import { getEnterpriseSidebarItems } from "@/features/sidebar";
 import getMessage from "@/constants/messages";
 import { SidebarItemProps } from "@/types/sidebar";
@@ -73,12 +72,6 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						icon: <CircleDollarSign className={ICON_CLASSES} />,
 						text: m.COSTS_TITLE,
 						link: "/costs",
-						type: "action",
-					},
-					{
-						icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
-						text: "Fleet Hub",
-						link: "/fleet-hub",
 						type: "action",
 					},
 				],

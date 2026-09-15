@@ -754,6 +754,7 @@ export const FEATURE_PROMPTS = "Prompt Hub";
 export const FEATURE_VAULT = "Vault";
 export const FEATURE_MEMORY = "Memory";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
+export const FLEET_HUB_UNAVAILABLE = "Fleet Hub is not available in this edition.";
 export const FLEET_HUB_BACK_TO_LIST = "Back to Fleet Hub";
 export const FEATURE_AGENTS = "Agents";
 export const FEATURE_EVALS = "Evaluations";
