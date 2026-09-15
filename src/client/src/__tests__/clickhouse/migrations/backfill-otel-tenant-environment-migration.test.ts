@@ -1,12 +1,4 @@
 jest.mock("@/lib/platform/common", () => ({
-	OTEL_TRACES_TABLE_NAME: "otel_traces",
-	OTEL_LOGS_TABLE_NAME: "otel_logs",
-	OTEL_METRICS_GAUGE_TABLE_NAME: "otel_metrics_gauge",
-	OTEL_METRICS_SUM_TABLE_NAME: "otel_metrics_sum",
-	OTEL_METRICS_HISTOGRAM_TABLE_NAME: "otel_metrics_histogram",
-	OTEL_METRICS_SUMMARY_TABLE_NAME: "otel_metrics_summary",
-	OTEL_METRICS_EXPONENTIAL_HISTOGRAM_TABLE_NAME:
-		"otel_metrics_exponential_histogram",
 	dataCollector: jest.fn(),
 }));
 jest.mock("@/lib/db-config", () => ({

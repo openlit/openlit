@@ -1,13 +1,4 @@
-import {
-	OTEL_LOGS_TABLE_NAME,
-	OTEL_METRICS_EXPONENTIAL_HISTOGRAM_TABLE_NAME,
-	OTEL_METRICS_GAUGE_TABLE_NAME,
-	OTEL_METRICS_HISTOGRAM_TABLE_NAME,
-	OTEL_METRICS_SUM_TABLE_NAME,
-	OTEL_METRICS_SUMMARY_TABLE_NAME,
-	OTEL_TRACES_TABLE_NAME,
-	dataCollector,
-} from "@/lib/platform/common";
+import { dataCollector } from "@/lib/platform/common";
 import { getDBConfigByIdInternal, getDBConfigByUser } from "@/lib/db-config";
 import asaw from "@/utils/asaw";
 import prisma from "@/lib/prisma";
@@ -15,14 +6,17 @@ import { consoleLog } from "@/utils/log";
 
 const MIGRATION_ID = "backfill-otel-tenant-environment";
 
+// Literal table names: this module is loaded from db-config -> migrations while
+// `@/lib/platform/common` is still initializing, so importing OTEL_* constants
+// there throws "Cannot access before initialization".
 const OTEL_RESOURCE_TABLES = [
-	OTEL_TRACES_TABLE_NAME,
-	OTEL_LOGS_TABLE_NAME,
-	OTEL_METRICS_GAUGE_TABLE_NAME,
-	OTEL_METRICS_SUM_TABLE_NAME,
-	OTEL_METRICS_HISTOGRAM_TABLE_NAME,
-	OTEL_METRICS_SUMMARY_TABLE_NAME,
-	OTEL_METRICS_EXPONENTIAL_HISTOGRAM_TABLE_NAME,
+	"otel_traces",
+	"otel_logs",
+	"otel_metrics_gauge",
+	"otel_metrics_sum",
+	"otel_metrics_histogram",
+	"otel_metrics_summary",
+	"otel_metrics_exponential_histogram",
 ];
 
 function escapeClickHouseString(value: string) {

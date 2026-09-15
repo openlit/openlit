@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Maximize2, X } from "lucide-react";
 import getMessage from "@/constants/messages";
+import { clientFetchErrorMessage } from "@/utils/api";
 import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import { useIsAgentScoped } from "@/components/(playground)/agents/agent-scope-provider";
@@ -487,7 +488,7 @@ export default function ObservabilitySignalList({
 
 			{telemetryError && (
 				<div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
-					{String(telemetryError)}
+					{clientFetchErrorMessage(telemetryError)}
 				</div>
 			)}
 

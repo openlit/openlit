@@ -17,7 +17,6 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import DatabaseConfigPage from "@/components/(playground)/database-config/database-config-page";
 import { deleteDatabaseConfig } from "@/helpers/client/database-config";
 import type { DatabaseConfigWithActive } from "@/constants/dbConfig";
 import { Input } from "@/components/ui/input";
@@ -111,6 +110,29 @@ interface BindingRow {
 	sourceId: string;
 	sourceName: string | null;
 	sourceType: string | null;
+}
+
+function clickHouseSourceFromConfig(
+	config: DatabaseConfigWithActive,
+	signals: Signal[]
+): SourceRow {
+	return {
+		id: config.id.startsWith("database:") ? config.id : `database:${config.id}`,
+		name: config.name,
+		type: "clickhouse",
+		environment: config.environment || "production",
+		signals: signals.join(","),
+		settings: JSON.stringify({
+			username: config.username,
+			host: config.host,
+			port: config.port,
+			database: config.database,
+			query: config.query || "",
+		}),
+		isDefault: false,
+		hasSecret: true,
+		category: "datasource",
+	};
 }
 
 function parseSignals(csv: string): Signal[] {
@@ -262,7 +284,6 @@ export default function DataSourcesPage({
 	const [descriptors, setDescriptors] = useState<TypeDescriptor[]>([]);
 	const [bindings, setBindings] = useState<BindingRow[]>([]);
 	const [editing, setEditing] = useState<SourceRow | "new" | null>(null);
-	const [dbEditing, setDbEditing] = useState<DatabaseConfigWithActive | "new" | null>(null);
 	const [newType, setNewType] = useState<string | undefined>();
 	const [testingId, setTestingId] = useState<string | null>(null);
 	const [connectorSearch, setConnectorSearch] = useState("");
@@ -324,12 +345,8 @@ export default function DataSourcesPage({
 
 	useEffect(() => {
 		if (openType == null) return;
-		if (openType === "clickhouse") {
-			setDbEditing("new");
-		} else {
-			setNewType(openType || undefined);
-			setEditing("new");
-		}
+		setNewType(openType || undefined);
+		setEditing("new");
 		onOpenTypeHandled?.();
 	}, [onOpenTypeHandled, openType]);
 
@@ -616,14 +633,6 @@ export default function DataSourcesPage({
 						</Select>
 					</div>
 				</div>
-				<DatabaseConfigPage
-					hideHeader
-					hideEmpty
-					hideList
-					editing={dbEditing}
-					onEditingChange={setDbEditing}
-					onConfigSaved={() => void load()}
-				/>
 			{loading ? (
 					<div className="space-y-2">
 						{[0, 1, 2].map((item) => (
@@ -708,7 +717,11 @@ export default function DataSourcesPage({
 													title={messages.DATA_SOURCE_EDIT_ACTION}
 													aria-label={`${messages.DATA_SOURCE_EDIT_ACTION} ${config.name}`}
 													disabled={!config.permissions?.canEdit}
-													onClick={() => setDbEditing(config)}
+													onClick={() =>
+														setEditing(
+															clickHouseSourceFromConfig(config, clickhouseSignals)
+														)
+													}
 												>
 													<Pencil className="h-3.5 w-3.5" />
 												</Button>
@@ -1155,6 +1168,7 @@ export function SourceFormDialog({
 					environment: environment.trim().toLowerCase() || "production",
 					settings,
 				};
+				if (isEdit) payload.id = String(source!.id).replace(/^database:/, "");
 				if (Object.keys(credentials).length) payload.credentials = credentials;
 				await jsonFetch("/api/connectors", {
 					method: "POST",
@@ -1210,6 +1224,15 @@ export function SourceFormDialog({
 		setTesting(true);
 		toast.loading(messages.DATA_SOURCE_TESTING, { id: "ds-test" });
 		try {
+			if (type === "clickhouse") {
+				const response = await fetch("/api/clickhouse", { method: "POST" });
+				const body = await response.json().catch(() => ({}));
+				if (!response.ok || body?.err) {
+					throw new Error(body?.err || messages.DATA_SOURCE_SAVE_FAILED);
+				}
+				toast.success(messages.DATA_SOURCE_TEST_OK, { id: "ds-test" });
+				return;
+			}
 			const res = await jsonFetch(`/api/connectors/${source.id}/health`, {
 				method: "POST",
 			});
@@ -1411,7 +1434,7 @@ export function SourceFormDialog({
 						/>
 					)}
 
-					{activeDescriptor?.category !== "memory" && (
+					{activeDescriptor?.category !== "memory" && type !== "clickhouse" && (
 					<div className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2 dark:border-stone-800">
 						<Label className="text-xs">
 							{messages.DATA_SOURCE_FIELD_DEFAULT}
