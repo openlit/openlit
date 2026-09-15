@@ -6,7 +6,7 @@ import {
 } from "./table-details";
 import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
-import { createWidget, getWidgets } from "./widget";
+import { createWidget, deleteWidget, getWidgets } from "./widget";
 import { pluck } from "lodash/fp";
 import { jsonStringify } from "@/utils/json";
 import { normalizeImportedDashboard } from "./board-format";
@@ -160,7 +160,7 @@ export async function updateBoard(board: Board & { updateParent?: boolean }) {
 	return { data: boardData };
 }
 
-export async function deleteBoard(id: string) {
+export async function deleteBoard(id: string, databaseConfigId?: string) {
 	const query_board_widgets = `
 		DELETE FROM ${OPENLIT_BOARD_WIDGET_TABLE_NAME} 
 		WHERE board_id = '${Sanitizer.sanitizeValue(id)}'
@@ -173,12 +173,17 @@ export async function deleteBoard(id: string) {
 
 	const { err: err_board_widgets } = await dataCollector(
 		{ query: query_board_widgets },
-		"exec"
+		"exec",
+		databaseConfigId
 	);
 
 	if (err_board_widgets) return { err: getMessage().BOARD_DELETE_FAILED };
 
-	const { err: err_board } = await dataCollector({ query }, "exec");
+	const { err: err_board } = await dataCollector(
+		{ query },
+		"exec",
+		databaseConfigId
+	);
 
 	if (err_board) return { err: getMessage().BOARD_DELETE_FAILED };
 
@@ -247,8 +252,14 @@ export async function getBoardLayout(id: string, databaseConfigId?: string) {
 
 	let widgetsResult: Array<Widget> = [];
 
-	if (widgetIds) {
-		const { data: widgetsData } = await getWidgets(widgetIds);
+	if (widgetIds?.length) {
+		const { data: widgetsData, err: widgetsErr } = await getWidgets(
+			widgetIds,
+			databaseConfigId
+		);
+		if (widgetsErr) {
+			return { err: widgetsErr };
+		}
 		widgetsResult = (widgetsData || []) as typeof widgetsResult;
 	}
 
@@ -292,12 +303,18 @@ export async function getBoardLayout(id: string, databaseConfigId?: string) {
 		widgets: {},
 	};
 
-	// Map widgets and create layout config
-	board.widgets = mappingsResult.map((mapping) => {
+	// Map widgets and create layout config. Skip dangling
+	// openlit_board_widget rows whose widget record is missing — those
+	// used to be synthesized as empty-type placeholders and crashed the
+	// dashboard renderer (React #130).
+	board.widgets = mappingsResult.flatMap((mapping) => {
 		const widgetDetails = widgetDetailsMap.get(mapping.widgetId);
+		if (!widgetDetails) {
+			return [];
+		}
+
 		const position = JSON.parse(mapping.position || "{}");
 
-		// Add to layouts
 		layoutConfig.layouts.lg.push({
 			i: mapping.widgetId,
 			x: position.x,
@@ -306,30 +323,30 @@ export async function getBoardLayout(id: string, databaseConfigId?: string) {
 			h: position.h,
 		});
 
-		// Add to widgets map
 		const widgetData = {
 			id: mapping.widgetId,
-			title: widgetDetails?.title || "",
-			description: widgetDetails?.description || "",
-			type: widgetDetails?.type || "",
-			properties: widgetDetails?.properties || {},
-			config: widgetDetails?.config || {},
-			createdAt: widgetDetails?.createdAt || "",
-			updatedAt: widgetDetails?.updatedAt || "",
+			title: widgetDetails.title || "",
+			description: widgetDetails.description || "",
+			type: widgetDetails.type,
+			properties: widgetDetails.properties || {},
+			config: widgetDetails.config || {},
+			createdAt: widgetDetails.createdAt || "",
+			updatedAt: widgetDetails.updatedAt || "",
 		} as const;
 
 		layoutConfig.widgets[mapping.widgetId] = widgetData;
 
-		// Return the board widget mapping
-		return {
-			id: mapping.boardWidgetId,
-			boardId: board.id,
-			widgetId: mapping.widgetId,
-			position: position || {},
-			createdAt: mapping.boardWidgetCreatedAt,
-			updatedAt: mapping.boardWidgetUpdatedAt,
-			widget: widgetData,
-		};
+		return [
+			{
+				id: mapping.boardWidgetId,
+				boardId: board.id,
+				widgetId: mapping.widgetId,
+				position: position || {},
+				createdAt: mapping.boardWidgetCreatedAt,
+				updatedAt: mapping.boardWidgetUpdatedAt,
+				widget: widgetData,
+			},
+		];
 	});
 
 	return {
@@ -544,11 +561,33 @@ export async function importBoardLayout(
 		})
 		.filter((layout): layout is NonNullable<typeof layout> => !!layout);
 
-	await Promise.all(
-		updatedWidgets.map(async (widget) => {
-			return await createWidget(widget, databaseConfigId);
-		})
-	);
+	const rollbackImport = async (widgetIds: string[]) => {
+		await deleteBoard(newBoardId, databaseConfigId);
+		await Promise.all(
+			widgetIds.map((widgetId) => deleteWidget(widgetId, databaseConfigId))
+		);
+	};
+
+	// createWidget returns `{ err }` instead of throwing, so a bare
+	// Promise.all cannot detect partial insert failures. Writing
+	// board_widget rows for widgets that never landed creates dangling
+	// refs that crash /home (React #130).
+	//
+	// Creates run sequentially: each createWidget is insert + readback,
+	// and the ClickHouse pool is max 20 / maxWaitingClients 5. Coding
+	// Agents seeds 21 widgets; parallel creates are a plausible cause
+	// of the original partial seed.
+	const createdWidgetIds: string[] = [];
+	for (const widget of updatedWidgets) {
+		const result = await createWidget(widget, databaseConfigId);
+		if (result.err) {
+			await rollbackImport(createdWidgetIds);
+			return {
+				err: result.err || getMessage().BOARD_IMPORT_FAILED,
+			};
+		}
+		createdWidgetIds.push(widget.id);
+	}
 
 	const layoutConfigData = {
 		layouts: {
@@ -573,6 +612,7 @@ export async function importBoardLayout(
 		return { data: boardResult.data };
 	}
 
+	await rollbackImport(createdWidgetIds);
 	return { err: layoutErr || getMessage().BOARD_IMPORT_FAILED };
 }
 

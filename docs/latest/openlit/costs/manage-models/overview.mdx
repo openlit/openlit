@@ -3,7 +3,7 @@ title: "Overview"
 description: "Manage models on the Costs page - edit LLM providers and per-model token prices used for AI cost tracking across traces, Otter, OpenGround, and the SDK"
 ---
 
-**Manage models** is the **Manage models** tab on **Costs** (`/costs?tab=models`) under Monitor. Every connected ClickHouse database is seeded with **14 providers** and a large built-in model catalog (90+ models). You can edit any price, add custom providers and models, import/export pricing JSON, and point the OpenLIT SDK at a public pricing URL so ingest-time cost tracking stays in sync with the UI.
+**Manage models** is the **Manage models** tab on **Costs** (`/costs?tab=models`) under Monitor. Every connected ClickHouse database is seeded with **16 providers** and a large built-in model catalog (90+ models). You can edit any price, add custom providers and models, import/export pricing JSON, and point the OpenLIT SDK at a public pricing URL so ingest-time cost tracking stays in sync with the UI.
 
 Those prices power [Configuration](/latest/openlit/costs/configuration) (Auto Pricing and manual recalculation), [Analytics](/latest/openlit/costs/analytics), cost columns in telemetry, [OpenGround](/latest/openlit/prompts-experiments/openground/overview) comparisons, and Otter's message cost estimates.
 
@@ -26,7 +26,7 @@ Open **Monitor → Costs → Manage models**. (`/manage-models` redirects here.)
 
 ## Built-in providers
 
-Out of the box you get: OpenAI, Anthropic, Google AI, Mistral AI, Groq, Perplexity, Azure OpenAI, Cohere, Together AI, Fireworks AI, DeepSeek, xAI, Hugging Face, and Replicate. Model lists change as the catalog is updated - treat Manage models itself as the source of truth for what is installed in your database.
+Out of the box you get: OpenAI, Anthropic, Google AI, Mistral AI, Groq, Perplexity, Azure OpenAI, Cohere, Together AI, Fireworks AI, DeepSeek, xAI, Hugging Face, Replicate, MiniMax, and OrcaRouter. Model lists change as the catalog is updated - treat Manage models itself as the source of truth for what is installed in your database.
 
 ## API reference
 
