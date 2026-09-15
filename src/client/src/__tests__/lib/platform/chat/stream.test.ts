@@ -101,15 +101,31 @@ describe('getModelInstance', () => {
     expect(instance).toBeDefined();
   });
 
-  it('supports all 14 providers', () => {
+  it('supports all built-in providers including MiniMax', () => {
     const providers = [
       'openai', 'anthropic', 'google', 'mistral', 'cohere',
       'groq', 'perplexity', 'azure', 'together', 'fireworks',
-      'deepseek', 'xai', 'huggingface', 'replicate',
+      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax', 'orcarouter',
     ];
     for (const p of providers) {
       expect(() => getModelInstance(p, 'key', 'model')).not.toThrow();
     }
+  });
+
+  it('supports MiniMax via the OpenAI-compatible endpoint', () => {
+    const instance = getModelInstance('minimax', 'key', 'MiniMax-M3');
+    expect(instance).toBeDefined();
+    expect(createOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: 'https://api.minimax.io/v1' })
+    );
+  });
+
+  it('supports OrcaRouter via the OpenAI-compatible endpoint', () => {
+    const instance = getModelInstance('orcarouter', 'sk-orca-test', 'orcarouter/auto');
+    expect(instance).toBeDefined();
+    expect(createOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: 'https://api.orcarouter.ai/v1' })
+    );
   });
 
   it('throws when a provider factory returns a non-callable object instance', () => {

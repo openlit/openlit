@@ -24,10 +24,11 @@ func (f *SpanFanout) HandleEvent(ev gpuebpf.CUDAEvent) {
 	ctx := context.Background()
 	switch e := ev.(type) {
 	case *gpuebpf.SetDeviceEvent:
+		if f.ebpf != nil && f.ebpf.devices != nil {
+			f.ebpf.devices.NoteSetDevice(e.PID, e.TID, int(e.Device))
+		}
 		if f.occ != nil {
 			f.occ.HandleEvent(ev)
-		} else if f.ebpf != nil && f.ebpf.devices != nil {
-			f.ebpf.devices.NoteSetDevice(e.PID, e.TID, int(e.Device))
 		}
 
 	case *gpuebpf.KernelLaunchEvent:
