@@ -391,6 +391,14 @@ export const OBSERVABILITY_CHAT_MODEL_CHANGES = (count: number) =>
 export const OBSERVABILITY_TIMELINE = "Timeline";
 export const OBSERVABILITY_GRAPH = "Graph";
 export const OBSERVABILITY_NO_SERVER_CONNECTION = "Cannot connect to server!";
+export const API_UNEXPECTED_NON_JSON_RESPONSE =
+	"The server returned an unexpected non-JSON response.";
+export const API_UNEXPECTED_HTML_RESPONSE = (status?: number) =>
+	typeof status === "number"
+		? `The server returned a page instead of data (${status}). Refresh the page and try again.`
+		: "The server returned a page instead of data. Refresh the page and try again.";
+export const API_REQUEST_FAILED = (status: number) => `Request failed (${status})`;
+export const API_EMPTY_RESPONSE = "The telemetry service returned an empty response.";
 export const OBSERVABILITY_ADD = "Add";
 export const OBSERVABILITY_SPAN_NAME_EXAMPLE = "e.g. SpanName";
 export const OBSERVABILITY_ATTRIBUTE_KEY_EXAMPLE = "e.g. gen_ai.system";
@@ -754,6 +762,7 @@ export const FEATURE_PROMPTS = "Prompt Hub";
 export const FEATURE_VAULT = "Vault";
 export const FEATURE_MEMORY = "Memory";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
+export const FLEET_HUB_UNAVAILABLE = "Fleet Hub is not available in this edition.";
 export const FLEET_HUB_BACK_TO_LIST = "Back to Fleet Hub";
 export const FEATURE_AGENTS = "Agents";
 export const FEATURE_EVALS = "Evaluations";

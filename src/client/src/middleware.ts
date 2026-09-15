@@ -44,8 +44,6 @@ export const config = {
 		"/home",
 		"/dashboards/:path*",
 		"/d/:path*",
-		"/fleet-hub",
-		"/fleet-hub/:path*",
 		"/agents",
 		"/agents/:path*",
 		"/onboarding",

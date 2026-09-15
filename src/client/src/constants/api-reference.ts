@@ -9,24 +9,14 @@ export interface ApiEndpoint {
 	curlExample: (apiKey: string) => string;
 }
 
-/** Organisation → Project → Environment headers for signal-routed API-key calls. */
-export const OPENLIT_CONTEXT_CURL_HEADERS = `  -H "x-openlit-organisation-id: <organisation-id>" \\
-  -H "x-openlit-project-id: <project-id>" \\
-  -H "x-openlit-environment: production"`;
-
-/** Preferred SDK context: signal routing. Optional db-config header remains supported. */
-export const OPENLIT_SDK_CONTEXT_CURL_HEADERS = `  -H "x-openlit-organisation-id: <organisation-id>" \\
-  -H "x-openlit-project-id: <project-id>" \\
-  -H "x-openlit-environment: production"`;
+/** Organisation → Project → Environment is resolved from the API key. */
 
 export function bearerAuthHeaders(apiKey: string) {
-	return `  -H "Authorization: Bearer ${apiKey}" \\
-${OPENLIT_CONTEXT_CURL_HEADERS}`;
+	return `  -H "Authorization: Bearer ${apiKey}"`;
 }
 
 export function bearerSdkAuthHeaders(apiKey: string) {
-	return `  -H "Authorization: Bearer ${apiKey}" \\
-${OPENLIT_SDK_CONTEXT_CURL_HEADERS}`;
+	return `  -H "Authorization: Bearer ${apiKey}"`;
 }
 
 export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
@@ -35,7 +25,7 @@ export const API_REFERENCE_ENDPOINTS: ApiEndpoint[] = [
 		method: "POST",
 		path: "/api/telemetry/logs",
 		summary: "Query logs",
-		description: "Retrieve a paginated list of telemetry logs matching the provided filters. Requires an OpenLIT API key plus organisation/project/environment headers for signal routing.",
+		description: "Retrieve a paginated list of telemetry logs matching the provided filters. Requires an OpenLIT API key; organisation, project, and environment are taken from that key.",
 		requestBody: `{
   "timeLimit": {
     "type": "24H",
@@ -553,7 +543,7 @@ ${bearerAuthHeaders(apiKey)}`,
 		path: "/api/chat/improvement/{spanId}",
 		summary: "Get AI Analysis runs",
 		description:
-			"Retrieve saved AI Analysis runs for a trace hierarchy (`scope=trace`) or a single span (`scope=span`). Requires an OpenLIT API key plus organisation/project/environment context headers for signal routing.",
+			"Retrieve saved AI Analysis runs for a trace hierarchy (`scope=trace`) or a single span (`scope=span`). Requires an OpenLIT API key; organisation, project, and environment are taken from that key.",
 		responseBody: `{
   "data": {
     "rootSpanId": "557a2bd43ff129ad",
@@ -576,7 +566,7 @@ ${bearerAuthHeaders(apiKey)}`,
 		path: "/api/chat/improvement/{spanId}",
 		summary: "Run AI Analysis",
 		description:
-			"Start a streaming AI Analysis for a trace or span. Requires an OpenLIT API key, Chat Settings, an intelligence ClickHouse connector, and organisation/project/environment context headers.",
+			"Start a streaming AI Analysis for a trace or span. Requires an OpenLIT API key, Chat Settings, and an intelligence ClickHouse connector. Organisation, project, and environment are taken from the API key.",
 		responseBody: `progress events + completed dimension findings (text/plain stream)`,
 		curlExample: (apiKey) => `curl -X POST "http://localhost:3000/api/chat/improvement/some-span-id?scope=trace" \\
 ${bearerAuthHeaders(apiKey)}`,
@@ -586,7 +576,7 @@ ${bearerAuthHeaders(apiKey)}`,
 		method: "GET",
 		path: "/api/chat/config",
 		summary: "Get Ask Otter config",
-		description: "Return the Ask Otter provider/model/Vault binding for the current organisation. Requires an OpenLIT API key plus organisation/project/environment context headers.",
+		description: "Return the Ask Otter provider/model/Vault binding for the current organisation. Requires an OpenLIT API key; organisation, project, and environment are taken from that key.",
 		responseBody: `{
   "data": {
     "provider": "openai",
@@ -714,7 +704,7 @@ ${bearerAuthHeaders(apiKey)}`,
 		path: "/api/chat/message",
 		summary: "Send Ask Otter message",
 		description:
-			"Stream an assistant reply for a conversation (NDJSON events: delta, step, done, error). Requires organisation/project/environment context for connector routing.",
+			"Stream an assistant reply for a conversation (NDJSON events: delta, step, done, error). Organisation, project, and environment are taken from the API key.",
 		requestBody: `{
   "conversationId": "conv-1",
   "content": "Analyze the slowest traces from the last 24 hours"
@@ -805,7 +795,7 @@ ${bearerAuthHeaders(apiKey)}`,
 		method: "POST",
 		path: "/api/prompt/improve",
 		summary: "Improve prompt with Otter",
-		description: "Ask Otter to propose precise prompt edits. Requires an OpenLIT API key, Chat Settings, and organisation/project/environment context headers.",
+		description: "Ask Otter to propose precise prompt edits. Requires an OpenLIT API key and Chat Settings. Organisation, project, and environment are taken from the API key.",
 		requestBody: `{
   "prompt": "You are a helpful assistant. Answer the user question.",
   "promptId": "prompt-1",
