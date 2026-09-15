@@ -12,9 +12,9 @@ The OpenLIT UI proxies the same `/v1/*` paths from the app origin to this proces
 
 ## Tenant routing
 
-Send `Authorization: Bearer <openlit-api-key>`. The key resolves to the bound `DatabaseConfig` ClickHouse (organisation → project). Client `x-database-config-id` headers are ignored.
+Send `Authorization: Bearer <openlit-api-key>`. The key is scoped to organisation → project → environment and resolves to the bound `DatabaseConfig` ClickHouse. Client `x-database-config-id` headers are ignored. Ingest overwrites `deployment.environment` (and fills `openlit.organisation.id` / `openlit.project.id`) from the key.
 
-Without a key, data is written to `INIT_DB_*` unless `OTLP_REQUIRE_API_KEY=true`.
+Without a key, data is written to `INIT_DB_*` unless `OTLP_REQUIRE_API_KEY=true`. That fallback does not invent org/project/environment attributes.
 
 ## Local next dev
 

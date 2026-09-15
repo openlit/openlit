@@ -52,3 +52,27 @@ func TestTracesMapping(t *testing.T) {
 		t.Fatalf("ids/attrs %+v", row)
 	}
 }
+
+func TestStampResourceOverwritesEnvironment(t *testing.T) {
+	t.Parallel()
+	stamped := StampResource(map[string]string{
+		"service.name":           "demo",
+		"deployment.environment": "local",
+	}, ResourceTenant{
+		OrganisationID: "org-1",
+		ProjectID:      "proj-1",
+		Environment:    "staging",
+	})
+	if stamped["deployment.environment"] != "staging" {
+		t.Fatalf("env=%s", stamped["deployment.environment"])
+	}
+	if stamped["gen_ai.environment"] != "staging" {
+		t.Fatalf("gen_ai env=%s", stamped["gen_ai.environment"])
+	}
+	if stamped["openlit.organisation.id"] != "org-1" || stamped["openlit.project.id"] != "proj-1" {
+		t.Fatalf("tenant attrs %+v", stamped)
+	}
+	if stamped["service.name"] != "demo" {
+		t.Fatal("lost original attr")
+	}
+}

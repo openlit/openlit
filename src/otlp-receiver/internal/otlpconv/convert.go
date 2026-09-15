@@ -396,6 +396,56 @@ func GaugesAndSums(req *metricspb.MetricsData) (gauges []GaugeRow, sums []SumRow
 	return gauges, sums
 }
 
+type ResourceTenant struct {
+	OrganisationID string
+	ProjectID      string
+	Environment    string
+}
+
+func StampResource(attrs map[string]string, tenant ResourceTenant) map[string]string {
+	out := make(map[string]string, len(attrs)+4)
+	for k, v := range attrs {
+		out[k] = v
+	}
+	if tenant.Environment != "" {
+		out["deployment.environment"] = tenant.Environment
+		if out["gen_ai.environment"] == "" {
+			out["gen_ai.environment"] = tenant.Environment
+		}
+	}
+	if tenant.OrganisationID != "" {
+		out["openlit.organisation.id"] = tenant.OrganisationID
+	}
+	if tenant.ProjectID != "" {
+		out["openlit.project.id"] = tenant.ProjectID
+	}
+	return out
+}
+
+func StampTraces(rows []TraceRow, tenant ResourceTenant) {
+	for i := range rows {
+		rows[i].ResourceAttributes = StampResource(rows[i].ResourceAttributes, tenant)
+	}
+}
+
+func StampLogs(rows []LogRow, tenant ResourceTenant) {
+	for i := range rows {
+		rows[i].ResourceAttributes = StampResource(rows[i].ResourceAttributes, tenant)
+	}
+}
+
+func StampGauges(rows []GaugeRow, tenant ResourceTenant) {
+	for i := range rows {
+		rows[i].ResourceAttributes = StampResource(rows[i].ResourceAttributes, tenant)
+	}
+}
+
+func StampSums(rows []SumRow, tenant ResourceTenant) {
+	for i := range rows {
+		rows[i].ResourceAttributes = StampResource(rows[i].ResourceAttributes, tenant)
+	}
+}
+
 func numberValue(pt *metricspb.NumberDataPoint) float64 {
 	if pt == nil {
 		return 0

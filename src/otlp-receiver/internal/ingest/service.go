@@ -22,33 +22,37 @@ type Service struct {
 }
 
 func (s *Service) Traces(ctx context.Context, authorization string, req *colltrace.ExportTraceServiceRequest) error {
-	cfg, err := s.Tenants.Resolve(ctx, authorization)
+	resolved, err := s.Tenants.Resolve(ctx, authorization)
 	if err != nil {
 		return err
 	}
 	rows := otlpconv.Traces(&tracepb.TracesData{ResourceSpans: req.GetResourceSpans()})
-	return s.Writer.InsertTraces(ctx, cfg, rows)
+	otlpconv.StampTraces(rows, resolved.Resource())
+	return s.Writer.InsertTraces(ctx, resolved.ClickHouse, rows)
 }
 
 func (s *Service) Logs(ctx context.Context, authorization string, req *colllog.ExportLogsServiceRequest) error {
-	cfg, err := s.Tenants.Resolve(ctx, authorization)
+	resolved, err := s.Tenants.Resolve(ctx, authorization)
 	if err != nil {
 		return err
 	}
 	rows := otlpconv.Logs(&logspb.LogsData{ResourceLogs: req.GetResourceLogs()})
-	return s.Writer.InsertLogs(ctx, cfg, rows)
+	otlpconv.StampLogs(rows, resolved.Resource())
+	return s.Writer.InsertLogs(ctx, resolved.ClickHouse, rows)
 }
 
 func (s *Service) Metrics(ctx context.Context, authorization string, req *collmetric.ExportMetricsServiceRequest) error {
-	cfg, err := s.Tenants.Resolve(ctx, authorization)
+	resolved, err := s.Tenants.Resolve(ctx, authorization)
 	if err != nil {
 		return err
 	}
 	gauges, sums := otlpconv.GaugesAndSums(&metricspb.MetricsData{ResourceMetrics: req.GetResourceMetrics()})
-	if err := s.Writer.InsertGauges(ctx, cfg, gauges); err != nil {
+	otlpconv.StampGauges(gauges, resolved.Resource())
+	otlpconv.StampSums(sums, resolved.Resource())
+	if err := s.Writer.InsertGauges(ctx, resolved.ClickHouse, gauges); err != nil {
 		return err
 	}
-	return s.Writer.InsertSums(ctx, cfg, sums)
+	return s.Writer.InsertSums(ctx, resolved.ClickHouse, sums)
 }
 
 func HTTPStatus(err error) int {
