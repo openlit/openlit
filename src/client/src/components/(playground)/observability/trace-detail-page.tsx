@@ -27,6 +27,7 @@ import { agentLoopDetailLine } from "@/lib/platform/agent-loop/format";
 import Evaluations from "@/components/(playground)/request/components/evaluations";
 import { RequestProvider } from "@/components/(playground)/request/request-context";
 import TraceAiAnalysisPanel from "@/components/(playground)/request/components/trace-ai-analysis-panel";
+import ScannerSessionFindings from "@/components/(playground)/scanner/scanner-session-findings";
 import DetailObjectTabs, { buildObjectTabs } from "./detail-object-tabs";
 import {
 	ResizableHandle,
@@ -742,6 +743,15 @@ export function TraceDetailView({
 		: null;
 	const extraDetailTabs = [
 		...(analysisTab ? [analysisTab] : []),
+		...(isCodingAgentTrace && repoUrl
+			? [
+					{
+						id: "scanner-findings",
+						label: m.SCANNER_SESSION_TAB,
+						content: <ScannerSessionFindings repoUrl={repoUrl} />,
+					},
+			  ]
+			: []),
 		...(hasEvaluationPanel && trace
 			? [
 					{

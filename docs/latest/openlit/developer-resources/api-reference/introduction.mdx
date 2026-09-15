@@ -27,6 +27,12 @@ description: 'OpenAPI specification for API Endpoints in OpenLIT'
     href="/latest/openlit/developer-resources/api-reference/endpoint/manage-models/models"
   >
   </Card>
+  <Card
+    title="Scanner API"
+    icon="magnifying-glass"
+    href="/latest/openlit/developer-resources/api-reference/endpoint/scanners/scan"
+  >
+  </Card>
 </CardGroup>
 
 ## Product surfaces
@@ -36,8 +42,9 @@ In addition to the SDK-facing endpoints above, the OpenLIT client ships an inter
 - **AI Analysis** — `GET`/`POST /api/chat/improvement/{spanId}` for saved runs and streaming reviews of traces/spans
 - **Ask Otter** — `/api/chat/*` for config, conversations, streaming messages, SQL execute, widgets, and usage
 - **Telemetry** — logs, metrics, traces, exceptions, and span hierarchy APIs
+- **Scanner** — `POST /api/scanners/{id}/scan`, `GET /api/scanners`, and `GET /api/scanners/findings` for Trustabl jobs and findings
 
-See [AI Analysis](/latest/openlit/observability/telemetry/ai-analysis) and [Chat with Otter](/latest/openlit/chat/overview) for product docs.
+See [AI Analysis](/latest/openlit/observability/telemetry/ai-analysis), [Chat with Otter](/latest/openlit/chat/overview), and [Scanner connectors](/latest/openlit/connectors/scanner) for product docs.
 
 ## Request context headers
 
@@ -50,7 +57,7 @@ x-openlit-project-id: <project-id>
 x-openlit-environment: production
 ```
 
-### Non-SDK APIs (telemetry, Ask Otter, AI Analysis, …)
+### Non-SDK APIs (telemetry, Ask Otter, AI Analysis, Scanner, …)
 
 Use signal routing headers only. Do **not** send `x-openlit-database-config-id`. The API key still binds a vault/credential database config (middleware injects `x-database-config-id`).
 

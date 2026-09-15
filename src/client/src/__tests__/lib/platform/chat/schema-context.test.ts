@@ -48,6 +48,7 @@ describe('getChatSystemPrompt', () => {
     expect(prompt).toContain('add_memory');
     expect(prompt).toContain('update_memory');
     expect(prompt).toContain('delete_memory');
+    expect(prompt).toContain('get_scanner_findings');
   });
 
   it('includes entity links section', () => {
@@ -56,6 +57,7 @@ describe('getChatSystemPrompt', () => {
     expect(prompt).toContain('/context/{id}');
     expect(prompt).toContain('/prompt-hub/{id}');
     expect(prompt).toContain('/memory?id={id}&connectorId={connectorId}');
+    expect(prompt).toContain('/scanner?connectorId={connectorId}&jobId={jobId}');
   });
 
   it('includes dashboard generation section', () => {
