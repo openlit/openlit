@@ -229,6 +229,10 @@ def emit_inference_event(
                 attributes[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] = value
             elif key == "output_tokens":
                 attributes[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] = value
+            elif key == "reasoning_tokens":
+                # Vertex/Gemini: thoughts_token_count is separate from
+                # candidates_token_count, not a subset of output tokens.
+                attributes[SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS] = value
             elif key == "cache_read_input_tokens":
                 attributes[SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS] = (
                     value
@@ -279,7 +283,7 @@ def process_chunk(scope, chunk):
     )
     scope._reasoning_tokens = (
         getattr(usage_metadata, "thoughts_token_count", 0) if usage_metadata else 0
-    )
+    ) or 0
     scope._cache_read_input_tokens = (
         getattr(usage_metadata, "cached_content_token_count", 0)
         if usage_metadata
@@ -543,6 +547,8 @@ def common_chat_logic(
                 "output_tokens": output_tokens,
                 **version_extras,
             }
+            if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens:
+                extra["reasoning_tokens"] = scope._reasoning_tokens
             if capture_message_content and system_instr:
                 extra["system_instructions"] = system_instr
             emit_inference_event(
@@ -658,7 +664,7 @@ def process_chat_response(
     )
     scope._reasoning_tokens = (
         getattr(usage_metadata, "thoughts_token_count", 0) if usage_metadata else 0
-    )
+    ) or 0
     scope._cache_read_input_tokens = (
         getattr(usage_metadata, "cached_content_token_count", 0)
         if usage_metadata
