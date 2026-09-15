@@ -383,6 +383,9 @@ def responses(
         Wraps the OpenAI responses API call.
         """
 
+        if is_framework_llm_active():
+            return wrapped(*args, **kwargs)
+
         streaming = kwargs.get("stream", False)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
