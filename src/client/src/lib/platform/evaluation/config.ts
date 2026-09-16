@@ -51,9 +51,10 @@ export interface EvaluationTypeWithPrompt {
 }
 
 async function buildEvaluationTypesWithPrompts(
-	meta: Record<string, any>
+	meta: Record<string, any>,
+	databaseConfigId?: string
 ): Promise<EvaluationTypeWithPrompt[]> {
-	const defaultPrompts = await getEvaluationTypeDefaultPrompts();
+	const defaultPrompts = await getEvaluationTypeDefaultPrompts(databaseConfigId);
 	const userOverrides = (meta.evaluationTypes as Array<{
 		id: string;
 		enabled?: boolean;
@@ -152,7 +153,7 @@ export async function getEvaluationConfig(
 	}
 
 	const meta = jsonParse((updatedConfig as any).meta || "{}") as Record<string, any>;
-	const evaluationTypes = await buildEvaluationTypesWithPrompts(meta);
+	const evaluationTypes = await buildEvaluationTypesWithPrompts(meta, updatedDBConfig?.id);
 
 	return {
 		...updatedConfig,
@@ -336,7 +337,7 @@ export async function getEvaluationConfigById(
 	const updatedSecretData = (secretData as Secret[])?.[0] || {};
 
 	const meta = jsonParse((updatedConfig as any).meta || "{}") as Record<string, any>;
-	const evaluationTypes = await buildEvaluationTypesWithPrompts(meta);
+	const evaluationTypes = await buildEvaluationTypesWithPrompts(meta, updatedConfig.databaseConfigId);
 
 	return {
 		...updatedConfig,
@@ -371,7 +372,7 @@ export async function getEvaluationConfigByDbConfigId(
 	);
 
 	const meta = jsonParse((updatedConfig as any).meta || "{}") as Record<string, any>;
-	const evaluationTypes = await buildEvaluationTypesWithPrompts(meta);
+	const evaluationTypes = await buildEvaluationTypesWithPrompts(meta, databaseConfigId);
 
 	return {
 		...updatedConfig,
