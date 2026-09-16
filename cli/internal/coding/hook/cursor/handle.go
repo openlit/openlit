@@ -180,8 +180,8 @@ func handle(ctx context.Context, in normalize.Input) error {
 	}
 
 	// Mode + model transition events are now emitted centrally in
-	// cli/internal/coding/hook/hook.go for ALL three coding agents
-	// (Cursor / Claude Code / Codex), so we don't duplicate that
+	// cli/internal/coding/hook/hook.go for every coding agent
+	// (Cursor / Claude Code / Codex / OpenCode), so we don't duplicate that
 	// logic here. The cache update for the latest value still
 	// happens via peekContext + sessionstate.Save in hook.go.
 

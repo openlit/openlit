@@ -21,6 +21,10 @@ export const CODING_AGENT_SPAN_SUBAGENT = "coding_agent.subagent";
 export const CODING_AGENT_SPAN_LLM_TURN = "coding_agent.llm.turn";
 export const CODING_AGENT_SPAN_GIT_COMMIT = "coding_agent.git.commit";
 export const CODING_AGENT_SPAN_GIT_PR = "coding_agent.git.pull_request";
+export const CODING_AGENT_SPAN_SESSION_SNAPSHOT_START =
+	"coding_agent.session.snapshot.start";
+export const CODING_AGENT_SPAN_SESSION_SNAPSHOT =
+	"coding_agent.session.snapshot";
 
 /** All coding-agent span names in a single tuple — handy for `IN (...)` clauses. */
 export const CODING_AGENT_SPAN_NAMES = [
@@ -31,6 +35,8 @@ export const CODING_AGENT_SPAN_NAMES = [
 	CODING_AGENT_SPAN_LLM_TURN,
 	CODING_AGENT_SPAN_GIT_COMMIT,
 	CODING_AGENT_SPAN_GIT_PR,
+	CODING_AGENT_SPAN_SESSION_SNAPSHOT_START,
+	CODING_AGENT_SPAN_SESSION_SNAPSHOT,
 ] as const;
 
 /**

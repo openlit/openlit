@@ -8,7 +8,7 @@ The root command is `openlit`. Run `openlit --help` or `openlit <command> --help
 
 ```
 openlit
-├── coding        Coding-agent observability (Claude Code, Cursor, Codex)
+├── coding        Coding-agent observability (Claude Code, Cursor, Codex, OpenCode)
 │   ├── install     Install per-vendor host plugin manifests
 │   ├── launch      Bootstrap the plugin for an agent and exec it
 │   ├── uninstall   Remove per-vendor host plugin manifests
@@ -20,7 +20,7 @@ openlit
 
 ## openlit coding
 
-Coding-agent observability for Claude Code, Cursor, and Codex. See the [Coding Agents setup guide](/latest/openlit/coding-agents/setup-and-configure) for the full vendor-by-vendor walkthrough.
+Coding-agent observability for Claude Code, Cursor, Codex, and OpenCode. See the [Coding Agents setup guide](/latest/openlit/coding-agents/setup-and-configure) for the full vendor-by-vendor walkthrough.
 
 ### openlit coding install
 
@@ -33,7 +33,7 @@ openlit coding install --vendor=all --dry-run   # preview without writing
 
 | Flag | Description |
 |---|---|
-| `--vendor` *(required)* | `claude-code` \| `cursor` \| `codex` \| `all` |
+| `--vendor` *(required)* | `claude-code` \| `cursor` \| `codex` \| `opencode` \| `all` |
 | `--dry-run` | Print what would be written without modifying any files |
 
 **Where manifests are written:**
@@ -43,6 +43,7 @@ openlit coding install --vendor=all --dry-run   # preview without writing
 | Claude Code | `~/.claude/plugins/openlit-cc/` |
 | Cursor | `~/.cursor/hooks.json` (user scope, merged) |
 | Codex | `~/.codex/plugins/openlit/` |
+| OpenCode | `$XDG_CONFIG_HOME/opencode/plugins/openlit.ts` when set; otherwise `<user-home>/.config/opencode/plugins/openlit.ts` |
 
 ### openlit coding launch
 
@@ -52,11 +53,12 @@ Bootstrap the plugin for an agent and exec it - telemetry on from the first turn
 openlit coding launch claude
 openlit coding launch cursor -- <agent-args...>   # pass args through after --
 openlit coding launch codex
+openlit coding launch opencode
 ```
 
 | Argument | Description |
 |---|---|
-| `<agent>` *(required)* | `claude` \| `claude-code` \| `cc` \| `cursor` \| `codex` (`claude-code` and `cc` are aliases for `claude`) |
+| `<agent>` *(required)* | `claude` \| `claude-code` \| `cc` \| `cursor` \| `codex` \| `opencode` (`claude-code` and `cc` are aliases for `claude`) |
 
 Any arguments after `--` are forwarded to the agent's own CLI.
 
@@ -73,7 +75,7 @@ openlit coding uninstall --vendor=cursor --dry-run  # preview without touching d
 
 | Flag | Description |
 |---|---|
-| `--vendor` *(required)* | `claude-code` \| `cursor` \| `codex` \| `all` |
+| `--vendor` *(required)* | `claude-code` \| `cursor` \| `codex` \| `opencode` \| `all` |
 | `--purge` | Also remove `~/.config/openlit` and the session-state cache |
 | `--dry-run` | Print what would be removed without modifying any files |
 
@@ -89,7 +91,7 @@ openlit coding hook --vendor=claude-code --event=SessionStart < payload.json
 
 | Flag | Description |
 |---|---|
-| `--vendor` *(required)* | `cc` \| `claude-code` \| `cursor` \| `codex` |
+| `--vendor` *(required)* | `cc` \| `claude-code` \| `cursor` \| `codex` \| `opencode` |
 | `--event` | Hook event name (vendor-specific; e.g. `SessionStart`, `PreToolUse`) |
 
 The hook is crash-isolated: a 5-second hard timeout (~3s reserved for OTLP flush) and it **always exits 0** even when telemetry fails - a broken pipeline never blocks your coding session. It never writes to stdout (agents like Claude Code parse stdout for JSON). Set `OPENLIT_DEBUG_PAYLOAD_DIR` to tee raw payloads for debugging.

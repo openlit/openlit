@@ -71,6 +71,9 @@ func drainCounters(s normalize.Session, vendor string) normalize.Session {
 	if s.OutputTokens == 0 && st.OutputTokens > 0 {
 		s.OutputTokens = st.OutputTokens
 	}
+	if s.TotalTokens == 0 && st.TotalTokens > 0 {
+		s.TotalTokens = st.TotalTokens
+	}
 	if s.CostUSD == 0 && st.CostUSD > 0 {
 		s.CostUSD = st.CostUSD
 	}
@@ -557,7 +560,7 @@ func (e *Emitter) bumpToolCounter(sessionID string) {
 	sessionstate.Save(sessionID, e.vendor, st)
 }
 
-func (e *Emitter) bumpLLMCounter(sessionID string, in, out int64, cost float64) {
+func (e *Emitter) bumpLLMCounter(sessionID string, in, out, total int64, cost float64) {
 	if sessionID == "" {
 		return
 	}
@@ -570,6 +573,9 @@ func (e *Emitter) bumpLLMCounter(sessionID string, in, out int64, cost float64) 
 	}
 	if out > 0 {
 		st.OutputTokens += out
+	}
+	if total > 0 {
+		st.TotalTokens += total
 	}
 	if cost > 0 {
 		st.CostUSD += cost
@@ -755,7 +761,7 @@ func (e *Emitter) EmitLLMTurn(t normalize.LLMTurn) error {
 		return errors.New("nil emitter")
 	}
 	if !perEventSpansAllowed(e.cfg.CodingContentCapture) {
-		e.bumpLLMCounter(t.SessionID, t.InputTokens, t.OutputTokens, t.CostUSD)
+		e.bumpLLMCounter(t.SessionID, t.InputTokens, t.OutputTokens, t.TotalTokens, t.CostUSD)
 		return nil
 	}
 	startedAt := t.StartedAt
@@ -833,11 +839,17 @@ func (e *Emitter) EmitSubagent(s normalize.Subagent) error {
 // Minimal mode drops the event — counters bumped elsewhere are
 // sufficient for budget + activity dashboards, and a per-event span
 // would defeat the cost benefit of the mode.
+func eventSpanAllowed(capture, name string) bool {
+	return perEventSpansAllowed(capture) ||
+		name == semconv.CodingAgentEventSessionSnapshotStart ||
+		name == semconv.CodingAgentEventSessionSnapshot
+}
+
 func (e *Emitter) EmitEvent(ev normalize.EventEmission) error {
 	if e == nil || e.tracer == nil {
 		return errors.New("nil emitter")
 	}
-	if !perEventSpansAllowed(e.cfg.CodingContentCapture) {
+	if !eventSpanAllowed(e.cfg.CodingContentCapture, ev.Name) {
 		return nil
 	}
 	at := ev.At
