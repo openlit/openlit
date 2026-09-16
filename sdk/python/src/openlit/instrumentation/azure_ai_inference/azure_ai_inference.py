@@ -80,35 +80,77 @@ def complete(
             self._server_address = server_address
             self._server_port = server_port
             self._event_provider = event_provider
+            self._streaming_response_processed = False
 
         def __enter__(self):
             self.__wrapped__.__enter__()
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            self.__wrapped__.__exit__(exc_type, exc_val, exc_tb)
-            process_streaming_chat_response(
-                self,
-                pricing_info,
-                environment,
-                application_name,
-                metrics,
-                capture_message_content,
-                disable_metrics,
-                version,
-                event_provider=self._event_provider,
-            )
+            try:
+                self.__wrapped__.__exit__(exc_type, exc_val, exc_tb)
+            finally:
+                if exc_type:
+                    # Skip when already finalized on exhaustion or close():
+                    # the span has ended and cannot take the error anymore.
+                    if not self._streaming_response_processed:
+                        self._streaming_response_processed = True
+                        handle_exception(self._span, exc_val)
+                        if self._span.is_recording():
+                            self._span.end()
+                else:
+                    # A break before exhaustion never hits StopIteration, so
+                    # the span would leak without normal-exit finalization.
+                    self._finalize_streaming_span()
 
         def __iter__(self):
             return self
 
         def __next__(self):
-            chunk = next(self.__wrapped__)
-            process_chunk(self, chunk)
-            return chunk
+            try:
+                chunk = next(self.__wrapped__)
+                process_chunk(self, chunk)
+                return chunk
+            except StopIteration:
+                self._finalize_streaming_span()
+                raise
 
         def __getattr__(self, name):
             return getattr(self.__wrapped__, name)
+
+        def _finalize_streaming_span(self):
+            """Complete and end the span exactly once.
+
+            Called on stream exhaustion and again from close()/manager exit;
+            the flag keeps the double call a no-op so early exits that never
+            see StopIteration still export the span instead of leaking it.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            try:
+                with self._span:
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=self._event_provider,
+                    )
+
+            except Exception as e:
+                handle_exception(self._span, e)
+
+        def close(self):
+            """Close the wrapped stream and finalize the span if not ended."""
+            try:
+                self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span()
 
     def wrapper(wrapped, instance, args, kwargs):
         """
