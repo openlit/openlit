@@ -52,14 +52,14 @@ export default class Events {
         if (name === 'otlp') {
           processors.push(Events.createOTLPProcessor(options));
         } else if (name === 'console') {
-          processors.push(new SimpleLogRecordProcessor(new ConsoleLogRecordExporter()));
+          processors.push(new SimpleLogRecordProcessor({ exporter: new ConsoleLogRecordExporter() }));
         }
       }
     } else {
       if (options.otlpEndpoint) {
         processors.push(Events.createOTLPProcessor(options));
       } else {
-        processors.push(new SimpleLogRecordProcessor(new ConsoleLogRecordExporter()));
+        processors.push(new SimpleLogRecordProcessor({ exporter: new ConsoleLogRecordExporter() }));
       }
     }
 
@@ -78,8 +78,8 @@ export default class Events {
       headers: options.otlpHeaders as Record<string, string> | undefined,
     });
     return options.disableBatch
-      ? new SimpleLogRecordProcessor(exporter)
-      : new BatchLogRecordProcessor(exporter);
+      ? new SimpleLogRecordProcessor({ exporter })
+      : new BatchLogRecordProcessor({ exporter });
   }
 
   static resetForTesting() {
