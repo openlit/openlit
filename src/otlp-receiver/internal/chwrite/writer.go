@@ -71,6 +71,11 @@ func (w *Writer) conn(ctx context.Context, cfg config.ClickHouseConfig) (driver.
 	}
 
 	w.mu.Lock()
+	if existing, ok := w.conns[key]; ok {
+		w.mu.Unlock()
+		_ = c.Close()
+		return existing, nil
+	}
 	w.conns[key] = c
 	w.mu.Unlock()
 	return c, nil

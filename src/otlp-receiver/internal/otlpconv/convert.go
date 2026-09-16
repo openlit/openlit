@@ -2,7 +2,7 @@ package otlpconv
 
 import (
 	"encoding/hex"
-	"fmt"
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -26,6 +26,13 @@ var statusCodes = map[tracepb.Status_StatusCode]string{
 	tracepb.Status_STATUS_CODE_UNSET: "STATUS_CODE_UNSET",
 	tracepb.Status_STATUS_CODE_OK:    "STATUS_CODE_OK",
 	tracepb.Status_STATUS_CODE_ERROR: "STATUS_CODE_ERROR",
+}
+
+func spanKindName(kind tracepb.Span_SpanKind) string {
+	if name, ok := spanKinds[kind]; ok {
+		return name
+	}
+	return "SPAN_KIND_UNSPECIFIED"
 }
 
 type TraceRow struct {
@@ -122,12 +129,60 @@ func AnyValue(v *commonpb.AnyValue) string {
 		return strconv.FormatFloat(x.DoubleValue, 'f', -1, 64)
 	case *commonpb.AnyValue_BytesValue:
 		return hex.EncodeToString(x.BytesValue)
-	case *commonpb.AnyValue_ArrayValue:
-		return fmt.Sprint(x.ArrayValue)
-	case *commonpb.AnyValue_KvlistValue:
-		return fmt.Sprint(x.KvlistValue)
+	case *commonpb.AnyValue_ArrayValue, *commonpb.AnyValue_KvlistValue:
+		return marshalJSON(anyValueJSON(v))
 	default:
 		return ""
+	}
+}
+
+func marshalJSON(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func anyValueJSON(v *commonpb.AnyValue) any {
+	if v == nil {
+		return nil
+	}
+	switch x := v.Value.(type) {
+	case *commonpb.AnyValue_StringValue:
+		return x.StringValue
+	case *commonpb.AnyValue_BoolValue:
+		return x.BoolValue
+	case *commonpb.AnyValue_IntValue:
+		return x.IntValue
+	case *commonpb.AnyValue_DoubleValue:
+		return x.DoubleValue
+	case *commonpb.AnyValue_BytesValue:
+		return hex.EncodeToString(x.BytesValue)
+	case *commonpb.AnyValue_ArrayValue:
+		values := []*commonpb.AnyValue{}
+		if x.ArrayValue != nil {
+			values = x.ArrayValue.Values
+		}
+		out := make([]any, 0, len(values))
+		for _, item := range values {
+			out = append(out, anyValueJSON(item))
+		}
+		return out
+	case *commonpb.AnyValue_KvlistValue:
+		out := map[string]any{}
+		if x.KvlistValue == nil {
+			return out
+		}
+		for _, kv := range x.KvlistValue.Values {
+			if kv == nil {
+				continue
+			}
+			out[kv.Key] = anyValueJSON(kv.Value)
+		}
+		return out
+	default:
+		return nil
 	}
 }
 
@@ -187,7 +242,9 @@ func Traces(req *tracepb.TracesData) []TraceRow {
 				}
 				statusCode, statusMsg := "STATUS_CODE_UNSET", ""
 				if span.Status != nil {
-					statusCode = statusCodes[span.Status.Code]
+					if code, ok := statusCodes[span.Status.Code]; ok {
+						statusCode = code
+					}
 					statusMsg = span.Status.Message
 				}
 				start := NanoTime(span.StartTimeUnixNano)
@@ -203,7 +260,7 @@ func Traces(req *tracepb.TracesData) []TraceRow {
 					ParentSpanID:       IDHex(span.ParentSpanId),
 					TraceState:         span.TraceState,
 					SpanName:           span.Name,
-					SpanKind:           spanKinds[span.Kind],
+					SpanKind:           spanKindName(span.Kind),
 					ServiceName:        service,
 					ResourceAttributes: resAttrs,
 					ScopeName:          scopeName,

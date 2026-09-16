@@ -1,5 +1,12 @@
 import { alertingUnavailable } from "@/lib/rbac/routes/api/alerts/unavailable";
 import { fleetHubUnavailable } from "@/lib/rbac/routes/api/fleet-hub/unavailable";
+import {
+	DELETE as fleetHubCatchAllDelete,
+	GET as fleetHubCatchAllGet,
+	PATCH as fleetHubCatchAllPatch,
+	POST as fleetHubCatchAllPost,
+	PUT as fleetHubCatchAllPut,
+} from "@/lib/rbac/routes/api/fleet-hub/[id]/[...path]/route";
 
 beforeAll(() => {
 	Object.defineProperty(global, "Response", {
@@ -32,5 +39,18 @@ describe("fleetHubUnavailable", () => {
 		expect(response.json()).resolves.toEqual({
 			error: "Fleet Hub is not available in this edition.",
 		});
+	});
+
+	it("returns 402 for nested Fleet Hub paths that have no dedicated route", () => {
+		for (const handler of [
+			fleetHubCatchAllGet,
+			fleetHubCatchAllPost,
+			fleetHubCatchAllPut,
+			fleetHubCatchAllPatch,
+			fleetHubCatchAllDelete,
+		]) {
+			const response: any = handler();
+			expect(response.status).toBe(402);
+		}
 	});
 });

@@ -111,3 +111,16 @@ func TestStripsTenantHeaders(t *testing.T) {
 		t.Fatalf("got %d", rr.Code)
 	}
 }
+
+func TestRejectsOversizedBody(t *testing.T) {
+	svc := &ingest.Service{Tenants: &tenant.Store{RequireKey: true}}
+	h := New(svc)
+	body := make([]byte, maxOTLPBody+1)
+	post := httptest.NewRequest(http.MethodPost, "/v1/traces", bytes.NewReader(body))
+	post.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, post)
+	if rr.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("got %d", rr.Code)
+	}
+}

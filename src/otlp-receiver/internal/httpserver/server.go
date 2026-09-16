@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"compress/gzip"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -64,6 +65,10 @@ func headerGuard(next http.Handler) http.Handler {
 
 type decodeError struct{ error }
 
+var errTooLarge = errors.New("payload too large")
+
+const maxOTLPBody = 32 << 20
+
 func handle(w http.ResponseWriter, r *http.Request, fn func([]byte, string) error) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -71,6 +76,10 @@ func handle(w http.ResponseWriter, r *http.Request, fn func([]byte, string) erro
 	}
 	body, err := readBody(r)
 	if err != nil {
+		if errors.Is(err, errTooLarge) {
+			http.Error(w, "payload too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
@@ -100,7 +109,15 @@ func readBody(r *http.Request) ([]byte, error) {
 		defer gz.Close()
 		reader = gz
 	}
-	return io.ReadAll(io.LimitReader(reader, 32<<20))
+	limited := io.LimitReader(reader, int64(maxOTLPBody)+1)
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > maxOTLPBody {
+		return nil, errTooLarge
+	}
+	return body, nil
 }
 
 func unmarshal(body []byte, contentType string, msg proto.Message) error {

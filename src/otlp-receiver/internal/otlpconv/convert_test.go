@@ -76,3 +76,51 @@ func TestStampResourceOverwritesEnvironment(t *testing.T) {
 		t.Fatal("lost original attr")
 	}
 }
+
+func TestAnyValueStructuredJSON(t *testing.T) {
+	t.Parallel()
+	array := AnyValue(&commonpb.AnyValue{Value: &commonpb.AnyValue_ArrayValue{
+		ArrayValue: &commonpb.ArrayValue{Values: []*commonpb.AnyValue{
+			{Value: &commonpb.AnyValue_StringValue{StringValue: "a"}},
+			{Value: &commonpb.AnyValue_IntValue{IntValue: 2}},
+		}},
+	}})
+	if array != `["a",2]` {
+		t.Fatalf("array=%s", array)
+	}
+	kv := AnyValue(&commonpb.AnyValue{Value: &commonpb.AnyValue_KvlistValue{
+		KvlistValue: &commonpb.KeyValueList{Values: []*commonpb.KeyValue{
+			{Key: "model", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "gpt"}}},
+		}},
+	}})
+	if kv != `{"model":"gpt"}` {
+		t.Fatalf("kv=%s", kv)
+	}
+}
+
+func TestUnknownStatusAndKindFallBack(t *testing.T) {
+	t.Parallel()
+	rows := Traces(&tracepb.TracesData{
+		ResourceSpans: []*tracepb.ResourceSpans{{
+			ScopeSpans: []*tracepb.ScopeSpans{{
+				Spans: []*tracepb.Span{{
+					Name:   "unknown",
+					Kind:   tracepb.Span_SpanKind(99),
+					Status: &tracepb.Status{Code: tracepb.Status_StatusCode(99), Message: "future"},
+				}},
+			}},
+		}},
+	})
+	if len(rows) != 1 {
+		t.Fatalf("len=%d", len(rows))
+	}
+	if rows[0].StatusCode != "STATUS_CODE_UNSET" {
+		t.Fatalf("status=%s", rows[0].StatusCode)
+	}
+	if rows[0].SpanKind != "SPAN_KIND_UNSPECIFIED" {
+		t.Fatalf("kind=%s", rows[0].SpanKind)
+	}
+	if rows[0].StatusMessage != "future" {
+		t.Fatalf("msg=%s", rows[0].StatusMessage)
+	}
+}
