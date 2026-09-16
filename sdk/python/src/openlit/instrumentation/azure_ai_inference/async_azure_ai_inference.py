@@ -66,7 +66,9 @@ def async_complete(
             self._tools = None
             self._input_tokens = 0
             self._output_tokens = 0
-            self._reasoning_tokens = 0
+            # Do not default _reasoning_tokens. Absence means no usage was
+            # received yet; a literal 0 is a measured zero and would be emitted
+            # as reported=true if the stream ends without a usage chunk.
             self._cache_read_input_tokens = 0
             self._cache_creation_input_tokens = 0
 

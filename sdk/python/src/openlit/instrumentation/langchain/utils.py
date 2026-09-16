@@ -19,6 +19,7 @@ from openlit.__helpers import (
     general_tokens,
     otel_event,
     truncate_message_content,
+    set_reasoning_subset_attributes,
 )
 from openlit.semcov import SemanticConvention
 
@@ -492,18 +493,12 @@ def common_chat_logic(
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
-    # Reasoning tokens (optional)
-    if (
-        hasattr(scope, "_reasoning_tokens")
-        and scope._reasoning_tokens
-        and scope._reasoning_tokens > 0
-    ):
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, scope._reasoning_tokens
-        )
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
-            input_tokens + output_tokens + scope._reasoning_tokens,
+    # Reasoning tokens (optional). OTel: gen_ai.usage.reasoning.output_tokens is
+    # a subset of gen_ai.usage.output_tokens above, so it is recorded separately
+    # and never added on top of the output total / gen_ai.client.token.usage.
+    if hasattr(scope, "_reasoning_tokens"):
+        set_reasoning_subset_attributes(
+            scope._span, output_tokens, scope._reasoning_tokens
         )
 
     # OTel cached token attributes (set even when 0)

@@ -21,6 +21,8 @@ from openlit.__helpers import (
     general_tokens,
     otel_event,
     truncate_message_content,
+    extract_reasoning_tokens,
+    set_reasoning_subset_attributes,
 )
 from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
@@ -350,6 +352,21 @@ def emit_inference_event(
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
+def _reasoning_tokens_from_usage(usage):
+    """Return reasoning tokens (a subset of completion_tokens) from usage.
+
+    None means the provider did not report them, which is not a measured 0.
+    The top-level ``usage.reasoning_tokens`` fallback gets the same numeric
+    check as ``completion_tokens_details``.
+    """
+    reasoning_tokens = extract_reasoning_tokens(usage, "completion_tokens_details")
+    if reasoning_tokens is None:
+        value = usage.get("reasoning_tokens")
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            reasoning_tokens = value
+    return reasoning_tokens
+
+
 def process_chunk(scope, chunk):
     """
     Process a chunk of response data and update state.
@@ -427,11 +444,7 @@ def process_chunk(scope, chunk):
         scope._cache_creation_input_tokens = (
             usage.get("input_tokens_details") or {}
         ).get("cache_creation_tokens", 0) or 0
-        completion_details = usage.get("completion_tokens_details", {})
-        if "reasoning_tokens" in completion_details:
-            scope._reasoning_tokens = completion_details.get("reasoning_tokens", 0)
-        elif "reasoning_tokens" in usage:
-            scope._reasoning_tokens = usage.get("reasoning_tokens", 0)
+        scope._reasoning_tokens = _reasoning_tokens_from_usage(usage)
 
 
 def common_chat_logic(
@@ -587,14 +600,13 @@ def common_chat_logic(
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
-    # Span Attributes for Reasoning (if present)
-    if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, scope._reasoning_tokens
-        )
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
-            input_tokens + output_tokens + scope._reasoning_tokens,
+    # Reasoning tokens (OTel: gen_ai.usage.reasoning.output_tokens is a subset
+    # of gen_ai.usage.output_tokens above, so it is recorded separately and
+    # never added on top of the output total / gen_ai.client.token.usage).
+    # Missing details surface as unknown (marker false), never as a guessed 0.
+    if hasattr(scope, "_reasoning_tokens"):
+        set_reasoning_subset_attributes(
+            scope._span, output_tokens, scope._reasoning_tokens
         )
 
     # OTel cached token attributes (set even when 0)
@@ -811,13 +823,7 @@ def process_chat_response(
     scope._cache_creation_input_tokens = (usage.get("input_tokens_details") or {}).get(
         "cache_creation_tokens", 0
     ) or 0
-    completion_details = usage.get("completion_tokens_details", {})
-    if "reasoning_tokens" in completion_details:
-        scope._reasoning_tokens = completion_details.get("reasoning_tokens", 0)
-    elif "reasoning_tokens" in response_dict.get("usage", {}):
-        scope._reasoning_tokens = response_dict.get("usage").get("reasoning_tokens", 0)
-    else:
-        scope._reasoning_tokens = 0
+    scope._reasoning_tokens = _reasoning_tokens_from_usage(usage)
     scope._response_id = response_dict.get("id")
     scope._response_model = response_dict.get("model")
     scope._finish_reason = str(
