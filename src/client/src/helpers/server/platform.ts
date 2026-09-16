@@ -316,21 +316,16 @@ export const getFilterWhereCondition = (
 			}
 
 			if (filter.selectedConfig.environments?.length) {
-				// OTel-standard location for environment is
-				// `ResourceAttributes['deployment.environment']`. Older code
-				// here used `getTraceMappingKeyFullPath("environment")` which
-				// returns the dotted `SpanAttributes.gen_ai.environment` path
-				// and then wrapped *that* in `ResourceAttributes[...]`,
-				// producing a non-existent column key that always matched
-				// zero rows. Match both the OTel resource attribute and the
-				// legacy span attribute so any historic data still resolves.
+				// OpenLIT / API-key environment is stamped as
+				// `organisation.environment.name`. OTel `deployment.environment`
+				// stays on custom resource chips and is not this dropdown.
 				const envList = filter.selectedConfig.environments
 					.map((environment: string) =>
 						`'${escapeClickHouseString(environment)}'`
 					)
 					.join(", ");
 				whereArray.push(
-					`(ResourceAttributes['deployment.environment'] IN (${envList}) OR SpanAttributes['gen_ai.environment'] IN (${envList}))`
+					`ResourceAttributes['organisation.environment.name'] IN (${envList})`
 				);
 			}
 

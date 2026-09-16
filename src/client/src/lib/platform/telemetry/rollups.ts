@@ -101,7 +101,7 @@ export async function readSignalBucketRollup(
 	const end = query.timeRange.end.toISOString();
 	const as = query.aggregations?.[0]?.as || "count";
 	const services = filterValues(query.filters, "service.name");
-	const environments = filterValues(query.filters, "deployment.environment");
+	const environments = filterValues(query.filters, "organisation.environment.name");
 	const sql = `
 		SELECT
 			bucket_start AS bucket,
@@ -159,7 +159,7 @@ export async function readLlmRollup(
 	const start = query.timeRange.start.toISOString();
 	const end = query.timeRange.end.toISOString();
 	const services = filterValues(query.filters, "service.name");
-	const environments = filterValues(query.filters, "deployment.environment");
+	const environments = filterValues(query.filters, "organisation.environment.name");
 	const sql = `
 		SELECT
 			group_value AS g0,
@@ -251,7 +251,7 @@ export async function readSpanHotCache(
 	const start = query.timeRange.start.toISOString();
 	const end = query.timeRange.end.toISOString();
 	const services = filterValues(query.filters, "service.name");
-	const environments = filterValues(query.filters, "deployment.environment");
+	const environments = filterValues(query.filters, "organisation.environment.name");
 	const limit = Math.min(
 		opts.maxRows ?? query.limit ?? 100,
 		SPAN_HOT_CACHE_MAX_ROWS

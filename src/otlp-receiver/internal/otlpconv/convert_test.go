@@ -63,11 +63,14 @@ func TestStampResourceOverwritesEnvironment(t *testing.T) {
 		ProjectID:      "proj-1",
 		Environment:    "staging",
 	})
-	if stamped["deployment.environment"] != "staging" {
+	if stamped["deployment.environment"] != "local" {
 		t.Fatalf("env=%s", stamped["deployment.environment"])
 	}
-	if stamped["gen_ai.environment"] != "staging" {
+	if stamped["gen_ai.environment"] != "" {
 		t.Fatalf("gen_ai env=%s", stamped["gen_ai.environment"])
+	}
+	if stamped["organisation.environment.name"] != "staging" {
+		t.Fatalf("org env=%s", stamped["organisation.environment.name"])
 	}
 	if stamped["openlit.organisation.id"] != "org-1" || stamped["openlit.project.id"] != "proj-1" {
 		t.Fatalf("tenant attrs %+v", stamped)

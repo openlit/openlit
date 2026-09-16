@@ -74,7 +74,7 @@ export function toMetricParams(
 			add("traceTypes", filter.value);
 			continue;
 		}
-		if (query.signal === "traces" && filter.key === "deployment.environment") {
+		if (filter.key === "organisation.environment.name") {
 			add("environments", filter.value);
 			continue;
 		}
@@ -131,10 +131,10 @@ function uniqueStrings(values: string[]): string[] {
 }
 
 /**
- * OpenLIT uses `default` as a synthetic stand-in when
- * `deployment.environment` was missing at materialize time. Emitting it as a
- * hard filter empties Tempo/Loki/Prometheus queries (and misses CH rows with
- * an empty attribute). Treat a lone `default` as "no environment filter".
+ * OpenLIT uses `default` as a synthetic stand-in when the organisation
+ * environment was unspecified. Emitting it as a hard filter empties
+ * Tempo/Loki/Prometheus queries (and misses CH rows with an empty attribute).
+ * Treat a lone `default` as "no environment filter".
  */
 function realEnvironments(cfg: Record<string, unknown>): string[] {
 	const environments = stringList(cfg.environments);
@@ -153,7 +153,7 @@ function pushEnvironmentFilter(
 	filters.push({
 		target: "attribute",
 		scope: "resource",
-		key: "deployment.environment",
+		key: "organisation.environment.name",
 		op: "in",
 		value: environments,
 	});

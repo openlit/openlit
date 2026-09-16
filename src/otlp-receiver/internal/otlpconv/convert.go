@@ -467,10 +467,7 @@ func StampResource(attrs map[string]string, tenant ResourceTenant) map[string]st
 		out[k] = v
 	}
 	if tenant.Environment != "" {
-		out["deployment.environment"] = tenant.Environment
-		if out["gen_ai.environment"] == "" {
-			out["gen_ai.environment"] = tenant.Environment
-		}
+		out["organisation.environment.name"] = tenant.Environment
 	}
 	if tenant.OrganisationID != "" {
 		out["openlit.organisation.id"] = tenant.OrganisationID

@@ -73,7 +73,7 @@ export default async function BackfillOtelTenantEnvironmentMigration(
 	}
 
 	const pairs = [
-		["deployment.environment", environment],
+		["organisation.environment.name", environment],
 		...(organisationId
 			? [["openlit.organisation.id", organisationId] as const]
 			: []),
@@ -88,10 +88,20 @@ export default async function BackfillOtelTenantEnvironmentMigration(
 		)
 		.join(", ");
 
-	const where = `(
-		empty(ifNull(ResourceAttributes['deployment.environment'], ''))
-		OR lower(ResourceAttributes['deployment.environment']) IN ('default', 'default_environment', 'local')
-	)`;
+	const whereParts = [
+		`empty(ifNull(ResourceAttributes['organisation.environment.name'], ''))`,
+	];
+	if (organisationId) {
+		whereParts.push(
+			`empty(ifNull(ResourceAttributes['openlit.organisation.id'], ''))`
+		);
+	}
+	if (dbConfig.projectId) {
+		whereParts.push(
+			`empty(ifNull(ResourceAttributes['openlit.project.id'], ''))`
+		);
+	}
+	const where = `(${whereParts.join("\n\t\tOR ")})`;
 
 	try {
 		for (const table of OTEL_RESOURCE_TABLES) {

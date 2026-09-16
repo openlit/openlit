@@ -224,11 +224,7 @@ export async function getRequestsConfig(params: MetricParams) {
 	);
 
 	select.push(
-		// OTel-standard environment is `ResourceAttributes['deployment.environment']`.
-		// The legacy `getTraceMappingKeyFullPath("environment")` returns a
-		// dotted SpanAttributes path that, wrapped in `ResourceAttributes[...]`,
-		// resolves to a non-existent key and silently yields no values.
-		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['deployment.environment'])) AS environments`
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['organisation.environment.name'])) AS environments`
 	);
 
 	const query = `SELECT ${select.join(", ")} FROM ${table} 

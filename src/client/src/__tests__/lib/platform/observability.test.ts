@@ -364,7 +364,7 @@ describe("observability platform queries", () => {
 
 		const query = (dataCollector as jest.Mock).mock.calls[0][0].query;
 		expect(query).toContain(
-			"ResourceAttributes['deployment.environment'] IN ('production')"
+			"ResourceAttributes['organisation.environment.name'] IN ('production')"
 		);
 	});
 
@@ -375,6 +375,7 @@ describe("observability platform queries", () => {
 		} as any);
 
 		const query = (dataCollector as jest.Mock).mock.calls[0][0].query;
+		expect(query).not.toContain("organisation.environment.name");
 		expect(query).not.toContain("deployment.environment");
 	});
 
@@ -386,7 +387,7 @@ describe("observability platform queries", () => {
 
 		const query = (dataCollector as jest.Mock).mock.calls[0][0].query;
 		expect(query).toContain(
-			"ResourceAttributes['deployment.environment'] IN ('default', 'staging')"
+			"ResourceAttributes['organisation.environment.name'] IN ('default', 'staging')"
 		);
 	});
 

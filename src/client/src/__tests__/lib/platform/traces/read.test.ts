@@ -1277,7 +1277,7 @@ describe("getTraceFilterConfig span-name fallback", () => {
 			durationNs: 1,
 			statusCode: "OK",
 			spanAttributes: {},
-			resourceAttributes: {},
+			resourceAttributes: { "organisation.environment.name": "staging" },
 		};
 		mockGetAdapter.mockResolvedValue({
 			capabilities: () => ({}),
@@ -1287,7 +1287,10 @@ describe("getTraceFilterConfig span-name fallback", () => {
 		});
 
 		const res = await getTraceFilterConfig(params as never);
-		expect(res.data?.[0]).toMatchObject({ spanNames: ["chat-completion"] });
+		expect(res.data?.[0]).toMatchObject({
+			spanNames: ["chat-completion"],
+			environments: ["staging"],
+		});
 	});
 });
 
@@ -1506,7 +1509,11 @@ describe("getTraceFilterConfig", () => {
 					},
 				}),
 			]),
-			distinctValues: jest.fn().mockResolvedValue(["chat", "embeddings"]),
+			distinctValues: jest.fn(async (key: string) => {
+				if (key === "SpanName") return ["chat", "embeddings"];
+				if (key === "organisation.environment.name") return ["staging"];
+				return [];
+			}),
 			sampleCacheKey: "tempo-filter-config",
 		});
 
@@ -1519,6 +1526,7 @@ describe("getTraceFilterConfig", () => {
 			spanNames: ["chat", "embeddings"],
 			applicationNames: ["api"],
 			traceTypes: ["chat"],
+			environments: ["staging"],
 		});
 	});
 
@@ -2115,7 +2123,7 @@ describe("getTraceHierarchy additional branches", () => {
 });
 
 describe("externalTraceQuery environment filter edge cases", () => {
-	it("keeps a multi-value deployment.environment filter instead of dropping it as the 'default' sentinel", async () => {
+	it("keeps a multi-value organisation.environment.name filter instead of dropping it as the 'default' sentinel", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		const listSpans = jest.fn().mockResolvedValue({ rows: [] });
 		mockGetAdapter.mockResolvedValue({ listSpans });
@@ -2128,12 +2136,12 @@ describe("externalTraceQuery environment filter edge cases", () => {
 		const [query] = listSpans.mock.calls[0];
 		expect(query.filters).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ key: "deployment.environment", value: ["production", "staging"] }),
+				expect.objectContaining({ key: "organisation.environment.name", value: ["production", "staging"] }),
 			])
 		);
 	});
 
-	it("keeps a single non-default deployment.environment filter", async () => {
+	it("keeps a single non-default organisation.environment.name filter", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		const listSpans = jest.fn().mockResolvedValue({ rows: [] });
 		mockGetAdapter.mockResolvedValue({ listSpans });
@@ -2146,7 +2154,7 @@ describe("externalTraceQuery environment filter edge cases", () => {
 		const [query] = listSpans.mock.calls[0];
 		expect(query.filters).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ key: "deployment.environment", value: ["production"] }),
+				expect.objectContaining({ key: "organisation.environment.name", value: ["production"] }),
 			])
 		);
 	});

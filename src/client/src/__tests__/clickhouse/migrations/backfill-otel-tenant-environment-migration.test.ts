@@ -51,17 +51,21 @@ describe("BackfillOtelTenantEnvironmentMigration", () => {
 		(dataCollector as jest.Mock).mockResolvedValue({ err: null });
 	});
 
-	it("stamps empty default environments from the database config scope", async () => {
+	it("stamps organisation.environment.name and tenant ids without rewriting deployment.environment", async () => {
 		const result = await BackfillOtelTenantEnvironmentMigration("db-1");
 		expect(result).toEqual({ migrationExist: false, queriesRun: true });
 		expect(dataCollector).toHaveBeenCalled();
 		const query = String((dataCollector as jest.Mock).mock.calls[0][0].query);
-		expect(query).toContain("deployment.environment");
+		expect(query).toContain("organisation.environment.name");
 		expect(query).toContain("staging");
 		expect(query).toContain("openlit.organisation.id");
 		expect(query).toContain("org-1");
 		expect(query).toContain("openlit.project.id");
 		expect(query).toContain("proj-1");
+		expect(query).not.toContain("deployment.environment");
+		expect(query).toContain(
+			"empty(ifNull(ResourceAttributes['organisation.environment.name'], ''))"
+		);
 		expect(prisma.clickhouseMigrations.create).toHaveBeenCalledWith({
 			data: {
 				databaseConfigId: "db-1",

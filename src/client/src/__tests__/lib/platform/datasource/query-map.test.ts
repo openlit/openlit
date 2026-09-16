@@ -64,7 +64,7 @@ describe("metricParamsToOpenLITQuery", () => {
 					scope: "resource",
 				}),
 				expect.objectContaining({
-					key: "deployment.environment",
+					key: "organisation.environment.name",
 					scope: "resource",
 					value: ["production"],
 				}),
@@ -320,7 +320,7 @@ describe("metricParamsToOpenLITQuery", () => {
 					value: ["demo-openai-app"],
 				}),
 				expect.objectContaining({
-					key: "deployment.environment",
+					key: "organisation.environment.name",
 					value: ["production"],
 				}),
 			])
@@ -337,14 +337,14 @@ describe("metricParamsToOpenLITQuery", () => {
 					value: ["demo-openai-app"],
 				}),
 				expect.objectContaining({
-					key: "deployment.environment",
+					key: "organisation.environment.name",
 					value: ["production"],
 				}),
 			])
 		);
 	});
 
-	it("does not emit a synthetic default deployment.environment filter", () => {
+	it("does not emit a synthetic default organisation.environment.name filter", () => {
 		const start = new Date("2026-07-01T00:00:00.000Z");
 		const end = new Date("2026-07-01T01:00:00.000Z");
 		const selectedConfig = {
@@ -360,7 +360,7 @@ describe("metricParamsToOpenLITQuery", () => {
 			expect(query.filters || []).not.toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({
-						key: "deployment.environment",
+						key: "organisation.environment.name",
 						value: ["default"],
 					}),
 				])
@@ -581,7 +581,7 @@ describe("metricParamsToOpenLITQuery", () => {
 				{ target: "attribute", key: "gen_ai.request.model", op: "in", value: ["gpt-4o"] },
 				{ target: "attribute", key: "gen_ai.system", op: "in", value: ["openai"] },
 				{ target: "attribute", key: "gen_ai.operation.name", op: "in", value: ["chat"] },
-				{ target: "attribute", key: "deployment.environment", op: "in", value: ["prod"] },
+				{ target: "attribute", key: "organisation.environment.name", op: "in", value: ["prod"] },
 			],
 		});
 		expect(back.selectedConfig).toMatchObject({
@@ -590,6 +590,32 @@ describe("metricParamsToOpenLITQuery", () => {
 			traceTypes: ["chat"],
 			environments: ["prod"],
 		});
+	});
+
+	it("keeps an explicit OTel deployment.environment chip as a custom resource filter", () => {
+		const start = new Date("2026-07-01T00:00:00.000Z");
+		const end = new Date("2026-07-01T01:00:00.000Z");
+		const back = toMetricParams({
+			signal: "traces",
+			timeRange: { start, end },
+			filters: [
+				{
+					target: "attribute",
+					scope: "resource",
+					key: "deployment.environment",
+					op: "in",
+					value: ["local"],
+				},
+			],
+		});
+		expect(back.selectedConfig.environments).toBeUndefined();
+		expect(back.selectedConfig.customFilters).toEqual([
+			{
+				attributeType: "ResourceAttributes",
+				key: "deployment.environment",
+				value: "local",
+			},
+		]);
 	});
 
 	it("does not special-case the trace-only keys for logs/metrics signals (falls through to customFilters)", () => {

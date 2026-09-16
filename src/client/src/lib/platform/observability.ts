@@ -138,7 +138,7 @@ function buildWhere(params: MetricParams, table: FilterTable) {
 		!(environments.length === 1 && environments[0] === "default")
 	) {
 		where.push(
-			`ResourceAttributes['deployment.environment'] IN (${inList(environments)})`
+			`ResourceAttributes['organisation.environment.name'] IN (${inList(environments)})`
 		);
 	}
 	if (table === "logs" && selected.severities?.length) {
