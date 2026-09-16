@@ -98,6 +98,20 @@ func TestAnyValueStructuredJSON(t *testing.T) {
 	}
 }
 
+func TestMarshalJSONDropsOversizedValues(t *testing.T) {
+	t.Parallel()
+	huge := make([]byte, maxEncodedAnyValue+1)
+	for i := range huge {
+		huge[i] = 'a'
+	}
+	if got := marshalJSON(string(huge)); got != "" {
+		t.Fatalf("got len=%d want empty", len(got))
+	}
+	if got := marshalJSON("ok"); got != `"ok"` {
+		t.Fatalf("got=%s", got)
+	}
+}
+
 func TestUnknownStatusAndKindFallBack(t *testing.T) {
 	t.Parallel()
 	rows := Traces(&tracepb.TracesData{

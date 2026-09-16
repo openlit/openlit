@@ -13,6 +13,8 @@ import (
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
+const maxEncodedAnyValue = 1 << 20
+
 var spanKinds = map[tracepb.Span_SpanKind]string{
 	tracepb.Span_SPAN_KIND_UNSPECIFIED: "SPAN_KIND_UNSPECIFIED",
 	tracepb.Span_SPAN_KIND_INTERNAL:    "SPAN_KIND_INTERNAL",
@@ -138,7 +140,7 @@ func AnyValue(v *commonpb.AnyValue) string {
 
 func marshalJSON(v any) string {
 	b, err := json.Marshal(v)
-	if err != nil {
+	if err != nil || len(b) > maxEncodedAnyValue {
 		return ""
 	}
 	return string(b)
@@ -460,7 +462,7 @@ type ResourceTenant struct {
 }
 
 func StampResource(attrs map[string]string, tenant ResourceTenant) map[string]string {
-	out := make(map[string]string, len(attrs)+4)
+	out := make(map[string]string, len(attrs))
 	for k, v := range attrs {
 		out[k] = v
 	}
