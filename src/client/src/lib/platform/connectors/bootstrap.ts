@@ -7,8 +7,10 @@
 
 import { ensureAdaptersRegistered } from "./datasource/bootstrap";
 import { ensureMemoryAdaptersRegistered } from "./memory/bootstrap";
+import { ensureScannerAdaptersRegistered } from "./scanner/bootstrap";
 
 export function ensureConnectorsRegistered(): void {
 	ensureAdaptersRegistered();
 	ensureMemoryAdaptersRegistered();
+	ensureScannerAdaptersRegistered();
 }
