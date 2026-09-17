@@ -216,9 +216,11 @@ def process_crewai_response(
     instance,
     args,
     endpoint=None,
-    **kwargs,
+    kwargs=None,
+    **extra_kwargs,
 ):
     """Set OTel-compliant span attributes, capture content, and record metrics."""
+    kwargs = kwargs if kwargs is not None else extra_kwargs
     end_time = time.time()
 
     # -- common framework attributes (provider, model, server, duration …) --
