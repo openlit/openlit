@@ -22,6 +22,7 @@ import {
 	SettingsIcon,
 	SlidersHorizontal,
 	User,
+	ScanSearch,
 } from "lucide-react";
 
 export const ICON_CLASSES = "flex-shrink-0 size-4";
@@ -101,6 +102,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						icon: <BrainCircuit className={ICON_CLASSES} />,
 						text: m.FEATURE_MEMORY,
 						link: "/memory",
+						type: "action",
+					},
+					{
+						icon: <ScanSearch className={ICON_CLASSES} />,
+						text: m.FEATURE_SCANNER,
+						link: "/scanner",
 						type: "action",
 					},
 					{

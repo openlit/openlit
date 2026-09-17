@@ -46,6 +46,8 @@ import {
 	requireMemoryAccess,
 	type MemoryMutationAuditInput,
 } from "@/lib/access/memory-route";
+import { requireScannerAccess } from "@/lib/access/scanner-route";
+import { lookupLatestScannerFindingsForRepo } from "@/lib/platform/connectors/scanner/lookup";
 import { queryProjectMemories } from "@/lib/platform/connectors/memory/read";
 import {
 	addProjectMemories,
@@ -1120,6 +1122,36 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 					return { success: true, message: "Memory deleted", id: params.id };
 				} catch (e: any) {
 					return { success: false, error: e.message || "Failed to delete memory" };
+				}
+			},
+		}),
+
+		// ==================== SCANNER ====================
+
+		get_scanner_findings: tool<any, any>({
+			description:
+				"Look up the latest scanner findings for a GitHub repository in the current project environment. Use this for coding-agent sessions, vcs.repository.url.full, Trustabl, or repo policy questions. Medium+ findings are listed first.",
+			inputSchema: jsonSchema({
+				type: "object" as const,
+				properties: {
+					repo_url: {
+						type: "string",
+						description:
+							"GitHub repository URL from vcs.repository.url.full or the user (https or git@ forms)",
+					},
+				},
+				required: ["repo_url"],
+			}) as any,
+			execute: async (params: any) => {
+				try {
+					await requireScannerAccess("read");
+					const result = await lookupLatestScannerFindingsForRepo({
+						repoUrl: params.repo_url,
+						environment,
+					});
+					return { success: true, ...result };
+				} catch (e: any) {
+					return { success: false, error: e.message || "Failed to load scanner findings" };
 				}
 			},
 		}),

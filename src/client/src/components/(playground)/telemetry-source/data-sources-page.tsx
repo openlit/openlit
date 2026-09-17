@@ -50,8 +50,12 @@ import {
 } from "@/components/ui/dialog";
 import getMessage from "@/constants/messages";
 import FeatureAccess from "@/components/rbac/feature-access";
+import ScannerRuntimePanel from "@/components/(playground)/scanner/scanner-runtime-panel";
 
 import type { FieldDef } from "@/lib/platform/connectors/datasource/types";
+import { trustablConfigFields } from "@/lib/platform/connectors/scanner/config-fields";
+import type { ScannerCliSchema } from "@/lib/platform/connectors/scanner/cli-schema";
+import type { ScannerRuntimeInfo } from "@/lib/platform/connectors/scanner/types";
 import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import { getCurrentProjectEnvironment } from "@/selectors/project";
@@ -512,7 +516,12 @@ export default function DataSourcesPage({
 		() =>
 			visibleSources.filter((source) => {
 				const signals = parseSignals(source.signals);
-				const category = source.category === "memory" ? "memory" : "datasource";
+				const category =
+					source.category === "memory"
+						? "memory"
+						: source.category === "scanner"
+							? "scanner"
+							: "datasource";
 				return configuredConnectorMatches({
 					query: connectorSearch,
 					typeFilter,
@@ -528,6 +537,7 @@ export default function DataSourcesPage({
 						source.category,
 						source.signals,
 						category === "memory" ? messages.CONNECTOR_CATEGORY_MEMORY : "",
+						category === "scanner" ? messages.CONNECTOR_CATEGORY_SCANNER : "",
 					].join(" "),
 				});
 			}),
@@ -535,6 +545,7 @@ export default function DataSourcesPage({
 			categoryFilter,
 			connectorSearch,
 			messages.CONNECTOR_CATEGORY_MEMORY,
+			messages.CONNECTOR_CATEGORY_SCANNER,
 			signalFilter,
 			typeFilter,
 			visibleSources,
@@ -614,6 +625,7 @@ export default function DataSourcesPage({
 								<SelectItem value={CONNECTOR_FILTER_ALL_VALUE}>{messages.CONNECTOR_FILTER_ALL_CATEGORIES}</SelectItem>
 								<SelectItem value="datasource">{messages.CONNECTOR_CATEGORY_DATASOURCE}</SelectItem>
 								<SelectItem value="memory">{messages.CONNECTOR_CATEGORY_MEMORY}</SelectItem>
+								<SelectItem value="scanner">{messages.CONNECTOR_CATEGORY_SCANNER}</SelectItem>
 							</SelectContent>
 						</Select>
 						<Select value={signalFilter} onValueChange={setSignalFilter}>
@@ -773,6 +785,9 @@ export default function DataSourcesPage({
 													{s.category === "memory" ? (
 														<Badge variant="secondary" className="text-[10px]">{messages.CONNECTOR_CATEGORY_MEMORY}</Badge>
 													) : null}
+													{s.category === "scanner" ? (
+														<Badge variant="secondary" className="text-[10px]">{messages.CONNECTOR_CATEGORY_SCANNER}</Badge>
+													) : null}
 													{s.isDefault ? (
 														<Badge className="text-[10px]">default</Badge>
 													) : null}
@@ -860,12 +875,17 @@ function FieldInput({
 }) {
 	if (field.kind === "switch") {
 		return (
-			<div className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2 dark:border-stone-800">
-				<Label className="text-xs">{field.label}</Label>
-				<Switch
-					checked={!!value}
-					onCheckedChange={(c) => onChange(c)}
-				/>
+			<div className="flex flex-col gap-1 rounded-md border border-stone-200 px-3 py-2 dark:border-stone-800">
+				<div className="flex items-center justify-between gap-3">
+					<Label className="text-xs">{field.label}</Label>
+					<Switch
+						checked={!!value}
+						onCheckedChange={(c) => onChange(c)}
+					/>
+				</div>
+				{field.description ? (
+					<p className="text-[11px] leading-4 text-muted-foreground">{field.description}</p>
+				) : null}
 			</div>
 		);
 	}
@@ -885,6 +905,9 @@ function FieldInput({
 						))}
 					</SelectContent>
 				</Select>
+				{field.description ? (
+					<p className="text-[11px] leading-4 text-muted-foreground">{field.description}</p>
+				) : null}
 			</div>
 		);
 	}
@@ -1071,10 +1094,12 @@ export function SourceFormDialog({
 			label:
 				key === "memory"
 					? messages.CONNECTOR_CATEGORY_MEMORY
-					: messages.CONNECTOR_CATEGORY_DATASOURCE,
+					: key === "scanner"
+						? messages.CONNECTOR_CATEGORY_SCANNER
+						: messages.CONNECTOR_CATEGORY_DATASOURCE,
 			items,
 		}));
-	}, [descriptors, messages.CONNECTOR_CATEGORY_DATASOURCE, messages.CONNECTOR_CATEGORY_MEMORY]);
+	}, [descriptors, messages.CONNECTOR_CATEGORY_DATASOURCE, messages.CONNECTOR_CATEGORY_MEMORY, messages.CONNECTOR_CATEGORY_SCANNER]);
 	const clickHouseFields = useMemo<FieldDef[]>(() => [
 		{ key: "username", label: messages.DB_CONFIG_FIELD_USERNAME, kind: "text", group: "settings", placeholder: "default" },
 		{ key: "host", label: messages.DB_CONFIG_FIELD_HOST, kind: "text", group: "settings", placeholder: "clickhouse.example.com" },
@@ -1090,6 +1115,10 @@ export function SourceFormDialog({
 	const [values, setValues] = useState<Record<string, string | boolean>>({});
 	const [saving, setSaving] = useState(false);
 	const [testing, setTesting] = useState(false);
+	const [cliSchema, setCliSchema] = useState<ScannerCliSchema | undefined>();
+	const handleRuntimeChange = useCallback((runtime: ScannerRuntimeInfo | null) => {
+		setCliSchema(runtime?.schema);
+	}, []);
 
 	useEffect(() => {
 		fetch("/api/project/environment")
@@ -1099,8 +1128,12 @@ export function SourceFormDialog({
 	}, [environment]);
 
 	const fields = useMemo(
-		() => type === "clickhouse" ? clickHouseFields : fieldsForType(descriptors, type),
-		[clickHouseFields, descriptors, type]
+		() => {
+			if (type === "clickhouse") return clickHouseFields;
+			if (type === "trustabl" && cliSchema) return trustablConfigFields(cliSchema);
+			return fieldsForType(descriptors, type);
+		},
+		[clickHouseFields, cliSchema, descriptors, type]
 	);
 
 	// Seed defaults + stored settings whenever the type (or source) changes.
@@ -1138,6 +1171,28 @@ export function SourceFormDialog({
 	);
 	const activeDescriptor = descriptors.find((d) => d.type === type);
 	const setupGuide = messages.DATA_SOURCE_SETUP_GUIDES[type];
+	const settingsSectionTitle =
+		activeDescriptor?.category === "scanner"
+			? messages.SCANNER_DEFAULTS_SECTION
+			: messages.DATA_SOURCE_SETTINGS_SECTION;
+	const settingsSectionDescription =
+		activeDescriptor?.category === "scanner"
+			? messages.SCANNER_DEFAULTS_SECTION_DESCRIPTION
+			: messages.DATA_SOURCE_SETTINGS_SECTION_DESCRIPTION;
+	const credentialsTitle =
+		activeDescriptor?.category === "scanner"
+			? messages.SCANNER_CREDENTIALS_SECTION
+			: fields.some((f) => f.key === "authType")
+				? messages.DATA_SOURCE_AUTHENTICATION_SECTION
+				: messages.DATA_SOURCE_CREDENTIALS_TITLE;
+	const credentialsHelp =
+		activeDescriptor?.category === "scanner"
+			? isEdit && source?.hasSecret
+				? messages.DATA_SOURCE_CREDENTIALS_SET
+				: messages.SCANNER_CREDENTIALS_HELP
+			: isEdit && source?.hasSecret
+				? messages.DATA_SOURCE_CREDENTIALS_SET
+				: messages.DATA_SOURCE_CREDENTIALS_HELP;
 
 	const submit = async () => {
 		if (!name.trim()) {
@@ -1345,6 +1400,10 @@ export function SourceFormDialog({
 						</details>
 					)}
 
+					{activeDescriptor?.category === "scanner" ? (
+						<ScannerRuntimePanel onRuntimeChange={handleRuntimeChange} />
+					) : null}
+
 					<section className="space-y-3 rounded-lg border border-stone-200 p-4 dark:border-stone-800">
 						<div>
 							<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">{messages.DATA_SOURCE_CONNECTION_SECTION}</p>
@@ -1371,7 +1430,7 @@ export function SourceFormDialog({
 					</section>
 
 					{settingsFields.length > 0 && <section className="space-y-3 rounded-lg border border-stone-200 p-4 dark:border-stone-800">
-						<div><p className="text-xs font-semibold text-stone-950 dark:text-stone-50">{messages.DATA_SOURCE_SETTINGS_SECTION}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{messages.DATA_SOURCE_SETTINGS_SECTION_DESCRIPTION}</p></div>
+						<div><p className="text-xs font-semibold text-stone-950 dark:text-stone-50">{settingsSectionTitle}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{settingsSectionDescription}</p></div>
 						<div className="grid gap-3 sm:grid-cols-2">{settingsFields.map((f) => (
 						<FieldInput
 							key={f.key}
@@ -1385,14 +1444,10 @@ export function SourceFormDialog({
 						<section className="space-y-3 rounded-lg border border-stone-200 p-4 dark:border-stone-800">
 							<div>
 								<p className="text-xs font-semibold text-stone-950 dark:text-stone-50">
-									{fields.some((f) => f.key === "authType")
-										? messages.DATA_SOURCE_AUTHENTICATION_SECTION
-										: messages.DATA_SOURCE_CREDENTIALS_TITLE}
+									{credentialsTitle}
 								</p>
 								<p className="text-xs text-muted-foreground">
-									{isEdit && source?.hasSecret
-										? messages.DATA_SOURCE_CREDENTIALS_SET
-										: messages.DATA_SOURCE_CREDENTIALS_HELP}
+									{credentialsHelp}
 								</p>
 								{activeDescriptor?.authHelp && (
 									<p className="mt-1 text-xs text-muted-foreground">
@@ -1434,7 +1489,9 @@ export function SourceFormDialog({
 						/>
 					)}
 
-					{activeDescriptor?.category !== "memory" && type !== "clickhouse" && (
+					{activeDescriptor?.category !== "memory" &&
+						activeDescriptor?.category !== "scanner" &&
+						type !== "clickhouse" && (
 					<div className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2 dark:border-stone-800">
 						<Label className="text-xs">
 							{messages.DATA_SOURCE_FIELD_DEFAULT}
