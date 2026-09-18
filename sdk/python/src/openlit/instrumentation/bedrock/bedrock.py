@@ -190,10 +190,12 @@ def converse_stream(
                 if hasattr(self.__wrapped_stream, "__exit__"):
                     self.__wrapped_stream.__exit__(exc_type, exc_value, traceback)
             finally:
-                # Finalize on every exit: a break before exhaustion never
-                # hits StopIteration, so the span would leak otherwise.
-                if not exc_type:
-                    self._finalize_streaming_span()
+                # Finalize on every exit, not just the clean one: a break before
+                # exhaustion never hits StopIteration, and an exception escaping
+                # the block would leak the span just as surely.
+                if exc_type and not self._streaming_response_processed:
+                    handle_exception(self._span, exc_value)
+                self._finalize_streaming_span()
 
         def __iter__(self):
             return self
