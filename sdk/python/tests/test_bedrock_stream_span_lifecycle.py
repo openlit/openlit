@@ -24,6 +24,8 @@ runtime the instrumentation hands back a `TracedSyncStream`.
 
 import time
 
+import pytest
+
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
@@ -159,3 +161,23 @@ def test_close_finalizes_span():
     time.sleep(0.1)
     spans = exporter.get_finished_spans()
     assert len(spans) == 1, "close() must finalize the span exactly once"
+
+
+def test_exception_inside_with_block_ends_span():
+    """An exception escaping the with-block must not leak the span either.
+
+    `__exit__` originally finalized only on a clean exit, so a caller that
+    raised mid-stream left the span recording forever — the same leak as the
+    early break, just on the error path.
+    """
+    tracer, exporter = _tracer_with_exporter()
+    client = _instrumented_client(tracer)
+
+    with pytest.raises(ValueError):
+        with client.converse_stream(**REQUEST_KWARGS) as stream:
+            next(stream)
+            raise ValueError("caller failed mid-stream")
+
+    time.sleep(0.1)
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1, "an exception in the with-block must still end the span"
