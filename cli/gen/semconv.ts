@@ -10,6 +10,8 @@ export const CodingAgentVendorCursor = "cursor";
 
 export const CodingAgentVendorCodex = "codex";
 
+export const CodingAgentVendorOpenCode = "opencode";
+
 export const CodingAgentVendorWindsurf = "windsurf";
 
 // CodingAgentSessionID identifies a single coding-agent session.
@@ -114,6 +116,17 @@ export const CodingAgentLinkageConfidenceHigh = "high";
 export const CodingAgentLinkageConfidenceMedium = "medium";
 
 export const CodingAgentLinkageConfidenceLow = "low";
+
+// CodingAgentLLMTurnKind describes the primary payload carried by an
+// individual coding-agent LLM turn.
+export const CodingAgentLLMTurnKind = "coding_agent.llm.turn.kind";
+
+// LLM turn kind values.
+export const CodingAgentLLMTurnKindPrompt = "prompt";
+
+export const CodingAgentLLMTurnKindResponse = "response";
+
+export const CodingAgentLLMTurnKindThought = "thought";
 
 // CodingAgentEditDecision is one of: accept | reject | modify | auto_accepted.
 export const CodingAgentEditDecision = "coding_agent.edit.decision";
@@ -305,6 +318,13 @@ export const CodingAgentGitPRTitle = "coding_agent.git.pull_request.title";
 export const CodingAgentEventSessionStart = "coding_agent.session.start";
 
 export const CodingAgentEventSessionEnd = "coding_agent.session.end";
+
+// OpenCode has no terminal SessionEnd hook. Minimal capture uses
+// non-terminal snapshots so counters stay visible without inventing
+// a completed session root or emitting high-cardinality child spans.
+export const CodingAgentEventSessionSnapshotStart = "coding_agent.session.snapshot.start";
+
+export const CodingAgentEventSessionSnapshot = "coding_agent.session.snapshot";
 
 export const CodingAgentEventEditDecision = "coding_agent.edit.decision";
 

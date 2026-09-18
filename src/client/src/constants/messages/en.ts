@@ -793,6 +793,8 @@ export const AGENTS_TAB_CONTROLLERS = "Controllers";
 export const AGENTS_TAB_CODING = "Coding Agents";
 export const AGENTS_ADD_CONTROLLER = "Add Controller";
 export const AGENTS_ADD_CODING_AGENT = "Add Coding Agent";
+export const AGENTS_CODING_VENDOR_OPENCODE_LABEL = "OpenCode";
+export const AGENTS_CODING_VENDOR_OPENCODE_RESTART = "Restart OpenCode.";
 export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the install snippet. The OpenLit CLI hooks into the agent and ships every session, tool call, and LLM turn to this stack — no SDK or code changes required.";
 
 // Trace-detail content-capture banner. Surfaces a one-liner the user
@@ -863,8 +865,9 @@ export const AGENTS_CODING_COLUMN_ACCEPTANCE = "Acceptance";
 export const AGENTS_CODING_COLUMN_COMMITS = "Commits";
 export const AGENTS_CODING_COLUMN_PRS = "PRs";
 export const AGENTS_CODING_EMPTY_TITLE = "No coding agents yet";
+export const AGENTS_CODING_SETUP_GUIDE = "coding-agents setup guide";
 export const AGENTS_CODING_EMPTY_BODY =
-	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, or Codex session. The first hook event will surface the agent here within a minute.";
+	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, Codex, or OpenCode session. The first hook event will surface the agent here within a minute.";
 export const AGENTS_CODING_TAB_SESSIONS = "Sessions";
 export const AGENTS_CODING_SESSIONS_EMPTY = "No sessions in the selected time range.";
 export const AGENTS_CODING_SESSIONS_SESSION = "Session";
@@ -881,7 +884,7 @@ export const AGENTS_CODING_SESSIONS_OUTCOME = "Outcome";
 export const AGENTS_CODING_SESSIONS_CLASSIFICATION = "Classification";
 export const AGENTS_CODING_SESSIONS_LABEL = "Coding sessions";
 export const AGENTS_CODING_SESSIONS_SHORT_LABEL = "Sessions";
-export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex).";
+export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex, OpenCode).";
 export const AGENTS_CODING_USERS_LABEL = "Coding users";
 export const AGENTS_CODING_USERS_SHORT_LABEL = "Users";
 export const AGENTS_CODING_USERS_SUMMARY = "Per-user roll-up of coding-agent activity.";
@@ -3075,4 +3078,3 @@ export const DATA_SOURCE_BINDING_SAVED = "Signal routing updated.";
 export const DATA_SOURCE_BINDING_FAILED = "Failed to update signal routing.";
 export const DATA_SOURCE_LOAD_FAILED = "Failed to load data sources.";
 export const DATA_SOURCE_RETRY = "Try again";
-

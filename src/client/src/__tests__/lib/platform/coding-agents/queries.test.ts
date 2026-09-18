@@ -226,6 +226,39 @@ describe("coding agent query service", () => {
 		);
 	});
 
+	it("aggregates OpenCode snapshot counters numerically without losing total tokens", async () => {
+		mockDataCollector.mockResolvedValue({ err: null, data: [] });
+
+		await listSessions(auth, { limit: 10 });
+		await getCodingSessionDigest(auth, "snapshot-session");
+		await listCodingUsers(auth, { limit: 10 });
+
+		const queries = mockDataCollector.mock.calls.map(
+			([request]) => request.query as string
+		);
+		const perSpanTotal =
+			/nullIf\(\s*toInt64OrZero\(SpanAttributes\['gen_ai\.usage\.total_tokens'\]\),\s*0\s*\)/;
+		for (const query of queries) {
+			expect(query).toMatch(perSpanTotal);
+			expect(query).toContain("'coding_agent.session.snapshot'");
+		}
+		expect(queries[0]).toContain(
+			"max(toInt64OrZero(SpanAttributes['coding_agent.session.tool_call_count']))"
+		);
+		expect(queries[2]).toContain(
+			"max(toInt64OrZero(SpanAttributes['coding_agent.session.tool_call_count']))"
+		);
+		expect(queries[0]).toContain(
+			"max(toInt64OrZero(SpanAttributes['coding_agent.session.duration_ms']))"
+		);
+		expect(queries[1]).toContain(
+			"max(toInt64OrZero(SpanAttributes['coding_agent.session.duration_ms']))"
+		);
+		expect(queries.join("\n")).not.toMatch(
+			/toInt64OrZero\((?:any|max)\(SpanAttributes\['coding_agent\.session\.(?:duration_ms|tool_call_count)'\]\)\)/
+		);
+	});
+
 	it("falls back to default sort columns for unknown sortBy values", async () => {
 		mockDataCollector.mockResolvedValueOnce({
 			err: null,

@@ -23,6 +23,7 @@ const (
 	CodingAgentVendorClaudeCode = "claude-code"
 	CodingAgentVendorCursor     = "cursor"
 	CodingAgentVendorCodex      = "codex"
+	CodingAgentVendorOpenCode   = "opencode"
 	CodingAgentVendorWindsurf   = "windsurf"
 )
 
@@ -111,6 +112,20 @@ const (
 	CodingAgentLinkageConfidenceLow    = "low"
 )
 
+// LLM turn attributes.
+const (
+	// CodingAgentLLMTurnKind describes the primary payload carried by an
+	// individual coding-agent LLM turn.
+	CodingAgentLLMTurnKind = "coding_agent.llm.turn.kind"
+)
+
+// LLM turn kind values.
+const (
+	CodingAgentLLMTurnKindPrompt   = "prompt"
+	CodingAgentLLMTurnKindResponse = "response"
+	CodingAgentLLMTurnKindThought  = "thought"
+)
+
 // Edit decision attributes — captured per file/edit so dashboards can
 // distinguish auto-applied agent edits from user-reviewed ones.
 // OTel has no standard for this; this is the major gap we fill.
@@ -137,11 +152,11 @@ const (
 	CodingAgentEditDecisionModify       = "modify"
 	CodingAgentEditDecisionAutoAccepted = "auto_accepted"
 
-	CodingAgentEditDecisionSourceUserInteractive    = "user_interactive"
-	CodingAgentEditDecisionSourceUserPermanentRule  = "user_permanent_rule"
-	CodingAgentEditDecisionSourceHook               = "hook"
-	CodingAgentEditDecisionSourceConfig             = "config"
-	CodingAgentEditDecisionSourcePolicy             = "policy"
+	CodingAgentEditDecisionSourceUserInteractive   = "user_interactive"
+	CodingAgentEditDecisionSourceUserPermanentRule = "user_permanent_rule"
+	CodingAgentEditDecisionSourceHook              = "hook"
+	CodingAgentEditDecisionSourceConfig            = "config"
+	CodingAgentEditDecisionSourcePolicy            = "policy"
 )
 
 // Tool causality attributes — link tool invocations back to the model
@@ -260,11 +275,11 @@ const (
 // Span names emitted by the CLI normalizer. Keep these as constants so
 // dashboard SQL can match against a small, stable set.
 const (
-	CodingAgentSpanSession        = "coding_agent.session"
-	CodingAgentSpanToolCall       = "coding_agent.tool.call"
-	CodingAgentSpanEditDecision   = "coding_agent.edit.decision"
-	CodingAgentSpanSubagent       = "coding_agent.subagent"
-	CodingAgentSpanLLMTurn        = "coding_agent.llm.turn"
+	CodingAgentSpanSession      = "coding_agent.session"
+	CodingAgentSpanToolCall     = "coding_agent.tool.call"
+	CodingAgentSpanEditDecision = "coding_agent.edit.decision"
+	CodingAgentSpanSubagent     = "coding_agent.subagent"
+	CodingAgentSpanLLMTurn      = "coding_agent.llm.turn"
 	// CodingAgentSpanGitCommit is emitted when the agent's Bash /
 	// shell tool ran a `git commit` invocation. One span per detected
 	// commit, child of the session-root trace.
@@ -292,13 +307,18 @@ const (
 // Event names — emitted as span events for high-cardinality moments
 // where a separate span would be overkill.
 const (
-	CodingAgentEventSessionStart    = "coding_agent.session.start"
-	CodingAgentEventSessionEnd      = "coding_agent.session.end"
-	CodingAgentEventEditDecision    = "coding_agent.edit.decision"
-	CodingAgentEventLoopDetected    = "coding_agent.loop.detected"
-	CodingAgentEventSubagentSpawned = "coding_agent.subagent.spawned"
-	CodingAgentEventSubagentDone    = "coding_agent.subagent.completed"
-	CodingAgentEventMCPInvoked      = "coding_agent.mcp.tool.invoked"
+	CodingAgentEventSessionStart = "coding_agent.session.start"
+	CodingAgentEventSessionEnd   = "coding_agent.session.end"
+	// OpenCode has no terminal SessionEnd hook. Minimal capture uses
+	// non-terminal snapshots so counters stay visible without inventing
+	// a completed session root or emitting high-cardinality child spans.
+	CodingAgentEventSessionSnapshotStart = "coding_agent.session.snapshot.start"
+	CodingAgentEventSessionSnapshot      = "coding_agent.session.snapshot"
+	CodingAgentEventEditDecision         = "coding_agent.edit.decision"
+	CodingAgentEventLoopDetected         = "coding_agent.loop.detected"
+	CodingAgentEventSubagentSpawned      = "coding_agent.subagent.spawned"
+	CodingAgentEventSubagentDone         = "coding_agent.subagent.completed"
+	CodingAgentEventMCPInvoked           = "coding_agent.mcp.tool.invoked"
 )
 
 // Metric names — additions on top of gen_ai.* metrics.

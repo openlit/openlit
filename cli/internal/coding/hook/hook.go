@@ -29,6 +29,7 @@ import (
 	"github.com/openlit/openlit/cli/internal/coding/hook/claudecode"
 	"github.com/openlit/openlit/cli/internal/coding/hook/codex"
 	"github.com/openlit/openlit/cli/internal/coding/hook/cursor"
+	"github.com/openlit/openlit/cli/internal/coding/hook/opencode"
 	"github.com/openlit/openlit/cli/internal/coding/identity"
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
 	"github.com/openlit/openlit/cli/internal/coding/sessionstate"
@@ -69,7 +70,7 @@ never blocks a developer's prompt.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&vendor, "vendor", "", "Vendor: cc | claude-code | cursor | codex")
+	cmd.Flags().StringVar(&vendor, "vendor", "", "Vendor: cc | claude-code | cursor | codex | opencode")
 	cmd.Flags().StringVar(&event, "event", "", "Hook event name (vendor-specific; e.g. SessionStart, PreToolUse)")
 	_ = cmd.MarkFlagRequired("vendor")
 
@@ -287,7 +288,7 @@ func run(cmd *cobra.Command, vendor, event string) (rerr error) {
 	}
 
 	// Default service.name to the vendor identifier ("cursor",
-	// "claude-code", "codex") so the trace-detail header's
+	// "claude-code", "codex", "opencode") so the trace-detail header's
 	// SERVICE pill matches Claude Code's monitoring convention and
 	// the per-vendor materializer can group by service.name. The
 	// user-set OPENLIT_APPLICATION_NAME (file or env) still wins;
@@ -425,7 +426,7 @@ func run(cmd *cobra.Command, vendor, event string) (rerr error) {
 // canonicalVendor folds the various vendor aliases the plugin manifests
 // have used historically (`cc`, `claudecode`, `claude_code`, …) onto
 // the canonical names used everywhere else: `cursor`, `claude-code`,
-// `codex`. Returns the input unchanged when it's already canonical or
+// `codex`, `opencode`. Returns the input unchanged when it's already canonical or
 // unrecognized — pickAdapter then surfaces the unknown-vendor error.
 // Empty input is preserved so the "--vendor required" error fires as
 // before.
@@ -438,6 +439,8 @@ func canonicalVendor(vendor string) string {
 		return "cursor"
 	case "codex":
 		return "codex"
+	case "opencode":
+		return "opencode"
 	default:
 		return v
 	}
@@ -454,6 +457,8 @@ func pickAdapter(vendor string) (normalize.Adapter, error) {
 		return cursor.New(), nil
 	case "codex":
 		return codex.New(), nil
+	case "opencode":
+		return opencode.New(), nil
 	case "":
 		return nil, errors.New("--vendor is required")
 	default:
@@ -594,33 +599,60 @@ func peekContext(payload []byte) peekedContext {
 	if err := json.Unmarshal(payload, &probe); err != nil {
 		return out
 	}
-	pickString := func(keys ...string) string {
-		for _, k := range keys {
-			v, ok := probe[k]
-			if !ok {
-				continue
+	var eventType string
+	var eventProperties map[string]any
+	var eventInfo map[string]any
+	if event, ok := probe["event"].(map[string]any); ok {
+		if value, ok := event["type"].(string); ok {
+			eventType = strings.TrimSpace(value)
+		}
+		if properties, ok := event["properties"].(map[string]any); ok {
+			eventProperties = properties
+			if info, ok := properties["info"].(map[string]any); ok {
+				eventInfo = info
 			}
-			if s, ok := v.(string); ok {
-				s = strings.TrimSpace(s)
-				if s != "" {
-					return s
+		}
+	}
+	containers := []map[string]any{probe, eventProperties, eventInfo}
+	pickString := func(keys ...string) string {
+		for _, container := range containers {
+			for _, k := range keys {
+				v, ok := container[k]
+				if !ok {
+					continue
+				}
+				if s, ok := v.(string); ok {
+					s = strings.TrimSpace(s)
+					if s != "" {
+						return s
+					}
 				}
 			}
 		}
 		return ""
 	}
-	out.SessionID = pickString("session_id", "conversation_id", "sessionId", "thread_id")
+	out.SessionID = pickString("session_id", "conversation_id", "sessionId", "sessionID", "thread_id")
+	if out.SessionID == "" && strings.HasPrefix(eventType, "session.") && eventInfo != nil {
+		if value, ok := eventInfo["id"].(string); ok {
+			out.SessionID = strings.TrimSpace(value)
+		}
+	}
 	// Distinct conversation id (when the vendor reports one) — this is
 	// what survives subagent spawns and, on a few vendors, IDE
 	// restarts. UI uses it as the rollup key in preference to
 	// session_id so multi-process chats fold into one row.
-	out.ConversationID = pickString("conversation_id", "conversationId", "thread_id", "threadId")
+	out.ConversationID = pickString("conversation_id", "conversationId", "thread_id", "threadId", "sessionID")
+	if out.ConversationID == "" && strings.HasPrefix(eventType, "session.") {
+		out.ConversationID = out.SessionID
+	}
 	// `parent_conversation_id` is Cursor's link from a subagent back
 	// to its parent chat thread. When present we promote it to a
 	// resource attribute so every span the subagent emits carries
 	// the parent's id, and the UI can roll the subagent up under
 	// the chat that spawned it.
-	out.ParentConversationID = pickString("parent_conversation_id", "parentConversationId", "parent_session_id")
+	out.ParentConversationID = pickString(
+		"parent_conversation_id", "parentConversationId", "parent_session_id", "parentID",
+	)
 	// Cursor exposes `user_email` on every event that carries
 	// identity (sessionStart, beforeSubmitPrompt, sessionEnd, ...).
 	// Claude Code transcript hooks include the user-message author
@@ -630,7 +662,7 @@ func peekContext(payload []byte) peekedContext {
 	// Cursor calls it `cwd`; Claude Code sets the env CLAUDE_PROJECT_DIR
 	// (handled by resolveTerminalType, not the payload). For the
 	// payload path we accept either.
-	out.CWD = pickString("cwd", "working_directory", "workingDirectory")
+	out.CWD = pickString("cwd", "working_directory", "workingDirectory", "directory", "worktree")
 	if out.CWD == "" {
 		// Cursor sometimes only sends `workspace_roots: []`. Pick
 		// the first entry as a best-effort cwd.
@@ -654,8 +686,16 @@ func peekContext(payload []byte) peekedContext {
 		"composer_mode",
 		"permission_mode", "permissionMode",
 		"approval_mode", "approvalMode",
+		"mode",
 	)
-	out.Model = pickString("model", "request_model", "requestModel")
+	out.Model = pickString("model", "request_model", "requestModel", "modelID")
+	if out.Model == "" && eventInfo != nil {
+		if model, ok := eventInfo["model"].(map[string]any); ok {
+			if value, ok := model["modelID"].(string); ok {
+				out.Model = strings.TrimSpace(value)
+			}
+		}
+	}
 	if v, ok := probe["is_background_agent"]; ok {
 		if b, ok := v.(bool); ok {
 			out.IsBackgroundAgent = b

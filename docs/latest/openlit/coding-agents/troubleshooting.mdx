@@ -9,7 +9,7 @@ It prints the resolved config, the cached session count, the installed plugin pa
 
 ## No row on the Agents page
 
-The hook never writes to a log file - it emits to stderr, which is captured by the host coding agent's own logs (Claude Code: `~/.claude/logs/`; Cursor: Developer Tools → Console; Codex: `~/.codex/`). Set `OPENLIT_DEBUG_PAYLOAD_DIR=/tmp/openlit-debug` to capture the exact JSON the vendor is sending the hook - useful when fields appear to be missing on the resulting spans.
+The hook never writes to a log file - it emits to stderr, which is captured by the host coding agent's own logs (Claude Code: `~/.claude/logs/`; Cursor: Developer Tools → Console; Codex: `~/.codex/`). For OpenCode, first run `openlit doctor` and confirm it detects `$XDG_CONFIG_HOME/opencode/plugins/openlit.ts` when `XDG_CONFIG_HOME` is set, or `<user-home>/.config/opencode/plugins/openlit.ts` otherwise. Set `OPENLIT_DEBUG_PAYLOAD_DIR=/tmp/openlit-debug` to capture the exact JSON the vendor is sending the hook - useful when fields appear to be missing on the resulting spans.
 
 ## Hooks ran but no spans landed
 
