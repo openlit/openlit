@@ -9,6 +9,7 @@ from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
     record_completion_metrics,
+    safe_detach,
 )
 from openlit.instrumentation.vertexai.utils import (
     process_chunk,
@@ -72,13 +73,25 @@ def async_send_message(
             self._server_port = server_port
             self._request_model = request_model
             self._args = args
+            self._streaming_response_processed = False
 
         async def __aenter__(self):
             await self.__wrapped__.__aenter__()
             return self
 
         async def __aexit__(self, exc_type, exc_value, traceback):
-            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+            try:
+                await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+            finally:
+                if exc_type:
+                    self._streaming_response_processed = True
+                    handle_exception(self._span, exc_value)
+                    if self._span.is_recording():
+                        self._span.end()
+                else:
+                    # A break before exhaustion never hits StopAsyncIteration,
+                    # so the span would leak without normal-exit finalization.
+                    self._finalize_streaming_span()
 
         def __aiter__(self):
             return self
@@ -93,22 +106,41 @@ def async_send_message(
                 process_chunk(self, chunk)
                 return chunk
             except StopAsyncIteration:
-                try:
-                    with self._span:
-                        process_streaming_chat_response(
-                            self,
-                            pricing_info=pricing_info,
-                            environment=environment,
-                            application_name=application_name,
-                            metrics=metrics,
-                            capture_message_content=capture_message_content,
-                            disable_metrics=disable_metrics,
-                            version=version,
-                            event_provider=event_provider,
-                        )
-                except Exception as e:
-                    handle_exception(self._span, e)
+                self._finalize_streaming_span()
                 raise
+
+        def _finalize_streaming_span(self):
+            """Complete and end the span exactly once.
+
+            Called on stream exhaustion and again from aclose()/manager exit;
+            the flag keeps the double call a no-op so early exits that never
+            see StopAsyncIteration still export the span instead of leaking it.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            try:
+                with self._span:
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=event_provider,
+                    )
+            except Exception as e:
+                handle_exception(self._span, e)
+
+        async def aclose(self):
+            """Close the wrapped stream and finalize the span if not ended."""
+            try:
+                await self.__wrapped__.aclose()
+            finally:
+                self._finalize_streaming_span()
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
@@ -128,10 +160,10 @@ def async_send_message(
                 awaited_wrapped = await wrapped(*args, **kwargs)
             except Exception as e:
                 handle_exception(span, e)
-                context_api.detach(token)
+                safe_detach(token)
                 span.end()
                 raise
-            context_api.detach(token)
+            safe_detach(token)
 
             return TracedAsyncStream(
                 awaited_wrapped,
