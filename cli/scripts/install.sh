@@ -101,8 +101,14 @@ if [ "$OPENLIT_VERSION" = "latest" ]; then
 	page=1
 	while [ "$page" -le 10 ]; do
 		body=$(curl -fsSL --retry 3 --retry-delay 1 "${releases_api}?per_page=100&page=${page}" 2>/dev/null) || break
+		# grep -o first, so each tag_name lands on its own line before
+		# anything tries to pick one. A lone sed would depend on the API
+		# pretty-printing one tag_name per line: on a compact body the
+		# leading .* is greedy and walks to the LAST cli-* on the line,
+		# which is the oldest release rather than the newest.
 		tag=$(printf '%s' "$body" \
-			| sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\(cli-[^"]*\)".*/\1/p' \
+			| grep -o '"tag_name"[[:space:]]*:[[:space:]]*"cli-[^"]*"' \
+			| sed -n 's/.*"\(cli-[^"]*\)"/\1/p' \
 			| head -n 1)
 		[ -n "$tag" ] && break
 		# An empty page means the end of the list, not a transient failure.
