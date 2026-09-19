@@ -86,13 +86,29 @@ esac
 asset="openlit-${os}-${arch}.tar.gz"
 if [ "$OPENLIT_VERSION" = "latest" ]; then
 	info "Resolving the latest CLI release"
-	releases_api="https://api.github.com/repos/${OPENLIT_REPO}/releases?per_page=100"
-	# Unauthenticated API calls are rate limited (60/hour per IP), and a
-	# throttled or offline call must produce a readable error rather than
-	# a download of the empty string.
-	tag=$(curl -fsSL --retry 3 --retry-delay 1 "$releases_api" 2>/dev/null \
-		| sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\(cli-[^"]*\)".*/\1/p' \
-		| head -n 1)
+	releases_api="https://api.github.com/repos/${OPENLIT_REPO}/releases"
+	# Page, rather than reading only the first 100. The CLI is a minority
+	# component here: at the time of writing this repository has more than
+	# 200 releases and the newest cli-* tag sits 17 back, so one page is
+	# enough today but stops being enough once 100 releases of other
+	# components are newer than the last CLI release.
+	#
+	# The cap stops a repository with no cli-* release at all from walking
+	# every page before failing. Unauthenticated calls are rate limited
+	# (60/hour per IP), so a throttled or offline call must produce a
+	# readable error rather than a download of the empty string.
+	tag=""
+	page=1
+	while [ "$page" -le 10 ]; do
+		body=$(curl -fsSL --retry 3 --retry-delay 1 "${releases_api}?per_page=100&page=${page}" 2>/dev/null) || break
+		tag=$(printf '%s' "$body" \
+			| sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\(cli-[^"]*\)".*/\1/p' \
+			| head -n 1)
+		[ -n "$tag" ] && break
+		# An empty page means the end of the list, not a transient failure.
+		printf '%s' "$body" | grep -q '"tag_name"' || break
+		page=$((page + 1))
+	done
 	if [ -z "$tag" ]; then
 		fatal "could not resolve the latest cli-* release from ${releases_api}. \
 Set OPENLIT_VERSION to a published CLI version (for example OPENLIT_VERSION=0.0.1) and re-run."

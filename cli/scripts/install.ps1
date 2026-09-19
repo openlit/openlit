@@ -57,17 +57,27 @@ if ($archEnv -eq 'ARM64') {
 $asset = "openlit-windows-$arch.zip"
 if ($Version -eq 'latest') {
     Write-OpenLit 'Resolving the latest CLI release'
-    $releasesApi = "https://api.github.com/repos/$Repo/releases?per_page=100"
-    # Unauthenticated calls are rate limited (60/hour per IP); a throttled or
-    # offline call must fail with a readable message, not an empty tag.
-    try {
-        $releases = Invoke-RestMethod -Uri $releasesApi -UseBasicParsing -Headers @{
-            'User-Agent' = 'openlit-installer'
+    $releasesApi = "https://api.github.com/repos/$Repo/releases"
+    # Page, rather than reading only the first 100. The CLI is a minority
+    # component here: at the time of writing this repository has more than 200
+    # releases and the newest cli-* tag sits 17 back, so one page is enough
+    # today but stops being enough once 100 releases of other components are
+    # newer than the last CLI release. The cap stops a repository with no
+    # cli-* release from walking every page before failing.
+    $tag = $null
+    for ($page = 1; $page -le 10 -and -not $tag; $page++) {
+        # Unauthenticated calls are rate limited (60/hour per IP); a throttled
+        # or offline call must fail with a readable message, not an empty tag.
+        try {
+            $releases = Invoke-RestMethod -Uri "${releasesApi}?per_page=100&page=$page" -UseBasicParsing -Headers @{
+                'User-Agent' = 'openlit-installer'
+            }
+        } catch {
+            Stop-OpenLit "could not reach $releasesApi ($($_.Exception.Message)). Set `$env:OPENLIT_VERSION to a published CLI version (for example 0.0.1) and re-run."
         }
-    } catch {
-        Stop-OpenLit "could not reach $releasesApi ($($_.Exception.Message)). Set `$env:OPENLIT_VERSION to a published CLI version (for example 0.0.1) and re-run."
+        if (-not $releases -or $releases.Count -eq 0) { break }
+        $tag = ($releases | Where-Object { $_.tag_name -like 'cli-*' } | Select-Object -First 1).tag_name
     }
-    $tag = ($releases | Where-Object { $_.tag_name -like 'cli-*' } | Select-Object -First 1).tag_name
     if (-not $tag) {
         Stop-OpenLit "could not resolve the latest cli-* release from $releasesApi. Set `$env:OPENLIT_VERSION to a published CLI version (for example 0.0.1) and re-run."
     }
