@@ -227,3 +227,69 @@ async def test_async_full_consumption_exports_exactly_one_span():
 
     time.sleep(0.05)
     _assert_one_span_with_tokens(exporter)
+
+
+class FailingExitStream(FakeStream):
+    """Its own ``__exit__`` raises even when the ``with`` body was clean."""
+
+    def __exit__(self, *exc):
+        raise RuntimeError("wrapped exit blew up")
+
+
+class FailingAexitStream(FakeAsyncStream):
+    """Async twin of :class:`FailingExitStream`."""
+
+    async def __aexit__(self, *exc):
+        raise RuntimeError("wrapped aexit blew up")
+
+
+def test_sync_exception_from_wrapped_exit_is_recorded_on_span():
+    """A clean body plus a raising wrapped ``__exit__`` must still be recorded.
+
+    ``exc_type`` describes only the ``with`` body, so finalizing on it alone
+    would export a span with no trace of the ``RuntimeError`` escaping to the
+    caller. The merged anthropic and groq wrappers export
+    ``events=[] error.type=None`` here; this asserts litellm records it.
+
+    The status itself stays ``OK`` because ``_finalize_streaming_span`` ends the
+    span through ``with self._span:`` and the OTel SDK only sets ``ERROR`` when
+    an exception passes through *that* context manager. Normalising the status
+    would mean changing the shared finalisation idiom, which belongs in its own
+    change rather than this one.
+    """
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=False)
+
+    stream = wrapper(lambda *a, **k: FailingExitStream(), None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="wrapped exit blew up"):
+        with stream as s:
+            for _ in s:
+                break
+
+    time.sleep(0.05)
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1, "expected exactly one exported span"
+    assert any(event.name == "exception" for event in spans[0].events)
+    assert spans[0].attributes.get("error.type") == "RuntimeError"
+
+
+@pytest.mark.asyncio
+async def test_async_exception_from_wrapped_aexit_is_recorded_on_span():
+    """Async twin: the escaping ``__aexit__`` error must reach the span."""
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=True)
+
+    async def _make(*_a, **_k):
+        return FailingAexitStream()
+
+    stream = await wrapper(_make, None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="wrapped aexit blew up"):
+        async with stream as s:
+            async for _ in s:
+                break
+
+    time.sleep(0.05)
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1, "expected exactly one exported span"
+    assert any(event.name == "exception" for event in spans[0].events)
+    assert spans[0].attributes.get("error.type") == "RuntimeError"
