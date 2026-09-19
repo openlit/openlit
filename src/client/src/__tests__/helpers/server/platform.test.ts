@@ -265,9 +265,8 @@ describe('getFilterWhereCondition', () => {
       true
     );
     expect(result).toContain("'production'");
-    expect(result).toContain("ResourceAttributes['organisation.environment.name']");
-    expect(result).not.toContain("deployment.environment");
-    expect(result).not.toContain("gen_ai.environment");
+    expect(result).toContain("ResourceAttributes['deployment.environment']");
+    expect(result).toContain("SpanAttributes['gen_ai.environment']");
   });
 
 	  it('adds SpanAttributes custom filter (covers lines 250-252)', () => {

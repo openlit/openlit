@@ -1277,7 +1277,7 @@ describe("getTraceFilterConfig span-name fallback", () => {
 			durationNs: 1,
 			statusCode: "OK",
 			spanAttributes: {},
-			resourceAttributes: { "organisation.environment.name": "staging" },
+			resourceAttributes: { "deployment.environment": "staging" },
 		};
 		mockGetAdapter.mockResolvedValue({
 			capabilities: () => ({}),
@@ -1511,7 +1511,7 @@ describe("getTraceFilterConfig", () => {
 			]),
 			distinctValues: jest.fn(async (key: string) => {
 				if (key === "SpanName") return ["chat", "embeddings"];
-				if (key === "organisation.environment.name") return ["staging"];
+				if (key === "deployment.environment") return ["staging"];
 				return [];
 			}),
 			sampleCacheKey: "tempo-filter-config",
@@ -2123,7 +2123,7 @@ describe("getTraceHierarchy additional branches", () => {
 });
 
 describe("externalTraceQuery environment filter edge cases", () => {
-	it("keeps a multi-value organisation.environment.name filter instead of dropping it as the 'default' sentinel", async () => {
+	it("keeps a multi-value deployment.environment filter instead of dropping it as the 'default' sentinel", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		const listSpans = jest.fn().mockResolvedValue({ rows: [] });
 		mockGetAdapter.mockResolvedValue({ listSpans });
@@ -2136,12 +2136,12 @@ describe("externalTraceQuery environment filter edge cases", () => {
 		const [query] = listSpans.mock.calls[0];
 		expect(query.filters).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ key: "organisation.environment.name", value: ["production", "staging"] }),
+				expect.objectContaining({ key: "deployment.environment", value: ["production", "staging"] }),
 			])
 		);
 	});
 
-	it("keeps a single non-default organisation.environment.name filter", async () => {
+	it("keeps a single non-default deployment.environment filter", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		const listSpans = jest.fn().mockResolvedValue({ rows: [] });
 		mockGetAdapter.mockResolvedValue({ listSpans });
@@ -2154,7 +2154,7 @@ describe("externalTraceQuery environment filter edge cases", () => {
 		const [query] = listSpans.mock.calls[0];
 		expect(query.filters).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ key: "organisation.environment.name", value: ["production"] }),
+				expect.objectContaining({ key: "deployment.environment", value: ["production"] }),
 			])
 		);
 	});

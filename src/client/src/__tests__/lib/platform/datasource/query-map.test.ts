@@ -64,7 +64,7 @@ describe("metricParamsToOpenLITQuery", () => {
 					scope: "resource",
 				}),
 				expect.objectContaining({
-					key: "organisation.environment.name",
+					key: "deployment.environment",
 					scope: "resource",
 					value: ["production"],
 				}),
@@ -111,7 +111,7 @@ describe("metricParamsToOpenLITQuery", () => {
 		);
 	});
 
-	it("maps a trace customFilter with attributeType Field/key SpanName to a spanName filter, and ignores other Field keys", () => {
+	it("maps a trace customFilter with attributeType Field/key SpanName to a spanName filter, and ignores unknown Field keys", () => {
 		const query = metricParamsToOpenLITQuery({
 			timeLimit: { start: new Date("2026-07-01"), end: new Date("2026-07-02"), type: "CUSTOM" },
 			selectedConfig: {
@@ -125,6 +125,35 @@ describe("metricParamsToOpenLITQuery", () => {
 		expect(query.filters).toEqual([
 			{ target: "spanName", op: "eq", value: "chat" },
 		]);
+	});
+
+	it("round-trips Field SpanId custom filters so ClickHouse identifier columns actually filter", () => {
+		const query = metricParamsToOpenLITQuery({
+			timeLimit: { start: new Date("2026-07-01"), end: new Date("2026-07-02"), type: "CUSTOM" },
+			selectedConfig: {
+				customFilters: [
+					{ attributeType: "Field", key: "SpanId", value: "222942bfa699b630" },
+					{ attributeType: "Field", key: "TraceId", value: "abc" },
+				],
+			},
+		} as any);
+		expect(query.filters).toEqual(
+			expect.arrayContaining([
+				{ target: "field", key: "SpanId", op: "eq", value: "222942bfa699b630" },
+				{ target: "field", key: "TraceId", op: "eq", value: "abc" },
+			])
+		);
+		const back = toMetricParams(query);
+		expect(back.selectedConfig.customFilters).toEqual(
+			expect.arrayContaining([
+				{
+					attributeType: "Field",
+					key: "SpanId",
+					value: "222942bfa699b630",
+				},
+				{ attributeType: "Field", key: "TraceId", value: "abc" },
+			])
+		);
 	});
 
 	it("normalizes every custom filter operator alias (eq/neq/!=/contains/in) for traces", () => {
@@ -320,7 +349,7 @@ describe("metricParamsToOpenLITQuery", () => {
 					value: ["demo-openai-app"],
 				}),
 				expect.objectContaining({
-					key: "organisation.environment.name",
+					key: "deployment.environment",
 					value: ["production"],
 				}),
 			])
@@ -337,14 +366,14 @@ describe("metricParamsToOpenLITQuery", () => {
 					value: ["demo-openai-app"],
 				}),
 				expect.objectContaining({
-					key: "organisation.environment.name",
+					key: "deployment.environment",
 					value: ["production"],
 				}),
 			])
 		);
 	});
 
-	it("does not emit a synthetic default organisation.environment.name filter", () => {
+	it("does not emit a synthetic default deployment.environment filter", () => {
 		const start = new Date("2026-07-01T00:00:00.000Z");
 		const end = new Date("2026-07-01T01:00:00.000Z");
 		const selectedConfig = {
@@ -360,7 +389,7 @@ describe("metricParamsToOpenLITQuery", () => {
 			expect(query.filters || []).not.toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({
-						key: "organisation.environment.name",
+						key: "deployment.environment",
 						value: ["default"],
 					}),
 				])
@@ -549,7 +578,7 @@ describe("metricParamsToOpenLITQuery", () => {
 		expect(traces.selectedConfig.spanNames).toEqual(["chat"]);
 	});
 
-	it("maps service.name to applicationNames for traces and services otherwise", () => {
+	it("maps service.name to serviceNames for traces and services otherwise", () => {
 		const start = new Date("2026-07-01T00:00:00.000Z");
 		const end = new Date("2026-07-01T01:00:00.000Z");
 		const traces = toMetricParams({
@@ -559,7 +588,7 @@ describe("metricParamsToOpenLITQuery", () => {
 				{ target: "attribute", key: "service.name", op: "in", value: ["api"] },
 			],
 		});
-		expect(traces.selectedConfig.applicationNames).toEqual(["api"]);
+		expect(traces.selectedConfig.serviceNames).toEqual(["api"]);
 
 		const logs = toMetricParams({
 			signal: "logs",
@@ -569,6 +598,21 @@ describe("metricParamsToOpenLITQuery", () => {
 			],
 		});
 		expect(logs.selectedConfig.services).toEqual(["api"]);
+	});
+
+	it("round-trips operationType llm as != vectordb, not as traceTypes IN vectordb", () => {
+		const start = new Date("2026-07-01T00:00:00.000Z");
+		const end = new Date("2026-07-01T01:00:00.000Z");
+		const query = metricParamsToOpenLITQuery({
+			timeLimit: { start, end, type: "CUSTOM" },
+			operationType: "llm",
+			selectedConfig: { serviceNames: ["support-agent-demo"] },
+		} as any);
+		const back = toMetricParams(query);
+		expect(back.operationType).toBe("llm");
+		expect(back.selectedConfig.traceTypes).toBeUndefined();
+		expect(back.selectedConfig.serviceNames).toEqual(["support-agent-demo"]);
+		expect(back.selectedConfig.applicationNames).toBeUndefined();
 	});
 
 	it("maps trace-only known attribute keys to their legacy selectedConfig keys", () => {
@@ -581,7 +625,7 @@ describe("metricParamsToOpenLITQuery", () => {
 				{ target: "attribute", key: "gen_ai.request.model", op: "in", value: ["gpt-4o"] },
 				{ target: "attribute", key: "gen_ai.system", op: "in", value: ["openai"] },
 				{ target: "attribute", key: "gen_ai.operation.name", op: "in", value: ["chat"] },
-				{ target: "attribute", key: "organisation.environment.name", op: "in", value: ["prod"] },
+				{ target: "attribute", key: "deployment.environment", op: "in", value: ["prod"] },
 			],
 		});
 		expect(back.selectedConfig).toMatchObject({
@@ -592,7 +636,7 @@ describe("metricParamsToOpenLITQuery", () => {
 		});
 	});
 
-	it("keeps an explicit OTel deployment.environment chip as a custom resource filter", () => {
+	it("maps deployment.environment into selectedConfig.environments", () => {
 		const start = new Date("2026-07-01T00:00:00.000Z");
 		const end = new Date("2026-07-01T01:00:00.000Z");
 		const back = toMetricParams({
@@ -608,14 +652,8 @@ describe("metricParamsToOpenLITQuery", () => {
 				},
 			],
 		});
-		expect(back.selectedConfig.environments).toBeUndefined();
-		expect(back.selectedConfig.customFilters).toEqual([
-			{
-				attributeType: "ResourceAttributes",
-				key: "deployment.environment",
-				value: "local",
-			},
-		]);
+		expect(back.selectedConfig.environments).toEqual(["local"]);
+		expect(back.selectedConfig.customFilters).toBeUndefined();
 	});
 
 	it("does not special-case the trace-only keys for logs/metrics signals (falls through to customFilters)", () => {

@@ -42,6 +42,7 @@ export function toMetricParams(
 	query: OpenLITQuery,
 	databaseConfigId?: string
 ): MetricParams {
+	let operationType: MetricParams["operationType"] | undefined;
 	const sort = query.sort?.[0];
 	const selectedConfig: Record<string, unknown> = {};
 	const customFilters: Array<Record<string, unknown>> = [];
@@ -57,9 +58,21 @@ export function toMetricParams(
 			add(query.signal === "metrics" ? "metricNames" : "spanNames", filter.value);
 			continue;
 		}
+		if (filter.target === "field" && filter.key) {
+			const value = Array.isArray(filter.value) ? filter.value[0] : filter.value;
+			customFilters.push({
+				attributeType: "Field",
+				key: filter.key,
+				value: value === undefined ? "" : String(value),
+			});
+			continue;
+		}
 		if (filter.target !== "attribute" || !filter.key) continue;
 		if (filter.key === "service.name") {
-			add(query.signal === "traces" ? "applicationNames" : "services", filter.value);
+			// Agent-scope and telemetry `services=` filter ServiceName.
+			// Mapping traces to applicationNames rewrote that as
+			// gen_ai.application_name and emptied agent dashboard/monitoring.
+			add(query.signal === "traces" ? "serviceNames" : "services", filter.value);
 			continue;
 		}
 		if (query.signal === "traces" && filter.key === "gen_ai.request.model") {
@@ -71,10 +84,25 @@ export function toMetricParams(
 			continue;
 		}
 		if (query.signal === "traces" && filter.key === "gen_ai.operation.name") {
+			const values = Array.isArray(filter.value)
+				? filter.value.map(String)
+				: [String(filter.value ?? "")];
+			if (filter.op === "neq" && values.includes("vectordb")) {
+				operationType = "llm";
+				continue;
+			}
+			if (
+				(filter.op === "eq" || filter.op === "in") &&
+				values.length === 1 &&
+				values[0] === "vectordb"
+			) {
+				operationType = "vectordb";
+				continue;
+			}
 			add("traceTypes", filter.value);
 			continue;
 		}
-		if (filter.key === "organisation.environment.name") {
+		if (filter.key === "deployment.environment") {
 			add("environments", filter.value);
 			continue;
 		}
@@ -105,6 +133,7 @@ export function toMetricParams(
 		offset: query.offset,
 		statusCode: extractStatusCodes(query),
 		databaseConfigId,
+		operationType,
 		selectedConfig,
 		sorting: sort
 			? { type: sort.field, direction: sort.direction }
@@ -131,10 +160,10 @@ function uniqueStrings(values: string[]): string[] {
 }
 
 /**
- * OpenLIT uses `default` as a synthetic stand-in when the organisation
- * environment was unspecified. Emitting it as a hard filter empties
- * Tempo/Loki/Prometheus queries (and misses CH rows with an empty attribute).
- * Treat a lone `default` as "no environment filter".
+ * OpenLIT uses `default` as a synthetic stand-in when
+ * `deployment.environment` was missing at materialize time. Emitting it as a
+ * hard filter empties Tempo/Loki/Prometheus queries (and misses CH rows with
+ * an empty attribute). Treat a lone `default` as "no environment filter".
  */
 function realEnvironments(cfg: Record<string, unknown>): string[] {
 	const environments = stringList(cfg.environments);
@@ -153,7 +182,7 @@ function pushEnvironmentFilter(
 	filters.push({
 		target: "attribute",
 		scope: "resource",
-		key: "organisation.environment.name",
+		key: "deployment.environment",
 		op: "in",
 		value: environments,
 	});
@@ -172,6 +201,61 @@ function normalizeCustomFilterOp(cf: Record<string, unknown>): CustomFilterOp {
 function customFilterValue(value: unknown): string | string[] | undefined {
 	if (Array.isArray(value)) return value.map(String);
 	return value !== undefined ? String(value) : undefined;
+}
+
+/** ClickHouse otel_traces identifier columns the traces Field picker can filter on. */
+const TRACE_COLUMN_FIELDS = new Set([
+	"SpanId",
+	"TraceId",
+	"ParentSpanId",
+	"SpanName",
+	"ServiceName",
+	"Duration",
+	"Timestamp",
+	"StatusCode",
+	"StatusMessage",
+	"Kind",
+	"TraceType",
+]);
+
+/** ClickHouse otel_logs identifier columns the logs Field picker can filter on. */
+const LOG_COLUMN_FIELDS = new Set([
+	"Timestamp",
+	"TraceId",
+	"SpanId",
+	"SeverityText",
+	"SeverityNumber",
+	"ServiceName",
+	"Body",
+	"ScopeName",
+	"ScopeVersion",
+]);
+
+function columnFieldKey(key: string): string {
+	return key.replace(/[^A-Za-z0-9_]/g, "");
+}
+
+function pushColumnFieldFilter(
+	filters: NormalizedFilter[],
+	cf: Record<string, unknown>,
+	allowed: Set<string>
+) {
+	const key = columnFieldKey(typeof cf.key === "string" ? cf.key : "");
+	if (!key || !allowed.has(key)) return;
+	if (key === "SpanName") {
+		filters.push({
+			target: "spanName",
+			op: "eq",
+			value: String(cf.value ?? ""),
+		});
+		return;
+	}
+	filters.push({
+		target: "field",
+		key,
+		op: normalizeCustomFilterOp(cf),
+		value: customFilterValue(cf.value),
+	});
 }
 
 /** Build the trace-signal filters (models/providers/spanNames/services/custom). */
@@ -219,7 +303,10 @@ function tracesFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 		});
 	}
 
-	const serviceNames = stringList(cfg.serviceNames);
+	const serviceNames = uniqueStrings([
+		...stringList(cfg.serviceNames),
+		...stringList(cfg.services),
+	]);
 	if (serviceNames.length) {
 		filters.push({
 			target: "attribute",
@@ -274,9 +361,7 @@ function tracesFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 		if (!key) continue;
 		const attributeType = String(cf.attributeType || cf.type || "");
 		if (attributeType === "Field") {
-			if (key === "SpanName") {
-				filters.push({ target: "spanName", op: "eq", value: String(cf.value ?? "") });
-			}
+			pushColumnFieldFilter(filters, cf, TRACE_COLUMN_FIELDS);
 			continue;
 		}
 		const scope =
@@ -339,6 +424,10 @@ function logsFilters(cfg: Record<string, unknown>): NormalizedFilter[] {
 		const key = typeof cf.key === "string" ? cf.key : "";
 		if (!key) continue;
 		const attrType = String(cf.attributeType || cf.type || "");
+		if (attrType === "Field") {
+			pushColumnFieldFilter(filters, cf, LOG_COLUMN_FIELDS);
+			continue;
+		}
 		const scope =
 			attrType === "ResourceAttributes" || cf.scope === "resource"
 				? "resource"

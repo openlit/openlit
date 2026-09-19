@@ -139,12 +139,18 @@ function spanMatchesFilters(
 			const isError = /error/i.test(span.statusCode || "");
 			return wantsError ? isError : !isError;
 		}
-		if (filter.target === "attribute" && filter.key) {
+		if (
+			(filter.target === "attribute" || filter.target === "field") &&
+			filter.key
+		) {
 			const raw = spanFieldValue(span, filter.key);
 			const value = raw === undefined ? undefined : String(raw);
 			if (filter.op === "exists") return !!value;
 			if (filter.op === "eq") return value === String(filter.value ?? "");
 			if (filter.op === "neq") return value !== String(filter.value ?? "");
+			if (filter.op === "contains") {
+				return !!value && value.toLowerCase().includes(String(filter.value ?? "").toLowerCase());
+			}
 			if (filter.op === "in") {
 				const values = Array.isArray(filter.value)
 					? filter.value.map(String)

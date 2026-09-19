@@ -79,4 +79,35 @@ describe("prepareObservabilitySignalChange", () => {
 			environments: ["production"],
 		});
 	});
+
+	it("preserves customFilters with the agent scope when clearing signal filters", () => {
+		const store = createStore();
+		const customFilters = [
+			{ attributeType: "SpanAttributes" as const, key: "gen_ai.system", value: "openai" },
+		];
+
+		store.getState().filter.updateFilter("selectedConfig", {
+			serviceNames: ["demo-openai-app"],
+			environments: ["production"],
+			metricNames: ["up"],
+			customFilters,
+		});
+
+		prepareObservabilitySignalChange(
+			store.getState().filter.updateConfig,
+			store.getState().filter.updateFilter,
+			undefined,
+			{
+				serviceNames: ["demo-openai-app"],
+				environments: ["production"],
+				customFilters,
+			}
+		);
+
+		expect(store.getState().filter.details.selectedConfig).toEqual({
+			serviceNames: ["demo-openai-app"],
+			environments: ["production"],
+			customFilters,
+		});
+	});
 });

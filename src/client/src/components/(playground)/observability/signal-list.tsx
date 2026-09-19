@@ -135,6 +135,7 @@ export default function ObservabilitySignalList({
 						services: filter.selectedConfig?.services,
 						environments: filter.selectedConfig?.environments,
 						versionFilter: filter.selectedConfig?.versionFilter,
+						customFilters: filter.selectedConfig?.customFilters,
 					}
 				: null
 		);

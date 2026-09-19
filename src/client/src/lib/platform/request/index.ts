@@ -224,7 +224,7 @@ export async function getRequestsConfig(params: MetricParams) {
 	);
 
 	select.push(
-		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['organisation.environment.name'])) AS environments`
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['deployment.environment'])) AS environments`
 	);
 
 	const query = `SELECT ${select.join(", ")} FROM ${table} 

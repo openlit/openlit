@@ -62,14 +62,11 @@ async function resolveTracesAdapter(sourceId?: string, environment?: string) {
 	return { adapter, descriptor };
 }
 
-/** Drop the synthetic ClickHouse "default" organisation environment when querying Tempo. */
+/** Drop the synthetic ClickHouse "default" environment when querying Tempo. */
 function externalTraceQuery(params: MetricParams, opts?: { aiSelector?: boolean }) {
 	const query = metricParamsToOpenLITQuery(params, "traces", opts);
 	const filters = query.filters?.filter((filter) => {
-		if (
-			filter.target !== "attribute" ||
-			filter.key !== "organisation.environment.name"
-		) {
+		if (filter.target !== "attribute" || filter.key !== "deployment.environment") {
 			return true;
 		}
 		const values = Array.isArray(filter.value) ? filter.value : [filter.value];
@@ -765,14 +762,14 @@ export async function getTraceFilterConfig(params: MetricParams) {
 		let environments: string[] = [];
 		try {
 			environments = await adapter.distinctValues(
-				"organisation.environment.name",
+				"deployment.environment",
 				query
 			);
 		} catch {
-			environments = distinctFromSpans(spans, "organisation.environment.name");
+			environments = distinctFromSpans(spans, "deployment.environment");
 		}
 		if (!environments.length) {
-			environments = distinctFromSpans(spans, "organisation.environment.name");
+			environments = distinctFromSpans(spans, "deployment.environment");
 		}
 		return {
 			err: null,

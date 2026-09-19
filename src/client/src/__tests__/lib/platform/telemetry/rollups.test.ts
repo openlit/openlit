@@ -275,9 +275,9 @@ describe("readSignalBucketRollup", () => {
 				aggregations: [{ fn: "count", as: "requests" }],
 				filters: [
 					{ target: "attribute", scope: "resource", key: "service.name", op: "eq", value: ["svc-a", "svc-b"] },
-					{ target: "attribute", scope: "resource", key: "organisation.environment.name", op: "eq", value: "production" },
-					{ target: "attribute", scope: "resource", key: "organisation.environment.name", op: "eq", value: "" },
-					{ target: "attribute", scope: "resource", key: "organisation.environment.name", op: "eq", value: undefined as never },
+					{ target: "attribute", scope: "resource", key: "deployment.environment", op: "eq", value: "production" },
+					{ target: "attribute", scope: "resource", key: "deployment.environment", op: "eq", value: "" },
+					{ target: "attribute", scope: "resource", key: "deployment.environment", op: "eq", value: undefined as never },
 					{ target: "duration", scope: "span", op: "gt", value: 1 } as never,
 				],
 			}),

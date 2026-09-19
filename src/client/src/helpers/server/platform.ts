@@ -316,16 +316,17 @@ export const getFilterWhereCondition = (
 			}
 
 			if (filter.selectedConfig.environments?.length) {
-				// OpenLIT / API-key environment is stamped as
-				// `organisation.environment.name`. OTel `deployment.environment`
-				// stays on custom resource chips and is not this dropdown.
+				// Playground / agent `envs` filter uses OTel
+				// `deployment.environment` (and legacy `gen_ai.environment`).
+				// API-key tenant env is stamped separately as
+				// `organisation.environment.name` and must not replace this.
 				const envList = filter.selectedConfig.environments
 					.map((environment: string) =>
 						`'${escapeClickHouseString(environment)}'`
 					)
 					.join(", ");
 				whereArray.push(
-					`ResourceAttributes['organisation.environment.name'] IN (${envList})`
+					`(ResourceAttributes['deployment.environment'] IN (${envList}) OR SpanAttributes['gen_ai.environment'] IN (${envList}))`
 				);
 			}
 
