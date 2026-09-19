@@ -703,6 +703,29 @@ describe("JaegerAdapter extended coverage", () => {
 			expect(array.total).toBe(1);
 		});
 
+		it("filters by Field SpanId", async () => {
+			mockSafeFetch.mockResolvedValue({
+				data: [
+					traceFixture({ traceId: "keep", spanId: "222942bfa699b630" }),
+					traceFixture({ traceId: "drop", spanId: "aaaaaaaaaaaaaaaa" }),
+				],
+			});
+			const matched = await adapter.countTraces({
+				signal: "traces",
+				timeRange: window,
+				aiSelector: false,
+				filters: [
+					{
+						target: "field",
+						key: "SpanId",
+						op: "eq",
+						value: "222942bfa699b630",
+					},
+				],
+			});
+			expect(matched.total).toBe(1);
+		});
+
 		it("filters by span status (error vs ok, scalar and array values)", async () => {
 			mockSafeFetch.mockResolvedValue({
 				data: [

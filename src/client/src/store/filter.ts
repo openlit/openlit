@@ -71,6 +71,20 @@ export function getTimeLimitObject(
 	return object;
 }
 
+function mergeDefinedConfig(
+	prev: Partial<FilterConfig>,
+	next: Partial<FilterConfig>
+): Partial<FilterConfig> {
+	const merged: Partial<FilterConfig> = { ...prev };
+	(Object.keys(next) as Array<keyof FilterConfig>).forEach((key) => {
+		const value = next[key];
+		if (value !== undefined) {
+			(merged as Record<string, unknown>)[key] = value;
+		}
+	});
+	return merged;
+}
+
 const INITIAL_FILTER_DETAILS: FilterType = {
 	timeLimit: {
 		type: DEFAULT_TIME_RANGE,
@@ -160,12 +174,14 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 					  // — notably `serviceNames`, which AgentScopeProvider sets
 					  // for the agent-detail page — survive wholesale updates
 					  // from TracesFilter (URL/localStorage restore, "Apply"
-					  // button). Wholesale clears go through `clearFilter`
-					  // above; nothing else should drop sibling fields.
-					  {
-							...getStore().details.selectedConfig,
-							...object.selectedConfig,
-					  }
+					  // button). Skip `undefined` values: Apply used to pass
+					  // `customFilters: undefined` when a row was incomplete,
+					  // which deleted the custom-attributes UI. Wholesale
+					  // clears go through `clearFilter` above.
+					  mergeDefinedConfig(
+							getStore().details.selectedConfig,
+							object.selectedConfig
+					  )
 					: getStore().details.selectedConfig,
 			},
 			config: resetConfig ? undefined : getStore().config,

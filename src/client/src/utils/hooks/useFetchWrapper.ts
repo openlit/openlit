@@ -1,6 +1,6 @@
 import { get } from "lodash";
 import { useCallback, useRef, useState } from "react";
-import { deleteData, getData } from "@/utils/api";
+import { clientFetchErrorMessage, deleteData, getData } from "@/utils/api";
 import { FetchWrapperProps } from "@/types/fetch-wrapper";
 import { peekTelemetryRequestCache } from "@/utils/telemetry-request-cache";
 
@@ -85,11 +85,12 @@ export default function useFetchWrapper<T>() {
 				if (!isCurrent()) return { response, error };
 
 				if (response.err) {
-					setError(response.err);
+					const safeError = clientFetchErrorMessage(response.err);
+					setError(safeError);
 					// Preserve last-good data on transient errors so the page
 					// doesn't blank; only clear when we have nothing to show.
 					if (dataRef.current == null) applyData(null);
-					if (typeof failureCb === "function") failureCb(response.err);
+					if (typeof failureCb === "function") failureCb(safeError);
 				} else {
 					const finalResponse = get(response, responseDataKey, response);
 					applyData(finalResponse);
@@ -103,7 +104,9 @@ export default function useFetchWrapper<T>() {
 					error = (errorResp as any).message || (errorResp as any).error;
 				}
 
-				const updatedError = (error as any)?.toString().replaceAll("Error:", "");
+				const updatedError = clientFetchErrorMessage(
+					(error as any)?.toString().replaceAll("Error:", "")
+				);
 				setError(updatedError);
 				if (dataRef.current == null) applyData(null);
 				if (typeof failureCb === "function") failureCb(updatedError);

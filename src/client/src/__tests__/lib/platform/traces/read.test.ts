@@ -1277,7 +1277,7 @@ describe("getTraceFilterConfig span-name fallback", () => {
 			durationNs: 1,
 			statusCode: "OK",
 			spanAttributes: {},
-			resourceAttributes: {},
+			resourceAttributes: { "deployment.environment": "staging" },
 		};
 		mockGetAdapter.mockResolvedValue({
 			capabilities: () => ({}),
@@ -1287,7 +1287,10 @@ describe("getTraceFilterConfig span-name fallback", () => {
 		});
 
 		const res = await getTraceFilterConfig(params as never);
-		expect(res.data?.[0]).toMatchObject({ spanNames: ["chat-completion"] });
+		expect(res.data?.[0]).toMatchObject({
+			spanNames: ["chat-completion"],
+			environments: ["staging"],
+		});
 	});
 });
 
@@ -1506,7 +1509,11 @@ describe("getTraceFilterConfig", () => {
 					},
 				}),
 			]),
-			distinctValues: jest.fn().mockResolvedValue(["chat", "embeddings"]),
+			distinctValues: jest.fn(async (key: string) => {
+				if (key === "SpanName") return ["chat", "embeddings"];
+				if (key === "deployment.environment") return ["staging"];
+				return [];
+			}),
 			sampleCacheKey: "tempo-filter-config",
 		});
 
@@ -1519,6 +1526,7 @@ describe("getTraceFilterConfig", () => {
 			spanNames: ["chat", "embeddings"],
 			applicationNames: ["api"],
 			traceTypes: ["chat"],
+			environments: ["staging"],
 		});
 	});
 

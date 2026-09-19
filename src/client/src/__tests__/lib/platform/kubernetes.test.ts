@@ -56,7 +56,7 @@ describe("platform kubernetes helpers", () => {
 				selector: {
 					matchLabels: { "app.kubernetes.io/name": "api" },
 				},
-				otlp: { endpoint: "http://otel-collector:4318" },
+				otlp: { endpoint: "http://openlit:4318" },
 			},
 		});
 
