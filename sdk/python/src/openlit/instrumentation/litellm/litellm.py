@@ -59,6 +59,7 @@ def completion(
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
+            self._streaming_response_processed = False
             self._llmresponse = ""
             self._response_id = ""
             self._response_model = ""
@@ -86,7 +87,15 @@ def completion(
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
-            self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+            try:
+                self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+            finally:
+                # Finalize on every exit, not just the clean one: a break before
+                # exhaustion never reaches StopIteration, and an exception
+                # escaping the block would leak the span just as surely.
+                if exc_type and not self._streaming_response_processed:
+                    handle_exception(self._span, exc_value)
+                self._finalize_streaming_span()
 
         def __iter__(self):
             return self
@@ -101,8 +110,21 @@ def completion(
                 process_chunk(self, chunk)
                 return chunk
             except StopIteration:
-                try:
-                    # Use the existing span that was started when the stream began
+                self._finalize_streaming_span()
+                raise
+
+        def _finalize_streaming_span(self):
+            """Complete and end the span exactly once.
+
+            Called on stream exhaustion and again from close()/manager exit;
+            the flag keeps the double call a no-op so early exits that never
+            see StopIteration still export the span instead of leaking it.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            try:
+                with self._span:
                     process_streaming_chat_response(
                         self,
                         pricing_info=pricing_info,
@@ -114,14 +136,16 @@ def completion(
                         version=version,
                         event_provider=self._event_provider,
                     )
-                    # End the span after processing
-                    self._span.end()
+            except Exception as e:
+                handle_exception(self._span, e)
 
-                except Exception as e:
-                    handle_exception(self._span, e)
-                    self._span.end()
-
-                raise
+        def close(self):
+            """Close the wrapped stream and finalize the span if not ended."""
+            try:
+                if hasattr(self.__wrapped__, "close"):
+                    self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span()
 
     def wrapper(wrapped, instance, args, kwargs):
         """
