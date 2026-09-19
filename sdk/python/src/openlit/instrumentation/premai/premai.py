@@ -78,8 +78,11 @@ def chat(
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
+            # Return what the wrapped stream returns: a context manager that
+            # suppresses an exception says so with a truthy __exit__, and
+            # swallowing that value would force the exception to re-raise.
             try:
-                self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+                suppress = self.__wrapped__.__exit__(exc_type, exc_value, traceback)
             finally:
                 if exc_type:
                     self._streaming_response_processed = True
@@ -90,6 +93,7 @@ def chat(
                     # A break before exhaustion never hits StopIteration, so
                     # the span would leak without normal-exit finalization.
                     self._finalize_streaming_span()
+            return suppress
 
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""

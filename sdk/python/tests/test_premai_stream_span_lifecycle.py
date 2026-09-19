@@ -180,6 +180,30 @@ def test_context_manager_exit_finalizes_without_iterating_to_the_end():
     _one_finished_span(exporter)
 
 
+def test_exception_suppression_by_the_wrapped_stream_is_honoured():
+    """A wrapped stream that suppresses an exception must still suppress it.
+
+    `__exit__` forwards to the wrapped stream; returning None instead of what
+    it returned would turn a suppressed exception back into a raised one.
+    """
+
+    class SuppressingStream(FakeSyncStream):
+        """A stream whose __exit__ claims it handled the exception."""
+
+        def __exit__(self, *exc):
+            return True  # "I handled it"
+
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer)
+
+    stream = wrapper(lambda *a, **k: SuppressingStream(), None, (), REQUEST_KWARGS)
+    with stream:
+        raise ValueError("the wrapped stream says it handles this")
+
+    time.sleep(0.05)
+    _one_finished_span(exporter)
+
+
 def test_the_span_is_detached_from_context():
     """The wrapper attaches a context token; nothing may leak into the caller."""
     tracer, exporter = _tracer_with_exporter()
