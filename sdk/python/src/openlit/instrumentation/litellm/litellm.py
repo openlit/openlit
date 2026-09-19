@@ -87,15 +87,21 @@ def completion(
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
+            # Finalize on every exit, not just the clean one: a break before
+            # exhaustion never reaches StopIteration, and an exception escaping
+            # the block would leak the span just as surely. Record whichever
+            # exception is actually in flight -- the wrapped stream's own exit
+            # may raise even when the block itself was clean.
             try:
                 self.__wrapped__.__exit__(exc_type, exc_value, traceback)
-            finally:
-                # Finalize on every exit, not just the clean one: a break before
-                # exhaustion never reaches StopIteration, and an exception
-                # escaping the block would leak the span just as surely.
-                if exc_type and not self._streaming_response_processed:
-                    handle_exception(self._span, exc_value)
-                self._finalize_streaming_span()
+            except BaseException as exit_exc:
+                if not self._streaming_response_processed:
+                    handle_exception(self._span, exit_exc)
+                    self._finalize_streaming_span()
+                raise
+            if exc_type and not self._streaming_response_processed:
+                handle_exception(self._span, exc_value)
+            self._finalize_streaming_span()
 
         def __iter__(self):
             return self
