@@ -13,8 +13,10 @@
 #   OPENLIT_INSTALL_DIR  Target install directory.
 #                        Default: $HOME/.openlit/bin
 #   OPENLIT_VERSION      Release tag WITHOUT the `cli-` prefix, e.g.
-#                        `1.2.0`. Default: `latest` (resolved by
-#                        GitHub Releases' /latest redirect).
+#                        `1.2.0`. Default: `latest`, resolved to the
+#                        newest `cli-*` tag through the releases API —
+#                        NOT through /releases/latest, which points at
+#                        whichever component shipped most recently.
 #
 # Exit codes:
 #   0  Installed (or already present).
@@ -68,14 +70,38 @@ esac
 # --- Resolve the asset URL --------------------------------------------------
 
 # The release-cli.yml workflow uploads one tarball per OS/arch named
-# openlit-<os>-<arch>.tar.gz. Latest is a redirect; pinned versions
-# use the `cli-X.Y.Z` tag layout that the workflow keys off of.
+# openlit-<os>-<arch>.tar.gz, on a `cli-X.Y.Z` tag.
+#
+# `/releases/latest` cannot be used to find it. This repository releases
+# many components from one tree — openlit-*, py-*, ts-*, controller-*,
+# otel-gpu-collector-* — and GitHub's "latest" is whichever of them was
+# published most recently, regardless of component. At the time of
+# writing that is `openlit-2.1.0`, which carries no assets at all, so
+# `/releases/latest/download/openlit-linux-amd64.tar.gz` answered 404
+# and the installer could never complete (#1596). The asset was there
+# the whole time, on `cli-0.0.1`.
+#
+# So resolve the newest `cli-*` tag explicitly. The releases API returns
+# newest first, so the first match is the one we want.
 asset="openlit-${os}-${arch}.tar.gz"
 if [ "$OPENLIT_VERSION" = "latest" ]; then
-	url="https://github.com/${OPENLIT_REPO}/releases/latest/download/${asset}"
+	info "Resolving the latest CLI release"
+	releases_api="https://api.github.com/repos/${OPENLIT_REPO}/releases?per_page=100"
+	# Unauthenticated API calls are rate limited (60/hour per IP), and a
+	# throttled or offline call must produce a readable error rather than
+	# a download of the empty string.
+	tag=$(curl -fsSL --retry 3 --retry-delay 1 "$releases_api" 2>/dev/null \
+		| sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\(cli-[^"]*\)".*/\1/p' \
+		| head -n 1)
+	if [ -z "$tag" ]; then
+		fatal "could not resolve the latest cli-* release from ${releases_api}. \
+Set OPENLIT_VERSION to a published CLI version (for example OPENLIT_VERSION=0.0.1) and re-run."
+	fi
+	info "Latest CLI release is ${tag}"
 else
-	url="https://github.com/${OPENLIT_REPO}/releases/download/cli-${OPENLIT_VERSION}/${asset}"
+	tag="cli-${OPENLIT_VERSION}"
 fi
+url="https://github.com/${OPENLIT_REPO}/releases/download/${tag}/${asset}"
 
 info "Downloading ${asset}"
 

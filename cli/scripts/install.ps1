@@ -12,7 +12,10 @@
 #   $env:OPENLIT_INSTALL_DIR  Target install directory.
 #                             Default: $env:USERPROFILE\.openlit\bin
 #   $env:OPENLIT_VERSION      Release tag WITHOUT the `cli-` prefix,
-#                             e.g. `1.2.0`. Default: `latest`.
+#                             e.g. `1.2.0`. Default: `latest`, resolved to
+#                             the newest `cli-*` tag through the releases
+#                             API - NOT through /releases/latest, which
+#                             points at whichever component shipped last.
 
 $ErrorActionPreference = 'Stop'
 
@@ -44,12 +47,35 @@ if ($archEnv -eq 'ARM64') {
 
 # --- Resolve the asset URL --------------------------------------------------
 
+# `/releases/latest` cannot be used here. This repository releases many
+# components from one tree - openlit-*, py-*, ts-*, controller-*,
+# otel-gpu-collector-* - and GitHub's "latest" is whichever of them was
+# published most recently, regardless of component. At the time of writing
+# that is `openlit-2.1.0`, which carries no assets, so the download answered
+# 404 and the installer could never complete (#1596). Resolve the newest
+# `cli-*` tag instead; the releases API returns newest first.
 $asset = "openlit-windows-$arch.zip"
-$url = if ($Version -eq 'latest') {
-    "https://github.com/$Repo/releases/latest/download/$asset"
+if ($Version -eq 'latest') {
+    Write-OpenLit 'Resolving the latest CLI release'
+    $releasesApi = "https://api.github.com/repos/$Repo/releases?per_page=100"
+    # Unauthenticated calls are rate limited (60/hour per IP); a throttled or
+    # offline call must fail with a readable message, not an empty tag.
+    try {
+        $releases = Invoke-RestMethod -Uri $releasesApi -UseBasicParsing -Headers @{
+            'User-Agent' = 'openlit-installer'
+        }
+    } catch {
+        Stop-OpenLit "could not reach $releasesApi ($($_.Exception.Message)). Set `$env:OPENLIT_VERSION to a published CLI version (for example 0.0.1) and re-run."
+    }
+    $tag = ($releases | Where-Object { $_.tag_name -like 'cli-*' } | Select-Object -First 1).tag_name
+    if (-not $tag) {
+        Stop-OpenLit "could not resolve the latest cli-* release from $releasesApi. Set `$env:OPENLIT_VERSION to a published CLI version (for example 0.0.1) and re-run."
+    }
+    Write-OpenLit "Latest CLI release is $tag"
 } else {
-    "https://github.com/$Repo/releases/download/cli-$Version/$asset"
+    $tag = "cli-$Version"
 }
+$url = "https://github.com/$Repo/releases/download/$tag/$asset"
 
 Write-OpenLit "Downloading $asset"
 
