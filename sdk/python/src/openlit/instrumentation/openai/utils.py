@@ -105,16 +105,67 @@ def extract_reasoning_content(payload):
 
 
 def extract_reasoning_tokens(usage, details_key):
-    """Return reasoning tokens (a subset of output tokens) from a usage dict.
+    """Return reasoning tokens (a subset of output tokens) from a usage dict,
+    or None when the provider did not report the details object.
 
     Works for both chat completions (``completion_tokens_details``) and the
-    responses API (``output_tokens_details``) and falls back to 0 whenever the
-    details object is missing or not a dict.
+    responses API (``output_tokens_details``). A missing or non-dict details
+    object means "unknown" and stays distinguishable from an explicit
+    ``reasoning_tokens: 0`` measurement (None vs 0): a reported 0 is a
+    measurement, an absent object is an unknown, and the two must not collapse
+    into the same value.
     """
-    details = (usage or {}).get(details_key) or {}
+    details = (usage or {}).get(details_key)
     if not isinstance(details, dict):
-        details = {}
-    return details.get("reasoning_tokens", 0) or 0
+        return None
+    value = details.get("reasoning_tokens")
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    return value
+
+
+def set_reasoning_subset_attributes(span, output_tokens, reasoning_tokens):
+    """Emit reasoning-token attributes under the subset invariant.
+
+    ``gen_ai.usage.reasoning.output_tokens`` is a facet of the output total,
+    never an addend. Three states stay distinguishable:
+
+    * provider reported a value (including an explicit 0): the facet is
+      emitted, ``...output_tokens.reported`` is true, and the derived
+      completed figure is available;
+    * provider sent no details object: no facet value, marker false
+      (unknown, not a guessed 0);
+    * no usage at all (stream without include_usage): nothing emitted.
+
+    The completed figure is output minus reasoning and lives under the
+    ``gen_ai.usage.derived.*`` namespace so it can never be mistaken for a
+    provider-reported number.
+    """
+    if reasoning_tokens is None:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED,
+            False,
+        )
+        return
+    span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED,
+        True,
+    )
+    span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
+        reasoning_tokens,
+    )
+    # OpenLIT legacy alias (pre-OTel naming), kept for backward compat; only
+    # nonzero values so legacy consumers see no behavior change.
+    if reasoning_tokens > 0:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
+            reasoning_tokens,
+        )
+    span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_DERIVED_COMPLETED_OUTPUT_TOKENS,
+        max(output_tokens - reasoning_tokens, 0),
+    )
 
 
 def format_content(messages):
@@ -1076,16 +1127,11 @@ def common_response_logic(
 
     # Reasoning tokens. OTel: gen_ai.usage.reasoning.output_tokens is a subset
     # of gen_ai.usage.output_tokens (already set above), so it is recorded as a
-    # separate attribute and never added on top of the output total.
-    if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
-            scope._reasoning_tokens,
-        )
-        # OpenLIT legacy alias (pre-OTel naming), kept for backward compat.
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
-            scope._reasoning_tokens,
+    # separate attribute and never added on top of the output total. Missing
+    # details surface as unknown (marker false), never as a guessed 0.
+    if hasattr(scope, "_reasoning_tokens"):
+        set_reasoning_subset_attributes(
+            scope._span, output_tokens, scope._reasoning_tokens
         )
 
     # OTel cached token attributes (set even when 0)
@@ -1591,16 +1637,11 @@ def common_chat_logic(
 
     # Reasoning tokens (OTel: gen_ai.usage.reasoning.output_tokens is a subset
     # of gen_ai.usage.output_tokens above, so it is recorded separately and
-    # never added on top of the output total / token-usage metric).
-    if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
-            scope._reasoning_tokens,
-        )
-        # OpenLIT legacy alias (pre-OTel naming), kept for backward compat.
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
-            scope._reasoning_tokens,
+    # never added on top of the output total / token-usage metric). Missing
+    # details surface as unknown (marker false), never as a guessed 0.
+    if hasattr(scope, "_reasoning_tokens"):
+        set_reasoning_subset_attributes(
+            scope._span, output_tokens, scope._reasoning_tokens
         )
 
     # OTel cached token attributes (set even when 0)
