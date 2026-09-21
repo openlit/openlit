@@ -249,3 +249,146 @@ func (w *Writer) InsertSums(ctx context.Context, cfg config.ClickHouseConfig, ro
 	}
 	return batch.Send()
 }
+
+func (w *Writer) InsertHistograms(ctx context.Context, cfg config.ClickHouseConfig, rows []otlpconv.HistogramRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	c, err := w.conn(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	batch, err := c.PrepareBatch(ctx, `INSERT INTO otel_metrics_histogram (
+		ResourceAttributes, ResourceSchemaUrl, ScopeName, ScopeVersion, ScopeAttributes, ScopeDroppedAttrCount,
+		ScopeSchemaUrl, ServiceName, MetricName, MetricDescription, MetricUnit, Attributes, StartTimeUnix, TimeUnix,
+		Count, Sum, BucketCounts, ExplicitBounds, Flags, Min, Max, AggregationTemporality
+	)`)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if err := batch.Append(
+			row.ResourceAttributes,
+			row.ResourceSchemaURL,
+			row.ScopeName,
+			row.ScopeVersion,
+			row.ScopeAttributes,
+			row.ScopeDroppedCount,
+			row.ScopeSchemaURL,
+			row.ServiceName,
+			row.MetricName,
+			row.MetricDescription,
+			row.MetricUnit,
+			row.Attributes,
+			row.StartTimeUnix,
+			row.TimeUnix,
+			row.Count,
+			row.Sum,
+			row.BucketCounts,
+			row.ExplicitBounds,
+			row.Flags,
+			row.Min,
+			row.Max,
+			row.AggregationTemporality,
+		); err != nil {
+			return err
+		}
+	}
+	return batch.Send()
+}
+
+func (w *Writer) InsertSummaries(ctx context.Context, cfg config.ClickHouseConfig, rows []otlpconv.SummaryRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	c, err := w.conn(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	batch, err := c.PrepareBatch(ctx, `INSERT INTO otel_metrics_summary (
+		ResourceAttributes, ResourceSchemaUrl, ScopeName, ScopeVersion, ScopeAttributes, ScopeDroppedAttrCount,
+		ScopeSchemaUrl, ServiceName, MetricName, MetricDescription, MetricUnit, Attributes, StartTimeUnix, TimeUnix,
+		Count, Sum, ValueAtQuantiles.Quantile, ValueAtQuantiles.Value, Flags
+	)`)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if err := batch.Append(
+			row.ResourceAttributes,
+			row.ResourceSchemaURL,
+			row.ScopeName,
+			row.ScopeVersion,
+			row.ScopeAttributes,
+			row.ScopeDroppedCount,
+			row.ScopeSchemaURL,
+			row.ServiceName,
+			row.MetricName,
+			row.MetricDescription,
+			row.MetricUnit,
+			row.Attributes,
+			row.StartTimeUnix,
+			row.TimeUnix,
+			row.Count,
+			row.Sum,
+			row.Quantiles,
+			row.Values,
+			row.Flags,
+		); err != nil {
+			return err
+		}
+	}
+	return batch.Send()
+}
+
+func (w *Writer) InsertExpHistograms(ctx context.Context, cfg config.ClickHouseConfig, rows []otlpconv.ExpHistogramRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	c, err := w.conn(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	batch, err := c.PrepareBatch(ctx, `INSERT INTO otel_metrics_exponential_histogram (
+		ResourceAttributes, ResourceSchemaUrl, ScopeName, ScopeVersion, ScopeAttributes, ScopeDroppedAttrCount,
+		ScopeSchemaUrl, ServiceName, MetricName, MetricDescription, MetricUnit, Attributes, StartTimeUnix, TimeUnix,
+		Count, Sum, Scale, ZeroCount, PositiveOffset, PositiveBucketCounts, NegativeOffset, NegativeBucketCounts,
+		Flags, Min, Max, AggregationTemporality
+	)`)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if err := batch.Append(
+			row.ResourceAttributes,
+			row.ResourceSchemaURL,
+			row.ScopeName,
+			row.ScopeVersion,
+			row.ScopeAttributes,
+			row.ScopeDroppedCount,
+			row.ScopeSchemaURL,
+			row.ServiceName,
+			row.MetricName,
+			row.MetricDescription,
+			row.MetricUnit,
+			row.Attributes,
+			row.StartTimeUnix,
+			row.TimeUnix,
+			row.Count,
+			row.Sum,
+			row.Scale,
+			row.ZeroCount,
+			row.PositiveOffset,
+			row.PositiveBucketCounts,
+			row.NegativeOffset,
+			row.NegativeBucketCounts,
+			row.Flags,
+			row.Min,
+			row.Max,
+			row.AggregationTemporality,
+		); err != nil {
+			return err
+		}
+	}
+	return batch.Send()
+}

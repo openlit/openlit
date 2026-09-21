@@ -1,6 +1,6 @@
 # OpenLIT OTLP receiver
 
-First-party OTLP HTTP (:4318) and gRPC (:4317) ingest that writes ClickHouse `otel_*` tables.
+First-party OTLP HTTP (`:4318`) and gRPC (`:4317`) ingest that writes ClickHouse `otel_*` tables. The OpenLIT image no longer ships the OpenTelemetry Collector.
 
 ## Endpoints
 
@@ -10,9 +10,13 @@ First-party OTLP HTTP (:4318) and gRPC (:4317) ingest that writes ClickHouse `ot
 
 The OpenLIT UI proxies the same `/v1/*` paths from the app origin to this process.
 
+Supported metric types: gauge, sum, histogram, summary, and exponential histogram (`otel_metrics_*` tables).
+
 ## Tenant routing
 
-Send `Authorization: Bearer <openlit-api-key>`. The key is scoped to organisation → project → environment and resolves to the bound `DatabaseConfig` ClickHouse. Client `x-database-config-id` headers are ignored. Ingest overwrites `deployment.environment` (and fills `openlit.organisation.id` / `openlit.project.id`) from the key.
+Send `Authorization: Bearer <openlit-api-key>` (or `x-openlit-api-key`). The key is scoped to organisation → project → environment and resolves to the bound `DatabaseConfig` ClickHouse. Client `x-database-config-id` headers are ignored.
+
+A valid key stamps `organisation.environment.name`, `openlit.organisation.id`, and `openlit.project.id`. It does **not** overwrite client `deployment.environment`.
 
 Without a key, data is written to `INIT_DB_*` unless `OTLP_REQUIRE_API_KEY=true`. That fallback does not invent org/project/environment attributes.
 

@@ -51,7 +51,7 @@ openlit coding hook --vendor=<v> --event=<name>   (invoked by the host plugin ma
     +-- 5s hard timeout, always exits 0 (never blocks the developer)
             |
             v
-OTLP/HTTP --> your OpenLIT collector --> /agents page
+OTLP/HTTP --> your OpenLIT OTLP receiver --> /agents page
 ```
 
 The hook is the CLI's hot path - invoked once per agent event. It is crash-isolated: a 5-second hard timeout with ~3 seconds reserved for OTLP flush, and it **always exits 0** even when telemetry fails, so a broken pipeline never blocks your coding session.

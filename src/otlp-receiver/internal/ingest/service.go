@@ -46,13 +46,21 @@ func (s *Service) Metrics(ctx context.Context, authorization string, req *collme
 	if err != nil {
 		return err
 	}
-	gauges, sums := otlpconv.GaugesAndSums(&metricspb.MetricsData{ResourceMetrics: req.GetResourceMetrics()})
-	otlpconv.StampGauges(gauges, resolved.Resource())
-	otlpconv.StampSums(sums, resolved.Resource())
-	if err := s.Writer.InsertGauges(ctx, resolved.ClickHouse, gauges); err != nil {
+	metrics := otlpconv.Metrics(&metricspb.MetricsData{ResourceMetrics: req.GetResourceMetrics()})
+	otlpconv.StampMetrics(&metrics, resolved.Resource())
+	if err := s.Writer.InsertGauges(ctx, resolved.ClickHouse, metrics.Gauges); err != nil {
 		return err
 	}
-	return s.Writer.InsertSums(ctx, resolved.ClickHouse, sums)
+	if err := s.Writer.InsertSums(ctx, resolved.ClickHouse, metrics.Sums); err != nil {
+		return err
+	}
+	if err := s.Writer.InsertHistograms(ctx, resolved.ClickHouse, metrics.Histograms); err != nil {
+		return err
+	}
+	if err := s.Writer.InsertSummaries(ctx, resolved.ClickHouse, metrics.Summaries); err != nil {
+		return err
+	}
+	return s.Writer.InsertExpHistograms(ctx, resolved.ClickHouse, metrics.ExpHistograms)
 }
 
 func HTTPStatus(err error) int {

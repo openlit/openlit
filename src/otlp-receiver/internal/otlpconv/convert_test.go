@@ -6,6 +6,7 @@ import (
 	"time"
 
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
+	metricspb "go.opentelemetry.io/proto/otlp/metrics/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 )
@@ -53,7 +54,7 @@ func TestTracesMapping(t *testing.T) {
 	}
 }
 
-func TestStampResourceOverwritesEnvironment(t *testing.T) {
+func TestStampResourceKeepsDeploymentEnvironment(t *testing.T) {
 	t.Parallel()
 	stamped := StampResource(map[string]string{
 		"service.name":           "demo",
@@ -141,3 +142,69 @@ func TestUnknownStatusAndKindFallBack(t *testing.T) {
 		t.Fatalf("msg=%s", rows[0].StatusMessage)
 	}
 }
+
+func TestMetricsMapsHistogramSummaryAndExpHistogram(t *testing.T) {
+	t.Parallel()
+	req := &metricspb.MetricsData{
+		ResourceMetrics: []*metricspb.ResourceMetrics{{
+			Resource: &resourcepb.Resource{Attributes: []*commonpb.KeyValue{
+				{Key: "service.name", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "gpu"}}},
+			}},
+			ScopeMetrics: []*metricspb.ScopeMetrics{{
+				Metrics: []*metricspb.Metric{
+					{
+						Name: "http.server.duration",
+						Data: &metricspb.Metric_Histogram{Histogram: &metricspb.Histogram{
+							AggregationTemporality: metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_CUMULATIVE,
+							DataPoints: []*metricspb.HistogramDataPoint{{
+								Count:          3,
+								Sum:            ptrFloat(6),
+								BucketCounts:   []uint64{1, 2},
+								ExplicitBounds: []float64{1},
+								Min:            ptrFloat(0.1),
+								Max:            ptrFloat(4),
+							}},
+						}},
+					},
+					{
+						Name: "rpc.latency",
+						Data: &metricspb.Metric_Summary{Summary: &metricspb.Summary{
+							DataPoints: []*metricspb.SummaryDataPoint{{
+								Count: 2,
+								Sum:   3,
+								QuantileValues: []*metricspb.SummaryDataPoint_ValueAtQuantile{
+									{Quantile: 0.5, Value: 1.5},
+								},
+							}},
+						}},
+					},
+					{
+						Name: "gen_ai.client.token.usage",
+						Data: &metricspb.Metric_ExponentialHistogram{ExponentialHistogram: &metricspb.ExponentialHistogram{
+							AggregationTemporality: metricspb.AggregationTemporality_AGGREGATION_TEMPORALITY_DELTA,
+							DataPoints: []*metricspb.ExponentialHistogramDataPoint{{
+								Count:     4,
+								Sum:       ptrFloat(8),
+								Scale:     1,
+								ZeroCount: 1,
+								Positive:  &metricspb.ExponentialHistogramDataPoint_Buckets{Offset: 2, BucketCounts: []uint64{3}},
+							}},
+						}},
+					},
+				},
+			}},
+		}},
+	}
+	rows := Metrics(req)
+	if len(rows.Histograms) != 1 || rows.Histograms[0].Count != 3 || rows.Histograms[0].Sum != 6 {
+		t.Fatalf("histograms=%+v", rows.Histograms)
+	}
+	if len(rows.Summaries) != 1 || rows.Summaries[0].Count != 2 || len(rows.Summaries[0].Quantiles) != 1 {
+		t.Fatalf("summaries=%+v", rows.Summaries)
+	}
+	if len(rows.ExpHistograms) != 1 || rows.ExpHistograms[0].ZeroCount != 1 || rows.ExpHistograms[0].PositiveOffset != 2 {
+		t.Fatalf("exp=%+v", rows.ExpHistograms)
+	}
+}
+
+func ptrFloat(v float64) *float64 { return &v }

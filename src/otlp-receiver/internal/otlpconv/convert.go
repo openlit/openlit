@@ -105,6 +105,72 @@ type SumRow struct {
 	IsMonotonic            bool
 }
 
+type HistogramRow struct {
+	GaugeRow
+	Count                  uint64
+	Sum                    float64
+	BucketCounts           []uint64
+	ExplicitBounds         []float64
+	Min                    float64
+	Max                    float64
+	AggregationTemporality int32
+}
+
+type SummaryRow struct {
+	GaugeRow
+	Count     uint64
+	Sum       float64
+	Quantiles []float64
+	Values    []float64
+}
+
+type ExpHistogramRow struct {
+	GaugeRow
+	Count                  uint64
+	Sum                    float64
+	Scale                  int32
+	ZeroCount              uint64
+	PositiveOffset         int32
+	PositiveBucketCounts   []uint64
+	NegativeOffset         int32
+	NegativeBucketCounts   []uint64
+	Min                    float64
+	Max                    float64
+	AggregationTemporality int32
+}
+
+type MetricRows struct {
+	Gauges        []GaugeRow
+	Sums          []SumRow
+	Histograms    []HistogramRow
+	Summaries     []SummaryRow
+	ExpHistograms []ExpHistogramRow
+}
+
+func metricBase(resAttrs map[string]string, resURL, scopeName, scopeVersion string, scopeAttrs map[string]string, dropped uint32, scopeURL, service string, metric *metricspb.Metric, attrs []*commonpb.KeyValue, start, unix uint64, flags uint32) GaugeRow {
+	name, desc, unit := "", "", ""
+	if metric != nil {
+		name, desc, unit = metric.Name, metric.Description, metric.Unit
+	}
+	return GaugeRow{
+		ResourceAttributes: resAttrs,
+		ResourceSchemaURL:  resURL,
+		ScopeName:          scopeName,
+		ScopeVersion:       scopeVersion,
+		ScopeAttributes:    scopeAttrs,
+		ScopeDroppedCount:  dropped,
+		ScopeSchemaURL:     scopeURL,
+		ServiceName:        service,
+		MetricName:         name,
+		MetricDescription:  desc,
+		MetricUnit:         unit,
+		Attributes:         AttrMap(attrs),
+		StartTimeUnix:      NanoTime(start),
+		TimeUnix:           NanoTime(unix),
+		Flags:              flags,
+	}
+}
+
 func AttrMap(kvs []*commonpb.KeyValue) map[string]string {
 	out := make(map[string]string, len(kvs))
 	for _, kv := range kvs {
@@ -357,9 +423,10 @@ func Logs(req *logspb.LogsData) []LogRow {
 	return rows
 }
 
-func GaugesAndSums(req *metricspb.MetricsData) (gauges []GaugeRow, sums []SumRow) {
+func Metrics(req *metricspb.MetricsData) MetricRows {
+	var out MetricRows
 	if req == nil {
-		return nil, nil
+		return out
 	}
 	for _, rm := range req.ResourceMetrics {
 		if rm == nil {
@@ -397,24 +464,9 @@ func GaugesAndSums(req *metricspb.MetricsData) (gauges []GaugeRow, sums []SumRow
 						if pt == nil {
 							continue
 						}
-						gauges = append(gauges, GaugeRow{
-							ResourceAttributes: resAttrs,
-							ResourceSchemaURL:  resURL,
-							ScopeName:          scopeName,
-							ScopeVersion:       scopeVersion,
-							ScopeAttributes:    scopeAttrs,
-							ScopeDroppedCount:  dropped,
-							ScopeSchemaURL:     sm.SchemaUrl,
-							ServiceName:        service,
-							MetricName:         metric.Name,
-							MetricDescription:  metric.Description,
-							MetricUnit:         metric.Unit,
-							Attributes:         AttrMap(pt.Attributes),
-							StartTimeUnix:      NanoTime(pt.StartTimeUnixNano),
-							TimeUnix:           NanoTime(pt.TimeUnixNano),
-							Value:              numberValue(pt),
-							Flags:              uint32(pt.Flags),
-						})
+						row := metricBase(resAttrs, resURL, scopeName, scopeVersion, scopeAttrs, dropped, sm.SchemaUrl, service, metric, pt.Attributes, pt.StartTimeUnixNano, pt.TimeUnixNano, uint32(pt.Flags))
+						row.Value = numberValue(pt)
+						out.Gauges = append(out.Gauges, row)
 					}
 				case *metricspb.Metric_Sum:
 					if d.Sum == nil {
@@ -424,35 +476,113 @@ func GaugesAndSums(req *metricspb.MetricsData) (gauges []GaugeRow, sums []SumRow
 						if pt == nil {
 							continue
 						}
-						base := GaugeRow{
-							ResourceAttributes: resAttrs,
-							ResourceSchemaURL:  resURL,
-							ScopeName:          scopeName,
-							ScopeVersion:       scopeVersion,
-							ScopeAttributes:    scopeAttrs,
-							ScopeDroppedCount:  dropped,
-							ScopeSchemaURL:     sm.SchemaUrl,
-							ServiceName:        service,
-							MetricName:         metric.Name,
-							MetricDescription:  metric.Description,
-							MetricUnit:         metric.Unit,
-							Attributes:         AttrMap(pt.Attributes),
-							StartTimeUnix:      NanoTime(pt.StartTimeUnixNano),
-							TimeUnix:           NanoTime(pt.TimeUnixNano),
-							Value:              numberValue(pt),
-							Flags:              uint32(pt.Flags),
-						}
-						sums = append(sums, SumRow{
+						base := metricBase(resAttrs, resURL, scopeName, scopeVersion, scopeAttrs, dropped, sm.SchemaUrl, service, metric, pt.Attributes, pt.StartTimeUnixNano, pt.TimeUnixNano, uint32(pt.Flags))
+						base.Value = numberValue(pt)
+						out.Sums = append(out.Sums, SumRow{
 							GaugeRow:               base,
 							AggregationTemporality: int32(d.Sum.AggregationTemporality),
 							IsMonotonic:            d.Sum.IsMonotonic,
+						})
+					}
+				case *metricspb.Metric_Histogram:
+					if d.Histogram == nil {
+						continue
+					}
+					for _, pt := range d.Histogram.DataPoints {
+						if pt == nil {
+							continue
+						}
+						base := metricBase(resAttrs, resURL, scopeName, scopeVersion, scopeAttrs, dropped, sm.SchemaUrl, service, metric, pt.Attributes, pt.StartTimeUnixNano, pt.TimeUnixNano, uint32(pt.Flags))
+						out.Histograms = append(out.Histograms, HistogramRow{
+							GaugeRow:               base,
+							Count:                  pt.Count,
+							Sum:                    pt.GetSum(),
+							BucketCounts:           nonemptyUint64(pt.BucketCounts),
+							ExplicitBounds:         nonemptyFloat64(pt.ExplicitBounds),
+							Min:                    pt.GetMin(),
+							Max:                    pt.GetMax(),
+							AggregationTemporality: int32(d.Histogram.AggregationTemporality),
+						})
+					}
+				case *metricspb.Metric_Summary:
+					if d.Summary == nil {
+						continue
+					}
+					for _, pt := range d.Summary.DataPoints {
+						if pt == nil {
+							continue
+						}
+						base := metricBase(resAttrs, resURL, scopeName, scopeVersion, scopeAttrs, dropped, sm.SchemaUrl, service, metric, pt.Attributes, pt.StartTimeUnixNano, pt.TimeUnixNano, uint32(pt.Flags))
+						qs := make([]float64, 0, len(pt.QuantileValues))
+						vs := make([]float64, 0, len(pt.QuantileValues))
+						for _, qv := range pt.QuantileValues {
+							if qv == nil {
+								continue
+							}
+							qs = append(qs, qv.Quantile)
+							vs = append(vs, qv.Value)
+						}
+						out.Summaries = append(out.Summaries, SummaryRow{
+							GaugeRow:  base,
+							Count:     pt.Count,
+							Sum:       pt.Sum,
+							Quantiles: qs,
+							Values:    vs,
+						})
+					}
+				case *metricspb.Metric_ExponentialHistogram:
+					if d.ExponentialHistogram == nil {
+						continue
+					}
+					for _, pt := range d.ExponentialHistogram.DataPoints {
+						if pt == nil {
+							continue
+						}
+						base := metricBase(resAttrs, resURL, scopeName, scopeVersion, scopeAttrs, dropped, sm.SchemaUrl, service, metric, pt.Attributes, pt.StartTimeUnixNano, pt.TimeUnixNano, uint32(pt.Flags))
+						posOff, posCounts := int32(0), []uint64{}
+						negOff, negCounts := int32(0), []uint64{}
+						if pt.Positive != nil {
+							posOff = pt.Positive.Offset
+							posCounts = nonemptyUint64(pt.Positive.BucketCounts)
+						}
+						if pt.Negative != nil {
+							negOff = pt.Negative.Offset
+							negCounts = nonemptyUint64(pt.Negative.BucketCounts)
+						}
+						out.ExpHistograms = append(out.ExpHistograms, ExpHistogramRow{
+							GaugeRow:               base,
+							Count:                  pt.Count,
+							Sum:                    pt.GetSum(),
+							Scale:                  pt.Scale,
+							ZeroCount:              pt.ZeroCount,
+							PositiveOffset:         posOff,
+							PositiveBucketCounts:   posCounts,
+							NegativeOffset:         negOff,
+							NegativeBucketCounts:   negCounts,
+							Min:                    pt.GetMin(),
+							Max:                    pt.GetMax(),
+							AggregationTemporality: int32(d.ExponentialHistogram.AggregationTemporality),
 						})
 					}
 				}
 			}
 		}
 	}
-	return gauges, sums
+	return out
+}
+
+func nonemptyUint64(in []uint64) []uint64 {
+	if in == nil {
+		return []uint64{}
+	}
+	return in
+}
+
+func nonemptyFloat64(in []float64) []float64 {
+	if in == nil {
+		return []float64{}
+	}
+	return in
 }
 
 type ResourceTenant struct {
@@ -500,6 +630,35 @@ func StampSums(rows []SumRow, tenant ResourceTenant) {
 	for i := range rows {
 		rows[i].ResourceAttributes = StampResource(rows[i].ResourceAttributes, tenant)
 	}
+}
+
+func StampHistograms(rows []HistogramRow, tenant ResourceTenant) {
+	for i := range rows {
+		rows[i].ResourceAttributes = StampResource(rows[i].ResourceAttributes, tenant)
+	}
+}
+
+func StampSummaries(rows []SummaryRow, tenant ResourceTenant) {
+	for i := range rows {
+		rows[i].ResourceAttributes = StampResource(rows[i].ResourceAttributes, tenant)
+	}
+}
+
+func StampExpHistograms(rows []ExpHistogramRow, tenant ResourceTenant) {
+	for i := range rows {
+		rows[i].ResourceAttributes = StampResource(rows[i].ResourceAttributes, tenant)
+	}
+}
+
+func StampMetrics(rows *MetricRows, tenant ResourceTenant) {
+	if rows == nil {
+		return
+	}
+	StampGauges(rows.Gauges, tenant)
+	StampSums(rows.Sums, tenant)
+	StampHistograms(rows.Histograms, tenant)
+	StampSummaries(rows.Summaries, tenant)
+	StampExpHistograms(rows.ExpHistograms, tenant)
 }
 
 func numberValue(pt *metricspb.NumberDataPoint) float64 {
