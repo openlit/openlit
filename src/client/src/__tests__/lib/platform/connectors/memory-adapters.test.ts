@@ -758,7 +758,7 @@ describe("Mem0 adapter", () => {
 });
 
 describe("Memcode adapter", () => {
-	it("describes list without a required user filter", () => {
+	it("describes list with no page filters at all", () => {
 		const described = memcodeAdapterFactory.describe();
 		expect(described.type).toBe("memcode");
 		expect(described.capabilities).toEqual({
@@ -773,48 +773,174 @@ describe("Memcode adapter", () => {
 		expect(described.configFields.map((field) => field.key)).toEqual(
 			expect.arrayContaining(["url", "apiKey"])
 		);
-		expect(described.filterFields).toEqual([
-			expect.objectContaining({
-				key: "userId",
-				required: false,
-				writeRequired: true,
-			}),
-		]);
+		// The API key is the tenant: Memory API v2 discards a client-sent user_id
+		// in production, so offering a user control would be a lie.
+		expect(described.filterFields).toEqual([]);
+		// v2 has no get-by-id route, so a listed record is the whole record and
+		// the detail sheet must not warn about a fetch it never needed.
+		expect(described.detailFromList).toBe(true);
 		expect(described.docsUrl).toBe("https://memcode.in/docs");
 	});
 
-	it("health-checks the v2 list route with Bearer auth", async () => {
-		mockSafeFetch.mockResolvedValue({ status: "ok", data: { items: [], total_memories: 0 } });
+	it("probes liveness then GET /v2/test, never the list route", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({ status: "ok", data: { status: "ready" } })
+			.mockResolvedValueOnce({
+				status: "ok",
+				data: {
+					authenticated: true,
+					principal_type: "legacy_user",
+					user_id: "user-123",
+					username: "ishaan",
+				},
+			});
 		const adapter = new MemcodeAdapter(descriptor("memcode"));
 		await expect(adapter.healthCheck()).resolves.toEqual(
 			expect.objectContaining({ ok: true })
 		);
-		const [url, options] = mockSafeFetch.mock.calls[0];
-		expect(String(url)).toBe("https://memory.memcode.in/v2/memory?limit=1&offset=0");
-		expect(options.method).toBe("GET");
-		expect(options.headers.Authorization).toBe("Bearer secret-key");
+		const urls = mockSafeFetch.mock.calls.map((call) => String(call[0]));
+		expect(urls).toEqual([
+			"https://memory.memcode.in/health",
+			"https://memory.memcode.in/v2/test",
+		]);
+		// A limit=1 list still materialises the whole account server-side, so it
+		// must never be the probe.
+		expect(urls.some((url) => url.includes("/v2/memory"))).toBe(false);
+		expect(mockSafeFetch.mock.calls[1][1].headers.Authorization).toBe(
+			"Bearer secret-key"
+		);
 	});
 
-	it("treats 400 health-check responses as reachable", async () => {
-		mockSafeFetch.mockRejectedValue(
-			new SourceResponseError(400, "invalid payload")
-		);
+	it("tells the operator when a deployment predates GET /v2/test", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({ status: "ok", data: { status: "ready" } })
+			.mockRejectedValueOnce(new SourceResponseError(404, "Not Found"));
 		const adapter = new MemcodeAdapter(descriptor("memcode"));
 		await expect(adapter.healthCheck()).resolves.toEqual(
-			expect.objectContaining({ ok: true })
+			expect.objectContaining({
+				ok: false,
+				message: expect.stringMatching(/\/v2\/test/),
+			})
 		);
 	});
 
-	it("requires a user id for search but not list", async () => {
+	it("reports a rejected key instead of passing the connection", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({ status: "ok", data: { status: "ready" } })
+			.mockRejectedValueOnce(new SourceResponseError(401, "invalid api key"));
 		const adapter = new MemcodeAdapter(descriptor("memcode"));
-		await expect(adapter.search({ query: "berlin" })).rejects.toThrow(
-			/user|filter/i
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false, message: expect.stringMatching(/rejected/i) })
 		);
-		mockSafeFetch.mockResolvedValue({
+	});
+
+	it("reports an out-of-credit account separately from a bad key", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({ status: "ok", data: { status: "ready" } })
+			.mockRejectedValueOnce(new SourceResponseError(402, "insufficient credits"));
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false, message: expect.stringMatching(/credit/i) })
+		);
+	});
+
+	it("fails a base URL that is not a Memory API", async () => {
+		// A 404 is the credential probe's success answer, so without a decisive
+		// liveness check a host that 404s everything would pass.
+		mockSafeFetch.mockRejectedValue(new SourceResponseError(404, "not found"));
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({
+				ok: false,
+				message: expect.stringMatching(/No MemCode Memory API/i),
+			})
+		);
+		// It never reaches the credential probe.
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+	});
+
+	it("reports a service that is up but still loading", async () => {
+		mockSafeFetch.mockResolvedValueOnce({
 			status: "ok",
-			data: { items: [], total_memories: 0, limit: 100, offset: 0, has_more: false },
+			data: { status: "loading" },
 		});
-		await expect(adapter.list({})).resolves.toEqual([]);
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false, message: expect.stringMatching(/starting up/i) })
+		);
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+	});
+
+	it("reports a 503 from /health as still starting up", async () => {
+		mockSafeFetch.mockRejectedValue(new SourceResponseError(503, "not ready"));
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({
+				ok: false,
+				message: expect.stringMatching(/starting up/i),
+			})
+		);
+	});
+
+	it("passes on the live /health envelope shape", async () => {
+		// Exactly what https://memory.memcode.in/health returns today.
+		mockSafeFetch
+			.mockResolvedValueOnce({
+				status: "ok",
+				request_id: null,
+				data: {
+					status: "ready",
+					pipelines_ready: true,
+					version: "1.0.0",
+					uptime_seconds: 1035663.1,
+					error: null,
+				},
+				error: null,
+			})
+			.mockResolvedValueOnce({
+				status: "ok",
+				data: { authenticated: true, principal_type: "legacy_user", user_id: "u1" },
+			});
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: true })
+		);
+	});
+
+	it("omits user_id when no user filter is pinned", async () => {
+		mockSafeFetch.mockResolvedValue({ status: "ok", data: { memory_results: [] } });
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		await expect(adapter.search({ query: "berlin" })).resolves.toEqual([]);
+		expect(JSON.parse(mockSafeFetch.mock.calls[0][1].body)).not.toHaveProperty(
+			"user_id"
+		);
+	});
+
+	it("forwards a pinned user id as a narrowing filter", async () => {
+		mockSafeFetch.mockResolvedValue({ status: "ok", data: { memory_results: [] } });
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		await adapter.search({ query: "berlin", userId: " user_42 " });
+		expect(JSON.parse(mockSafeFetch.mock.calls[0][1].body)).toEqual(
+			expect.objectContaining({ user_id: "user_42" })
+		);
+	});
+
+	it("ingests without a user id when none is pinned", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({
+				status: "ok",
+				data: { job_id: "memory_ingest:1", status: "completed" },
+			})
+			.mockResolvedValueOnce({
+				status: "ok",
+				data: { job_id: "memory_ingest:1", status: "completed" },
+			})
+			.mockResolvedValueOnce({ status: "ok", data: { memory_results: [] } });
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		await adapter.add({ content: "I moved to Berlin." });
+		expect(JSON.parse(mockSafeFetch.mock.calls[0][1].body)).not.toHaveProperty(
+			"user_id"
+		);
 	});
 
 	it("searches v2 memory and maps domains onto records", async () => {
@@ -937,6 +1063,243 @@ describe("Memcode adapter", () => {
 		expect(String(mockSafeFetch.mock.calls[1][0])).toBe(
 			"https://memory.memcode.in/v2/memory?limit=1&offset=1"
 		);
+	});
+
+	it("pages GET /v2/memory past the 500-row page cap", async () => {
+		const page = (offset: number, size: number) => ({
+			status: "ok",
+			data: {
+				items: Array.from({ length: size }, (_, index) => ({
+					id: `mem_${offset + index}`,
+					domain: "summary",
+					content: `Memory ${offset + index}`,
+				})),
+				total_memories: 1200,
+				limit: size,
+				offset,
+				has_more: offset + size < 1200,
+			},
+		});
+		mockSafeFetch
+			.mockResolvedValueOnce(page(0, 500))
+			.mockResolvedValueOnce(page(500, 500))
+			.mockResolvedValueOnce(page(1000, 200));
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		const records = await adapter.list({ limit: 1200 });
+		expect(records).toHaveLength(1200);
+		expect(mockSafeFetch.mock.calls.map((call) => String(call[0]))).toEqual([
+			"https://memory.memcode.in/v2/memory?limit=500&offset=0",
+			"https://memory.memcode.in/v2/memory?limit=500&offset=500",
+			"https://memory.memcode.in/v2/memory?limit=200&offset=1000",
+		]);
+	});
+
+	it("reports total_memories and has_more from one list page", async () => {
+		mockSafeFetch.mockResolvedValue({
+			status: "ok",
+			data: {
+				items: [{ id: "mem_1", domain: "profile", content: "Lives in Berlin." }],
+				total_memories: 42,
+				limit: 1,
+				offset: 10,
+				has_more: true,
+			},
+		});
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		await expect(adapter.listPage({ limit: 1, offset: 10 })).resolves.toEqual({
+			records: [expect.objectContaining({ id: "mem_1" })],
+			total: 42,
+			hasMore: true,
+			nextOffset: 11,
+		});
+		expect(String(mockSafeFetch.mock.calls[0][0])).toBe(
+			"https://memory.memcode.in/v2/memory?limit=1&offset=10"
+		);
+	});
+
+	it("builds a weighted knowledge graph from GET /v2/memory-graph", async () => {
+		mockSafeFetch.mockResolvedValue({
+			status: "ok",
+			data: {
+				nodes: [
+					{
+						id: "memory_a",
+						type: "profile",
+						label: "Lives in Berlin",
+						metadata: { content: "The user lives in Berlin." },
+					},
+					{
+						id: "memory_b",
+						type: "temporal",
+						label: "Moved in May",
+						metadata: { content: "Moved to Berlin in May." },
+					},
+				],
+				edges: [
+					{
+						source: "memory_a",
+						target: "memory_b",
+						type: "related_to",
+						domain: "profile",
+						weight: 0.91,
+						strength: 0.91,
+					},
+					// Endpoints outside the node page are dropped rather than drawn
+					// as edges into nothing.
+					{ source: "memory_a", target: "memory_z", type: "related_to", weight: 0.4 },
+				],
+				total_memories: 2,
+				domains: ["profile", "temporal"],
+				limit: 500,
+				offset: 0,
+				has_more: false,
+				has_more_edges: false,
+			},
+		});
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		const graph = await adapter.graph({});
+		expect(String(mockSafeFetch.mock.calls[0][0])).toBe(
+			"https://memory.memcode.in/v2/memory-graph?limit=5000&offset=0&edge_limit=10000&edge_offset=0"
+		);
+		expect(graph.kind).toBe("knowledge");
+		expect(graph.weighted).toBe(true);
+		expect(graph.totalMemories).toBe(2);
+		expect(graph.domains).toEqual(["profile", "temporal"]);
+		expect(graph.nodes).toEqual([
+			expect.objectContaining({
+				id: "memory_a",
+				type: "memory",
+				memoryId: "memory_a",
+				kind: "profile",
+			}),
+			expect.objectContaining({
+				id: "memory_b",
+				type: "memory",
+				memoryId: "memory_b",
+				kind: "temporal",
+			}),
+		]);
+		expect(graph.edges).toEqual([
+			{
+				from: "memory_a",
+				to: "memory_b",
+				label: "related_to",
+				domain: "profile",
+				weight: 0.91,
+			},
+		]);
+	});
+
+	it("drains graph edges before advancing the node cursor", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({
+				status: "ok",
+				data: {
+					nodes: [
+						{ id: "memory_a", type: "summary", label: "A" },
+						{ id: "memory_b", type: "summary", label: "B" },
+					],
+					edges: [
+						{ source: "memory_a", target: "memory_b", type: "related_to", weight: 0.7 },
+					],
+					total_memories: 4,
+					domains: ["summary"],
+					limit: 500,
+					offset: 0,
+					has_more: true,
+					edge_offset: 0,
+					has_more_edges: true,
+				},
+			})
+			// An edge-continuation page repeats the current node window, so node
+			// dedupe has to hold while only the edge cursor moves.
+			.mockResolvedValueOnce({
+				status: "ok",
+				data: {
+					nodes: [
+						{ id: "memory_a", type: "summary", label: "A" },
+						{ id: "memory_b", type: "summary", label: "B" },
+					],
+					edges: [
+						{ source: "memory_b", target: "memory_a", type: "related_to", weight: 0.5 },
+					],
+					total_memories: 4,
+					domains: ["summary"],
+					limit: 500,
+					offset: 0,
+					has_more: true,
+					edge_offset: 1,
+					has_more_edges: false,
+				},
+			})
+			.mockResolvedValueOnce({
+				status: "ok",
+				data: {
+					nodes: [
+						{ id: "memory_c", type: "summary", label: "C" },
+						{ id: "memory_d", type: "summary", label: "D" },
+					],
+					edges: [
+						{ source: "memory_c", target: "memory_d", type: "related_to", weight: 0.6 },
+					],
+					total_memories: 4,
+					domains: ["summary"],
+					limit: 500,
+					offset: 2,
+					has_more: false,
+					edge_offset: 0,
+					has_more_edges: false,
+				},
+			});
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		const graph = await adapter.graph({});
+		expect(mockSafeFetch.mock.calls.map((call) => String(call[0]))).toEqual([
+			"https://memory.memcode.in/v2/memory-graph?limit=5000&offset=0&edge_limit=10000&edge_offset=0",
+			"https://memory.memcode.in/v2/memory-graph?limit=5000&offset=0&edge_limit=10000&edge_offset=1",
+			"https://memory.memcode.in/v2/memory-graph?limit=5000&offset=2&edge_limit=10000&edge_offset=0",
+		]);
+		expect(graph.nodes.map((node) => node.id)).toEqual([
+			"memory_a",
+			"memory_b",
+			"memory_c",
+			"memory_d",
+		]);
+		expect(graph.edges).toHaveLength(3);
+		expect(graph.truncated).toBe(false);
+	});
+
+	it("keeps connected memories when the graph is too large to lay out", async () => {
+		// An account with thousands of unconnected memories must not ship every
+		// one of them as an SVG node.
+		mockSafeFetch.mockResolvedValue({
+			status: "ok",
+			data: {
+				nodes: Array.from({ length: 900 }, (_, index) => ({
+					id: `memory_${index}`,
+					type: "summary",
+					label: `Memory ${index}`,
+				})),
+				edges: [
+					{ source: "memory_800", target: "memory_801", type: "hebbian", weight: 0.9 },
+				],
+				total_memories: 900,
+				domains: ["summary"],
+				limit: 5000,
+				offset: 0,
+				has_more: false,
+				has_more_edges: false,
+			},
+		});
+		const adapter = new MemcodeAdapter(descriptor("memcode"));
+		const graph = await adapter.graph({});
+		expect(graph.nodes).toHaveLength(600);
+		expect(graph.truncated).toBe(true);
+		// Both endpoints of the only connection survive the cap.
+		expect(graph.nodes.slice(0, 2).map((node) => node.id)).toEqual([
+			"memory_800",
+			"memory_801",
+		]);
+		expect(graph.edges).toHaveLength(1);
 	});
 
 	it("ingests a turn, polls the job, then searches extracted memories", async () => {

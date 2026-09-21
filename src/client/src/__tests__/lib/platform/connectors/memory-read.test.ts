@@ -484,13 +484,256 @@ describe("queryProjectMemories", () => {
 		});
 
 		await queryProjectMemories({ limit: 5000 });
-		expect(list).toHaveBeenCalledWith(expect.objectContaining({ limit: 100 }));
+		expect(list).toHaveBeenCalledWith(expect.objectContaining({ limit: 500 }));
 
 		await queryProjectMemories({ limit: -3 });
 		expect(list).toHaveBeenCalledWith(expect.objectContaining({ limit: 1 }));
 
 		await queryProjectMemories({ limit: 12.9 });
 		expect(list).toHaveBeenCalledWith(expect.objectContaining({ limit: 12 }));
+	});
+
+	it("paginates and reports a backend total when the adapter exposes listPage", async () => {
+		const listPage = jest.fn().mockResolvedValue({
+			records: [{ id: "m1", content: "Lives in Berlin", metadata: {} }],
+			total: 1200,
+			hasMore: true,
+			nextOffset: 101,
+		});
+		const list = jest.fn();
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: true,
+					list: true,
+					update: true,
+					delete: true,
+				}),
+				list,
+				listPage,
+				search: jest.fn(),
+			},
+		});
+
+		const result = await queryProjectMemories({ limit: 100, offset: 100 });
+		expect(listPage).toHaveBeenCalledWith(
+			expect.objectContaining({ limit: 100, offset: 100 })
+		);
+		expect(list).not.toHaveBeenCalled();
+		expect(result.offset).toBe(100);
+		expect(result.hasMore).toBe(true);
+		expect(result.total).toBe(1200);
+		// The durable total wins over the length of this page.
+		expect(result.stats.total).toBe(1200);
+	});
+
+	it("prefers the adapter graph over the derived one, and only on the first page", async () => {
+		const graph = jest.fn().mockResolvedValue({
+			nodes: [{ id: "memory_a", type: "memory", label: "A", memoryId: "memory_a" }],
+			edges: [],
+			kind: "knowledge",
+			weighted: true,
+		});
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: true,
+					list: true,
+					update: true,
+					delete: true,
+				}),
+				list: jest.fn().mockResolvedValue([]),
+				graph,
+				search: jest.fn(),
+			},
+		});
+
+		const first = await queryProjectMemories({});
+		expect(graph).toHaveBeenCalledTimes(1);
+		expect(first.graph.kind).toBe("knowledge");
+		expect(first.graph.weighted).toBe(true);
+
+		// Paging must not refetch the graph; the page keeps the one it drew.
+		const second = await queryProjectMemories({ offset: 100 });
+		expect(graph).toHaveBeenCalledTimes(1);
+		expect(second.graph).toEqual({ nodes: [], edges: [] });
+	});
+
+	it("counts connections from real graph edges, not user/session pairs", async () => {
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: false,
+					list: true,
+					update: false,
+					delete: false,
+				}),
+				// No userId or sessionId on any record: the pairing count would be 0.
+				list: jest.fn().mockResolvedValue([
+					{ id: "memory_a", content: "Lives in Berlin", metadata: {} },
+					{ id: "memory_b", content: "Moved in May", metadata: {} },
+				]),
+				graph: jest.fn().mockResolvedValue({
+					nodes: [
+						{ id: "memory_a", type: "memory", label: "A", memoryId: "memory_a" },
+						{ id: "memory_b", type: "memory", label: "B", memoryId: "memory_b" },
+					],
+					edges: [
+						{ from: "memory_a", to: "memory_b", weight: 0.9 },
+						{ from: "memory_b", to: "memory_a", weight: 0.4 },
+					],
+					kind: "knowledge",
+					weighted: true,
+				}),
+				search: jest.fn(),
+			},
+		});
+
+		const result = await queryProjectMemories({});
+		expect(result.stats.connections).toBe(2);
+	});
+
+	it("leaves the derived graph's connection count as user and session pairing", async () => {
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: true,
+					list: true,
+					update: true,
+					delete: true,
+				}),
+				list: jest.fn().mockResolvedValue([
+					{ id: "m1", content: "One", userId: "ada", sessionId: "s1", metadata: {} },
+					{ id: "m2", content: "Two", userId: "ada", sessionId: "s2", metadata: {} },
+				]),
+				search: jest.fn(),
+			},
+		});
+
+		const result = await queryProjectMemories({});
+		expect(result.stats.connections).toBe(2);
+		expect(result.graph.kind).toBeUndefined();
+	});
+
+	it("falls back to the derived graph when the adapter graph call fails", async () => {
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: true,
+					list: true,
+					update: true,
+					delete: true,
+				}),
+				list: jest.fn().mockResolvedValue([
+					{ id: "m1", content: "Lives in Berlin", userId: "ada", metadata: {} },
+				]),
+				graph: jest.fn().mockRejectedValue(new Error("graph unavailable")),
+				search: jest.fn(),
+			},
+		});
+
+		const result = await queryProjectMemories({});
+		expect(result.memories).toHaveLength(1);
+		expect(result.graph.nodes.length).toBeGreaterThan(0);
+		expect(result.graph.kind).toBeUndefined();
+	});
+
+	it("leaves connectors without the optional ports on the derived graph and single list", async () => {
+		const list = jest.fn().mockResolvedValue([]);
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: true,
+					list: true,
+					update: true,
+					delete: true,
+				}),
+				list,
+				search: jest.fn(),
+			},
+		});
+
+		const result = await queryProjectMemories({});
+		expect(list).toHaveBeenCalledTimes(1);
+		expect(result.hasMore).toBe(false);
+		expect(result.total).toBeUndefined();
+		expect(result.graph).toEqual({ nodes: [], edges: [] });
+	});
+
+	it("skips the get_unsupported notice when a listed record is the whole record", async () => {
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryTypeDescriptor.mockReturnValue({
+			type: "memcode",
+			detailFromList: true,
+		});
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: false,
+					list: true,
+					update: false,
+					delete: false,
+				}),
+				get: jest.fn(),
+				list: jest.fn(),
+				search: jest.fn(),
+			},
+		});
+
+		const result = await getProjectMemory({ id: "memory_a" });
+		expect(result.memory).toBeNull();
+		expect(result.hint).toBeUndefined();
+	});
+
+	it("still warns for a vendor whose listed record is only a projection", async () => {
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryTypeDescriptor.mockReturnValue({ type: "zep" });
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: true,
+					search: true,
+					get: false,
+					list: true,
+					update: false,
+					delete: false,
+				}),
+				get: jest.fn(),
+				list: jest.fn(),
+				search: jest.fn(),
+			},
+		});
+
+		const result = await getProjectMemory({ id: "memory_a" });
+		expect(result.hint).toBe("get_unsupported");
 	});
 
 	it("dedupes filter choices that appear in more than one source", async () => {

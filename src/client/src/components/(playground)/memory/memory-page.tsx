@@ -54,6 +54,12 @@ import MemoryFilterCombobox, {
 } from "./memory-filter-combobox";
 import AskOtterBar from "./ask-otter";
 
+/**
+ * One server page. Connectors that report a durable total paginate from here;
+ * the rest return everything they have in the first page, as before.
+ */
+const MEMORY_PAGE_SIZE = 100;
+
 export default function MemoryPage() {
 	const messages = getMessage();
 	const posthog = usePostHog();
@@ -81,6 +87,7 @@ export default function MemoryPage() {
 		[]
 	);
 	const [saving, setSaving] = useState(false);
+	const [loadingMore, setLoadingMore] = useState(false);
 	const autoSelecting = useRef(false);
 	const loadSeq = useRef(0);
 	const pendingCreated = useRef<MemoryListItem[]>([]);
@@ -117,10 +124,26 @@ export default function MemoryPage() {
 	const copyTargets = connectors.filter(
 		(connector) => connector.id !== connectorId && connector.capabilities?.add
 	);
-	const selectedMemory = useMemo(
-		() => result?.memories.find((memory) => memory.id === selectedId) || null,
-		[result?.memories, selectedId]
-	);
+	const selectedMemory = useMemo(() => {
+		if (!selectedId) return null;
+		const listed = result?.memories.find((memory) => memory.id === selectedId);
+		if (listed) return listed;
+		// A server-side graph spans far more memories than one list page, and
+		// MemCode has no get-by-id route, so a node click falls back to what the
+		// graph itself carries rather than opening an empty sheet.
+		const node = result?.graph.nodes.find(
+			(item) => item.memoryId === selectedId && item.content
+		);
+		if (!node?.content) return null;
+		return {
+			id: selectedId,
+			content: node.content,
+			kind: node.kind || "summary",
+			createdAt: node.createdAt,
+			updatedAt: node.updatedAt,
+			metadata: node.kind ? { domain: node.kind } : {},
+		} satisfies MemoryListItem;
+	}, [result?.graph.nodes, result?.memories, selectedId]);
 	const filters = result?.filters || emptyMemoryFilters();
 	const filterFields = result?.filterFields || [];
 
@@ -131,13 +154,14 @@ export default function MemoryPage() {
 		}
 		if (!options?.silent) setLoading(true);
 		setLoadError(null);
+		setLoadingMore(false);
 		const seq = ++loadSeq.current;
 		const params = new URLSearchParams();
 		if (connectorId) params.set("connectorId", connectorId);
 		if (userId.trim()) params.set("userId", userId.trim());
 		if (sessionId.trim()) params.set("sessionId", sessionId.trim());
 		if (agentId.trim()) params.set("agentId", agentId.trim());
-		params.set("limit", "100");
+		params.set("limit", String(MEMORY_PAGE_SIZE));
 		fetch(`/api/memory?${params.toString()}`, {
 			headers: getRequestHeaders(),
 		})
@@ -218,6 +242,72 @@ export default function MemoryPage() {
 		userId,
 	]);
 
+	const loadMoreMemories = useCallback(() => {
+		if (loadingMore || !result?.hasMore) return;
+		setLoadingMore(true);
+		const seq = loadSeq.current;
+		const params = new URLSearchParams();
+		if (connectorId) params.set("connectorId", connectorId);
+		if (userId.trim()) params.set("userId", userId.trim());
+		if (sessionId.trim()) params.set("sessionId", sessionId.trim());
+		if (agentId.trim()) params.set("agentId", agentId.trim());
+		params.set("limit", String(MEMORY_PAGE_SIZE));
+		params.set("offset", String(result.offset + result.memories.length));
+		fetch(`/api/memory?${params.toString()}`, {
+			headers: getRequestHeaders(),
+		})
+			.then(async (response) => {
+				const body = await response.json().catch(() => null);
+				if (!response.ok) {
+					throw new Error(apiError(body, messages.MEMORY_LIST_LOAD_MORE_FAILED));
+				}
+				return body as MemoryQueryResult;
+			})
+			.then((payload) => {
+				if (seq !== loadSeq.current) return;
+				setResult((prev) => {
+					if (!prev) return prev;
+					const seen = new Set(prev.memories.map((memory) => memory.id));
+					const appended = payload.memories.filter(
+						(memory) => !seen.has(memory.id)
+					);
+					return {
+						...prev,
+						memories: [...prev.memories, ...appended],
+						hasMore: payload.hasMore,
+						total: payload.total ?? prev.total,
+						// A later page carries no graph; keep the one already drawn.
+						stats: {
+							...prev.stats,
+							total: payload.total ?? prev.stats.total,
+						},
+					};
+				});
+			})
+			.catch((caught: unknown) => {
+				if (seq !== loadSeq.current) return;
+				toast.error(
+					caught instanceof Error
+						? caught.message
+						: messages.MEMORY_LIST_LOAD_MORE_FAILED
+				);
+			})
+			.finally(() => {
+				if (seq !== loadSeq.current) return;
+				setLoadingMore(false);
+			});
+	}, [
+		agentId,
+		connectorId,
+		loadingMore,
+		messages.MEMORY_LIST_LOAD_MORE_FAILED,
+		result?.hasMore,
+		result?.memories,
+		result?.offset,
+		sessionId,
+		userId,
+	]);
+
 	useEffect(() => {
 		posthog?.capture(CLIENT_EVENTS.MEMORY_PAGE_VISITED);
 	}, [posthog]);
@@ -255,13 +345,12 @@ export default function MemoryPage() {
 	}, [addConnectorOpen]);
 
 	const stats = result?.stats || emptyMemoryStats();
+	// Memory kind is carried by colour in the graph and the list, so the page
+	// does not repeat per-kind counts as their own tiles.
 	const statItems = useMemo(
 		() => [
 			{ label: messages.MEMORY_TOTAL, value: stats.total },
 			{ label: messages.MEMORY_CONNECTIONS, value: stats.connections },
-			{ label: messages.MEMORY_TEMPORAL, value: stats.temporal, dot: "bg-teal-500" },
-			{ label: messages.MEMORY_PROFILE, value: stats.profile, dot: "bg-orange-500" },
-			{ label: messages.MEMORY_SUMMARY, value: stats.summary, dot: "bg-lime-500" },
 		],
 		[messages, stats]
 	);
@@ -688,6 +777,10 @@ export default function MemoryPage() {
 															onSearchChange={setListSearch}
 															selectedId={selectedId}
 															onSelect={selectMemory}
+															total={result?.total}
+															hasMore={result?.hasMore}
+															loadingMore={loadingMore}
+															onLoadMore={loadMoreMemories}
 														/>
 													</div>
 												)}

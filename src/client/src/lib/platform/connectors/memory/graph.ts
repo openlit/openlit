@@ -38,6 +38,16 @@ export interface MemoryGraphNode {
 	memoryId?: string;
 	kind?: MemoryKind;
 	entityType?: MemoryEntityType;
+	/**
+	 * Set by backends whose graph reaches past the loaded list page, so a node
+	 * click can open the memory even when it was never listed. Only adapters
+	 * with their own graph endpoint populate these.
+	 */
+	content?: string;
+	createdAt?: string;
+	updatedAt?: string;
+	/** Backend memory domain, used to colour the node by cluster. */
+	domain?: string;
 }
 
 export interface MemoryGraphEdge {
@@ -45,12 +55,89 @@ export interface MemoryGraphEdge {
 	to: string;
 	memoryId?: string;
 	label?: string;
+	/** Connection strength in [0,1]. Only set by backends that score edges. */
+	weight?: number;
+	/** Memory domain the connection was drawn in, when the backend reports one. */
+	domain?: string;
 }
 
 export interface MemoryGraphModel {
 	nodes: MemoryGraphNode[];
 	edges: MemoryGraphEdge[];
 	kind?: "knowledge" | "tree";
+	/** True when every edge carries a comparable `weight`, so the UI can tier them. */
+	weighted?: boolean;
+	/** Total memories the backend holds, when it reports more than this page. */
+	totalMemories?: number;
+	/** Memory domains present in the full graph, not just this page. */
+	domains?: string[];
+	truncated?: boolean;
+}
+
+/**
+ * Edge strength buckets, mirroring `memoryEdgeTier` in the MemCode dashboard
+ * exactly so the same connection reads the same in both products. Anything
+ * below the faint floor is noise and is not drawn at all.
+ */
+export const MEMORY_EDGE_TIERS = ["strong", "medium", "weak", "faint"] as const;
+
+export type MemoryEdgeTier = (typeof MEMORY_EDGE_TIERS)[number];
+
+/** Inclusive floor per tier; `strong` is the one exclusive bound, as upstream. */
+export const MEMORY_EDGE_TIER_MINIMUM: Record<MemoryEdgeTier, number> = {
+	strong: 0.8,
+	medium: 0.6,
+	weak: 0.51,
+	faint: 0.3,
+};
+
+/**
+ * Cluster palette and hash from the MemCode dashboard, so a domain lands on the
+ * same colour in both products. The hash must stay a 31-multiplier over char
+ * codes for that to hold.
+ */
+export const MEMORY_CLUSTER_COLORS = [
+	"#58C7E8",
+	"#E7BC52",
+	"#74D680",
+	"#D47B75",
+	"#A789E8",
+	"#62C5A8",
+	"#74ABD8",
+	"#C78AC8",
+	"#D18A58",
+	"#8BCB6F",
+] as const;
+
+function clusterHash(value: string): number {
+	let hash = 0;
+	for (let index = 0; index < value.length; index += 1) {
+		hash = (Math.imul(31, hash) + value.charCodeAt(index)) | 0;
+	}
+	return hash >>> 0;
+}
+
+export function memoryClusterColor(domain?: string): string {
+	return MEMORY_CLUSTER_COLORS[
+		clusterHash(domain || "memory") % MEMORY_CLUSTER_COLORS.length
+	];
+}
+
+/** Dash pattern per tier, matching the dashboard's `memoryEdgeDashPattern`. */
+export function memoryEdgeDashPattern(tier: MemoryEdgeTier): string | undefined {
+	if (tier === "strong") return undefined;
+	if (tier === "medium") return "7 4";
+	if (tier === "weak") return "4 6";
+	return "2 6";
+}
+
+export function memoryEdgeTier(weight?: number): MemoryEdgeTier | null {
+	if (typeof weight !== "number" || !Number.isFinite(weight)) return null;
+	if (weight < MEMORY_EDGE_TIER_MINIMUM.faint) return null;
+	if (weight > MEMORY_EDGE_TIER_MINIMUM.strong) return "strong";
+	if (weight >= MEMORY_EDGE_TIER_MINIMUM.medium) return "medium";
+	if (weight >= MEMORY_EDGE_TIER_MINIMUM.weak) return "weak";
+	return "faint";
 }
 
 export interface LaidOutMemoryNode extends MemoryGraphNode {
@@ -364,11 +451,40 @@ function layoutKnowledgeGraph(
  * Superopen-style radial tree: roots near the origin, children on equal
  * angular slots, so memories fan out instead of collapsing into a cluster.
  */
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+const CONSTELLATION_SPACING = 72;
+
+/**
+ * Phyllotaxis placement ported from the MemCode dashboard: memories fan out
+ * from the centre on the golden angle, so the graph reads as one constellation
+ * and stays O(nodes) instead of the O(nodes²) force pass.
+ */
+export function layoutMemoryConstellation(
+	model: MemoryGraphModel,
+	width: number,
+	height: number
+): LaidOutMemoryNode[] {
+	const cx = width / 2;
+	const cy = height / 2;
+	return model.nodes.map((node, index) => {
+		const radius = CONSTELLATION_SPACING * Math.sqrt(index + 1);
+		const angle = index * GOLDEN_ANGLE;
+		return {
+			...node,
+			x: cx + Math.cos(angle) * radius,
+			y: cy + Math.sin(angle) * radius,
+		};
+	});
+}
+
 export function layoutMemoryGraph(
 	model: MemoryGraphModel,
 	width = 800,
 	height = 480
 ): LaidOutMemoryNode[] {
+	if (model.weighted) {
+		return layoutMemoryConstellation(model, width, height);
+	}
 	if (model.kind === "knowledge") {
 		return layoutKnowledgeGraph(model, width, height);
 	}
