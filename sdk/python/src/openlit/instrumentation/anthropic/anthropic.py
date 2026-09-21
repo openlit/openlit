@@ -83,10 +83,10 @@ def messages(
             try:
                 self.__wrapped__.__exit__(exc_type, exc_value, traceback)
             finally:
-                # Finalize on every exit: a break before exhaustion never
-                # hits StopIteration, so the span would leak otherwise.
-                if not exc_type:
-                    self._finalize_streaming_span()
+                # Finalize on every exit: a break before exhaustion, or an
+                # exception propagating through the with-block, never hits
+                # StopIteration, so the span would leak otherwise.
+                self._finalize_streaming_span()
 
         def __iter__(self):
             return self
