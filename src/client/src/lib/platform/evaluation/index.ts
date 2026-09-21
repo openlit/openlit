@@ -696,12 +696,15 @@ async function getEvaluationConfigForTrace(
 	const evaluationTypes =
 		((evaluationConfig as any).evaluationTypes || []) as Array<{
 			id: string;
+			label?: string;
 			enabled: boolean;
+			isCustom?: boolean;
 			rules?: Array<{ ruleId: string; priority: number }>;
 			ruleId?: string;
 			priority?: number;
 			prompt?: string;
 			defaultPrompt?: string;
+			thresholdScore?: number;
 		}>;
 
 	// Default: Hallucination, Bias, Toxicity enabled
@@ -772,6 +775,14 @@ async function getEvaluationConfigForTrace(
 			contexts: finalContextString,
 			response: response ?? "",
 			thresholdScore: 0.5,
+			evaluationTypes: enabledTypes.map((t) => ({
+				id: t.id,
+				label: t.label,
+				prompt: t.prompt,
+				defaultPrompt: t.defaultPrompt,
+				thresholdScore: t.thresholdScore,
+				isCustom: t.isCustom,
+			})),
 		});
 
 
@@ -795,6 +806,7 @@ async function getEvaluationConfigForTrace(
 			contextApplied: contextContents.length > 0 ? "yes" : "no",
 			source,
 			...(serviceName ? { "service.name": serviceName } : {}),
+			...(data.extraMeta || {}),
 		};
 		if (data.usage) {
 			metaBase.promptTokens = String(data.usage.promptTokens);
@@ -1079,11 +1091,13 @@ export async function runOfflineEvaluation(
 		id: string;
 		enabled: boolean;
 		label?: string;
+		isCustom?: boolean;
 		rules?: Array<{ ruleId: string; priority: number }>;
 		ruleId?: string;
 		priority?: number;
 		prompt?: string;
 		defaultPrompt?: string;
+		thresholdScore?: number;
 	}>;
 
 	let enabledTypes = requestedTypes?.length
@@ -1163,6 +1177,14 @@ export async function runOfflineEvaluation(
 			contexts: finalContextString,
 			response,
 			thresholdScore,
+			evaluationTypes: enabledTypes.map((t) => ({
+				id: t.id,
+				label: t.label,
+				prompt: t.prompt,
+				defaultPrompt: t.defaultPrompt,
+				thresholdScore: t.thresholdScore,
+				isCustom: t.isCustom,
+			})),
 		});
 
 		if (!data.success) {
@@ -1175,6 +1197,7 @@ export async function runOfflineEvaluation(
 			contextIds: contextEntityIds.join(","),
 			contextApplied: contextContents.length > 0 ? "yes" : "no",
 			source: "offline_sdk",
+			...(data.extraMeta || {}),
 		};
 		if (runId) metaBase.runId = runId;
 		if (userMetadata) {

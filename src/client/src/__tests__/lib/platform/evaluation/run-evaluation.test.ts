@@ -134,6 +134,34 @@ describe('runEvaluation — provider routing', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('unknown-provider');
   });
+
+  it('dispatches TypeSafe to System One and never calls generateText', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          model: 'jev-1.13.0',
+          answers: { hallucination: { type: 'noul', noul: 0.1 } },
+        }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await runEvaluation({
+      provider: 'typesafe',
+      model: 'jev-latest',
+      apiKey: 'ts-key',
+      evaluationTypes: [{ id: 'hallucination', label: 'Hallucination' }],
+    });
+
+    expect(result.success).toBe(true);
+    expect(generateText).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.typesafe.ai/v1/systemone',
+      expect.any(Object)
+    );
+    (global as any).fetch = undefined;
+  });
 });
 
 describe('runEvaluation — generateText and response parsing', () => {

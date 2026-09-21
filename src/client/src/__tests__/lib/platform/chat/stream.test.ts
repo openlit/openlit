@@ -8,6 +8,7 @@ jest.mock('ai', () => ({
 }));
 
 import { getModelInstance, formatStreamError, buildConversationMessages, streamChatMessage } from '@/lib/platform/chat/stream';
+import { CHAT_PROVIDER_IDS } from '@/constants/chat-providers';
 
 // Mock external dependencies
 jest.mock('@ai-sdk/openai', () => ({
@@ -102,12 +103,7 @@ describe('getModelInstance', () => {
   });
 
   it('supports all built-in providers including MiniMax', () => {
-    const providers = [
-      'openai', 'anthropic', 'google', 'mistral', 'cohere',
-      'groq', 'perplexity', 'azure', 'together', 'fireworks',
-      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax', 'orcarouter',
-    ];
-    for (const p of providers) {
+    for (const p of CHAT_PROVIDER_IDS) {
       expect(() => getModelInstance(p, 'key', 'model')).not.toThrow();
     }
   });
@@ -125,6 +121,12 @@ describe('getModelInstance', () => {
     expect(instance).toBeDefined();
     expect(createOpenAI).toHaveBeenCalledWith(
       expect.objectContaining({ baseURL: 'https://api.orcarouter.ai/v1' })
+    );
+  });
+
+  it('does not support TypeSafe Jev as a chat provider', () => {
+    expect(() => getModelInstance('typesafe', 'key', 'jev-latest')).toThrow(
+      'Provider typesafe not supported'
     );
   });
 

@@ -743,6 +743,7 @@ PROVIDER_DEFAULT_ENDPOINTS = {
     "mistral_ai": ("api.mistral.ai", 443),
     "groq": ("api.groq.com", 443),
     "together": ("api.together.xyz", 443),
+    "typesafe": ("api.typesafe.ai", 443),
     "fireworks": ("api.fireworks.ai", 443),
     "perplexity": ("api.perplexity.ai", 443),
     "deepinfra": ("api.deepinfra.com", 443),

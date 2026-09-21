@@ -15,6 +15,7 @@ import {
 } from "./conversation";
 import { getChatTools } from "./tools";
 import { authorizeTelemetrySQLRouting } from "./telemetry-sql-routing";
+import { CHAT_PROVIDER_IDS } from "@/constants/chat-providers";
 
 // ==================== Provider Factories ====================
 
@@ -43,7 +44,9 @@ const providerFactories: Record<string, ProviderFactory> = {
 	orcarouter: (apiKey) => createOpenAI({ baseURL: "https://api.orcarouter.ai/v1", apiKey }),
 };
 
-const VALID_PROVIDERS = Object.keys(providerFactories);
+const VALID_PROVIDERS = CHAT_PROVIDER_IDS as readonly string[];
+
+export { CHAT_PROVIDER_IDS, isChatProvider } from "@/constants/chat-providers";
 
 export function getModelInstance(providerId: string, apiKey: string, modelName: string) {
 	if (!VALID_PROVIDERS.includes(providerId)) {

@@ -50,6 +50,7 @@ MODULE_NAME_MAP = {
     "firecrawl": "firecrawl",
     "letta": "letta_client",
     "together": "together",
+    "typesafe": "typesafe_sdk",
     "pydo": "pydo",
     "gradient": "gradient",
     "openai-agents": "agents",
@@ -108,6 +109,11 @@ INSTRUMENTOR_ALIASES = {
     "digitalocean": "pydo",
     "digital_ocean": "pydo",
     "do_gradient": "gradient",
+    "jev": "typesafe",
+    "typesafe-ai": "typesafe",
+    "typesafe_ai": "typesafe",
+    "typesafe_sdk": "typesafe",
+    "typesafe-sdk": "typesafe",
 }
 
 
@@ -181,6 +187,7 @@ INSTRUMENTOR_MAP = {
     "firecrawl": "openlit.instrumentation.firecrawl.FireCrawlInstrumentor",
     "letta": "openlit.instrumentation.letta.LettaInstrumentor",
     "together": "openlit.instrumentation.together.TogetherInstrumentor",
+    "typesafe": "openlit.instrumentation.typesafe.TypeSafeInstrumentor",
     "pydo": "openlit.instrumentation.pydo.PydoInstrumentor",
     "gradient": "openlit.instrumentation.gradient.GradientInstrumentor",
     "openai-agents": "openlit.instrumentation.openai_agents.OpenAIAgentsInstrumentor",

@@ -251,6 +251,7 @@ class SemanticConvention:
     # GenAI Operation Types (OTel Semconv)
     GEN_AI_OPERATION_TYPE_TEXT_COMPLETION = "text_completion"
     GEN_AI_OPERATION_TYPE_CHAT = "chat"
+    GEN_AI_OPERATION_TYPE_DECISION = "decision"
     GEN_AI_OPERATION_TYPE_TOOLS = "execute_tool"
     GEN_AI_OPERATION_TYPE_EMBEDDING = "embeddings"
     GEN_AI_OPERATION_TYPE_IMAGE = "image"
@@ -320,6 +321,10 @@ class SemanticConvention:
     OPENAI_RESPONSE_SERVICE_TIER = "openai.response.service_tier"
     OPENAI_RESPONSE_SYSTEM_FINGERPRINT = "openai.response.system_fingerprint"
     OPENAI_API_TYPE = "openai.api.type"  # "chat_completions" or "responses"
+    TYPESAFE_API_TYPE = "typesafe.api.type"
+    TYPESAFE_QUESTION_COUNT = "typesafe.question.count"
+    TYPESAFE_QUESTION_IDS = "typesafe.question.ids"
+    TYPESAFE_QUESTION_TYPES = "typesafe.question.types"
 
     # Backward compatibility aliases (deprecated, use OPENAI_* instead)
     GEN_AI_REQUEST_SERVICE_TIER = OPENAI_REQUEST_SERVICE_TIER
@@ -353,6 +358,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_FIRECRAWL = "firecrawl"
     GEN_AI_SYSTEM_LETTA = "letta"
     GEN_AI_SYSTEM_TOGETHER = "together"
+    GEN_AI_SYSTEM_TYPESAFE = "typesafe"
     GEN_AI_SYSTEM_DIGITALOCEAN = "digitalocean"
     GEN_AI_SYSTEM_OPENAI_AGENTS = "openai_agents"
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
