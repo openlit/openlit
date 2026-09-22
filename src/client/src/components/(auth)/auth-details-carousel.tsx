@@ -1,82 +1,82 @@
 import Image from "next/image";
 import getMessage from "@/constants/messages";
 import {
-	BarChart3,
-	BrainCircuit,
-	FlaskConical,
-	GitCompare,
-	Lock,
+	Activity,
+	Bot,
+	CircleDollarSign,
+	KeyRound,
 	MessageSquareText,
-	Search,
-	Shield,
-	Sparkles,
-	Zap,
+	MonitorCog,
 } from "lucide-react";
 
-const featureIcons = [Search, BarChart3, Shield, BrainCircuit, GitCompare, MessageSquareText, FlaskConical, Lock, Zap, Sparkles];
-
-const featureKeys: Array<{ title: keyof ReturnType<typeof getMessage>; desc: keyof ReturnType<typeof getMessage> }> = [
-	{ title: "AUTH_FEATURE_TRACING", desc: "AUTH_FEATURE_TRACING_DESC" },
-	{ title: "AUTH_FEATURE_ANALYTICS", desc: "AUTH_FEATURE_ANALYTICS_DESC" },
-	{ title: "AUTH_FEATURE_EVALS", desc: "AUTH_FEATURE_EVALS_DESC" },
-	{ title: "AUTH_FEATURE_JUDGE", desc: "AUTH_FEATURE_JUDGE_DESC" },
-	{ title: "AUTH_FEATURE_OPENGROUND", desc: "AUTH_FEATURE_OPENGROUND_DESC" },
-	{ title: "AUTH_FEATURE_PROMPT_HUB", desc: "AUTH_FEATURE_PROMPT_HUB_DESC" },
-	{ title: "AUTH_FEATURE_RULE_ENGINE", desc: "AUTH_FEATURE_RULE_ENGINE_DESC" },
-	{ title: "AUTH_FEATURE_VAULT", desc: "AUTH_FEATURE_VAULT_DESC" },
-	{ title: "AUTH_FEATURE_AGENTS", desc: "AUTH_FEATURE_AGENTS_DESC" },
-	{ title: "AUTH_FEATURE_OTEL", desc: "AUTH_FEATURE_OTEL_DESC" },
+const featureIcons = [
+	Activity,
+	MonitorCog,
+	MessageSquareText,
+	Bot,
+	KeyRound,
+	CircleDollarSign,
 ];
+
+const featureKeys = [
+	{ title: "AUTH_FEATURE_TRACING", desc: "AUTH_FEATURE_TRACING_DESC" },
+	{ title: "AUTH_FEATURE_EVALS", desc: "AUTH_FEATURE_EVALS_DESC" },
+	{ title: "AUTH_FEATURE_PROMPT_HUB", desc: "AUTH_FEATURE_PROMPT_HUB_DESC" },
+	{ title: "AUTH_FEATURE_AGENTS", desc: "AUTH_FEATURE_AGENTS_DESC" },
+	{ title: "AUTH_FEATURE_VAULT", desc: "AUTH_FEATURE_VAULT_DESC" },
+	{ title: "AUTH_FEATURE_ANALYTICS", desc: "AUTH_FEATURE_ANALYTICS_DESC" },
+] as const;
 
 export default function AuthDetailsCarousel() {
 	const messages = getMessage();
 	return (
-		<div className="relative hidden lg:flex flex-col justify-between bg-primary/[0.05] dark:bg-stone-950 p-10">
-			{/* Logo */}
-			<div className="flex items-center gap-3">
+		<div className="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-stone-950 p-10 text-stone-100 lg:flex xl:p-14">
+			<div
+				aria-hidden
+				className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(243,108,6,0.22),transparent_58%)]"
+			/>
+			<div className="relative flex items-center gap-3">
 				<Image
 					src="/images/logo.png"
-					alt="OpenLIT"
-					width="40"
-					height="40"
+					alt=""
+					width="32"
+					height="32"
 					className="object-cover"
 				/>
-				<span className="text-lg font-bold text-stone-900 dark:text-stone-100">
-					OpenLIT
-				</span>
+				<span className="text-base font-semibold tracking-tight">OpenLIT</span>
 			</div>
 
-			{/* Feature Grid */}
-			<div className="flex-1 flex items-center justify-center">
-				<div className="grid grid-cols-2 gap-4 max-w-lg w-full">
-					{featureKeys.map((feature, i) => {
-						const Icon = featureIcons[i];
+			<div className="relative max-w-full">
+				<p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
+					{messages.AUTH_PANEL_EYEBROW}
+				</p>
+				<h2 className="mt-4 text-3xl font-semibold tracking-tight text-white xl:text-4xl">
+					{messages.AUTH_PANEL_TITLE}
+				</h2>
+				<p className="mt-4 text-sm leading-6 text-stone-400">
+					{messages.AUTH_PANEL_BODY}
+				</p>
+				<ul className="mt-10 space-y-5">
+					{featureKeys.map((feature, index) => {
+						const Icon = featureIcons[index];
 						return (
-							<div
-								key={feature.title}
-								className="flex items-start gap-3 p-3 rounded-lg bg-white/60 dark:bg-stone-900/50 border border-stone-200/50 dark:border-stone-800/50"
-							>
-								<div className="shrink-0 mt-0.5 p-1.5 rounded-md bg-primary/10 dark:bg-primary/20">
-									<Icon className="h-4 w-4 text-primary" />
-								</div>
+							<li key={feature.title} className="flex items-start gap-3">
+								<Icon className="mt-0.5 size-4 shrink-0 text-primary" />
 								<div className="min-w-0">
-									<p className="text-sm font-medium text-stone-900 dark:text-stone-100 leading-tight">
-										{messages[feature.title] as string}
+									<p className="text-sm font-medium text-stone-100">
+										{messages[feature.title]}
 									</p>
-									<p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 leading-snug">
-										{messages[feature.desc] as string}
+									<p className="mt-0.5 text-sm leading-5 text-stone-400">
+										{messages[feature.desc]}
 									</p>
 								</div>
-							</div>
+							</li>
 						);
 					})}
-				</div>
+				</ul>
 			</div>
 
-			{/* Footer */}
-			<p className="text-xs text-stone-500 dark:text-stone-400 text-center">
-				{messages.AUTH_FOOTER}
-			</p>
+			<p className="relative text-xs text-stone-500">{messages.AUTH_FOOTER}</p>
 		</div>
 	);
 }
