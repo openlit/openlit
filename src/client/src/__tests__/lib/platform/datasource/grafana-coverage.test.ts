@@ -1183,6 +1183,20 @@ describe("TempoAdapter: session-2 branch coverage", () => {
 		expect(q).toContain('name = ""');
 	});
 
+	it("filterToTraceQL maps Field SpanId/TraceId onto TraceQL intrinsics", () => {
+		const q = buildTempoSearchQuery({
+			signal: "traces",
+			timeRange: window,
+			aiSelector: false,
+			filters: [
+				{ target: "field", key: "SpanId", op: "eq", value: "222942bfa699b630" },
+				{ target: "field", key: "TraceId", op: "eq", value: "abc" },
+			],
+		});
+		expect(q).toContain('span:id = "222942bfa699b630"');
+		expect(q).toContain('trace:id = "abc"');
+	});
+
 	it("filterToTraceQL treats a missing status filter value as a status != error clause", () => {
 		const q = buildTempoSearchQuery({
 			signal: "traces",

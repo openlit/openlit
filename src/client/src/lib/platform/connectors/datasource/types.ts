@@ -107,9 +107,10 @@ export type FilterOp =
 /**
  * A normalized attribute predicate. `target: "spanName"` matches on the span
  * name (or metric name for the metrics signal) rather than an attribute map.
+ * `target: "field"` matches a vendor identifier column (SpanId, TraceId, …).
  */
 export interface NormalizedFilter {
-	target: "attribute" | "spanName" | "status" | "duration";
+	target: "attribute" | "spanName" | "status" | "duration" | "field";
 	scope?: AttributeScope;
 	key?: string;
 	op: FilterOp;

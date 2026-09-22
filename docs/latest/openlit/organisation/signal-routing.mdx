@@ -93,7 +93,7 @@ Regardless of signal routing:
 - Dashboard / board definitions and widget layout metadata  
 - Rules, vault secrets materialization, controller-derived intelligence  
 
-Raw OTLP **write** paths (SDK exporters, collectors) are separate from these **read** connectors. To mirror only AI telemetry into ClickHouse, see the [OTel Collector AI filter recipe](https://github.com/openlit/openlit/blob/main/assets/otel-collector-ai-filter.yaml).
+Raw OTLP **write** paths (SDK exporters, optional sidecar collectors) are separate from these **read** connectors. Send OTLP into OpenLIT on `:4317` / `:4318` — see the [OTLP receiver](/latest/openlit/otlp-receiver). To forward from a Collector you operate, use the [sidecar collector example](https://github.com/openlit/openlit/blob/main/assets/otel-collector-config.yaml).
 
 ## Permissions and audit
 

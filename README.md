@@ -356,16 +356,21 @@ Your telemetry can flow through the OpenTelemetry ecosystem:
 
 ```mermaid
 flowchart TD
-    A["AI App / AI Agent"] -->|OpenTelemetry| C[OpenTelemetry Collector]
-    C --> B[OpenLIT Backend]
+    A["AI App / AI Agent"] -->|OTLP| R[OpenLIT OTLP receiver]
+    A -->|optional sidecar| C[Your OpenTelemetry Collector]
+    C --> R
     C --> O["Other OTel backends<br/>(Datadog, Grafana, Honeycomb, ...)"]
+    R --> B[ClickHouse]
     B --> D[OpenLIT Dashboard]
 
     style A fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style R fill:#F97316,stroke:#7C2D12,color:#fff
     style C fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
-    style B fill:#F97316,stroke:#7C2D12,color:#fff
+    style B fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
     style D fill:#F97316,stroke:#7C2D12,color:#fff
 ```
+
+OpenLIT listens for OTLP on `:4317` (gRPC) and `:4318` (HTTP). A bundled Collector is not required. You can still put your own Collector in front for fan-out or processing.
 
 This means you can integrate OpenLIT into an existing OpenTelemetry architecture instead of replacing it.
 
@@ -437,12 +442,12 @@ flowchart TD
         direction LR
         Agent --> LLM --> Tools --> RAG --> DB
     end
-    App -->|OpenTelemetry| Collector[OpenTelemetry Collector]
-    Collector --> CH[(ClickHouse)]
+    App -->|OTLP| Receiver[OpenLIT OTLP receiver]
+    Receiver --> CH[(ClickHouse)]
     CH --> Dash[OpenLIT Dashboard]
 
     style App fill:#1F2937,stroke:#F97316,stroke-width:2px,color:#fff
-    style Collector fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style Receiver fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
     style CH fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
     style Dash fill:#F97316,stroke:#7C2D12,color:#fff
 ```

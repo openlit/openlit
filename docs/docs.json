@@ -42,6 +42,7 @@
             "pages": [
               "latest/overview",
               "latest/openlit/installation",
+              "latest/openlit/otlp-receiver",
               {
                 "group": "Quickstarts",
                 "icon": "bolt",
