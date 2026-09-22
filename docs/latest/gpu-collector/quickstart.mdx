@@ -123,7 +123,7 @@ services:
     environment:
       OTEL_SERVICE_NAME: my-app
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://openlit:4318
     deploy:
       resources:
         reservations:
@@ -132,7 +132,7 @@ services:
               count: all
               capabilities: [gpu]
     depends_on:
-      - otel-collector
+      - openlit
     restart: always
 ```
 

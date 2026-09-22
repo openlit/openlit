@@ -103,7 +103,7 @@ env:
   - name: OTEL_RESOURCE_ATTRIBUTES
     value: "host.name=$(K8S_NODE_NAME),k8s.node.name=$(K8S_NODE_NAME)"
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
-    value: "http://otel-collector:4317"
+    value: "http://openlit:4318"
   # Optional when cloud auto-detect is unavailable (on-prem / self-managed):
   # - name: K8S_CLUSTER_NAME
   #   value: my-cluster
@@ -145,10 +145,10 @@ On EKS, pods without `hostNetwork` may fail IMDSv2 when the node `httpPutRespons
 
 ## Common configurations
 
-### Minimal - send to a local OTel Collector
+### Minimal - send to OpenLIT or any OTLP endpoint
 
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
 ./opentelemetry-gpu-collector
 ```
 

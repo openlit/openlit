@@ -4,7 +4,7 @@ sidebarTitle: "Overview"
 description: "The command-line interface for OpenLIT - observe coding agents today, control the whole platform tomorrow"
 ---
 
-The **`openlit` CLI** is a single Go binary that connects your local tooling to an OpenLIT instance. Today it ships first-class observability for AI **coding agents** - Claude Code, Cursor, and Codex - by wiring into each vendor's hook system, normalizing events onto OpenTelemetry's `gen_ai.*` and OpenLIT's `coding_agent.*` semantic conventions, and exporting them via OTLP to your collector.
+The **`openlit` CLI** is a single Go binary that connects your local tooling to an OpenLIT instance. Today it ships first-class observability for AI **coding agents** - Claude Code, Cursor, and Codex - by wiring into each vendor's hook system, normalizing events onto OpenTelemetry's `gen_ai.*` and OpenLIT's `coding_agent.*` semantic conventions, and exporting them via OTLP to OpenLIT's [OTLP receiver](/latest/openlit/otlp-receiver).
 
 It talks **only** to your OpenLIT endpoint. There is no managed cloud - your telemetry stays on your infrastructure.
 

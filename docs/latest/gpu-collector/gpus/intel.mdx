@@ -35,7 +35,7 @@ docker run -d \
   --pid=host \
   -e OTEL_SERVICE_NAME=my-app \
   -e OTEL_RESOURCE_ATTRIBUTES='deployment.environment=production' \
-  -e OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 \
+  -e OTEL_EXPORTER_OTLP_ENDPOINT=http://openlit:4318 \
   ghcr.io/openlit/otel-gpu-collector:latest
 ```
 
@@ -51,7 +51,7 @@ services:
     environment:
       OTEL_SERVICE_NAME: my-app
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://openlit:4318
     devices:
       - /dev/dri:/dev/dri
     restart: always
@@ -84,7 +84,7 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=production
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-collector.monitoring.svc.cluster.local:4318
+              value: http://openlit.openlit.svc.cluster.local:4318
           securityContext:
             privileged: false
           volumeMounts:
