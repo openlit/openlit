@@ -1685,7 +1685,13 @@ export const PERSONAL_ORGANISATION = "Personal";
 
 // Auth
 export const AUTH_WELCOME = "Welcome to OpenLIT";
-export const AUTH_SUBTITLE = "Open Source Platform for AI Engineering";
+export const AUTH_SUBTITLE = "Open source Agent Harness Engineering platform";
+export const AUTH_PANEL_EYEBROW = "Agent Harness Engineering";
+export const AUTH_PANEL_TITLE = "Trace, evaluate, and operate AI agents";
+export const AUTH_PANEL_BODY =
+	"LLM tracing, evaluations, prompt management, and cost tracking in one open-source platform.";
+export const TALK_TO_FOUNDER = "Talk to founder";
+export const TALK_TO_FOUNDER_HINT = "Schedule a 30-minute call";
 export const AUTH_SIGNING_IN = "Signing in...";
 export const AUTH_CONTINUE_WITH_GOOGLE = "Continue with Google";
 export const AUTH_CONTINUE_WITH_GITHUB = "Continue with Github";
@@ -1700,7 +1706,7 @@ export const AUTH_NO_ACCOUNT = "Don't have an account?";
 export const AUTH_HAVE_ACCOUNT = "Already have an account?";
 export const AUTH_GITHUB = "Github";
 export const AUTH_DOCUMENTATION = "Documentation";
-export const AUTH_FOOTER = "Open Source AI Observability Platform";
+export const AUTH_FOOTER = "Open source, built on OpenTelemetry";
 export const AUTH_ERROR_ACCESS_DENIED = "Access denied for this account.";
 export const AUTH_ERROR_TRY_DIFFERENT = "Try signing with a different account.";
 export const AUTH_ERROR_CONFIRM_IDENTITY = "To confirm your identity, sign in with the same account you used originally.";
@@ -1712,24 +1718,24 @@ export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
 export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
 
 // Auth feature highlights
-export const AUTH_FEATURE_TRACING = "End-to-End Tracing";
-export const AUTH_FEATURE_TRACING_DESC = "Full request tracing across LLM providers";
-export const AUTH_FEATURE_ANALYTICS = "Cost & Token Analytics";
-export const AUTH_FEATURE_ANALYTICS_DESC = "Real-time cost tracking and token usage";
-export const AUTH_FEATURE_EVALS = "11 Evaluation Types";
-export const AUTH_FEATURE_EVALS_DESC = "Hallucination, bias, toxicity, safety & more";
+export const AUTH_FEATURE_TRACING = "LLM tracing";
+export const AUTH_FEATURE_TRACING_DESC = "OpenTelemetry traces for every call, tool, and retrieval";
+export const AUTH_FEATURE_ANALYTICS = "Cost and latency";
+export const AUTH_FEATURE_ANALYTICS_DESC = "Track spend, tokens, and speed for every AI workload";
+export const AUTH_FEATURE_EVALS = "Evaluations";
+export const AUTH_FEATURE_EVALS_DESC = "LLM-as-a-judge, heuristics, and human review";
 export const AUTH_FEATURE_JUDGE = "LLM-as-a-Judge";
 export const AUTH_FEATURE_JUDGE_DESC = "Automated quality scoring with any LLM";
 export const AUTH_FEATURE_OPENGROUND = "OpenGround";
 export const AUTH_FEATURE_OPENGROUND_DESC = "Compare LLMs side-by-side on cost & quality";
 export const AUTH_FEATURE_PROMPT_HUB = "Prompt Hub";
-export const AUTH_FEATURE_PROMPT_HUB_DESC = "Version, manage, and deploy prompts";
+export const AUTH_FEATURE_PROMPT_HUB_DESC = "Version and deploy prompts without shipping app code";
 export const AUTH_FEATURE_RULE_ENGINE = "Rule Engine";
 export const AUTH_FEATURE_RULE_ENGINE_DESC = "Conditional context and prompt retrieval";
 export const AUTH_FEATURE_VAULT = "Vault";
-export const AUTH_FEATURE_VAULT_DESC = "Secure secrets and API key management";
-export const AUTH_FEATURE_AGENTS = "Agents";
-export const AUTH_FEATURE_AGENTS_DESC = "Manage and operate AI agents from a single hub";
+export const AUTH_FEATURE_VAULT_DESC = "Store and rotate LLM API keys outside application code";
+export const AUTH_FEATURE_AGENTS = "Agent monitoring";
+export const AUTH_FEATURE_AGENTS_DESC = "See tools, cost, and outcomes for coding agents";
 export const AUTH_FEATURE_OTEL = "OpenTelemetry Native";
 export const AUTH_FEATURE_OTEL_DESC = "Built on open standards, no vendor lock-in";
 
