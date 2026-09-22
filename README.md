@@ -538,15 +538,33 @@ See [LICENSE](https://github.com/openlit/openlit/blob/main/LICENSE) for details.
 
 # 🙇 Acknowledgments
 
-This project is proudly supported by:
+## Sponsors
+
+### Silver
+
+<p>
+<a href="https://fluxionai.world/register?source=github&campaign=github-openlit&promo=OPENLIT" target="_blank">
+  <img src="docs/images/fluxion-ai-logo.png" alt="Fluxion AI" height="72">
+</a>
+</p>
+
+### Bronze
 
 <p>
 <a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=openlit" target="_blank">
-  <img src="docs/images/testmu-logo.png" alt="TestMu" height="80">
+  <img src="docs/images/testmu-logo.png" alt="TestMu AI" height="80">
 </a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</p>
+
+## Deployment partners
+
+<p>
 <a href="https://www.digitalocean.com/">
   <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" alt="DigitalOcean" height="80" width="200">
+</a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://www.hostg.xyz/aff_c?offer_id=815&aff_id=243668&url_id=6792">
+  <img src="https://assets.hostinger.com/vps/deploy.svg" alt="Deploy on Hostinger">
 </a>
 </p>
 
@@ -555,8 +573,10 @@ This project is proudly supported by:
 # 💻 Contributors
 
 <a href="https://github.com/openlit/openlit/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=openlit/openlit" alt="OpenLIT contributors">
+  <img src="https://contrib.rocks/image?repo=openlit/openlit&max=500&columns=20" alt="OpenLIT contributors" width="100%">
 </a>
+
+Names for the same contributors are on [openlit.io/about-us](https://openlit.io/about-us).
 
 ---
 
