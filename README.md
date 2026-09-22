@@ -533,15 +533,33 @@ See [LICENSE](https://github.com/openlit/openlit/blob/main/LICENSE) for details.
 
 # 🙇 Acknowledgments
 
-This project is proudly supported by:
+## Sponsors
+
+### Silver
+
+<p>
+<a href="https://fluxionai.world/register?source=github&campaign=github-openlit&promo=OPENLIT" target="_blank">
+  <img src="docs/images/fluxion-ai-logo.png" alt="Fluxion AI" height="72">
+</a>
+</p>
+
+### Bronze
 
 <p>
 <a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=openlit" target="_blank">
-  <img src="docs/images/testmu-logo.png" alt="TestMu" height="80">
+  <img src="docs/images/testmu-logo.png" alt="TestMu AI" height="80">
 </a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</p>
+
+## Deployment partners
+
+<p>
 <a href="https://www.digitalocean.com/">
   <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" alt="DigitalOcean" height="80" width="200">
+</a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://www.hostg.xyz/aff_c?offer_id=815&aff_id=243668&url_id=6792">
+  <img src="https://assets.hostinger.com/vps/deploy.svg" alt="Deploy on Hostinger">
 </a>
 </p>
 
@@ -549,9 +567,156 @@ This project is proudly supported by:
 
 # 💻 Contributors
 
-<a href="https://github.com/openlit/openlit/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=openlit/openlit" alt="OpenLIT contributors">
-</a>
+Everyone who has contributed code to [openlit/openlit](https://github.com/openlit/openlit), the same list shown on [openlit.io/about-us](https://openlit.io/about-us).
+
+<table>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/Achanandhi-M"><img src="https://github.com/Achanandhi-M.png" width="56" height="56" alt="Achanandhi-M"/><br/><sub>Achanandhi-M</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Aftabbs"><img src="https://github.com/Aftabbs.png" width="56" height="56" alt="Aftabbs"/><br/><sub>Aftabbs</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/AIRobotNic"><img src="https://github.com/AIRobotNic.png" width="56" height="56" alt="AIRobotNic"/><br/><sub>AIRobotNic</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Akaban"><img src="https://github.com/Akaban.png" width="56" height="56" alt="Akaban"/><br/><sub>Akaban</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/akiseleva-dev"><img src="https://github.com/akiseleva-dev.png" width="56" height="56" alt="akiseleva-dev"/><br/><sub>akiseleva-dev</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Alex3k"><img src="https://github.com/Alex3k.png" width="56" height="56" alt="Alex3k"/><br/><sub>Alex3k</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/AmadNaseem"><img src="https://github.com/AmadNaseem.png" width="56" height="56" alt="AmadNaseem"/><br/><sub>AmadNaseem</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/AmanAgarwal041"><img src="https://github.com/AmanAgarwal041.png" width="56" height="56" alt="AmanAgarwal041"/><br/><sub>AmanAgarwal041</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/amanagarwal042"><img src="https://github.com/amanagarwal042.png" width="56" height="56" alt="amanagarwal042"/><br/><sub>amanagarwal042</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/AmirF194"><img src="https://github.com/AmirF194.png" width="56" height="56" alt="AmirF194"/><br/><sub>AmirF194</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/amoha-enwithai"><img src="https://github.com/amoha-enwithai.png" width="56" height="56" alt="amoha-enwithai"/><br/><sub>amoha-enwithai</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Anai-Guo"><img src="https://github.com/Anai-Guo.png" width="56" height="56" alt="Anai-Guo"/><br/><sub>Anai-Guo</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/andrei-trandafir"><img src="https://github.com/andrei-trandafir.png" width="56" height="56" alt="andrei-trandafir"/><br/><sub>andrei-trandafir</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/aniketwaghh"><img src="https://github.com/aniketwaghh.png" width="56" height="56" alt="aniketwaghh"/><br/><sub>aniketwaghh</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/artur-nohup"><img src="https://github.com/artur-nohup.png" width="56" height="56" alt="artur-nohup"/><br/><sub>artur-nohup</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/bajrangostwal"><img src="https://github.com/bajrangostwal.png" width="56" height="56" alt="bajrangostwal"/><br/><sub>bajrangostwal</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/Barry2llen"><img src="https://github.com/Barry2llen.png" width="56" height="56" alt="Barry2llen"/><br/><sub>Barry2llen</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Bassel-Elwakil"><img src="https://github.com/Bassel-Elwakil.png" width="56" height="56" alt="Bassel-Elwakil"/><br/><sub>Bassel-Elwakil</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/benmezger"><img src="https://github.com/benmezger.png" width="56" height="56" alt="benmezger"/><br/><sub>benmezger</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/BetterAndBetterII"><img src="https://github.com/BetterAndBetterII.png" width="56" height="56" alt="BetterAndBetterII"/><br/><sub>BetterAndBetterII</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/bvjebin"><img src="https://github.com/bvjebin.png" width="56" height="56" alt="bvjebin"/><br/><sub>bvjebin</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Calvin-Huang"><img src="https://github.com/Calvin-Huang.png" width="56" height="56" alt="Calvin-Huang"/><br/><sub>Calvin-Huang</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/cbirkhold"><img src="https://github.com/cbirkhold.png" width="56" height="56" alt="cbirkhold"/><br/><sub>cbirkhold</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/chaizhenhua"><img src="https://github.com/chaizhenhua.png" width="56" height="56" alt="chaizhenhua"/><br/><sub>chaizhenhua</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/CherishCai"><img src="https://github.com/CherishCai.png" width="56" height="56" alt="CherishCai"/><br/><sub>CherishCai</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/cherrycove"><img src="https://github.com/cherrycove.png" width="56" height="56" alt="cherrycove"/><br/><sub>cherrycove</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/chibuike-okpara"><img src="https://github.com/chibuike-okpara.png" width="56" height="56" alt="chibuike-okpara"/><br/><sub>chibuike-okpara</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/chocoHacks33"><img src="https://github.com/chocoHacks33.png" width="56" height="56" alt="chocoHacks33"/><br/><sub>chocoHacks33</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/chris-araki"><img src="https://github.com/chris-araki.png" width="56" height="56" alt="chris-araki"/><br/><sub>chris-araki</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/ChrisBlaa"><img src="https://github.com/ChrisBlaa.png" width="56" height="56" alt="ChrisBlaa"/><br/><sub>ChrisBlaa</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/chriskhanhtran"><img src="https://github.com/chriskhanhtran.png" width="56" height="56" alt="chriskhanhtran"/><br/><sub>chriskhanhtran</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/citizen204"><img src="https://github.com/citizen204.png" width="56" height="56" alt="citizen204"/><br/><sub>citizen204</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/cooleryu"><img src="https://github.com/cooleryu.png" width="56" height="56" alt="cooleryu"/><br/><sub>cooleryu</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/danchev"><img src="https://github.com/danchev.png" width="56" height="56" alt="danchev"/><br/><sub>danchev</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/danilbogdan"><img src="https://github.com/danilbogdan.png" width="56" height="56" alt="danilbogdan"/><br/><sub>danilbogdan</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/dbirks"><img src="https://github.com/dbirks.png" width="56" height="56" alt="dbirks"/><br/><sub>dbirks</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Dheeraj-Bhaskaruni"><img src="https://github.com/Dheeraj-Bhaskaruni.png" width="56" height="56" alt="Dheeraj-Bhaskaruni"/><br/><sub>Dheeraj-Bhaskaruni</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/didlawowo"><img src="https://github.com/didlawowo.png" width="56" height="56" alt="didlawowo"/><br/><sub>didlawowo</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/dogxii"><img src="https://github.com/dogxii.png" width="56" height="56" alt="dogxii"/><br/><sub>dogxii</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/ebarkhordar"><img src="https://github.com/ebarkhordar.png" width="56" height="56" alt="ebarkhordar"/><br/><sub>ebarkhordar</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/eragon512"><img src="https://github.com/eragon512.png" width="56" height="56" alt="eragon512"/><br/><sub>eragon512</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/ericcurtin"><img src="https://github.com/ericcurtin.png" width="56" height="56" alt="ericcurtin"/><br/><sub>ericcurtin</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/ethanknights"><img src="https://github.com/ethanknights.png" width="56" height="56" alt="ethanknights"/><br/><sub>ethanknights</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/fazd"><img src="https://github.com/fazd.png" width="56" height="56" alt="fazd"/><br/><sub>fazd</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/FBISiri"><img src="https://github.com/FBISiri.png" width="56" height="56" alt="FBISiri"/><br/><sub>FBISiri</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/feiiiiii5"><img src="https://github.com/feiiiiii5.png" width="56" height="56" alt="feiiiiii5"/><br/><sub>feiiiiii5</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/fpreiss"><img src="https://github.com/fpreiss.png" width="56" height="56" alt="fpreiss"/><br/><sub>fpreiss</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/giulio-leone"><img src="https://github.com/giulio-leone.png" width="56" height="56" alt="giulio-leone"/><br/><sub>giulio-leone</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/Goutham-Annem"><img src="https://github.com/Goutham-Annem.png" width="56" height="56" alt="Goutham-Annem"/><br/><sub>Goutham-Annem</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Gthejesraj"><img src="https://github.com/Gthejesraj.png" width="56" height="56" alt="Gthejesraj"/><br/><sub>Gthejesraj</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/guyrosin"><img src="https://github.com/guyrosin.png" width="56" height="56" alt="guyrosin"/><br/><sub>guyrosin</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/GVengelen"><img src="https://github.com/GVengelen.png" width="56" height="56" alt="GVengelen"/><br/><sub>GVengelen</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Gwenn-LR"><img src="https://github.com/Gwenn-LR.png" width="56" height="56" alt="Gwenn-LR"/><br/><sub>Gwenn-LR</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/hagen1778"><img src="https://github.com/hagen1778.png" width="56" height="56" alt="hagen1778"/><br/><sub>hagen1778</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Henildiyora"><img src="https://github.com/Henildiyora.png" width="56" height="56" alt="Henildiyora"/><br/><sub>Henildiyora</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/icohangar-ops"><img src="https://github.com/icohangar-ops.png" width="56" height="56" alt="icohangar-ops"/><br/><sub>icohangar-ops</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/ijkbytes"><img src="https://github.com/ijkbytes.png" width="56" height="56" alt="ijkbytes"/><br/><sub>ijkbytes</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/imran-siddique"><img src="https://github.com/imran-siddique.png" width="56" height="56" alt="imran-siddique"/><br/><sub>imran-siddique</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/imxinde"><img src="https://github.com/imxinde.png" width="56" height="56" alt="imxinde"/><br/><sub>imxinde</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/ishachinniah"><img src="https://github.com/ishachinniah.png" width="56" height="56" alt="ishachinniah"/><br/><sub>ishachinniah</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/ishanjainn"><img src="https://github.com/ishanjainn.png" width="56" height="56" alt="ishanjainn"/><br/><sub>ishanjainn</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/jannikmaierhoefer"><img src="https://github.com/jannikmaierhoefer.png" width="56" height="56" alt="jannikmaierhoefer"/><br/><sub>jannikmaierhoefer</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/jaysheeldodia"><img src="https://github.com/jaysheeldodia.png" width="56" height="56" alt="jaysheeldodia"/><br/><sub>jaysheeldodia</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/josefonte"><img src="https://github.com/josefonte.png" width="56" height="56" alt="josefonte"/><br/><sub>josefonte</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/JoshKappler"><img src="https://github.com/JoshKappler.png" width="56" height="56" alt="JoshKappler"/><br/><sub>JoshKappler</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/jpv-costa"><img src="https://github.com/jpv-costa.png" width="56" height="56" alt="jpv-costa"/><br/><sub>jpv-costa</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/kaspernissen"><img src="https://github.com/kaspernissen.png" width="56" height="56" alt="kaspernissen"/><br/><sub>kaspernissen</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Krishnachaitanyakc"><img src="https://github.com/Krishnachaitanyakc.png" width="56" height="56" alt="Krishnachaitanyakc"/><br/><sub>Krishnachaitanyakc</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/kujjwal02"><img src="https://github.com/kujjwal02.png" width="56" height="56" alt="kujjwal02"/><br/><sub>kujjwal02</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/kuswardhanietidims-svg"><img src="https://github.com/kuswardhanietidims-svg.png" width="56" height="56" alt="kuswardhanietidims-svg"/><br/><sub>kuswardhanietidims-svg</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/llukito"><img src="https://github.com/llukito.png" width="56" height="56" alt="llukito"/><br/><sub>llukito</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/luisangelrod"><img src="https://github.com/luisangelrod.png" width="56" height="56" alt="luisangelrod"/><br/><sub>luisangelrod</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/manan-tech"><img src="https://github.com/manan-tech.png" width="56" height="56" alt="manan-tech"/><br/><sub>manan-tech</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/mfahadyousaf"><img src="https://github.com/mfahadyousaf.png" width="56" height="56" alt="mfahadyousaf"/><br/><sub>mfahadyousaf</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/mikemikimike"><img src="https://github.com/mikemikimike.png" width="56" height="56" alt="mikemikimike"/><br/><sub>mikemikimike</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/minimAluminiumalism"><img src="https://github.com/minimAluminiumalism.png" width="56" height="56" alt="minimAluminiumalism"/><br/><sub>minimAluminiumalism</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/MohanadAbugharbia"><img src="https://github.com/MohanadAbugharbia.png" width="56" height="56" alt="MohanadAbugharbia"/><br/><sub>MohanadAbugharbia</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/morgan-coded"><img src="https://github.com/morgan-coded.png" width="56" height="56" alt="morgan-coded"/><br/><sub>morgan-coded</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/naman-jain-15"><img src="https://github.com/naman-jain-15.png" width="56" height="56" alt="naman-jain-15"/><br/><sub>naman-jain-15</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/natez56"><img src="https://github.com/natez56.png" width="56" height="56" alt="natez56"/><br/><sub>natez56</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/NaveenKumarReddy8"><img src="https://github.com/NaveenKumarReddy8.png" width="56" height="56" alt="NaveenKumarReddy8"/><br/><sub>NaveenKumarReddy8</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Nidhin117"><img src="https://github.com/Nidhin117.png" width="56" height="56" alt="Nidhin117"/><br/><sub>Nidhin117</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/nirogu"><img src="https://github.com/nirogu.png" width="56" height="56" alt="nirogu"/><br/><sub>nirogu</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/nitin302"><img src="https://github.com/nitin302.png" width="56" height="56" alt="nitin302"/><br/><sub>nitin302</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Noone9029"><img src="https://github.com/Noone9029.png" width="56" height="56" alt="Noone9029"/><br/><sub>Noone9029</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/noy-solvin"><img src="https://github.com/noy-solvin.png" width="56" height="56" alt="noy-solvin"/><br/><sub>noy-solvin</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/obielin"><img src="https://github.com/obielin.png" width="56" height="56" alt="obielin"/><br/><sub>obielin</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/octo-patch"><img src="https://github.com/octo-patch.png" width="56" height="56" alt="octo-patch"/><br/><sub>octo-patch</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/okaditya84"><img src="https://github.com/okaditya84.png" width="56" height="56" alt="okaditya84"/><br/><sub>okaditya84</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Oxygen56"><img src="https://github.com/Oxygen56.png" width="56" height="56" alt="Oxygen56"/><br/><sub>Oxygen56</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/pacocartones"><img src="https://github.com/pacocartones.png" width="56" height="56" alt="pacocartones"/><br/><sub>pacocartones</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/patcher99"><img src="https://github.com/patcher99.png" width="56" height="56" alt="patcher99"/><br/><sub>patcher99</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/phueper"><img src="https://github.com/phueper.png" width="56" height="56" alt="phueper"/><br/><sub>phueper</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/pitonic"><img src="https://github.com/pitonic.png" width="56" height="56" alt="pitonic"/><br/><sub>pitonic</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/pragnyanramtha"><img src="https://github.com/pragnyanramtha.png" width="56" height="56" alt="pragnyanramtha"/><br/><sub>pragnyanramtha</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/pratiksinghchauhan"><img src="https://github.com/pratiksinghchauhan.png" width="56" height="56" alt="pratiksinghchauhan"/><br/><sub>pratiksinghchauhan</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/praveen5959"><img src="https://github.com/praveen5959.png" width="56" height="56" alt="praveen5959"/><br/><sub>praveen5959</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/psbuilds"><img src="https://github.com/psbuilds.png" width="56" height="56" alt="psbuilds"/><br/><sub>psbuilds</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/RinZ27"><img src="https://github.com/RinZ27.png" width="56" height="56" alt="RinZ27"/><br/><sub>RinZ27</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/RitwijParmar"><img src="https://github.com/RitwijParmar.png" width="56" height="56" alt="RitwijParmar"/><br/><sub>RitwijParmar</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/ron-42"><img src="https://github.com/ron-42.png" width="56" height="56" alt="ron-42"/><br/><sub>ron-42</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/roy-tong"><img src="https://github.com/roy-tong.png" width="56" height="56" alt="roy-tong"/><br/><sub>roy-tong</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/rudimk"><img src="https://github.com/rudimk.png" width="56" height="56" alt="rudimk"/><br/><sub>rudimk</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/saivedant169"><img src="https://github.com/saivedant169.png" width="56" height="56" alt="saivedant169"/><br/><sub>saivedant169</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/SelfParody"><img src="https://github.com/SelfParody.png" width="56" height="56" alt="SelfParody"/><br/><sub>SelfParody</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/ShouryaRSharma"><img src="https://github.com/ShouryaRSharma.png" width="56" height="56" alt="ShouryaRSharma"/><br/><sub>ShouryaRSharma</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/silvercondor"><img src="https://github.com/silvercondor.png" width="56" height="56" alt="silvercondor"/><br/><sub>silvercondor</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/thekishandev"><img src="https://github.com/thekishandev.png" width="56" height="56" alt="thekishandev"/><br/><sub>thekishandev</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/Tyagiquamar"><img src="https://github.com/Tyagiquamar.png" width="56" height="56" alt="Tyagiquamar"/><br/><sub>Tyagiquamar</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/UstatleenKaur"><img src="https://github.com/UstatleenKaur.png" width="56" height="56" alt="UstatleenKaur"/><br/><sub>UstatleenKaur</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/VanshikaMehta18"><img src="https://github.com/VanshikaMehta18.png" width="56" height="56" alt="VanshikaMehta18"/><br/><sub>VanshikaMehta18</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/VedantMadane"><img src="https://github.com/VedantMadane.png" width="56" height="56" alt="VedantMadane"/><br/><sub>VedantMadane</sub></a></td>
+</tr>
+<tr>
+<td align="center" valign="top"><a href="https://github.com/wenchun-tw"><img src="https://github.com/wenchun-tw.png" width="56" height="56" alt="wenchun-tw"/><br/><sub>wenchun-tw</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/yehia2amer"><img src="https://github.com/yehia2amer.png" width="56" height="56" alt="yehia2amer"/><br/><sub>yehia2amer</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/zeroshotmind"><img src="https://github.com/zeroshotmind.png" width="56" height="56" alt="zeroshotmind"/><br/><sub>zeroshotmind</sub></a></td>
+<td align="center" valign="top"><a href="https://github.com/openlit/openlit/blob/main/CONTRIBUTING.md"><img src="https://img.shields.io/badge/-You%3F-F97316?style=flat-square" alt="Become a contributor"/><br/><sub>You?</sub></a></td>
+</tr>
+</table>
 
 ---
 
