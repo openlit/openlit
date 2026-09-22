@@ -58,7 +58,7 @@ flowchart TB;
       <Tabs>
         <Tab title="Python">
           <Note>
-          OpenLIT captures prompt and completion content on spans by default (`capture_message_content=True`). Pass `capture_message_content=False` to keep that content out of your traces, `max_content_length` to truncate it, or `guards=[openlit.PII(action="redact")]` to redact sensitive values before they are exported. See [Disable Tracing of Content](/latest/sdk/features/tracing#disable-tracing-of-content), [Limit Content Length](/latest/sdk/features/tracing#limit-content-length), [Guardrails](/latest/sdk/features/guardrails) and the full [Configuration](/latest/sdk/configuration) reference.
+          OpenLIT captures prompt and completion content on spans by default (`capture_message_content=True`). Pass `capture_message_content=False` to keep that content out of your traces, `max_content_length` to truncate it, or `guards=[openlit.PII(action="redact")]` to redact sensitive values in prompts before they are sent and recorded. See [Disable Tracing of Content](/latest/sdk/features/tracing#disable-tracing-of-content), [Limit Content Length](/latest/sdk/features/tracing#limit-content-length), [Guardrails](/latest/sdk/features/guardrails) and the full [Configuration](/latest/sdk/configuration) reference.
           </Note>
           <Tabs>
             <Tab title="Manual instrumentation">
