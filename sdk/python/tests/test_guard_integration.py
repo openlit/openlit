@@ -297,6 +297,55 @@ class TestPreflightIntegration:
         assert new_kwargs["messages"][2] is None
         assert new_kwargs["messages"][3] == {"role": "user", "content": "Now summarise what I said."}
 
+    def test_preflight_redact_message_list_in_place(self):
+        """List-valued ``message`` redacts in place via the generic extractor."""
+        pipeline = Pipeline(
+            guards=[PII(action="redact")],
+            fail_open=True,
+        )
+        kwargs = {
+            "message": [
+                {"role": "user", "content": "My email is alice@example.com, remember it."},
+                {"role": "user", "content": "Now summarise what I said."},
+            ]
+        }
+        new_kwargs, _result = _apply_preflight(pipeline, kwargs, _extract_generic_input)
+        first, second = new_kwargs["message"]
+        assert "[REDACTED:email]" in first["content"]
+        assert "alice@example.com" not in first["content"]
+        assert second["content"] == "Now summarise what I said."
+        for item in new_kwargs["message"]:
+            content = item["content"] if isinstance(item, dict) else item
+            assert "alice@example.com" not in content
+
+    def test_preflight_message_wins_over_input_coexistence(self):
+        """Coexisting ``message`` + ``input`` selects ``message`` (extractor parity)."""
+        pipeline = Pipeline(
+            guards=[PII(action="redact")],
+            fail_open=True,
+        )
+        kwargs = {
+            "message": [
+                {"role": "user", "content": "My email is alice@example.com"},
+            ],
+            "input": "Contact me at bob@example.com instead.",
+        }
+        new_kwargs, _result = _apply_preflight(pipeline, kwargs, _extract_generic_input)
+        assert "[REDACTED:email]" in new_kwargs["message"][0]["content"]
+        assert "alice@example.com" not in new_kwargs["message"][0]["content"]
+        assert new_kwargs["input"] == "Contact me at bob@example.com instead."
+
+    def test_preflight_redact_message_string(self):
+        """Str-valued ``message`` redacts via the str write-back path."""
+        pipeline = Pipeline(
+            guards=[PII(action="redact")],
+            fail_open=True,
+        )
+        kwargs = {"message": "My email is alice@example.com"}
+        new_kwargs, _result = _apply_preflight(pipeline, kwargs, _extract_generic_input)
+        assert "[REDACTED:email]" in new_kwargs["message"]
+        assert "alice@example.com" not in new_kwargs["message"]
+
 
 class TestPostflightIntegration:
     """``_apply_postflight`` runs guards on extracted response text."""

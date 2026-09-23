@@ -400,7 +400,7 @@ def _apply_preflight(
     if not input_text:
         return kwargs, None
 
-    for key in ("messages", "input", "prompt", "text"):
+    for key in ("messages", "message", "prompt", "input", "text"):
         if key in kwargs:
             original = kwargs[key]
             if isinstance(original, list) and original:
@@ -413,7 +413,7 @@ def _apply_preflight(
         raise GuardDeniedError(result)
 
     if result.action == GuardAction.REDACT and result.transformed_text is not None:
-        for key in ("messages", "input", "prompt", "text"):
+        for key in ("messages", "message", "prompt", "input", "text"):
             if key in kwargs:
                 original = kwargs[key]
                 if isinstance(original, str):
