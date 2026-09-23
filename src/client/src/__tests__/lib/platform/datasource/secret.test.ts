@@ -1,10 +1,15 @@
 import {
 	__resetSourceSecretCacheForTests,
+	canSkipVaultForHttpNoneAuth,
+	httpAuthNeedsVault,
 	invalidateSourceSecretCache,
 	redactableSecretValues,
 	resolveSourceSecret,
 } from "@/lib/platform/connectors/datasource/http/secret";
 import { encryptValue } from "@/utils/crypto";
+import {
+	DATA_SOURCE_SECRET_NOT_FOUND,
+} from "@/constants/messages/en";
 
 jest.mock("@/lib/platform/vault", () => ({
 	getSecretById: jest.fn(),
@@ -248,5 +253,34 @@ describe("redactableSecretValues", () => {
 
 	it("returns an empty array when there is nothing to redact", () => {
 		expect(redactableSecretValues({ raw: "", credentials: {} })).toEqual([]);
+	});
+});
+
+describe("httpAuthNeedsVault", () => {
+	it("requires the vault only for basic and bearer auth", () => {
+		expect(httpAuthNeedsVault("none")).toBe(false);
+		expect(httpAuthNeedsVault(undefined)).toBe(false);
+		expect(httpAuthNeedsVault("basic")).toBe(true);
+		expect(httpAuthNeedsVault("bearer")).toBe(true);
+	});
+});
+
+describe("canSkipVaultForHttpNoneAuth", () => {
+	it("skips missing vault rows when HTTP auth is none", () => {
+		expect(
+			canSkipVaultForHttpNoneAuth(
+				new Error(DATA_SOURCE_SECRET_NOT_FOUND),
+				"none"
+			)
+		).toBe(true);
+	});
+
+	it("does not skip vault errors when HTTP auth is basic", () => {
+		expect(
+			canSkipVaultForHttpNoneAuth(
+				new Error(DATA_SOURCE_SECRET_NOT_FOUND),
+				"basic"
+			)
+		).toBe(false);
 	});
 });

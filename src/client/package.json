@@ -32,6 +32,7 @@
     "@openplait/adapter-prometheus": "1.0.0",
     "@openplait/adapter-sdk": "1.0.0",
     "@openplait/adapter-tempo": "1.0.0",
+    "@openplait/adapter-victorialogs": "file:../../../openplait/typescript/packages/adapter-victorialogs",
     "@openplait/core": "1.0.0",
     "@openplait/runtime": "1.0.0",
     "@prisma/client": "^5.15.0",

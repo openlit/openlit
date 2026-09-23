@@ -20,6 +20,10 @@ jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 		credentials: { token: "tok" },
 	}),
 	redactableSecretValues: () => ["tok"],
+	httpAuthNeedsVault: (authType: unknown) => {
+		const type = String(authType || "none").trim().toLowerCase();
+		return type === "basic" || type === "bearer";
+	},
 }));
 
 import { TempoAdapter, tempoAISelectorQuery, buildTempoSearchQuery, __clearTempoSpanIndex } from "@/lib/platform/connectors/datasource/grafana/tempo";
