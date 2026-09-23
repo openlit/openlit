@@ -2490,6 +2490,8 @@ export const MEMORY_CONNECTOR_CONTENT_REQUIRED =
 export const MEMORY_CONNECTOR_QUERY_REQUIRED = "A memory search query is required.";
 export const MEMORY_CONNECTOR_SESSION_REQUIRED =
 	"A session id is required for this memory connector.";
+export const MEMORY_CONNECTOR_AGENT_REQUIRED =
+	"An agent id is required for this memory connector.";
 export const MEMORY_CONNECTOR_FILTER_REQUIRED =
 	"A user, agent, or session is required to list memories.";
 export const MEMORY_CONNECTOR_INLINE_SECRET_REQUIRED =
@@ -2733,6 +2735,8 @@ export const SCANNER_LAST_REF = "Last scanned ref";
 export const SCANNER_LAST_DURATION = "Last job duration";
 export const MEMORY_CONNECTOR_CLAUDE_DESCRIPTION =
 	"Browse and edit memories in Anthropic Claude memory stores.";
+export const MEMORY_CONNECTOR_LETTA_DESCRIPTION =
+	"Browse and search agent archival memory stored in Letta.";
 export const MEMORY_CONNECTOR_MEM0_DESCRIPTION =
 	"Store and search long-term agent memories with Mem0.";
 export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =
@@ -2742,6 +2746,8 @@ export const MEMORY_CONNECTOR_FIELD_PROJECT_ID = "Mem0 project ID";
 export const MEMORY_CONNECTOR_FIELD_STORE_ID = "Memory store";
 export const MEMORY_CONNECTOR_AUTH_HELP_CLAUDE =
 	"Use an Anthropic API key. Memory store calls send x-api-key with the agent-memory beta header.";
+export const MEMORY_CONNECTOR_AUTH_HELP_LETTA =
+	"Use a Letta Cloud API key. A self-hosted Letta server uses its server password with the same Bearer authentication.";
 export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
 	"Use a Mem0 Platform API key. Self-hosted Mem0 can use a custom endpoint with the same Token authentication.";
 export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
@@ -2998,6 +3004,11 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		summary: "Connect OpenLIT to Claude memory stores.",
 		steps: ["Create an Anthropic API key with access to Memory Stores.", "Paste the API key into the credentials field.", "Save the connector, then pick a memory store when browsing or adding memories."],
 		docsUrl: "https://platform.claude.com/docs/en/managed-agents/memory",
+	},
+	letta: {
+		summary: "Connect OpenLIT to Letta for agent archival memory.",
+		steps: ["Create a Letta Cloud API key, or point the endpoint at a self-hosted Letta server and use its server password.", "Paste the key into the credentials field.", "Save the connector, then pick an agent on the Memory page — Letta scopes archival passages per agent."],
+		docsUrl: "https://docs.letta.com/api-reference",
 	},
 	mem0: {
 		summary: "Connect OpenLIT to Mem0 for long-term agent memory.",

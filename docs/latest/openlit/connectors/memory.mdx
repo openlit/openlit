@@ -1,7 +1,7 @@
 ---
 title: 'Memory connectors'
 sidebarTitle: 'Memory'
-description: 'Connect OpenLIT to Claude, Mem0, and Zep memory stores — browse, search, write, copy, and ask Otter about agent memories'
+description: 'Connect OpenLIT to Claude, Letta, Mem0, and Zep memory stores — browse, search, write, copy, and ask Otter about agent memories'
 icon: 'brain'
 ---
 
@@ -27,32 +27,38 @@ flowchart LR
   Otter --> Tools[list / search / add / update / delete]
 ```
 
-- **Atomic connectors** — one Mem0 project endpoint, one Zep tenant, one Claude memory store configuration per connector instance.
+- **Atomic connectors** — one Mem0 project endpoint, one Zep tenant, one Letta server or Cloud workspace, one Claude memory store configuration per connector instance.
 - **Capability-driven UI** — each vendor advertises supported operations (`list`, `search`, `add`, `update`, `delete`, `feedback`). OpenLIT hides actions the vendor does not support.
 - **Filters** — user, session/run, and agent filters are declared per vendor. Some connectors require a session or user before listing memories.
-- **Port links** — copying a memory to another connector stores provenance metadata so you can trace copies back to the source.
+- **Port links** — copying a memory to another connector records provenance so you can trace copies back to the source.
 
 ## Supported memory connectors
 
 | Connector | Default endpoint | What it's for |
 | --- | --- | --- |
 | **Claude** | `https://api.anthropic.com` | Browse and edit memories in Anthropic Claude memory stores (Managed Agents memory beta) |
+| **Letta** | `https://api.letta.com` | Browse and search the archival-memory passages a Letta (MemGPT) agent keeps |
 | **Mem0** | `https://api.mem0.ai` | Store and search long-term agent memories scoped by user, run, or agent |
 | **Zep** | `https://api.getzep.com` | Session memory and knowledge-graph facts for agents |
 
-Self-hosted Mem0 or Zep deployments work when you point the connector at a compatible API URL and supply the same authentication style as the hosted service.
+Self-hosted Letta, Mem0, or Zep deployments work when you point the connector at a compatible API URL and supply the same authentication style as the hosted service.
 
 ## Capability matrix
 
 | Connector | List | Search | Get | Add | Update | Delete | Feedback | Required filters |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | **Claude** | Yes | Yes* | Yes | Yes | Yes | Yes | No | Memory store (session) |
+| **Letta** | Yes | Yes | No‡ | Yes§ | No‡ | Yes | No | Agent |
 | **Mem0** | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Optional user / run / agent |
 | **Zep** | Yes | Yes | Yes | Yes | No | Yes† | No | User; session required for writes |
 
 \* Claude has no dedicated search API — OpenLIT filters listed memories locally for search queries.
 
 † Zep delete targets graph edges/nodes, not an entire session.
+
+‡ No Letta route reads or edits a single passage, and the list cursors are strict — `before`/`after` select the passages around an id, never the id itself — so a passage cannot be addressed on its own. Rather than guess it out of a bounded page and report "not found" for anything older, OpenLIT leaves `get` and `update` unadvertised; the detail sheet shows the record from the list. Edit a passage by deleting it and adding the new text.
+
+§ A Letta passage stores only `metadata.tags`. Its create body is `{text, tags, created_at}` with no metadata field, so any other key you type into the add dialog's metadata box is not kept server-side. Copies into a Letta connector still keep their port link — OpenLIT stores it on the connector, not in vendor metadata.
 
 ## Add a memory connector
 
@@ -64,7 +70,7 @@ Self-hosted Mem0 or Zep deployments work when you point the connector at a compa
     Go to **Configuration → Connectors**, open the **Memory** section in the catalog, and choose **Add connector**.
   </Step>
   <Step title="Pick a vendor">
-    Select **Claude**, **Mem0**, or **Zep**.
+    Select **Claude**, **Letta**, **Mem0**, or **Zep**.
   </Step>
   <Step title="Configure endpoint and credentials">
     Set the API URL (defaults work for hosted services), optional SSRF toggles for private networks, and the API key. Mem0 also accepts optional organization and project IDs.
@@ -112,6 +118,7 @@ Otter passes required filter arguments (user, session, agent) when the vendor ma
 | Connector | Auth style | Notes |
 | --- | --- | --- |
 | **Claude** | API key (`x-api-key`) | Sends the `agent-memory-2026-07-22` beta header for memory store APIs |
+| **Letta** | Bearer (`Authorization: Bearer <apiKey>`) | A Letta Cloud API key, or a self-hosted server's password; an unsecured server needs no key |
 | **Mem0** | Token (`Authorization: Token <apiKey>`) | Works with Mem0 Platform or self-hosted compatible endpoints |
 | **Zep** | API key (`Authorization: Api-Key <apiKey>`) | Works with Zep Cloud or self-hosted compatible endpoints |
 
@@ -139,6 +146,9 @@ Copy requires `connectors:update` (or equivalent memory mutation permission in e
 <CardGroup cols={3}>
   <Card title="Claude memory" href="https://platform.claude.com/docs/en/managed-agents/memory" icon="book">
     Anthropic Managed Agents memory stores.
+  </Card>
+  <Card title="Letta API" href="https://docs.letta.com/api-reference" icon="book">
+    Letta agent archival memory and passages.
   </Card>
   <Card title="Mem0 API" href="https://docs.mem0.ai/api-reference" icon="book">
     Mem0 Platform REST API reference.

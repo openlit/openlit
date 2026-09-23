@@ -25,20 +25,22 @@ jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 const mockSafeFetch = jest.fn();
 
 import { ClaudeAdapter, claudeAdapterFactory } from "@/lib/platform/connectors/memory/claude/adapter";
+import { LettaAdapter, lettaAdapterFactory } from "@/lib/platform/connectors/memory/letta/adapter";
 import { Mem0Adapter, mem0AdapterFactory } from "@/lib/platform/connectors/memory/mem0/adapter";
 import { ZepAdapter, zepAdapterFactory } from "@/lib/platform/connectors/memory/zep/adapter";
 import { SourceResponseError } from "@/lib/platform/connectors/datasource/http/safe-fetch";
 import { resolveSourceSecret } from "@/lib/platform/connectors/datasource/http/secret";
 import type { MemorySourceDescriptor } from "@/lib/platform/connectors/memory/types";
 
-function defaultUrl(type: "claude" | "mem0" | "zep"): string {
+function defaultUrl(type: "claude" | "letta" | "mem0" | "zep"): string {
 	if (type === "claude") return "https://api.anthropic.com";
+	if (type === "letta") return "https://api.letta.com";
 	if (type === "mem0") return "https://api.mem0.ai";
 	return "https://api.getzep.com";
 }
 
 function descriptor(
-	type: "claude" | "mem0" | "zep",
+	type: "claude" | "letta" | "mem0" | "zep",
 	settings: Record<string, unknown> = {}
 ): MemorySourceDescriptor {
 	return {
@@ -2427,5 +2429,438 @@ describe("Claude adapter", () => {
 		await expect(adapter.healthCheck()).resolves.toEqual(
 			expect.objectContaining({ ok: false, message: "store down" })
 		);
+	});
+});
+
+describe("Letta adapter", () => {
+	it("describes agent-scoped archival memory", () => {
+		const described = lettaAdapterFactory.describe();
+		expect(described.type).toBe("letta");
+		expect(described.capabilities).toEqual({
+			add: true,
+			search: true,
+			get: false,
+			list: true,
+			update: false,
+			delete: true,
+			feedback: false,
+		});
+		expect(described.configFields.map((field) => field.key)).toEqual(
+			expect.arrayContaining(["url", "apiKey"])
+		);
+		expect(described.configFields.find((field) => field.key === "apiKey")?.group).toBe(
+			"credentials"
+		);
+		expect(described.filterFields?.map((field) => field.key)).toEqual(["agentId"]);
+		expect(described.filterFields?.[0]).toMatchObject({
+			key: "agentId",
+			required: true,
+			allowCustom: true,
+		});
+	});
+
+	it("advertises the same capabilities on the adapter as on the factory", () => {
+		const adapter = new LettaAdapter(descriptor("letta"));
+		const capabilities = adapter.capabilities();
+		expect(capabilities).toEqual(lettaAdapterFactory.describe().capabilities);
+		capabilities.update = true;
+		expect(adapter.capabilities().update).toBe(false);
+	});
+
+	it("returns nothing when the server answers with a non-list payload", async () => {
+		mockSafeFetch.mockResolvedValue({ detail: "agent not found" });
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.list({ agentId: "agent-1" })).resolves.toEqual([]);
+	});
+
+	it("does not treat a bare passage object as a one-row page", async () => {
+		mockSafeFetch.mockResolvedValue({ id: "passage-1", text: "Ada ships on Fridays" });
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.list({ agentId: "agent-1" })).resolves.toEqual([]);
+	});
+
+	it("health-checks agents with Bearer auth", async () => {
+		mockSafeFetch.mockResolvedValue([]);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: true })
+		);
+		const [url, options] = mockSafeFetch.mock.calls[0];
+		expect(String(url)).toBe("https://api.letta.com/v1/agents/?limit=1");
+		expect(options.headers.Authorization).toBe("Bearer secret-key");
+	});
+
+	it("fails the health check on a rejected credential instead of probing the unauthenticated health route", async () => {
+		mockSafeFetch.mockImplementation(async (url: string) => {
+			if (String(url).includes("/v1/agents/")) {
+				throw new SourceResponseError(401, "Data source responded 401: Unauthorized");
+			}
+			return { status: "ok" };
+		});
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false })
+		);
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		expect(
+			mockSafeFetch.mock.calls.some(([url]: [string]) =>
+				String(url).includes("/v1/health/")
+			)
+		).toBe(false);
+	});
+
+	it("reports an unreachable server", async () => {
+		mockSafeFetch.mockRejectedValue(new Error("letta down"));
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false, message: "letta down" })
+		);
+	});
+
+	it("uses the raw rejection value as the message when it has no .message property", async () => {
+		mockSafeFetch.mockRejectedValue("letta unreachable");
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false, message: "letta unreachable" })
+		);
+	});
+
+	it("falls back to Letta Cloud when the connector carries no URL", async () => {
+		mockSafeFetch.mockResolvedValue([]);
+		const adapter = new LettaAdapter(descriptor("letta", { url: "" }));
+		await adapter.healthCheck();
+		expect(String(mockSafeFetch.mock.calls[0][0])).toBe(
+			"https://api.letta.com/v1/agents/?limit=1"
+		);
+	});
+
+	it("sends no Authorization header for an unsecured self-hosted server", async () => {
+		(resolveSourceSecret as jest.Mock).mockResolvedValueOnce({
+			raw: "",
+			credentials: {},
+		});
+		mockSafeFetch.mockResolvedValue([]);
+		const adapter = new LettaAdapter(
+			descriptor("letta", { url: "http://letta.internal:8283" })
+		);
+		await adapter.healthCheck();
+		const [, options] = mockSafeFetch.mock.calls[0];
+		expect(options.headers.Authorization).toBeUndefined();
+	});
+
+	it("lists newest passages first and keys records by agent and passage", async () => {
+		mockSafeFetch.mockResolvedValue([
+			{
+				id: "passage-1",
+				text: "Ada ships on Fridays",
+				created_at: "2026-09-01T10:00:00Z",
+				updated_at: "2026-09-02T10:00:00Z",
+				archive_id: "archive-1",
+				tags: ["release"],
+				metadata: { source: "chat" },
+			},
+		]);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.list({ agentId: "agent-1", limit: 5 })).resolves.toEqual([
+			{
+				id: "agent-1:passage-1",
+				content: "Ada ships on Fridays",
+				agentId: "agent-1",
+				metadata: {
+					source: "chat",
+					passage_id: "passage-1",
+					archive_id: "archive-1",
+				},
+				categories: ["release"],
+				score: undefined,
+				createdAt: "2026-09-01T10:00:00Z",
+				updatedAt: "2026-09-02T10:00:00Z",
+			},
+		]);
+		const url = String(mockSafeFetch.mock.calls[0][0]);
+		expect(url).toContain("/v1/agents/agent-1/archival-memory?");
+		expect(url).toContain("limit=5");
+		expect(url).toContain("ascending=false");
+	});
+
+	it("asks for the default page size when the caller sets no limit", async () => {
+		mockSafeFetch.mockResolvedValue([]);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await adapter.list({ agentId: "agent-1" });
+		expect(String(mockSafeFetch.mock.calls[0][0])).toContain("limit=25");
+	});
+
+	it("truncates a page that ignores the requested limit", async () => {
+		mockSafeFetch.mockResolvedValue([
+			{ id: "passage-1", text: "one" },
+			{ id: "passage-2", text: "two" },
+			{ id: "passage-3", text: "three" },
+		]);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		const records = await adapter.list({ agentId: "agent-1", limit: 2 });
+		expect(records.map((record) => record.id)).toEqual([
+			"agent-1:passage-1",
+			"agent-1:passage-2",
+		]);
+	});
+
+	it("does not list or search without an agent", async () => {
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.list({})).rejects.toThrow(/user, agent, or session/i);
+		await expect(adapter.search({ query: "tea" })).rejects.toThrow(
+			/user, agent, or session/i
+		);
+		expect(mockSafeFetch).not.toHaveBeenCalled();
+	});
+
+	it("searches the embedding route and normalizes trimmed hits", async () => {
+		mockSafeFetch.mockResolvedValue({
+			count: 1,
+			results: [
+				{
+					id: "passage-9",
+					content: "Ada prefers TypeScript",
+					timestamp: "2026-09-03T08:00:00Z",
+					tags: ["language"],
+				},
+			],
+		});
+		const adapter = new LettaAdapter(descriptor("letta"));
+		// Letta's agent search route scores nothing and nests nothing: the hit is
+		// flat and `score` stays unset.
+		await expect(
+			adapter.search({ query: "typescript", agentId: "agent-1", limit: 3 })
+		).resolves.toEqual([
+			{
+				id: "agent-1:passage-9",
+				content: "Ada prefers TypeScript",
+				agentId: "agent-1",
+				metadata: { passage_id: "passage-9" },
+				categories: ["language"],
+				score: undefined,
+				createdAt: "2026-09-03T08:00:00Z",
+				updatedAt: undefined,
+			},
+		]);
+		const url = String(mockSafeFetch.mock.calls[0][0]);
+		expect(url).toContain("/v1/agents/agent-1/archival-memory/search?");
+		expect(url).toContain("query=typescript");
+		expect(url).toContain("top_k=3");
+	});
+
+	it("falls back to the text search filter when the embedding route is missing", async () => {
+		mockSafeFetch.mockImplementation(async (url: string) => {
+			if (String(url).includes("/archival-memory/search")) {
+				throw new SourceResponseError(404, "Data source responded 404: not found");
+			}
+			return [{ id: "passage-2", text: "Ada prefers TypeScript" }];
+		});
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(
+			adapter.search({ query: "typescript", agentId: "agent-1" })
+		).resolves.toEqual([
+			expect.objectContaining({
+				id: "agent-1:passage-2",
+				content: "Ada prefers TypeScript",
+			}),
+		]);
+		const fallbackUrl = String(mockSafeFetch.mock.calls[1][0]);
+		expect(fallbackUrl).toContain("/v1/agents/agent-1/archival-memory?");
+		expect(fallbackUrl).toContain("search=typescript");
+		expect(fallbackUrl).toContain("limit=10");
+	});
+
+	it("truncates search hits beyond the requested limit", async () => {
+		mockSafeFetch.mockResolvedValue({
+			count: 3,
+			results: [
+				{ id: "passage-1", content: "one" },
+				{ id: "passage-2", content: "two" },
+				{ id: "passage-3", content: "three" },
+			],
+		});
+		const adapter = new LettaAdapter(descriptor("letta"));
+		const records = await adapter.search({
+			query: "tea",
+			agentId: "agent-1",
+			limit: 1,
+		});
+		expect(records.map((record) => record.id)).toEqual(["agent-1:passage-1"]);
+	});
+
+	it("rejects an empty search query before any request", async () => {
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(
+			adapter.search({ query: "   ", agentId: "agent-1" })
+		).rejects.toThrow(/query is required/i);
+		expect(mockSafeFetch).not.toHaveBeenCalled();
+	});
+
+	it("keeps the file name of a passage that came from a source file", async () => {
+		mockSafeFetch.mockResolvedValue([
+			{
+				id: "passage-8",
+				text: "Chapter one",
+				file_name: "handbook.pdf",
+				archive_id: "archive-2",
+			},
+		]);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		// A tagless passage carries no categories at all, not an empty list.
+		await expect(adapter.list({ agentId: "agent-1" })).resolves.toEqual([
+			{
+				id: "agent-1:passage-8",
+				content: "Chapter one",
+				agentId: "agent-1",
+				metadata: {
+					passage_id: "passage-8",
+					archive_id: "archive-2",
+					file_name: "handbook.pdf",
+				},
+				categories: undefined,
+				score: undefined,
+				createdAt: undefined,
+				updatedAt: undefined,
+			},
+		]);
+	});
+
+	it("surfaces the last vendor failure when no search route answers", async () => {
+		mockSafeFetch.mockRejectedValue(
+			new SourceResponseError(401, "Data source responded 401: Unauthorized")
+		);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		// read.ts maps a 401 to the auth_failed hint, so the status has to survive
+		// both legs of the fallback rather than collapse into an empty result.
+		await expect(
+			adapter.search({ query: "tea", agentId: "agent-1" })
+		).rejects.toMatchObject({ status: 401 });
+		expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+
+		mockSafeFetch.mockReset();
+		mockSafeFetch.mockRejectedValue("letta unreachable");
+		await expect(
+			adapter.search({ query: "tea", agentId: "agent-1" })
+		).rejects.toThrow("letta unreachable");
+	});
+
+	it("drops rows without an id or text", async () => {
+		mockSafeFetch.mockResolvedValue([
+			{ id: "passage-1", text: "kept" },
+			{ id: "passage-2" },
+			{ text: "no id" },
+		]);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		const records = await adapter.list({ agentId: "agent-1" });
+		expect(records.map((record) => record.id)).toEqual(["agent-1:passage-1"]);
+	});
+
+	it("adds a passage from content and forwards metadata tags", async () => {
+		mockSafeFetch.mockResolvedValue([{ id: "passage-3", text: "User likes tea" }]);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(
+			adapter.add({
+				content: "User likes tea",
+				agentId: "agent-1",
+				metadata: { tags: ["drink", 7, "  "] },
+			})
+		).resolves.toEqual([
+			expect.objectContaining({ id: "agent-1:passage-3", content: "User likes tea" }),
+		]);
+		const [url, options] = mockSafeFetch.mock.calls[0];
+		expect(String(url)).toBe("https://api.letta.com/v1/agents/agent-1/archival-memory");
+		expect(options.method).toBe("POST");
+		expect(JSON.parse(options.body)).toEqual({
+			text: "User likes tea",
+			tags: ["drink"],
+		});
+	});
+
+	it("joins messages into one passage and omits empty tags", async () => {
+		mockSafeFetch.mockResolvedValue([{ id: "passage-4", text: "hi\nthere" }]);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await adapter.add({
+			messages: [
+				{ role: "user", content: "hi" },
+				{ role: "assistant", content: "there" },
+			],
+			agentId: "agent-1",
+		});
+		expect(JSON.parse(mockSafeFetch.mock.calls[0][1].body)).toEqual({
+			text: "hi\nthere",
+		});
+	});
+
+	it("requires an agent and content before writing", async () => {
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.add({ content: "hello" })).rejects.toThrow(/agent id/i);
+		await expect(adapter.add({ agentId: "agent-1" })).rejects.toThrow(
+			/content or messages/i
+		);
+		expect(mockSafeFetch).not.toHaveBeenCalled();
+	});
+
+	it("deletes a passage through its agent", async () => {
+		mockSafeFetch.mockResolvedValue(undefined);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await adapter.delete("agent-1:passage-5");
+		const [url, options] = mockSafeFetch.mock.calls[0];
+		expect(String(url)).toBe(
+			"https://api.letta.com/v1/agents/agent-1/archival-memory/passage-5"
+		);
+		expect(options.method).toBe("DELETE");
+	});
+
+	it("refuses to delete an id that carries no agent or no passage", async () => {
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.delete("passage-5")).rejects.toThrow(/could not be found/i);
+		await expect(adapter.delete(":passage-5")).rejects.toThrow(/could not be found/i);
+		await expect(adapter.delete("agent-1:")).rejects.toThrow(/could not be found/i);
+		await expect(adapter.delete("   ")).rejects.toThrow(/could not be found/i);
+		expect(mockSafeFetch).not.toHaveBeenCalled();
+	});
+
+	it("populates the agent dropdown and falls back to empty on failure", async () => {
+		mockSafeFetch.mockResolvedValue([
+			{ id: "agent-2", name: "Researcher" },
+			{ id: "agent-1", name: "Archivist" },
+			{ id: "agent-3" },
+			{ name: "no id" },
+		]);
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.listFilters()).resolves.toEqual({
+			users: [],
+			sessions: [],
+			agents: [
+				{ id: "agent-3", label: "agent-3" },
+				{ id: "agent-1", label: "Archivist" },
+				{ id: "agent-2", label: "Researcher" },
+			],
+		});
+		expect(String(mockSafeFetch.mock.calls[0][0])).toBe(
+			"https://api.letta.com/v1/agents/?limit=100"
+		);
+
+		mockSafeFetch.mockReset();
+		mockSafeFetch.mockRejectedValue(new Error("nope"));
+		await expect(adapter.listFilters()).resolves.toEqual({
+			users: [],
+			sessions: [],
+			agents: [],
+		});
+	});
+
+	it("keeps get and update unsupported", async () => {
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(adapter.get("agent-1:passage-1")).rejects.toThrow(
+			/not supported by memory connector "letta"/i
+		);
+		await expect(
+			adapter.update("agent-1:passage-1", { content: "new" })
+		).rejects.toThrow(/not supported by memory connector "letta"/i);
+		await expect(
+			adapter.feedback("agent-1:passage-1", { rating: "positive" })
+		).rejects.toThrow(/not supported by memory connector "letta"/i);
+		expect(mockSafeFetch).not.toHaveBeenCalled();
 	});
 });
