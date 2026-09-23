@@ -50,7 +50,6 @@ export default function EvaluationConfiguration() {
 	const m = getMessage();
 	const [provider, setProvider] = useState("");
 	const [model, setModel] = useState("");
-	const [engine] = useState<string>(EVALUATION_ENGINES[0].id);
 	const [autoEvaluation, setAutoEvaluation] = useState(false);
 	const [recurringTime, setRecurringTime] = useState("");
 	const [sampleRatePercent, setSampleRatePercent] = useState(
@@ -115,6 +114,10 @@ export default function EvaluationConfiguration() {
 		() => selectedProviderMeta?.supportedModels || [],
 		[selectedProviderMeta]
 	);
+	const engine =
+		provider === "typesafe"
+			? "typesafe"
+			: EVALUATION_ENGINES.find((e) => e.id === "vercel")?.id || "vercel";
 
 	const handleSave = () => {
 		if (!provider || !model || !vaultId) {
@@ -300,6 +303,11 @@ export default function EvaluationConfiguration() {
 								<p className="text-xs text-stone-500 dark:text-stone-400">
 									{m.EVALUATION_MODEL_CUSTOM_HINT}
 								</p>
+								{provider === "typesafe" && (
+									<p className="text-xs text-stone-500 dark:text-stone-400">
+										{m.EVALUATION_TYPESAFE_HINT}
+									</p>
+								)}
 							</div>
 
 							<div className="grid gap-3">

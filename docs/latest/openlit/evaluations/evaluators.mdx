@@ -43,6 +43,12 @@ Legacy URLs `/evaluations/types` and `/evaluations/settings` redirect to the Eva
 - **Offline** - [Programmatic evaluations](/latest/openlit/evaluations/programmatic-evals) via the SDK, typically in CI/CD.
 - **Human** - [Manual Feedback](/latest/openlit/evaluations/manual-feedback) on a trace (Good / Bad / Neutral).
 
+## TypeSafe Jev judge
+
+Select **TypeSafe** as the evaluation provider and a Jev model (`jev-latest`, `jev-1.13.0`, or `jev-preview`). OpenLIT calls the native TypeSafe System One API (`POST /v1/systemone`) with the Vault TypeSafe key. Issue types (hallucination, bias, toxicity, safety, sensitivity) map to **noul**; quality types map to **score** and are normalized to 0 to 1 severity. Explanation is the classification bucket plus score. Pin **jev-1.13.0** when calibrating verdict thresholds.
+
+Vercel AI Gateway `experimental_evaluate` is not used for the in-product judge. Chat playground and OpenGround do not support Jev. Application calls to `system_one` / `systemOne` are auto-instrumented separately: [Monitor TypeSafe Jev](/latest/sdk/integrations/typesafe).
+
 ## Frequently asked questions
 
 <AccordionGroup>

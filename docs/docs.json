@@ -387,6 +387,7 @@
                   "latest/sdk/integrations/elevenlabs",
                   "latest/sdk/integrations/ai21",
                   "latest/sdk/integrations/together",
+                  "latest/sdk/integrations/typesafe",
                   "latest/sdk/integrations/digitalocean",
                   "latest/sdk/integrations/digitalocean-gradient",
                   "latest/sdk/integrations/assemblyai",

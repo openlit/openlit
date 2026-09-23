@@ -1,0 +1,137 @@
+---
+title: 'Monitor TypeSafe Jev using OpenTelemetry'
+description: 'Monitor TypeSafe Jev System One calls with OpenTelemetry auto-instrumentation for decision spans, token usage, and cost tracking.'
+sidebarTitle: 'TypeSafe'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to monitor applications that call TypeSafe Jev through the official SDKs. This includes tracking latency, token usage, cost, and the questions sent to System One.
+
+Auto-instrumentation means you don't have to set up monitoring manually. Add OpenLIT to the application and TypeSafe `system_one` / `systemOne` calls emit `decision` spans.
+
+The integration is compatible with:
+- TypeSafe Python SDK `typesafe-sdk >= 0.6.0`
+- TypeSafe TypeScript/JavaScript SDK `@typesafe-ai/sdk >= 0.6.0`
+
+OpenLIT wraps the native System One API (`TypeSafeClient.system_one` in Python and `TypeSafeClient.systemOne` in TypeScript). Vercel AI Gateway `experimental_evaluate` is not instrumented in this release; that path can be added when AI SDK `evaluate` is stable.
+
+## Get started
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+
+    <Tabs>
+      <Tab title="Python">
+        ```shell
+        pip install openlit
+        ```
+      </Tab>
+      <Tab title="TypeScript">
+        ```shell
+        npm install openlit
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <IntegrationMethods />
+</Steps>
+
+## What is captured
+
+Each System One call creates a CLIENT span named `decision {model}` (for example `decision jev-1.13.0`). That follows the OpenTelemetry GenAI span-name format `{gen_ai.operation.name} {gen_ai.request.model}`. The operation is `decision` rather than `chat` so Jev traces are not auto-evaluated as chat completions. Provider is `gen_ai.provider.name=typesafe`. Shared inference attributes match OpenAI chat spans where they apply. Sampling knobs such as temperature are omitted because System One has no such request fields.
+
+Instrumentor aliases: `typesafe`, `jev`, `typesafe-ai`, `typesafe_sdk`.
+
+Set `TYPESAFE_API_KEY` in the environment. Filter traces on span name `decision jev-1.13.0` (or `decision jev-latest`).
+
+| Data | Attribute |
+| --- | --- |
+| Operation | `gen_ai.operation.name` = `decision` |
+| Provider | `gen_ai.provider.name` = `typesafe` |
+| Model | `gen_ai.request.model` |
+| Stream | `gen_ai.request.stream` (always `false`) |
+| Finish reasons | `gen_ai.response.finish_reasons` |
+| Token usage / cost | `gen_ai.usage.*`, `gen_ai.client.token.usage` |
+| Question ids and types | `typesafe.question_ids`, `typesafe.question_types` |
+
+## Example
+
+Call `openlit.init()` once. Keep using the official TypeSafe client. No extra OpenTelemetry setup in application code.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import openlit
+    from typesafe_sdk import TypeSafeClient
+
+    openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+    client = TypeSafeClient()
+    result = client.system_one(
+        state={
+            "prompt": "What is the refund window?",
+            "response": "Enterprise customers get 60 days.",
+            "ground_truth_context": "Enterprise refunds: 30 days from purchase.",
+        },
+        questions={
+            "hallucination": {
+                "type": "noul",
+                "instructions": "Flag invented or contradictory claims versus the ground-truth context.",
+            }
+        },
+        model="jev-1.13.0",
+    )
+    print(result.answers["hallucination"].noul)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import openlit from "openlit"
+    import { TypeSafeClient } from "@typesafe-ai/sdk"
+
+    openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
+
+    const client = new TypeSafeClient()
+    const result = await client.systemOne({
+      state: {
+        prompt: "What is the refund window?",
+        response: "Enterprise customers get 60 days.",
+        ground_truth_context: "Enterprise refunds: 30 days from purchase.",
+      },
+      questions: {
+        hallucination: {
+          type: "noul",
+          instructions:
+            "Flag invented or contradictory claims versus the ground-truth context.",
+        },
+      },
+      model: "jev-1.13.0",
+    })
+    console.log(result.answers.hallucination.noul)
+    ```
+  </Tab>
+</Tabs>
+
+`AsyncTypeSafeClient.system_one` is instrumented the same way in Python.
+
+## Use Jev as an OpenLIT judge
+
+TypeSafe Jev is also an evaluation provider in the OpenLIT UI. Select **TypeSafe** and a Jev model under [Evaluations → Configuration](/latest/openlit/evaluations/configuration), store the API key in Vault, and keep your existing evaluation types. Issue types map to noul; quality types map to score. See [Evaluators](/latest/openlit/evaluations/evaluators#typesafe-jev-judge). Jev is not available in Chat or OpenGround.
+
+Pin `jev-1.13.0` when a verdict threshold depends on a model version. `jev-latest` moves when TypeSafe ships a release.
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Evaluators" href="/latest/openlit/evaluations/evaluators" icon='scale-balanced'>
+    Use TypeSafe Jev as the in-product evaluation judge
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>
