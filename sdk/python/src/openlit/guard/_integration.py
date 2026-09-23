@@ -35,7 +35,9 @@ from openlit.guard._base import (
     Guard,
     GuardAction,
     GuardDeniedError,
+    GuardResult,
     PipelineResult,
+    _ACTION_SEVERITY,
 )
 from openlit.guard._pipeline import Pipeline
 
@@ -297,6 +299,97 @@ GUARDED_METHODS: List[Tuple[str, str, Extractor, Extractor]] = [
 # ---------------------------------------------------------------------------
 
 
+def _apply_preflight_list(
+    pipeline: Pipeline,
+    kwargs: Dict[str, Any],
+    key: str,
+    original: List[Any],
+) -> Tuple[Dict[str, Any], Optional[PipelineResult]]:
+    """Scan each list element independently; rebuild only redacted slots.
+
+    Returns new kwargs (caller objects never mutated) and a combined
+    ``PipelineResult`` (worst action by ``_ACTION_SEVERITY``, concatenated
+    ``results``, ``transformed_text`` joined from the final slot texts iff at
+    least one slot was redacted, else ``None``). ``DENY`` on any slot raises
+    ``GuardDeniedError`` immediately with that slot's result.
+    """
+
+    def scan(text: str, results: List[GuardResult]) -> Optional[str]:
+        """Evaluate one scannable text; aggregate; return transform or None."""
+        result = pipeline.evaluate(text, phase="preflight")
+        if result.action == GuardAction.DENY:
+            raise GuardDeniedError(result)
+        results.extend(result.results)
+        if _ACTION_SEVERITY[result.action] > _ACTION_SEVERITY[worst[0]]:
+            worst[0] = result.action
+        if result.action == GuardAction.REDACT and result.transformed_text is not None:
+            redacted[0] = True
+            return result.transformed_text
+        return None
+
+    new_items = list(original)
+    results: List[GuardResult] = []
+    worst = [GuardAction.ALLOW]
+    redacted = [False]
+    final_texts: List[str] = []
+
+    for index, item in enumerate(original):
+        if isinstance(item, str):
+            if not item:
+                continue
+            transformed = scan(item, results)
+            if transformed is not None:
+                new_items[index] = transformed
+                final_texts.append(transformed)
+            else:
+                final_texts.append(item)
+        elif isinstance(item, dict):
+            content = item.get("content", "")
+            if isinstance(content, str):
+                if not content:
+                    continue
+                transformed = scan(content, results)
+                if transformed is not None:
+                    new_items[index] = {**item, "content": transformed}
+                    final_texts.append(transformed)
+                else:
+                    final_texts.append(content)
+            elif isinstance(content, list):
+                new_blocks = list(content)
+                block_texts: List[str] = []
+                changed = False
+                for block_index, block in enumerate(content):
+                    if not (isinstance(block, dict) and block.get("type") == "text"):
+                        continue
+                    text = block.get("text", "")
+                    if not isinstance(text, str) or not text:
+                        continue
+                    transformed = scan(text, results)
+                    if transformed is not None:
+                        new_blocks[block_index] = {**block, "text": transformed}
+                        block_texts.append(transformed)
+                        changed = True
+                    else:
+                        block_texts.append(text)
+                if changed:
+                    new_items[index] = {**item, "content": new_blocks}
+                final_texts.append(" ".join(block_texts))
+            # Any other content shape passes through without crashing.
+        # Non-str/non-dict items pass through without crashing.
+
+    if not results:
+        return kwargs, None
+    if not redacted[0]:
+        combined = PipelineResult(action=worst[0], results=results, transformed_text=None)
+        return kwargs, combined
+    combined = PipelineResult(
+        action=worst[0],
+        results=results,
+        transformed_text=" ".join(final_texts),
+    )
+    return {**kwargs, key: new_items}, combined
+
+
 def _apply_preflight(
     pipeline: Pipeline,
     kwargs: Dict[str, Any],
@@ -306,6 +399,13 @@ def _apply_preflight(
     input_text = extract_input(kwargs)
     if not input_text:
         return kwargs, None
+
+    for key in ("messages", "input", "prompt", "text"):
+        if key in kwargs:
+            original = kwargs[key]
+            if isinstance(original, list) and original:
+                return _apply_preflight_list(pipeline, kwargs, key, original)
+            break
 
     result = pipeline.evaluate(input_text, phase="preflight")
 
@@ -318,12 +418,6 @@ def _apply_preflight(
                 original = kwargs[key]
                 if isinstance(original, str):
                     kwargs = {**kwargs, key: result.transformed_text}
-                elif isinstance(original, list) and original:
-                    new_messages = list(original)
-                    last = new_messages[-1]
-                    if isinstance(last, dict) and "content" in last:
-                        new_messages[-1] = {**last, "content": result.transformed_text}
-                        kwargs = {**kwargs, key: new_messages}
                 break
 
     return kwargs, result

@@ -157,6 +157,146 @@ class TestPreflightIntegration:
         _new_kwargs, result = _apply_preflight(pipeline, {}, _extract_openai_input)
         assert result is None
 
+    def test_preflight_redact_first_message_in_place(self):
+        """PII in the first message is redacted there only, never leaked."""
+        pipeline = Pipeline(
+            guards=[PII(action="redact")],
+            fail_open=True,
+        )
+        kwargs = {
+            "messages": [
+                {"role": "user", "content": "My email is alice@example.com, remember it."},
+                {"role": "user", "content": "Now summarise what I said."},
+            ]
+        }
+        new_kwargs, _result = _apply_preflight(pipeline, kwargs, _extract_openai_input)
+        first, second = new_kwargs["messages"]
+        assert "[REDACTED:email]" in first["content"]
+        assert "alice@example.com" not in first["content"]
+        assert second["content"] == "Now summarise what I said."
+        for msg in new_kwargs["messages"]:
+            content = msg["content"] if isinstance(msg, dict) else msg
+            assert "alice@example.com" not in content
+
+    def test_preflight_redact_last_message_no_duplication(self):
+        """PII in the last message redacts without duplicating earlier text."""
+        pipeline = Pipeline(
+            guards=[PII(action="redact")],
+            fail_open=True,
+        )
+        kwargs = {
+            "messages": [
+                {"role": "user", "content": "Hello there."},
+                {"role": "user", "content": "Reach me at bob@example.com please."},
+            ]
+        }
+        new_kwargs, _result = _apply_preflight(pipeline, kwargs, _extract_openai_input)
+        assert new_kwargs["messages"][0]["content"] == "Hello there."
+        assert new_kwargs["messages"][1]["content"] == "Reach me at [REDACTED:email] please."
+
+    def test_preflight_deny_first_message_raises(self):
+        """A denying guard on any message raises ``GuardDeniedError``."""
+        pipeline = Pipeline(
+            guards=[PII(action="deny")],
+            fail_open=True,
+        )
+        kwargs = {
+            "messages": [
+                {"role": "user", "content": "My email is alice@example.com"},
+                {"role": "user", "content": "Hello world"},
+            ]
+        }
+        with pytest.raises(GuardDeniedError):
+            _apply_preflight(pipeline, kwargs, _extract_openai_input)
+
+    def test_preflight_warn_multiturn_untouched(self):
+        """A warning guard leaves multi-turn kwargs identical."""
+        pipeline = Pipeline(
+            guards=[PII(action="warn")],
+            fail_open=True,
+        )
+        kwargs = {
+            "messages": [
+                {"role": "user", "content": "My email is alice@example.com"},
+                {"role": "user", "content": "Hello world"},
+            ]
+        }
+        new_kwargs, result = _apply_preflight(pipeline, kwargs, _extract_openai_input)
+        assert new_kwargs == kwargs
+        assert result is not None
+        assert result.transformed_text is None
+
+    def test_preflight_does_not_mutate_caller_kwargs(self):
+        """Caller-owned kwargs, lists, and dicts keep their raw input."""
+        pipeline = Pipeline(
+            guards=[PII(action="redact")],
+            fail_open=True,
+        )
+        first = {"role": "user", "content": "My email is alice@example.com, remember it."}
+        second = {"role": "user", "content": "Now summarise what I said."}
+        messages = [first, second]
+        kwargs = {"messages": messages}
+        new_kwargs, _result = _apply_preflight(pipeline, kwargs, _extract_openai_input)
+        assert first["content"] == "My email is alice@example.com, remember it."
+        assert second["content"] == "Now summarise what I said."
+        assert kwargs["messages"] is messages
+        assert new_kwargs is not kwargs
+        assert new_kwargs["messages"] is not messages
+        assert new_kwargs["messages"][0] is not first
+        assert "[REDACTED:email]" in new_kwargs["messages"][0]["content"]
+
+    def test_preflight_redact_anthropic_blocks_per_block(self):
+        """Anthropic list-content blocks redact per block, in place."""
+        pipeline = Pipeline(
+            guards=[PII(action="redact")],
+            fail_open=True,
+        )
+        kwargs = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "My email is alice@example.com"},
+                        {"type": "image", "source": {"data": "abcdef"}},
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Hello there."},
+                    ],
+                },
+            ]
+        }
+        new_kwargs, _result = _apply_preflight(pipeline, kwargs, _extract_anthropic_input)
+        first_blocks = new_kwargs["messages"][0]["content"]
+        assert first_blocks[0]["text"] == "My email is [REDACTED:email]"
+        assert first_blocks[0]["type"] == "text"
+        assert first_blocks[1] == {"type": "image", "source": {"data": "abcdef"}}
+        assert new_kwargs["messages"][1]["content"] == [{"type": "text", "text": "Hello there."}]
+        assert kwargs["messages"][0]["content"][0]["text"] == "My email is alice@example.com"
+
+    def test_preflight_non_string_slots_passthrough(self):
+        """Bare-str items redact per slot; other shapes pass through."""
+        pipeline = Pipeline(
+            guards=[PII(action="redact")],
+            fail_open=True,
+        )
+        kwargs = {
+            "messages": [
+                "Contact me at alice@example.com soon.",
+                42,
+                None,
+                {"role": "user", "content": "Now summarise what I said."},
+            ]
+        }
+        new_kwargs, _result = _apply_preflight(pipeline, kwargs, _extract_openai_input)
+        assert "[REDACTED:email]" in new_kwargs["messages"][0]
+        assert "alice@example.com" not in new_kwargs["messages"][0]
+        assert new_kwargs["messages"][1] == 42
+        assert new_kwargs["messages"][2] is None
+        assert new_kwargs["messages"][3] == {"role": "user", "content": "Now summarise what I said."}
+
 
 class TestPostflightIntegration:
     """``_apply_postflight`` runs guards on extracted response text."""
