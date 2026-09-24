@@ -117,9 +117,9 @@ function writeContent(input: MemoryWriteInput): string {
 }
 
 /**
- * Letta's create body is `{ text, tags, created_at }` — it has no metadata
- * field, so `metadata.tags` is the only key a write can keep. The capability
- * footnote in docs/latest/openlit/connectors/memory.mdx says so.
+ * Letta's create body is `{ text, tags }` — it has no metadata field, so
+ * `metadata.tags` is the only key a write can keep. The capability footnote in
+ * docs/latest/openlit/connectors/memory.mdx says so.
  */
 function writeTags(input: MemoryWriteInput): string[] {
 	return stringList(input.metadata?.tags);
@@ -158,6 +158,20 @@ function normalizeList(raw: unknown, agentId: string): MemoryRecord[] {
 	return rowsFrom(raw, ["results", "passages", "data"])
 		.map((row) => normalizeRecord(row, agentId))
 		.filter((row): row is MemoryRecord => !!row);
+}
+
+/**
+ * Normalize what a create returned. The text may become several passages, so
+ * servers answer with a list, but a single passage is also answered as a bare
+ * object depending on the version and the route. `rowsFrom()` reads a bare
+ * object as "no rows", which would report a successful write as nothing
+ * written, so fall back to reading it as the one passage it is.
+ */
+function normalizeWritten(raw: unknown, agentId: string): MemoryRecord[] {
+	const rows = normalizeList(raw, agentId);
+	if (rows.length) return rows;
+	const single = normalizeRecord(raw, agentId);
+	return single ? [single] : [];
 }
 
 function normalizeAgents(raw: unknown): MemoryFilterChoice[] {
@@ -252,7 +266,7 @@ export class LettaAdapter extends BaseMemoryAdapter {
 				body: { text, ...(tags.length ? { tags } : {}) },
 			}
 		);
-		return normalizeList(body, agentId);
+		return normalizeWritten(body, agentId);
 	}
 
 	async search(query: MemorySearchQuery): Promise<MemoryRecord[]> {

@@ -58,7 +58,7 @@ Self-hosted Letta, Mem0, or Zep deployments work when you point the connector at
 
 ‡ No Letta route reads or edits a single passage, and the list cursors are strict — `before`/`after` select the passages around an id, never the id itself — so a passage cannot be addressed on its own. Rather than guess it out of a bounded page and report "not found" for anything older, OpenLIT leaves `get` and `update` unadvertised; the detail sheet shows the record from the list. Edit a passage by deleting it and adding the new text.
 
-§ A Letta passage stores only `metadata.tags`. Its create body is `{text, tags, created_at}` with no metadata field, so any other key you type into the add dialog's metadata box is not kept server-side. Copies into a Letta connector still keep their port link — OpenLIT stores it on the connector, not in vendor metadata.
+§ A Letta passage stores only `metadata.tags`. Its create body is `{text, tags}` with no metadata field, so any other key you type into the add dialog's metadata box is not kept server-side. Copies into a Letta connector still keep their port link — OpenLIT stores it on the connector, not in vendor metadata.
 
 ## Add a memory connector
 

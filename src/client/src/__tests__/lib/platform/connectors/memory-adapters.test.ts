@@ -2776,6 +2776,19 @@ describe("Letta adapter", () => {
 		});
 	});
 
+	it("reads a create answered with a bare passage, not only a list", async () => {
+		// The text may become several passages, so a list is the usual answer, but a
+		// single one comes back bare depending on the server version. Reading that as
+		// no rows would report a successful write as nothing written.
+		mockSafeFetch.mockResolvedValue({ id: "passage-9", text: "User likes tea" });
+		const adapter = new LettaAdapter(descriptor("letta"));
+		await expect(
+			adapter.add({ content: "User likes tea", agentId: "agent-1" })
+		).resolves.toEqual([
+			expect.objectContaining({ id: "agent-1:passage-9", content: "User likes tea" }),
+		]);
+	});
+
 	it("joins messages into one passage and omits empty tags", async () => {
 		mockSafeFetch.mockResolvedValue([{ id: "passage-4", text: "hi\nthere" }]);
 		const adapter = new LettaAdapter(descriptor("letta"));
