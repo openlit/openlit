@@ -5,6 +5,7 @@ const CONNECTOR_DESCRIPTIONS: Record<string, string> = {
 	prometheus: "Metrics from Prometheus or a compatible query API.",
 	jaeger: "Distributed traces from a Jaeger endpoint.",
 	claude: "Agent memory from Claude memory stores.",
+	letta: "Agent archival memory from Letta.",
 	mem0: "Long-term agent memory from Mem0.",
 	zep: "Session and graph memory from Zep.",
 	trustabl: "Agent SDK and MCP reliability scans from Trustabl.",
