@@ -2903,6 +2903,87 @@ describe("LangGraph adapter", () => {
 		});
 	});
 
+	it("keeps arbitrary object values in metadata and uses the JSON fallback for content", async () => {
+		const value = { profile: { tags: ["a", "b"] }, count: 2, active: true };
+		mockSafeFetch.mockResolvedValue(item(["profiles", "u1"], "k1", value));
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		const record = await adapter.get("profiles.u1:k1");
+		expect(record?.content).toBe(JSON.stringify(value));
+		expect(record?.metadata).toEqual({
+			langgraph: { namespace: ["profiles", "u1"], key: "k1", value },
+		});
+	});
+
+	describe("namespace scope for direct ids", () => {
+		it("does not get items outside a fixed namespace prefix", async () => {
+			const adapter = new LangGraphAdapter(lgDescriptor({ namespaceTemplate: "memories" }));
+			await expect(adapter.get("other.u1:k1")).resolves.toBeNull();
+			await expect(adapter.get("memoriesx.u1:k1")).resolves.toBeNull();
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+
+			mockSafeFetch.mockResolvedValue(item(["memories", "u1"], "k1", { content: "in scope" }));
+			await expect(adapter.get("memories.u1:k1")).resolves.toMatchObject({ content: "in scope" });
+			expect(call(0).url).toBe(`${BASE}/store/items?namespace=memories.u1&key=k1`);
+		});
+
+		it("does not get items outside a placeholder template", async () => {
+			const adapter = new LangGraphAdapter(
+				lgDescriptor({ namespaceTemplate: "memories/{user_id}/{thread_id}" })
+			);
+			for (const id of ["other.u1.t1:k1", "memories.u1:k1", "memories:k1"]) {
+				await expect(adapter.get(id)).resolves.toBeNull();
+			}
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+
+			mockSafeFetch.mockResolvedValue(item(["memories", "u1", "t1"], "k1", { content: "in scope" }));
+			await expect(adapter.get("memories.u1.t1:k1")).resolves.toMatchObject({
+				content: "in scope",
+				userId: "u1",
+				sessionId: "t1",
+			});
+		});
+
+		it("does not update or delete out-of-scope items and sends no request", async () => {
+			for (const namespaceTemplate of ["memories", "memories/{user_id}"]) {
+				const adapter = new LangGraphAdapter(lgDescriptor({ namespaceTemplate }));
+				await expect(adapter.update("other.u1:k1", { content: "new" })).rejects.toThrow(
+					/could not be found/
+				);
+				await expect(adapter.delete("other.u1:k1")).rejects.toThrow(/could not be found/);
+			}
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+		});
+
+		it("still updates and deletes in-scope items", async () => {
+			const adapter = new LangGraphAdapter(lgDescriptor({ namespaceTemplate: "memories/{user_id}" }));
+			mockSafeFetch
+				.mockResolvedValueOnce(item(["memories", "u1"], "k1", { content: "old", foo: 1 }))
+				.mockResolvedValueOnce(undefined)
+				.mockResolvedValueOnce(undefined);
+			await expect(adapter.update("memories.u1:k1", { content: "new" })).resolves.toMatchObject({
+				content: "new",
+				userId: "u1",
+			});
+			expect(call(1).body).toEqual({
+				namespace: ["memories", "u1"],
+				key: "k1",
+				value: { content: "new", foo: 1 },
+			});
+			await expect(adapter.delete("memories.u1:k1")).resolves.toBeUndefined();
+			expect(call(2)).toMatchObject({
+				method: "DELETE",
+				body: { namespace: ["memories", "u1"], key: "k1" },
+			});
+		});
+
+		it("allows any valid namespace when no template is configured", async () => {
+			mockSafeFetch.mockResolvedValue(undefined);
+			const adapter = new LangGraphAdapter(lgDescriptor());
+			await expect(adapter.delete("anything.at.all:k1")).resolves.toBeUndefined();
+			expect(call(0).body).toEqual({ namespace: ["anything", "at", "all"], key: "k1" });
+		});
+	});
+
 	it("does not support feedback", async () => {
 		const adapter = new LangGraphAdapter(lgDescriptor());
 		expect(adapter.capabilities().feedback).toBe(false);

@@ -91,6 +91,7 @@ interface NamespaceScope {
 interface StoreItem {
 	namespace: string[];
 	key: string;
+	/** The Store contract types values as objects (`dict[str, Any]`); PUT rejects anything else. */
 	value: Record<string, unknown>;
 	createdAt?: string;
 	updatedAt?: string;
@@ -214,6 +215,13 @@ function matchTemplate(
 		}
 	}
 	return fields;
+}
+
+/** Whether a namespace falls inside the connector's configured template or prefix. */
+function namespaceInScope(scope: NamespaceScope, namespace: string[]): boolean {
+	return scope.mapped && scope.template
+		? !!matchTemplate(scope.template, namespace)
+		: startsWith(namespace, scope.prefix);
 }
 
 function filterValue(
@@ -430,7 +438,7 @@ export class LangGraphAdapter extends BaseMemoryAdapter {
 	}
 
 	async get(id: string): Promise<MemoryRecord | null> {
-		const ref = parseMemoryRef(id);
+		const ref = this.scopedRef(id);
 		if (!ref) return null;
 		const item = await this.fetchItem(ref.namespace, ref.key);
 		return item ? this.toRecord(item) : null;
@@ -444,7 +452,7 @@ export class LangGraphAdapter extends BaseMemoryAdapter {
 	 */
 	async update(id: string, input: MemoryUpdateInput): Promise<MemoryRecord> {
 		const messages = getMessage();
-		const ref = parseMemoryRef(id);
+		const ref = this.scopedRef(id);
 		if (!ref) throw new Error(messages.MEMORY_DETAIL_NOT_FOUND);
 		const existing = await this.fetchItem(ref.namespace, ref.key);
 		if (!existing) throw new Error(messages.MEMORY_DETAIL_NOT_FOUND);
@@ -467,7 +475,7 @@ export class LangGraphAdapter extends BaseMemoryAdapter {
 	}
 
 	async delete(id: string): Promise<void> {
-		const ref = parseMemoryRef(id);
+		const ref = this.scopedRef(id);
 		if (!ref) throw new Error(getMessage().MEMORY_DETAIL_NOT_FOUND);
 		await this.request("store/items", {
 			method: "DELETE",
@@ -517,6 +525,16 @@ export class LangGraphAdapter extends BaseMemoryAdapter {
 		} catch {
 			return emptyMemoryFilters();
 		}
+	}
+
+	/**
+	 * Parses a memory id and rejects namespaces outside this connector's scope
+	 * before any request, so a crafted id cannot reach other namespaces and
+	 * out-of-scope items look the same as missing ones.
+	 */
+	private scopedRef(id: string): { namespace: string[]; key: string } | null {
+		const ref = parseMemoryRef(id);
+		return ref && namespaceInScope(this.scope(), ref.namespace) ? ref : null;
 	}
 
 	private async fetchItem(namespace: string[], key: string): Promise<StoreItem | null> {
