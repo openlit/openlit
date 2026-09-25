@@ -19,6 +19,7 @@ const CONNECTOR_DISPLAY_NAMES: Record<string, string> = {
 	claude: "Claude",
 	mem0: "Mem0",
 	zep: "Zep",
+	langgraph: "LangGraph",
 };
 
 export function classifySignalRoutingChange(
