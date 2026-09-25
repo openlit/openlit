@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
 	Pagination,
@@ -29,6 +30,12 @@ type MemoryListProps = {
 	onSearchChange: (value: string) => void;
 	selectedId?: string | null;
 	onSelect: (id: string) => void;
+	/** Durable backend total, when the connector reports one. */
+	total?: number;
+	/** True when the backend holds memories past what is loaded. */
+	hasMore?: boolean;
+	loadingMore?: boolean;
+	onLoadMore?: () => void;
 };
 
 export default function MemoryList({
@@ -37,6 +44,10 @@ export default function MemoryList({
 	onSearchChange,
 	selectedId,
 	onSelect,
+	total,
+	hasMore,
+	loadingMore,
+	onLoadMore,
 }: MemoryListProps) {
 	const messages = getMessage();
 	const selectedRef = useRef<HTMLButtonElement | null>(null);
@@ -57,6 +68,10 @@ export default function MemoryList({
 		(currentPage - 1) * PAGE_SIZE,
 		currentPage * PAGE_SIZE
 	);
+	const showLoaded =
+		typeof total === "number" && total > memories.length && memories.length > 0;
+	const showPages = filtered.length > PAGE_SIZE;
+	const showLoadMore = !!hasMore && !!onLoadMore;
 
 	useEffect(() => {
 		jumpedForId.current = null;
@@ -143,9 +158,31 @@ export default function MemoryList({
 					</ul>
 				)}
 			</div>
-			{filtered.length > PAGE_SIZE ? (
-				<div className="flex shrink-0 items-center justify-end border-t border-stone-200 px-2 py-1.5 dark:border-stone-800">
-					<Pagination className="m-0 w-auto">
+			{showPages || showLoaded || showLoadMore ? (
+				<div className="flex shrink-0 items-center justify-between gap-2 border-t border-stone-200 px-2 py-1.5 dark:border-stone-800">
+					<div className="flex min-w-0 items-center gap-2">
+						{showLoaded ? (
+							<span className="truncate text-xs text-stone-500 dark:text-stone-400">
+								{messages.MEMORY_LIST_SHOWING(memories.length, total as number)}
+							</span>
+						) : null}
+						{showLoadMore ? (
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								className="h-7 shrink-0 px-2 text-xs"
+								disabled={loadingMore}
+								onClick={onLoadMore}
+							>
+								{loadingMore
+									? messages.MEMORY_LIST_LOADING_MORE
+									: messages.MEMORY_LIST_LOAD_MORE}
+							</Button>
+						) : null}
+					</div>
+					{showPages ? (
+					<Pagination className="m-0 w-auto shrink-0">
 						<PaginationContent className="gap-0.5">
 							<PaginationItem>
 								<PaginationPrevious
@@ -178,6 +215,7 @@ export default function MemoryList({
 							</PaginationItem>
 						</PaginationContent>
 					</Pagination>
+					) : null}
 				</div>
 			) : null}
 		</section>

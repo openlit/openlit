@@ -1,8 +1,13 @@
 import {
+	MEMORY_CLUSTER_COLORS,
+	MEMORY_EDGE_TIER_MINIMUM,
 	buildMemoryGraph,
 	classifyEntityType,
 	classifyMemoryKind,
 	layoutMemoryGraph,
+	memoryClusterColor,
+	memoryEdgeDashPattern,
+	memoryEdgeTier,
 	radialEdgePoints,
 	summarizeMemoryStats,
 	type MemoryGraphModel,
@@ -426,5 +431,90 @@ describe("radialEdgePoints", () => {
 		expect(points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y))).toBe(
 			true
 		);
+	});
+});
+
+describe("memoryEdgeTier", () => {
+	it("buckets a weight the way the MemCode dashboard does", () => {
+		expect(memoryEdgeTier(0.95)).toBe("strong");
+		expect(memoryEdgeTier(0.81)).toBe("strong");
+		// 0.8 itself is medium: upstream uses an exclusive bound for strong.
+		expect(memoryEdgeTier(0.8)).toBe("medium");
+		expect(memoryEdgeTier(0.6)).toBe("medium");
+		expect(memoryEdgeTier(0.59)).toBe("weak");
+		expect(memoryEdgeTier(0.51)).toBe("weak");
+		expect(memoryEdgeTier(0.5)).toBe("faint");
+		expect(memoryEdgeTier(0.3)).toBe("faint");
+	});
+
+	it("treats anything below the faint floor as noise", () => {
+		expect(memoryEdgeTier(0.29)).toBeNull();
+		expect(memoryEdgeTier(0)).toBeNull();
+	});
+
+	it("returns null for an unscored edge", () => {
+		expect(memoryEdgeTier(undefined)).toBeNull();
+		expect(memoryEdgeTier(Number.NaN)).toBeNull();
+		expect(memoryEdgeTier(Number.POSITIVE_INFINITY)).toBeNull();
+	});
+
+	it("keeps only edges at or above the selected threshold", () => {
+		const weights = [0.35, 0.55, 0.62, 0.91];
+		expect(
+			weights.filter((weight) => weight >= MEMORY_EDGE_TIER_MINIMUM.strong)
+		).toEqual([0.91]);
+		expect(
+			weights.filter((weight) => weight >= MEMORY_EDGE_TIER_MINIMUM.medium)
+		).toEqual([0.62, 0.91]);
+		expect(
+			weights.filter((weight) => weight >= MEMORY_EDGE_TIER_MINIMUM.weak)
+		).toEqual([0.55, 0.62, 0.91]);
+		expect(
+			weights.filter((weight) => weight >= MEMORY_EDGE_TIER_MINIMUM.faint)
+		).toEqual(weights);
+	});
+});
+
+describe("MemCode constellation styling", () => {
+	it("dashes edges the way the dashboard does", () => {
+		expect(memoryEdgeDashPattern("strong")).toBeUndefined();
+		expect(memoryEdgeDashPattern("medium")).toBe("7 4");
+		expect(memoryEdgeDashPattern("weak")).toBe("4 6");
+		expect(memoryEdgeDashPattern("faint")).toBe("2 6");
+	});
+
+	it("maps a domain onto a stable cluster colour", () => {
+		const profile = memoryClusterColor("profile");
+		expect(MEMORY_CLUSTER_COLORS).toContain(profile);
+		expect(memoryClusterColor("profile")).toBe(profile);
+		expect(memoryClusterColor("temporal")).not.toBe(profile);
+		// An unknown or missing domain still resolves rather than throwing.
+		expect(MEMORY_CLUSTER_COLORS).toContain(memoryClusterColor(undefined));
+	});
+
+	it("lays a weighted graph out as a golden-angle constellation", () => {
+		const model: MemoryGraphModel = {
+			kind: "knowledge",
+			weighted: true,
+			nodes: Array.from({ length: 400 }, (_, index) => ({
+				id: `memory_${index}`,
+				type: "memory" as const,
+				label: `Memory ${index}`,
+				memoryId: `memory_${index}`,
+			})),
+			edges: [],
+		};
+		const laidOut = layoutMemoryGraph(model, 800, 480);
+		expect(laidOut).toHaveLength(400);
+		expect(laidOut.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y))).toBe(
+			true
+		);
+		// Phyllotaxis: distance from centre grows as sqrt(index), so later nodes
+		// sit strictly further out and nothing collapses onto one point.
+		const radius = (index: number) =>
+			Math.hypot(laidOut[index].x - 400, laidOut[index].y - 240);
+		expect(radius(0)).toBeLessThan(radius(50));
+		expect(radius(50)).toBeLessThan(radius(399));
+		expect(new Set(laidOut.map((node) => `${node.x},${node.y}`)).size).toBe(400);
 	});
 });
