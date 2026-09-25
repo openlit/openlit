@@ -106,6 +106,33 @@ class FakeRawStream:
         self.closed = True
 
 
+class FakeAsyncRawStream:
+    """Async event stream shaped like anthropic's AsyncMessageStream.
+
+    `close` is a coroutine and there is no `aclose`, matching
+    `anthropic/lib/streaming/_messages.py` and `anthropic/_streaming.py`. The
+    fake has to mirror the library rather than the wrapper, otherwise an
+    override the caller can never reach would still look reachable here.
+    """
+
+    def __init__(self):
+        self._it = iter(EVENTS)
+        self.closed = False
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._it)
+        except StopIteration:
+            raise StopAsyncIteration from None
+
+    async def close(self):
+        """Record that the caller closed the stream without draining it."""
+        self.closed = True
+
+
 class FakeManager:
     """Context manager shaped like anthropic's MessageStreamManager."""
 
@@ -194,3 +221,46 @@ async def test_async_full_consumption_exports_exactly_one_span():
 
     time.sleep(0.1)
     assert len(exporter.get_finished_spans()) == 1
+
+
+async def test_async_close_finalizes_span_before_block_exit():
+    """`await stream.close()` must finalize the span at that moment.
+
+    The span count is checked inside the `async with` block on purpose:
+    `__aexit__` finalizes unconditionally, so a check placed after it passes
+    whether or not `close()` is reachable.
+    """
+    tracer, exporter = _tracer_with_exporter()
+    factory = _factory(tracer, is_async=True)
+
+    raw = FakeAsyncRawStream()
+    manager = factory(lambda *a, **k: FakeManager(raw), None, (), REQUEST_KWARGS)
+    async with manager as stream:
+        await anext(stream)
+        await stream.close()
+
+        time.sleep(0.1)
+        spans = exporter.get_finished_spans()
+        assert len(spans) == 1, "close() must finalize the span exactly once"
+
+    assert raw.closed, "close() must still close the wrapped stream"
+
+
+async def test_async_close_override_matches_the_sdk_name():
+    """The override must be `close`; anthropic defines no `aclose`.
+
+    Naming it `aclose` would leave `await stream.close()` falling through
+    `__getattr__` to the wrapped stream, so the span would never finalize.
+    """
+    tracer, _ = _tracer_with_exporter()
+    factory = _factory(tracer, is_async=True)
+
+    manager = factory(lambda *a, **k: FakeManager(FakeAsyncRawStream()), None, (),
+                      REQUEST_KWARGS)
+    async with manager as stream:
+        await anext(stream)
+        assert "close" in type(stream).__dict__, "wrapper must override close()"
+        assert "aclose" not in type(stream).__dict__, (
+            "anthropic streams define close(), not aclose()"
+        )
+        await stream.close()

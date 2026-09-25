@@ -126,6 +126,17 @@ def async_messages(
             except Exception as e:
                 handle_exception(self._span, e)
 
+        async def close(self):
+            """Close the wrapped stream and finalize the span if not ended.
+
+            anthropic's AsyncStream names this `close`, not `aclose`, so the
+            override has to match or it is never reached.
+            """
+            try:
+                await self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span()
+
     async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the Anthropic AsyncMessages.create call.
@@ -344,6 +355,17 @@ def async_messages_stream(
                     )
             except Exception as e:
                 handle_exception(self._span, e)
+
+        async def close(self):
+            """Close the wrapped stream and finalize the span if not ended.
+
+            anthropic's AsyncMessageStream names this `close`, not `aclose`,
+            so the override has to match or it is never reached.
+            """
+            try:
+                await self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span()
 
     class TracedAsyncMessageStreamManager:
         """
