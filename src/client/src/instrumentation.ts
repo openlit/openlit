@@ -78,6 +78,25 @@ export async function register() {
 			console.error("❌ Error installing telemetry snapshot cron:", error);
 		}
 
+		try {
+			// Boot sync for active enterprise licenses (at most every 6h).
+			// Neutral path: CE no-op; EE resolves via `@/lib/*` → `ee/lib/*`.
+			const { syncAllActiveLicensesIfDue } = await import(
+				"@/lib/license-boot-sync"
+			);
+			console.log("🔑 Syncing active enterprise licenses if due...");
+			const syncResult = await syncAllActiveLicensesIfDue();
+			if (syncResult.ran) {
+				console.log(
+					`✅ License sync completed for ${syncResult.organisations} organisation(s)`
+				);
+			} else {
+				console.log("⏭️ License sync skipped (not due or offline)");
+			}
+		} catch (error) {
+			console.error("❌ Error syncing enterprise licenses on startup:", error);
+		}
+
 		console.log("✨ Server initialization complete");
 	}
 }
