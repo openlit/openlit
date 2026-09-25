@@ -27,9 +27,14 @@ const mockSafeFetch = jest.fn();
 import { ClaudeAdapter, claudeAdapterFactory } from "@/lib/platform/connectors/memory/claude/adapter";
 import { Mem0Adapter, mem0AdapterFactory } from "@/lib/platform/connectors/memory/mem0/adapter";
 import { ZepAdapter, zepAdapterFactory } from "@/lib/platform/connectors/memory/zep/adapter";
+import {
+	LangGraphAdapter,
+	langgraphAdapterFactory,
+} from "@/lib/platform/connectors/memory/langgraph/adapter";
 import { SourceResponseError } from "@/lib/platform/connectors/datasource/http/safe-fetch";
 import { resolveSourceSecret } from "@/lib/platform/connectors/datasource/http/secret";
 import type { MemorySourceDescriptor } from "@/lib/platform/connectors/memory/types";
+import { UnsupportedMemoryCapabilityError } from "@/lib/platform/connectors/memory/types";
 
 function defaultUrl(type: "claude" | "mem0" | "zep"): string {
 	if (type === "claude") return "https://api.anthropic.com";
@@ -2426,6 +2431,564 @@ describe("Claude adapter", () => {
 		const adapter = new ClaudeAdapter(descriptor("claude"));
 		await expect(adapter.healthCheck()).resolves.toEqual(
 			expect.objectContaining({ ok: false, message: "store down" })
+		);
+	});
+});
+
+describe("LangGraph adapter", () => {
+	const BASE = "https://langgraph.example.com";
+
+	function lgDescriptor(settings: Record<string, unknown> = {}): MemorySourceDescriptor {
+		return {
+			type: "langgraph",
+			id: "memory:langgraph",
+			settings: { url: BASE, ...settings },
+			secretRef: "vault-1",
+			name: "langgraph",
+			projectId: "proj-1",
+		};
+	}
+
+	function call(index: number) {
+		const [url, options] = mockSafeFetch.mock.calls[index];
+		return {
+			url: String(url),
+			method: options.method,
+			headers: options.headers,
+			body: options.body === undefined ? undefined : JSON.parse(options.body),
+		};
+	}
+
+	function item(namespace: string[], key: string, value: unknown, extra: Record<string, unknown> = {}) {
+		return {
+			namespace,
+			key,
+			value,
+			created_at: "2026-09-01T00:00:00Z",
+			updated_at: "2026-09-02T00:00:00Z",
+			...extra,
+		};
+	}
+
+	it("describes a self-hosted friendly config schema and capabilities", () => {
+		const described = langgraphAdapterFactory.describe();
+		expect(described.type).toBe("langgraph");
+		expect(described.capabilities).toEqual({
+			add: true,
+			search: true,
+			get: true,
+			list: true,
+			update: true,
+			delete: true,
+			feedback: false,
+		});
+		expect(described.configFields.map((field) => field.key)).toEqual([
+			"url",
+			"allowHttp",
+			"allowPrivateNetwork",
+			"apiKey",
+			"namespaceTemplate",
+		]);
+		expect(described.configFields[0].defaultValue).toBeUndefined();
+		expect(described.filterFields?.map((field) => field.key)).toEqual([
+			"userId",
+			"sessionId",
+			"agentId",
+		]);
+		expect(described.filterFields?.every((field) => !field.required)).toBe(true);
+		expect(described.authStyle).toBe("api-key");
+	});
+
+	it("health-checks an authenticated store route and sends x-api-key", async () => {
+		mockSafeFetch.mockResolvedValue({ namespaces: [] });
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: true })
+		);
+		const request = call(0);
+		expect(request.url).toBe(`${BASE}/store/namespaces`);
+		expect(request.method).toBe("POST");
+		expect(request.body).toEqual({ limit: 1 });
+		expect(request.headers["x-api-key"]).toBe("secret-key");
+		expect(request.headers.Authorization).toBeUndefined();
+	});
+
+	it("sends no auth header when the connector has no API key", async () => {
+		(resolveSourceSecret as jest.Mock).mockResolvedValueOnce({ raw: "", credentials: {} });
+		mockSafeFetch.mockResolvedValue({ namespaces: [] });
+		const adapter = new LangGraphAdapter({ ...lgDescriptor(), secretRef: null });
+		await adapter.healthCheck();
+		expect(call(0).headers["x-api-key"]).toBeUndefined();
+	});
+
+	it("reports auth failures, missing store routes, and other errors from the health check", async () => {
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(401, "Data source responded 401"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false, message: expect.stringMatching(/rejected the credentials/) })
+		);
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(403, "Data source responded 403"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false, message: expect.stringMatching(/rejected the credentials/) })
+		);
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(404, "Data source responded 404"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false, message: expect.stringMatching(/Store API was not found/) })
+		);
+		mockSafeFetch.mockRejectedValueOnce(new Error("connect ECONNREFUSED"));
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false, message: "connect ECONNREFUSED" })
+		);
+	});
+
+	it("requires a server URL and a valid namespace template", async () => {
+		const noUrl = new LangGraphAdapter(lgDescriptor({ url: "" }));
+		await expect(noUrl.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: false, message: expect.stringMatching(/server URL is required/) })
+		);
+		await expect(noUrl.list({})).rejects.toThrow(/server URL is required/);
+		for (const namespaceTemplate of ["memories/{org_id}", "a.b/{user_id}", "{user_id}/{user_id}", "x{user_id}"]) {
+			const adapter = new LangGraphAdapter(lgDescriptor({ namespaceTemplate }));
+			await expect(adapter.healthCheck()).resolves.toEqual(
+				expect.objectContaining({ ok: false, message: expect.stringMatching(/template is invalid/) })
+			);
+		}
+		expect(mockSafeFetch).not.toHaveBeenCalled();
+	});
+
+	it("gets an item with a dot-joined namespace and URI-encoded key", async () => {
+		mockSafeFetch.mockResolvedValue(item(["memories", "u:1"], "k:1", { content: "likes tea" }));
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		const record = await adapter.get("memories.u:1:k%3A1");
+		const request = call(0);
+		expect(request.method).toBe("GET");
+		expect(request.url).toBe(`${BASE}/store/items?namespace=memories.u%3A1&key=k%3A1`);
+		expect(record).toMatchObject({
+			id: "memories.u:1:k%3A1",
+			content: "likes tea",
+			sessionId: "memories.u:1",
+			createdAt: "2026-09-01T00:00:00Z",
+			updatedAt: "2026-09-02T00:00:00Z",
+		});
+	});
+
+	it("returns null for a missing item (200 null) and for malformed ids", async () => {
+		mockSafeFetch.mockResolvedValue(null);
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		await expect(adapter.get("memories.u1:missing")).resolves.toBeNull();
+		mockSafeFetch.mockClear();
+		for (const id of ["no-separator", ":key", "a..b:key", "memories.u1:", "memories.u1:%E0%A4%A"]) {
+			await expect(adapter.get(id)).resolves.toBeNull();
+		}
+		expect(mockSafeFetch).not.toHaveBeenCalled();
+		await expect(adapter.update("bad", { content: "x" })).rejects.toThrow(/could not be found/);
+		await expect(adapter.delete("bad")).rejects.toThrow(/could not be found/);
+	});
+
+	it("adds a plain-text memory as {content} and handles the 204 response", async () => {
+		mockSafeFetch.mockResolvedValue(undefined);
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		const [record] = await adapter.add({ content: "  likes tea  ", sessionId: "memories.u1", userId: "ignored" });
+		const request = call(0);
+		expect(request.method).toBe("PUT");
+		expect(request.url).toBe(`${BASE}/store/items`);
+		expect(request.body.namespace).toEqual(["memories", "u1"]);
+		expect(typeof request.body.key).toBe("string");
+		expect(request.body.value).toEqual({ content: "likes tea" });
+		expect(request.body).not.toHaveProperty("index");
+		expect(record).toMatchObject({
+			id: `memories.u1:${encodeURIComponent(request.body.key)}`,
+			content: "likes tea",
+			sessionId: "memories.u1",
+		});
+		expect(record.userId).toBeUndefined();
+	});
+
+	it("writes caller metadata but never OpenLIT's langgraph projection", async () => {
+		mockSafeFetch.mockResolvedValue(undefined);
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		await adapter.add({
+			messages: [{ role: "user", content: "one" }, { role: "assistant", content: "two" }],
+			sessionId: "memories.u1",
+			metadata: { openlit: { port: { sourceMemoryId: "m1" } }, langgraph: { value: {} } },
+		});
+		expect(call(0).body.value).toEqual({
+			content: "one\ntwo",
+			metadata: { openlit: { port: { sourceMemoryId: "m1" } } },
+		});
+	});
+
+	it("rejects writes without content, namespace, or with invalid labels", async () => {
+		const adapter = new LangGraphAdapter(lgDescriptor({ namespaceTemplate: "memories" }));
+		await expect(adapter.add({ sessionId: "memories.u1" })).rejects.toThrow(/content or messages/);
+		await expect(adapter.add({ content: "x" })).rejects.toThrow(/session id is required/);
+		await expect(adapter.add({ content: "x", sessionId: "memories..u1" })).rejects.toThrow(/namespace labels/);
+		await expect(adapter.add({ content: "x", sessionId: "other.u1" })).rejects.toThrow(/namespace labels/);
+		expect(mockSafeFetch).not.toHaveBeenCalled();
+	});
+
+	it("deletes an item with a JSON body", async () => {
+		mockSafeFetch.mockResolvedValue(undefined);
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		await expect(adapter.delete("memories.u1:k1")).resolves.toBeUndefined();
+		const request = call(0);
+		expect(request.method).toBe("DELETE");
+		expect(request.url).toBe(`${BASE}/store/items`);
+		expect(request.body).toEqual({ namespace: ["memories", "u1"], key: "k1" });
+	});
+
+	it("lists all namespaces and normalizes LangMem and arbitrary values", async () => {
+		const nested = { kind: "Memory", content: { content: "prefers dark mode", other: true } };
+		const arbitrary = { foo: 123 };
+		mockSafeFetch.mockResolvedValue({
+			items: [
+				item(["memories", "u1"], "a", { content: "likes tea", metadata: { source: "chat" } }, { score: null }),
+				item(["memories", "u1"], "b", nested),
+				item(["profiles"], "c", arbitrary),
+			],
+		});
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		const records = await adapter.list({});
+		expect(call(0).body).toEqual({ namespace_prefix: [], limit: 25, offset: 0 });
+		expect(records.map((record) => record.content)).toEqual([
+			"likes tea",
+			"prefers dark mode",
+			JSON.stringify(arbitrary),
+		]);
+		expect(records[0].score).toBeUndefined();
+		expect(records[0].metadata).toEqual({
+			source: "chat",
+			langgraph: {
+				namespace: ["memories", "u1"],
+				key: "a",
+				value: { content: "likes tea", metadata: { source: "chat" } },
+			},
+		});
+		expect(records[1].metadata?.langgraph).toEqual({ namespace: ["memories", "u1"], key: "b", value: nested });
+		expect(records.map((record) => record.sessionId)).toEqual(["memories.u1", "memories.u1", "profiles"]);
+		expect(records.every((record) => !record.userId && !record.agentId)).toBe(true);
+	});
+
+	it("uses the session filter as an exact namespace without a template", async () => {
+		mockSafeFetch.mockResolvedValue({
+			items: [
+				item(["memories", "u1"], "a", { content: "kept" }),
+				item(["memories", "u1", "profile"], "b", { content: "child namespace" }),
+			],
+		});
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		const records = await adapter.list({ sessionId: "memories.u1", limit: 5 });
+		expect(call(0).body).toEqual({ namespace_prefix: ["memories", "u1"], limit: 5, offset: 0 });
+		expect(records.map((record) => record.content)).toEqual(["kept"]);
+	});
+
+	it("matches nothing for user or agent filters when no template declares them", async () => {
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		await expect(adapter.list({ userId: "u1" })).resolves.toEqual([]);
+		await expect(adapter.search({ query: "tea", agentId: "a1" })).resolves.toEqual([]);
+		const templated = new LangGraphAdapter(lgDescriptor({ namespaceTemplate: "memories/{user_id}" }));
+		await expect(templated.list({ sessionId: "t1" })).resolves.toEqual([]);
+		expect(mockSafeFetch).not.toHaveBeenCalled();
+	});
+
+	it("passes search queries through and keeps numeric scores", async () => {
+		mockSafeFetch.mockResolvedValue({
+			items: [item(["memories", "u1"], "a", { content: "likes tea" }, { score: 0.82 })],
+		});
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		const records = await adapter.search({ query: "  tea  ", limit: 3 });
+		expect(call(0).url).toBe(`${BASE}/store/items/search`);
+		expect(call(0).body).toEqual({ namespace_prefix: [], limit: 3, offset: 0, query: "tea" });
+		expect(records[0].score).toBe(0.82);
+		await expect(adapter.search({ query: "  " })).rejects.toThrow(/search query is required/);
+	});
+
+	it("maps {user_id} from a template and drops items outside it", async () => {
+		mockSafeFetch.mockResolvedValue({
+			items: [
+				item(["memories", "u1"], "a", { content: "fits" }),
+				item(["memories", "u1", "profile"], "b", { content: "deeper namespace still fits" }),
+			],
+		});
+		const adapter = new LangGraphAdapter(lgDescriptor({ namespaceTemplate: "/memories/{user_id}/" }));
+		const records = await adapter.list({ userId: "u1" });
+		expect(call(0).body.namespace_prefix).toEqual(["memories", "u1"]);
+		expect(records.map((record) => [record.content, record.userId, record.sessionId])).toEqual([
+			["fits", "u1", undefined],
+			["deeper namespace still fits", "u1", undefined],
+		]);
+
+		mockSafeFetch.mockClear();
+		mockSafeFetch.mockResolvedValue({
+			items: [item(["memories"], "c", { content: "too shallow" }), item(["other", "u2"], "d", { content: "x" })],
+		});
+		await expect(adapter.list({})).resolves.toEqual([]);
+		expect(call(0).body.namespace_prefix).toEqual(["memories"]);
+	});
+
+	it("maps {thread_id} and {assistant_id} from a template", async () => {
+		mockSafeFetch.mockResolvedValue({
+			items: [item(["memories", "u1", "t1", "a1"], "k", { content: "fact" })],
+		});
+		const adapter = new LangGraphAdapter(
+			lgDescriptor({ namespaceTemplate: "memories/{user_id}/{thread_id}/{assistant_id}" })
+		);
+		const [record] = await adapter.list({ userId: "u1", sessionId: "t1", agentId: "a1" });
+		expect(call(0).body.namespace_prefix).toEqual(["memories", "u1", "t1", "a1"]);
+		expect(record).toMatchObject({ userId: "u1", sessionId: "t1", agentId: "a1", id: "memories.u1.t1.a1:k" });
+	});
+
+	it("writes into the template namespace and names missing placeholders", async () => {
+		mockSafeFetch.mockResolvedValue(undefined);
+		const adapter = new LangGraphAdapter(
+			lgDescriptor({ namespaceTemplate: "memories/{user_id}/{thread_id}" })
+		);
+		const [record] = await adapter.add({ content: "x", userId: "u1", sessionId: "t1" });
+		expect(call(0).body.namespace).toEqual(["memories", "u1", "t1"]);
+		expect(record).toMatchObject({ userId: "u1", sessionId: "t1" });
+		await expect(adapter.add({ content: "x", userId: "u1" })).rejects.toThrow(
+			"This connector's namespace template needs thread_id to write a memory."
+		);
+		await expect(adapter.add({ content: "x" })).rejects.toThrow(/needs user_id, thread_id/);
+		await expect(adapter.add({ content: "x", userId: "u.1", sessionId: "t1" })).rejects.toThrow(/namespace labels/);
+	});
+
+	it("resolves candidate namespaces when an earlier placeholder is missing", async () => {
+		mockSafeFetch
+			.mockResolvedValueOnce({
+				namespaces: [
+					["memories", "u1", "t1"],
+					["memories", "u2", "t1"],
+					["memories", "u3", "t9"],
+					["memories", "u4"],
+				],
+			})
+			.mockResolvedValueOnce({
+				items: [item(["memories", "u1", "t1"], "a", { content: "older" }, { updated_at: "2026-09-01T00:00:00Z" })],
+			})
+			.mockResolvedValueOnce({
+				items: [item(["memories", "u2", "t1"], "b", { content: "newer" }, { updated_at: "2026-09-03T00:00:00Z" })],
+			});
+		const adapter = new LangGraphAdapter(
+			lgDescriptor({ namespaceTemplate: "memories/{user_id}/{thread_id}" })
+		);
+		const records = await adapter.list({ sessionId: "t1" });
+		expect(call(0).url).toBe(`${BASE}/store/namespaces`);
+		expect(call(0).body).toEqual({ prefix: ["memories"], max_depth: 3, limit: 100, offset: 0 });
+		expect(call(1).body.namespace_prefix).toEqual(["memories", "u1", "t1"]);
+		expect(call(2).body.namespace_prefix).toEqual(["memories", "u2", "t1"]);
+		expect(mockSafeFetch).toHaveBeenCalledTimes(3);
+		expect(records.map((record) => [record.content, record.userId])).toEqual([
+			["newer", "u2"],
+			["older", "u1"],
+		]);
+	});
+
+	it("bounds namespace discovery pages and candidate searches", async () => {
+		const page = Array.from({ length: 100 }, (_, index) => ["memories", `u${index}`, "t1"]);
+		mockSafeFetch.mockImplementation((url: string) =>
+			Promise.resolve(String(url).endsWith("/store/namespaces") ? { namespaces: page } : { items: [] })
+		);
+		const adapter = new LangGraphAdapter(
+			lgDescriptor({ namespaceTemplate: "memories/{user_id}/{thread_id}" })
+		);
+		await adapter.list({ sessionId: "t1" });
+		const urls = mockSafeFetch.mock.calls.map(([url]) => String(url));
+		expect(urls.filter((url) => url.endsWith("/store/namespaces"))).toHaveLength(5);
+		expect(urls.filter((url) => url.endsWith("/store/items/search"))).toHaveLength(10);
+	});
+
+	it("discovers namespaces as session filters without a template", async () => {
+		mockSafeFetch.mockResolvedValue([["memories", "u2"], ["memories", "u1"], ["bad.label"]]);
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		const filters = await adapter.listFilters();
+		expect(call(0).body).toEqual({ limit: 100, offset: 0 });
+		expect(filters).toEqual({
+			users: [],
+			sessions: [
+				{ id: "memories.u1", label: "memories.u1" },
+				{ id: "memories.u2", label: "memories.u2" },
+			],
+			agents: [],
+		});
+	});
+
+	it("discovers template users, threads, and assistants", async () => {
+		mockSafeFetch.mockResolvedValue({
+			namespaces: [
+				["memories", "u1", "t1", "a1"],
+				["memories", "u1", "t2", "a1"],
+				["other", "x", "y", "z"],
+			],
+		});
+		const adapter = new LangGraphAdapter(
+			lgDescriptor({ namespaceTemplate: "memories/{user_id}/{thread_id}/{assistant_id}" })
+		);
+		const filters = await adapter.listFilters();
+		expect(call(0).body).toEqual({ prefix: ["memories"], max_depth: 4, limit: 100, offset: 0 });
+		expect(filters.users).toEqual([{ id: "u1", label: "u1" }]);
+		expect(filters.sessions).toEqual([
+			{ id: "t1", label: "t1", userId: "u1" },
+			{ id: "t2", label: "t2", userId: "u1" },
+		]);
+		expect(filters.agents).toEqual([{ id: "a1", label: "a1" }]);
+	});
+
+	it("returns empty filters when namespace discovery fails", async () => {
+		mockSafeFetch.mockRejectedValue(new Error("down"));
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		await expect(adapter.listFilters()).resolves.toEqual({ users: [], sessions: [], agents: [] });
+	});
+
+	describe("update", () => {
+		async function runUpdate(existing: unknown, input: { content: string; metadata?: Record<string, unknown> }) {
+			mockSafeFetch
+				.mockResolvedValueOnce(item(["memories", "u1"], "k1", existing))
+				.mockResolvedValueOnce(undefined);
+			const adapter = new LangGraphAdapter(lgDescriptor());
+			const record = await adapter.update("memories.u1:k1", input);
+			expect(call(0).method).toBe("GET");
+			const put = call(1);
+			expect(put.method).toBe("PUT");
+			expect(put.body.namespace).toEqual(["memories", "u1"]);
+			expect(put.body.key).toBe("k1");
+			return { value: put.body.value, record };
+		}
+
+		it("replaces top-level content and keeps unrelated fields", async () => {
+			const { value, record } = await runUpdate({ content: "old", foo: 123 }, { content: "new" });
+			expect(value).toEqual({ content: "new", foo: 123 });
+			expect(record).toMatchObject({ id: "memories.u1:k1", content: "new" });
+		});
+
+		it("replaces nested LangMem content and keeps kind and sibling fields", async () => {
+			const { value } = await runUpdate(
+				{ kind: "Memory", content: { content: "old", other: true } },
+				{ content: "new" }
+			);
+			expect(value).toEqual({ kind: "Memory", content: { content: "new", other: true } });
+		});
+
+		it("adds top-level content to a JSON-fallback value without deleting data", async () => {
+			const { value, record } = await runUpdate({ foo: 123 }, { content: "new" });
+			expect(value).toEqual({ foo: 123, content: "new" });
+			expect(record.content).toBe("new");
+		});
+
+		it("merges metadata into an existing metadata object", async () => {
+			const { value } = await runUpdate(
+				{ content: "old", metadata: { a: 1 } },
+				{ content: "new", metadata: { b: 2, langgraph: { value: {} } } }
+			);
+			expect(value).toEqual({ content: "new", metadata: { a: 1, b: 2 } });
+		});
+
+		it("refuses updates that would overwrite a non-text content or metadata field", async () => {
+			const adapter = new LangGraphAdapter(lgDescriptor());
+			mockSafeFetch.mockResolvedValueOnce(item(["memories", "u1"], "k1", { content: { text: "old" } }));
+			await expect(adapter.update("memories.u1:k1", { content: "new" })).rejects.toThrow(/cannot edit/);
+			mockSafeFetch.mockResolvedValueOnce(item(["memories", "u1"], "k1", { content: "old", metadata: "note" }));
+			await expect(
+				adapter.update("memories.u1:k1", { content: "new", metadata: { a: 1 } })
+			).rejects.toThrow(/cannot edit/);
+			expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+			expect(mockSafeFetch.mock.calls.every(([, options]) => options.method === undefined || options.method === "GET")).toBe(true);
+		});
+
+		it("reports a missing item without writing", async () => {
+			mockSafeFetch.mockResolvedValueOnce(null);
+			const adapter = new LangGraphAdapter(lgDescriptor());
+			await expect(adapter.update("memories.u1:k1", { content: "new" })).rejects.toThrow(/could not be found/);
+			expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	it("keeps arbitrary object values in metadata and uses the JSON fallback for content", async () => {
+		const value = { profile: { tags: ["a", "b"] }, count: 2, active: true };
+		mockSafeFetch.mockResolvedValue(item(["profiles", "u1"], "k1", value));
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		const record = await adapter.get("profiles.u1:k1");
+		expect(record?.content).toBe(JSON.stringify(value));
+		expect(record?.metadata).toEqual({
+			langgraph: { namespace: ["profiles", "u1"], key: "k1", value },
+		});
+	});
+
+	describe("namespace scope for direct ids", () => {
+		it("does not get items outside a fixed namespace prefix", async () => {
+			const adapter = new LangGraphAdapter(lgDescriptor({ namespaceTemplate: "memories" }));
+			await expect(adapter.get("other.u1:k1")).resolves.toBeNull();
+			await expect(adapter.get("memoriesx.u1:k1")).resolves.toBeNull();
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+
+			mockSafeFetch.mockResolvedValue(item(["memories", "u1"], "k1", { content: "in scope" }));
+			await expect(adapter.get("memories.u1:k1")).resolves.toMatchObject({ content: "in scope" });
+			expect(call(0).url).toBe(`${BASE}/store/items?namespace=memories.u1&key=k1`);
+		});
+
+		it("does not get items outside a placeholder template", async () => {
+			const adapter = new LangGraphAdapter(
+				lgDescriptor({ namespaceTemplate: "memories/{user_id}/{thread_id}" })
+			);
+			for (const id of ["other.u1.t1:k1", "memories.u1:k1", "memories:k1"]) {
+				await expect(adapter.get(id)).resolves.toBeNull();
+			}
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+
+			mockSafeFetch.mockResolvedValue(item(["memories", "u1", "t1"], "k1", { content: "in scope" }));
+			await expect(adapter.get("memories.u1.t1:k1")).resolves.toMatchObject({
+				content: "in scope",
+				userId: "u1",
+				sessionId: "t1",
+			});
+		});
+
+		it("does not update or delete out-of-scope items and sends no request", async () => {
+			for (const namespaceTemplate of ["memories", "memories/{user_id}"]) {
+				const adapter = new LangGraphAdapter(lgDescriptor({ namespaceTemplate }));
+				await expect(adapter.update("other.u1:k1", { content: "new" })).rejects.toThrow(
+					/could not be found/
+				);
+				await expect(adapter.delete("other.u1:k1")).rejects.toThrow(/could not be found/);
+			}
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+		});
+
+		it("still updates and deletes in-scope items", async () => {
+			const adapter = new LangGraphAdapter(lgDescriptor({ namespaceTemplate: "memories/{user_id}" }));
+			mockSafeFetch
+				.mockResolvedValueOnce(item(["memories", "u1"], "k1", { content: "old", foo: 1 }))
+				.mockResolvedValueOnce(undefined)
+				.mockResolvedValueOnce(undefined);
+			await expect(adapter.update("memories.u1:k1", { content: "new" })).resolves.toMatchObject({
+				content: "new",
+				userId: "u1",
+			});
+			expect(call(1).body).toEqual({
+				namespace: ["memories", "u1"],
+				key: "k1",
+				value: { content: "new", foo: 1 },
+			});
+			await expect(adapter.delete("memories.u1:k1")).resolves.toBeUndefined();
+			expect(call(2)).toMatchObject({
+				method: "DELETE",
+				body: { namespace: ["memories", "u1"], key: "k1" },
+			});
+		});
+
+		it("allows any valid namespace when no template is configured", async () => {
+			mockSafeFetch.mockResolvedValue(undefined);
+			const adapter = new LangGraphAdapter(lgDescriptor());
+			await expect(adapter.delete("anything.at.all:k1")).resolves.toBeUndefined();
+			expect(call(0).body).toEqual({ namespace: ["anything", "at", "all"], key: "k1" });
+		});
+	});
+
+	it("does not support feedback", async () => {
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		expect(adapter.capabilities().feedback).toBe(false);
+		await expect(adapter.feedback("memories.u1:k1", { rating: "positive" })).rejects.toBeInstanceOf(
+			UnsupportedMemoryCapabilityError
 		);
 	});
 });
