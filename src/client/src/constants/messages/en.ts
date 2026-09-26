@@ -3091,3 +3091,8 @@ export const DATA_SOURCE_BINDING_FAILED = "Failed to update signal routing.";
 export const DATA_SOURCE_LOAD_FAILED = "Failed to load data sources.";
 export const DATA_SOURCE_RETRY = "Try again";
 
+export const GETTING_STARTED_CONTENT_CAPTURE_TITLE = "Check what your traces include.";
+export const GETTING_STARTED_CONTENT_CAPTURE_WARNING =
+	"The Python SDK captures full prompts and responses by default (capture_message_content=True). If this application sends sensitive content, switch capture off before running it.";
+export const GETTING_STARTED_CONTENT_CAPTURE_OPTIONS =
+	"For shorter captured content, set max_content_length. The PII guard can redact prompts before export, but it does not guarantee response content is redacted in stored traces.";
