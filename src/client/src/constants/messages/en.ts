@@ -3091,3 +3091,16 @@ export const DATA_SOURCE_BINDING_FAILED = "Failed to update signal routing.";
 export const DATA_SOURCE_LOAD_FAILED = "Failed to load data sources.";
 export const DATA_SOURCE_RETRY = "Try again";
 
+export const INGESTION_VERIFY_TITLE = "Verify trace ingestion";
+export const INGESTION_VERIFY_DESCRIPTION = "After setting up your project and environment, run one sample trace from a terminal that can reach your OTLP receiver. An HTTP success means the receiver accepted it; use Verify to check that it was stored in this environment.";
+export const INGESTION_VERIFY_ENDPOINTS = "Use the receiver on this host or replace the HTTP endpoint in the command. The gRPC endpoint is shown for SDK configuration; this sample sends over HTTP.";
+export const INGESTION_VERIFY_ENVIRONMENT = "Environment name";
+export const INGESTION_VERIFY_COMMAND = "Copy and run this Python snippet, then verify the trace below. It does not contain your API key.";
+export const INGESTION_VERIFY_RECEIVER_NOTE = "If the receiver rejects the trace, the command prints its HTTP status and error. Check its endpoint and API key before verifying here.";
+export const INGESTION_VERIFY_BUTTON = "Verify stored trace";
+export const INGESTION_VERIFY_CHECKING = "Checking this environment for the trace...";
+export const INGESTION_VERIFY_MISSING = "No stored trace found yet. Confirm the receiver accepted it, check the environment, then try again.";
+export const INGESTION_VERIFY_ERROR = "Could not check this environment's telemetry source. Check the data source connection and try again.";
+export const INGESTION_VERIFY_FOUND = "Stored trace found.";
+export const INGESTION_VERIFY_LAST_SEEN = "Last ingested trace time:";
+export const INGESTION_VERIFY_OPEN_TRACE = "Open the trace";
