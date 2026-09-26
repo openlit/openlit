@@ -4,9 +4,11 @@ import CodeBlock from "@/components/common/code-block";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
+import getMessage from "@/constants/messages";
 
 export default function GettingStarted() {
 	const posthog = usePostHog();
+	const messages = getMessage();
 
 	useEffect(() => {
 		posthog?.capture(CLIENT_EVENTS.GETTING_STARTED_PAGE_VISITED);
@@ -65,6 +67,12 @@ export default function GettingStarted() {
 openlit.init(otlp_endpoint="http://127.0.0.1:4318")`}
 						language="python"
 					/>
+					<div role="note" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-stone-900 dark:border-amber-800 dark:bg-amber-950 dark:text-stone-100">
+						<strong>{messages.GETTING_STARTED_CONTENT_CAPTURE_TITLE}</strong>{" "}
+						{messages.GETTING_STARTED_CONTENT_CAPTURE_WARNING}
+						<CodeBlock className="mt-2 text-xs" code={'openlit.init(otlp_endpoint="http://127.0.0.1:4318", capture_message_content=False)'} language="python" />
+						<p className="mt-2">{messages.GETTING_STARTED_CONTENT_CAPTURE_OPTIONS}</p>
+					</div>
 					<p className="mt-2 mb-2">
 						Alternatively, you can set the endpoint using the{" "}
 						<span className="text-primary italic px-1">
