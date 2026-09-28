@@ -33,6 +33,7 @@ import AddCodingAgentSummaryFieldsMigration from "./add-coding-agent-summary-fie
 import AddCodingAgentLOCSummaryFieldsMigration from "./add-coding-agent-loc-summary-fields-migration";
 import CreateCodingAgentsAuditMigration from "./create-coding-agents-audit-migration";
 import DropVcsMigration from "./drop-vcs-migration";
+import BackfillOtelTenantEnvironmentMigration from "./backfill-otel-tenant-environment-migration";
 import AddProviderModelsCachePricesMigration from "./add-provider-models-cache-prices-migration";
 import SeedOrcaRouterProviderMigration from "./seed-orcarouter-provider-migration";
 import CreateTelemetryRollupsMigration from "./create-telemetry-rollups-migration";
@@ -140,6 +141,10 @@ export default async function migrations(databaseConfigId?: string) {
 	// `create-vcs-migration`. Runs last so stale deployments still get
 	// the cleanup, and uses IF EXISTS so fresh installs are no-ops.
 	await runMigration("drop-vcs", () => DropVcsMigration(databaseConfigId));
+	await runMigration(
+		"backfill-otel-tenant-environment",
+		() => BackfillOtelTenantEnvironmentMigration(databaseConfigId)
+	);
 
 	// Built-in dashboard seeding (LLM / Vector DB / GPU / Coding
 	// Agents / future) lives inside `create-custom-dashboards-migration`

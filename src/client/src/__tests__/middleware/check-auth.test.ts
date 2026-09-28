@@ -124,13 +124,22 @@ describe('checkAuth', () => {
     it('forwards the request with the resolved database config id when the key is valid', async () => {
       (global as any).fetch = jest.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ valid: true, databaseConfigId: 'db-config-1' }),
+        json: async () => ({
+          valid: true,
+          databaseConfigId: 'db-config-1',
+          organisationId: 'org-1',
+          projectId: 'proj-1',
+          environment: 'staging',
+        }),
       });
       const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });
       await middleware(req as any, makeFetchEvent());
       expect(nextHandler).toHaveBeenCalled();
       const forwardedRequest = nextHandler.mock.calls[0][0] as { headers: Headers };
       expect(forwardedRequest.headers.get('x-database-config-id')).toBe('db-config-1');
+      expect(forwardedRequest.headers.get('x-openlit-organisation-id')).toBe('org-1');
+      expect(forwardedRequest.headers.get('x-openlit-project-id')).toBe('proj-1');
+      expect(forwardedRequest.headers.get('x-openlit-environment')).toBe('staging');
     });
 
     it('strips a client-supplied x-database-config-id on session API requests', async () => {

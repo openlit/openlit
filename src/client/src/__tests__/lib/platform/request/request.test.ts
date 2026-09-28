@@ -106,6 +106,7 @@ describe('getRequestsConfig', () => {
     // Provider dropdown folds the current OTel key and the legacy fallback.
     expect(query).toContain("gen_ai.provider.name");
     expect(query).toContain("gen_ai.system");
+    expect(query).toContain("deployment.environment");
   });
 });
 

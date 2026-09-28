@@ -356,16 +356,21 @@ Your telemetry can flow through the OpenTelemetry ecosystem:
 
 ```mermaid
 flowchart TD
-    A["AI App / AI Agent"] -->|OpenTelemetry| C[OpenTelemetry Collector]
-    C --> B[OpenLIT Backend]
+    A["AI App / AI Agent"] -->|OTLP| R[OpenLIT OTLP receiver]
+    A -->|optional sidecar| C[Your OpenTelemetry Collector]
+    C --> R
     C --> O["Other OTel backends<br/>(Datadog, Grafana, Honeycomb, ...)"]
+    R --> B[ClickHouse]
     B --> D[OpenLIT Dashboard]
 
     style A fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style R fill:#F97316,stroke:#7C2D12,color:#fff
     style C fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
-    style B fill:#F97316,stroke:#7C2D12,color:#fff
+    style B fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
     style D fill:#F97316,stroke:#7C2D12,color:#fff
 ```
+
+OpenLIT listens for OTLP on `:4317` (gRPC) and `:4318` (HTTP). A bundled Collector is not required. You can still put your own Collector in front for fan-out or processing.
 
 This means you can integrate OpenLIT into an existing OpenTelemetry architecture instead of replacing it.
 
@@ -437,12 +442,12 @@ flowchart TD
         direction LR
         Agent --> LLM --> Tools --> RAG --> DB
     end
-    App -->|OpenTelemetry| Collector[OpenTelemetry Collector]
-    Collector --> CH[(ClickHouse)]
+    App -->|OTLP| Receiver[OpenLIT OTLP receiver]
+    Receiver --> CH[(ClickHouse)]
     CH --> Dash[OpenLIT Dashboard]
 
     style App fill:#1F2937,stroke:#F97316,stroke-width:2px,color:#fff
-    style Collector fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style Receiver fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
     style CH fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
     style Dash fill:#F97316,stroke:#7C2D12,color:#fff
 ```
@@ -533,15 +538,33 @@ See [LICENSE](https://github.com/openlit/openlit/blob/main/LICENSE) for details.
 
 # 🙇 Acknowledgments
 
-This project is proudly supported by:
+## Sponsors
+
+### Silver
+
+<p>
+<a href="https://fluxionai.world/register?source=github&campaign=github-openlit&promo=OPENLIT" target="_blank">
+  <img src="docs/images/fluxion-ai-logo.png" alt="Fluxion AI" height="72">
+</a>
+</p>
+
+### Bronze
 
 <p>
 <a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=openlit" target="_blank">
-  <img src="docs/images/testmu-logo.png" alt="TestMu" height="80">
+  <img src="docs/images/testmu-logo.png" alt="TestMu AI" height="80">
 </a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</p>
+
+## Deployment partners
+
+<p>
 <a href="https://www.digitalocean.com/">
   <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" alt="DigitalOcean" height="80" width="200">
+</a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://www.hostg.xyz/aff_c?offer_id=815&aff_id=243668&url_id=6792">
+  <img src="https://assets.hostinger.com/vps/deploy.svg" alt="Deploy on Hostinger">
 </a>
 </p>
 
@@ -550,8 +573,10 @@ This project is proudly supported by:
 # 💻 Contributors
 
 <a href="https://github.com/openlit/openlit/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=openlit/openlit" alt="OpenLIT contributors">
+  <img src="https://contrib.rocks/image?repo=openlit/openlit&max=500&columns=20" alt="OpenLIT contributors" width="100%">
 </a>
+
+Names for the same contributors are on [openlit.io/about-us](https://openlit.io/about-us).
 
 ---
 

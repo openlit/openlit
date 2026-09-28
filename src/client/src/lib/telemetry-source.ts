@@ -373,30 +373,10 @@ export async function resolveSignalSource(
 		// otherwise changing environments can silently read another backend.
 	}
 
-	// 3. Preserve the legacy implicit ClickHouse behavior only when the caller
-	// did not explicitly select an environment. Environment-scoped requests
-	// must fail closed when that environment has no routed connector.
-	if (hasRequestedEnvironment) {
-		return {
-			descriptor: {
-				type: "clickhouse",
-				id: "builtin:none",
-				isBuiltIn: true,
-				settings: {},
-				secretRef: null,
-				dbConfigId: undefined,
-				signals: [...ALL_SIGNALS],
-				projectId,
-				name: "ClickHouse",
-				environment,
-			},
-			servesSignal: false,
-			hasSource: false,
-			via: "none",
-		};
-	}
-
-	// 4. Built-in ClickHouse (serves all signals when configured).
+	// 3. Built-in ClickHouse for the project. OpenLIT environments
+	// (`demo` vs `production`) are row filters on traces, not separate
+	// databases, unless this environment has an explicit binding above.
+	// Fail closed only when the project has no ClickHouse at all.
 	const builtin = activeDatabase
 		? builtInDescriptor(activeDatabase)
 		: await resolveBuiltInDescriptor(options.dbConfigId);

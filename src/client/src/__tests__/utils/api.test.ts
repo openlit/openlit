@@ -126,7 +126,20 @@ describe('getData', () => {
       makeFetchResponse(true, '<!DOCTYPE html><html>login</html>')
     );
     await expect(getData({ url: '/api/db-config', method: 'GET' })).rejects.toThrow(
-      /non-JSON/i
+      /page instead of data/i
+    );
+  });
+
+  it('throws a readable message instead of dumping HTML on failed responses', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      makeFetchResponse(
+        false,
+        '<!DOCTYPE html><html><head><style data-next-hide-fouc="true">body{display:none}</style></head></html>',
+        401
+      )
+    );
+    await expect(getData({ url: '/api/test', method: 'GET' })).rejects.toThrow(
+      'The server returned a page instead of data (401). Refresh the page and try again.'
     );
   });
 
@@ -231,6 +244,15 @@ describe('postData', () => {
   it('throws when response is not ok', async () => {
     (global.fetch as jest.Mock).mockResolvedValue(makeFetchResponse(false, 'Bad Request'));
     await expect(postData({ url: '/api/items', data: {} })).rejects.toThrow();
+  });
+
+  it('throws a readable message instead of dumping HTML on failed responses', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      makeFetchResponse(false, '<html><body>login</body></html>', 500)
+    );
+    await expect(postData({ url: '/api/items', data: {} })).rejects.toThrow(
+      /page instead of data \(500\)/i
+    );
   });
 
   it('throws using the object error fallback fields when the failed response is JSON', async () => {

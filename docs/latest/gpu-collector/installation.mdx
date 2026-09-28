@@ -137,7 +137,7 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: "host.name=$(K8S_NODE_NAME),k8s.node.name=$(K8S_NODE_NAME)"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://otel-collector:4317"
+              value: "http://openlit:4318"
             # Optional for on-prem / self-managed clusters:
             # - name: K8S_CLUSTER_NAME
             #   value: my-cluster
