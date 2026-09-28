@@ -91,7 +91,7 @@ docker pull ghcr.io/openlit/otel-gpu-collector:latest
 docker run --gpus all --pid=host \
     -e OTEL_SERVICE_NAME=my-app \
     -e OTEL_RESOURCE_ATTRIBUTES="deployment.environment=production" \
-    -e OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4317" \
+    -e OTEL_EXPORTER_OTLP_ENDPOINT="http://openlit:4318" \
     ghcr.io/openlit/otel-gpu-collector:latest
 ```
 
@@ -107,7 +107,7 @@ services:
     environment:
       OTEL_SERVICE_NAME: my-app
       OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://openlit:4318"
     deploy:
       resources:
         reservations:
@@ -116,7 +116,7 @@ services:
               count: all
               capabilities: [gpu]
     depends_on:
-      - otel-collector
+      - openlit
     restart: always
 ```
 

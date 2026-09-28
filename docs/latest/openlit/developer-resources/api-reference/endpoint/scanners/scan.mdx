@@ -1,0 +1,10 @@
+---
+title: 'Run scan'
+openapi: 'POST /api/scanners/{id}/scan'
+---
+
+Start a Trustabl scan on a scanner connector. Missing body fields use the connector defaults. The response includes the finished **job** and its **findings**.
+
+Do not send a GitHub token in the body — the token stays on the connector. The request can take several minutes (up to 300 seconds).
+
+See [Scanner connectors](/latest/openlit/connectors/scanner) for setup.

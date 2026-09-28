@@ -42,6 +42,7 @@
             "pages": [
               "latest/overview",
               "latest/openlit/installation",
+              "latest/openlit/otlp-receiver",
               {
                 "group": "Quickstarts",
                 "icon": "bolt",
@@ -74,7 +75,8 @@
                 "pages": [
                   "latest/openlit/connectors/overview",
                   "latest/openlit/connectors/datasource",
-                  "latest/openlit/connectors/memory"
+                  "latest/openlit/connectors/memory",
+                  "latest/openlit/connectors/scanner"
                 ]
               }
             ]
@@ -117,9 +119,7 @@
                   "latest/openlit/coding-agents/sessions",
                   "latest/openlit/coding-agents/users",
                   "latest/openlit/coding-agents/privacy-and-governance",
-                  "latest/openlit/coding-agents/troubleshooting",
-                  "latest/openlit/coding-agents/onboarding",
-                  "latest/openlit/coding-agents/architecture"
+                  "latest/openlit/coding-agents/troubleshooting"
                 ]
               }
             ]
@@ -304,6 +304,14 @@
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/get",
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/delete"
                     ]
+                  },
+                  {
+                    "group": "Scanner",
+                    "pages": [
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/scan",
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/list",
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/findings"
+                    ]
                   }
                 ]
               }
@@ -357,6 +365,7 @@
                 "pages": [
                   "latest/sdk/integrations/openai",
                   "latest/sdk/integrations/ollama",
+                  "latest/sdk/integrations/llmman",
                   "latest/sdk/integrations/anthropic",
                   "latest/sdk/integrations/deepseek",
                   "latest/sdk/integrations/gpt4all",

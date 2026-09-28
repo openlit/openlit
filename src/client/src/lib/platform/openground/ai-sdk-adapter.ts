@@ -78,12 +78,17 @@ export class AISdkAdapter {
 			baseURL: 'https://api.minimax.io/v1',
 			apiKey
 		}),
+		orcarouter: (apiKey: string) => createOpenAI({
+			baseURL: 'https://api.orcarouter.ai/v1',
+			apiKey
+		}),
 	};
 
 	private static readonly SUPPORTED_PROVIDERS = [
 		'openai', 'anthropic', 'google', 'mistral', 'cohere',
 		'groq', 'perplexity', 'azure', 'together', 'fireworks',
 		'deepseek', 'xai', 'huggingface', 'replicate', 'minimax',
+		'orcarouter',
 	];
 
 	/**

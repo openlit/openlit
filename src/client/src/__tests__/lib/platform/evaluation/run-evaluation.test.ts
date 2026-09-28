@@ -119,6 +119,11 @@ describe('runEvaluation — provider routing', () => {
     expect(createOpenAI).toHaveBeenCalledWith(expect.objectContaining({ baseURL: 'https://api.fireworks.ai/inference/v1' }));
   });
 
+  it('creates OpenAI-compatible model for provider=orcarouter', async () => {
+    await runEvaluation({ ...BASE_PARAMS, provider: 'orcarouter' });
+    expect(createOpenAI).toHaveBeenCalledWith(expect.objectContaining({ baseURL: 'https://api.orcarouter.ai/v1' }));
+  });
+
   it('maps gemini provider alias to google', async () => {
     await runEvaluation({ ...BASE_PARAMS, provider: 'gemini' });
     expect(createGoogleGenerativeAI).toHaveBeenCalled();

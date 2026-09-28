@@ -1,10 +1,47 @@
 "use client";
-import { MoveRightIcon } from "lucide-react";
-import { GithubIcon } from "lucide-react";
-import { Button } from "../ui/button";
-import Link from "next/link";
-import Confetti from "../common/confetti";
+import type { ReactNode } from "react";
+import { BookOpen, GithubIcon, Phone } from "lucide-react";
+import Image from "next/image";
 import getMessage from "@/constants/messages";
+import { FOUNDER_SCHEDULE_URL } from "@/constants/external-links";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+const authActionClassName =
+	"inline-flex h-10 w-full items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-700 transition-colors hover:bg-stone-100 hover:text-stone-950 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800";
+
+function AuthIconLink({
+	href,
+	label,
+	children,
+}: {
+	href: string;
+	label: string;
+	children: ReactNode;
+}) {
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<a
+					href={href}
+					target="_blank"
+					rel="noopener noreferrer"
+					aria-label={label}
+					className={authActionClassName}
+				>
+					{children}
+				</a>
+			</TooltipTrigger>
+			<TooltipContent side="bottom" className="text-xs">
+				<p>{label}</p>
+			</TooltipContent>
+		</Tooltip>
+	);
+}
 
 export default function AuthFormContainer({
 	children,
@@ -13,41 +50,52 @@ export default function AuthFormContainer({
 }) {
 	const m = getMessage();
 	return (
-		<div className="flex flex-col justify-center p-8 lg:p-16 bg-stone-50 dark:bg-stone-900 relative">
-			<Confetti />
-			<div className="flex flex-col w-full max-w-sm mx-auto gap-12 z-10">
-				<div className="text-center">
-					<h1 className="text-4xl font-bold tracking-tight text-primary">
+		<div className="relative flex min-h-screen flex-col justify-center overflow-hidden bg-stone-100 px-6 py-12 dark:bg-stone-900 sm:px-10">
+			<div
+				aria-hidden
+				className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(243,108,6,0.12),transparent_52%)]"
+			/>
+			<div className="relative mx-auto flex w-full max-w-lg flex-col rounded-xl border border-stone-200 bg-white p-8 shadow-sm dark:border-stone-800 dark:bg-stone-950">
+				<div className="mb-8 flex items-center gap-2.5 lg:hidden">
+					<Image
+						src="/images/logo.png"
+						alt=""
+						width="28"
+						height="28"
+						className="object-cover"
+					/>
+					<span className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+						OpenLIT
+					</span>
+				</div>
+				<div>
+					<h1 className="text-2xl font-semibold tracking-tight text-stone-950 dark:text-stone-50">
 						{m.AUTH_WELCOME}
 					</h1>
-					<p className="text-stone-600 dark:text-stone-400">
+					<p className="mt-2 text-sm leading-6 text-stone-500 dark:text-stone-400">
 						{m.AUTH_SUBTITLE}
 					</p>
 				</div>
-				{children}
-				<div className="grid grid-cols-2 text-center text-sm">
-					<Link
-						href={"https://github.com/openlit/openlit"}
-						target="_blank"
-						className="w-full"
-					>
-						<Button
-							className={`w-full rounded-full gap-2 font-bold bg-stone-900 text-stone-50 hover:bg-stone-900/90 dark:bg-stone-300 dark:text-stone-700 dark:hover:bg-stone-300/90`}
+				<div className="mt-8">{children}</div>
+				<TooltipProvider>
+					<div className="mt-8 grid grid-cols-3 gap-2 border-t border-stone-200 pt-6 dark:border-stone-800">
+						<AuthIconLink href={FOUNDER_SCHEDULE_URL} label={m.TALK_TO_FOUNDER}>
+							<Phone className="size-4" />
+						</AuthIconLink>
+						<AuthIconLink
+							href="https://github.com/openlit/openlit"
+							label={m.AUTH_GITHUB}
 						>
-							{m.AUTH_GITHUB}
-							<GithubIcon className="ml-2 w-4" />
-						</Button>
-					</Link>
-					<Link
-						href="https://docs.openlit.io/latest/overview"
-						target="_blank"
-					>
-						<Button variant={"ghost"} className="hover:bg-stone-100 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100 dark:text-stone-300">
-							<b>{m.AUTH_DOCUMENTATION}</b>
-							<MoveRightIcon className="ml-2 h-5 w-5" />
-						</Button>
-					</Link>
-				</div>
+							<GithubIcon className="size-4" />
+						</AuthIconLink>
+						<AuthIconLink
+							href="https://docs.openlit.io/latest/overview"
+							label={m.AUTH_DOCUMENTATION}
+						>
+							<BookOpen className="size-4" />
+						</AuthIconLink>
+					</div>
+				</TooltipProvider>
 			</div>
 		</div>
 	);

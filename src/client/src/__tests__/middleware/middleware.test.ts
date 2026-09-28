@@ -47,6 +47,8 @@ describe('middleware', () => {
   it('does not include enterprise-only routes in CE', () => {
     expect(config.matcher).not.toContain('/audit-logs');
     expect(config.matcher).not.toContain('/audit-logs/:path*');
+    expect(config.matcher).not.toContain('/fleet-hub');
+    expect(config.matcher).not.toContain('/fleet-hub/:path*');
   });
 
   it('matches the agents routes', () => {
@@ -68,7 +70,6 @@ describe('middleware', () => {
   it('matches nested playground routes that previously bypassed auth', () => {
     expect(config.matcher).toContain('/openground/:path*');
     expect(config.matcher).toContain('/prompt-hub/:path*');
-    expect(config.matcher).toContain('/fleet-hub/:path*');
     expect(config.matcher).toContain('/rule-engine');
     expect(config.matcher).toContain('/rule-engine/:path*');
     expect(config.matcher).toContain('/context');

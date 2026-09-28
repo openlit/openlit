@@ -392,11 +392,11 @@ func BuildInstrumentConfig(
 
 	// OBI has native parsers only for OpenAI, Anthropic, Gemini, Qwen, and
 	// Bedrock. Every other OpenAI-wire-compatible SaaS provider we discover
-	// (Cohere/Mistral/Groq/Deepseek/Together/Fireworks/Vercel/Vertex/Azure...)
+	// (Cohere/Mistral/Groq/Deepseek/Together/Fireworks/OrcaRouter/Vercel/Vertex/Azure...)
 	// is parsed by the OpenAI extractor, so enabling any of them enables OpenAI.
 	openAICompatible := []string{
 		"openai", "cohere", "mistral", "groq", "deepseek", "together",
-		"fireworks", "azure_inference", "azure_openai", "vercel_ai", "vertex_ai",
+		"fireworks", "orcarouter", "azure_inference", "azure_openai", "vercel_ai", "vertex_ai",
 	}
 	for _, p := range openAICompatible {
 		if enabledProviders[p] {
