@@ -10,8 +10,8 @@ flowchart TB;
         direction LR;
         subgraph " "
             direction LR;
-            OpenLIT_SDK[OpenLIT SDK] -->|Sends Traces & Metrics| OTC[OpenTelemetry Collector];
-            OTC -->|Stores Data| ClickHouseDB[ClickHouse];
+            OpenLIT_SDK[OpenLIT SDK] -->|OTLP| Rec[OpenLIT OTLP receiver];
+            Rec -->|Stores Data| ClickHouseDB[ClickHouse];
         end
         subgraph " "
             direction RL;
@@ -34,7 +34,7 @@ flowchart TB;
         docker compose up -d
         ```
         <Tip>
-        Prefer Kubernetes, or already have ClickHouse/OpenTelemetry Collector running? See [Self-Host OpenLIT](/latest/openlit/installation) for Helm charts and other deployment options.
+        Prefer Kubernetes, or already have ClickHouse running? See [Self-Host OpenLIT](/latest/openlit/installation) for Helm charts and other deployment options.
         </Tip>
         </Step>
       </Steps>

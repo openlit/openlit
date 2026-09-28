@@ -23,7 +23,11 @@ const EMPTY_ATTRIBUTE_KEYS: AttributeKeys = {
 export type ObservabilityScopePreserve = Partial<
 	Pick<
 		FilterConfig,
-		"serviceNames" | "services" | "environments" | "versionFilter"
+		| "serviceNames"
+		| "services"
+		| "environments"
+		| "versionFilter"
+		| "customFilters"
 	>
 >;
 
@@ -61,6 +65,9 @@ export function prepareObservabilitySignalChange(
 	}
 	if (preserveScope?.versionFilter) {
 		preserved.versionFilter = preserveScope.versionFilter;
+	}
+	if (preserveScope?.customFilters?.length) {
+		preserved.customFilters = [...preserveScope.customFilters];
 	}
 
 	updateFilter("selectedConfig", preserved, { clearFilter: true });

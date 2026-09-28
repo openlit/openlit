@@ -254,6 +254,7 @@ const DynamicFilters = ({
 	attributeKeysUrl,
 	customAttributeTypes,
 	pageName,
+	onApplied,
 }: {
 	isVisibleFilters: boolean;
 	filter: FilterType;
@@ -262,6 +263,7 @@ const DynamicFilters = ({
 	attributeKeysUrl: string;
 	customAttributeTypes: CustomFilterAttributeType[];
 	pageName?: PAGE;
+	onApplied?: () => void;
 }) => {
 	const filterConfig = useRootStore(getFilterConfig);
 	const pingStatus = useRootStore(getPingStatus);
@@ -439,12 +441,14 @@ const DynamicFilters = ({
 	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, pingStatus]);
 
 	const updateFilterStore = () => {
-		const validCustomFilters = customFilters.filter((f) => f.key && f.value);
 		updateFilter("selectedConfig", {
 			...selectedFilterValues,
-			customFilters:
-				validCustomFilters.length > 0 ? validCustomFilters : undefined,
+			// Keep every row the user added (including drafts) so Apply does
+			// not collapse the custom-attributes editor. Query builders ignore
+			// rows that are missing a key or value.
+			customFilters,
 		});
+		onApplied?.();
 	};
 
 	const clearFilterStore = () => {
@@ -1219,6 +1223,12 @@ export default function TracesFilter({
 	const filterConfig = useRootStore(getFilterConfig);
 	const updateFilter = useRootStore(getUpdateFilter);
 
+	useEffect(() => {
+		if ((filter.selectedConfig.customFilters?.length || 0) > 0) {
+			setIsVisibileFilters(true);
+		}
+	}, [filter.selectedConfig.customFilters]);
+
 	const onChangeGroupBy = (key: string | undefined) => {
 		updateFilter("groupBy", key ?? null);
 	};
@@ -1350,6 +1360,7 @@ export default function TracesFilter({
 					attributeKeysUrl={attributeKeysUrl}
 					customAttributeTypes={customAttributeTypes}
 					pageName={pageName}
+					onApplied={() => setIsVisibileFilters(true)}
 				/>
 			)}
 		</div>

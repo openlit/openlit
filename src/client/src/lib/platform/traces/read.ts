@@ -759,6 +759,18 @@ export async function getTraceFilterConfig(params: MetricParams) {
 		if (!applicationNames.length) {
 			applicationNames = distinctFromSpans(spans, "service.name");
 		}
+		let environments: string[] = [];
+		try {
+			environments = await adapter.distinctValues(
+				"deployment.environment",
+				query
+			);
+		} catch {
+			environments = distinctFromSpans(spans, "deployment.environment");
+		}
+		if (!environments.length) {
+			environments = distinctFromSpans(spans, "deployment.environment");
+		}
 		return {
 			err: null,
 			data: [
@@ -769,6 +781,7 @@ export async function getTraceFilterConfig(params: MetricParams) {
 					spanNames,
 					applicationNames,
 					traceTypes,
+					environments,
 				},
 			],
 		};

@@ -73,18 +73,18 @@ OpenLIT uses OpenTelemetry to help you monitor NVIDIA GPUs. This includes tracki
             environment:
               OTEL_SERVICE_NAME: 'chatbot'
               OTEL_RESOURCE_ATTRIBUTES: 'deployment.environment=staging'
-              OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+              OTEL_EXPORTER_OTLP_ENDPOINT: "http://openlit:4318"
             device_requests:
             - driver: nvidia
               count: all
               capabilities: [gpu]
             depends_on:
-            - otel-collector
+            - openlit
             restart: always
           ```
 
           </Accordion>
-          <Accordion title="Host IP: Use the Host IP to connect to OTel Collector">
+          <Accordion title="Host IP: Use the Host IP to connect to OpenLIT">
 
           ```sh
           OTEL_EXPORTER_OTLP_ENDPOINT="http://192.168.10.15:4318"

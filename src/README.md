@@ -30,7 +30,7 @@ This guide covers the steps needed to set up the development environment for Ope
 | Service | Description |
 |---------|-------------|
 | **ClickHouse** | Time-series database for telemetry |
-| **OpenLIT** | Dashboard + OTLP collector (port 3000) |
+| **OpenLIT** | Dashboard + first-party OTLP receiver (ports 3000, 4317, 4318) |
 | **Controller** | eBPF-based LLM service discovery (built from `openlit-controller/`) |
 | **openai-app** | Sample OpenAI chat app (from `examples/`) |
 | **anthropic-app** | Sample Anthropic chat app (from `examples/`) |

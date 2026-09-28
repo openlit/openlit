@@ -35,9 +35,9 @@ describe("API_REFERENCE_ENDPOINTS", () => {
 			const curl = endpoint.curlExample("test-key");
 			expect(curl).toContain("test-key");
 			expect(curl).toContain("Authorization: Bearer test-key");
-			expect(curl).toContain("x-openlit-organisation-id");
-			expect(curl).toContain("x-openlit-project-id");
-			expect(curl).toContain("x-openlit-environment");
+			expect(curl).not.toContain("x-openlit-organisation-id");
+			expect(curl).not.toContain("x-openlit-project-id");
+			expect(curl).not.toContain("x-openlit-environment");
 			expect(curl).not.toContain("x-openlit-database-config-id");
 			expect(curl).not.toContain("Cookie: next-auth.session-token");
 		}

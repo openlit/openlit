@@ -9,6 +9,7 @@ import HeaderPageTrail from "./header-page-trail";
 import { HeaderScopeSeparator } from "./header-scope-pill";
 import { playgroundTopBarClassName } from "./sidebar-layout-context";
 import { ChatHeaderButton } from "./chat/chat-floating-button";
+import TalkToFounderLink from "@/components/common/talk-to-founder-link";
 
 export function HeaderContextRow() {
 	const { setHeaderRef } = usePortal();
@@ -33,7 +34,11 @@ export function HeaderContextRow() {
 			<DatabaseConfigSwitch contentAlign="start" contentSide="bottom" />
 			<HeaderAppTrail />
 			<HeaderPageTrail />
-			<div className="ml-auto flex items-center gap-2"><ChatHeaderButton /><div ref={containerRef} className="flex items-center" /></div>
+			<div className="ml-auto flex items-center gap-2">
+				<TalkToFounderLink />
+				<ChatHeaderButton />
+				<div ref={containerRef} className="flex items-center" />
+			</div>
 		</div>
 	);
 }

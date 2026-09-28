@@ -2,7 +2,14 @@ import { renderHook, act } from '@testing-library/react';
 import useFetchWrapper from '@/utils/hooks/useFetchWrapper';
 import * as api from '@/utils/api';
 
-jest.mock('@/utils/api');
+jest.mock('@/utils/api', () => {
+	const actual = jest.requireActual('@/utils/api');
+	return {
+		...actual,
+		getData: jest.fn(),
+		deleteData: jest.fn(),
+	};
+});
 
 const mockGetData = api.getData as jest.MockedFunction<typeof api.getData>;
 const mockDeleteData = api.deleteData as jest.MockedFunction<typeof api.deleteData>;
