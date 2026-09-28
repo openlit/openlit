@@ -1,7 +1,7 @@
 ---
 title: 'Memory connectors'
 sidebarTitle: 'Memory'
-description: 'Connect OpenLIT to Claude, Mem0, and Zep memory stores — browse, search, write, copy, and ask Otter about agent memories'
+description: 'Connect OpenLIT to Claude, LangGraph, Mem0, and Zep memory stores — browse, search, write, copy, and ask Otter about agent memories'
 icon: 'brain'
 ---
 
@@ -27,7 +27,7 @@ flowchart LR
   Otter --> Tools[list / search / add / update / delete]
 ```
 
-- **Atomic connectors** — one Mem0 project endpoint, one Zep tenant, one Claude memory store configuration per connector instance.
+- **Atomic connectors** — one Mem0 project endpoint, one Zep tenant, one Claude memory store configuration, or one LangGraph server per connector instance.
 - **Capability-driven UI** — each vendor advertises supported operations (`list`, `search`, `add`, `update`, `delete`, `feedback`). OpenLIT hides actions the vendor does not support.
 - **Filters** — user, session/run, and agent filters are declared per vendor. Some connectors require a session or user before listing memories.
 - **Port links** — copying a memory to another connector stores provenance metadata so you can trace copies back to the source.
@@ -39,6 +39,7 @@ flowchart LR
 | **Claude** | `https://api.anthropic.com` | Browse and edit memories in Anthropic Claude memory stores (Managed Agents memory beta) |
 | **Mem0** | `https://api.mem0.ai` | Store and search long-term agent memories scoped by user, run, or agent |
 | **Zep** | `https://api.getzep.com` | Session memory and knowledge-graph facts for agents |
+| **LangGraph** | None — enter your server URL | Long-term memories in the Store of a LangGraph Platform deployment or self-hosted LangGraph server |
 
 Self-hosted Mem0 or Zep deployments work when you point the connector at a compatible API URL and supply the same authentication style as the hosted service.
 
@@ -49,10 +50,13 @@ Self-hosted Mem0 or Zep deployments work when you point the connector at a compa
 | **Claude** | Yes | Yes* | Yes | Yes | Yes | Yes | No | Memory store (session) |
 | **Mem0** | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Optional user / run / agent |
 | **Zep** | Yes | Yes | Yes | Yes | No | Yes† | No | User; session required for writes |
+| **LangGraph** | Yes | Yes‡ | Yes | Yes | Yes | Yes | No | Namespace (session) for writes, or the template's placeholders |
 
 \* Claude has no dedicated search API — OpenLIT filters listed memories locally for search queries.
 
 † Zep delete targets graph edges/nodes, not an entire session.
+
+‡ LangGraph search is semantic only when the server has a store index configured. Without one, LangGraph ignores the query and returns items in listing order with no relevance score; OpenLIT does not emulate semantic search.
 
 ## Add a memory connector
 
@@ -64,10 +68,10 @@ Self-hosted Mem0 or Zep deployments work when you point the connector at a compa
     Go to **Configuration → Connectors**, open the **Memory** section in the catalog, and choose **Add connector**.
   </Step>
   <Step title="Pick a vendor">
-    Select **Claude**, **Mem0**, or **Zep**.
+    Select **Claude**, **LangGraph**, **Mem0**, or **Zep**.
   </Step>
   <Step title="Configure endpoint and credentials">
-    Set the API URL (defaults work for hosted services), optional SSRF toggles for private networks, and the API key. Mem0 also accepts optional organization and project IDs.
+    Set the API URL (defaults work for hosted services), optional SSRF toggles for private networks, and the API key. Mem0 also accepts optional organization and project IDs. LangGraph has no default URL, an optional API key, and an optional namespace template (see [LangGraph namespaces](#langgraph-namespaces)).
   </Step>
   <Step title="Test and save">
     Run a health check, then save. Open **Memory** (`/memory`) and select the connector from the dropdown.
@@ -114,8 +118,24 @@ Otter passes required filter arguments (user, session, agent) when the vendor ma
 | **Claude** | API key (`x-api-key`) | Sends the `agent-memory-2026-07-22` beta header for memory store APIs |
 | **Mem0** | Token (`Authorization: Token <apiKey>`) | Works with Mem0 Platform or self-hosted compatible endpoints |
 | **Zep** | API key (`Authorization: Api-Key <apiKey>`) | Works with Zep Cloud or self-hosted compatible endpoints |
+| **LangGraph** | None, or API key (`x-api-key`) | Leave the key empty for self-hosted servers without auth; use a LangSmith API key for LangGraph Platform. Bearer tokens and custom auth handlers are not supported |
 
 API keys are stored encrypted on the connector (`enc:v1:…`) and decrypted only server-side for outbound requests.
+
+## LangGraph namespaces
+
+LangGraph Store items live in a namespace (an ordered list of labels) under a key. LangGraph gives namespace labels no meaning of their own, so OpenLIT only maps them to user, session, and agent filters when you declare it with a **namespace template**:
+
+| Namespace template | Behaviour |
+| --- | --- |
+| *(empty)* | Each discovered namespace is a **Namespace or thread** (session) filter, for example `memories.u1`. Writes go to the selected namespace. |
+| `memories` | Same, limited to namespaces under `memories`. |
+| `memories/{user_id}` | The second label is the user. |
+| `memories/{user_id}/{thread_id}/{assistant_id}` | Labels map to user, session (thread), and agent filters. Writes need a value for every placeholder. |
+
+Fixed template segments must match exactly; placeholders are `{user_id}`, `{thread_id}`, and `{assistant_id}`. Labels cannot be empty or contain `.`. Items deeper than the template still match; items that do not fit it are hidden.
+
+Memory content is read from the LangMem shapes `{"kind": ..., "content": {"content": "..."}}` and `{"content": "..."}`, falling back to the JSON of the whole value. The original value is always shown in metadata under `langgraph`. New memories are written as `{"content": "..."}`. Updates change only the field the content was read from and keep every other field; because LangGraph has no compare-and-swap, an update can overwrite a concurrent change made between OpenLIT's read and write.
 
 ## Copy between connectors
 
@@ -145,6 +165,9 @@ Copy requires `connectors:update` (or equivalent memory mutation permission in e
   </Card>
   <Card title="Zep SDK" href="https://help.getzep.com/sdk-reference" icon="book">
     Zep Cloud API and graph memory.
+  </Card>
+  <Card title="LangGraph Agent Server" href="https://docs.langchain.com/langsmith/agent-server" icon="book">
+    LangGraph server and Store API.
   </Card>
 </CardGroup>
 

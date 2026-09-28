@@ -2746,6 +2746,30 @@ export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
 	"Use a Mem0 Platform API key. Self-hosted Mem0 can use a custom endpoint with the same Token authentication.";
 export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
 	"Use a Zep Cloud API key. Self-hosted Zep can use a custom endpoint with the same Api-Key authentication.";
+export const MEMORY_CONNECTOR_LANGGRAPH_DESCRIPTION =
+	"Browse and edit long-term memories in a LangGraph Store.";
+export const MEMORY_CONNECTOR_AUTH_HELP_LANGGRAPH =
+	"Leave the API key empty for self-hosted LangGraph servers without authentication. For LangGraph Platform deployments, use a LangSmith API key; it is sent as x-api-key. Bearer tokens and custom auth handlers are not supported.";
+export const MEMORY_CONNECTOR_LANGGRAPH_API_KEY_HELP =
+	"Optional. Sent as x-api-key when set.";
+export const MEMORY_CONNECTOR_FIELD_NAMESPACE_TEMPLATE = "Namespace template";
+export const MEMORY_CONNECTOR_FIELD_NAMESPACE_TEMPLATE_HELP =
+	"Optional. Segments separated by /, for example memories/{user_id}/{thread_id}. {user_id}, {thread_id}, and {assistant_id} map to the user, session, and agent filters; other segments must match exactly. Without placeholders, each namespace is a session filter.";
+export const MEMORY_CONNECTOR_FIELD_NAMESPACE_OR_THREAD = "Namespace or thread";
+export const MEMORY_CONNECTOR_LANGGRAPH_URL_REQUIRED =
+	"A LangGraph server URL is required.";
+export const MEMORY_CONNECTOR_LANGGRAPH_INVALID_NAMESPACE =
+	"LangGraph namespace labels must be non-empty, cannot contain \".\", and must stay within the configured namespace template.";
+export const MEMORY_CONNECTOR_LANGGRAPH_INVALID_TEMPLATE =
+	"The namespace template is invalid. Use / between segments, only {user_id}, {thread_id}, or {assistant_id} placeholders (each at most once), and no \".\" in fixed segments.";
+export const MEMORY_CONNECTOR_LANGGRAPH_TEMPLATE_VALUES_REQUIRED = (names: string) =>
+	`This connector's namespace template needs ${names} to write a memory.`;
+export const MEMORY_CONNECTOR_LANGGRAPH_UPDATE_CONFLICT =
+	"This LangGraph item has a content or metadata field OpenLIT cannot edit without overwriting data. Update it from LangGraph instead.";
+export const MEMORY_CONNECTOR_LANGGRAPH_AUTH_FAILED =
+	"LangGraph rejected the credentials. Check the API key, or clear it for servers without authentication.";
+export const MEMORY_CONNECTOR_LANGGRAPH_STORE_NOT_FOUND =
+	"The LangGraph Store API was not found at this URL. Check the server URL and that the store routes are enabled.";
 export const MEMORY_CONNECTOR_SETUP_CLAUDE_SUMMARY =
 	"Claude memory stores keep agent notes across Managed Agents sessions.";
 export const MEMORY_CONNECTOR_SETUP_MEM0_SUMMARY =
@@ -3008,6 +3032,11 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		summary: "Connect OpenLIT to Zep for session memory and graph search.",
 		steps: ["Create a Zep Cloud API key, or point the endpoint at a self-hosted Zep service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from agents."],
 		docsUrl: "https://help.getzep.com/sdk-reference",
+	},
+	langgraph: {
+		summary: "Connect OpenLIT to the Store API of a LangGraph server.",
+		steps: ["Enter the LangGraph server URL, for example a LangGraph Platform deployment or a self-hosted server such as http://localhost:2024.", "For LangGraph Platform, paste a LangSmith API key. Leave it empty for self-hosted servers without authentication.", "Optionally set a namespace template such as memories/{user_id}, then test the connection."],
+		docsUrl: "https://docs.langchain.com/langsmith/agent-server",
 	},
 	trustabl: {
 		summary: "Connect OpenLIT to Trustabl for agent reliability scans.",

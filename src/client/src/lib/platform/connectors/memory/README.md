@@ -1,7 +1,7 @@
 # Memory connectors — add-a-vendor checklist
 
 This layer is **vendor-agnostic**: OpenLIT talks to external memory providers
-(Claude, Mem0, and Zep today) through one adapter + a self-describing
+(Claude, LangGraph, Mem0, and Zep today) through one adapter + a self-describing
 descriptor. The
 shared forms, Prisma `ConnectorInstance` rows, and the connector catalog are
 driven by that descriptor, so **adding a new memory vendor must not require
