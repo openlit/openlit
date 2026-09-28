@@ -687,7 +687,7 @@ describe("queryProjectMemories", () => {
 	it("skips the get_unsupported notice when a listed record is the whole record", async () => {
 		mockListMemoryConnectors.mockResolvedValue([connector]);
 		mockGetMemoryTypeDescriptor.mockReturnValue({
-			type: "memcode",
+			type: "full-record-vendor",
 			detailFromList: true,
 		});
 		mockGetMemoryRuntime.mockResolvedValue({

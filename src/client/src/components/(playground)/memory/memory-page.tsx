@@ -128,9 +128,8 @@ export default function MemoryPage() {
 		if (!selectedId) return null;
 		const listed = result?.memories.find((memory) => memory.id === selectedId);
 		if (listed) return listed;
-		// A server-side graph spans far more memories than one list page, and
-		// MemCode has no get-by-id route, so a node click falls back to what the
-		// graph itself carries rather than opening an empty sheet.
+		// A connector graph can reach memories outside the loaded list page, so a
+		// node click falls back to the content the graph node carries.
 		const node = result?.graph.nodes.find(
 			(item) => item.memoryId === selectedId && item.content
 		);
@@ -141,7 +140,7 @@ export default function MemoryPage() {
 			kind: node.kind || "summary",
 			createdAt: node.createdAt,
 			updatedAt: node.updatedAt,
-			metadata: node.kind ? { domain: node.kind } : {},
+			metadata: node.domain ? { domain: node.domain } : {},
 		} satisfies MemoryListItem;
 	}, [result?.graph.nodes, result?.memories, selectedId]);
 	const filters = result?.filters || emptyMemoryFilters();
@@ -345,12 +344,13 @@ export default function MemoryPage() {
 	}, [addConnectorOpen]);
 
 	const stats = result?.stats || emptyMemoryStats();
-	// Memory kind is carried by colour in the graph and the list, so the page
-	// does not repeat per-kind counts as their own tiles.
 	const statItems = useMemo(
 		() => [
 			{ label: messages.MEMORY_TOTAL, value: stats.total },
 			{ label: messages.MEMORY_CONNECTIONS, value: stats.connections },
+			{ label: messages.MEMORY_TEMPORAL, value: stats.temporal, dot: "bg-teal-500" },
+			{ label: messages.MEMORY_PROFILE, value: stats.profile, dot: "bg-orange-500" },
+			{ label: messages.MEMORY_SUMMARY, value: stats.summary, dot: "bg-lime-500" },
 		],
 		[messages, stats]
 	);

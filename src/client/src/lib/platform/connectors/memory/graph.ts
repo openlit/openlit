@@ -75,15 +75,14 @@ export interface MemoryGraphModel {
 }
 
 /**
- * Edge strength buckets, mirroring `memoryEdgeTier` in the MemCode dashboard
- * exactly so the same connection reads the same in both products. Anything
- * below the faint floor is noise and is not drawn at all.
+ * Strength buckets for scored edges (`weight` in [0,1]). Anything below the
+ * faint floor is noise and is not drawn at all.
  */
 export const MEMORY_EDGE_TIERS = ["strong", "medium", "weak", "faint"] as const;
 
 export type MemoryEdgeTier = (typeof MEMORY_EDGE_TIERS)[number];
 
-/** Inclusive floor per tier; `strong` is the one exclusive bound, as upstream. */
+/** Inclusive floor per tier; `strong` is the one exclusive bound. */
 export const MEMORY_EDGE_TIER_MINIMUM: Record<MemoryEdgeTier, number> = {
 	strong: 0.8,
 	medium: 0.6,
@@ -92,9 +91,8 @@ export const MEMORY_EDGE_TIER_MINIMUM: Record<MemoryEdgeTier, number> = {
 };
 
 /**
- * Cluster palette and hash from the MemCode dashboard, so a domain lands on the
- * same colour in both products. The hash must stay a 31-multiplier over char
- * codes for that to hold.
+ * Cluster palette for memory domains. The hash is deterministic, so a domain
+ * keeps the same colour across loads and connectors.
  */
 export const MEMORY_CLUSTER_COLORS = [
 	"#58C7E8",
@@ -123,7 +121,7 @@ export function memoryClusterColor(domain?: string): string {
 	];
 }
 
-/** Dash pattern per tier, matching the dashboard's `memoryEdgeDashPattern`. */
+/** Dash pattern per tier; strong edges are solid. */
 export function memoryEdgeDashPattern(tier: MemoryEdgeTier): string | undefined {
 	if (tier === "strong") return undefined;
 	if (tier === "medium") return "7 4";
@@ -447,15 +445,11 @@ function layoutKnowledgeGraph(
 	});
 }
 
-/**
- * Superopen-style radial tree: roots near the origin, children on equal
- * angular slots, so memories fan out instead of collapsing into a cluster.
- */
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const CONSTELLATION_SPACING = 72;
 
 /**
- * Phyllotaxis placement ported from the MemCode dashboard: memories fan out
+ * Phyllotaxis placement for weighted graphs: memories fan out
  * from the centre on the golden angle, so the graph reads as one constellation
  * and stays O(nodes) instead of the O(nodes²) force pass.
  */
@@ -477,6 +471,10 @@ export function layoutMemoryConstellation(
 	});
 }
 
+/**
+ * Superopen-style radial tree: roots near the origin, children on equal
+ * angular slots, so memories fan out instead of collapsing into a cluster.
+ */
 export function layoutMemoryGraph(
 	model: MemoryGraphModel,
 	width = 800,

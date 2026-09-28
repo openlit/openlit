@@ -51,18 +51,14 @@ const STRENGTH_FILTERS = ["all", "faint", "weak", "medium", "strong"] as const;
 
 type StrengthFilter = (typeof STRENGTH_FILTERS)[number];
 
-/**
- * Connection styling ported from the MemCode dashboard so the same edge reads
- * the same in both products: colour and dash by tier, thickness and opacity
- * from `edgeVisualProps`. Strong is solid blue, medium dashed white, weak and
- * faint dashed red.
- */
-const EDGE_TIER_COLOR: Record<MemoryEdgeTier, string> = {
-	strong: "#3B82F6",
-	medium: "#FFFFFF",
-	weak: "#FF4D5E",
-	faint: "#FF4D5E",
+/** Scored connections: colour and dash by tier, thickness and opacity by weight. */
+const EDGE_TIER_CLASS: Record<MemoryEdgeTier, string> = {
+	strong: "stroke-blue-500",
+	medium: "stroke-stone-400 dark:stroke-stone-300",
+	weak: "stroke-rose-500",
+	faint: "stroke-rose-400",
 };
+const SELECTED_STROKE_CLASS = "stroke-stone-900 dark:stroke-stone-100";
 
 function edgeTierStroke(tier: MemoryEdgeTier, weight: number) {
 	if (tier === "strong") {
@@ -76,26 +72,8 @@ function edgeTierStroke(tier: MemoryEdgeTier, weight: number) {
 	return { opacity: 0.57 + weight * 0.27, width: 1.35 + weight * 0.5 };
 }
 
-/** Dark canvas from the dashboard: white and red edges need it to read. */
-const CONSTELLATION_BG = "#0f1419";
-const CONSTELLATION_NODE_FILL = "#0D2034";
-const CONSTELLATION_ACCENT = "#3B73B8";
-const CONSTELLATION_NODE_SIZE = 36;
-
-function mixHex(base: string, tint: string, amount: number): string {
-	const parse = (hex: string) => [
-		parseInt(hex.slice(1, 3), 16),
-		parseInt(hex.slice(3, 5), 16),
-		parseInt(hex.slice(5, 7), 16),
-	];
-	const [br, bg, bb] = parse(base);
-	const [tr, tg, tb] = parse(tint);
-	const channel = (from: number, to: number) =>
-		Math.round(from + (to - from) * amount)
-			.toString(16)
-			.padStart(2, "0");
-	return `#${channel(br, tr)}${channel(bg, tg)}${channel(bb, tb)}`;
-}
+const WEIGHTED_NODE_SIZE = 36;
+const OVERLAY_CLASS = "bg-white/90 dark:bg-stone-950/90";
 
 const WIDTH = 840;
 const HEIGHT = 520;
@@ -113,8 +91,8 @@ type MemoryGraphProps = {
 export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraphProps) {
 	const messages = getMessage();
 	const knowledge = graph.kind === "knowledge";
-	// Only backends that score their connections (MemCode today) can be tiered;
-	// everything else keeps the flat edges it has always drawn.
+	// Only graphs whose edges all carry a score can be tiered; everything else
+	// keeps flat edges.
 	const weighted = graph.weighted === true;
 	const laidOut = useMemo(() => layoutMemoryGraph(graph, WIDTH, HEIGHT), [graph]);
 	const nodeById = useMemo(() => {
@@ -148,9 +126,8 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 		setStrengthFilter("all");
 	}, [graph]);
 
-	// At constellation scale most labels are unreadable and only cost DOM. The
-	// dashboard draws a bare square below a size threshold; the SVG equivalent is
-	// to label the memories a connection actually points at.
+	// Large weighted graphs only label connected memories; labels on isolated
+	// nodes are unreadable at the fitted zoom and only cost DOM.
 	const connectedIds = useMemo(() => {
 		if (!weighted) return null;
 		const ids = new Set<string>();
@@ -246,14 +223,7 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 	};
 
 	return (
-		<div
-			className="relative h-full min-h-[280px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950"
-			style={
-				weighted
-					? { backgroundColor: CONSTELLATION_BG, borderColor: "#1f2933" }
-					: undefined
-			}
-		>
+		<div className="relative h-full min-h-[280px] overflow-hidden rounded-md border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-950">
 			{knowledge ? (
 				<div className="absolute right-2 top-2 z-10 flex items-center gap-1.5">
 					<div className="relative">
@@ -262,11 +232,7 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 							value={query}
 							onChange={(event) => setQuery(event.target.value)}
 							placeholder={messages.MEMORY_GRAPH_SEARCH}
-							className={`h-7 w-[160px] pl-7 text-xs ${
-								weighted
-									? "border-[#2A2F36] bg-[#1a1f29]/90 text-[#e2e8f0] placeholder:text-[#64748b]"
-									: "bg-white/90 dark:bg-stone-950/90"
-							}`}
+							className={`h-7 w-[160px] pl-7 text-xs ${OVERLAY_CLASS}`}
 						/>
 					</div>
 					{entityTypes.length > 1 ? (
@@ -293,32 +259,14 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 							onValueChange={(value) => setStrengthFilter(value as StrengthFilter)}
 						>
 							<SelectTrigger
-								className={`h-7 w-[176px] text-xs ${
-									weighted
-										? "border-[#2A2F36] bg-[#1a1f29]/90 text-[#e2e8f0]"
-										: "bg-white/90 dark:bg-stone-950/90"
-								}`}
+								className={`h-7 w-[176px] text-xs ${OVERLAY_CLASS}`}
 								aria-label={messages.MEMORY_GRAPH_STRENGTH_FILTER}
 							>
 								<SelectValue />
 							</SelectTrigger>
-							<SelectContent
-								className={
-									weighted
-										? "border-[#2A2F36] bg-[#1a1f29] text-[#e2e8f0]"
-										: undefined
-								}
-							>
+							<SelectContent>
 								{STRENGTH_FILTERS.map((tier) => (
-									<SelectItem
-										key={tier}
-										value={tier}
-										className={
-											weighted
-												? "text-[#e2e8f0] focus:bg-[#243044] focus:text-white"
-												: undefined
-										}
-									>
+									<SelectItem key={tier} value={tier}>
 										{strengthLabel(tier, messages)}
 									</SelectItem>
 								))}
@@ -328,7 +276,7 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 				</div>
 			) : null}
 			{weighted ? (
-				<div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[55%] truncate rounded bg-[#1a1f29]/85 px-2 py-1 text-[11px] text-[#94a3b8]">
+				<div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[55%] truncate rounded border border-stone-200 bg-white/90 px-2 py-1 text-[11px] text-stone-600 dark:border-stone-700 dark:bg-stone-900/90 dark:text-stone-300">
 					{messages.MEMORY_GRAPH_COUNTS(graph.nodes.length, visibleEdges.length)}
 					{graph.truncated ? ` · ${messages.MEMORY_GRAPH_TRUNCATED(graph.nodes.length)}` : ""}
 				</div>
@@ -377,22 +325,13 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 								key={`${edge.from}-${edge.to}-${index}`}
 								fill="none"
 								points={points}
-								className={
-									tier
-										? "cursor-pointer"
-										: `cursor-pointer ${
-												selected
-													? "stroke-stone-900 dark:stroke-stone-100"
-													: "stroke-stone-300 dark:stroke-stone-600"
-											}`
-								}
-								stroke={
-									tier
-										? selected
-											? CONSTELLATION_ACCENT
-											: EDGE_TIER_COLOR[tier]
-										: undefined
-								}
+								className={`cursor-pointer ${
+									selected
+										? SELECTED_STROKE_CLASS
+										: tier
+											? EDGE_TIER_CLASS[tier]
+											: "stroke-stone-300 dark:stroke-stone-600"
+								}`}
 								strokeDasharray={tier ? memoryEdgeDashPattern(tier) : undefined}
 								strokeWidth={
 									selected ? (stroke?.width ?? 1.35) + 0.8 : stroke?.width ?? 1.35
@@ -401,7 +340,7 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 								strokeLinejoin="round"
 								// The constellation viewBox fits thousands of units into a few
 								// hundred pixels, so a user-unit stroke lands far below one
-								// pixel. Screen-space strokes match the dashboard's canvas.
+								// pixel; scored edges use screen-space strokes instead.
 								vectorEffect={tier ? "non-scaling-stroke" : undefined}
 								opacity={
 									dimmed
@@ -433,10 +372,10 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 							);
 						const visible = !knowledge || nodeVisible(node);
 						const fill = nodeFill(node);
-						// MemCode memories are drawn as the dashboard draws them: a
-						// rounded square tinted by its domain cluster colour.
+						// Weighted-graph memories are rounded squares tinted by their
+						// domain cluster colour.
 						const cluster = weighted ? memoryClusterColor(node.domain) : null;
-						const side = CONSTELLATION_NODE_SIZE;
+						const side = WEIGHTED_NODE_SIZE;
 						const radius = cluster
 							? side / 2
 							: node.entityType === "user" || node.type === "user"
@@ -478,7 +417,7 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 										height={side + 12}
 										rx={Math.max(3, side * 0.15)}
 										fill="none"
-										stroke={CONSTELLATION_ACCENT}
+										className={SELECTED_STROKE_CLASS}
 										strokeWidth={1}
 										vectorEffect="non-scaling-stroke"
 										opacity={0.58}
@@ -498,8 +437,10 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 										width={side}
 										height={side}
 										rx={Math.max(2, side * 0.12)}
-										fill={mixHex(CONSTELLATION_NODE_FILL, cluster, 0.32)}
-										stroke={selected ? CONSTELLATION_ACCENT : cluster}
+										fill={cluster}
+										fillOpacity={0.3}
+										stroke={selected ? undefined : cluster}
+										className={selected ? SELECTED_STROKE_CLASS : undefined}
 										strokeWidth={selected ? 2.5 : 1.5}
 										vectorEffect="non-scaling-stroke"
 									>
@@ -528,10 +469,7 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 									<text
 										y={radius + 14}
 										textAnchor="middle"
-										className={
-											cluster ? undefined : "fill-stone-600 dark:fill-stone-300"
-										}
-										fill={cluster ? "#94a3b8" : undefined}
+										className="fill-stone-600 dark:fill-stone-300"
 										fontSize={cluster ? 10 : 9}
 									>
 										{truncateLabel(node.label)}
@@ -542,13 +480,7 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 					})}
 				</g>
 			</svg>
-			<div
-				className={`absolute bottom-2 left-2 flex max-w-[70%] flex-wrap items-center gap-2 rounded-md border px-2 py-1 text-[10px] ${
-					weighted
-						? "border-[#2A2F36] bg-[#1a1f29]/90 text-[#e2e8f0]"
-						: "border-stone-200 bg-white/90 text-stone-600 dark:border-stone-700 dark:bg-stone-900/90 dark:text-stone-300"
-				}`}
-			>
+			<div className="absolute bottom-2 left-2 flex max-w-[70%] flex-wrap items-center gap-2 rounded-md border border-stone-200 bg-white/90 px-2 py-1 text-[10px] text-stone-600 dark:border-stone-700 dark:bg-stone-900/90 dark:text-stone-300">
 				{weighted ? null : (
 					<>
 						<span className="uppercase tracking-wide">
@@ -584,13 +516,7 @@ export default function MemoryGraph({ graph, selectedId, onSelect }: MemoryGraph
 					</>
 				) : null}
 			</div>
-			<div
-				className={`absolute bottom-2 right-2 flex flex-col overflow-hidden rounded-md border ${
-					weighted
-						? "border-[#2A2F36] bg-[#1a1f29]/90 text-[#e2e8f0]"
-						: "border-stone-200 bg-white/90 dark:border-stone-700 dark:bg-stone-900/90"
-				}`}
-			>
+			<div className="absolute bottom-2 right-2 flex flex-col overflow-hidden rounded-md border border-stone-200 bg-white/90 dark:border-stone-700 dark:bg-stone-900/90">
 				<Button
 					type="button"
 					variant="ghost"
@@ -707,7 +633,7 @@ function LegendLine({ tier, label }: { tier: MemoryEdgeTier; label: string }) {
 					y1="3"
 					x2="16"
 					y2="3"
-					stroke={EDGE_TIER_COLOR[tier]}
+					className={EDGE_TIER_CLASS[tier]}
 					strokeWidth={stroke.width}
 					strokeDasharray={dash}
 					opacity={Math.min(1, stroke.opacity)}

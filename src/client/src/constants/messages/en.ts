@@ -2793,7 +2793,7 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 	},
 	memcode: {
 		summary: "Connect OpenLIT to MemCode for long-term agent memory.",
-		steps: ["Create a MemCode API key and keep one stable user ID for ingest and search.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from the Memory page."],
+		steps: ["Create a MemCode API key. The key identifies the MemCode account, so no user ID is needed.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from the Memory page."],
 		docsUrl: "https://memcode.in/docs",
 	},
 	zep: {

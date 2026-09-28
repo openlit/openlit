@@ -17,7 +17,7 @@ editing shared forms, the schema, or any UI**.
    the vendor can enumerate users, sessions, or agents for Memory page dropdowns.
    Typed and used filter ids are also remembered on the connector
    (`metadata.memoryFilters`, stripped from public responses) so vendors without
-   an entities API (MemCode) still populate the dropdown.
+   an entities API still populate the dropdown.
    Override `feedback()` when the vendor accepts per-memory ratings (Mem0-style
    positive / negative / very negative plus an optional reason).
    Writes (`add` / `update` / `delete`) are exposed on the Memory page,
@@ -38,7 +38,7 @@ editing shared forms, the schema, or any UI**.
      instead of the page length. Without it, `list(filter)` is called once.
    - `graph(options)` — the vendor's own connection graph, returned as a
      `MemoryGraphModel`. Implement it only when the vendor has a real graph
-     endpoint (MemCode's `GET /v2/memory-graph`). Without it, the graph is
+     endpoint. Without it, the graph is
      derived from list records by `buildMemoryGraph`, as before. Set
      `edge.weight` (0-1) when the backend scores connections and the Memory page
      will tier edges and offer a strength filter. Keep the node count within a

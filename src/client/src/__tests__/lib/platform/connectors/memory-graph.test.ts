@@ -435,10 +435,10 @@ describe("radialEdgePoints", () => {
 });
 
 describe("memoryEdgeTier", () => {
-	it("buckets a weight the way the MemCode dashboard does", () => {
+	it("buckets a weight into strength tiers", () => {
 		expect(memoryEdgeTier(0.95)).toBe("strong");
 		expect(memoryEdgeTier(0.81)).toBe("strong");
-		// 0.8 itself is medium: upstream uses an exclusive bound for strong.
+		// 0.8 itself is medium: strong uses an exclusive bound.
 		expect(memoryEdgeTier(0.8)).toBe("medium");
 		expect(memoryEdgeTier(0.6)).toBe("medium");
 		expect(memoryEdgeTier(0.59)).toBe("weak");
@@ -475,8 +475,8 @@ describe("memoryEdgeTier", () => {
 	});
 });
 
-describe("MemCode constellation styling", () => {
-	it("dashes edges the way the dashboard does", () => {
+describe("weighted graph styling", () => {
+	it("dashes edges by tier", () => {
 		expect(memoryEdgeDashPattern("strong")).toBeUndefined();
 		expect(memoryEdgeDashPattern("medium")).toBe("7 4");
 		expect(memoryEdgeDashPattern("weak")).toBe("4 6");
