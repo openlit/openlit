@@ -111,45 +111,69 @@ def test_browser_use_records_seconds():
         )
 
 
-def _scaled_durations(tree, source):
-    """Every assignment in `tree` whose value multiplies an elapsed time.
+def _is_scaled(node):
+    """A multiplication by a thousand or more, on either side."""
+    if not isinstance(node, ast.BinOp) or not isinstance(node.op, ast.Mult):
+        return False
+    return any(
+        isinstance(side, ast.Constant)
+        and isinstance(side.value, (int, float))
+        and side.value >= 1000
+        for side in (node.left, node.right)
+    )
 
-    Raised in review: matching the literal text `* 1000` catches only one
-    spelling. `1000.0`, `1_000`, extra spaces and `1000 * (end - start)` are
-    the same bug written differently, so walk the AST instead of the text and
-    judge the shape: a multiplication where one side is a number of at least a
-    thousand and the other mentions a start time.
+
+def _is_duration_attribute(node):
+    """The attribute is named two ways in this tree: through the semantic
+    convention constant, and as a bare string in the crawl4ai wrappers. A guard
+    that knows only the constant leaves the string sites unwatched."""
+    if isinstance(node, ast.Attribute):
+        return node.attr == "GEN_AI_CLIENT_OPERATION_DURATION"
+    return isinstance(node, ast.Constant) and node.value == DURATION_ATTRIBUTE
+
+
+def _scaled_duration_sites(tree, source):
+    """Every place the duration attribute is handed a scaled value.
+
+    Raised in review: an earlier guard read assignments only, so scaling at the
+    call itself slipped past it, and a blanket `duration_ms` text match also
+    failed a sibling change that keeps that name for an internal collection
+    while still reporting the attribute in seconds. Follow the value that
+    reaches the attribute instead of judging every multiplication in the file.
     """
-
-    def _is_thousandish(node):
-        return isinstance(node, ast.Constant) and isinstance(
-            node.value, (int, float)
-        ) and node.value >= 1000
-
-    def _mentions_start_time(node):
-        return any(
-            isinstance(inner, ast.Name)
-            and "start_time" in inner.id
-            or isinstance(inner, ast.Attribute)
-            and "start_time" in inner.attr
-            for inner in ast.walk(node)
-        )
+    scaled_names = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and _is_scaled(node.value):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    scaled_names[target.id] = (
+                        f"line {node.lineno}: {ast.get_source_segment(source, node)}"
+                    )
 
     offenders = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.BinOp) or not isinstance(node.op, ast.Mult):
+        if not isinstance(node, ast.Call):
             continue
-        sides = (node.left, node.right)
-        if any(_is_thousandish(side) for side in sides) and any(
-            _mentions_start_time(side) for side in sides
+        if not (
+            isinstance(node.func, ast.Attribute) and node.func.attr == "set_attribute"
         ):
+            continue
+        if len(node.args) < 2 or not _is_duration_attribute(node.args[0]):
+            continue
+        value = node.args[1]
+        if _is_scaled(value):
             offenders.append(
                 f"line {node.lineno}: {ast.get_source_segment(source, node)}"
+            )
+        elif isinstance(value, ast.Name) and value.id in scaled_names:
+            offenders.append(
+                f"line {node.lineno}: attribute takes {value.id}, "
+                f"assigned at {scaled_names[value.id]}"
             )
     return offenders
 
 
-def test_no_source_scales_an_elapsed_time():
+def test_no_site_hands_the_duration_attribute_a_scaled_value():
     """Pin all nine sites, so a future edit cannot quietly reintroduce one."""
     root = Path(browser_use_mod.__file__).parent.parent
     offenders = []
@@ -162,33 +186,48 @@ def test_no_source_scales_an_elapsed_time():
         source = (root / name).read_text(encoding="utf-8")
         offenders += [
             f"{name}:{where}"
-            for where in _scaled_durations(ast.parse(source), source)
-        ]
-        # The name must not go on claiming milliseconds either.
-        offenders += [
-            f"{name}:{number}: {line.strip()}"
-            for number, line in enumerate(source.splitlines(), start=1)
-            if "duration_ms" in line
+            for where in _scaled_duration_sites(ast.parse(source), source)
         ]
     assert not offenders, "duration is seconds; these scale it:\n" + "\n".join(
         offenders
     )
 
 
-def test_the_guard_itself_catches_the_other_spellings():
-    """The guard is only worth having if it sees more than one spelling."""
-    for expression in (
-        "d = (end_time - start_time) * 1000",
-        "d = (end_time - start_time)*1000.0",
-        "d = (end_time - start_time) * 1_000",
-        "d = 1000 * (end_time - start_time)",
-        "d = (end_time - self.start_time) * 1000",
-    ):
-        assert _scaled_durations(ast.parse(expression), expression), expression
+SET_DURATION = (
+    "span.set_attribute("
+    "SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, {value})"
+)
+
+
+def test_the_guard_catches_scaling_at_the_call_and_at_the_assignment():
+    """Both spellings reach the attribute, so the guard must see both."""
+    at_the_call = [
+        SET_DURATION.format(value="d * 1000"),
+        SET_DURATION.format(value="d * 1000.0"),
+        SET_DURATION.format(value="1_000 * d"),
+    ]
+    through_a_name = [
+        "d = (end_time - start_time) * 1000\n" + SET_DURATION.format(value="d"),
+        "d = 1000 * (end_time - self.start_time)\n" + SET_DURATION.format(value="d"),
+    ]
+    for snippet in at_the_call + through_a_name:
+        assert _scaled_duration_sites(ast.parse(snippet), snippet), snippet
+
+
+def test_the_guard_leaves_an_internal_millisecond_name_alone():
+    """A sibling change keeps `duration_ms` for its own collection while still
+    reporting the attribute in seconds. That is a naming choice, not this bug,
+    so the guard must judge what reaches the attribute and nothing else."""
+    snippet = (
+        "d = end_time - start_time\n"
+        "duration_ms = d * 1000\n"
+        + SET_DURATION.format(value="d")
+        + "\ncollect(duration_ms)"
+    )
+    assert not _scaled_duration_sites(ast.parse(snippet), snippet)
 
     for innocent in (
-        "d = end_time - start_time",
-        "d = tokens * 1000",
-        "d = (end_time - start_time) * 1",
+        "d = end_time - start_time\n" + SET_DURATION.format(value="d"),
+        "d = tokens * 1000\n" + SET_DURATION.format(value="end_time - start_time"),
     ):
-        assert not _scaled_durations(ast.parse(innocent), innocent), innocent
+        assert not _scaled_duration_sites(ast.parse(innocent), innocent), innocent
