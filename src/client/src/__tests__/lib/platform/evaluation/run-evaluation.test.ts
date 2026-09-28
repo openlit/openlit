@@ -96,7 +96,11 @@ describe('runEvaluation — provider routing', () => {
 
   it('creates OpenAI-compatible model for provider=perplexity', async () => {
     await runEvaluation({ ...BASE_PARAMS, provider: 'perplexity' });
-    expect(createOpenAI).toHaveBeenCalledWith(expect.objectContaining({ baseURL: 'https://api.perplexity.ai' }));
+    expect(createOpenAI).toHaveBeenCalledWith({
+      baseURL: 'https://api.perplexity.ai',
+      apiKey: 'sk-test',
+      headers: { 'X-Pplx-Integration': 'openlit' },
+    });
   });
 
   it('creates OpenAI-compatible model for provider=deepseek', async () => {
