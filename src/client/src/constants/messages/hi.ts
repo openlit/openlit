@@ -53,6 +53,8 @@ export const EVALUATION_CREATE_NEW = "नया बनाएं";
 export const EVALUATION_ENGINE_TITLE = "मूल्यांकन";
 export const EVALUATION_ENGINE_DESCRIPTION =
 	"इवैल्यूएशन फ्रेमवर्क चुनें। रूल इंजन कॉन्टेक्स्ट और इवैल्यूएशन टाइप मैनुअल और ऑटो दोनों रन के लिए लागू होते हैं।";
+export const EVALUATION_TYPESAFE_HINT =
+	"TypeSafe Jev noul/score के साथ क्लासिफिकेशन देता है, जिसे एक्सप्लेनेशन के रूप में दिखाया जाता है। थ्रेशोल्ड कैलिब्रेट करते समय jev-1.13.0 पिन करें। चैट प्लेग्राउंड Jev को सपोर्ट नहीं करता।";
 export const EVALUATION_ENGINE_LABEL = "इंजन";
 export const EVALUATION_CONFIG_SECTION = "कॉन्फ़िगरेशन";
 export const EVALUATION_PROVIDER_LABEL = "प्रोवाइडर";

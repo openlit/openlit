@@ -69,13 +69,13 @@ OpenLIT provides two ways to configure evaluation settings - from the Settings p
 </Frame>
 
 1. Navigate to **Evaluations** in the sidebar, then click **Settings**
-2. Select your **Provider** (OpenAI, Anthropic, Google, Mistral, etc.) and **Model** to use as a judge
+2. Select your **Provider** (OpenAI, Anthropic, Google, TypeSafe, Mistral, etc.) and **Model** to use as a judge
 3. Add your LLM provider API key from Vault or create a new one
 4. Optionally enable **Auto Evaluation** with a cron schedule for continuous monitoring
 5. Click **Save Changes**
 
 <Tip>
-Evaluations support 11+ providers including OpenAI, Anthropic, Google, Mistral, Cohere, Groq, Perplexity, DeepSeek, xAI, Together, and Fireworks.
+Evaluations support chat providers (OpenAI, Anthropic, Google, Mistral, Cohere, Groq, Perplexity, DeepSeek, xAI, Together, Fireworks, and others) plus **TypeSafe Jev** via the native System One API. Jev explanations use the classification bucket plus score; pin `jev-1.13.0` when calibrating thresholds. To trace Jev calls in your application, see [Monitor TypeSafe Jev](/latest/sdk/integrations/typesafe).
 </Tip>
 
 ### Configure evaluation types

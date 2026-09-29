@@ -151,6 +151,10 @@ export const DEFAULT_PROVIDERS: DefaultProviderEntry[] = [
 			topP: { min: 0, max: 1, step: 0.1, default: 1, description: "Nucleus sampling threshold" },
 		},
 	},
+	{
+		providerId: "typesafe", displayName: "TypeSafe", description: "Jev System One decision model for structured LLM evaluation", requiresVault: true,
+		configSchema: {},
+	},
 ];
 
 export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
@@ -1155,6 +1159,37 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			cacheReadPricePerMToken: 0.03,
 			cacheCreationPricePerMToken: 0.3,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
+		},
+	],
+	// TypeSafe Jev — native System One decision model. Prices from
+	// https://docs.typesafe.ai/models ($0.042 / M input, $0 output, 64k).
+	typesafe: [
+		{
+			id: "jev-latest",
+			displayName: "Jev Latest",
+			modelType: "evaluation",
+			contextWindow: 64000,
+			inputPricePerMToken: 0.042,
+			outputPricePerMToken: 0,
+			capabilities: [],
+		},
+		{
+			id: "jev-1.13.0",
+			displayName: "Jev 1.13.0",
+			modelType: "evaluation",
+			contextWindow: 64000,
+			inputPricePerMToken: 0.042,
+			outputPricePerMToken: 0,
+			capabilities: [],
+		},
+		{
+			id: "jev-preview",
+			displayName: "Jev Preview",
+			modelType: "evaluation",
+			contextWindow: 64000,
+			inputPricePerMToken: 0.042,
+			outputPricePerMToken: 0,
+			capabilities: [],
 		},
 	],
 };

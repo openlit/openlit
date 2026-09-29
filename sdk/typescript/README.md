@@ -47,6 +47,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Hugging Face](https://docs.openlit.io/latest/integrations/huggingface) *(Inference API + local Transformers.js)* |
 | [✅ Replicate](https://docs.openlit.io/latest/integrations/replicate)                      |
 | [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai) *(via OpenAI SDK)* |
+| [✅ TypeSafe Jev](https://docs.openlit.io/latest/sdk/integrations/typesafe) *(System One `systemOne`)* |
 
 | Audio / Speech                                                                              |
 | ------------------------------------------------------------------------------------------- |

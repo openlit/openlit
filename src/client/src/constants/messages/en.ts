@@ -92,6 +92,8 @@ export const EVALUATION_CREATE_NEW = "Create new";
 export const EVALUATION_ENGINE_TITLE = "Evaluations";
 export const EVALUATION_ENGINE_DESCRIPTION =
 	"Choose the evaluation framework. Rule engine context and evaluation types are applied for both manual and auto runs.";
+export const EVALUATION_TYPESAFE_HINT =
+	"TypeSafe Jev returns noul/score with a classification used as the explanation. Pin jev-1.13.0 when calibrating verdict thresholds. Chat playground does not support Jev.";
 export const EVALUATION_ENGINE_LABEL = "Engine";
 export const EVALUATION_CONFIG_SECTION = "Configuration";
 export const EVALUATION_PROVIDER_LABEL = "Provider";

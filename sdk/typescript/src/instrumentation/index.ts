@@ -13,6 +13,7 @@ import MistralInstrumentation from './mistral';
 import GoogleAIInstrumentation from './google-ai';
 import VertexAIInstrumentation from './vertexai';
 import TogetherInstrumentation from './together';
+import TypeSafeInstrumentation from './typesafe';
 import OllamaInstrumentation from './ollama';
 import VllmInstrumentation from './vllm';
 import VercelAIInstrumentation from './vercel-ai';
@@ -96,6 +97,7 @@ export default class Instrumentations {
     'google-ai': new GoogleAIInstrumentation(),
     vertexai: new VertexAIInstrumentation(),
     together: new TogetherInstrumentation(),
+    typesafe: new TypeSafeInstrumentation(),
     ollama: new OllamaInstrumentation(),
     vllm: new VllmInstrumentation(),
     'vercel-ai': new VercelAIInstrumentation(),

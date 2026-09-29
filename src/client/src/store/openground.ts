@@ -9,6 +9,7 @@ import {
 	SelectedProvider,
 } from "@/types/store/openground";
 import { ProviderResult } from "@/lib/platform/openground-clickhouse";
+import { isChatProvider } from "@/constants/chat-providers";
 
 export const opengroundStoreSlice: OpengroundStore = lens(
 	(setStore, getStore) => ({
@@ -128,7 +129,9 @@ export const opengroundStoreSlice: OpengroundStore = lens(
 					const providers = await response.json();
 					setStore(() => ({
 						...getStore(),
-						availableProviders: providers,
+						availableProviders: (Array.isArray(providers) ? providers : []).filter(
+							(p: { providerId: string }) => isChatProvider(p.providerId)
+						),
 					}));
 				}
 			} catch (error) {
