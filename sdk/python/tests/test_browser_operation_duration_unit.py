@@ -1,4 +1,4 @@
-# pylint: disable=protected-access, missing-function-docstring, duplicate-code
+# pylint: disable=protected-access, missing-function-docstring, duplicate-code, too-few-public-methods
 """Runtime coverage for the synchronous and asynchronous Browser-Use wrappers.
 
 `test_async_operation_duration_unit.py` only drives
@@ -12,17 +12,16 @@ error path of each wrapper.
 """
 
 import asyncio
-import time
 from unittest.mock import patch
 
 import pytest
-
-import openlit
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
+
+import openlit
 from openlit._config import OpenlitConfig
 from openlit.instrumentation.browser_use import (
     async_browser_use as async_mod,

@@ -1,4 +1,4 @@
-# pylint: disable=protected-access, missing-function-docstring, duplicate-code
+# pylint: disable=protected-access, missing-function-docstring, duplicate-code, too-few-public-methods
 """Async runtime coverage for the `gen_ai.client.operation.duration` unit.
 
 `test_operation_duration_unit.py` asserts the unit on the synchronous wrappers and
@@ -16,7 +16,6 @@ recorded attribute is elapsed **seconds** on both shapes:
 """
 
 import asyncio
-import time
 from unittest.mock import patch
 
 import pytest
