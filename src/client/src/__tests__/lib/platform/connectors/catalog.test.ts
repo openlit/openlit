@@ -1,6 +1,7 @@
 const mockEnsureConnectorsRegistered = jest.fn();
 const mockAvailableSourceTypeDescriptors = jest.fn();
 const mockAvailableMemoryTypeDescriptors = jest.fn();
+const mockAvailableScannerTypeDescriptors = jest.fn();
 const mockIsVisibleConnectorType = jest.fn();
 const mockConnectorIconPath = jest.fn();
 
@@ -14,6 +15,10 @@ jest.mock("@/lib/telemetry-source-crud", () => ({
 
 jest.mock("@/lib/platform/connectors/memory/crud", () => ({
 	availableMemoryTypeDescriptors: (...a: unknown[]) => mockAvailableMemoryTypeDescriptors(...a),
+}));
+
+jest.mock("@/lib/platform/connectors/scanner/crud", () => ({
+	availableScannerTypeDescriptors: (...a: unknown[]) => mockAvailableScannerTypeDescriptors(...a),
 }));
 
 jest.mock("@/lib/platform/connectors/visible-types", () => ({
@@ -30,6 +35,7 @@ beforeEach(() => {
 	jest.clearAllMocks();
 	mockAvailableSourceTypeDescriptors.mockReturnValue([]);
 	mockAvailableMemoryTypeDescriptors.mockReturnValue([]);
+	mockAvailableScannerTypeDescriptors.mockReturnValue([]);
 	mockIsVisibleConnectorType.mockReturnValue(true);
 });
 

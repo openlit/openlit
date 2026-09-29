@@ -41,7 +41,8 @@ export class AISdkAdapter {
 		}),
 		perplexity: (apiKey: string) => createOpenAI({
 			baseURL: 'https://api.perplexity.ai',
-			apiKey
+			apiKey,
+			headers: { 'X-Pplx-Integration': 'openlit' },
 		}),
 		azure: (apiKey: string) => createOpenAI({
 			baseURL: process.env.AZURE_OPENAI_ENDPOINT || 'https://your-resource.openai.azure.com',
@@ -78,12 +79,17 @@ export class AISdkAdapter {
 			baseURL: 'https://api.minimax.io/v1',
 			apiKey
 		}),
+		orcarouter: (apiKey: string) => createOpenAI({
+			baseURL: 'https://api.orcarouter.ai/v1',
+			apiKey
+		}),
 	};
 
 	private static readonly SUPPORTED_PROVIDERS = [
 		'openai', 'anthropic', 'google', 'mistral', 'cohere',
 		'groq', 'perplexity', 'azure', 'together', 'fireworks',
 		'deepseek', 'xai', 'huggingface', 'replicate', 'minimax',
+		'orcarouter',
 	];
 
 	/**

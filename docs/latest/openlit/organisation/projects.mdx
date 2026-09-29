@@ -5,14 +5,14 @@ sidebarTitle: 'Projects'
 icon: 'folder'
 ---
 
-Everything under **Organisation → Projects** is project-scoped. You create a project first; then that project owns environments, ClickHouse **Database Configs**, **connectors** (data sources and memory), and **signal routing**.
+Everything under **Organisation → Projects** is project-scoped. You create a project first; then that project owns environments, ClickHouse **Database Configs**, **connectors** (data sources, memory, and scanners), and **signal routing**.
 
 ```text
 Organisation
   └── Project   ← create this first
         ├── Environments
         ├── Database Configs (ClickHouse)
-        ├── Connectors (data sources + memory)
+        ├── Connectors (data sources, memory, scanners)
         └── Signal routing
 ```
 
@@ -57,7 +57,7 @@ Use **environments** (`production`, `staging`, …) inside a project when you ne
 | --- | --- |
 | **Environments** | Named partitions (`production`, `staging`, …) |
 | **Database Configs** | ClickHouse app-store connections per environment |
-| **Connectors** | Data-source (Tempo, Loki, Prometheus, Jaeger, ClickHouse) and memory (Claude, Mem0, Zep) |
+| **Connectors** | Data-source (Tempo, Loki, Prometheus, Jaeger, ClickHouse), memory (Claude, Mem0, Zep), and scanner (Trustabl) |
 | **Signal bindings** | Which connector serves traces / logs / metrics per environment |
 
 <Frame>
@@ -78,7 +78,7 @@ Project access controls which organisation members can use a project. Existing o
     Add ClickHouse connections on the project.
   </Card>
   <Card title="Connectors" href="/latest/openlit/connectors/overview" icon="plug">
-    Data-source and memory connectors on the project.
+    Data-source, memory, and scanner connectors on the project.
   </Card>
   <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
     Bind traces, logs, and metrics per environment.

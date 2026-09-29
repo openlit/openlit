@@ -8,6 +8,7 @@ const CONNECTOR_DESCRIPTIONS: Record<string, string> = {
 	mem0: "Long-term agent memory from Mem0.",
 	memcode: "Long-term agent memory from MemCode.",
 	zep: "Session and graph memory from Zep.",
+	trustabl: "Agent SDK and MCP reliability scans from Trustabl.",
 };
 
 export function connectorDescription(type: string, displayName?: string): string {

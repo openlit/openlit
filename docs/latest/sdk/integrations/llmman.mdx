@@ -1,0 +1,125 @@
+---
+title: 'Monitor llmman using OpenTelemetry'
+description: 'OpenLIT brings AI observability to llmman LLM apps via OpenTelemetry auto-instrumentation of the Ollama and OpenAI SDKs, tracing performance and token usage across Python and TypeScript.'
+sidebarTitle: 'llmman'
+---
+
+import IntegrationMethods from '/snippets/integration-methods.mdx';
+
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using models served by [llmman](https://github.com/llmmanorg/llmman). This includes tracking performance, token usage, and how users interact with the application.
+
+llmman is a local model runner that serves the Ollama API (alongside OpenAI- and Anthropic-compatible ones) on port `17434`. There is no dedicated llmman client library: applications talk to it through the Ollama or OpenAI SDKs, so OpenLIT's existing [Ollama](/latest/sdk/integrations/ollama) and [OpenAI](/latest/sdk/integrations/openai) instrumentations pick it up automatically once the client is pointed at `http://localhost:17434`.
+
+The integration is compatible with
+- Ollama Python SDK client `>=0.2.0`
+- Ollama TypeScript/JavaScript SDK client `>=0.5.0`
+- OpenAI Python SDK client `>=1.92.0`
+- OpenAI TypeScript SDK client `>=1.13.0`
+
+## Get started
+
+<Steps>
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+
+    <Tabs>
+      <Tab title="Python">
+        ```shell
+        pip install openlit
+        ```
+      </Tab>
+      <Tab title="TypeScript">
+        ```shell
+        npm install openlit
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <IntegrationMethods />
+  <Step title="Point your client at llmman">
+    Start the server with `llmman serve` and pull a model with `llmman pull gemma4`. Then configure the SDK you already use to talk to `http://localhost:17434` instead of Ollama's default `http://localhost:11434`. No API key is required; if a client insists on one, any placeholder works.
+
+    <CodeGroup>
+    ```python Ollama SDK
+    import ollama
+    import openlit
+
+    openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+    client = ollama.Client(host="http://localhost:17434")
+    response = client.chat(model="gemma4", messages=[
+        {"role": "user", "content": "Why is the sky blue?"},
+    ])
+    ```
+
+    ```python OpenAI SDK
+    from openai import OpenAI
+    import openlit
+
+    openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+    client = OpenAI(base_url="http://localhost:17434/v1", api_key="llmman")
+    response = client.chat.completions.create(
+        model="gemma4",
+        messages=[{"role": "user", "content": "Why is the sky blue?"}],
+    )
+    ```
+
+    ```typescript Ollama SDK
+    import Openlit from "openlit"
+
+    Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
+
+    async function main() {
+      const { Ollama } = await import("ollama");
+      const ollama = new Ollama({ host: "http://localhost:17434" });
+      const response = await ollama.chat({
+        model: "gemma4",
+        messages: [{ role: "user", content: "Why is the sky blue?" }],
+      });
+
+      console.log(response);
+    }
+
+    main();
+    ```
+
+    ```typescript OpenAI SDK
+    import Openlit from "openlit"
+
+    Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
+
+    async function main() {
+      const OpenAI = await import("openai").then((e) => e.default);
+      const client = new OpenAI({ baseURL: "http://localhost:17434/v1", apiKey: "llmman" });
+      const response = await client.chat.completions.create({
+        model: "gemma4",
+        messages: [{ role: "user", content: "Why is the sky blue?" }],
+      });
+
+      console.log(response);
+    }
+
+    main();
+    ```
+    </CodeGroup>
+
+    <Tip>
+    The Ollama SDKs also honour `OLLAMA_HOST`, so `export OLLAMA_HOST=127.0.0.1:17434` switches an existing Ollama application to llmman without code changes.
+    </Tip>
+  </Step>
+</Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon='bolt'>
+    Configure the OpenLIT SDK according to you requirements.
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

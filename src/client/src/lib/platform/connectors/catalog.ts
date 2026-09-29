@@ -1,6 +1,7 @@
 import { ensureConnectorsRegistered } from "./bootstrap";
 import { availableSourceTypeDescriptors } from "@/lib/telemetry-source-crud";
 import { availableMemoryTypeDescriptors } from "./memory/crud";
+import { availableScannerTypeDescriptors } from "./scanner/crud";
 import { isVisibleConnectorType } from "@/lib/platform/connectors/visible-types";
 import { connectorIconPath } from "./icons";
 
@@ -15,5 +16,6 @@ export function availableConnectorTypeDescriptors() {
 			scope: "project" as const,
 		})),
 		...availableMemoryTypeDescriptors(),
+		...availableScannerTypeDescriptors(),
 	].filter((descriptor) => isVisibleConnectorType(descriptor.type));
 }
