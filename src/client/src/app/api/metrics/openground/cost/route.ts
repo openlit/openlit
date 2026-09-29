@@ -1,3 +1,4 @@
+import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getOpengroundCostAnalytics } from "@/lib/platform/openground/cost-analytics";
 import {
@@ -5,7 +6,7 @@ import {
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	let formData: Record<string, unknown>;
 	try {
 		formData = await request.json();
@@ -32,3 +33,7 @@ export async function POST(request: Request) {
 	const res = await getOpengroundCostAnalytics(params);
 	return Response.json(res);
 }
+
+export const POST = withRouteAccess("metrics.read", POSTHandler, {
+	requireDbConfig: true,
+});

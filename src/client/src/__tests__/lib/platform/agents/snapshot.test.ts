@@ -5,13 +5,17 @@
  * decision logic (new version vs same-version bump) without a real DB.
  */
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: jest.fn(),
-	OTEL_TRACES_TABLE_NAME: "otel_traces",
-	OTEL_LOGS_TABLE_NAME: "otel_logs",
-}));
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+		OTEL_TRACES_TABLE_NAME: "otel_traces",
+		OTEL_LOGS_TABLE_NAME: "otel_logs",
+	};
+});
 
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import {
 	upsertVersion,
 	deriveSnapshot,
@@ -23,7 +27,9 @@ import {
 	_internals,
 } from "@/lib/platform/agents/snapshot";
 
-const mockedDataCollector = dataCollector as jest.MockedFunction<typeof dataCollector>;
+const mockedDataCollector = intelligenceDataCollector as jest.MockedFunction<
+	typeof intelligenceDataCollector
+>;
 
 beforeEach(() => {
 	mockedDataCollector.mockReset();
@@ -288,6 +294,40 @@ describe("deriveSnapshot", () => {
 		expect(result?.tools).toHaveLength(1);
 		expect(result?.tools[0].name).toBe("framework_tool");
 		// Exactly one dataCollector call — the logs fallback was correctly skipped.
+		expect(mockedDataCollector).toHaveBeenCalledTimes(1);
+	});
+
+	it("skips the logs enrichment when logs are not correlatable (external backend)", async () => {
+		// Correlation boundary: trace tool defs empty AND tools_fallback empty,
+		// but logs live in a different backend -> the otel_logs query must NOT be
+		// issued; the snapshot degrades gracefully with no tools.
+		mockedDataCollector.mockResolvedValueOnce({
+			data: [
+				{
+					system_prompt: "Agent",
+					tool_definitions_json: "",
+					tools_fallback: [],
+					primary_model: "gpt-4o",
+					models: ["gpt-4o"],
+					providers: ["openai"],
+					temperature: 0.5,
+					top_p: 1,
+					max_tokens: 512,
+					request_count: 3,
+					first_seen: "2026-05-11 22:00:00",
+					last_seen: "2026-05-11 22:10:00",
+				},
+			],
+		});
+
+		const result = await deriveSnapshot({
+			serviceName: "external-logs-agent",
+			environment: "prod",
+			clusterId: "default",
+			logsCorrelatable: false,
+		});
+		expect(result?.tools).toHaveLength(0);
+		// Only the trace query ran; the correlation boundary blocked the logs query.
 		expect(mockedDataCollector).toHaveBeenCalledTimes(1);
 	});
 });

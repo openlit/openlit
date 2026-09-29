@@ -4,9 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { getPingStatus } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import copy from "copy-to-clipboard";
 import { format } from "date-fns";
-import { CopyIcon, TrashIcon } from "lucide-react";
+import { TrashIcon } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import Generate from "./generate";
@@ -30,7 +29,7 @@ const columns: Columns<string, ApiKey> = {
 		cell: ({ row }) => {
 			return (
 				<Badge variant="outline" className="rounded-md">
-					{row.apiKey?.replace(/(openlit-.{4}).*(.{6})$/, "$1...$2")}
+					{row.apiKeyPreview}
 				</Badge>
 			);
 		},
@@ -50,12 +49,6 @@ const columns: Columns<string, ApiKey> = {
 	actions: {
 		header: () => "Actions",
 		cell: ({ row, extraFunctions }) => {
-			const copyAPIKey = () => {
-				copy(row.apiKey);
-				toast.success("Copied!", {
-					id: "api-key",
-				});
-			};
 			return (
 				<div className="flex gap-4 justify-center">
 					<ConfirmationModal
@@ -68,15 +61,11 @@ const columns: Columns<string, ApiKey> = {
 					>
 						<TrashIcon className="w-4 cursor-pointer" />
 					</ConfirmationModal>
-					<CopyIcon
-						className="w-4 cursor-pointer"
-						onClick={copyAPIKey}
-					/>
 				</div>
 			);
 		},
 	},
-}
+};
 
 export default function ManageKeys() {
 	const messages = getMessage();

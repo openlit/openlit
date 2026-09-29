@@ -106,6 +106,13 @@ describe('getUserById', () => {
     const result = await getUserById({ id: 'u1' });
     expect((result as any).password).toBeUndefined();
   });
+
+  it('includes password when selectPassword=true', async () => {
+    const user = { id: 'u1', email: 'a@b.com', password: 'hashed' };
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue(user);
+    const result = await getUserById({ id: 'u1', selectPassword: true });
+    expect((result as any).password).toBe('hashed');
+  });
 });
 
 describe('createNewUser', () => {
@@ -149,6 +156,27 @@ describe('createNewUser', () => {
       })
     ).rejects.toThrow('Email contains invalid characters');
     expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects weak registration passwords before checking for an existing user', async () => {
+    await expect(
+      createNewUser({ email: 'new@example.com', password: 'weak' })
+    ).rejects.toThrow('Password must be at least 8 characters long');
+    expect(asaw).not.toHaveBeenCalled();
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it('includes the password when options.selectPassword is true', async () => {
+    (asaw as jest.Mock).mockResolvedValue([null, null]);
+    const createdUser = { id: 'u1', email: 'new@example.com', password: 'hashed' };
+    (prisma.user.create as jest.Mock).mockResolvedValue(createdUser);
+
+    const result = await createNewUser(
+      { email: 'new@example.com', password: 'Pass1234' },
+      { selectPassword: true }
+    );
+
+    expect((result as any).password).toBe('hashed');
   });
 });
 
@@ -208,6 +236,40 @@ describe('updateUserProfile', () => {
     await expect(
       updateUserProfile({ currentPassword: 'wrong', newPassword: 'Newpass1' })
     ).rejects.toThrow('Wrong current password!');
+  });
+
+  it('throws when a new password is provided without the current password', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u1', email: 'a@b.com', password: 'hashed' });
+
+    await expect(updateUserProfile({ newPassword: 'Newpass1' })).rejects.toThrow(
+      'Provide current password to update it to new one!'
+    );
+  });
+
+  it('throws when the new password is too weak', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u1', email: 'a@b.com', password: 'hashed' });
+
+    await expect(
+      updateUserProfile({ currentPassword: 'old', newPassword: 'weak' })
+    ).rejects.toThrow('Password must be at least 8 characters long');
+  });
+
+  it('compares against an empty stored password when the current user has none on record', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u1', email: 'a@b.com', password: undefined });
+    (compare as jest.Mock).mockResolvedValue(false);
+
+    await expect(
+      updateUserProfile({ currentPassword: 'old', newPassword: 'Newpass1' })
+    ).rejects.toThrow('Wrong current password!');
+    expect(compare).toHaveBeenCalledWith('old', '');
+  });
+
+  it('throws when the new profile name is invalid', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u1', email: 'a@b.com', password: 'hashed' });
+
+    await expect(
+      updateUserProfile({ name: '<script>alert(1)</script>' })
+    ).rejects.toThrow('Name must not contain HTML tags');
   });
 });
 

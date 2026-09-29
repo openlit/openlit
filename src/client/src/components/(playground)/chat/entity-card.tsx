@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+	BrainCircuit,
 	SlidersHorizontal,
 	BookOpen,
 	BookKey,
@@ -18,6 +19,7 @@ const ENTITY_ICONS: Record<string, React.ElementType> = {
 	model: SettingsIcon,
 	evaluation: MonitorCog,
 	vault: BookKey,
+	memory: BrainCircuit,
 };
 
 const ENTITY_COLORS: Record<string, { bg: string; border: string; icon: string; text: string }> = {
@@ -56,6 +58,12 @@ const ENTITY_COLORS: Record<string, { bg: string; border: string; icon: string; 
 		border: "border-rose-200 dark:border-rose-800",
 		icon: "text-rose-600 dark:text-rose-400",
 		text: "text-rose-700 dark:text-rose-300",
+	},
+	memory: {
+		bg: "bg-violet-50 dark:bg-violet-950/20",
+		border: "border-violet-200 dark:border-violet-800",
+		icon: "text-violet-600 dark:text-violet-400",
+		text: "text-violet-700 dark:text-violet-300",
 	},
 };
 

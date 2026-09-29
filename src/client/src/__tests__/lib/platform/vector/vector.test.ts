@@ -3,6 +3,13 @@ jest.mock('@/lib/platform/common', () => ({
   OTEL_TRACES_TABLE_NAME: 'otel_traces',
 }));
 
+jest.mock('@/lib/platform/vector/external', () => ({
+  externalResultGenerationByApplication: jest.fn().mockResolvedValue(null),
+  externalResultGenerationByEnvironment: jest.fn().mockResolvedValue(null),
+  externalResultGenerationByOperation: jest.fn().mockResolvedValue(null),
+  externalResultGenerationBySystem: jest.fn().mockResolvedValue(null),
+}));
+
 import { getResultGenerationByApplication } from '@/lib/platform/vector/application';
 import { getResultGenerationByEnvironment } from '@/lib/platform/vector/environment';
 import { getResultGenerationByOperation } from '@/lib/platform/vector/operation';

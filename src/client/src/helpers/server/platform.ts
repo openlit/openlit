@@ -12,6 +12,10 @@ import {
 } from "../server/trace";
 import { FilterWhereConditionType } from "@/types/platform";
 import { buildVersionWhereClause } from "@/lib/platform/agents/version-where";
+import { parseGenerationHealthChips } from "@/lib/platform/generation-health/classify";
+import { generationHealthWhereSql } from "@/lib/platform/generation-health/sql";
+import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
+import { agentLoopWhereSql } from "@/lib/platform/agent-loop/sql";
 
 function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -89,6 +93,8 @@ export const validateMetricsRequestType = {
 	// evaluation
 	GET_TOTAL_EVALUATION_DETECTED: "GET_TOTAL_EVALUATION_DETECTED",
 	GET_EVALUATION_ANALYTICS: "GET_EVALUATION_ANALYTICS",
+	GENERATION_HEALTH: "GENERATION_HEALTH",
+	AGENT_LOOP: "AGENT_LOOP",
 };
 
 export const validateMetricsRequest = (
@@ -142,6 +148,8 @@ export const validateMetricsRequest = (
 		// Evaluation
 		case validateMetricsRequestType.GET_TOTAL_EVALUATION_DETECTED:
 		case validateMetricsRequestType.GET_EVALUATION_ANALYTICS:
+		case validateMetricsRequestType.GENERATION_HEALTH:
+		case validateMetricsRequestType.AGENT_LOOP:
 			if (!params.timeLimit?.start || !params.timeLimit?.end) {
 				return {
 					success: false,
@@ -308,14 +316,10 @@ export const getFilterWhereCondition = (
 			}
 
 			if (filter.selectedConfig.environments?.length) {
-				// OTel-standard location for environment is
-				// `ResourceAttributes['deployment.environment']`. Older code
-				// here used `getTraceMappingKeyFullPath("environment")` which
-				// returns the dotted `SpanAttributes.gen_ai.environment` path
-				// and then wrapped *that* in `ResourceAttributes[...]`,
-				// producing a non-existent column key that always matched
-				// zero rows. Match both the OTel resource attribute and the
-				// legacy span attribute so any historic data still resolves.
+				// Playground / agent `envs` filter uses OTel
+				// `deployment.environment` (and legacy `gen_ai.environment`).
+				// API-key tenant env is stamped separately as
+				// `organisation.environment.name` and must not replace this.
 				const envList = filter.selectedConfig.environments
 					.map((environment: string) =>
 						`'${escapeClickHouseString(environment)}'`
@@ -324,6 +328,29 @@ export const getFilterWhereCondition = (
 				whereArray.push(
 					`(ResourceAttributes['deployment.environment'] IN (${envList}) OR SpanAttributes['gen_ai.environment'] IN (${envList}))`
 				);
+			}
+
+			const generationHealth = parseGenerationHealthChips(
+				filter.selectedConfig.generationHealth
+			);
+			if (generationHealth.length) {
+				const healthClause = generationHealthWhereSql(generationHealth);
+				if (healthClause) whereArray.push(healthClause);
+			}
+
+			if (hasAgentLoopFilter(filter.selectedConfig.agentLoop)) {
+				const loopBase = {
+					...filter,
+					selectedConfig: {
+						...filter.selectedConfig,
+						agentLoop: undefined,
+						generationHealth: undefined,
+					},
+				};
+				const baseWhere = getFilterWhereCondition(loopBase, true);
+				if (baseWhere) {
+					whereArray.push(agentLoopWhereSql("otel_traces", baseWhere));
+				}
 			}
 
 			if (filter.selectedConfig.customFilters?.length) {

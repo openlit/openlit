@@ -10,8 +10,22 @@
 
 jest.mock("@/lib/platform/common", () => ({
 	dataCollector: jest.fn(),
+	intelligenceDataCollector: jest.fn(),
 	OTEL_TRACES_TABLE_NAME: "otel_traces",
 	OTEL_LOGS_TABLE_NAME: "otel_logs",
+}));
+jest.mock("@/lib/platform/connectors/datasource/facade", () => ({
+	resolveSignalReadContext: jest.fn(),
+}));
+jest.mock("@/lib/platform/coding-agents/source", () => ({
+	resolveCodingAgentsClickHouseDbConfigId: jest.fn(),
+}));
+jest.mock("@/lib/platform/agents/logger", () => ({
+	agentsLogger: {
+		error: jest.fn(),
+		info: jest.fn(),
+		warn: jest.fn(),
+	},
 }));
 
 import {
@@ -20,9 +34,16 @@ import {
 	type AggregateEdge,
 	type AggregateNode,
 } from "@/lib/platform/agents/aggregate-graph";
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
+import { resolveSignalReadContext } from "@/lib/platform/connectors/datasource/facade";
+import { resolveCodingAgentsClickHouseDbConfigId } from "@/lib/platform/coding-agents/source";
+import { agentsLogger } from "@/lib/platform/agents/logger";
 
-const mockDataCollector = jest.mocked(dataCollector);
+const mockIntelligenceDataCollector = jest.mocked(intelligenceDataCollector);
+const mockResolveSignalReadContext = jest.mocked(resolveSignalReadContext);
+const mockResolveClickHouseId = jest.mocked(
+	resolveCodingAgentsClickHouseDbConfigId
+);
 
 function node(id: string): AggregateNode {
 	return {
@@ -55,8 +76,6 @@ describe("assignDepths", () => {
 	});
 
 	it("uses the longest path when a node has multiple parents", () => {
-		// root -> mid -> leaf
-		//   \-----------> leaf  (still depth=2 because mid is the longer path)
 		const nodes = [node("root"), node("mid"), node("leaf")];
 		const edges = [edge("root", "mid"), edge("mid", "leaf"), edge("root", "leaf")];
 		assignDepths(nodes, edges);
@@ -74,7 +93,6 @@ describe("assignDepths", () => {
 	});
 
 	it("clamps cycles to depth 0 instead of looping forever", () => {
-		// Real production traces shouldn't contain cycles; guard anyway.
 		const nodes = [node("a"), node("b")];
 		assignDepths(nodes, [edge("a", "b"), edge("b", "a")]);
 		expect(Number.isFinite(nodes[0].depth)).toBe(true);
@@ -83,7 +101,6 @@ describe("assignDepths", () => {
 
 	it("ignores edges that reference missing nodes", () => {
 		const nodes = [node("root")];
-		// `phantom` doesn't exist in nodes — depth assignment should ignore it.
 		assignDepths(nodes, [edge("root", "phantom"), edge("phantom", "root")]);
 		expect(nodes[0].depth).toBe(0);
 	});
@@ -111,11 +128,22 @@ describe("assignDepths", () => {
 describe("getAggregateGraph", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
-		mockDataCollector.mockResolvedValue({ err: null, data: [] });
+		mockIntelligenceDataCollector.mockResolvedValue({ err: null, data: [] });
+		mockResolveSignalReadContext.mockResolvedValue({
+			isBuiltIn: true,
+			adapter: {} as never,
+			descriptor: {
+				id: "builtin",
+				type: "clickhouse",
+				isBuiltIn: true,
+				name: "ClickHouse",
+			},
+		});
+		mockResolveClickHouseId.mockResolvedValue("db-routed");
 	});
 
 	it("normalizes span, edge, tool, and trace-count rows", async () => {
-		mockDataCollector.mockResolvedValueOnce({
+		mockIntelligenceDataCollector.mockResolvedValueOnce({
 			err: null,
 			data: [
 				{
@@ -243,11 +271,15 @@ describe("getAggregateGraph", () => {
 			]),
 		});
 
-		const { query } = mockDataCollector.mock.calls[0][0] as { query: string };
+		const { query } = mockIntelligenceDataCollector.mock.calls[0][0] as {
+			query: string;
+		};
 		expect(query).toContain("ServiceName = 'api'");
-		expect(query).toContain("ResourceAttributes['deployment.environment'] = 'production'");
+		expect(query).toContain(
+			"ResourceAttributes['deployment.environment'] = 'production'"
+		);
 		expect(query).toContain("LIMIT 50");
-		expect(mockDataCollector).toHaveBeenCalledWith(
+		expect(mockIntelligenceDataCollector).toHaveBeenCalledWith(
 			{ query: expect.any(String) },
 			"query",
 			"db-1"
@@ -257,7 +289,9 @@ describe("getAggregateGraph", () => {
 	it("uses default environment and 24h fallback without a version filter", async () => {
 		await getAggregateGraph({ serviceName: "api" });
 
-		const { query } = mockDataCollector.mock.calls[0][0] as { query: string };
+		const { query } = mockIntelligenceDataCollector.mock.calls[0][0] as {
+			query: string;
+		};
 		expect(query).toContain(
 			"ResourceAttributes['deployment.environment'] IN ('default', 'local', 'default_environment', '')"
 		);
@@ -265,9 +299,65 @@ describe("getAggregateGraph", () => {
 		expect(query).toContain("LIMIT 500");
 	});
 
+	it("falls back to ClickHouse when Tempo sampling returns no traces", async () => {
+		mockResolveSignalReadContext.mockResolvedValue({
+			isBuiltIn: false,
+			adapter: {
+				sampleTracesForGraph: jest.fn().mockResolvedValue([]),
+			} as never,
+			descriptor: {
+				id: "tempo-1",
+				type: "tempo",
+				isBuiltIn: false,
+				name: "Tempo",
+			},
+		});
+		mockIntelligenceDataCollector.mockResolvedValueOnce({
+			err: null,
+			data: [
+				{
+					kind: "node",
+					source: "root",
+					target: "",
+					edge_count: "2",
+					p50_ms: "5",
+					error_rate: "0",
+				},
+				{
+					kind: "trace_count",
+					source: "",
+					target: "",
+					edge_count: "2",
+					p50_ms: 0,
+					error_rate: 0,
+				},
+			],
+		});
+
+		const graph = await getAggregateGraph({
+			serviceName: "weather-agent",
+			environment: "production",
+		});
+
+		expect(graph.traceCount).toBe(2);
+		expect(graph.nodes).toEqual([
+			expect.objectContaining({ id: "root", spanCount: 2 }),
+		]);
+		expect(mockResolveClickHouseId).toHaveBeenCalledWith({
+			environment: "production",
+		});
+		expect(mockIntelligenceDataCollector).toHaveBeenCalledWith(
+			expect.anything(),
+			"query",
+			"db-routed"
+		);
+	});
+
 	it("logs query failures and returns an empty graph", async () => {
-		const errorSpy = jest.spyOn(console, "error").mockImplementation();
-		mockDataCollector.mockResolvedValueOnce({ err: "boom", data: [] });
+		mockIntelligenceDataCollector.mockResolvedValueOnce({
+			err: "boom",
+			data: [],
+		});
 
 		await expect(getAggregateGraph({ serviceName: "api" })).resolves.toEqual({
 			nodes: [],
@@ -276,9 +366,9 @@ describe("getAggregateGraph", () => {
 			spanCount: 0,
 		});
 
-		expect(errorSpy).toHaveBeenCalledWith(
-			expect.stringContaining("aggregate_graph_query_failed")
+		expect(agentsLogger.error).toHaveBeenCalledWith(
+			"aggregate_graph_query_failed",
+			expect.objectContaining({ err: "boom" })
 		);
-		errorSpy.mockRestore();
 	});
 });

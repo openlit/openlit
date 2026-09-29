@@ -7,6 +7,8 @@ export type TraceAiAnalysisScope = "trace" | "span";
 
 interface TraceAiAnalysisPanelProps {
 	spanId: string;
+	traceId?: string;
+	environment?: string;
 	scope?: TraceAiAnalysisScope;
 	title?: string;
 	description?: string;
@@ -14,6 +16,8 @@ interface TraceAiAnalysisPanelProps {
 
 export default function TraceAiAnalysisPanel({
 	spanId,
+	traceId,
+	environment,
 	scope = "trace",
 	title,
 	description,
@@ -23,6 +27,8 @@ export default function TraceAiAnalysisPanel({
 	return (
 		<TraceImprovementView
 			spanId={spanId}
+			traceId={traceId}
+			environment={environment}
 			scope={scope}
 			title={title || m.TRACE_AI_IMPROVEMENT_TITLE}
 			description={

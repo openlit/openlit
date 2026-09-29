@@ -146,7 +146,10 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 		}
 	}
 
-	return normalizedTrace;
+	return Object.assign(normalizedTrace, {
+		SpanAttributes: spanAttrs,
+		agentLoop: (item as { agentLoop?: unknown }).agentLoop,
+	});
 };
 
 function normalizeMappingPath(pathConfig: TraceMappingPathType) {

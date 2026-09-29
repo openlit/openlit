@@ -107,13 +107,27 @@ class PII(Guard):
 
         transformed: Optional[str] = None
         if self._action == GuardAction.REDACT:
-            sorted_matches = sorted(matches, key=lambda x: x[1].start(), reverse=True)
+            # Patterns can match overlapping spans of the same text.  Every
+            # span's offsets refer to the original string, so replacing them
+            # one at a time lets an earlier replacement resize the string out
+            # from under a later one -- the later slice then stops short and
+            # leaves the tail of the value in the output.  Merge overlapping
+            # spans first so each replacement covers a region no other touches.
+            ordered = sorted(
+                enumerate(matches),
+                key=lambda x: (x[1][1].start(), -x[1][1].end(), -x[0]),
+            )
+            spans: List[Tuple[str, int, int]] = []
+            for _, (label, m) in ordered:
+                if spans and m.start() < spans[-1][2]:
+                    prev_label, prev_start, prev_end = spans[-1]
+                    spans[-1] = (prev_label, prev_start, max(prev_end, m.end()))
+                else:
+                    spans.append((label, m.start(), m.end()))
             result_text = text
-            for label, m in sorted_matches:
+            for label, start, end in reversed(spans):
                 result_text = (
-                    result_text[: m.start()]
-                    + f"[REDACTED:{label}]"
-                    + result_text[m.end() :]
+                    result_text[:start] + f"[REDACTED:{label}]" + result_text[end:]
                 )
             transformed = result_text
 

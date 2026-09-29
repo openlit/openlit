@@ -10,6 +10,46 @@ import { getCurrentOrganisation } from "@/lib/organisation";
 
 const APIKEY_PREFIX = "openlit-";
 
+function previewApiKey(apiKey: string): string {
+	const body = apiKey.startsWith(APIKEY_PREFIX)
+		? apiKey.slice(APIKEY_PREFIX.length)
+		: apiKey;
+	return `${APIKEY_PREFIX}${body.slice(0, 4)}…${body.slice(-6)}`;
+}
+
+export interface APIKeyInfo {
+	id: string;
+	databaseConfigId: string | null;
+	organisationId?: string | null;
+	projectId?: string | null;
+	environment?: string;
+	createdByUser?: { email: string } | null;
+	createdByUserId?: string;
+}
+
+const DEFAULT_API_KEY_ENVIRONMENT = "production";
+
+function scopeFromKeyRow(row: {
+	organisationId?: string | null;
+	projectId?: string | null;
+	environment?: string | null;
+	databaseConfig?: {
+		projectId?: string | null;
+		environment?: string | null;
+		project?: { organisationId?: string | null } | null;
+	} | null;
+}): Pick<APIKeyInfo, "organisationId" | "projectId" | "environment"> {
+	return {
+		organisationId:
+			row.organisationId || row.databaseConfig?.project?.organisationId || null,
+		projectId: row.projectId || row.databaseConfig?.projectId || null,
+		environment:
+			row.environment ||
+			row.databaseConfig?.environment ||
+			DEFAULT_API_KEY_ENVIRONMENT,
+	};
+}
+
 function createAPIKey() {
 	// Generate 32 random bytes
 	const key = crypto.randomBytes(32);
@@ -29,12 +69,28 @@ export async function generateAPIKey(name: string) {
 	throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
 
 	const apiKey = createAPIKey();
+	const projectId = dbConfig.projectId || null;
+	let organisationId: string | null = null;
+	if (projectId) {
+		const project = await prisma.project.findUnique({
+			where: { id: projectId },
+			select: { organisationId: true },
+		});
+		organisationId = project?.organisationId || null;
+	}
+	const environment =
+		typeof dbConfig.environment === "string" && dbConfig.environment.trim()
+			? dbConfig.environment.trim()
+			: "production";
 
 	await prisma.aPIKeys.create({
 		data: {
 			apiKey,
 			name,
 			databaseConfigId: dbConfig.id,
+			organisationId,
+			projectId,
+			environment,
 			createdByUserId: user!.id,
 		},
 	});
@@ -60,6 +116,9 @@ export async function generateAPIKey(name: string) {
 	return {
 		apiKey,
 		databaseConfigId: dbConfig.id,
+		organisationId,
+		projectId,
+		environment,
 	};
 }
 
@@ -76,22 +135,42 @@ export async function getAPIKeyInfo({ apiKey }: { apiKey: string }) {
 					},
 				],
 			},
+			include: {
+				createdByUser: { select: { email: true } },
+				databaseConfig: {
+					select: {
+						projectId: true,
+						environment: true,
+						project: { select: { organisationId: true } },
+					},
+				},
+			},
+		}).then((row) => {
+			if (!row) return row;
+			const scope = scopeFromKeyRow(row);
+			return {
+				...row,
+				...scope,
+			};
 		})
 	);
 }
 
-export async function getAllAPIKeys() {
-	const [err, dbConfig] = await asaw(getDBConfigByUser(true));
-	throwIfError(err, err);
-
-	throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
+export async function getAllAPIKeys(databaseConfigId?: string) {
+	let resolvedDatabaseConfigId = databaseConfigId?.trim() || undefined;
+	if (!resolvedDatabaseConfigId) {
+		const [err, dbConfig] = await asaw(getDBConfigByUser(true));
+		throwIfError(err, err);
+		throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
+		resolvedDatabaseConfigId = dbConfig.id;
+	}
 
 	const [, data] = await asaw(
 		prisma.aPIKeys.findMany({
 			where: {
 				AND: [
 					{
-						databaseConfigId: dbConfig?.id,
+						databaseConfigId: resolvedDatabaseConfigId,
 					},
 					{ isDeleted: false },
 				],
@@ -112,7 +191,15 @@ export async function getAllAPIKeys() {
 			},
 		})
 	);
-	return data;
+
+	if (!Array.isArray(data)) {
+		return data;
+	}
+
+	return data.map(({ apiKey, ...rest }) => ({
+		...rest,
+		apiKeyPreview: previewApiKey(apiKey),
+	}));
 }
 
 export async function deleteAPIKey(id: string) {

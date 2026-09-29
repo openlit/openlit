@@ -1,10 +1,10 @@
-import { getCurrentUser } from "@/lib/session";
+import { resolveRequestAuth } from "@/helpers/server/auth";
 import { saveQueryAsWidget } from "@/lib/platform/chat/save-widget";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
-	const user = await getCurrentUser();
-	if (!user) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		return Response.json("Unauthorized", { status: 401 });
 	}
 

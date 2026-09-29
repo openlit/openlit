@@ -47,6 +47,8 @@ export type PromptCompiledInput = {
 	shouldCompile?: boolean;
 	downloadSource?: string;
 	downloadMetaProperties?: Record<string, unknown>;
+	/** Optional override from signal routing / explicit database-config header. */
+	databaseConfigId?: string;
 };
 
 export type SpecificPromptInput = {

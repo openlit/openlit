@@ -1,5 +1,5 @@
 import { Columns } from "@/components/data-table/columns";
-import { columns as traceColumns } from "@/components/(playground)/request/columns";
+import { columns as requestColumns } from "@/components/(playground)/request/columns";
 import { columns as exceptionColumns } from "@/components/(playground)/exceptions/columns";
 import {
 	codingUsersColumns,
@@ -24,6 +24,20 @@ import type { SortOption } from "@/components/(playground)/filter/sorting";
 import getMessage from "@/constants/messages";
 
 const m = getMessage();
+
+const traceColumns: Columns<any, any> = {
+	...requestColumns,
+	id: {
+		...requestColumns.id,
+		header: () => m.OBSERVABILITY_TRACE_ID,
+		cell: requestColumns.id!.cell!,
+	},
+	spanId: {
+		header: () => m.OBSERVABILITY_SPAN_ID,
+		cell: ({ row }) => <div className="truncate font-mono" title={row.spanId}>{row.spanId}</div>,
+		enableHiding: true,
+	},
+};
 
 export type ObservabilitySignal =
 	| "traces"
@@ -98,13 +112,13 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		icon: Activity,
 		listUrl: "/api/telemetry/trace",
 		summaryUrl: "/api/telemetry/summary/traces",
-		configUrl: "/api/metrics/request/config",
-		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		configUrl: "/api/telemetry/request/config",
+		attributeKeysUrl: "/api/telemetry/request/attribute-keys",
 		columns: traceColumns,
 		pageName: "request",
 		visibilityPage: "request",
 		supportGrouping: true,
-		groupedUrl: "/api/metrics/request/grouped",
+		groupedUrl: "/api/telemetry/request/grouped",
 		customAttributeTypes: ["SpanAttributes", "ResourceAttributes", "Field"],
 		normalize: normalizeTrace,
 		getRowId: (row) => row.spanId,
@@ -120,13 +134,13 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		icon: ShieldAlert,
 		listUrl: "/api/telemetry/exception",
 		summaryUrl: "/api/telemetry/summary/exceptions",
-		configUrl: "/api/metrics/request/config",
-		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		configUrl: "/api/telemetry/request/config",
+		attributeKeysUrl: "/api/telemetry/request/attribute-keys",
 		columns: exceptionColumns,
 		pageName: "exception",
 		visibilityPage: "exception",
 		supportGrouping: true,
-		groupedUrl: "/api/metrics/exception/grouped",
+		groupedUrl: "/api/telemetry/exception/grouped",
 		includeOnlySorting: ["Timestamp"],
 		customAttributeTypes: ["SpanAttributes", "ResourceAttributes", "Field"],
 		normalize: normalizeTrace,
@@ -186,8 +200,10 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 			"Field",
 		],
 		getRowId: (row) => String(row.rowId),
-		getDetailHref: (row, from) =>
-			`/telemetry/logs/${row.rowId}?from=${encodeURIComponent(from)}`,
+		getDetailHref: (row, from) => {
+			const ts = row.Timestamp ? `&ts=${encodeURIComponent(String(row.Timestamp))}` : "";
+			return `/telemetry/logs/${row.rowId}?from=${encodeURIComponent(from)}${ts}`;
+		},
 	},
 	{
 		// Coding-agent sessions live alongside the other signals so a
@@ -206,8 +222,8 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		// filter UI (span attribute / resource attribute keys); the
 		// underlying server query for sessions still scopes by
 		// `coding_agent.session.id` so unrelated traces never leak in.
-		configUrl: "/api/metrics/request/config",
-		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		configUrl: "/api/telemetry/request/config",
+		attributeKeysUrl: "/api/telemetry/request/attribute-keys",
 		columns: sessionsColumns,
 		pageName: "codingAgentSessions",
 		visibilityPage: "codingAgentSessions",
@@ -244,8 +260,8 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		// sessions page (vendor / user / classification live on
 		// otel_traces span attributes) so we can reuse the existing
 		// metrics/request config endpoints.
-		configUrl: "/api/metrics/request/config",
-		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		configUrl: "/api/telemetry/request/config",
+		attributeKeysUrl: "/api/telemetry/request/attribute-keys",
 		columns: codingUsersColumns,
 		pageName: "codingAgentSessions",
 		visibilityPage: "codingAgentSessions",

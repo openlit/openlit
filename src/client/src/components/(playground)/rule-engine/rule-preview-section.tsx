@@ -11,6 +11,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import getMessage from "@/constants/messages";
+import { getRequestHeaders } from "@/utils/api";
 
 type PreviewResult = {
 	TraceId: string;
@@ -32,6 +33,7 @@ export default function RulePreviewSection({ ruleId }: { ruleId: string }) {
 		try {
 			const res = await fetch(`/api/rule-engine/rules/${ruleId}/preview`, {
 				method: "POST",
+				headers: getRequestHeaders(),
 			});
 			const json = await res.json();
 			if (!res.ok || json.error) {

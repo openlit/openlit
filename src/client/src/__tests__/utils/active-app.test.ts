@@ -46,4 +46,26 @@ describe('getActiveApp', () => {
 	it('returns null for onboarding', () => {
 		expect(getActiveApp('/onboarding')).toBeNull();
 	});
+
+	it('returns the chat title for chat routes', () => {
+		expect(getActiveApp('/chat')).toEqual({
+			title: 'Otter',
+			href: '/chat',
+		});
+	});
+
+	it('returns null when the pathname matches no sidebar app', () => {
+		expect(getActiveApp('/this-route-does-not-exist')).toBeNull();
+	});
+
+	it('falls back to a default Agents entry when the sidebar has no /agents link', () => {
+		jest.isolateModules(() => {
+			jest.doMock('@/constants/sidebar', () => ({ SIDEBAR_ITEMS: [] }));
+			const { getActiveApp: getActiveAppWithoutAgentsLink } =
+				require('@/utils/active-app');
+			expect(
+				getActiveAppWithoutAgentsLink('/coding-agents/users/test@example.com')
+			).toEqual({ title: 'Agents', href: '/agents' });
+		});
+	});
 });

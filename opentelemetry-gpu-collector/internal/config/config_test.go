@@ -72,11 +72,14 @@ func TestParseList(t *testing.T) {
 }
 
 func TestLoadDefaults(t *testing.T) {
-	// Ensure no env vars interfere.
+	// Ensure no env vars interfere. Default mode is all.
 	t.Setenv("OTEL_METRIC_EXPORT_INTERVAL", "")
 	t.Setenv("OTEL_GPU_EBPF_ENABLED", "")
 	t.Setenv("OTEL_SERVICE_NAME", "")
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "")
+	t.Setenv("OTEL_GPU_COLLECTOR_MODE", "")
+	os.Unsetenv("OTEL_GPU_COLLECTOR_MODE")
+	os.Unsetenv("OTEL_GPU_EBPF_ENABLED")
 	// The exclude default applies only when the variable is UNSET; t.Setenv
 	// registers the restore, os.Unsetenv makes it unset for this test.
 	t.Setenv("OTEL_GPU_FS_TYPES_EXCLUDE", "")
@@ -84,11 +87,14 @@ func TestLoadDefaults(t *testing.T) {
 
 	cfg := Load()
 
-	if cfg.ServiceName != "default" {
-		t.Errorf("ServiceName = %q, want %q", cfg.ServiceName, "default")
+	if cfg.ServiceName != "" {
+		t.Errorf("ServiceName = %q, want empty when OTEL_SERVICE_NAME unset", cfg.ServiceName)
 	}
 	if cfg.CollectionInterval != 60*time.Second {
 		t.Errorf("CollectionInterval = %v, want %v", cfg.CollectionInterval, 60*time.Second)
+	}
+	if cfg.CollectorMode != ModeAll {
+		t.Errorf("CollectorMode = %q, want all", cfg.CollectorMode)
 	}
 	wantEBPF := runtime.GOOS == "linux"
 	if cfg.EBPFEnabled != wantEBPF {
@@ -145,5 +151,60 @@ func TestLoadEBPFDisabled(t *testing.T) {
 	cfg := Load()
 	if cfg.EBPFEnabled {
 		t.Error("EBPFEnabled should be false when OTEL_GPU_EBPF_ENABLED=false")
+	}
+}
+
+func TestLoadOptionalFeatureFlags(t *testing.T) {
+	t.Setenv("OTEL_GPU_DCGM_ENABLED", "true")
+	t.Setenv("OTEL_GPU_DCGM_INTERVAL", "15")
+	t.Setenv("OTEL_GPU_KINETO_ENABLED", "true")
+	t.Setenv("OTEL_HOST_NIC_ENABLED", "true")
+	t.Setenv("OTEL_HOST_RDMA_ENABLED", "true")
+	t.Setenv("OTEL_HOST_PMU_ENABLED", "true")
+	t.Setenv("OTEL_TPU_ENABLED", "true")
+	t.Setenv("OTEL_HOST_KVM_ENABLED", "true")
+	t.Setenv("OTEL_HOST_INTERRUPTS_ENABLED", "true")
+	t.Setenv("OTEL_GPU_RDC_ENABLED", "true")
+	t.Setenv("OTEL_GPU_PROMETHEUS_ADDR", "127.0.0.1:9464")
+	t.Setenv("OTEL_GPU_CONTROL_ADDR", "127.0.0.1:1778")
+	t.Setenv("OTEL_HOST_CPU_HIGHRES", "true")
+
+	cfg := Load()
+
+	if !cfg.DCGMEnabled || cfg.DCGMInterval != 15*time.Second {
+		t.Errorf("DCGM: enabled=%v interval=%v", cfg.DCGMEnabled, cfg.DCGMInterval)
+	}
+	if !cfg.KinetoEnabled || !cfg.NICEnabled || !cfg.RDMAEnabled || !cfg.PMUEnabled {
+		t.Error("expected Kineto/NIC/RDMA/PMU enabled")
+	}
+	if !cfg.TPUEnabled || !cfg.KVMEnabled || !cfg.InterruptsEnabled || !cfg.RDCEnabled {
+		t.Error("expected TPU/KVM/Interrupts/RDC enabled")
+	}
+	if cfg.PrometheusAddr != "127.0.0.1:9464" || cfg.ControlAddr != "127.0.0.1:1778" {
+		t.Errorf("addrs: prom=%q control=%q", cfg.PrometheusAddr, cfg.ControlAddr)
+	}
+	if !cfg.CPUHighRes {
+		t.Error("CPUHighRes should be true")
+	}
+}
+
+func TestLoadDefaultsParityFlagsOff(t *testing.T) {
+	// light mode restores the historical "optional features off" footprint.
+	for _, k := range []string{
+		"OTEL_GPU_COLLECTOR_MODE",
+		"OTEL_GPU_DCGM_ENABLED", "OTEL_GPU_KINETO_ENABLED", "OTEL_HOST_NIC_ENABLED",
+		"OTEL_HOST_RDMA_ENABLED", "OTEL_HOST_PMU_ENABLED", "OTEL_TPU_ENABLED",
+		"OTEL_HOST_KVM_ENABLED", "OTEL_HOST_INTERRUPTS_ENABLED", "OTEL_GPU_RDC_ENABLED",
+		"OTEL_GPU_PROMETHEUS_ADDR", "OTEL_GPU_CONTROL_ADDR", "OTEL_HOST_CPU_HIGHRES",
+		"OTEL_HOST_INTEL_PT_ENABLED",
+	} {
+		t.Setenv(k, "")
+		os.Unsetenv(k)
+	}
+	t.Setenv("OTEL_GPU_COLLECTOR_MODE", ModeLight)
+
+	cfg := Load()
+	if cfg.DCGMEnabled || cfg.KinetoEnabled || cfg.NICEnabled || cfg.PMUEnabled || cfg.TPUEnabled {
+		t.Error("optional features should be off in light mode")
 	}
 }

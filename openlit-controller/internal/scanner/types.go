@@ -20,6 +20,7 @@ var providerNames = map[uint8]string{
 	11: "vertex_ai",
 	12: "azure_inference",
 	13: "custom",
+	14: "orcarouter",
 	// IDs 20-26 are Bedrock regions (assigned dynamically in hosts.go init)
 	20: "bedrock",
 	21: "bedrock",

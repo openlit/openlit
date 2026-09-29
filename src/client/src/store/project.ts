@@ -6,6 +6,7 @@ import { ProjectStore } from "@/types/store/project";
 const initialState = {
 	list: undefined,
 	current: undefined,
+	currentEnvironment: undefined,
 	isLoading: false,
 };
 
@@ -35,6 +36,11 @@ export const projectStoreSlice: ProjectStore = lens((setStore, getStore) => ({
 				current: updatedList.find((item) => item.id === project?.id),
 			};
 		}),
+	setCurrentEnvironment: (environment) =>
+		setStore(() => ({
+			...getStore(),
+			currentEnvironment: environment,
+		})),
 	setIsLoading: (isLoading) =>
 		setStore(() => ({
 			...getStore(),

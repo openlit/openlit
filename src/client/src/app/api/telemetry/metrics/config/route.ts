@@ -1,21 +1,17 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getMetricsConfig } from "@/lib/platform/observability";
+import { getMetricsFilterConfig } from "@/lib/platform/metrics/read";
+import { withRouteAccess } from "@/lib/access/route-access";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
-import { resolveDbConfigId } from "@/helpers/server/auth";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
-export async function POST(request: Request) {
-	const [authErr, databaseConfigId] = await resolveDbConfigId(request);
-	if (authErr) {
-		return Response.json({ err: authErr }, { status: 401 });
-	}
-
+async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const params: MetricParams = {
 		timeLimit: formData.timeLimit as TimeLimit,
-		databaseConfigId,
+		environment: typeof formData.environment === "string" ? formData.environment : getRequestEnvironment(request),
 	};
 	const validation = validateMetricsRequest(
 		params,
@@ -23,5 +19,7 @@ export async function POST(request: Request) {
 	);
 	if (!validation.success) return Response.json(validation.err, { status: 400 });
 
-	return Response.json(await getMetricsConfig(params));
+	return Response.json(await getMetricsFilterConfig(params));
 }
+
+export const POST = withRouteAccess("metrics.read", POSTHandler, { requireDbConfig: true });

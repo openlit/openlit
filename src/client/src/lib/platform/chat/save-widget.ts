@@ -1,5 +1,5 @@
 import { createWidget } from "@/lib/platform/manage-dashboard/widget";
-import { dataCollector } from "@/lib/platform/common";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import { OPENLIT_BOARD_WIDGET_TABLE_NAME } from "@/lib/platform/manage-dashboard/table-details";
 import Sanitizer from "@/utils/sanitizer";
 import crypto from "crypto";
@@ -83,7 +83,7 @@ export async function saveQueryAsWidget(input: SaveWidgetInput) {
 		const createdWidgetId = (widgetData as any)?.id || widgetId;
 		const position = JSON.stringify({ x: 0, y: Infinity, w: 4, h: 6 });
 
-		const { err: linkErr } = await dataCollector(
+		const { err: linkErr } = await intelligenceDataCollector(
 			{
 				table: OPENLIT_BOARD_WIDGET_TABLE_NAME,
 				values: [

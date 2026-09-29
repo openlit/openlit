@@ -6,9 +6,10 @@ import {
 } from "./table-details";
 import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
-import { createWidget, getWidgets } from "./widget";
+import { createWidget, deleteWidget, getWidgets } from "./widget";
 import { pluck } from "lodash/fp";
-import { jsonParse, jsonStringify } from "@/utils/json";
+import { jsonStringify } from "@/utils/json";
+import { normalizeImportedDashboard } from "./board-format";
 
 export function getBoardById(id: string) {
 	const query = `
@@ -159,7 +160,7 @@ export async function updateBoard(board: Board & { updateParent?: boolean }) {
 	return { data: boardData };
 }
 
-export async function deleteBoard(id: string) {
+export async function deleteBoard(id: string, databaseConfigId?: string) {
 	const query_board_widgets = `
 		DELETE FROM ${OPENLIT_BOARD_WIDGET_TABLE_NAME} 
 		WHERE board_id = '${Sanitizer.sanitizeValue(id)}'
@@ -172,12 +173,17 @@ export async function deleteBoard(id: string) {
 
 	const { err: err_board_widgets } = await dataCollector(
 		{ query: query_board_widgets },
-		"exec"
+		"exec",
+		databaseConfigId
 	);
 
 	if (err_board_widgets) return { err: getMessage().BOARD_DELETE_FAILED };
 
-	const { err: err_board } = await dataCollector({ query }, "exec");
+	const { err: err_board } = await dataCollector(
+		{ query },
+		"exec",
+		databaseConfigId
+	);
 
 	if (err_board) return { err: getMessage().BOARD_DELETE_FAILED };
 
@@ -246,8 +252,14 @@ export async function getBoardLayout(id: string, databaseConfigId?: string) {
 
 	let widgetsResult: Array<Widget> = [];
 
-	if (widgetIds) {
-		const { data: widgetsData } = await getWidgets(widgetIds);
+	if (widgetIds?.length) {
+		const { data: widgetsData, err: widgetsErr } = await getWidgets(
+			widgetIds,
+			databaseConfigId
+		);
+		if (widgetsErr) {
+			return { err: widgetsErr };
+		}
 		widgetsResult = (widgetsData || []) as typeof widgetsResult;
 	}
 
@@ -291,12 +303,18 @@ export async function getBoardLayout(id: string, databaseConfigId?: string) {
 		widgets: {},
 	};
 
-	// Map widgets and create layout config
-	board.widgets = mappingsResult.map((mapping) => {
+	// Map widgets and create layout config. Skip dangling
+	// openlit_board_widget rows whose widget record is missing — those
+	// used to be synthesized as empty-type placeholders and crashed the
+	// dashboard renderer (React #130).
+	board.widgets = mappingsResult.flatMap((mapping) => {
 		const widgetDetails = widgetDetailsMap.get(mapping.widgetId);
+		if (!widgetDetails) {
+			return [];
+		}
+
 		const position = JSON.parse(mapping.position || "{}");
 
-		// Add to layouts
 		layoutConfig.layouts.lg.push({
 			i: mapping.widgetId,
 			x: position.x,
@@ -305,30 +323,30 @@ export async function getBoardLayout(id: string, databaseConfigId?: string) {
 			h: position.h,
 		});
 
-		// Add to widgets map
 		const widgetData = {
 			id: mapping.widgetId,
-			title: widgetDetails?.title || "",
-			description: widgetDetails?.description || "",
-			type: widgetDetails?.type || "",
-			properties: widgetDetails?.properties || {},
-			config: widgetDetails?.config || {},
-			createdAt: widgetDetails?.createdAt || "",
-			updatedAt: widgetDetails?.updatedAt || "",
+			title: widgetDetails.title || "",
+			description: widgetDetails.description || "",
+			type: widgetDetails.type,
+			properties: widgetDetails.properties || {},
+			config: widgetDetails.config || {},
+			createdAt: widgetDetails.createdAt || "",
+			updatedAt: widgetDetails.updatedAt || "",
 		} as const;
 
 		layoutConfig.widgets[mapping.widgetId] = widgetData;
 
-		// Return the board widget mapping
-		return {
-			id: mapping.boardWidgetId,
-			boardId: board.id,
-			widgetId: mapping.widgetId,
-			position: position || {},
-			createdAt: mapping.boardWidgetCreatedAt,
-			updatedAt: mapping.boardWidgetUpdatedAt,
-			widget: widgetData,
-		};
+		return [
+			{
+				id: mapping.boardWidgetId,
+				boardId: board.id,
+				widgetId: mapping.widgetId,
+				position: position || {},
+				createdAt: mapping.boardWidgetCreatedAt,
+				updatedAt: mapping.boardWidgetUpdatedAt,
+				widget: widgetData,
+			},
+		];
 	});
 
 	return {
@@ -467,9 +485,8 @@ export async function getMainDashboard(layout?: boolean, databaseConfigId?: stri
 	return { data: (mainDashboardData as any[])[0], err: null };
 }
 
-// TODO: fix the type of data
 export async function importBoardLayout(
-	data: any,
+	data: unknown,
 	databaseConfigId?: string,
 	options?: {
 		// When true, widget ids from `data.widgets` are kept verbatim
@@ -492,35 +509,36 @@ export async function importBoardLayout(
 		preserveWidgetIds?: boolean;
 	}
 ) {
+	const normalized = normalizeImportedDashboard(data);
+	if ("err" in normalized) {
+		return { err: normalized.err };
+	}
+
 	const mainDashboard = await getMainDashboard(false, databaseConfigId);
+	const imported = normalized.data;
 
 	const boardData: Partial<Board> = {
-		title: data.title,
-		description: data.description,
-		isPinned: data.isPinned,
-		isMainDashboard: mainDashboard.data?.isMainDashboard ? false : data.isMainDashboard,
-		tags: data.tags ? jsonParse(data.tags) : [],
+		title: imported.title,
+		description: imported.description,
+		isPinned: imported.isPinned,
+		isMainDashboard: mainDashboard.data?.isMainDashboard
+			? false
+			: imported.isMainDashboard,
+		tags: imported.tags as unknown as string,
 	};
 
 	// Create the board first
 	const boardResult = await createBoard(boardData as Board, databaseConfigId);
 
-	if ('err' in boardResult) {
+	if ("err" in boardResult) {
 		return { err: boardResult.err };
 	}
 
 	const newBoardId = boardResult.data.id;
-
-	// Update the board layout with widgets and their positions
-	const layoutConfig = {
-		layouts: data.layouts,
-		widgets: data.widgets
-	};
-
 	const preserveWidgetIds = options?.preserveWidgetIds === true;
-	const widgetIdMap = new Map();
+	const widgetIdMap = new Map<string, string>();
 
-	const updatedWidgets = Object.values(layoutConfig.widgets).map((widget: any) => {
+	const updatedWidgets = Object.values(imported.widgets).map((widget) => {
 		const nextWidgetId = preserveWidgetIds
 			? widget.id
 			: crypto.randomUUID();
@@ -532,35 +550,69 @@ export async function importBoardLayout(
 		};
 	});
 
-	const updatedLayouts = layoutConfig.layouts.lg.map((layout: any) => {
-		return {
-			...layout,
-			i: widgetIdMap.get(layout.i)
-		}
-	});
+	const updatedLayouts = imported.layouts.lg
+		.map((layout) => {
+			const nextId = widgetIdMap.get(layout.i);
+			if (!nextId) return null;
+			return {
+				...layout,
+				i: nextId,
+			};
+		})
+		.filter((layout): layout is NonNullable<typeof layout> => !!layout);
 
-	await Promise.all(updatedWidgets.map(async (widget: any) => {
-		return await createWidget(widget, databaseConfigId);
-	}));
+	const rollbackImport = async (widgetIds: string[]) => {
+		await deleteBoard(newBoardId, databaseConfigId);
+		await Promise.all(
+			widgetIds.map((widgetId) => deleteWidget(widgetId, databaseConfigId))
+		);
+	};
+
+	// createWidget returns `{ err }` instead of throwing, so a bare
+	// Promise.all cannot detect partial insert failures. Writing
+	// board_widget rows for widgets that never landed creates dangling
+	// refs that crash /home (React #130).
+	//
+	// Creates run sequentially: each createWidget is insert + readback,
+	// and the ClickHouse pool is max 20 / maxWaitingClients 5. Coding
+	// Agents seeds 21 widgets; parallel creates are a plausible cause
+	// of the original partial seed.
+	const createdWidgetIds: string[] = [];
+	for (const widget of updatedWidgets) {
+		const result = await createWidget(widget, databaseConfigId);
+		if (result.err) {
+			await rollbackImport(createdWidgetIds);
+			return {
+				err: result.err || getMessage().BOARD_IMPORT_FAILED,
+			};
+		}
+		createdWidgetIds.push(widget.id);
+	}
 
 	const layoutConfigData = {
 		layouts: {
-			lg: updatedLayouts
+			lg: updatedLayouts,
 		},
-		widgets: updatedWidgets.reduce((acc: any, widget: any) => {
-			acc[widget.id] = widget;
-			return acc;
-		}, {}),
-	}
+		widgets: updatedWidgets.reduce(
+			(acc: Record<string, (typeof updatedWidgets)[number]>, widget) => {
+				acc[widget.id] = widget;
+				return acc;
+			},
+			{}
+		),
+	};
 
-
-	const { data: layoutData, err: layoutErr } = await updateBoardLayout(newBoardId, layoutConfigData, databaseConfigId);
-
+	const { data: layoutData, err: layoutErr } = await updateBoardLayout(
+		newBoardId,
+		layoutConfigData,
+		databaseConfigId
+	);
 
 	if (layoutData) {
 		return { data: boardResult.data };
 	}
 
+	await rollbackImport(createdWidgetIds);
 	return { err: layoutErr || getMessage().BOARD_IMPORT_FAILED };
 }
 

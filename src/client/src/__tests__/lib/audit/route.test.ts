@@ -10,7 +10,7 @@ beforeAll(() => {
 	});
 });
 
-import { withAudit } from "@/lib/audit/route";
+import { recordAuditEvent, withAudit } from "@/lib/audit/route";
 
 describe("CE audit route fallback", () => {
 	it("withAudit returns the handler unchanged", async () => {
@@ -20,5 +20,11 @@ describe("CE audit route fallback", () => {
 		expect(wrapped).toBe(handler);
 		await wrapped({} as Request, {});
 		expect(handler).toHaveBeenCalledTimes(1);
+	});
+
+	it("recordAuditEvent is a no-op", async () => {
+		await expect(
+			recordAuditEvent({ action: "memory.created", targetId: "m1" })
+		).resolves.toBeUndefined();
 	});
 });

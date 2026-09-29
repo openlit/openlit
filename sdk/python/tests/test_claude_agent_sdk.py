@@ -1281,6 +1281,20 @@ class TestSubagentSpanTracker:
 
         assert "task_002" not in tracker._in_flight
 
+    def test_end_subagent_reports_total_tokens_as_total(self):
+        tracker = self._make_tracker()
+        tracker.start_subagent("task_003", "agent")
+        span = tracker._in_flight["task_003"]
+
+        usage = {"total_tokens": 1000, "tool_uses": 3, "duration_ms": 5000}
+        tracker.end_subagent("task_003", usage=usage)
+
+        span.set_attribute.assert_any_call(
+            SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, 1000
+        )
+        recorded = {call.args[0] for call in span.set_attribute.call_args_list}
+        assert SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS not in recorded
+
     def test_end_subagent_with_error(self):
         tracker = self._make_tracker()
         tracker.start_subagent("task_err", "agent")

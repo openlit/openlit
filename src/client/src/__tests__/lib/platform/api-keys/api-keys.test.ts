@@ -8,6 +8,9 @@ jest.mock('@/lib/prisma', () => ({
       update: jest.fn(),
       count: jest.fn(),
     },
+    project: {
+      findUnique: jest.fn(),
+    },
   },
 }));
 jest.mock('@/lib/session', () => ({
@@ -52,13 +55,27 @@ beforeEach(() => {
 describe('generateAPIKey', () => {
   it('generates a key and saves it to the db', async () => {
     (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1', email: 'u@x.com' });
-    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1' }]);
+    (asaw as jest.Mock).mockResolvedValue([null, { id: 'db-1', projectId: 'proj-1', environment: 'staging' }]);
     (prisma.aPIKeys.create as jest.Mock).mockResolvedValue({});
+    (prisma.project.findUnique as jest.Mock).mockResolvedValue({ organisationId: 'org-1' });
 
     const result = await generateAPIKey('my-key');
     expect(prisma.aPIKeys.create).toHaveBeenCalledTimes(1);
+    expect(prisma.aPIKeys.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          databaseConfigId: 'db-1',
+          organisationId: 'org-1',
+          projectId: 'proj-1',
+          environment: 'staging',
+        }),
+      })
+    );
     expect(result.apiKey).toMatch(/^openlit-/);
     expect(result.databaseConfigId).toBe('db-1');
+    expect(result.organisationId).toBe('org-1');
+    expect(result.projectId).toBe('proj-1');
+    expect(result.environment).toBe('staging');
   });
 
   it('calls the usage recorder when a current organisation exists', async () => {
@@ -112,12 +129,36 @@ describe('getAllAPIKeys', () => {
   it('returns API keys for the current db config', async () => {
     (asaw as jest.Mock)
       .mockResolvedValueOnce([null, { id: 'db-1' }])
-      .mockResolvedValueOnce([null, [{ name: 'key1', apiKey: 'openlit-abc' }]]);
+      .mockResolvedValueOnce([null, [{ name: 'key1', apiKey: 'openlit-abcdXXXXXXyyyyyy' }]]);
     (prisma.aPIKeys.findMany as jest.Mock).mockResolvedValue([{ name: 'key1' }]);
 
     const result = await getAllAPIKeys();
     expect(prisma.aPIKeys.findMany).toHaveBeenCalledTimes(1);
-    expect(result).toEqual([{ name: 'key1', apiKey: 'openlit-abc' }]);
+    expect(result).toEqual([
+      { name: 'key1', apiKeyPreview: 'openlit-abcd…yyyyyy' },
+    ]);
+    expect(result[0].apiKey).toBeUndefined();
+  });
+
+  it('uses an explicit databaseConfigId without session db lookup', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([
+      null,
+      [{ name: 'key1', apiKey: 'openlit-abc' }],
+    ]);
+    (prisma.aPIKeys.findMany as jest.Mock).mockResolvedValue([{ name: 'key1' }]);
+
+    await getAllAPIKeys('db-from-api-key');
+    expect(getDBConfigByUser).not.toHaveBeenCalled();
+    expect(prisma.aPIKeys.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { databaseConfigId: 'db-from-api-key' },
+            { isDeleted: false },
+          ],
+        },
+      })
+    );
   });
 
   it('throws when dbConfig is not found', async () => {

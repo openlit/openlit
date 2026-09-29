@@ -264,6 +264,7 @@ describe('normalizeTrace', () => {
     expect(result).toHaveProperty('model');
     expect(result.provider).toBe('openai');
     expect(result.model).toBe('gpt-4');
+    expect((result as any).SpanAttributes['gen_ai.request.model']).toBe('gpt-4');
   });
 
   it('fills in defaultValues for missing attributes', () => {

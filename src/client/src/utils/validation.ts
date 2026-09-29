@@ -1,6 +1,9 @@
 import net from "net";
 
-export function validateDatabaseHost(host: string): {
+export function validateDatabaseHost(
+	host: string,
+	options: { allowPrivateNetwork?: boolean } = {}
+): {
 	valid: boolean;
 	error?: string;
 } {
@@ -32,7 +35,7 @@ export function validateDatabaseHost(host: string): {
 	const hostPart = trimmed.replace(/:\d+$/, "");
 
 	if (net.isIP(hostPart)) {
-		if (!isAllowedIP(hostPart)) {
+		if (!isAllowedIP(hostPart, options.allowPrivateNetwork === true)) {
 			return {
 				valid: false,
 				error: "Private, loopback, and link-local IP addresses are not allowed",
@@ -50,6 +53,9 @@ export function validateDatabaseHost(host: string): {
 			ipv6.startsWith("fc00:") ||
 			ipv6.startsWith("fd")
 		) {
+			if (options.allowPrivateNetwork === true && (ipv6 === "::1" || ipv6.startsWith("fc00:") || ipv6.startsWith("fd"))) {
+				return { valid: true };
+			}
 			return {
 				valid: false,
 				error: "Private, loopback, and link-local IP addresses are not allowed",
@@ -65,6 +71,9 @@ export function validateDatabaseHost(host: string): {
 	];
 
 	if (blockedHosts.includes(lowerHost)) {
+		if (options.allowPrivateNetwork === true && lowerHost === "localhost") {
+			return { valid: true };
+		}
 		return { valid: false, error: `Host "${hostPart}" is not allowed` };
 	}
 
@@ -75,14 +84,11 @@ export function validateDatabaseHost(host: string): {
 	return { valid: true };
 }
 
-function isAllowedIP(ip: string): boolean {
+function isAllowedIP(ip: string, allowPrivateNetwork = false): boolean {
 	const parts = ip.split(".").map(Number);
 	if (parts.length !== 4) return true;
 
-	if (parts[0] === 127) return false;
-	if (parts[0] === 10) return false;
-	if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return false;
-	if (parts[0] === 192 && parts[1] === 168) return false;
+	if (parts[0] === 127 || parts[0] === 10 || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) || (parts[0] === 192 && parts[1] === 168)) return allowPrivateNetwork;
 	if (parts[0] === 169 && parts[1] === 254) return false;
 	if (parts.every((part) => part === 0)) return false;
 
@@ -206,8 +212,13 @@ export function sanitizeErrorMessage(
 ): string {
 	if (!err) return fallback;
 
-	const message = typeof err === "string" ? err : (err as Error)?.message;
+	let message = typeof err === "string" ? err : (err as Error)?.message;
 	if (!message) return fallback;
+	// `asaw` stringifies thrown Errors as "Error: …"; strip the redundant prefix
+	// so API clients and toasts show the underlying message once.
+	if (message.startsWith("Error: ")) {
+		message = message.slice("Error: ".length);
+	}
 
 	if (
 		message.includes("PrismaClient") ||

@@ -65,12 +65,11 @@ but their run stops before checkout, LLM access, version mutation, or publishing
 Configure the `release` environment deployment branch policy to allow only
 `main` as an additional safeguard.
 
-The model variables default to NVIDIA Nemotron 3 Ultra (primary) and Nemotron
-3 Super (fallback), both free OpenRouter models. Existing npm, PyPI, GHCR,
+The model variables default to openrouter/auto and openrouter/auto, both free OpenRouter models. Existing npm, PyPI, GHCR,
 cosign, and Homebrew secrets remain configured as required by their publisher
 workflows.
 
-The PR-management workflow uses NVIDIA Nemotron Nano 9B V2 for short title
+The PR-management workflow uses openrouter/auto for short title
 normalization and falls back to OpenRouter's free-model router when that model
 is unavailable. Repository variables `PR_TITLE_LLM_MODEL` and
 `PR_TITLE_LLM_FALLBACK_MODEL` may override those choices.

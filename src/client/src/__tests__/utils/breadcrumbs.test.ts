@@ -195,6 +195,14 @@ describe('generatePageHeader', () => {
     expect(header.breadcrumbs).toContainEqual({ title: 'Organisation', href: '/organisation' });
   });
 
+  it('generates breadcrumbs for /organisation/projects under Settings', () => {
+    const header = generatePageHeader('/organisation/projects');
+    expect(header.title).toBe('Projects');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/settings' });
+    expect(header.breadcrumbs).toContainEqual({ title: 'Organisation', href: '/organisation' });
+    expect(header.breadcrumbs).toContainEqual({ title: 'Projects', href: '/organisation/projects' });
+  });
+
   it('generates breadcrumbs for /settings/database-config', () => {
     const header = generatePageHeader('/settings/database-config');
     expect(header.title).toBe('Database Config');

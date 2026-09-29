@@ -1,5 +1,5 @@
 import { merge, set } from "lodash";
-import { addDays, addMonths, addWeeks } from "date-fns";
+import { addDays, addWeeks } from "date-fns";
 import { lens } from "@dhmk/zustand-lens";
 import {
 	AttributeKeys,
@@ -52,11 +52,13 @@ export function getTimeLimitObject(
 		set(object, `${keyPrefix}end`, currentDate);
 	} else if (value === TIME_RANGE_TYPE["1M"]) {
 		const currentDate = new Date();
-		set(object, `${keyPrefix}start`, addMonths(currentDate, -1));
+		// Treat observability presets as fixed query durations. A calendar month
+		// can be 31 days, which exceeds the common 30-day Tempo search ceiling.
+		set(object, `${keyPrefix}start`, addDays(currentDate, -30));
 		set(object, `${keyPrefix}end`, currentDate);
 	} else if (value === TIME_RANGE_TYPE["3M"]) {
 		const currentDate = new Date();
-		set(object, `${keyPrefix}start`, addMonths(currentDate, -3));
+		set(object, `${keyPrefix}start`, addDays(currentDate, -90));
 		set(object, `${keyPrefix}end`, currentDate);
 	} else if (value === TIME_RANGE_TYPE["CUSTOM"]) {
 		const start = extraParams?.start;
@@ -67,6 +69,20 @@ export function getTimeLimitObject(
 		}
 	}
 	return object;
+}
+
+function mergeDefinedConfig(
+	prev: Partial<FilterConfig>,
+	next: Partial<FilterConfig>
+): Partial<FilterConfig> {
+	const merged: Partial<FilterConfig> = { ...prev };
+	(Object.keys(next) as Array<keyof FilterConfig>).forEach((key) => {
+		const value = next[key];
+		if (value !== undefined) {
+			(merged as Record<string, unknown>)[key] = value;
+		}
+	});
+	return merged;
 }
 
 const INITIAL_FILTER_DETAILS: FilterType = {
@@ -146,18 +162,26 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 				// invalidate the *available options* cache (`config` below)
 				// while the user's chosen filters survive.
 				selectedConfig: extraParams?.clearFilter
-					? {}
+					? // Allow callers to wipe and seed in one update (e.g. preserve
+					  // agent-scoped serviceNames across signal changes). An empty
+					  // object still means a full clear.
+					  object.selectedConfig &&
+					  Object.keys(object.selectedConfig).length > 0
+						? object.selectedConfig
+						: {}
 					: object.selectedConfig
 					? // Merge instead of replace so fields managed out-of-band
 					  // — notably `serviceNames`, which AgentScopeProvider sets
 					  // for the agent-detail page — survive wholesale updates
 					  // from TracesFilter (URL/localStorage restore, "Apply"
-					  // button). Wholesale clears go through `clearFilter`
-					  // above; nothing else should drop sibling fields.
-					  {
-							...getStore().details.selectedConfig,
-							...object.selectedConfig,
-					  }
+					  // button). Skip `undefined` values: Apply used to pass
+					  // `customFilters: undefined` when a row was incomplete,
+					  // which deleted the custom-attributes UI. Wholesale
+					  // clears go through `clearFilter` above.
+					  mergeDefinedConfig(
+							getStore().details.selectedConfig,
+							object.selectedConfig
+					  )
 					: getStore().details.selectedConfig,
 			},
 			config: resetConfig ? undefined : getStore().config,

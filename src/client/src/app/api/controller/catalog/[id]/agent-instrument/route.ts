@@ -1,6 +1,7 @@
 import { getFeatureHandler } from "@/lib/platform/controller/features";
+import { withControllerProduct } from "@/lib/platform/controller/product";
 
-export async function GET(
+async function GETHandler(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
@@ -9,7 +10,7 @@ export async function GET(
 	return handler.applyOperation(id, "status", {});
 }
 
-export async function POST(
+async function POSTHandler(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
@@ -19,7 +20,7 @@ export async function POST(
 	return handler.applyOperation(id, "enable", body);
 }
 
-export async function DELETE(
+async function DELETEHandler(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
@@ -27,3 +28,7 @@ export async function DELETE(
 	const handler = getFeatureHandler("agent")!;
 	return handler.applyOperation(id, "disable", {});
 }
+
+export const GET = withControllerProduct(GETHandler);
+export const POST = withControllerProduct(POSTHandler);
+export const DELETE = withControllerProduct(DELETEHandler);

@@ -176,6 +176,53 @@ describe('upsertOpenGroundConfig', () => {
     );
   });
 
+  it('sets model_id to NULL in the UPDATE when modelId is provided during an update', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ id: 'cfg-1' }] })
+      .mockResolvedValueOnce({ err: null })
+      .mockResolvedValueOnce({ data: [mockConfig] });
+
+    await upsertOpenGroundConfig({
+      provider: 'openai',
+      vaultId: 'vault-2',
+      modelId: 'gpt-4o-mini',
+      userId: 'user-1',
+      databaseConfigId: 'db-1',
+    });
+
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[1];
+    expect(query).toContain("model_id = 'gpt-4o-mini'");
+  });
+
+  it('catches thrown exceptions during upsert', async () => {
+    (dataCollector as jest.Mock).mockRejectedValue(new Error('boom'));
+
+    const result = await upsertOpenGroundConfig({
+      provider: 'openai',
+      vaultId: 'v',
+      userId: 'user-1',
+      databaseConfigId: 'db-1',
+    });
+
+    expect(result.err).toBe('Operation failed');
+  });
+
+  it('returns "Config not found" when the post-update re-fetch (getOpenGroundConfigById) finds nothing', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ id: 'cfg-1' }] }) // exists check
+      .mockResolvedValueOnce({ err: null }) // update
+      .mockResolvedValueOnce({ data: [] }); // getOpenGroundConfigById re-fetch finds nothing
+
+    const result = await upsertOpenGroundConfig({
+      provider: 'openai',
+      vaultId: 'vault-2',
+      userId: 'user-1',
+      databaseConfigId: 'db-1',
+    });
+
+    expect(result.err).toBe('Config not found');
+  });
+
   it('returns error when insert fails', async () => {
     (dataCollector as jest.Mock)
       .mockResolvedValueOnce({ data: [] })
@@ -230,6 +277,14 @@ describe('deleteOpenGroundConfig', () => {
 
     expect(result.err).toBe('Operation failed');
   });
+
+  it('catches thrown exceptions', async () => {
+    (dataCollector as jest.Mock).mockRejectedValue(new Error('boom'));
+
+    const result = await deleteOpenGroundConfig('cfg-1', 'user-1', 'db-1');
+
+    expect(result.err).toBe('Operation failed');
+  });
 });
 
 describe('toggleOpenGroundConfigStatus', () => {
@@ -245,6 +300,14 @@ describe('toggleOpenGroundConfigStatus', () => {
 
   it('returns error on toggle failure', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ err: 'fail' });
+
+    const result = await toggleOpenGroundConfigStatus('cfg-1', 'user-1', 'db-1', true);
+
+    expect(result.err).toBe('Operation failed');
+  });
+
+  it('catches thrown exceptions', async () => {
+    (dataCollector as jest.Mock).mockRejectedValue(new Error('boom'));
 
     const result = await toggleOpenGroundConfigStatus('cfg-1', 'user-1', 'db-1', true);
 
@@ -271,8 +334,24 @@ describe('getActiveProviders', () => {
     expect(result.data).toEqual([]);
   });
 
+  it('returns empty array when data is undefined (no rows, no error)', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: undefined, err: null });
+
+    const result = await getActiveProviders('user-1', 'db-1');
+
+    expect(result.data).toEqual([]);
+  });
+
   it('returns error on DB failure', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ err: 'fail' });
+
+    const result = await getActiveProviders('user-1', 'db-1');
+
+    expect(result.err).toBe('Operation failed');
+  });
+
+  it('catches thrown exceptions', async () => {
+    (dataCollector as jest.Mock).mockRejectedValue(new Error('boom'));
 
     const result = await getActiveProviders('user-1', 'db-1');
 

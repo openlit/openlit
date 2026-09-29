@@ -1,0 +1,62 @@
+### 2. Instrument your application
+
+<Tabs>
+<Tab title="SDK">
+<Tabs>
+<Tab title="Function Arguments">
+```python
+import openlit
+
+openlit.init(
+  otlp_endpoint="http://YOUR_OTELCOL_HOST:4318"
+)
+```
+
+Replace `http://YOUR_OTELCOL_HOST:4318` with the HTTP endpoint, including the scheme, of your OpenTelemetry Collector.
+
+- Local Collector: `http://127.0.0.1:4318`
+- Kubernetes: `http://otel-collector.monitoring.svc.cluster.local:4318`
+</Tab>
+
+<Tab title="Environment Variables">
+```python
+import openlit
+
+openlit.init()
+```
+
+Set the Collector endpoint, including the scheme:
+
+```shell
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://YOUR_OTELCOL_HOST:4318"
+```
+</Tab>
+</Tabs>
+</Tab>
+
+<Tab title="CLI">
+<Tabs>
+<Tab title="CLI Arguments">
+```shell
+openlit-instrument \
+  --otlp-endpoint "http://YOUR_OTELCOL_HOST:4318" \
+  --service-name "my-ai-service" \
+  --deployment-environment "production" \
+  python app.py
+```
+</Tab>
+
+<Tab title="Environment Variables">
+```shell
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://YOUR_OTELCOL_HOST:4318"
+export OTEL_SERVICE_NAME="my-ai-service"
+export OTEL_DEPLOYMENT_ENVIRONMENT="production"
+
+openlit-instrument python app.py
+```
+</Tab>
+</Tabs>
+
+See the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more configuration options.
+</Tab>
+</Tabs>

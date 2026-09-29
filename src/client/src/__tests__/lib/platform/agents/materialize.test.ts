@@ -13,10 +13,14 @@
  * `(cluster, env, service_name)` for SDK-only / controller-only rows.
  */
 
-jest.mock("@/lib/platform/common", () => ({
-	dataCollector: jest.fn(),
-	OTEL_TRACES_TABLE_NAME: "otel_traces",
-}));
+jest.mock("@/lib/platform/common", () => {
+	const collector = jest.fn();
+	return {
+		dataCollector: collector,
+		intelligenceDataCollector: collector,
+		OTEL_TRACES_TABLE_NAME: "otel_traces",
+	};
+});
 jest.mock("@/lib/platform/agents/cache", () => ({
 	swr: jest.fn(<T,>(_k: string, _p: unknown, loader: () => Promise<T>) =>
 		loader()
@@ -35,24 +39,33 @@ jest.mock("@/lib/platform/agents/snapshot", () => ({
 	upsertVersion: jest.fn(),
 	getLatestVersionsBatch: jest.fn().mockResolvedValue(new Map()),
 }));
+const mockGetTelemetryAdapterForDbConfig = jest.fn();
+jest.mock("@/lib/telemetry-source", () => ({
+	isSignalServedByBuiltInClickHouse: jest.fn().mockResolvedValue(true),
+	getTelemetryAdapterForDbConfig: (...args: unknown[]) =>
+		mockGetTelemetryAdapterForDbConfig(...args),
+}));
+const mockGetDBConfigByIdInternal = jest.fn();
+jest.mock("@/lib/db-config", () => ({
+	getDBConfigByIdInternal: (...args: unknown[]) =>
+		mockGetDBConfigByIdInternal(...args),
+}));
+const mockResolveCodingAgentsClickHouseDbConfigId = jest.fn();
+jest.mock("@/lib/platform/coding-agents/source", () => ({
+	resolveCodingAgentsClickHouseDbConfigId: (...args: unknown[]) =>
+		mockResolveCodingAgentsClickHouseDbConfigId(...args),
+}));
+jest.mock("@/lib/platform/connectors/datasource/clickhouse/direct-read", () => ({
+	resolveTracesTableRef: jest.fn().mockResolvedValue("otel_traces"),
+	queryConnectorTraces: jest.fn(),
+}));
 
-import { dataCollector } from "@/lib/platform/common";
-import {
-	materializeAgents,
-	recomputeCodingAgentsForWindow,
-} from "@/lib/platform/agents/materialize";
+import { intelligenceDataCollector } from "@/lib/platform/common";
+import { materializeAgents } from "@/lib/platform/agents/materialize";
 import { computeAgentKey } from "@/lib/platform/agents";
-import {
-	deriveSnapshot,
-	getLatestVersionsBatch,
-	upsertVersion,
-} from "@/lib/platform/agents/snapshot";
 
-const mockedDC = dataCollector as jest.MockedFunction<typeof dataCollector>;
-const mockedDerive = deriveSnapshot as jest.MockedFunction<typeof deriveSnapshot>;
-const mockedUpsert = upsertVersion as jest.MockedFunction<typeof upsertVersion>;
-const mockedGetLatest = getLatestVersionsBatch as jest.MockedFunction<
-	typeof getLatestVersionsBatch
+const mockedDC = intelligenceDataCollector as jest.MockedFunction<
+	typeof intelligenceDataCollector
 >;
 
 interface RecordedInsert {
@@ -81,30 +94,106 @@ function queueDiscovery(
 	sdkRows: Array<Record<string, unknown>>,
 	ctrlRows: Array<Record<string, unknown>>,
 	requestCountRows: Array<Record<string, unknown>> = [],
-	codingRows: Array<Record<string, unknown>> = []
+	codingRows: Array<Record<string, unknown>> = [],
+	onInsert?: (config: { table?: string; values?: unknown[] }) => void
 ) {
-	// `materializeAgents` fires `Promise.all([discoverAgents(),
-	// discoverCodingAgents()])`. Inside `discoverAgents` two queries run
-	// sequentially (SDK then controller); `discoverCodingAgents` fires
-	// one. The microtask order under `Promise.all` is therefore:
-	//   1) SDK discovery (kicked off first inside discoverAgents)
-	//   2) Coding-agent discovery (kicked off by the second Promise.all entry)
-	//   3) Controller discovery (resumes after SDK resolves)
-	//   4) Request-count rollup (after both discovery functions resolve)
-	mockedDC
-		.mockResolvedValueOnce({ data: sdkRows } as any)
-		.mockResolvedValueOnce({ data: codingRows } as any)
-		.mockResolvedValueOnce({ data: ctrlRows } as any)
-		.mockResolvedValueOnce({ data: requestCountRows } as any);
+	mockedDC.mockImplementation(async (config: any, op?: string) => {
+		if (op === "insert") {
+			onInsert?.(config);
+			return { data: [] } as any;
+		}
+		const query = String(config?.query || "");
+		if (query.includes("sdk_seen AS")) {
+			return { data: sdkRows } as any;
+		}
+		if (query.includes("openlit_controller_services")) {
+			return { data: ctrlRows } as any;
+		}
+		if (query.includes("chat_id") && query.includes("coding_agent")) {
+			return { data: codingRows } as any;
+		}
+		if (query.includes("request_count_24h")) {
+			return { data: requestCountRows } as any;
+		}
+		return { data: [] } as any;
+	});
 }
 
 beforeEach(() => {
+	process.env.OPENLIT_EDITION = "enterprise";
 	mockedDC.mockReset();
-	mockedDerive.mockReset();
-	mockedUpsert.mockReset();
-	mockedDerive.mockResolvedValue(null);
-	mockedUpsert.mockResolvedValue({ versionNumber: 1, isNewVersion: false });
-	mockedGetLatest.mockResolvedValue(new Map());
+	mockGetTelemetryAdapterForDbConfig.mockReset();
+	mockGetDBConfigByIdInternal.mockReset();
+	mockGetDBConfigByIdInternal.mockResolvedValue({
+		id: "db-1",
+		projectId: "p1",
+		environment: "production",
+	});
+	mockResolveCodingAgentsClickHouseDbConfigId.mockReset();
+	mockResolveCodingAgentsClickHouseDbConfigId.mockResolvedValue("db-1");
+});
+
+afterAll(() => {
+	delete process.env.OPENLIT_EDITION;
+});
+
+describe("materializeAgents — connector routing purity", () => {
+	it("fails closed instead of reading ClickHouse traces when the routed external adapter cannot resolve", async () => {
+		mockGetTelemetryAdapterForDbConfig.mockRejectedValue(
+			new Error("Tempo credentials unavailable")
+		);
+		mockedDC.mockResolvedValue({ data: [] });
+		await expect(materializeAgents({ dbConfigId: "db-1" })).rejects.toThrow(
+			"Tempo credentials unavailable"
+		);
+		const sdkOrControllerQueries = mockedDC.mock.calls.filter(([cfg]) => {
+			const q = String(cfg?.query || "");
+			return (
+				q.includes("sdk_seen") || q.includes("openlit_controller_services")
+			);
+		});
+		expect(sdkOrControllerQueries).toHaveLength(0);
+	});
+
+	it("keeps coding-agent discovery on ClickHouse SQL when traces are bound to Tempo", async () => {
+		const sampleTracesForGraph = jest.fn();
+		mockGetTelemetryAdapterForDbConfig.mockResolvedValue({
+			isBuiltIn: false,
+			adapter: {
+				discoverServices: jest.fn().mockResolvedValue([]),
+				sampleTracesForGraph,
+				listSpans: jest.fn(),
+			},
+			descriptor: { type: "tempo" },
+		});
+		mockResolveCodingAgentsClickHouseDbConfigId.mockResolvedValue("db-intel");
+
+		const queries: string[] = [];
+		mockedDC.mockImplementation(async (config: any, op?: string) => {
+			if (op === "query" || op === undefined) {
+				queries.push(String(config.query || ""));
+				return { data: [] } as any;
+			}
+			return { data: [] } as any;
+		});
+
+		await materializeAgents({ dbConfigId: "db-intel" });
+
+		expect(sampleTracesForGraph).not.toHaveBeenCalled();
+		expect(queries.some((q) => q.includes("coding_agent.session.id"))).toBe(
+			true
+		);
+		expect(mockResolveCodingAgentsClickHouseDbConfigId).toHaveBeenCalledWith(
+			expect.objectContaining({
+				dbConfigId: "db-intel",
+				projectId: "p1",
+			})
+		);
+		const codingCall = mockedDC.mock.calls.find(([cfg]) =>
+			String(cfg?.query || "").includes("coding_agent.session.id")
+		);
+		expect(codingCall?.[2]).toBe("db-intel");
+	});
 });
 
 describe("materializeAgents — workload_key dedup", () => {
@@ -113,6 +202,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// catalogues the same container as `demo-openai-app` (container_name).
 		// Both carry workload_key='docker:demo-openai-app' — the SDK because
 		// the controller injected it via OTEL_RESOURCE_ATTRIBUTES.
+		const inserts: RecordedInsert[] = [];
 		queueDiscovery(
 			[
 				{
@@ -140,29 +230,16 @@ describe("materializeAgents — workload_key dedup", () => {
 					first_seen: "2026-05-11 21:50:00",
 					last_seen: "2026-05-11 22:10:00",
 				},
-			]
-		);
-		const inserts: RecordedInsert[] = [];
-		// First three calls are the queued discovery queries; capture the
-		// insert that follows.
-		// `mockImplementation` (not `Once`) intentionally: the materializer
-		// now runs an extra conflict-resolution SELECT before the final
-		// summary INSERT when summaryRows contain any non-coding source.
-		// That probe must be covered too, otherwise the unmocked call
-		// returns `undefined` and the production code blows up reading
-		// `res.err`. The implementation here short-circuits every non-
-		// insert call with `{ data: [] }` so the conflict query sees
-		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op?: string) => {
-			if (op === "insert") {
+			],
+			[],
+			[],
+			(c) => {
 				inserts.push({
 					table: String(c.table),
-					values: (c.values || []) as any,
+					values: (c.values || []) as Array<Record<string, unknown>>,
 				});
-				return { data: [] } as any;
 			}
-			return { data: [] } as any;
-		});
+		);
 
 		await materializeAgents();
 
@@ -182,6 +259,7 @@ describe("materializeAgents — workload_key dedup", () => {
 	});
 
 	it("keeps SDK-only and controller-only rows as separate agents when their workload_key doesn't match", async () => {
+		const inserts: RecordedInsert[] = [];
 		queueDiscovery(
 			[
 				{
@@ -207,27 +285,16 @@ describe("materializeAgents — workload_key dedup", () => {
 					first_seen: "2026-05-11 22:00:00",
 					last_seen: "2026-05-11 22:10:00",
 				},
-			]
-		);
-		const inserts: RecordedInsert[] = [];
-		// `mockImplementation` (not `Once`) intentionally: the materializer
-		// now runs an extra conflict-resolution SELECT before the final
-		// summary INSERT when summaryRows contain any non-coding source.
-		// That probe must be covered too, otherwise the unmocked call
-		// returns `undefined` and the production code blows up reading
-		// `res.err`. The implementation here short-circuits every non-
-		// insert call with `{ data: [] }` so the conflict query sees
-		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op?: string) => {
-			if (op === "insert") {
+			],
+			[],
+			[],
+			(c) => {
 				inserts.push({
 					table: String(c.table),
-					values: (c.values || []) as any,
+					values: (c.values || []) as Array<Record<string, unknown>>,
 				});
-				return { data: [] } as any;
 			}
-			return { data: [] } as any;
-		});
+		);
 
 		await materializeAgents();
 
@@ -262,9 +329,9 @@ describe("materializeAgents — workload_key dedup", () => {
 
 		await materializeAgents();
 
-		// First query is the SDK discovery CTE.
+		// First SDK discovery query (coding-agent discovery may run in parallel).
 		expect(queries.length).toBeGreaterThan(0);
-		const sdkQuery = queries[0];
+		const sdkQuery = queries.find((q) => q.includes("sdk_seen AS")) || "";
 		expect(sdkQuery).toContain("telemetry.distro.name");
 		expect(sdkQuery).toContain("opentelemetry-ebpf-instrumentation");
 		expect(sdkQuery).toMatch(
@@ -278,6 +345,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// env var yet, so the SDK's traces have no workload_key. We fall
 		// back to the legacy service_name match so we don't briefly
 		// double-list the agent during rollout.
+		const inserts: RecordedInsert[] = [];
 		queueDiscovery(
 			[
 				{
@@ -303,27 +371,16 @@ describe("materializeAgents — workload_key dedup", () => {
 					first_seen: "2026-05-11 22:00:00",
 					last_seen: "2026-05-11 22:10:00",
 				},
-			]
-		);
-		const inserts: RecordedInsert[] = [];
-		// `mockImplementation` (not `Once`) intentionally: the materializer
-		// now runs an extra conflict-resolution SELECT before the final
-		// summary INSERT when summaryRows contain any non-coding source.
-		// That probe must be covered too, otherwise the unmocked call
-		// returns `undefined` and the production code blows up reading
-		// `res.err`. The implementation here short-circuits every non-
-		// insert call with `{ data: [] }` so the conflict query sees
-		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op?: string) => {
-			if (op === "insert") {
+			],
+			[],
+			[],
+			(c) => {
 				inserts.push({
 					table: String(c.table),
-					values: (c.values || []) as any,
+					values: (c.values || []) as Array<Record<string, unknown>>,
 				});
-				return { data: [] } as any;
 			}
-			return { data: [] } as any;
-		});
+		);
 
 		await materializeAgents();
 
@@ -343,6 +400,7 @@ describe("materializeAgents — workload_key dedup", () => {
 		// import-scan and surfaces them in openlit_controller_services
 		// .llm_providers — we union those into providers so the table
 		// renders the logos even before the first request lands.
+		const inserts: RecordedInsert[] = [];
 		queueDiscovery(
 			[],
 			[
@@ -358,27 +416,16 @@ describe("materializeAgents — workload_key dedup", () => {
 					first_seen: "2026-05-11 22:00:00",
 					last_seen: "2026-05-11 22:10:00",
 				},
-			]
-		);
-		const inserts: RecordedInsert[] = [];
-		// `mockImplementation` (not `Once`) intentionally: the materializer
-		// now runs an extra conflict-resolution SELECT before the final
-		// summary INSERT when summaryRows contain any non-coding source.
-		// That probe must be covered too, otherwise the unmocked call
-		// returns `undefined` and the production code blows up reading
-		// `res.err`. The implementation here short-circuits every non-
-		// insert call with `{ data: [] }` so the conflict query sees
-		// "no conflicting coding rows" and proceeds to the insert.
-		mockedDC.mockImplementation(async (c: any, op?: string) => {
-			if (op === "insert") {
+			],
+			[],
+			[],
+			(c) => {
 				inserts.push({
 					table: String(c.table),
-					values: (c.values || []) as any,
+					values: (c.values || []) as Array<Record<string, unknown>>,
 				});
-				return { data: [] } as any;
 			}
-			return { data: [] } as any;
-		});
+		);
 
 		await materializeAgents();
 
@@ -419,230 +466,22 @@ describe("materializeAgents — workload_key dedup", () => {
 		expect(ctrlQuery!).toMatch(/argMax\(s\.llm_providers,\s*s\.last_seen\)/);
 		expect(ctrlQuery!).toMatch(/latest\.llm_providers\s+AS\s+llm_providers/);
 	});
-});
 
-describe("recomputeCodingAgentsForWindow", () => {
-	it("builds a 24h default window and maps vendor rows", async () => {
-		mockedDC.mockResolvedValueOnce({
-			data: [
-				{
-					vendor: "cursor",
-					client_version: "1.2.3",
-					first_seen: "2026-05-11 20:00:00",
-					last_seen: "2026-05-11 22:00:00",
-					session_count_24h: 5,
-					cost_usd_24h: 1.5,
-					active_users_24h: 2,
-					lines_added_24h: 10,
-					lines_removed_24h: 1,
-					lines_accepted_24h: 8,
-					lines_rejected_24h: 0,
-					edit_accept_24h: 3,
-					edit_reject_24h: 0,
-					commit_count_24h: 1,
-					pr_count_24h: 0,
-				},
-				{ vendor: "" },
-			],
-		} as any);
-
-		const rows = await recomputeCodingAgentsForWindow({});
-		expect(rows).toHaveLength(1);
-		expect(rows[0]).toMatchObject({
-			service_name: "cursor",
-			source: "coding",
-			cluster_id: "coding",
-			coding_session_count_24h: 5,
-			coding_cost_usd_24h: 1.5,
-			sdk_version: "1.2.3",
-		});
-		const query = String((mockedDC.mock.calls[0][0] as any).query);
-		expect(query).toContain("Timestamp >= now() - INTERVAL 24 HOUR");
-	});
-
-	it("escapes custom window bounds and returns [] on error", async () => {
-		mockedDC.mockResolvedValueOnce({ data: [] } as any);
-		await recomputeCodingAgentsForWindow({
-			timeStart: "2026-05-11T00:00:00Z",
-			timeEnd: "2026-05-11 23:59:59",
-		});
-		const query = String((mockedDC.mock.calls[0][0] as any).query);
-		expect(query).toContain(
-			"parseDateTimeBestEffort('2026-05-11T00:00:00Z')"
-		);
-		expect(query).toContain("parseDateTimeBestEffort('2026-05-11 23:59:59')");
-
-		mockedDC.mockResolvedValueOnce({
-			err: new Error("coding discovery failed"),
-			data: [],
-		} as any);
-		await expect(
-			recomputeCodingAgentsForWindow({
-				timeStart: "2026-05-11 00:00:00",
-			})
-		).resolves.toEqual([]);
-	});
-
-	it("escapes quotes in window timestamps", async () => {
-		mockedDC.mockResolvedValueOnce({ data: [] } as any);
-		await recomputeCodingAgentsForWindow({
-			timeStart: "2026-05-11 00:00:00'; DROP TABLE x; --",
-		});
-		const query = String((mockedDC.mock.calls[0][0] as any).query);
-		expect(query).toContain("\\'");
-	});
-});
-
-describe("materializeAgents — scope / filter / coding", () => {
-	it("returns processed:0 when scoped refresh finds no matching agent", async () => {
-		mockedDC
-			.mockResolvedValueOnce({ data: [] } as any) // SDK
-			.mockResolvedValueOnce({ data: [] } as any) // coding
-			.mockResolvedValueOnce({ data: [] } as any); // controller
-
-		await expect(
-			materializeAgents({
-				scope: {
-					serviceName: "cursor",
-					clusterId: "coding",
-					environment: "default",
-				},
-			})
-		).resolves.toEqual({ processed: 0, newVersions: 0, errors: 0 });
-	});
-
-	it("materializes a coding agent matched by agentKeyFilter without snapshot upsert", async () => {
-		const codingKey = computeAgentKey("coding", "default", "cursor");
-		mockedDC
-			// discoverAgents: SDK then controller (sequential)
-			.mockResolvedValueOnce({ data: [] } as any)
-			.mockResolvedValueOnce({ data: [] } as any)
-			// discoverCodingAgents
-			.mockResolvedValueOnce({
-				data: [
-					{
-						vendor: "cursor",
-						client_version: "9.0.0",
-						first_seen: "2026-05-11 20:00:00",
-						last_seen: "2026-05-11 22:00:00",
-						session_count_24h: 2,
-						cost_usd_24h: 0.4,
-						active_users_24h: 1,
-						lines_added_24h: 0,
-						lines_removed_24h: 0,
-						lines_accepted_24h: 0,
-						lines_rejected_24h: 0,
-						edit_accept_24h: 0,
-						edit_reject_24h: 0,
-						commit_count_24h: 0,
-						pr_count_24h: 0,
-					},
-				],
-			} as any);
-
-		const inserts: RecordedInsert[] = [];
-		mockedDC.mockImplementation(async (c: any, op?: string) => {
-			if (op === "insert") {
-				inserts.push({
-					table: String(c.table),
-					values: (c.values || []) as any,
-				});
+	it("skips the controller discovery query when edition is oss", async () => {
+		process.env.OPENLIT_EDITION = "oss";
+		const queries: string[] = [];
+		mockedDC.mockImplementation(async (config: any, op?: string) => {
+			if (op === "query") {
+				queries.push(String(config.query));
 				return { data: [] } as any;
 			}
 			return { data: [] } as any;
 		});
 
-		const result = await materializeAgents({ agentKeyFilter: codingKey });
-		expect(result.processed).toBe(1);
-		expect(mockedDerive).not.toHaveBeenCalled();
-		expect(mockedUpsert).not.toHaveBeenCalled();
-		expect(inserts[0].values[0]).toMatchObject({
-			agent_key: codingKey,
-			source: "coding",
-			service_name: "cursor",
-			coding_agent_vendor: "cursor",
-		});
-	});
+		await materializeAgents();
 
-	it("returns empty when agentKeyFilter does not match", async () => {
-		mockedDC
-			.mockResolvedValueOnce({ data: [] } as any)
-			.mockResolvedValueOnce({ data: [] } as any)
-			.mockResolvedValueOnce({ data: [] } as any);
-
-		await expect(
-			materializeAgents({ agentKeyFilter: "nope" })
-		).resolves.toEqual({ processed: 0, newVersions: 0, errors: 0 });
-	});
-
-	it("tolerates SDK/controller discovery errors", async () => {
-		mockedDC
-			.mockResolvedValueOnce({ err: new Error("sdk boom"), data: [] } as any)
-			.mockResolvedValueOnce({ data: [] } as any) // coding
-			.mockResolvedValueOnce({ err: new Error("ctrl boom"), data: [] } as any);
-
-		await expect(materializeAgents()).resolves.toEqual({
-			processed: 0,
-			newVersions: 0,
-			errors: 0,
-		});
-	});
-
-	it("materializes scoped SDK matches and upserts versions when snapshot exists", async () => {
-		mockedDerive.mockResolvedValueOnce({
-			agent_key: computeAgentKey("default", "default", "scoped-app"),
-			service_name: "scoped-app",
-			environment: "default",
-			cluster_id: "default",
-			system_prompt: "hi",
-			tools: [],
-			primary_model: "gpt-4o",
-			models: ["gpt-4o"],
-			providers: ["openai"],
-			runtime_config: {},
-			request_count: 3,
-			first_seen: "2026-05-11 22:00:00",
-			last_seen: "2026-05-11 22:10:00",
-			version_hash: "snap-hash",
-		} as any);
-		mockedUpsert.mockResolvedValueOnce({ versionNumber: 2, isNewVersion: true });
-
-		mockedDC
-			.mockResolvedValueOnce({
-				data: [
-					{
-						service_name: "scoped-app",
-						environment: "default",
-						cluster_id: "default",
-						workload_key: "",
-						sdk_version: "1.0.0",
-						sdk_language: "python",
-						first_seen: "2026-05-11 22:00:00",
-						last_seen: "2026-05-11 22:10:00",
-					},
-				],
-			} as any)
-			.mockResolvedValueOnce({ data: [] } as any) // coding
-			.mockResolvedValueOnce({ data: [] } as any); // controller
-
-		const inserts: RecordedInsert[] = [];
-		mockedDC.mockImplementation(async (c: any, op?: string) => {
-			if (op === "insert") {
-				inserts.push({
-					table: String(c.table),
-					values: (c.values || []) as any,
-				});
-				return { data: [] } as any;
-			}
-			return { data: [] } as any;
-		});
-
-		const result = await materializeAgents({
-			scope: { serviceName: "scoped-app", environment: "default" },
-		});
-		expect(result.processed).toBe(1);
-		expect(result.newVersions).toBe(1);
-		expect(mockedUpsert).toHaveBeenCalled();
-		expect(inserts[0].values[0].current_version_hash).toBe("snap-hash");
+		expect(
+			queries.some((q) => q.includes("openlit_controller_services"))
+		).toBe(false);
 	});
 });

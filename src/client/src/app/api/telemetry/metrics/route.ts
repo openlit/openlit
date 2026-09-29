@@ -1,50 +1,34 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getMetrics, getMetricsConfig } from "@/lib/platform/observability";
+import { listMetricRecords } from "@/lib/platform/metrics/read";
+import { withRouteAccess } from "@/lib/access/route-access";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
-import { resolveDbConfigId } from "@/helpers/server/auth";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
+	const formData = await request.json();
+	const params: MetricParams = {
+		timeLimit: formData.timeLimit as TimeLimit,
+		limit: formData.limit || 25,
+		offset: formData.offset || 0,
+		selectedConfig: formData.selectedConfig || {},
+		sorting: formData.sorting || {},
+		environment: typeof formData.environment === "string" ? formData.environment : getRequestEnvironment(request),
+	};
+	const validation = validateMetricsRequest(
+		params,
+		validateMetricsRequestType.GET_ALL
+	);
+	if (!validation.success) return Response.json(validation.err, { status: 400 });
+
 	try {
-		const [authErr, databaseConfigId] = await resolveDbConfigId(request);
-		if (authErr) {
-			return Response.json({ err: authErr }, { status: 401 });
-		}
-
-		const formData = await request.json();
-		const limit = formData.limit || 25;
-		const offset = formData.offset || 0;
-		const params: MetricParams = {
-			timeLimit: formData.timeLimit as TimeLimit,
-			limit,
-			offset,
-			selectedConfig: formData.selectedConfig || {},
-			sorting: formData.sorting || {},
-			databaseConfigId,
-		};
-
-		const validation = validateMetricsRequest(
-			params,
-			validateMetricsRequestType.GET_ALL
-		);
-		if (!validation.success) return Response.json(validation.err, { status: 400 });
-
-		const res: any = await getMetrics(params);
-
-		const { searchParams } = new URL(request.url);
-		const includeFilters = (searchParams.get("includeFilters") === "true") || (formData.includeFilters === true);
-
-		if (includeFilters && !res.err) {
-			const configRes = await getMetricsConfig(params);
-			res.pagination = { limit, offset, total: res.total || 0 };
-			res.filters = (configRes.data as any)?.[0] || {};
-		}
-
-		return Response.json(res);
-	} catch (error: any) {
-		console.error("Error in telemetry metrics route:", error);
-		return Response.json({ err: error.message || "Internal Server Error" }, { status: 500 });
+		return Response.json(await listMetricRecords(params));
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return Response.json({ err: message, code: "TELEMETRY_SOURCE_UNAVAILABLE" }, { status: 503 });
 	}
 }
+
+export const POST = withRouteAccess("metrics.read", POSTHandler, { requireDbConfig: true });

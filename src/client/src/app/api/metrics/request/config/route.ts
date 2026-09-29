@@ -1,10 +1,11 @@
-import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getRequestsConfig } from "@/lib/platform/request";
+import { getTraceFilterConfig } from "@/lib/platform/traces/read";
+import { withRouteAccess } from "@/lib/access/route-access";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
 async function POSTHandler(request: Request) {
 	const formData = await request.json();
@@ -18,6 +19,10 @@ async function POSTHandler(request: Request) {
 		offset,
 		selectedConfig: formData.selectedConfig,
 		statusCode: formData.statusCode,
+		environment: typeof formData.environment === "string" ? formData.environment : getRequestEnvironment(request),
+		...(typeof formData.sourceId === "string"
+			? { sourceId: formData.sourceId }
+			: {}),
 	};
 
 	const validationParam = validateMetricsRequest(
@@ -30,8 +35,8 @@ async function POSTHandler(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getRequestsConfig(params);
+	const res: any = await getTraceFilterConfig(params);
 	return Response.json(res);
 }
 
-export const POST = withRouteAccess("metrics.read", POSTHandler, { requireDbConfig: true });
+export const POST = withRouteAccess("traces.read", POSTHandler, { requireDbConfig: true });

@@ -47,11 +47,36 @@ describe('middleware', () => {
   it('does not include enterprise-only routes in CE', () => {
     expect(config.matcher).not.toContain('/audit-logs');
     expect(config.matcher).not.toContain('/audit-logs/:path*');
+    expect(config.matcher).not.toContain('/fleet-hub');
+    expect(config.matcher).not.toContain('/fleet-hub/:path*');
   });
 
   it('matches the agents routes', () => {
     expect(config.matcher).toContain('/agents');
     expect(config.matcher).toContain('/agents/:path*');
+  });
+
+  // Regression: pages omitted from the matcher skip auth entirely and
+  // render the playground shell while unauthenticated (APIs still 307).
+  it('matches organisation, connectors, costs, and evaluations routes', () => {
+    expect(config.matcher).toContain('/organisation');
+    expect(config.matcher).toContain('/organisation/:path*');
+    expect(config.matcher).toContain('/connectors');
+    expect(config.matcher).toContain('/costs');
+    expect(config.matcher).toContain('/evaluations');
+    expect(config.matcher).toContain('/evaluations/:path*');
+  });
+
+  it('matches nested playground routes that previously bypassed auth', () => {
+    expect(config.matcher).toContain('/openground/:path*');
+    expect(config.matcher).toContain('/prompt-hub/:path*');
+    expect(config.matcher).toContain('/rule-engine');
+    expect(config.matcher).toContain('/rule-engine/:path*');
+    expect(config.matcher).toContain('/context');
+    expect(config.matcher).toContain('/context/:path*');
+    expect(config.matcher).toContain('/coding-agents/:path*');
+    expect(config.matcher).toContain('/pricing');
+    expect(config.matcher).toContain('/manage-models');
   });
 
   // Regression guard for the `^/.*$` fallback: Next.js can't statically

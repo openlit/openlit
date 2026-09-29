@@ -187,11 +187,17 @@ export async function setEvaluationConfig(
 			prisma.evaluationConfigs.findFirst({
 				where: {
 					id: evaluationConfig.id!,
+					databaseConfigId: dbConfig.id,
 				},
 			})
 		);
 
-		evaluationConfigId = previousConfig?.id;
+		throwIfError(
+			!previousConfig?.id,
+			getMessage().EVALUATION_CONFIG_NOT_FOUND
+		);
+
+		evaluationConfigId = previousConfig!.id;
 		const previousMeta = jsonParse(previousConfig?.meta || "{}") as Record<
 			string,
 			any
@@ -213,7 +219,7 @@ export async function setEvaluationConfig(
 			prisma.evaluationConfigs.update({
 				data: evaluationConfig,
 				where: {
-					id: evaluationConfig.id!,
+					id: previousConfig!.id,
 				},
 			})
 		);

@@ -9,8 +9,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	openlit "github.com/openlit/openlit/sdk/go"
+	"github.com/openlit/openlit/sdk/go/semconv"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 // initSDK initialises OpenLIT with all exporters disabled and registers cleanup.
@@ -498,5 +503,157 @@ func TestCreateMessage_Streaming_Error(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "401") {
 		t.Errorf("expected 401 in streaming error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Streaming cache-token span attributes
+// ---------------------------------------------------------------------------
+
+func setupSpanRecorder(t *testing.T) *tracetest.SpanRecorder {
+	t.Helper()
+	sr := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
+	otel.SetTracerProvider(tp)
+	t.Cleanup(func() {
+		_ = tp.Shutdown(context.Background())
+		otel.SetTracerProvider(sdktrace.NewTracerProvider())
+	})
+	return sr
+}
+
+func attrInt(span sdktrace.ReadOnlySpan, key string) int64 {
+	for _, a := range span.Attributes() {
+		if string(a.Key) == key {
+			return a.Value.AsInt64()
+		}
+	}
+	return 0
+}
+
+func hasAttr(span sdktrace.ReadOnlySpan, key string) bool {
+	for _, a := range span.Attributes() {
+		if string(a.Key) == key {
+			return true
+		}
+	}
+	return false
+}
+
+func waitForEndedSpan(t *testing.T, sr *tracetest.SpanRecorder) sdktrace.ReadOnlySpan {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if ended := sr.Ended(); len(ended) >= 1 {
+			return ended[0]
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("want 1 ended span, got %d", len(sr.Ended()))
+	return nil
+}
+
+func drainStream(t *testing.T, stream *MessageStream) {
+	t.Helper()
+	defer stream.Close() //nolint:errcheck
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return
+		}
+		if err != nil {
+			t.Fatalf("stream.Recv: %v", err)
+		}
+	}
+}
+
+func serveSSE(t *testing.T, events []struct{ event, data string }) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.WriteHeader(http.StatusOK)
+		for _, ev := range events {
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.event, ev.data)
+			w.(http.Flusher).Flush()
+		}
+	}))
+}
+
+func TestCreateMessage_Streaming_CacheTokenAttributes(t *testing.T) {
+	srv := serveSSE(t, []struct{ event, data string }{
+		{"message_start", `{"type":"message_start","message":{"id":"msg-cache","type":"message","role":"assistant","content":[],"model":"claude-3-5-haiku-20241022","usage":{"input_tokens":10,"output_tokens":0,"cache_creation_input_tokens":1234,"cache_read_input_tokens":5678}}}`},
+		{"content_block_start", `{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`},
+		{"content_block_delta", `{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}`},
+		{"content_block_stop", `{"type":"content_block_stop","index":0}`},
+		{"message_delta", `{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}`},
+		{"message_stop", `{"type":"message_stop"}`},
+	})
+	defer srv.Close()
+
+	sr := setupSpanRecorder(t)
+	client := NewClient("sk-ant-test", WithBaseURL(srv.URL))
+
+	stream, err := client.CreateMessageStream(context.Background(), MessageRequest{
+		Model:     "claude-3-5-haiku-20241022",
+		MaxTokens: 40,
+		Messages:  []Message{{Role: "user", Content: "Hi again"}},
+	})
+	if err != nil {
+		t.Fatalf("CreateMessageStream: %v", err)
+	}
+	drainStream(t, stream)
+
+	span := waitForEndedSpan(t, sr)
+	if got := attrInt(span, semconv.GenAIUsageInputTokens); got != 10 {
+		t.Errorf("input_tokens: want 10, got %d", got)
+	}
+	if got := attrInt(span, semconv.GenAIUsageOutputTokens); got != 2 {
+		t.Errorf("output_tokens: want 2, got %d", got)
+	}
+	// total_tokens stays input+output, matching the non-streaming path.
+	if got := attrInt(span, semconv.GenAIUsageTotalTokens); got != 12 {
+		t.Errorf("total_tokens: want 12, got %d", got)
+	}
+	if got := attrInt(span, semconv.GenAIUsagePromptTokensDetailsCacheWrite); got != 1234 {
+		t.Errorf("cache_write: want 1234, got %d", got)
+	}
+	if got := attrInt(span, semconv.GenAIUsagePromptTokensDetailsCacheRead); got != 5678 {
+		t.Errorf("cache_read: want 5678, got %d", got)
+	}
+}
+
+func TestCreateMessage_Streaming_CacheOnlySpan(t *testing.T) {
+	// Cache-only usage (input=0, output=0) must still record cache attributes.
+	// Previously the guard `if inputTokens > 0 || outputTokens > 0` skipped the block.
+	srv := serveSSE(t, []struct{ event, data string }{
+		{"message_start", `{"type":"message_start","message":{"id":"msg-cache-only","type":"message","role":"assistant","content":[],"model":"claude-3-5-haiku-20241022","usage":{"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":500,"cache_creation_input_tokens":0}}}`},
+		{"message_delta", `{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":0}}`},
+		{"message_stop", `{"type":"message_stop"}`},
+	})
+	defer srv.Close()
+
+	sr := setupSpanRecorder(t)
+	client := NewClient("sk-ant-test", WithBaseURL(srv.URL))
+
+	stream, err := client.CreateMessageStream(context.Background(), MessageRequest{
+		Model:     "claude-3-5-haiku-20241022",
+		MaxTokens: 1,
+		Messages:  []Message{{Role: "user", Content: "cache-only"}},
+	})
+	if err != nil {
+		t.Fatalf("CreateMessageStream: %v", err)
+	}
+	drainStream(t, stream)
+
+	span := waitForEndedSpan(t, sr)
+	if got := attrInt(span, semconv.GenAIUsagePromptTokensDetailsCacheRead); got != 500 {
+		t.Errorf("cache_read: want 500, got %d", got)
+	}
+	if hasAttr(span, semconv.GenAIUsagePromptTokensDetailsCacheWrite) {
+		t.Error("cache_write should be omitted when cache_creation_input_tokens is 0")
+	}
+	if got := attrInt(span, semconv.GenAIUsageTotalTokens); got != 0 {
+		t.Errorf("total_tokens: want 0, got %d", got)
 	}
 }

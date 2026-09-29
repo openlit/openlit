@@ -94,4 +94,31 @@ describe("swr cache", () => {
 		invalidatePrefix("agents:list:db1:");
 		expect(_cacheSizeForTests()).toBe(1);
 	});
+
+	it("uses policyFor so empty results leave the long fresh window", async () => {
+		let calls = 0;
+		const loader = jest.fn(async () => {
+			calls += 1;
+			return { nodes: [] as string[], edges: [] as string[], n: calls };
+		});
+		const longPolicy = { freshMs: 60_000, staleMs: 60_000 };
+		const emptyPolicy = { freshMs: 1, staleMs: 1 };
+
+		await swr("graph-empty", longPolicy, loader, {
+			policyFor: (value) =>
+				value.nodes.length === 0 && value.edges.length === 0
+					? emptyPolicy
+					: longPolicy,
+		});
+		await new Promise((r) => setTimeout(r, 15));
+		const second = await swr("graph-empty", longPolicy, loader, {
+			policyFor: (value) =>
+				value.nodes.length === 0 && value.edges.length === 0
+					? emptyPolicy
+					: longPolicy,
+		});
+
+		expect(loader).toHaveBeenCalledTimes(2);
+		expect(second.n).toBe(2);
+	});
 });

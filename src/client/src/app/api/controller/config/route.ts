@@ -9,6 +9,7 @@ import {
 	validateControllerConfig,
 	ConfigValidationError,
 } from "@/lib/platform/controller/validate-config";
+import { withControllerProduct } from "@/lib/platform/controller/product";
 
 async function GETHandler(request: Request) {
 	const { searchParams } = new URL(request.url);
@@ -90,5 +91,9 @@ async function POSTHandler(request: Request) {
 	}
 }
 
-export const GET = withCurrentOrganisationPermission("controller:read", GETHandler);
-export const POST = withAudit(withCurrentOrganisationPermission("controller:configure", POSTHandler));
+export const GET = withControllerProduct(
+	withCurrentOrganisationPermission("controller:read", GETHandler)
+);
+export const POST = withControllerProduct(
+	withAudit(withCurrentOrganisationPermission("controller:configure", POSTHandler))
+);

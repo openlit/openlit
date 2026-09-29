@@ -36,7 +36,7 @@ export default function GPUMetric({
 				...getFilterParamsForDashboard(filter),
 			}),
 			requestType: "POST",
-			url: url ? url : "/api/metrics/gpu",
+			url: url ? url : "/api/telemetry/gpu",
 			responseDataKey: "data",
 		});
 	}, [filter]);

@@ -1,11 +1,13 @@
+import { withRouteAccess } from "@/lib/access/route-access";
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getCostSummary } from "@/lib/platform/cost/summary";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/server/platform";
+import { getRequestEnvironment } from "@/constants/openlit-context";
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
 	let formData: Record<string, unknown>;
 	try {
 		formData = await request.json();
@@ -17,6 +19,10 @@ export async function POST(request: Request) {
 	const params: MetricParams = {
 		timeLimit,
 		selectedConfig: formData.selectedConfig,
+		environment:
+			typeof formData.environment === "string"
+				? formData.environment
+				: getRequestEnvironment(request),
 	};
 
 	const validationParam = validateMetricsRequest(
@@ -32,3 +38,7 @@ export async function POST(request: Request) {
 	const res = await getCostSummary(params);
 	return Response.json(res);
 }
+
+export const POST = withRouteAccess("metrics.read", POSTHandler, {
+	requireDbConfig: true,
+});

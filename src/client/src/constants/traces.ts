@@ -306,6 +306,7 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			label: "Finish Reason",
 			type: "string",
 			path: "response.finish_reasons",
+			paths: ["response.finish_reasons", "response.finish_reason"],
 			prefix: SpanAttributesGenAIPrefix,
 		},
 		response: {

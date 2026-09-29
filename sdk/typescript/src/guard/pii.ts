@@ -90,9 +90,26 @@ export class PII extends Guard {
 
     let transformedText: string | null = null;
     if (this._action === GuardAction.REDACT) {
-      const sortedMatches = [...matches].sort((a, b) => b.start - a.start);
+      // Patterns can match overlapping spans of the same text. Every span's offsets
+      // refer to the original string, so replacing them one at a time lets an earlier
+      // replacement resize the string out from under a later one -- the later slice
+      // then stops short and leaves the tail of the value in the output. Merge
+      // overlapping spans first so each replacement covers a region no other touches.
+      const ordered = matches
+        .map((match, index) => ({ ...match, index }))
+        .sort((a, b) => a.start - b.start || b.end - a.end || b.index - a.index);
+      const spans: Array<{ label: string; start: number; end: number }> = [];
+      for (const { label, start, end } of ordered) {
+        const previous = spans[spans.length - 1];
+        if (previous && start < previous.end) {
+          previous.end = Math.max(previous.end, end);
+        } else {
+          spans.push({ label, start, end });
+        }
+      }
       let resultText = text;
-      for (const { label, start, end } of sortedMatches) {
+      for (let i = spans.length - 1; i >= 0; i--) {
+        const { label, start, end } = spans[i];
         resultText = resultText.slice(0, start) + `[REDACTED:${label}]` + resultText.slice(end);
       }
       transformedText = resultText;

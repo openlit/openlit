@@ -26,6 +26,10 @@ Two redaction tiers run on every export, regardless of capture mode:
 
 The active capture mode is stamped as a resource attribute (`coding_agent.content_capture_mode`) on every span, so you can audit what a given session was recorded under after the fact.
 
+## Trace Governance Passport
+
+Coding-agent sessions also appear in the product **Trace Governance** view: open a session or request trace → hierarchy explorer → **Governance** tab. That report surfaces permission mode, capture mode, classification, agent loops, and related findings, with optional JSON passport export for evidence packages. See [Trace Governance](/latest/openlit/observability/telemetry/trace-governance).
+
 ## Attribution safeguards
 
 Per-user attribution is capped by a cohort floor: viewer-tier accounts cannot see per-user metrics for a user with fewer than five sessions in the selected window. Admin-tier accounts see the full breakdown. This prevents singling out an individual developer from a small sample on the [Users](/latest/openlit/coding-agents/users) tab.

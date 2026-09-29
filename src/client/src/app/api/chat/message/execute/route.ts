@@ -1,13 +1,33 @@
-import { getCurrentUser } from "@/lib/session";
-import { dataCollector } from "@/lib/platform/common";
+import { resolveRequestAuth } from "@/helpers/server/auth";
+import { intelligenceDataCollector } from "@/lib/platform/common";
 import { validateSQL } from "@/lib/platform/chat/sql-validator";
 import { updateMessage } from "@/lib/platform/chat/conversation";
+import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
+import { TELEMETRY_SOURCE_CHAT_NATIVE_ONLY } from "@/constants/messages/en";
+import { OPENLIT_CONTEXT_HEADERS } from "@/constants/openlit-context";
+import { authorizeTelemetrySQLRouting } from "@/lib/platform/chat/telemetry-sql-routing";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
-	const user = await getCurrentUser();
-	if (!user) {
+	const [authErr, auth] = await resolveRequestAuth(request);
+	if (authErr || !auth) {
 		return Response.json("Unauthorized", { status: 401 });
+	}
+
+	// Natural-language SQL chat runs raw ClickHouse SQL, so it is only
+	// available through the ClickHouse connector routed for intelligence.
+	const environment =
+		request.headers.get(OPENLIT_CONTEXT_HEADERS.environment) || undefined;
+	const chatSource = await isNativeSqlChatAvailable({
+		signal: "intelligence",
+		environment,
+		...(auth.databaseConfigId ? { dbConfigId: auth.databaseConfigId } : {}),
+	});
+	if (!chatSource.available) {
+		return Response.json(
+			{ err: TELEMETRY_SOURCE_CHAT_NATIVE_ONLY(chatSource.sourceName) },
+			{ status: 409 }
+		);
 	}
 
 	const body = await request.json();
@@ -20,19 +40,27 @@ export async function POST(request: NextRequest) {
 	// Validate SQL
 	const validation = validateSQL(query);
 	if (!validation.valid) {
-		return Response.json(
-			{ err: validation.error },
-			{ status: 400 }
-		);
+		return Response.json({ err: validation.error }, { status: 400 });
+	}
+	const routing = await authorizeTelemetrySQLRouting(validation.query!, {
+		environment,
+		databaseConfigId: chatSource.databaseConfigId!,
+	});
+	if (!routing.allowed) {
+		return Response.json({ err: routing.error }, { status: 409 });
 	}
 
 	const startTime = Date.now();
 
 	// Execute with readonly mode
-	const { data, err } = await dataCollector({
-		query: validation.query!,
-		enable_readonly: true,
-	});
+	const { data, err } = await intelligenceDataCollector(
+		{
+			query: validation.query!,
+			enable_readonly: true,
+		},
+		"query",
+		chatSource.databaseConfigId
+	);
 
 	const executionTimeMs = Date.now() - startTime;
 

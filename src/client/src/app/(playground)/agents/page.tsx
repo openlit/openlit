@@ -5,7 +5,6 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { Bot, RefreshCw, Plus } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
-import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import {
@@ -17,12 +16,7 @@ import type { Feature } from "@/types/store/agents-instrumentation";
 import { getObservabilityView } from "@/lib/platform/agents/observability-view";
 import { getPingStatus } from "@/selectors/database-config";
 import { TIME_RANGE_TYPE } from "@/store/filter";
-import type { ControllerInstance } from "@/types/controller";
 import type { UnifiedAgent } from "@/types/agents";
-import {
-	isControllerStale,
-	resolveControllerHealth,
-} from "@/lib/platform/controller/health";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -39,16 +33,14 @@ import {
 	AGENTS_HEADER_TONE,
 } from "@/components/(playground)/agents/agent-header";
 import getMessage from "@/constants/messages";
-import NoController from "./no-controller";
+import NoSdkAgents from "./no-sdk-agents";
 import NoCodingAgents from "./no-coding-agents";
 import ServiceTable from "./service-table";
-import ControllerTable from "./controller-table";
 import CodingAgentsTable from "./coding-agents-table";
 
-type Tab = "services" | "controllers" | "coding";
+type Tab = "services" | "coding";
 
 function coerceTab(value: string | null): Tab {
-	if (value === "controllers") return "controllers";
 	if (value === "coding") return "coding";
 	return "services";
 }
@@ -59,20 +51,14 @@ export default function AgentsPage() {
 	const posthog = usePostHog();
 	const initialTab = coerceTab(searchParams.get("tab"));
 	const [activeTab, setActiveTabState] = useState<Tab>(initialTab);
-	const [setupModal, setSetupModal] = useState<null | "controller" | "coding">(
-		null
-	);
+	const [setupModal, setSetupModal] = useState<null | "coding">(null);
 	const [serviceRows, setServiceRows] = useState<UnifiedAgent[]>([]);
-	const [controllerRows, setControllerRows] = useState<ControllerInstance[]>([]);
 	const [nextCursor, setNextCursor] = useState<string | null>(null);
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
 
 	const [systemFilter, setSystemFilter] = useState<string[]>([]);
 	const [providerFilter, setProviderFilter] = useState<string[]>([]);
 	const [statusFilter, setStatusFilter] = useState<string[]>([]);
-	const [controllerHealthFilter, setControllerHealthFilter] = useState<
-		string[]
-	>([]);
 	const [refreshError, setRefreshError] = useState<string | null>(null);
 
 	const setActiveTab = useCallback((tab: Tab) => {
@@ -114,11 +100,6 @@ export default function AgentsPage() {
 	const clearIntent = useRootStore(getClearAgentIntent);
 	const pruneExpiredIntents = useRootStore(getPruneExpiredAgentIntents);
 
-	const {
-		fireRequest: fetchInstances,
-		isFetched: instancesFetched,
-		isLoading: instancesLoading,
-	} = useFetchWrapper<ControllerInstance[]>();
 	const [servicesLoading, setServicesLoading] = useState(false);
 	const [servicesFetched, setServicesFetched] = useState(false);
 
@@ -179,20 +160,7 @@ export default function AgentsPage() {
 
 	const refresh = useCallback(() => {
 		setRefreshError(null);
-		fetchInstances({
-			requestType: "GET",
-			url: "/api/controller/instances",
-			responseDataKey: "data",
-			successCb: (data) => {
-				setControllerRows(data || []);
-			},
-			failureCb: (err: any) => setRefreshError(String(err)),
-		});
 		setServicesLoading(true);
-		// Two parallel reads: Apps (default — server excludes coding)
-		// and Coding Agents (?source=coding). Settling them
-		// independently keeps a slow coding-rollup query from blocking
-		// the Apps tab from rendering, and vice versa.
 		Promise.allSettled([
 			fetchAgents(null),
 			fetchAgents(null, "coding"),
@@ -210,7 +178,7 @@ export default function AgentsPage() {
 				setServicesFetched(true);
 			})
 			.finally(() => setServicesLoading(false));
-	}, [fetchInstances, fetchAgents]);
+	}, [fetchAgents]);
 
 	const loadMore = useCallback(() => {
 		if (!nextCursor || isLoadingMore) return;
@@ -413,8 +381,8 @@ export default function AgentsPage() {
 		};
 	}, [pendingKeys, refresh, refreshPendingRows, pruneExpiredIntents]);
 
-	const isLoading = instancesLoading || servicesLoading;
-	const hasControllers = controllerRows.length > 0;
+	const isLoading = servicesLoading;
+	const hasControllers = false;
 
 	// Coding-agent rows live on a dedicated tab and a dedicated fetch
 	// (`?source=coding`). The Apps tab gets the default fetch which
@@ -465,10 +433,6 @@ export default function AgentsPage() {
 	// "always show coding stats at the top" that turned out to be
 	// the wrong call: when a user is on Applications, they want the
 	// applications-side rollup at a glance, not coding metrics.
-	const activeControllers = controllerRows.filter(
-		(c) => !isControllerStale(c)
-	);
-	const staleCount = controllerRows.length - activeControllers.length;
 	const totalServices = applicationRows.length;
 	const instrumentedServices = applicationRows.filter(
 		(s) =>
@@ -514,7 +478,6 @@ export default function AgentsPage() {
 		);
 		posthog?.capture(CLIENT_EVENTS.AGENTS_HUB_VIEWED, {
 			count: applicationRows.length,
-			controllers: activeControllers.length,
 		});
 		posthog?.capture(CLIENT_EVENTS.CODING_AGENTS_VIEWED, {
 			count: codingVendorsUsed,
@@ -523,7 +486,6 @@ export default function AgentsPage() {
 	}, [
 		servicesFetched,
 		applicationRows.length,
-		activeControllers.length,
 		codingVendorsUsed,
 		codingRows,
 		posthog,
@@ -537,67 +499,13 @@ export default function AgentsPage() {
 		return Array.from(set).sort();
 	}, [serviceRows]);
 
-	const allSystems = useMemo(() => {
-		const set = new Set<string>();
-		for (const inst of controllerRows) {
-			set.add(inst.mode === "kubernetes" ? "kubernetes" : inst.mode === "docker" ? "docker" : "linux");
-		}
-		return Array.from(set).sort();
-	}, [controllerRows]);
-
-	const filteredControllerRows = useMemo(() => {
-		if (controllerHealthFilter.length === 0) return controllerRows;
-		return controllerRows.filter((row) =>
-			controllerHealthFilter.includes(resolveControllerHealth(row))
-		);
-	}, [controllerRows, controllerHealthFilter]);
-
-	const controllerHealthOptions = useMemo(() => {
-		const options = [
-			{
-				value: "active",
-				label: getMessage().AGENTS_FILTER_CONTROLLER_ACTIVE,
-			},
-			{
-				value: "healthy",
-				label: getMessage().AGENTS_FILTER_CONTROLLER_HEALTHY,
-			},
-			{
-				value: "degraded",
-				label: getMessage().AGENTS_FILTER_CONTROLLER_DEGRADED,
-			},
-			{
-				value: "inactive",
-				label: getMessage().AGENTS_FILTER_CONTROLLER_STALE,
-			},
-		];
-		const hasError = controllerRows.some(
-			(row) => resolveControllerHealth(row) === "error"
-		);
-		if (hasError) {
-			options.push({
-				value: "error",
-				label: getMessage().AGENTS_FILTER_CONTROLLER_ERROR,
-			});
-		}
-		return options;
-	}, [controllerRows]);
-
-	// Per-stat click targets for the legacy (Applications /
-	// Controllers) stat row. Controllers cards routes to the
-	// controllers tab; the two service-side cards route to
-	// Applications and optionally apply the "instrumented" status
-	// filter so the table reflects what the user just clicked.
 	const handleLegacyStatClick = (
-		stat: "controllers" | "discovered" | "instrumented",
+		stat: "discovered" | "instrumented",
 	) => {
-		if (stat === "controllers") {
-			setActiveTab("controllers");
-		} else if (stat === "discovered") {
-			setActiveTab("services");
+		setActiveTab("services");
+		if (stat === "discovered") {
 			setStatusFilter([]);
 		} else {
-			setActiveTab("services");
 			setStatusFilter(["instrumented"]);
 		}
 	};
@@ -614,9 +522,7 @@ export default function AgentsPage() {
 					? setSystemFilter
 					: type === "provider"
 						? setProviderFilter
-						: type === "controllerHealth"
-							? setControllerHealthFilter
-							: setStatusFilter;
+						: setStatusFilter;
 			setter((prev) =>
 				operationType === "delete"
 					? prev.filter((v) => v !== value)
@@ -632,9 +538,7 @@ export default function AgentsPage() {
 				? setSystemFilter
 				: type === "provider"
 					? setProviderFilter
-					: type === "controllerHealth"
-						? setControllerHealthFilter
-						: setStatusFilter;
+					: setStatusFilter;
 		setter([]);
 	}, []);
 
@@ -645,9 +549,7 @@ export default function AgentsPage() {
 				title={
 					activeTab === "coding"
 						? getMessage().AGENTS_TAB_CODING
-						: activeTab === "controllers"
-							? getMessage().AGENTS_TAB_CONTROLLERS
-							: getMessage().AGENTS_TAB_SERVICES
+						: getMessage().AGENTS_TAB_SERVICES
 				}
 				icon={<Bot className="h-4 w-4" />}
 				tone={AGENTS_HEADER_TONE}
@@ -658,7 +560,6 @@ export default function AgentsPage() {
 								[
 									{ id: "services", label: getMessage().AGENTS_TAB_SERVICES },
 									{ id: "coding", label: getMessage().AGENTS_TAB_CODING },
-									{ id: "controllers", label: getMessage().AGENTS_TAB_CONTROLLERS },
 								] as const
 							).map((tab) => (
 								<AgentPillTab
@@ -669,17 +570,6 @@ export default function AgentsPage() {
 								/>
 							))}
 						</div>
-						{activeTab === "controllers" && (
-							<Button
-								variant="secondary"
-								size="sm"
-								className="h-7 bg-primary text-stone-100 hover:bg-primary dark:bg-primary dark:text-stone-100 dark:hover:bg-primary"
-								onClick={() => setSetupModal("controller")}
-							>
-								<Plus className="w-3 h-3 mr-1.5" />
-								{getMessage().AGENTS_ADD_CONTROLLER}
-							</Button>
-						)}
 						{activeTab === "coding" && (
 							<Button
 								variant="secondary"
@@ -704,25 +594,7 @@ export default function AgentsPage() {
 					    Controllers — they either don't apply to those tables
 					    or use the wrong semantics (e.g. "Discovered" on a
 					    coding vendor row). */}
-					{activeTab === "services" && hasControllers && allSystems.length > 0 && (
-						<ComboDropdown
-							title={getMessage().AGENTS_FILTER_SYSTEM}
-							options={allSystems.map((s) => ({
-								value: s,
-								label:
-									s === "kubernetes"
-										? getMessage().AGENTS_SYSTEM_KUBERNETES
-										: s === "docker"
-											? getMessage().AGENTS_SYSTEM_DOCKER
-											: getMessage().AGENTS_SYSTEM_LINUX,
-							}))}
-							selectedValues={systemFilter}
-							type="system"
-							updateSelectedValues={updateFilterValues}
-							clearItem={clearFilterItem}
-						/>
-					)}
-					{activeTab === "services" && hasControllers && allProviders.length > 0 && (
+					{activeTab === "services" && allProviders.length > 0 && (
 						<ComboDropdown
 							title={getMessage().AGENTS_FILTER_PROVIDER}
 							options={allProviders.map((p) => ({
@@ -735,8 +607,7 @@ export default function AgentsPage() {
 							clearItem={clearFilterItem}
 						/>
 					)}
-					{activeTab === "services" &&
-						(hasControllers || serviceRows.length > 0) && (
+					{activeTab === "services" && serviceRows.length > 0 && (
 						<ComboDropdown
 							title={getMessage().AGENTS_FILTER_STATUS}
 							options={[
@@ -755,16 +626,6 @@ export default function AgentsPage() {
 							]}
 							selectedValues={statusFilter}
 							type="status"
-							updateSelectedValues={updateFilterValues}
-							clearItem={clearFilterItem}
-						/>
-					)}
-					{activeTab === "controllers" && controllerRows.length > 0 && (
-						<ComboDropdown
-							title={getMessage().AGENTS_FILTER_CONTROLLER_HEALTH}
-							options={controllerHealthOptions}
-							selectedValues={controllerHealthFilter}
-							type="controllerHealth"
 							updateSelectedValues={updateFilterValues}
 							clearItem={clearFilterItem}
 						/>
@@ -788,19 +649,10 @@ export default function AgentsPage() {
 			)}
 
 			{/*
-			 * Empty state is now per-tab. Previously a hub-wide
-			 * `NoController` swallowed the entire viewport when every
-			 * source was empty, which forced a user with only coding
-			 * telemetry to discover the Coding Agents tab via the
-			 * auto-route effect. The new model:
-			 *   - Applications tab → NoController (the original
-			 *     install-the-controller flow) when 0 application rows.
-			 *   - Coding Agents tab → NoCodingAgents (vendor picker
-			 *     with `openlit coding install --vendor=<v>` snippets).
-			 *   - Controllers tab → NoController when 0 controllers.
-			 * The stat cards / tab bar always render so the user can
-			 * switch tabs and see the right onboarding for whatever
-			 * they're actually trying to do.
+			 * Empty state is per-tab so a user with only coding
+			 * telemetry is not forced through SDK onboarding:
+			 *   - Applications → NoSdkAgents when 0 application rows.
+			 *   - Coding Agents → NoCodingAgents (vendor picker).
 			 */}
 			{(
 				<>
@@ -855,23 +707,7 @@ export default function AgentsPage() {
 							</button>
 						</div>
 					) : (
-						<div className="grid grid-cols-3 gap-2">
-							<button
-								onClick={() => handleLegacyStatClick("controllers")}
-								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
-							>
-								<div className="text-lg font-semibold leading-tight text-stone-900 dark:text-stone-100">
-									{activeControllers.length}
-									{staleCount > 0 && (
-										<span className="ml-1.5 text-xs font-normal text-stone-500 dark:text-stone-500">
-											({staleCount} stale)
-										</span>
-									)}
-								</div>
-								<div className="text-xs text-stone-500 dark:text-stone-400">
-									{getMessage().AGENTS_STAT_CONTROLLERS}
-								</div>
-							</button>
+						<div className="grid grid-cols-2 gap-2">
 							<button
 								onClick={() => handleLegacyStatClick("discovered")}
 								className="rounded-md border border-stone-200 px-3 py-2 text-left transition-colors hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/50"
@@ -907,14 +743,14 @@ export default function AgentsPage() {
 							{servicesFetched &&
 							!isLoading &&
 							applicationRows.length === 0 ? (
-								<NoController />
+								<NoSdkAgents />
 							) : (
 								<>
 									<ServiceTable
 										services={applicationRows}
-										instances={controllerRows}
+										instances={[]}
 										onRefresh={refresh}
-										isFetched={servicesFetched && instancesFetched}
+										isFetched={servicesFetched}
 										isLoading={isLoading}
 										systemFilter={systemFilter}
 									/>
@@ -933,22 +769,6 @@ export default function AgentsPage() {
 										</div>
 									)}
 								</>
-							)}
-						</>
-					)}
-
-					{activeTab === "controllers" && (
-						<>
-							{instancesFetched &&
-							!instancesLoading &&
-							controllerRows.length === 0 ? (
-								<NoController />
-							) : (
-								<ControllerTable
-									instances={filteredControllerRows}
-									isFetched={instancesFetched}
-									isLoading={instancesLoading}
-								/>
 							)}
 						</>
 					)}
@@ -979,21 +799,13 @@ export default function AgentsPage() {
 				<DialogContent className="max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>
-							{setupModal === "coding"
-								? getMessage().AGENTS_ADD_CODING_AGENT
-								: getMessage().AGENTS_ADD_CONTROLLER}
+							{getMessage().AGENTS_ADD_CODING_AGENT}
 						</DialogTitle>
 						<DialogDescription>
-							{setupModal === "coding"
-								? getMessage().AGENTS_NO_CODING_AGENTS_DESCRIPTION
-								: getMessage().AGENTS_NO_CONTROLLERS_DESCRIPTION}
+							{getMessage().AGENTS_NO_CODING_AGENTS_DESCRIPTION}
 						</DialogDescription>
 					</DialogHeader>
-					{setupModal === "coding" ? (
-						<NoCodingAgents compact />
-					) : (
-						<NoController inModal />
-					)}
+					<NoCodingAgents compact />
 				</DialogContent>
 			</Dialog>
 		</div>

@@ -4,7 +4,7 @@ import {
   REFRESH_RATE_TYPE,
   DEFAULT_TIME_RANGE,
 } from '@/store/filter';
-import { addDays, addWeeks, addMonths } from 'date-fns';
+import { addDays, addWeeks } from 'date-fns';
 
 describe('TIME_RANGE_TYPE', () => {
   it('has all expected time range keys', () => {
@@ -59,15 +59,15 @@ describe('getTimeLimitObject', () => {
     expect(Math.abs(result.start.getTime() - expectedStart.getTime())).toBeLessThan(TOLERANCE_MS);
   });
 
-  it('returns start ~1 month ago for 1M', () => {
+  it('returns a fixed 30-day window for 1M', () => {
     const result = getTimeLimitObject('1M', '') as { start: Date; end: Date };
-    const expectedStart = addMonths(new Date(), -1);
+    const expectedStart = addDays(new Date(), -30);
     expect(Math.abs(result.start.getTime() - expectedStart.getTime())).toBeLessThan(TOLERANCE_MS);
   });
 
-  it('returns start ~3 months ago for 3M', () => {
+  it('returns a fixed 90-day window for 3M', () => {
     const result = getTimeLimitObject('3M', '') as { start: Date; end: Date };
-    const expectedStart = addMonths(new Date(), -3);
+    const expectedStart = addDays(new Date(), -90);
     expect(Math.abs(result.start.getTime() - expectedStart.getTime())).toBeLessThan(TOLERANCE_MS);
   });
 

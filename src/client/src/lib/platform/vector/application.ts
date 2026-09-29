@@ -1,8 +1,12 @@
 import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import { MetricParams, OTEL_TRACES_TABLE_NAME, dataCollector } from "../common";
 import { getFilterWhereCondition } from "@/helpers/server/platform";
+import { externalResultGenerationByApplication } from "./external";
 
 export async function getResultGenerationByApplication(params: MetricParams) {
+	const external = await externalResultGenerationByApplication(params);
+	if (external) return external;
+
 	const key = `ResourceAttributes['${getTraceMappingKeyFullPath(
 		"applicationName"
 	)}']`;

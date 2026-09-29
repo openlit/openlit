@@ -43,7 +43,7 @@ export default function Generate({ refresh }: { refresh: () => void }) {
 			}),
 			successCb: (data: any) => {
 				copy(data.apiKey);
-				toast.success("Generated and Copied new API key!", {
+				toast.success("Generated and copied. This key is shown only once.", {
 					id: "api-key",
 				});
 				setIsOpen(false);

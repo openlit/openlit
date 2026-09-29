@@ -66,13 +66,36 @@ def process_chunk(scope, chunk):
 
     chunked = response_as_dict(chunk)
     # Collect message IDs and aggregated response from events
-    if len(chunked.get("choices")) > 0 and (
-        "delta" in chunked.get("choices")[0]
-        and "content" in chunked.get("choices")[0].get("delta")
-    ):
-        content = chunked.get("choices")[0].get("delta").get("content")
+    choices = chunked.get("choices", [])
+    if choices and "delta" in choices[0]:
+        delta = choices[0].get("delta", {})
+        content = delta.get("content")
         if content:
             scope._llmresponse += content
+
+        delta_tools = delta.get("tool_calls")
+        if delta_tools:
+            scope._tools = scope._tools or []
+            for tool in delta_tools:
+                index = tool.get("index", 0)
+                scope._tools.extend([{}] * (index + 1 - len(scope._tools)))
+                function = tool.get("function") or {}
+                if tool.get("id"):
+                    scope._tools[index] = {
+                        "id": tool["id"],
+                        "function": {
+                            # `or ""` handles explicit None from OpenAI-compatible SDKs
+                            "name": function.get("name") or "",
+                            "arguments": function.get("arguments") or "",
+                        },
+                        "type": tool.get("type", "function"),
+                    }
+                elif scope._tools[index] and "function" in tool:
+                    new_args = function.get("arguments") or ""
+                    if scope._tools[index]["function"]["arguments"] is None:
+                        scope._tools[index]["function"]["arguments"] = new_args
+                    else:
+                        scope._tools[index]["function"]["arguments"] += new_args
 
     if chunked.get("usage"):
         scope._response_id = chunked.get("id")
@@ -258,15 +281,30 @@ def common_chat_logic(
 
     # Span Attributes for Tools
     if scope._tools:
+        tools = scope._tools if isinstance(scope._tools, list) else [scope._tools]
+
+        filtered_tools = [
+            (
+                t.get("function", {}).get("name", ""),
+                str(t.get("id", "")),
+                str(t.get("function", {}).get("arguments", "")),
+            )
+            for t in tools
+            if isinstance(t, dict) and t
+        ]
+        if filtered_tools:
+            names, ids, args = zip(*filtered_tools)
+        else:
+            names, ids, args = (), (), ()
+
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function", "")
-        ).get("name", "")
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", ""))
+            SemanticConvention.GEN_AI_TOOL_NAME, ", ".join(filter(None, names))
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS,
-            str(scope._tools.get("function", "").get("arguments", "")),
+            SemanticConvention.GEN_AI_TOOL_CALL_ID, ", ".join(filter(None, ids))
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_ARGS, ", ".join(filter(None, args))
         )
 
     # Compute system instructions + tool definitions unconditionally so the

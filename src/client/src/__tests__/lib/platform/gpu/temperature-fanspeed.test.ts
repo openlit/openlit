@@ -3,6 +3,12 @@ jest.mock('@/lib/platform/common', () => ({
   OTEL_GPUS_TABLE_NAME: 'otel_metrics_gauge',
 }));
 
+jest.mock('@/lib/platform/gpu/external', () => ({
+  externalAverageTemperature: jest.fn().mockResolvedValue(null),
+  externalAverageTemperatureParamsPerTime: jest.fn().mockResolvedValue(null),
+  externalFanspeedParamsPerTime: jest.fn().mockResolvedValue(null),
+}));
+
 import { getAverageTemperature, getAverageTemperatureParamsPerTime } from '@/lib/platform/gpu/temperature';
 import { getFanspeedParamsPerTime } from '@/lib/platform/gpu/fanspeed';
 import { dataCollector } from '@/lib/platform/common';

@@ -59,7 +59,10 @@ export default function ManageModelsSection() {
 	const [editingProvider, setEditingProvider] = useState<ProviderFormData | null>(null);
 	const [importJson, setImportJson] = useState("");
 
-	const databaseConfigList = useRootStore(getDatabaseConfigList) || [];
+	const databaseConfigListRaw = useRootStore(getDatabaseConfigList);
+	const databaseConfigList = Array.isArray(databaseConfigListRaw)
+		? databaseConfigListRaw
+		: [];
 	const activeDbConfig = useMemo(
 		() => databaseConfigList.find((item) => !!item.isCurrent),
 		[databaseConfigList]

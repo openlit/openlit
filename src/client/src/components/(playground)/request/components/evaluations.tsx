@@ -115,9 +115,11 @@ function EvaluationCard({
 
 function ManualFeedbackForm({
 	spanId,
+	traceId,
 	onSuccess,
 }: {
 	spanId: string;
+	traceId?: string;
 	onSuccess: () => void;
 }) {
 	const [rating, setRating] = useState<
@@ -128,8 +130,10 @@ function ManualFeedbackForm({
 
 	const handleSubmit = () => {
 		if (!rating) return;
+		const params = new URLSearchParams();
+		if (traceId) params.set("traceId", traceId);
 		fireRequest({
-			url: `/api/evaluation/${spanId}/feedback`,
+			url: `/api/evaluation/${spanId}/feedback${params.size ? `?${params}` : ""}`,
 			requestType: "POST",
 			body: JSON.stringify({ rating, comment: comment.trim() || undefined }),
 			successCb: () => {
@@ -442,8 +446,10 @@ export default function Evaluations({
 	} = useFetchWrapper();
 
 	const runEvaluation = () => {
+		const params = new URLSearchParams();
+		if (trace.id) params.set("traceId", String(trace.id));
 		runEvaluationRequest({
-			url: `/api/evaluation/${trace.spanId}`,
+			url: `/api/evaluation/${trace.spanId}${params.size ? `?${params}` : ""}`,
 			requestType: "POST",
 			responseDataKey: "data",
 			successCb: (data: { success: boolean; error?: string }) => {
@@ -460,8 +466,10 @@ export default function Evaluations({
 	};
 
 	const getEvaluations = () => {
+		const params = new URLSearchParams();
+		if (trace.id) params.set("traceId", String(trace.id));
 		fireRequest({
-			url: `/api/evaluation/${trace.spanId}`,
+			url: `/api/evaluation/${trace.spanId}${params.size ? `?${params}` : ""}`,
 			requestType: "GET",
 		});
 	};
@@ -622,7 +630,11 @@ export default function Evaluations({
 			{/* Manual feedback */}
 			<div className="space-y-3 pt-3">
 				<FeedbackList feedbacks={feedbacks} />
-				<ManualFeedbackForm spanId={trace.spanId} onSuccess={getEvaluations} />
+				<ManualFeedbackForm
+					spanId={trace.spanId}
+					traceId={trace.id}
+					onSuccess={getEvaluations}
+				/>
 			</div>
 		</div>,
 		{

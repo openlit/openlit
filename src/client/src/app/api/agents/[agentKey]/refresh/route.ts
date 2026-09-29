@@ -1,5 +1,6 @@
 import { getAgent } from "@/lib/platform/agents";
 import { materializeAgents } from "@/lib/platform/agents/materialize";
+import { withRouteAccess } from "@/lib/access/route-access";
 
 /**
  * Synchronous materialization for a single agent. Rate-limited to 1 call /
@@ -8,7 +9,7 @@ import { materializeAgents } from "@/lib/platform/agents/materialize";
 const RATE_WINDOW_MS = 10_000;
 const lastRefreshAt = new Map<string, number>();
 
-export async function POST(
+async function POSTHandler(
 	_request: Request,
 	{ params }: { params: Promise<{ agentKey: string }> }
 ) {
@@ -43,3 +44,5 @@ export async function POST(
 
 	return Response.json({ success: true, result });
 }
+
+export const POST = withRouteAccess("observability.read", POSTHandler, { requireDbConfig: true });

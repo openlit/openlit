@@ -36,13 +36,14 @@ type DeviceInfo struct {
 // Nil pointer fields indicate the metric is unavailable for this device.
 type Snapshot struct {
 	Utilization        *float64 // GPU compute busy (%)
-	MemoryUtilization  *float64 // memory controller busy (%)
+	MemoryUtilization  *float64 // memory controller busy (%); exported as hw.gpu.memory.controller.utilization
 	EncoderUtilization *float64 // video encoder busy (%)
 	DecoderUtilization *float64 // video decoder busy (%)
 
 	TemperatureGPU    *float64 // die temperature (celsius)
 	TemperatureMemory *float64 // memory temperature (celsius)
 	FanSpeedRPM       *float64 // fan speed (RPM)
+	FanSpeedRatio     *float64 // fan speed as fraction of max (0..1); NVIDIA NVML %
 
 	MemoryTotalBytes *int64 // total VRAM (bytes)
 	MemoryUsedBytes  *int64 // used VRAM (bytes)
@@ -52,7 +53,8 @@ type Snapshot struct {
 	PowerLimitWatts *float64 // power limit (watts)
 	EnergyJoules    *float64 // cumulative energy consumed (joules)
 
-	ClockGraphicsMHz *float64 // current graphics/SM clock (MHz)
+	ClockGraphicsMHz *float64 // current graphics clock (MHz)
+	ClockSMMHz       *float64 // current SM clock (MHz); NVIDIA NVML CLOCK_SM
 	ClockMemoryMHz   *float64 // current memory clock (MHz)
 
 	PCIeReplayErrors *int64 // cumulative PCIe replay counter
@@ -62,11 +64,20 @@ type Snapshot struct {
 	// PCIe throughput (bytes/sec). Soft-nil when unsupported.
 	PCIeRxBytesPerSec *float64
 	PCIeTxBytesPerSec *float64
+	// Cumulative PCIe bytes when available (preferred for hw.gpu.io Counter).
+	PCIeRxBytesTotal *int64
+	PCIeTxBytesTotal *int64
 
 	// Interconnect (NVLink / XGMI / Xe-Link) aggregate throughput.
 	InterconnectRxBytesPerSec *float64
 	InterconnectTxBytesPerSec *float64
+	InterconnectRxBytesTotal  *int64
+	InterconnectTxBytesTotal  *int64
 	InterconnectType          string // nvlink | xgmi | other; empty if unknown
+
+	// Serial / firmware for semconv recommended attrs (empty when unknown).
+	SerialNumber    string
+	FirmwareVersion string
 
 	// ThrottleReasons is a stable string label (e.g. "sw_thermal,hw_thermal") when known.
 	ThrottleReasons *string
