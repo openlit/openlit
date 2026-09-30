@@ -377,6 +377,13 @@ def common_chat_logic(
 
     request_model = scope._kwargs.get("model", "mistral-small-latest")
 
+    # mistralai names these top_p, stop and random_seed; stop may be one string.
+    top_p = scope._kwargs.get("top_p", 1.0)
+    stop_sequences = scope._kwargs.get("stop") or []
+    if isinstance(stop_sequences, str):
+        stop_sequences = [stop_sequences]
+    seed = scope._kwargs.get("random_seed", "")
+
     # Compute cost (Mistral prompt_tokens include cached_tokens when present).
     cost = get_chat_model_cost(
         request_model,
@@ -408,9 +415,7 @@ def common_chat_logic(
     # Mistral chat (no additional API type attribute)
 
     # Span Attributes for Request parameters
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_SEED, scope._kwargs.get("seed", "")
-    )
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed)
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
         scope._kwargs.get("frequency_penalty", 0.0),
@@ -425,18 +430,13 @@ def common_chat_logic(
     )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
-        scope._kwargs.get("stop_sequences", []),
+        stop_sequences,
     )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
         scope._kwargs.get("temperature", 0.3),
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TOP_K, scope._kwargs.get("k", 1.0)
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TOP_P, scope._kwargs.get("p", 1.0)
-    )
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p)
 
     # Span Attributes for Response parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
@@ -516,7 +516,7 @@ def common_chat_logic(
         primary_model=scope._response_model or request_model,
         runtime_config={
             "temperature": scope._kwargs.get("temperature", 0.3),
-            "top_p": scope._kwargs.get("p", 1.0),
+            "top_p": top_p,
             "max_tokens": scope._kwargs.get("max_tokens", -1),
             "provider": SemanticConvention.GEN_AI_SYSTEM_MISTRAL,
         },
@@ -546,11 +546,11 @@ def common_chat_logic(
                 else "json",
                 "temperature": scope._kwargs.get("temperature", 0.3),
                 "max_tokens": scope._kwargs.get("max_tokens", -1),
-                "top_p": scope._kwargs.get("p", 1.0),
+                "top_p": top_p,
                 "frequency_penalty": scope._kwargs.get("frequency_penalty", 0.0),
                 "presence_penalty": scope._kwargs.get("presence_penalty", 0.0),
-                "stop_sequences": scope._kwargs.get("stop_sequences", []),
-                "seed": scope._kwargs.get("seed", ""),
+                "stop_sequences": stop_sequences,
+                "seed": seed,
                 "input_tokens": scope._input_tokens,
                 "output_tokens": scope._output_tokens,
                 "cache_read_input_tokens": getattr(
