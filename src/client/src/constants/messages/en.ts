@@ -1686,10 +1686,6 @@ export const PERSONAL_ORGANISATION = "Personal";
 // Auth
 export const AUTH_WELCOME = "Welcome to OpenLIT";
 export const AUTH_SUBTITLE = "Open source Agent Harness Engineering platform";
-export const AUTH_PANEL_EYEBROW = "Agent Harness Engineering";
-export const AUTH_PANEL_TITLE = "Trace, evaluate, and operate AI agents";
-export const AUTH_PANEL_BODY =
-	"LLM tracing, evaluations, prompt management, and cost tracking in one open-source platform.";
 export const TALK_TO_FOUNDER = "Talk to founder";
 export const TALK_TO_FOUNDER_HINT = "Schedule a 30-minute call";
 export const AUTH_SIGNING_IN = "Signing in...";
@@ -1716,28 +1712,6 @@ export const AUTH_ERROR_CONFIGURATION = "There is a problem with the server conf
 export const AUTH_ERROR_DEFAULT = "Unable to sign in.";
 export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
 export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
-
-// Auth feature highlights
-export const AUTH_FEATURE_TRACING = "LLM tracing";
-export const AUTH_FEATURE_TRACING_DESC = "OpenTelemetry traces for every call, tool, and retrieval";
-export const AUTH_FEATURE_ANALYTICS = "Cost and latency";
-export const AUTH_FEATURE_ANALYTICS_DESC = "Track spend, tokens, and speed for every AI workload";
-export const AUTH_FEATURE_EVALS = "Evaluations";
-export const AUTH_FEATURE_EVALS_DESC = "LLM-as-a-judge, heuristics, and human review";
-export const AUTH_FEATURE_JUDGE = "LLM-as-a-Judge";
-export const AUTH_FEATURE_JUDGE_DESC = "Automated quality scoring with any LLM";
-export const AUTH_FEATURE_OPENGROUND = "OpenGround";
-export const AUTH_FEATURE_OPENGROUND_DESC = "Compare LLMs side-by-side on cost & quality";
-export const AUTH_FEATURE_PROMPT_HUB = "Prompt Hub";
-export const AUTH_FEATURE_PROMPT_HUB_DESC = "Version and deploy prompts without shipping app code";
-export const AUTH_FEATURE_RULE_ENGINE = "Rule Engine";
-export const AUTH_FEATURE_RULE_ENGINE_DESC = "Conditional context and prompt retrieval";
-export const AUTH_FEATURE_VAULT = "Vault";
-export const AUTH_FEATURE_VAULT_DESC = "Store and rotate LLM API keys outside application code";
-export const AUTH_FEATURE_AGENTS = "Agent monitoring";
-export const AUTH_FEATURE_AGENTS_DESC = "See tools, cost, and outcomes for coding agents";
-export const AUTH_FEATURE_OTEL = "OpenTelemetry Native";
-export const AUTH_FEATURE_OTEL_DESC = "Built on open standards, no vendor lock-in";
 
 // Context UI
 export const CONTEXT_TITLE = "Context";

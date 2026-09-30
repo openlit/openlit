@@ -1,14 +1,12 @@
 import Link from 'next/link'
 import Confetti from '@/components/common/confetti'
-import AuthDetailsCarousel from '@/components/(auth)/auth-details-carousel'
 import { Button } from '@/components/ui/button'
 import { GithubIcon, MoveRightIcon } from 'lucide-react'
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-white dark:bg-white">
-      <AuthDetailsCarousel />
-      <div className="flex flex-col justify-center p-8 lg:p-16 bg-stone-50 relative">
+    <div className="min-h-screen bg-stone-50">
+      <div className="relative flex min-h-screen flex-col justify-center p-8 lg:p-16">
         <Confetti />
         <div className="flex flex-col w-full max-w-sm mx-auto gap-12 z-10">
           <div className="text-center">
