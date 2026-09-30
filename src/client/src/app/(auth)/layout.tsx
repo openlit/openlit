@@ -1,4 +1,4 @@
-import AuthFormContainer from "@/components/(auth)/auth-form-container";
+import AuthShell from "@/components/(auth)/auth-shell";
 import AutoSignInDemoInstance from "../../components/(auth)/auto-signin-demo-instance";
 import CustomPostHogProvider from "@/components/(playground)/posthog";
 
@@ -11,11 +11,11 @@ export default function AuthLayout({
 
 	return (
 		<CustomPostHogProvider telemetryEnabled={telemetryEnabled}>
-			<AuthFormContainer>
+			<AuthShell>
 				<AutoSignInDemoInstance demoCreds={{ email: process.env.DEMO_ACCOUNT_EMAIL, password: process.env.DEMO_ACCOUNT_PASSWORD }}>
 					{children}
 				</AutoSignInDemoInstance>
-			</AuthFormContainer>
+			</AuthShell>
 		</CustomPostHogProvider>
 	);
 }

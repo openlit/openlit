@@ -1713,6 +1713,22 @@ export const AUTH_ERROR_DEFAULT = "Unable to sign in.";
 export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
 export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
 
+// Error pages
+export const ERROR_PAGE_NOT_FOUND_CODE = "404";
+export const ERROR_PAGE_NOT_FOUND_LABEL = "Page not found";
+export const ERROR_PAGE_NOT_FOUND_TITLE = "Bug or feature?";
+export const ERROR_PAGE_NOT_FOUND_DESCRIPTION =
+	"This page drifted outside our observability zone. Let's head back to reality.";
+export const ERROR_PAGE_SERVER_ERROR_CODE = "500";
+export const ERROR_PAGE_SERVER_ERROR_LABEL = "Something went wrong";
+export const ERROR_PAGE_SERVER_ERROR_TITLE = "Something went wrong";
+export const ERROR_PAGE_SERVER_ERROR_DESCRIPTION =
+	"An unexpected error interrupted this page. Try again, or head back and pick up where you left off.";
+export const ERROR_PAGE_REFERENCE = "Reference";
+export const ERROR_PAGE_TRY_AGAIN = "Try again";
+export const ERROR_PAGE_GO_TO_DASHBOARD = "Return to dashboard";
+export const ERROR_PAGE_GO_TO_SIGN_IN = "Go to sign in";
+
 // Context UI
 export const CONTEXT_TITLE = "Context";
 export const CONTEXT_CREATE = "Create Context";
