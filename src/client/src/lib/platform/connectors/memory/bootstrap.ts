@@ -1,5 +1,5 @@
 /**
- * Adapter bootstrap for CE memory connectors: Claude, Letta, Mem0, and Zep.
+ * Adapter bootstrap for CE memory connectors: Claude, Letta, Mem0, MemCode, and Zep.
  * Enterprise builds may contribute additional factories through the
  * neutral extension hook.
  */
@@ -8,6 +8,7 @@ import { getExternalMemoryAdapters } from "./enterprise";
 import { claudeAdapterFactory } from "./claude/adapter";
 import { lettaAdapterFactory } from "./letta/adapter";
 import { mem0AdapterFactory } from "./mem0/adapter";
+import { memcodeAdapterFactory } from "./memcode/adapter";
 import {
 	hasMemoryAdapterFactory,
 	registerMemoryAdapterFactory,
@@ -19,6 +20,7 @@ const VENDOR_FACTORIES = [
 	claudeAdapterFactory,
 	lettaAdapterFactory,
 	mem0AdapterFactory,
+	memcodeAdapterFactory,
 	zepAdapterFactory,
 ];
 
@@ -36,6 +38,7 @@ export function ensureMemoryAdaptersRegistered(): void {
 		hasMemoryAdapterFactory("claude") &&
 		hasMemoryAdapterFactory("letta") &&
 		hasMemoryAdapterFactory("mem0") &&
+		hasMemoryAdapterFactory("memcode") &&
 		hasMemoryAdapterFactory("zep")
 	) {
 		return;

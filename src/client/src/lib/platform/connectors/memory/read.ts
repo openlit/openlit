@@ -61,6 +61,7 @@ export interface MemoryQueryInput {
 	sessionId?: string;
 	query?: string;
 	limit?: number;
+	offset?: number;
 }
 
 export interface MemoryListItem extends MemoryRecord {
@@ -84,6 +85,12 @@ export interface MemoryQueryResult {
 	filters: MemoryFilterOptions;
 	filterFields: MemoryFilterField[];
 	hint?: MemoryQueryHint;
+	/** Offset this page started at. */
+	offset: number;
+	/** True when the backend holds more memories past this page. */
+	hasMore: boolean;
+	/** Durable total reported by the backend, when it reports one. */
+	total?: number;
 }
 
 export interface MemoryDetailResult {
@@ -101,7 +108,8 @@ export interface MemoryFeedbackResult {
 }
 
 const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 100;
+const MAX_LIMIT = 500;
+const MAX_OFFSET = 1_000_000;
 const FEEDBACK_REASON_MAX = 1000;
 
 function trim(value?: string): string | undefined {
@@ -112,6 +120,11 @@ function trim(value?: string): string | undefined {
 function clampLimit(value?: number): number {
 	if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_LIMIT;
 	return Math.min(MAX_LIMIT, Math.max(1, Math.floor(value)));
+}
+
+function clampOffset(value?: number): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+	return Math.min(MAX_OFFSET, Math.max(0, Math.floor(value)));
 }
 
 function fallbackFilterFields(): MemoryFilterField[] {
@@ -303,6 +316,8 @@ function emptyResult(partial: {
 		filters: partial.filters || emptyMemoryFilters(),
 		filterFields: partial.filterFields || [],
 		hint: partial.hint,
+		offset: 0,
+		hasMore: false,
 	};
 }
 
@@ -330,11 +345,13 @@ export async function queryProjectMemories(
 	const capabilities = adapter.capabilities();
 	const filterFields = resolveFilterFields(String(connector.type || ""));
 	const limit = clampLimit(input.limit);
+	const offset = clampOffset(input.offset);
 	const filter = {
 		userId: trim(input.userId),
 		agentId: trim(input.agentId),
 		sessionId: trim(input.sessionId),
 		limit,
+		offset,
 	};
 	const query = trim(input.query);
 	const filters = await safeListFilters(adapter);
@@ -343,6 +360,8 @@ export async function queryProjectMemories(
 	);
 
 	let records: MemoryRecord[] = [];
+	let total: number | undefined;
+	let hasMore = false;
 	if (query) {
 		if (!capabilities.search) {
 			throw new Error(MEMORY_CONNECTOR_QUERY_REQUIRED);
@@ -361,7 +380,16 @@ export async function queryProjectMemories(
 		}
 	} else {
 		try {
-			records = await adapter.list(filter);
+			// Adapters whose backend reports a durable total paginate; the rest
+			// keep the single-shot list they have always used.
+			if (typeof adapter.listPage === "function") {
+				const page = await adapter.listPage(filter);
+				records = page.records;
+				total = page.total;
+				hasMore = page.hasMore;
+			} else {
+				records = await adapter.list(filter);
+			}
 		} catch (error) {
 			return emptyResult({
 				connectors,
@@ -399,6 +427,17 @@ export async function queryProjectMemories(
 		};
 	});
 
+	const stats = summarizeMemoryStats(memories);
+	// A backend total outranks the page length so the header does not shrink to
+	// "50" when the operator is looking at the first page of thousands.
+	if (typeof total === "number" && total > stats.total) stats.total = total;
+
+	const resolved = await resolveGraph(adapter, records, { filter, offset, query });
+	// With a real graph, "connections" means scored edges between memories. The
+	// derived graph only has user/session parent links, which are not
+	// connections in that sense, so it keeps the user+session pairing count.
+	if (resolved.fromAdapter) stats.connections = resolved.graph.edges.length;
+
 	return {
 		connectors: connectorsWithCopyMeta,
 		connector: {
@@ -408,11 +447,40 @@ export async function queryProjectMemories(
 		},
 		capabilities,
 		memories,
-		stats: summarizeMemoryStats(memories),
-		graph: buildMemoryGraph(records),
+		stats,
+		graph: resolved.graph,
 		filters: knownFilters(filters, remembered, filter, records),
 		filterFields,
+		offset,
+		hasMore,
+		total,
 	};
+}
+
+/**
+ * Prefer a connector's own graph endpoint; fall back to the graph derived from
+ * list records for connectors that do not expose one. Paging the list must not
+ * refetch the graph, and a graph failure must not fail the page.
+ */
+async function resolveGraph(
+	adapter: MemoryAdapter,
+	records: MemoryRecord[],
+	ctx: { filter: { userId?: string }; offset: number; query?: string }
+): Promise<{ graph: MemoryGraphModel; fromAdapter: boolean }> {
+	if (typeof adapter.graph !== "function") {
+		return { graph: buildMemoryGraph(records), fromAdapter: false };
+	}
+	if (ctx.offset > 0 || ctx.query) {
+		return { graph: { nodes: [], edges: [] }, fromAdapter: false };
+	}
+	try {
+		return {
+			graph: await adapter.graph({ userId: ctx.filter.userId }),
+			fromAdapter: true,
+		};
+	} catch {
+		return { graph: buildMemoryGraph(records), fromAdapter: false };
+	}
 }
 
 export async function resolveProjectMemoryAdapter(connectorId?: string) {
@@ -453,7 +521,15 @@ export async function getProjectMemory(input: {
 		input.connectorId
 	);
 	if (!capabilities.get) {
-		return { connector, capabilities, memory: null, hint: "get_unsupported" };
+		const described = getMemoryTypeDescriptor(String(connector.type || ""));
+		return {
+			connector,
+			capabilities,
+			memory: null,
+			// Vendors whose listed record is the full record have nothing to warn
+			// about; the page already shows everything the API can return.
+			hint: described?.detailFromList ? undefined : "get_unsupported",
+		};
 	}
 
 	let record: MemoryRecord | null;

@@ -8,6 +8,7 @@ export const VISIBLE_CONNECTOR_TYPES = [
 	"claude",
 	"letta",
 	"mem0",
+	"memcode",
 	"zep",
 	"trustabl",
 ] as const;

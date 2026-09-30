@@ -8,6 +8,7 @@ const CONNECTOR_ICONS: Record<string, string> = {
 	claude: "/images/connectors/claude.svg",
 	letta: "/images/connectors/letta.svg",
 	mem0: "/images/connectors/mem0.svg",
+	memcode: "/images/connectors/memcode.png",
 	zep: "/images/connectors/zep.svg",
 	trustabl: "/images/connectors/trustabl.svg",
 };
