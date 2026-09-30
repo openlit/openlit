@@ -65,6 +65,9 @@ def build_input_messages(messages):
     otel_messages = []
     for message in messages:
         try:
+            # mistralai also accepts its own message models (UserMessage, ...).
+            if not isinstance(message, dict):
+                message = response_as_dict(message)
             role = message.get("role", "user")
             content = message.get("content", "")
             parts = []
