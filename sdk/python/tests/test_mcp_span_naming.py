@@ -19,7 +19,7 @@ import pytest
 from openlit.instrumentation.mcp.utils import MCPInstrumentationContext
 
 
-def _context(operation_type: str, method: str) -> MCPInstrumentationContext:
+def _context(operation_type: str, method: str) -> tuple[MCPInstrumentationContext, str]:
     """Build a context the way the sync/async wrappers do, then name the span."""
     ctx = MCPInstrumentationContext(
         instance=None,
