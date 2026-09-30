@@ -1713,6 +1713,14 @@ export const AUTH_ERROR_DEFAULT = "Unable to sign in.";
 export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
 export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
 
+// Founder call sidebar card
+export const FOUNDER_CARD_BADGE = "From the founder";
+export const FOUNDER_CARD_TITLE = "Want more features?";
+export const FOUNDER_CARD_BODY =
+	"Tell us what your agents are missing. Grab 30 minutes and we'll figure it out together.";
+export const FOUNDER_CARD_CTA = "Schedule a call";
+export const FOUNDER_CARD_DISMISS = "Dismiss founder call card";
+
 // Error pages
 export const ERROR_PAGE_NOT_FOUND_CODE = "404";
 export const ERROR_PAGE_NOT_FOUND_LABEL = "Page not found";
