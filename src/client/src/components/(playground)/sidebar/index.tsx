@@ -37,6 +37,7 @@ import UserActions from "./user-actions";
 import OtterSidebar from "./otter-sidebar";
 import ThemeToggleSwitch from "./theme-switch";
 import MyApps from "./my-apps";
+import FounderCallCard from "./founder-call-card";
 import { useSidebarLayout } from "../sidebar-layout-context";
 
 const isActive = (pathname: string, item: SidebarActionItem, currentUrl: string) => {
@@ -285,6 +286,7 @@ export default function Sidebar() {
 						onNavigate={() => setOpenSection(null)}
 					/>
 				</nav>}
+				<FounderCallCard />
 				<div className="border-t border-stone-200 p-2 dark:border-stone-800"><UserActions /></div>
 			</div>
 			{openSection && <SectionPanel section={openSection} pathname={pathname} currentUrl={currentUrl} onClose={() => setOpenSection(null)} />}
