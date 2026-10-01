@@ -699,11 +699,14 @@ def process_chat_response(
         scope._start_time = start_time
         scope._end_time = time.time()
         scope._span = span
-        scope._llmresponse = (
-            response_dict.get("output", {})
-            .get("message", {})
-            .get("content", [{}])[0]
-            .get("text", "")
+        # Join every text block: reasoning models return a reasoningContent block first.
+        content_blocks = (
+            response_dict.get("output", {}).get("message", {}).get("content", []) or []
+        )
+        scope._llmresponse = "".join(
+            block.get("text", "")
+            for block in content_blocks
+            if isinstance(block, dict) and block.get("text")
         )
         scope._response_role = (
             response_dict.get("output", {}).get("message", {}).get("role", "assistant")
