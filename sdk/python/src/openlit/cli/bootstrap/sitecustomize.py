@@ -42,6 +42,7 @@ except ImportError:
                 "OPENLIT_CAPTURE_DB_PARAMETERS": "capture_db_parameters",
                 "OPENLIT_MAX_CONTENT_LENGTH": "max_content_length",
                 "OPENLIT_CUSTOM_SPAN_ATTRIBUTES": "custom_span_attributes",
+                "OPENLIT_CUSTOM_METRICS_ATTRIBUTES": "custom_metrics_attributes",
             }
 
             for env_var, param_name in env_mappings.items():
@@ -67,6 +68,7 @@ except ImportError:
                     elif env_var in [
                         "OTEL_EXPORTER_OTLP_HEADERS",
                         "OPENLIT_CUSTOM_SPAN_ATTRIBUTES",
+                        "OPENLIT_CUSTOM_METRICS_ATTRIBUTES",
                     ]:
                         try:
                             import json

@@ -313,6 +313,8 @@ def init(
             max_content_length = env_config["max_content_length"]
         if custom_span_attributes is None and "custom_span_attributes" in env_config:
             custom_span_attributes = env_config["custom_span_attributes"]
+        if custom_metrics_attributes is None and "custom_metrics_attributes" in env_config:
+            custom_metrics_attributes = env_config["custom_metrics_attributes"]
         if openlit_api_key is None and "openlit_api_key" in env_config:
             openlit_api_key = env_config["openlit_api_key"]
         if openlit_url is None and "openlit_url" in env_config:
