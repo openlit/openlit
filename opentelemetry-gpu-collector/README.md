@@ -2,7 +2,7 @@
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%"><h1>
 OpenTelemetry GPU Collector</h1>
 
-**[Documentation](https://docs.openlit.io/latest/features/gpu) | [Quickstart](#-getting-started) | [Metrics](#-metrics) | [Configuration](#-configuration)**
+**[Documentation](https://docs.openlit.io/latest/gpu-collector/overview) | [Quickstart](#-getting-started) | [Metrics](#-metrics) | [Configuration](#-configuration)**
 
 **[Roadmap](#%EF%B8%8F-roadmap) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)**
 
@@ -16,7 +16,7 @@ OpenTelemetry GPU Collector</h1>
 
 </div>
 
-A high-performance host and GPU metrics collector written in Go. Exports host-level system metrics (CPU, memory, disk, network), process metrics, DCGM-style GPU hardware telemetry, and eBPF-based CUDA kernel tracing (on by default on Linux) — all via OpenTelemetry (OTLP).
+Part of OpenLIT, the open-source agent harness engineering platform. A high-performance host and GPU metrics collector written in Go. Exports host-level system metrics (CPU, memory, disk, network), process metrics, DCGM-style GPU hardware telemetry, and eBPF-based CUDA kernel tracing (on by default on Linux) — all via OpenTelemetry (OTLP).
 
 Metric names and attributes follow the [OpenTelemetry semantic conventions for hardware](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/) and [system metrics](https://opentelemetry.io/docs/specs/semconv/system/).
 

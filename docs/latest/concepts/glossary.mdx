@@ -1,0 +1,69 @@
+---
+title: "Agent Harness Engineering Glossary"
+sidebarTitle: Glossary
+description: "Short definitions of agent harness, harness engineering, agent observability, agent evals, guardrails, and trajectory and tool-call evaluation."
+---
+
+This glossary defines the core terms OpenLIT uses for **agent harness engineering**. Each entry opens with a one-sentence definition you can quote.
+
+## Agent harness
+
+An **agent harness** is everything in an AI agent except the model: tools, context, prompts, memory, hooks, guardrails, and feedback loops that turn a model into a working agent. Claude Code, Codex, and frameworks such as LangGraph or CrewAI are harnesses. OpenLIT does not replace your harness; it observes, evaluates, and improves it via OpenTelemetry.
+
+Related: [AI agent observability](/latest/openlit/observability/agents/overview) · [Coding agent observability](/latest/openlit/coding-agents/overview)
+
+## Agent harness engineering
+
+**Agent harness engineering** (or harness engineering) is the discipline of designing, measuring, and improving the harness around a model so agents are reliable in production. The core loop is *run → observe → evaluate → fix the harness → verify*. OpenLIT is the open-source platform for that loop: tracing, evals, guardrails, prompt and context management, and cost and GPU monitoring.
+
+Related: [What is OpenLIT?](/latest/overview)
+
+## Agent observability
+
+**Agent observability** is the practice of tracing every LLM call, tool call, MCP request, retrieval, and agent step so you can see cost, latency, errors, and behavior across the full harness — not only a single model response. OpenLIT provides OpenTelemetry-native agent observability for application agents and coding agents.
+
+Related: [Agents](/latest/openlit/observability/agents/overview) · [Telemetry](/latest/openlit/observability/telemetry/overview) · [What is AI Observability?](/latest/glossary/what-is-ai-observability)
+
+## Agent evals
+
+**Agent evals** (agent evaluation) score agent and LLM outputs for quality, safety, and task success. In OpenLIT you can run LLM-as-a-judge and programmatic evals on production traces, collect human feedback, and use the same criteria as CI/CD regression gates.
+
+Related: [Evaluations](/latest/openlit/evaluations/overview) · [LLM-as-a-judge](/latest/openlit/evaluations/llm-as-a-judge) · [Programmatic evals](/latest/openlit/evaluations/programmatic-evals) · [What is AI Evaluation?](/latest/glossary/what-is-ai-evaluation)
+
+## Guardrails
+
+**Guardrails** are runtime checks that block or flag risky agent behavior before it reaches users or downstream systems — for example prompt injection, sensitive topics, and topic restriction. OpenLIT SDK guardrails emit OpenTelemetry traces so blocked requests stay visible in the same observability loop.
+
+Related: [Guardrails](/latest/sdk/features/guardrails) · [Guardrails quickstart](/latest/openlit/quickstart-guard)
+
+## Trajectory evaluation / tool-call evaluation
+
+**Trajectory evaluation** scores the path an agent took (which tools it called, in what order, and with what outcomes), not only the final answer. **Tool-call evaluation** focuses on whether individual tool invocations were correct, necessary, and successful. Both help turn a failed run into a harness fix (better tools, prompts, or rules) rather than a one-off prompt tweak.
+
+Related: [Agent evals](/latest/openlit/evaluations/overview) · [Agent observability](/latest/openlit/observability/agents/overview)
+
+## Prompt management
+
+**Prompt management** is versioning, publishing, and fetching prompts at runtime so you can fix the harness without redeploying application code. OpenLIT Prompt Hub links prompt versions to traces and evaluations.
+
+Related: [Prompt Hub](/latest/openlit/prompts-experiments/prompt-hub/overview) · [What is Prompt Engineering?](/latest/glossary/what-is-prompt-engineering)
+
+## OpenTelemetry GenAI semantic conventions
+
+**OpenTelemetry GenAI semantic conventions** are the standard attribute and span names (`gen_ai.*`) for LLM and agent telemetry. OpenLIT follows these conventions so traces export cleanly to OpenLIT or any OTLP backend.
+
+Related: [SDK overview](/latest/sdk/overview) · [Destinations](/latest/sdk/destinations/overview)
+
+---
+
+<CardGroup cols={3}>
+  <Card title="What is OpenLIT?" href="/latest/overview" icon="book-open">
+    Platform overview and the harness engineering loop
+  </Card>
+  <Card title="Agent observability" href="/latest/openlit/observability/agents/overview" icon="radar">
+    Trace every agent step from OpenTelemetry data
+  </Card>
+  <Card title="Agent evals" href="/latest/openlit/evaluations/overview" icon="clipboard-check">
+    Score production traces and gate releases in CI
+  </Card>
+</CardGroup>
