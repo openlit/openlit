@@ -394,6 +394,12 @@
             "cacheReadPrice": 0.0005,
             "cacheCreationPrice": 0.00625
         },
+        "claude-opus-5-5": {
+            "promptPrice": 0.004,
+            "completionPrice": 0.02,
+            "cacheReadPrice": 0.0002,
+            "cacheCreationPrice": 0.005
+        },
         "gpt-5": {
             "promptPrice": 0.00125,
             "completionPrice": 0.01,
@@ -566,6 +572,36 @@
         "anthropic.claude-3-opus-20240229-v1:0": {
             "promptPrice": 0.015,
             "completionPrice": 0.075
+        },
+        "global.anthropic.claude-opus-5-5": {
+            "promptPrice": 0.004,
+            "completionPrice": 0.02,
+            "cacheReadPrice": 0.0002,
+            "cacheCreationPrice": 0.005
+        },
+        "us.anthropic.claude-opus-5-5": {
+            "promptPrice": 0.0044,
+            "completionPrice": 0.022,
+            "cacheReadPrice": 0.00022,
+            "cacheCreationPrice": 0.0055
+        },
+        "eu.anthropic.claude-opus-5-5": {
+            "promptPrice": 0.0044,
+            "completionPrice": 0.022,
+            "cacheReadPrice": 0.00022,
+            "cacheCreationPrice": 0.0055
+        },
+        "jp.anthropic.claude-opus-5-5": {
+            "promptPrice": 0.0044,
+            "completionPrice": 0.022,
+            "cacheReadPrice": 0.00022,
+            "cacheCreationPrice": 0.0055
+        },
+        "au.anthropic.claude-opus-5-5": {
+            "promptPrice": 0.0044,
+            "completionPrice": 0.022,
+            "cacheReadPrice": 0.00022,
+            "cacheCreationPrice": 0.0055
         },
         "meta.llama3-8b-instruct-v1:0": {
             "promptPrice": 0.0004,
