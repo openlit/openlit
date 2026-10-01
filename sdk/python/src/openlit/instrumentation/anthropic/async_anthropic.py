@@ -84,10 +84,10 @@ def async_messages(
             try:
                 await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
             finally:
-                # Finalize on every exit: breaking out of the async loop
+                # Finalize on every exit: breaking out of the async loop, or
+                # an exception propagating through the async with-block,
                 # never hits StopAsyncIteration, so the span would leak.
-                if not exc_type:
-                    self._finalize_streaming_span()
+                self._finalize_streaming_span()
 
         def __aiter__(self):
             return self
