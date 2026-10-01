@@ -13,8 +13,10 @@
 #   OPENLIT_INSTALL_DIR  Target install directory.
 #                        Default: $HOME/.openlit/bin
 #   OPENLIT_VERSION      Release tag WITHOUT the `cli-` prefix, e.g.
-#                        `1.2.0`. Default: `latest` (resolved by
-#                        GitHub Releases' /latest redirect).
+#                        `1.2.0`. Default: `latest`, resolved to the
+#                        newest `cli-*` tag through the releases API —
+#                        NOT through /releases/latest, which points at
+#                        whichever component shipped most recently.
 #
 # Exit codes:
 #   0  Installed (or already present).
@@ -68,14 +70,60 @@ esac
 # --- Resolve the asset URL --------------------------------------------------
 
 # The release-cli.yml workflow uploads one tarball per OS/arch named
-# openlit-<os>-<arch>.tar.gz. Latest is a redirect; pinned versions
-# use the `cli-X.Y.Z` tag layout that the workflow keys off of.
+# openlit-<os>-<arch>.tar.gz, on a `cli-X.Y.Z` tag.
+#
+# `/releases/latest` cannot be used to find it. This repository releases
+# many components from one tree — openlit-*, py-*, ts-*, controller-*,
+# otel-gpu-collector-* — and GitHub's "latest" is whichever of them was
+# published most recently, regardless of component. At the time of
+# writing that is `openlit-2.1.0`, which carries no assets at all, so
+# `/releases/latest/download/openlit-linux-amd64.tar.gz` answered 404
+# and the installer could never complete (#1596). The asset was there
+# the whole time, on `cli-0.0.1`.
+#
+# So resolve the newest `cli-*` tag explicitly. The releases API returns
+# newest first, so the first match is the one we want.
 asset="openlit-${os}-${arch}.tar.gz"
 if [ "$OPENLIT_VERSION" = "latest" ]; then
-	url="https://github.com/${OPENLIT_REPO}/releases/latest/download/${asset}"
+	info "Resolving the latest CLI release"
+	releases_api="https://api.github.com/repos/${OPENLIT_REPO}/releases"
+	# Page, rather than reading only the first 100. The CLI is a minority
+	# component here: at the time of writing this repository has more than
+	# 200 releases and the newest cli-* tag sits 17 back, so one page is
+	# enough today but stops being enough once 100 releases of other
+	# components are newer than the last CLI release.
+	#
+	# The cap stops a repository with no cli-* release at all from walking
+	# every page before failing. Unauthenticated calls are rate limited
+	# (60/hour per IP), so a throttled or offline call must produce a
+	# readable error rather than a download of the empty string.
+	tag=""
+	page=1
+	while [ "$page" -le 10 ]; do
+		body=$(curl -fsSL --retry 3 --retry-delay 1 "${releases_api}?per_page=100&page=${page}" 2>/dev/null) || break
+		# grep -o first, so each tag_name lands on its own line before
+		# anything tries to pick one. A lone sed would depend on the API
+		# pretty-printing one tag_name per line: on a compact body the
+		# leading .* is greedy and walks to the LAST cli-* on the line,
+		# which is the oldest release rather than the newest.
+		tag=$(printf '%s' "$body" \
+			| grep -o '"tag_name"[[:space:]]*:[[:space:]]*"cli-[^"]*"' \
+			| sed -n 's/.*"\(cli-[^"]*\)"/\1/p' \
+			| head -n 1)
+		[ -n "$tag" ] && break
+		# An empty page means the end of the list, not a transient failure.
+		printf '%s' "$body" | grep -q '"tag_name"' || break
+		page=$((page + 1))
+	done
+	if [ -z "$tag" ]; then
+		fatal "could not resolve the latest cli-* release from ${releases_api}. \
+Set OPENLIT_VERSION to a published CLI version (for example OPENLIT_VERSION=0.0.1) and re-run."
+	fi
+	info "Latest CLI release is ${tag}"
 else
-	url="https://github.com/${OPENLIT_REPO}/releases/download/cli-${OPENLIT_VERSION}/${asset}"
+	tag="cli-${OPENLIT_VERSION}"
 fi
+url="https://github.com/${OPENLIT_REPO}/releases/download/${tag}/${asset}"
 
 info "Downloading ${asset}"
 
