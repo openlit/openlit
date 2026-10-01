@@ -1,6 +1,6 @@
 # OpenLIT Go SDK
 
-OpenTelemetry-native observability SDK for LLM applications in Go. Monitor your AI applications with automatic instrumentation for popular LLM providers.
+OpenTelemetry-native SDK for OpenLIT, the open-source agent harness engineering platform. Instrument LLM applications in Go to trace, evaluate, and improve the harness around your models — with automatic instrumentation for popular LLM providers.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/openlit/openlit/sdk/go.svg)](https://pkg.go.dev/github.com/openlit/openlit/sdk/go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openlit/openlit/sdk/go)](https://goreportcard.com/report/github.com/openlit/openlit/sdk/go)
