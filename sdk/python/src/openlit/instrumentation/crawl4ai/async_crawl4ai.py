@@ -148,8 +148,8 @@ def async_general_wrap(
                 except Exception as e:
                     # Calculate duration even for errors
                     end_time = time.time()
-                    duration_ms = (end_time - start_time) * 1000
-                    span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+                    duration_s = end_time - start_time
+                    span.set_attribute("gen_ai.client.operation.duration", duration_s)
 
                     # Handle and log the exception
                     handle_exception(span, e)
@@ -191,8 +191,8 @@ async def _handle_regular_response(
 
     # Calculate duration for business intelligence
     end_time = time.time()
-    duration_ms = (end_time - start_time) * 1000
-    span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+    duration_s = end_time - start_time
+    span.set_attribute("gen_ai.client.operation.duration", duration_s)
 
     # Process response based on operation type
     if operation_name == "extract":
@@ -225,7 +225,7 @@ async def _handle_regular_response(
             metrics_key = f"crawl4ai.{operation_name}.duration"
             if metrics_key not in metrics:
                 metrics[metrics_key] = []
-            metrics[metrics_key].append(duration_ms)
+            metrics[metrics_key].append(duration_s)
 
             # Record success/failure metrics
             success_key = f"crawl4ai.{operation_name}.success"
@@ -314,8 +314,8 @@ async def _handle_async_generator(
         async def _finalize_metrics(self):
             """Finalize metrics when streaming is complete."""
             end_time = time.time()
-            duration_ms = (end_time - self.start_time) * 1000
-            self.span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+            duration_s = end_time - self.start_time
+            self.span.set_attribute("gen_ai.client.operation.duration", duration_s)
 
             # Process aggregated results
             if self.results:
@@ -332,7 +332,7 @@ async def _handle_async_generator(
                         metrics_key = f"crawl4ai.{self.operation_name}.stream.duration"
                         if metrics_key not in self.metrics:
                             self.metrics[metrics_key] = []
-                        self.metrics[metrics_key].append(duration_ms)
+                        self.metrics[metrics_key].append(duration_s)
 
                         # Record stream completion
                         stream_key = f"crawl4ai.{self.operation_name}.stream.completed"

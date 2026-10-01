@@ -117,8 +117,8 @@ def general_wrap(
 
                 # Calculate duration for business intelligence
                 end_time = time.time()
-                duration_ms = (end_time - start_time) * 1000
-                span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+                duration_s = end_time - start_time
+                span.set_attribute("gen_ai.client.operation.duration", duration_s)
 
                 # Process response based on operation type
                 if operation_name == "extract":
@@ -153,7 +153,7 @@ def general_wrap(
                         metrics_key = f"crawl4ai.{operation_name}.duration"
                         if metrics_key not in metrics:
                             metrics[metrics_key] = []
-                        metrics[metrics_key].append(duration_ms)
+                        metrics[metrics_key].append(duration_s)
 
                         # Record success/failure metrics
                         success_key = f"crawl4ai.{operation_name}.success"
@@ -180,8 +180,8 @@ def general_wrap(
             except Exception as e:
                 # Calculate duration even for errors
                 end_time = time.time()
-                duration_ms = (end_time - start_time) * 1000
-                span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+                duration_s = end_time - start_time
+                span.set_attribute("gen_ai.client.operation.duration", duration_s)
 
                 # Handle and log the exception
                 handle_exception(span, e)

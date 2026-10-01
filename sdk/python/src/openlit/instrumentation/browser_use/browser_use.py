@@ -73,9 +73,9 @@ def general_wrap(
 
                 # Calculate duration
                 end_time = time.time()
-                duration_ms = (end_time - start_time) * 1000
+                duration_s = end_time - start_time
                 main_span.set_attribute(
-                    SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration_ms
+                    SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration_s
                 )
 
                 # Process response with enhanced details
@@ -93,7 +93,7 @@ def general_wrap(
                 # Record metrics if enabled
                 if not disable_metrics and metrics:
                     _record_operation_metrics(
-                        metrics, operation_name, duration_ms, True
+                        metrics, operation_name, duration_s, True
                     )
 
                 return response
@@ -101,9 +101,9 @@ def general_wrap(
             except Exception as e:
                 # Calculate duration even for errors
                 end_time = time.time()
-                duration_ms = (end_time - start_time) * 1000
+                duration_s = end_time - start_time
                 main_span.set_attribute(
-                    SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration_ms
+                    SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration_s
                 )
 
                 # Handle and log the exception
@@ -117,7 +117,7 @@ def general_wrap(
                 # Record error metrics if enabled
                 if not disable_metrics and metrics:
                     _record_operation_metrics(
-                        metrics, operation_name, duration_ms, False
+                        metrics, operation_name, duration_s, False
                     )
 
                 # Re-raise the exception to maintain original behavior
@@ -405,7 +405,7 @@ def _process_enhanced_response(
         logger.debug("Error processing enhanced response: %s", e)
 
 
-def _record_operation_metrics(metrics, operation_name, duration_ms, is_success):
+def _record_operation_metrics(metrics, operation_name, duration_s, is_success):
     """Record operation metrics for performance tracking."""
 
     try:
@@ -413,7 +413,7 @@ def _record_operation_metrics(metrics, operation_name, duration_ms, is_success):
         duration_key = f"browser_use.{operation_name}.duration"
         if duration_key not in metrics:
             metrics[duration_key] = []
-        metrics[duration_key].append(duration_ms)
+        metrics[duration_key].append(duration_s)
 
         # Record success/error metrics
         if is_success:
