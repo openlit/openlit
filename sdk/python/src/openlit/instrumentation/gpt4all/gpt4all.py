@@ -70,13 +70,27 @@ def generate(
             self._cache_read_input_tokens = 0
             self._cache_creation_input_tokens = 0
             self._event_provider = event_provider
+            self._streaming_response_processed = False
 
         def __enter__(self):
             self.__wrapped__.__enter__()
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
-            self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+            # A break before exhaustion never reaches StopIteration, so the span
+            # would leak without finalizing here too. Record whichever exception
+            # is actually in flight: the wrapped stream's own exit may raise even
+            # when the block itself was clean.
+            try:
+                self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+            except BaseException as exit_exc:
+                if not self._streaming_response_processed:
+                    handle_exception(self._span, exit_exc)
+                    self._finalize_streaming_span()
+                raise
+            if exc_type and not self._streaming_response_processed:
+                handle_exception(self._span, exc_value)
+            self._finalize_streaming_span()
 
         def __iter__(self):
             return self
@@ -91,24 +105,44 @@ def generate(
                 process_chunk(self, chunk)
                 return chunk
             except StopIteration:
-                try:
-                    with self._span:
-                        process_streaming_generate_response(
-                            self,
-                            pricing_info=pricing_info,
-                            environment=environment,
-                            application_name=application_name,
-                            metrics=metrics,
-                            capture_message_content=capture_message_content,
-                            disable_metrics=disable_metrics,
-                            version=version,
-                            event_provider=self._event_provider,
-                        )
-
-                except Exception as e:
-                    handle_exception(self._span, e)
-
+                self._finalize_streaming_span()
                 raise
+
+        def _finalize_streaming_span(self):
+            """Complete and end the span exactly once.
+
+            Called on stream exhaustion and again from close()/manager exit;
+            the flag keeps the double call a no-op so early exits that never
+            see StopIteration still export the span instead of leaking it.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            try:
+                with self._span:
+                    process_streaming_generate_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=self._event_provider,
+                    )
+
+            except Exception as e:
+                handle_exception(self._span, e)
+
+        def close(self):
+            """Close the wrapped stream and finalize the span if not ended."""
+            try:
+                close = getattr(self.__wrapped__, "close", None)
+                if callable(close):
+                    close()
+            finally:
+                self._finalize_streaming_span()
 
     def wrapper(wrapped, instance, args, kwargs):
         """
