@@ -142,6 +142,7 @@ def chat_stream(
             self._cache_read_input_tokens = 0
             self._cache_creation_input_tokens = 0
             self._event_provider = event_provider
+            self._streaming_response_processed = False
 
             self._args = args
             self._kwargs = kwargs
@@ -154,11 +155,10 @@ def chat_stream(
             self._server_port = server_port
 
         def __enter__(self):
-            self.__wrapped__.__enter__()
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
-            self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+            self.close()
 
         def __iter__(self):
             return self
@@ -167,29 +167,40 @@ def chat_stream(
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
+        def close(self):
+            """Close the wrapped stream and finalize the span if it has not ended yet."""
+            try:
+                self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span()
+
+        def _finalize_streaming_span(self):
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            try:
+                with self._span:
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=self._event_provider,
+                    )
+            except Exception as e:
+                handle_exception(self._span, e)
+
         def __next__(self):
             try:
                 chunk = self.__wrapped__.__next__()
                 process_chunk(self, chunk)
                 return chunk
             except StopIteration:
-                try:
-                    with self._span:
-                        process_streaming_chat_response(
-                            self,
-                            pricing_info=pricing_info,
-                            environment=environment,
-                            application_name=application_name,
-                            metrics=metrics,
-                            capture_message_content=capture_message_content,
-                            disable_metrics=disable_metrics,
-                            version=version,
-                            event_provider=self._event_provider,
-                        )
-
-                except Exception as e:
-                    handle_exception(self._span, e)
-
+                self._finalize_streaming_span()
                 raise
 
     def wrapper(wrapped, instance, args, kwargs):
