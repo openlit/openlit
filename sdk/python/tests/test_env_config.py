@@ -2,9 +2,14 @@
 
 import pytest
 
+import logging
+
 import openlit
 import openlit.otel.metrics as metrics_module
-from openlit.cli.config import PARAMETER_CONFIG
+from openlit.cli.config import PARAMETER_CONFIG, parse_env_value
+
+# Env values that are not a JSON object; none of them may reach OpenlitConfig.
+NON_OBJECT_JSON_VALUES = ["[]", '["team"]', '"team"', "123", "true", "null"]
 
 # (parameter, env value, OpenlitConfig attribute, expected value)
 ENV_CASES = [
@@ -54,3 +59,50 @@ class TestEnvVarsReachInit:
         monkeypatch.setenv(PARAMETER_CONFIG[param]["env_var"], env_value)
         openlit.init()
         assert getattr(openlit.OpenlitConfig, attribute) == expected
+
+    @pytest.mark.parametrize("param", ["custom_span_attributes", "custom_metrics_attributes"])
+    @pytest.mark.parametrize("env_value", NON_OBJECT_JSON_VALUES + ["{not json"])
+    def test_non_object_custom_attributes_are_ignored(self, monkeypatch, param, env_value):
+        """Anything that is not a JSON object must leave the default {} in place."""
+        monkeypatch.setenv("OPENLIT_DISABLE_METRICS", "true")
+        monkeypatch.setenv(PARAMETER_CONFIG[param]["env_var"], env_value)
+        openlit.init()
+        assert getattr(openlit.OpenlitConfig, param) == {}
+
+
+class TestJsonObjectParser:
+    """parse_env_value() for parameters declared with parser="json_object"."""
+
+    JSON_OBJECT_PARAMS = [
+        name for name, cfg in PARAMETER_CONFIG.items() if cfg.get("parser") == "json_object"
+    ]
+
+    def test_custom_attribute_params_use_json_object_parser(self):
+        assert set(self.JSON_OBJECT_PARAMS) == {
+            "custom_span_attributes",
+            "custom_metrics_attributes",
+        }
+
+    @pytest.mark.parametrize("param", JSON_OBJECT_PARAMS)
+    def test_object_is_accepted(self, param):
+        assert parse_env_value(param, '{"team": "ml", "tier": 1}') == {"team": "ml", "tier": 1}
+
+    @pytest.mark.parametrize("param", JSON_OBJECT_PARAMS)
+    @pytest.mark.parametrize("env_value", NON_OBJECT_JSON_VALUES)
+    def test_non_object_is_rejected_with_warning(self, caplog, param, env_value):
+        with caplog.at_level(logging.WARNING, logger="openlit.cli.config"):
+            assert parse_env_value(param, env_value) is None
+        assert PARAMETER_CONFIG[param]["env_var"] in caplog.text
+        assert "JSON object" in caplog.text
+
+    @pytest.mark.parametrize("param", JSON_OBJECT_PARAMS)
+    def test_invalid_json_is_rejected_with_warning(self, caplog, param):
+        with caplog.at_level(logging.WARNING, logger="openlit.cli.config"):
+            assert parse_env_value(param, "{not json") is None
+        assert PARAMETER_CONFIG[param]["env_var"] in caplog.text
+        assert "not valid JSON" in caplog.text
+
+    def test_plain_json_parser_is_unchanged(self):
+        """otlp_headers keeps the permissive "json" parser; exporters handle non-dicts."""
+        assert parse_env_value("otlp_headers", '["a"]') == ["a"]
+        assert parse_env_value("otlp_headers", "Authorization=Bearer x") is None
