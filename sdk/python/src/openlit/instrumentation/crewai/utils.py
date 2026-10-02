@@ -216,9 +216,18 @@ def process_crewai_response(
     instance,
     args,
     endpoint=None,
-    **kwargs,
+    call_kwargs=None,
 ):
-    """Set OTel-compliant span attributes, capture content, and record metrics."""
+    """Set OTel-compliant span attributes, capture content, and record metrics.
+
+    `call_kwargs` is the wrapped call's own keyword arguments, taken as ONE
+    parameter rather than splatted in. Splatting them made every parameter name
+    above reachable by a tool's argument list: a CrewAI tool declaring
+    `version`, `instance`, `args`, `metrics`, `span` or `endpoint` raised
+    `TypeError: got multiple values for argument ...` from the telemetry path,
+    and CrewAI reported the successful tool call to the model as a failure
+    (issue #1568). A dict cannot collide with a parameter name.
+    """
     end_time = time.time()
 
     # -- common framework attributes (provider, model, server, duration …) --
@@ -260,7 +269,13 @@ def process_crewai_response(
     _set_agent_attributes(span, instance, endpoint, capture_message_content)
     _set_task_attributes(span, instance, endpoint, capture_message_content)
     _set_tool_attributes(
-        span, instance, endpoint, capture_message_content, args, kwargs, response
+        span,
+        instance,
+        endpoint,
+        capture_message_content,
+        args,
+        call_kwargs or {},
+        response,
     )
     _set_flow_attributes(span, instance, endpoint)
 
