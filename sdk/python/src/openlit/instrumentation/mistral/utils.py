@@ -29,6 +29,31 @@ from openlit._config import OpenlitConfig
 logger = logging.getLogger(__name__)
 
 
+def split_content_chunks(content):
+    """
+    Split assistant content into (text, reasoning). Reasoning models answer with
+    a list of chunks, a thinking chunk followed by text, instead of a string.
+    """
+
+    if not content:
+        return "", ""
+    if isinstance(content, str):
+        return content, ""
+    text_parts = []
+    reasoning_parts = []
+    for chunk in content:
+        if not isinstance(chunk, dict):
+            continue
+        chunk_type = chunk.get("type")
+        if chunk_type == "thinking":
+            for thought in chunk.get("thinking") or []:
+                if isinstance(thought, dict) and thought.get("text"):
+                    reasoning_parts.append(thought["text"])
+        elif chunk_type == "text" and chunk.get("text"):
+            text_parts.append(chunk["text"])
+    return "".join(text_parts), "".join(reasoning_parts)
+
+
 def format_content(messages):
     """
     Process a list of messages to extract content.
@@ -300,9 +325,13 @@ def process_chunk(scope, chunk):
 
         if choices and "delta" in choices[0]:
             delta = choices[0]["delta"]
-            content = delta.get("content")
-            if content:
-                scope._llmresponse += content
+            text, reasoning = split_content_chunks(delta.get("content"))
+            if text:
+                scope._llmresponse += text
+            if reasoning:
+                scope._reasoning_content = (
+                    getattr(scope, "_reasoning_content", "") + reasoning
+                )
 
             # Handle tool calls in streaming - optimized
             delta_tools = delta.get("tool_calls")
@@ -530,6 +559,11 @@ def common_chat_logic(
 
     if capture_message_content:
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        if getattr(scope, "_reasoning_content", ""):
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_CONTENT_REASONING,
+                scope._reasoning_content,
+            )
         if system_instr:
             scope._span.set_attribute(
                 SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
@@ -666,9 +700,13 @@ def process_chat_response(
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
-    scope._llmresponse = " ".join(
-        (choice.get("message", {}).get("content") or "")
+    contents = [
+        split_content_chunks(choice.get("message", {}).get("content"))
         for choice in response_dict.get("choices", [])
+    ]
+    scope._llmresponse = " ".join(text for text, _ in contents)
+    scope._reasoning_content = " ".join(
+        reasoning for _, reasoning in contents if reasoning
     )
     scope._response_id = response_dict.get("id")
     scope._response_model = response_dict.get("model")
