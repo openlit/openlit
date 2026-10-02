@@ -60,6 +60,7 @@ def acompletion(
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
+            self._streaming_response_processed = False
             self._llmresponse = ""
             self._response_id = ""
             self._response_model = ""
@@ -87,7 +88,21 @@ def acompletion(
             return self
 
         async def __aexit__(self, exc_type, exc_value, traceback):
-            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+            # Finalize on every exit, not just the clean one: a break before
+            # exhaustion never reaches StopAsyncIteration, and an exception
+            # escaping the block would leak the span just as surely. Record
+            # whichever exception is actually in flight -- the wrapped stream's
+            # own exit may raise even when the block itself was clean.
+            try:
+                await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+            except BaseException as exit_exc:
+                if not self._streaming_response_processed:
+                    handle_exception(self._span, exit_exc)
+                    self._finalize_streaming_span()
+                raise
+            if exc_type and not self._streaming_response_processed:
+                handle_exception(self._span, exc_value)
+            self._finalize_streaming_span()
 
         def __aiter__(self):
             return self
@@ -102,30 +117,25 @@ def acompletion(
                 process_chunk(self, chunk)
                 return chunk
             except StopAsyncIteration:
-                try:
-                    # Use the existing span that was started when the stream began
-                    process_streaming_chat_response(
-                        self,
-                        pricing_info=pricing_info,
-                        environment=environment,
-                        application_name=application_name,
-                        metrics=metrics,
-                        capture_message_content=capture_message_content,
-                        disable_metrics=disable_metrics,
-                        version=version,
-                        event_provider=self._event_provider,
-                    )
-                    # End the span after processing
-                    self._span.end()
-
-                except Exception as e:
-                    handle_exception(self._span, e)
-                    self._span.end()
-
+                self._finalize_streaming_span()
                 raise
             except (GeneratorExit, asyncio.CancelledError):
-                try:
-                    # Use the existing span that was started when the stream began
+                self._finalize_streaming_span()
+                raise
+
+        def _finalize_streaming_span(self):
+            """Complete and end the span exactly once.
+
+            Called on stream exhaustion, on cancellation, and again from
+            aclose()/manager exit; the flag keeps the repeat call a no-op so
+            early exits that never see StopAsyncIteration still export the span
+            instead of leaking it.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            try:
+                with self._span:
                     process_streaming_chat_response(
                         self,
                         pricing_info=pricing_info,
@@ -137,15 +147,21 @@ def acompletion(
                         version=version,
                         event_provider=self._event_provider,
                     )
-                    # End the span after processing
-                    self._span.end()
+            except Exception as e:
+                handle_exception(self._span, e)
 
-                except Exception as e:
-                    handle_exception(self._span, e)
-                    self._span.end()
+        async def aclose(self):
+            """Close the wrapped stream and finalize the span if not ended.
 
-                raise
-
+            litellm's ``CustomStreamWrapper`` exposes ``aclose`` on the async
+            side; guard the call so a wrapper without it still finalizes.
+            """
+            try:
+                closer = getattr(self.__wrapped__, "aclose", None)
+                if closer is not None:
+                    await closer()
+            finally:
+                self._finalize_streaming_span()
     async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the GenAI function call.
