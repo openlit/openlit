@@ -384,6 +384,31 @@ class MCPInstrumentationContext:
         """Generate span names following operation_type operation_name convention (e.g., 'mcp tools/list', 'mcp resources/read')."""
         method = self.method_name or "unknown"
 
+        # FastMCP framework operations are checked first and keyed off
+        # `operation_type`, not `method`: `method` is only the second word of the
+        # registered endpoint ("fastmcp call_tool" -> "call_tool"), so the
+        # "fastmcp" marker never appears in it. Testing `method` here left the
+        # generic call_tool / read_resource / run / get_prompt branches below
+        # to match first, and FastMCP spans were emitted under the plain
+        # `mcp tools/*` and `mcp resources/*` names instead of `mcp fastmcp/*`.
+        if operation_type == "fastmcp":
+            if "run" in method:
+                return "mcp fastmcp/run"
+            elif "add_tool" in method:
+                return "mcp fastmcp/add_tool"
+            elif "add_resource" in method:
+                return "mcp fastmcp/add_resource"
+            elif "add_prompt" in method:
+                return "mcp fastmcp/add_prompt"
+            elif "call_tool" in method:
+                return "mcp fastmcp/call_tool"
+            elif "read_resource" in method:
+                return "mcp fastmcp/read_resource"
+            elif "get_prompt" in method:
+                return "mcp fastmcp/get_prompt"
+            else:
+                return "mcp fastmcp/operation"
+
         # Map operations to operation_type operation_name convention
         if "list_tools" in method or (operation_type == "tool" and "list" in method):
             return "mcp tools/list"
@@ -428,24 +453,6 @@ class MCPInstrumentationContext:
             return "mcp transport/http_server"
         elif "__init__" in method and operation_type == "session":
             return "mcp session/init"
-        # FastMCP Framework operations
-        elif "fastmcp" in method:
-            if "run" in method:
-                return "mcp fastmcp/run"
-            elif "add_tool" in method:
-                return "mcp fastmcp/add_tool"
-            elif "add_resource" in method:
-                return "mcp fastmcp/add_resource"
-            elif "add_prompt" in method:
-                return "mcp fastmcp/add_prompt"
-            elif "call_tool" in method:
-                return "mcp fastmcp/call_tool"
-            elif "read_resource" in method:
-                return "mcp fastmcp/read_resource"
-            elif "get_prompt" in method:
-                return "mcp fastmcp/get_prompt"
-            else:
-                return "mcp fastmcp/operation"
         # Manager-level operations
         elif "manager" in method:
             if "tool_manager" in method:
