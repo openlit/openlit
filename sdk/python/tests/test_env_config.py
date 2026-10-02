@@ -1,8 +1,8 @@
 """Tests that environment variables in PARAMETER_CONFIG reach openlit.init()."""
 
-import pytest
-
 import logging
+
+import pytest
 
 import openlit
 import openlit.otel.metrics as metrics_module
