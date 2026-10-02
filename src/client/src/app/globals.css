@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* VictoriaMetrics mark is purple on light tiles; lift it on next-themes dark. */
+.dark img[src="/images/connectors/victoriametrics.svg"] {
+  filter: brightness(1.45) saturate(0.9);
+}
+
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   margin-left: 10px;

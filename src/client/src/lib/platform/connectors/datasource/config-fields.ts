@@ -61,6 +61,7 @@ export function httpAuthFields(): FieldDef[] {
 			label: messages.DATA_SOURCE_AUTH_TYPE,
 			kind: "select",
 			group: "settings",
+			authentication: true,
 			options: [
 				{ value: "none", label: messages.DATA_SOURCE_AUTH_TYPE_NONE },
 				{ value: "basic", label: messages.DATA_SOURCE_AUTH_TYPE_BASIC },
@@ -101,8 +102,10 @@ export function tenantField(): FieldDef {
 		key: "tenant",
 		label: messages.DATA_SOURCE_FIELD_TENANT,
 		kind: "text",
-		group: "credentials",
+		group: "settings",
+		authentication: true,
 		placeholder: messages.DATA_SOURCE_FIELD_TENANT_PLACEHOLDER,
+		description: messages.DATA_SOURCE_FIELD_TENANT_HELP,
 	};
 }
 

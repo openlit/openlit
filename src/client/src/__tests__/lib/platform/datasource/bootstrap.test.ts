@@ -72,11 +72,15 @@ describe("datasource bootstrap", () => {
 			"tempo",
 			"loki",
 			"prometheus",
+			"mimir",
+			"victoriametrics",
+			"victorialogs",
+			"victoriatraces",
 			"jaeger",
 		]) {
 			expect(hasAdapterFactory(type)).toBe(true);
 		}
-		for (const type of ["datadog", "mimir", "victoriametrics", "victorialogs"]) {
+		for (const type of ["datadog"]) {
 			expect(hasAdapterFactory(type)).toBe(false);
 		}
 	});

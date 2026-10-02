@@ -11,6 +11,8 @@ export function applyHttpAuthCredentials(
 	opts?: {
 		tenantHeader?: "X-Scope-OrgID" | "AccountID";
 		authType?: string;
+		/** Tenant stored in settings (not the vault). Falls back to credentials.tenant. */
+		tenant?: string;
 	}
 ): Record<string, string> {
 	const headers: Record<string, string> = {};
@@ -28,7 +30,7 @@ export function applyHttpAuthCredentials(
 		headers.Authorization = `Bearer ${token}`;
 	}
 
-	const tenant = credentials.tenant?.trim();
+	const tenant = String(opts?.tenant || credentials.tenant || "").trim();
 	if (tenant && opts?.tenantHeader) {
 		headers[opts.tenantHeader] = tenant;
 	}

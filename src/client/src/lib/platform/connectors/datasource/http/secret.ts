@@ -22,6 +22,29 @@ export interface ResolvedSecret {
 	credentials: Record<string, string>;
 }
 
+/**
+ * HTTP sources with auth `none` / `auto` (Victoria/Jaeger tenant-only configs)
+ * may still have a `secretRef` from an older save. Missing or unreadable vault
+ * rows must not block health checks or queries.
+ */
+export function httpAuthNeedsVault(authType: unknown): boolean {
+	const type = String(authType || "none").trim().toLowerCase();
+	return type === "basic" || type === "bearer";
+}
+
+export function canSkipVaultForHttpNoneAuth(
+	error: unknown,
+	authType: unknown
+): boolean {
+	if (httpAuthNeedsVault(authType)) return false;
+	const message = error instanceof Error ? error.message : String(error);
+	return (
+		message === DATA_SOURCE_SECRET_NOT_FOUND ||
+		message === DATA_SOURCE_SECRET_UNAVAILABLE ||
+		message === DATA_SOURCE_SECRET_DECRYPT_FAILED
+	);
+}
+
 interface CachedSecret {
 	value: ResolvedSecret;
 	expiresAt: number;
