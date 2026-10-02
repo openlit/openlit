@@ -78,6 +78,7 @@ class TestJsonObjectParser:
     ]
 
     def test_custom_attribute_params_use_json_object_parser(self):
+        """Only custom_span_attributes and custom_metrics_attributes use parser="json_object"."""
         assert set(self.JSON_OBJECT_PARAMS) == {
             "custom_span_attributes",
             "custom_metrics_attributes",
@@ -85,11 +86,13 @@ class TestJsonObjectParser:
 
     @pytest.mark.parametrize("param", JSON_OBJECT_PARAMS)
     def test_object_is_accepted(self, param):
+        """A JSON object string is decoded to the matching dict."""
         assert parse_env_value(param, '{"team": "ml", "tier": 1}') == {"team": "ml", "tier": 1}
 
     @pytest.mark.parametrize("param", JSON_OBJECT_PARAMS)
     @pytest.mark.parametrize("env_value", NON_OBJECT_JSON_VALUES)
     def test_non_object_is_rejected_with_warning(self, caplog, param, env_value):
+        """Valid JSON that is not an object returns None and warns that a JSON object was expected."""
         with caplog.at_level(logging.WARNING, logger="openlit.cli.config"):
             assert parse_env_value(param, env_value) is None
         assert PARAMETER_CONFIG[param]["env_var"] in caplog.text
@@ -97,6 +100,7 @@ class TestJsonObjectParser:
 
     @pytest.mark.parametrize("param", JSON_OBJECT_PARAMS)
     def test_invalid_json_is_rejected_with_warning(self, caplog, param):
+        """Malformed JSON returns None and warns that the env var is not valid JSON."""
         with caplog.at_level(logging.WARNING, logger="openlit.cli.config"):
             assert parse_env_value(param, "{not json") is None
         assert PARAMETER_CONFIG[param]["env_var"] in caplog.text
