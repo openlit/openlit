@@ -112,7 +112,7 @@ def general_wrap(
                         instance,
                         args,
                         endpoint=gen_ai_endpoint,
-                        **kwargs,
+                        tool_kwargs=kwargs,
                     )
 
                     return response

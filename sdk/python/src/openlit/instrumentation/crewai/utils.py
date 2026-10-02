@@ -216,7 +216,7 @@ def process_crewai_response(
     instance,
     args,
     endpoint=None,
-    **kwargs,
+    tool_kwargs=None,
 ):
     """Set OTel-compliant span attributes, capture content, and record metrics."""
     end_time = time.time()
@@ -260,7 +260,7 @@ def process_crewai_response(
     _set_agent_attributes(span, instance, endpoint, capture_message_content)
     _set_task_attributes(span, instance, endpoint, capture_message_content)
     _set_tool_attributes(
-        span, instance, endpoint, capture_message_content, args, kwargs, response
+        span, instance, endpoint, capture_message_content, args, tool_kwargs or {}, response
     )
     _set_flow_attributes(span, instance, endpoint)
 
