@@ -46,6 +46,7 @@ import {
 	worstLoop,
 } from "@/lib/platform/agent-loop/classify";
 import { mapPool } from "@/lib/platform/connectors/datasource/graph/map-pool";
+import { getTraceSummaries, getTraceSummarySeries } from "@/lib/platform/request";
 
 async function resolveTracesAdapter(sourceId?: string, environment?: string) {
 	const { adapter, descriptor } = await resolveSignalReadContext("traces", {
@@ -468,6 +469,48 @@ export async function listTraceRecords(params: MetricParams) {
 	}
 }
 
+/** One row per trace, with a representative span for the existing detail route. */
+export async function listTraceSummaries(params: MetricParams) {
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
+	if (usesSqlIssueFilters(descriptor)) {
+		return getTraceSummaries({
+			...params,
+			databaseConfigId: params.databaseConfigId || descriptor.dbConfigId,
+		});
+	}
+
+	const listed = await listTraceRecords(params);
+	if (listed.err || !listed.records) return listed;
+	const seen = new Set<string>();
+	const records = await mapPool(listed.records, 4, async (row) => {
+		const traceId = String(row.TraceId || "");
+		if (!traceId || seen.has(traceId)) return null;
+		seen.add(traceId);
+		let spans: NormalizedSpan[] = [];
+		try {
+			spans = await adapter.getTraceSpans(traceId);
+		} catch {
+			// Keep the search result when a full tree is temporarily unavailable.
+		}
+		if (!spans.length) {
+			return { ...row, SpanCount: 1, ErrorCount: String(row.StatusCode || "").toUpperCase().includes("ERROR") ? 1 : 0 };
+		}
+		const root = pickRootSpan(spans) || spans[0];
+		const start = Math.min(...spans.map((span) => new Date(span.timestamp).getTime()));
+		const end = Math.max(...spans.map((span) => new Date(span.timestamp).getTime() + span.durationNs / 1e6));
+		const errorCount = spans.filter((span) => String(span.statusCode || "").toUpperCase().includes("ERROR")).length;
+		return {
+			...denormalizeSpanToTraceRow(root),
+			Timestamp: new Date(start).toISOString(),
+			Duration: String(Math.max(0, Math.round((end - start) * 1e6))),
+			StatusCode: errorCount ? "STATUS_CODE_ERROR" : root.statusCode,
+			SpanCount: spans.length,
+			ErrorCount: errorCount,
+		};
+	});
+	return { ...listed, records: records.filter((row): row is NonNullable<typeof row> => row !== null) };
+}
+
 /**
  * Tempo list rows reuse `traceId` as `spanId` because search summaries have no
  * cheap real span id. Treat that sentinel as "open the trace root".
@@ -844,14 +887,21 @@ export async function getTraceGrouped(params: MetricParams, groupBy: string) {
  */
 export async function getTraceSummary(
 	params: MetricParams,
-	signal: "traces" | "exceptions" = "traces"
+	signal: "traces" | "exceptions" = "traces",
+	aggregateTraces = true
 ) {
-	const { adapter } = await resolveTracesAdapter(params.sourceId, params.environment);
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 
 	const bucket = getSummaryBucket(params);
 	const empty = { err: null, bucket, buckets: [], total: 0, peak: 0 };
 
 	try {
+		if (signal === "traces" && aggregateTraces && usesSqlIssueFilters(descriptor)) {
+			return await getTraceSummarySeries({
+				...params,
+				databaseConfigId: params.databaseConfigId || descriptor.dbConfigId,
+			});
+		}
 		const base = externalTraceQuery(params, { aiSelector: false });
 		const query: OpenLITQuery = {
 			...base,
@@ -876,7 +926,7 @@ export async function getTraceSummary(
 		// Trace backends such as Tempo can return lightweight trace summaries
 		// without downloading every span. Prefer that trace-level series when
 		// available so a 200-trace L1 sample is never presented as the volume.
-		const frame = adapter.traceTimeSeries
+		const frame = aggregateTraces && adapter.traceTimeSeries
 			? await adapter.traceTimeSeries(query)
 			: await planAndSpanTimeSeries(adapter, query);
 		const buckets = (frame.rows as Record<string, unknown>[]).map((row) => ({

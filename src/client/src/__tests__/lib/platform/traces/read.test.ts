@@ -9,6 +9,8 @@ const mockGetRequestsConfig = jest.fn();
 const mockGetGroupedRequests = jest.fn();
 const mockGetAttributeKeys = jest.fn();
 const mockGetSignalSummary = jest.fn();
+const mockGetTraceSummaries = jest.fn();
+const mockGetTraceSummarySeries = jest.fn();
 
 jest.mock("@/lib/platform/request", () => ({
 	getRequests: (...a: unknown[]) => mockGetRequests(...a),
@@ -22,6 +24,8 @@ jest.mock("@/lib/platform/request", () => ({
 	getRequestPerTime: jest.fn(),
 	getAverageRequestDuration: jest.fn(),
 	getRequestExist: jest.fn(),
+	getTraceSummaries: (...a: unknown[]) => mockGetTraceSummaries(...a),
+	getTraceSummarySeries: (...a: unknown[]) => mockGetTraceSummarySeries(...a),
 }));
 
 jest.mock("@/helpers/server/platform", () => ({
@@ -84,6 +88,7 @@ import {
 	getTraceSpanRecord,
 	getTraceTotalRequests,
 	listTraceRecords,
+	listTraceSummaries,
 } from "@/lib/platform/traces/read";
 import { AdapterError } from "@openplait/adapter-sdk";
 import { UnsupportedCapabilityError } from "@/lib/platform/connectors/datasource/types";
@@ -122,6 +127,46 @@ const params = {
 
 beforeEach(() => {
 	jest.clearAllMocks();
+});
+
+describe("listTraceSummaries", () => {
+	it("uses the selected ClickHouse source for trace-level SQL", async () => {
+		mockResolveDescriptor.mockResolvedValue(builtin);
+		mockGetAdapter.mockResolvedValue({});
+		mockGetTraceSummaries.mockResolvedValue({ err: null, records: [], total: 0 });
+
+		await listTraceSummaries(params as any);
+
+		expect(mockGetTraceSummaries).toHaveBeenCalledWith(
+			expect.objectContaining({ databaseConfigId: "db-1" })
+		);
+	});
+
+	it("loads a matching trace's root and full span counts from an external source", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const root = {
+			traceId: "trace-1", spanId: "root-1", parentSpanId: "", name: "request",
+			serviceName: "api", timestamp: "2026-07-01T00:00:00.000Z", durationNs: 1_000_000_000,
+			statusCode: "OK", spanAttributes: {}, resourceAttributes: {},
+		};
+		const child = {
+			...root, spanId: "child-1", parentSpanId: "root-1", name: "operation",
+			timestamp: "2026-07-01T00:00:00.500Z", durationNs: 2_000_000_000,
+			statusCode: "STATUS_CODE_ERROR",
+		};
+		mockGetAdapter.mockResolvedValue({
+			listSpans: jest.fn().mockResolvedValue({ rows: [child] }),
+			countTraces: jest.fn().mockResolvedValue({ total: 1, truncated: false }),
+			getTraceSpans: jest.fn().mockResolvedValue([child, root]),
+		});
+
+		const result = await listTraceSummaries(params as any);
+
+		expect(result).toMatchObject({ total: 1, records: [expect.objectContaining({
+			TraceId: "trace-1", SpanId: "root-1", SpanCount: 2, ErrorCount: 1,
+			Duration: "2500000000",
+		})] });
+	});
 });
 
 describe("listTraceRecords", () => {
@@ -840,6 +885,32 @@ describe("getTraceHierarchy", () => {
 });
 
 describe("dashboard graph facades", () => {
+	it("uses span volume for the separate spans view", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const traceTimeSeries = jest.fn();
+		const spanTimeSeries = jest.fn().mockResolvedValue({ rows: [{ label: "00:00", count: 3 }] });
+		mockGetAdapter.mockResolvedValue({ traceTimeSeries, spanTimeSeries });
+
+		const result = await getTraceSummary(params as any, "traces", false);
+
+		expect(spanTimeSeries).toHaveBeenCalledTimes(1);
+		expect(traceTimeSeries).not.toHaveBeenCalled();
+		expect(result.total).toBe(3);
+	});
+
+	it("uses qualified ClickHouse trace counts for the traces view", async () => {
+		mockResolveDescriptor.mockResolvedValue(builtin);
+		mockGetAdapter.mockResolvedValue({});
+		mockGetTraceSummarySeries.mockResolvedValue({ total: 2, buckets: [], err: null });
+
+		const result = await getTraceSummary(params as any, "traces", true);
+
+		expect(mockGetTraceSummarySeries).toHaveBeenCalledWith(
+			expect.objectContaining({ databaseConfigId: "db-1" })
+		);
+		expect(result.total).toBe(2);
+	});
+
 	it("uses a backend trace-summary series for the external trace volume", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		const traceTimeSeries = jest.fn().mockResolvedValue({

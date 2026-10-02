@@ -1,5 +1,5 @@
 import { Columns } from "@/components/data-table/columns";
-import { columns as traceColumns } from "@/components/(playground)/request/columns";
+import { columns as requestColumns } from "@/components/(playground)/request/columns";
 import { columns as exceptionColumns } from "@/components/(playground)/exceptions/columns";
 import {
 	codingUsersColumns,
@@ -13,6 +13,7 @@ import {
 	BarChart3,
 	Bot,
 	FileText,
+	GitBranch,
 	ShieldAlert,
 	Users,
 	type LucideIcon,
@@ -24,8 +25,23 @@ import getMessage from "@/constants/messages";
 
 const m = getMessage();
 
+const traceColumns: Columns<any, any> = {
+	...requestColumns,
+	id: {
+		...requestColumns.id,
+		header: () => m.OBSERVABILITY_TRACE_ID,
+		cell: requestColumns.id!.cell!,
+	},
+	spanId: {
+		header: () => m.OBSERVABILITY_SPAN_ID,
+		cell: ({ row }) => <div className="truncate font-mono" title={row.spanId}>{row.spanId}</div>,
+		enableHiding: true,
+	},
+};
+
 export type ObservabilitySignal =
 	| "traces"
+	| "spans"
 	| "exceptions"
 	| "metrics"
 	| "logs"
@@ -68,8 +84,33 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		shortLabel: m.OBSERVABILITY_TRACE_SHORT_LABEL,
 		tone: "text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-900",
 		summary: m.OBSERVABILITY_TRACE_SUMMARY,
+		icon: GitBranch,
+		listUrl: "/api/telemetry/trace?view=traces",
+		summaryUrl: "/api/telemetry/summary/traces?view=traces",
+		configUrl: "/api/metrics/request/config",
+		attributeKeysUrl: "/api/metrics/request/attribute-keys",
+		columns: traceColumns,
+		pageName: "request",
+		visibilityPage: "request",
+		includeOnlySorting: ["Timestamp"],
+		customAttributeTypes: ["SpanAttributes", "ResourceAttributes", "Field"],
+		normalize: (row) => ({
+			...normalizeTrace(row),
+			spanCount: Number(row.SpanCount || 0),
+			errorCount: Number(row.ErrorCount || 0),
+		}),
+		getRowId: (row) => row.spanId,
+		getDetailHref: (row, from) =>
+			`/telemetry/traces/${row.spanId}?from=${encodeURIComponent(from)}`,
+	},
+	{
+		key: "spans",
+		label: m.OBSERVABILITY_SPANS,
+		shortLabel: m.OBSERVABILITY_SPAN_SHORT_LABEL,
+		tone: "text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 border-cyan-200 dark:border-cyan-900",
+		summary: m.OBSERVABILITY_SPAN_SUMMARY,
 		icon: Activity,
-		listUrl: "/api/telemetry/request",
+		listUrl: "/api/telemetry/trace",
 		summaryUrl: "/api/telemetry/summary/traces",
 		configUrl: "/api/telemetry/request/config",
 		attributeKeysUrl: "/api/telemetry/request/attribute-keys",
