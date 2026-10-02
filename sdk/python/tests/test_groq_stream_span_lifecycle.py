@@ -3,7 +3,7 @@
 exit path.
 
 `TracedSyncStream.__exit__`/`TracedAsyncStream.__aexit__` merely forwarded to
-the wrapped stream and there was no `close()`/`aclose()`, so the span was
+the wrapped stream and there was no `close()`, so the span was
 ended only inside the `except StopIteration`/`StopAsyncIteration` handler.
 A caller that `break`s out of `with … as stream:` before the stream is
 exhausted, or calls `stream.close()` early, never hit that handler, so the
@@ -122,7 +122,11 @@ class FakeAsyncStream:
         except StopIteration:
             raise StopAsyncIteration from None
 
-    async def aclose(self):
+    async def close(self):
+        # groq's AsyncStream names this `close` (a coroutine) and has no
+        # `aclose`; __aexit__ is `await self.close()`. The fake said `aclose`,
+        # so the wrapper's unreachable `aclose` override looked reachable and
+        # the early-close leak went unnoticed (#1603).
         self.closed = True
 
 
@@ -223,14 +227,36 @@ async def test_async_early_break_inside_with_ends_span():
 
 
 @pytest.mark.asyncio
-async def test_async_aclose_finalizes_span():
+async def test_async_close_finalizes_span():
     tracer, exporter = _tracer_with_exporter()
     wrapper = _factory(tracer, is_async=True)
 
     stream = await wrapper(_acreate, None, (), REQUEST_KWARGS)
     async with stream as s:
         await anext(s)
-        await s.aclose()
+        await s.close()
+
+    time.sleep(0.05)
+    _assert_one_span_with_tokens(exporter)
+
+
+@pytest.mark.asyncio
+async def test_async_close_alone_finalizes_span():
+    """close() must finalize on its own, with no `async with` around it.
+
+    The sibling test above wraps the call in `async with`, whose `__aexit__`
+    finalizes the span whatever close() does — so it passes even when the
+    close override is unreachable. That is how #1516 shipped an `aclose`
+    override for a library whose stream only has `close`, and why the leak in
+    #1603 went unnoticed. Driving close() with no context manager is the only
+    arrangement that can see it.
+    """
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=True)
+
+    stream = await wrapper(_acreate, None, (), REQUEST_KWARGS)
+    await anext(stream)
+    await stream.close()
 
     time.sleep(0.05)
     _assert_one_span_with_tokens(exporter)
