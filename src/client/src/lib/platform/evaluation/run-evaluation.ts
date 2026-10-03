@@ -87,6 +87,7 @@ function getModel(provider: string, model: string, apiKey: string) {
 			return createOpenAI({
 				baseURL: "https://api.perplexity.ai",
 				apiKey,
+				headers: { "X-Pplx-Integration": "openlit" },
 			})(model);
 		case "deepseek":
 			return createOpenAI({

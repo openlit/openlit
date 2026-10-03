@@ -142,6 +142,13 @@ function fieldToExpr(field: string): string {
 	if (field === "deployment.environment") {
 		return "ResourceAttributes['deployment.environment']";
 	}
+	if (
+		field === "organisation.environment.name" ||
+		field === "openlit.organisation.id" ||
+		field === "openlit.project.id"
+	) {
+		return `ResourceAttributes['${escapeCH(field)}']`;
+	}
 	// OTel GenAI renamed gen_ai.system → gen_ai.provider.name (1.30+). Coalesce
 	// so group-by / filters work for both legacy and current SDK emits.
 	if (field === "gen_ai.provider.name" || field === "gen_ai.system") {

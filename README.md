@@ -1,13 +1,14 @@
 <div align="center">
 
-<img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
+<img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT logo" width="30%">
 
-# Open-source observability & evaluation for AI agents
+# OpenLIT: the open-source agent harness engineering platform
 
-**Trace, evaluate, debug, and optimize AI applications and coding agents with OpenTelemetry.**
+**Trace, evaluate, guard, and improve AI agents and coding agents with OpenTelemetry.**
+Agent observability · Evals · Guardrails · Prompt management · Cost & GPU monitoring · Self-host free (Apache 2.0)
 
-<a href="https://docs.openlit.io/latest/features/agent-observability">
-  <img src="docs/images/readme-hero-coding-agent-trace.png" alt="OpenLIT coding agent trace view" width="90%">
+<a href="https://docs.openlit.io/latest/openlit/observability/agents/overview">
+  <img src="docs/images/readme-hero-coding-agent-trace.png" alt="OpenLIT agent harness trace view showing LLM calls, tool calls and cost" width="90%">
 </a>
 
 <p>
@@ -22,15 +23,28 @@
 [![Slack](https://img.shields.io/badge/Slack-join-purple?logo=slack)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
 [![X](https://img.shields.io/badge/follow-%40openlit__io-black?logo=x)](https://twitter.com/openlit_io)
 
-**[Documentation](https://docs.openlit.io/) · [Quickstart](https://docs.openlit.io/) · [Examples](https://github.com/openlit/openlit/tree/main/examples) · [Join Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)**
+**[Website](https://openlit.io) · [Documentation](https://docs.openlit.io/latest/overview) · [Quickstart](#-get-started-in-5-minutes) · [Compare](https://openlit.io/compare) · [Join Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)**
 
 </div>
 
 ---
 
-## See what your AI agents are actually doing
+## What is OpenLIT?
 
-AI applications are no longer just LLM calls.
+**OpenLIT is an open-source agent harness engineering platform.** It gives teams OpenTelemetry-native tracing, evaluations, guardrails, prompt and context management, and cost and GPU monitoring for the *harness* around their AI agents and coding agents, so every agent failure can be traced, scored, and turned into a harness fix. OpenLIT is free to self-host under Apache 2.0 and works with any model, framework, or harness: Claude Code, Codex, Cursor, OpenAI Agents SDK, LangGraph, CrewAI, and 70+ more integrations.
+
+### What is agent harness engineering?
+
+An AI agent is a **model plus a harness**. The harness is everything except the model: tools, context, prompts, memory, hooks, guardrails, and feedback loops. **Agent harness engineering** is the discipline of designing, measuring, and improving that harness so agents are reliable in production. The core loop is *run → observe → evaluate → fix the harness → verify*, and OpenLIT gives you each step:
+
+| Harness engineering step | OpenLIT feature |
+|---|---|
+| **Observe** every LLM call, tool call, MCP request, retrieval and agent step | Agent observability & OpenTelemetry LLM tracing |
+| **Evaluate** quality, safety and cost on real traces | Evals (LLM-as-a-judge, programmatic, human feedback) + CI gates |
+| **Guard** the agent at runtime | Guardrails (prompt injection, sensitive topics, topic restriction) |
+| **Fix** the harness without redeploying | Prompt Hub, Context, Rule Engine, Vault (secrets) |
+| **Compare** models and prompts before shipping | OpenGround |
+| **Account** for cost, latency and hardware | Cost tracking, custom pricing, GPU monitoring (NVIDIA, AMD, Intel) |
 
 A production agent can involve:
 
@@ -52,10 +66,6 @@ flowchart TD
     style E fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
     style O fill:#F97316,stroke:#7C2D12,color:#fff
 ```
-
-**OpenLIT gives you visibility across the entire workflow.**
-
-Trace every LLM call, tool invocation, prompt, agent step, token, cost, error, and evaluation — using OpenTelemetry.
 
 ---
 
@@ -126,7 +136,7 @@ Open your dashboard and start exploring your AI application's traces, metrics, c
 
 ---
 
-# 🤖 Observe Claude Code, Cursor & Codex
+# 🤖 Coding agent observability: Claude Code, Cursor, Codex & Windsurf
 
 AI coding agents are powerful — but understanding what they actually did can be difficult.
 
@@ -196,7 +206,7 @@ Explore the resulting sessions in the **Coding Agents** dashboard.
 
 ---
 
-# 🔍 What OpenLIT gives you
+# 🔍 Agent observability & LLM tracing (OpenTelemetry)
 
 ## Traces
 
@@ -210,7 +220,7 @@ All represented using OpenTelemetry.
 
 ---
 
-## 💰 AI cost observability
+## 💰 LLM cost tracking
 
 Track the cost of your AI applications across:
 
@@ -222,7 +232,7 @@ Support custom pricing for custom and fine-tuned models.
 
 ---
 
-## 🧪 AI evaluations
+## 🧪 Agent evals: LLM-as-a-judge, programmatic evals & CI gates
 
 Automatically evaluate LLM and agent outputs using LLM-as-a-Judge evaluations.
 
@@ -242,7 +252,7 @@ to:
 
 ---
 
-## 🐛 Debug production AI
+## 🐛 Debug production AI agents
 
 Find the requests that matter.
 
@@ -303,7 +313,7 @@ flowchart TD
 
 ---
 
-# 🧠 Prompt management
+# 🧠 Prompt management (Prompt Hub) & context
 
 Use **Prompt Hub** to:
 
@@ -320,6 +330,8 @@ prompt = openlit.prompts.get(
 ```
 
 Keep prompt management separate from application code while maintaining version control and observability.
+
+Use **Context** to store reusable RAG content once and have the Rule Engine return the right piece at runtime. See the [Context docs](https://docs.openlit.io/latest/openlit/prompts-experiments/context/overview).
 
 ---
 
@@ -348,24 +360,59 @@ THEN
 
 ---
 
-# 🔌 OpenTelemetry-native
+# 🛡️ Guardrails: prompt injection & sensitive-topic detection
 
-OpenLIT is built around **OpenTelemetry**, rather than creating a proprietary telemetry format.
+Use OpenLIT SDK guardrails to detect and block risky prompts at runtime:
+
+- Prompt injection / jailbreak attempts
+- Sensitive topics
+- Topic restriction
+
+Guardrail checks are traced with OpenTelemetry so you can see when and why a request was blocked. See the [guardrails docs](https://docs.openlit.io/latest/sdk/features/guardrails) and [quickstart](https://docs.openlit.io/latest/openlit/quickstart-guard).
+
+---
+
+# 🔐 Vault: LLM API key management
+
+Store LLM API keys and other secrets in **Vault**, then retrieve them at runtime via the SDK or API — without hard-coding credentials in application code. See the [Vault docs](https://docs.openlit.io/latest/openlit/developer-resources/vault/overview).
+
+---
+
+# 🆚 OpenGround: compare models side by side
+
+Run the same prompt across multiple providers in **OpenGround** and compare cost, latency, and output quality before you ship. See the [OpenGround docs](https://docs.openlit.io/latest/openlit/prompts-experiments/openground/overview).
+
+---
+
+# 🖥️ GPU monitoring for LLM inference
+
+Monitor NVIDIA, AMD, and Intel GPUs used for LLM inference with the OpenTelemetry GPU collector: utilization, memory, power, and temperature, correlated with your traces. See the [GPU collector docs](https://docs.openlit.io/latest/gpu-collector/overview).
+
+---
+
+# 🔌 OpenTelemetry-native (GenAI semantic conventions)
+
+OpenLIT is built around **OpenTelemetry**, rather than creating a proprietary telemetry format. Traces and metrics follow OpenTelemetry GenAI semantic conventions (`gen_ai.*`).
 
 Your telemetry can flow through the OpenTelemetry ecosystem:
 
 ```mermaid
 flowchart TD
-    A["AI App / AI Agent"] -->|OpenTelemetry| C[OpenTelemetry Collector]
-    C --> B[OpenLIT Backend]
+    A["AI App / AI Agent"] -->|OTLP| R[OpenLIT OTLP receiver]
+    A -->|optional sidecar| C[Your OpenTelemetry Collector]
+    C --> R
     C --> O["Other OTel backends<br/>(Datadog, Grafana, Honeycomb, ...)"]
+    R --> B[ClickHouse]
     B --> D[OpenLIT Dashboard]
 
     style A fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style R fill:#F97316,stroke:#7C2D12,color:#fff
     style C fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
-    style B fill:#F97316,stroke:#7C2D12,color:#fff
+    style B fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
     style D fill:#F97316,stroke:#7C2D12,color:#fff
 ```
+
+OpenLIT listens for OTLP on `:4317` (gRPC) and `:4318` (HTTP). A bundled Collector is not required. You can still put your own Collector in front for fan-out or processing.
 
 This means you can integrate OpenLIT into an existing OpenTelemetry architecture instead of replacing it.
 
@@ -437,12 +484,12 @@ flowchart TD
         direction LR
         Agent --> LLM --> Tools --> RAG --> DB
     end
-    App -->|OpenTelemetry| Collector[OpenTelemetry Collector]
-    Collector --> CH[(ClickHouse)]
+    App -->|OTLP| Receiver[OpenLIT OTLP receiver]
+    Receiver --> CH[(ClickHouse)]
     CH --> Dash[OpenLIT Dashboard]
 
     style App fill:#1F2937,stroke:#F97316,stroke-width:2px,color:#fff
-    style Collector fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
+    style Receiver fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
     style CH fill:#111827,stroke:#F97316,stroke-width:2px,color:#fff
     style Dash fill:#F97316,stroke:#7C2D12,color:#fff
 ```
@@ -483,6 +530,54 @@ flowchart LR
 The goal is simple:
 
 > **Make AI systems observable, measurable, debuggable, and continuously improvable.**
+
+---
+
+## ❓ FAQ
+
+**What is OpenLIT?**
+OpenLIT is an open-source agent harness engineering platform. It provides OpenTelemetry-native tracing, evaluations, guardrails, prompt management, and cost and GPU monitoring for AI agents and coding agents, and it is free to self-host under Apache 2.0.
+
+**What is an agent harness?**
+An agent harness is everything in an AI agent except the model: the tools, context, prompts, memory, hooks, guardrails, and feedback loops that turn a model into a working agent. Claude Code, Codex, and frameworks like LangGraph or CrewAI are harnesses.
+
+**What is agent harness engineering?**
+Agent harness engineering is the discipline of designing, measuring, and improving the harness around a model so agents are reliable in production. Teams run agents on real tasks, observe failures in traces, evaluate them, fix the harness (prompts, tools, rules, guardrails), and verify the fix with regression evals.
+
+**Is OpenLIT an agent framework or a harness runtime?**
+No. OpenLIT doesn't run your agent loop. It instruments and improves whatever harness you already use, through OpenTelemetry, so you can switch models, frameworks, or harnesses without losing your traces, evals, or prompts.
+
+**How is OpenLIT different from Langfuse, LangSmith, or Arize Phoenix?**
+OpenLIT is Apache-2.0 and OpenTelemetry-native end to end, adds GPU monitoring, guardrails, Vault, and coding-agent observability in the same self-hosted platform, and exports to any OTLP backend. See https://openlit.io/compare for feature-by-feature comparisons.
+
+**Does OpenLIT work with Claude Code, Codex, and Cursor?**
+Yes. The `openlit` CLI ingests each coding agent's hook events and maps them to OpenTelemetry `gen_ai.*` conventions, with no SDK and no code changes.
+
+**Can I run agent evals in CI?**
+Yes. Run LLM-as-a-judge and programmatic evals online on production traces, or offline through the SDK as CI/CD gates.
+
+**Is OpenLIT free?**
+Yes. Self-hosted OpenLIT is free under Apache 2.0, with no license key and no per-trace fee.
+
+**Does OpenLIT add latency?**
+No proxy is required. SDKs instrument in-process and export telemetry asynchronously over OTLP.
+
+**Can I send data to Grafana, Datadog, or my existing OpenTelemetry Collector?**
+Yes. OpenLIT emits standard OTLP traces and metrics, so they can go to OpenLIT, Grafana, Datadog, New Relic, SigNoz, or any OTLP backend.
+
+---
+
+## 🆚 How OpenLIT compares
+
+Feature-by-feature comparisons on [openlit.io/compare](https://openlit.io/compare):
+
+- [OpenLIT vs Langfuse](https://openlit.io/compare/openlit-vs-langfuse)
+- [OpenLIT vs LangSmith](https://openlit.io/compare/openlit-vs-langsmith)
+- [OpenLIT vs Arize Phoenix](https://openlit.io/compare/openlit-vs-arize-phoenix)
+- [OpenLIT vs Braintrust](https://openlit.io/compare/openlit-vs-braintrust)
+- [OpenLIT vs Helicone](https://openlit.io/compare/openlit-vs-helicone)
+- [OpenLIT vs Datadog](https://openlit.io/compare/openlit-vs-datadog)
+- [OpenLIT vs Comet Opik](https://openlit.io/compare/openlit-vs-comet-opik)
 
 ---
 
@@ -533,15 +628,33 @@ See [LICENSE](https://github.com/openlit/openlit/blob/main/LICENSE) for details.
 
 # 🙇 Acknowledgments
 
-This project is proudly supported by:
+## Sponsors
+
+### Silver
+
+<p>
+<a href="https://fluxionai.world/register?source=github&campaign=github-openlit&promo=OPENLIT" target="_blank">
+  <img src="docs/images/fluxion-ai-logo.png" alt="Fluxion AI" height="72">
+</a>
+</p>
+
+### Bronze
 
 <p>
 <a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=openlit" target="_blank">
-  <img src="docs/images/testmu-logo.png" alt="TestMu" height="80">
+  <img src="docs/images/testmu-logo.png" alt="TestMu AI" height="80">
 </a>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</p>
+
+## Deployment partners
+
+<p>
 <a href="https://www.digitalocean.com/">
   <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" alt="DigitalOcean" height="80" width="200">
+</a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://www.hostg.xyz/aff_c?offer_id=815&aff_id=243668&url_id=6792">
+  <img src="https://assets.hostinger.com/vps/deploy.svg" alt="Deploy on Hostinger">
 </a>
 </p>
 
@@ -550,14 +663,16 @@ This project is proudly supported by:
 # 💻 Contributors
 
 <a href="https://github.com/openlit/openlit/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=openlit/openlit" alt="OpenLIT contributors">
+  <img src="https://contrib.rocks/image?repo=openlit/openlit&max=500&columns=20" alt="OpenLIT contributors" width="100%">
 </a>
+
+Names for the same contributors are on [openlit.io/about-us](https://openlit.io/about-us).
 
 ---
 
 <div align="center">
 
-### Build AI systems you can actually understand.
+### Build agent harnesses you can actually measure and improve.
 
 **⭐ Star OpenLIT on GitHub**
 

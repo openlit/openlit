@@ -41,7 +41,6 @@ services:
         condition: service_healthy
     volumes:
       - openlit-data:/app/client/data
-      - ../../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
       interval: 5s

@@ -20,7 +20,34 @@ function previewApiKey(apiKey: string): string {
 export interface APIKeyInfo {
 	id: string;
 	databaseConfigId: string | null;
+	organisationId?: string | null;
+	projectId?: string | null;
+	environment?: string;
 	createdByUser?: { email: string } | null;
+	createdByUserId?: string;
+}
+
+const DEFAULT_API_KEY_ENVIRONMENT = "production";
+
+function scopeFromKeyRow(row: {
+	organisationId?: string | null;
+	projectId?: string | null;
+	environment?: string | null;
+	databaseConfig?: {
+		projectId?: string | null;
+		environment?: string | null;
+		project?: { organisationId?: string | null } | null;
+	} | null;
+}): Pick<APIKeyInfo, "organisationId" | "projectId" | "environment"> {
+	return {
+		organisationId:
+			row.organisationId || row.databaseConfig?.project?.organisationId || null,
+		projectId: row.projectId || row.databaseConfig?.projectId || null,
+		environment:
+			row.environment ||
+			row.databaseConfig?.environment ||
+			DEFAULT_API_KEY_ENVIRONMENT,
+	};
 }
 
 function createAPIKey() {
@@ -42,12 +69,28 @@ export async function generateAPIKey(name: string) {
 	throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
 
 	const apiKey = createAPIKey();
+	const projectId = dbConfig.projectId || null;
+	let organisationId: string | null = null;
+	if (projectId) {
+		const project = await prisma.project.findUnique({
+			where: { id: projectId },
+			select: { organisationId: true },
+		});
+		organisationId = project?.organisationId || null;
+	}
+	const environment =
+		typeof dbConfig.environment === "string" && dbConfig.environment.trim()
+			? dbConfig.environment.trim()
+			: "production";
 
 	await prisma.aPIKeys.create({
 		data: {
 			apiKey,
 			name,
 			databaseConfigId: dbConfig.id,
+			organisationId,
+			projectId,
+			environment,
 			createdByUserId: user!.id,
 		},
 	});
@@ -73,6 +116,9 @@ export async function generateAPIKey(name: string) {
 	return {
 		apiKey,
 		databaseConfigId: dbConfig.id,
+		organisationId,
+		projectId,
+		environment,
 	};
 }
 
@@ -89,7 +135,23 @@ export async function getAPIKeyInfo({ apiKey }: { apiKey: string }) {
 					},
 				],
 			},
-			include: { createdByUser: { select: { email: true } } },
+			include: {
+				createdByUser: { select: { email: true } },
+				databaseConfig: {
+					select: {
+						projectId: true,
+						environment: true,
+						project: { select: { organisationId: true } },
+					},
+				},
+			},
+		}).then((row) => {
+			if (!row) return row;
+			const scope = scopeFromKeyRow(row);
+			return {
+				...row,
+				...scope,
+			};
 		})
 	);
 }

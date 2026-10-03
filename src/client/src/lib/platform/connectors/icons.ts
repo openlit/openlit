@@ -1,4 +1,4 @@
-/** Local SVG brand assets for connector catalog and connected-instance views. */
+/** Local brand assets for connector catalog and connected-instance views. */
 const CONNECTOR_ICONS: Record<string, string> = {
 	clickhouse: "/images/connectors/clickhouse.svg",
 	tempo: "/images/connectors/grafana.svg",
@@ -7,7 +7,9 @@ const CONNECTOR_ICONS: Record<string, string> = {
 	jaeger: "/images/connectors/jaeger.svg",
 	claude: "/images/connectors/claude.svg",
 	mem0: "/images/connectors/mem0.svg",
+	memcode: "/images/connectors/memcode.png",
 	zep: "/images/connectors/zep.svg",
+	trustabl: "/images/connectors/trustabl.svg",
 };
 
 export function connectorIconPath(type: string): string | undefined {

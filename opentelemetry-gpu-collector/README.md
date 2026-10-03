@@ -2,7 +2,7 @@
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%"><h1>
 OpenTelemetry GPU Collector</h1>
 
-**[Documentation](https://docs.openlit.io/latest/features/gpu) | [Quickstart](#-getting-started) | [Metrics](#-metrics) | [Configuration](#-configuration)**
+**[Documentation](https://docs.openlit.io/latest/gpu-collector/overview) | [Quickstart](#-getting-started) | [Metrics](#-metrics) | [Configuration](#-configuration)**
 
 **[Roadmap](#%EF%B8%8F-roadmap) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)**
 
@@ -16,7 +16,7 @@ OpenTelemetry GPU Collector</h1>
 
 </div>
 
-A high-performance host and GPU metrics collector written in Go. Exports host-level system metrics (CPU, memory, disk, network), process metrics, DCGM-style GPU hardware telemetry, and eBPF-based CUDA kernel tracing (on by default on Linux) — all via OpenTelemetry (OTLP).
+Part of OpenLIT, the open-source agent harness engineering platform. A high-performance host and GPU metrics collector written in Go. Exports host-level system metrics (CPU, memory, disk, network), process metrics, DCGM-style GPU hardware telemetry, and eBPF-based CUDA kernel tracing (on by default on Linux) — all via OpenTelemetry (OTLP).
 
 Metric names and attributes follow the [OpenTelemetry semantic conventions for hardware](https://opentelemetry.io/docs/specs/semconv/hardware/gpu/) and [system metrics](https://opentelemetry.io/docs/specs/semconv/system/).
 
@@ -91,7 +91,7 @@ docker pull ghcr.io/openlit/otel-gpu-collector:latest
 docker run --gpus all --pid=host \
     -e OTEL_SERVICE_NAME=my-app \
     -e OTEL_RESOURCE_ATTRIBUTES="deployment.environment=production" \
-    -e OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4317" \
+    -e OTEL_EXPORTER_OTLP_ENDPOINT="http://openlit:4318" \
     ghcr.io/openlit/otel-gpu-collector:latest
 ```
 
@@ -107,7 +107,7 @@ services:
     environment:
       OTEL_SERVICE_NAME: my-app
       OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://openlit:4318"
     deploy:
       resources:
         reservations:
@@ -116,7 +116,7 @@ services:
               count: all
               capabilities: [gpu]
     depends_on:
-      - otel-collector
+      - openlit
     restart: always
 ```
 

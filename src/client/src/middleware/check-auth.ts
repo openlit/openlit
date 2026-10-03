@@ -147,6 +147,31 @@ export default function checkAuth(next: NextMiddleware) {
 						const data = await res.json();
 						if (data.valid && data.databaseConfigId) {
 							requestHeaders.set("x-database-config-id", data.databaseConfigId);
+							if (data.organisationId) {
+								requestHeaders.set(
+									"x-openlit-organisation-id",
+									String(data.organisationId)
+								);
+							} else {
+								requestHeaders.delete("x-openlit-organisation-id");
+							}
+							if (data.projectId) {
+								requestHeaders.set(
+									"x-openlit-project-id",
+									String(data.projectId)
+								);
+							} else {
+								requestHeaders.delete("x-openlit-project-id");
+							}
+							if (data.environment) {
+								requestHeaders.set(
+									"x-openlit-environment",
+									String(data.environment)
+								);
+							} else {
+								requestHeaders.delete("x-openlit-environment");
+							}
+							requestHeaders.delete("x-openlit-database-config-id");
 							return next(
 								new NextRequest(request, {
 									headers: requestHeaders,

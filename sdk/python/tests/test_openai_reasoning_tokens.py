@@ -30,8 +30,10 @@ from openlit._config import OpenlitConfig
 from openlit.instrumentation.openai.utils import (
     process_chat_chunk,
     process_chat_response,
+    process_response_chunk,
     process_response_response,
     process_streaming_chat_response,
+    process_streaming_response_response,
 )
 from openlit.semcov import SemanticConvention
 
@@ -98,6 +100,7 @@ def _assert_no_double_counting(attrs, metrics, output_tokens=1000, reasoning_tok
 
 
 def _stream_scope(span):
+    """Chat streaming scope. Matches production: no _reasoning_tokens until usage."""
     return SimpleNamespace(
         _span=span,
         _llmresponse="",
@@ -119,6 +122,41 @@ def _stream_scope(span):
         _server_address="api.openai.com",
         _server_port=443,
     )
+
+
+def _responses_stream_scope(span):
+    """Responses streaming scope. Matches production: no _reasoning_tokens until usage."""
+    return SimpleNamespace(
+        _span=span,
+        _llmresponse="",
+        _response_id="",
+        _response_model="",
+        _finish_reason="",
+        _input_tokens=0,
+        _output_tokens=0,
+        _operation_type="responses",
+        _service_tier="default",
+        _tools=None,
+        _response_tools=None,
+        _kwargs={
+            "model": "o3-mini",
+            "input": "think step by step",
+        },
+        _start_time=time.time(),
+        _end_time=None,
+        _timestamps=[],
+        _ttft=0,
+        _tbt=0,
+        _server_address="api.openai.com",
+        _server_port=443,
+    )
+
+
+def _assert_no_reasoning_usage_attrs(attrs):
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED not in attrs
+    assert SemanticConvention.GEN_AI_USAGE_DERIVED_COMPLETED_OUTPUT_TOKENS not in attrs
+    assert SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS not in attrs
 
 
 def test_chat_completions_reasoning_tokens_are_subset_of_output():
@@ -253,8 +291,113 @@ def test_responses_api_reasoning_tokens_are_subset_of_output():
     _assert_no_double_counting(exporter.get_finished_spans()[0].attributes, metrics)
 
 
-def test_no_reasoning_tokens_omits_reasoning_attribute():
-    """No completion_tokens_details: reasoning attribute absent, output intact."""
+def test_streaming_chat_without_usage_emits_no_reasoning_attrs():
+    """Chat stream without include_usage: no reasoning attributes at all."""
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _metrics_dict()
+    span = tracer.start_span("chat no usage")
+    scope = _stream_scope(span)
+
+    process_chat_chunk(
+        scope,
+        {
+            "id": "chatcmpl_no_usage",
+            "model": "o3-mini",
+            "choices": [{"delta": {"content": "The answer is 42."}}],
+        },
+    )
+
+    with span:
+        process_streaming_chat_response(
+            scope,
+            pricing_info={},
+            environment="test-env",
+            application_name="test-app",
+            metrics=metrics,
+            capture_message_content=False,
+            disable_metrics=False,
+            version="test-version",
+        )
+
+    _assert_no_reasoning_usage_attrs(exporter.get_finished_spans()[0].attributes)
+
+
+def test_streaming_responses_without_completed_emits_no_reasoning_attrs():
+    """Responses stream with no response.completed: skip reasoning attrs entirely.
+
+    Production wrappers must not default _reasoning_tokens to 0; a literal 0 is
+    a measured zero and would emit reported=true plus a derived completed figure.
+    """
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _metrics_dict()
+    span = tracer.start_span("responses no completed")
+    scope = _responses_stream_scope(span)
+
+    process_response_chunk(
+        scope,
+        {"type": "response.output_text.delta", "delta": "The answer is 42."},
+    )
+
+    with span:
+        process_streaming_response_response(
+            scope,
+            pricing_info={},
+            environment="test-env",
+            application_name="test-app",
+            metrics=metrics,
+            capture_message_content=False,
+            disable_metrics=False,
+            version="test-version",
+        )
+
+    _assert_no_reasoning_usage_attrs(exporter.get_finished_spans()[0].attributes)
+
+
+def test_streaming_responses_with_usage_keeps_subset():
+    """Responses stream with response.completed usage: reasoning stays a subset."""
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _metrics_dict()
+    span = tracer.start_span("responses stream o3-mini")
+    scope = _responses_stream_scope(span)
+
+    process_response_chunk(
+        scope,
+        {"type": "response.output_text.delta", "delta": "The answer is 42."},
+    )
+    process_response_chunk(
+        scope,
+        {
+            "type": "response.completed",
+            "response": {
+                "id": "resp_stream_o1",
+                "model": "o3-mini",
+                "status": "completed",
+                "usage": {
+                    "input_tokens": 500,
+                    "output_tokens": 1000,
+                    "output_tokens_details": {"reasoning_tokens": 700},
+                },
+            },
+        },
+    )
+
+    with span:
+        process_streaming_response_response(
+            scope,
+            pricing_info={},
+            environment="test-env",
+            application_name="test-app",
+            metrics=metrics,
+            capture_message_content=False,
+            disable_metrics=False,
+            version="test-version",
+        )
+
+    _assert_no_double_counting(exporter.get_finished_spans()[0].attributes, metrics)
+
+
+def test_no_reasoning_tokens_marks_reasoning_unknown():
+    """No completion_tokens_details: facet value absent, reported marker false."""
     tracer, exporter = _tracer_and_exporter()
     metrics = _metrics_dict()
     response = {
@@ -291,6 +434,11 @@ def test_no_reasoning_tokens_omits_reasoning_attribute():
     attrs = exporter.get_finished_spans()[0].attributes
     assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 1000
     assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+    assert (
+        attrs[SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED]
+        is False
+    )
+    assert SemanticConvention.GEN_AI_USAGE_DERIVED_COMPLETED_OUTPUT_TOKENS not in attrs
 
     output_records = _output_token_usage_records(metrics)
     assert output_records
@@ -298,8 +446,8 @@ def test_no_reasoning_tokens_omits_reasoning_attribute():
         assert value == 1000
 
 
-def test_zero_reasoning_tokens_omits_reasoning_attribute():
-    """reasoning_tokens present but 0: no reasoning attrs, output intact."""
+def test_zero_reasoning_tokens_is_a_measurement():
+    """reasoning_tokens explicitly 0: a measurement (facet 0), not unknown."""
     tracer, exporter = _tracer_and_exporter()
     metrics = _metrics_dict()
     response = {
@@ -339,7 +487,18 @@ def test_zero_reasoning_tokens_omits_reasoning_attribute():
 
     attrs = exporter.get_finished_spans()[0].attributes
     assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 1000
-    assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+    # An explicit 0 is a measurement: facet emitted as 0, marker true, and the
+    # derived completed figure equals the full output. The legacy alias stays
+    # absent so pre-OTel consumers are unaffected.
+    assert attrs[SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS] == 0
+    assert (
+        attrs[SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED]
+        is True
+    )
+    assert (
+        attrs[SemanticConvention.GEN_AI_USAGE_DERIVED_COMPLETED_OUTPUT_TOKENS]
+        == 1000
+    )
     assert SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS not in attrs
 
     for value, _attrs in _output_token_usage_records(metrics):
@@ -366,7 +525,7 @@ def _non_dict_details_chat_response():
 
 
 def test_non_dict_completion_tokens_details_does_not_crash():
-    """Defensive casting: non-dict details fall back to {}, no exception."""
+    """Defensive casting: non-dict details are unknown, not a guessed 0."""
     tracer, exporter = _tracer_and_exporter()
     metrics = _metrics_dict()
 
@@ -392,10 +551,14 @@ def test_non_dict_completion_tokens_details_does_not_crash():
     attrs = exporter.get_finished_spans()[0].attributes
     assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 1000
     assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+    assert (
+        attrs[SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED]
+        is False
+    )
 
 
 def test_non_dict_output_tokens_details_does_not_crash():
-    """Responses API: non-dict output_tokens_details falls back to {}."""
+    """Responses API: non-dict output_tokens_details is unknown, not a guessed 0."""
     tracer, exporter = _tracer_and_exporter()
     metrics = _metrics_dict()
     response = {
@@ -438,3 +601,7 @@ def test_non_dict_output_tokens_details_does_not_crash():
     attrs = exporter.get_finished_spans()[0].attributes
     assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 1000
     assert SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS not in attrs
+    assert (
+        attrs[SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED]
+        is False
+    )
