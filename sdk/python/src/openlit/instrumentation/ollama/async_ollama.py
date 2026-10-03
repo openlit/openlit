@@ -97,6 +97,13 @@ def async_chat(
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
+        async def aclose(self):
+            """Close a native async stream and finalize its span exactly once."""
+            try:
+                await self.__wrapped__.aclose()
+            finally:
+                self._finalize_streaming_span()
+
         async def __anext__(self):
             try:
                 chunk = await self.__wrapped__.__anext__()
@@ -109,9 +116,9 @@ def async_chat(
         def _finalize_streaming_span(self):
             """Complete and end the span exactly once.
 
-            Called on stream exhaustion and again from close()/manager exit;
+            Called on stream exhaustion and again from aclose()/manager exit;
             the flag keeps the double call a no-op so early exits that never
-            see StopIteration still export the span instead of leaking it.
+            see StopAsyncIteration still export the span instead of leaking it.
             """
             if self._streaming_response_processed:
                 return

@@ -9,12 +9,15 @@ exhaustion, or a bare `stream.close()`) left the span recording forever, so
 it was never exported and its telemetry was lost — the Ollama chat instance of the
 early-close streaming bug filed in #1561 and fixed for
 Anthropic in #1461, AI21 in #1553, Together AI
-in #1555 and Sarvam AI in #1559. These tests drive the real `chat` / `async_chat` wrapper factories
-with synthetic OpenAI-shaped dict chunks, and assert the span ends exactly
-once on each exit path.
+in #1555 and Sarvam AI in #1559. These tests drive the real `chat` / `async_chat`
+wrapper factories with Ollama-shaped dict chunks and assert the span ends
+exactly once on each exit path, including explicit closure of Ollama's native
+async generator.
 """
 
 import time
+
+import pytest
 
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -63,7 +66,7 @@ def _factory(tracer, *, is_async):
 
 
 class FakeRawStream:
-    """Sync/async event stream shaped like an OpenAI-style chunk iterator."""
+    """Sync/async event stream shaped like an Ollama chunk iterator."""
 
     def __init__(self):
         self._it = iter(CHUNKS)
@@ -101,7 +104,7 @@ class FakeRawStream:
         self.closed = True
 
 
-async def _fake_create_async(*a, **k):
+async def _fake_create_async(*_args, **_kwargs):
     return FakeRawStream()
 
 
@@ -148,6 +151,7 @@ def test_sync_close_finalizes_span():
     assert len(spans) == 1, "close() must finalize the span exactly once"
 
 
+@pytest.mark.asyncio
 async def test_async_early_break_ends_span():
     """Leaving async iteration after one chunk must still end the span."""
     tracer, exporter = _tracer_with_exporter()
@@ -162,6 +166,7 @@ async def test_async_early_break_ends_span():
     assert len(spans) == 1, "early async exit must still end and export the span"
 
 
+@pytest.mark.asyncio
 async def test_async_full_consumption_exports_exactly_one_span():
     """Draining the async stream must export exactly one finished span."""
     tracer, exporter = _tracer_with_exporter()
@@ -173,4 +178,60 @@ async def test_async_full_consumption_exports_exactly_one_span():
             pass
 
     time.sleep(0.1)
+    assert len(exporter.get_finished_spans()) == 1
+
+
+@pytest.mark.asyncio
+async def test_async_native_generator_aclose_finalizes_span_once():
+    """Explicitly closing Ollama's native async generator must end the span."""
+    tracer, exporter = _tracer_with_exporter()
+    wrap = _factory(tracer, is_async=True)
+    closed = []
+
+    async def native_stream():
+        try:
+            for chunk in CHUNKS:
+                yield chunk
+        finally:
+            closed.append(True)
+
+    async def create_native_stream(*_args, **_kwargs):
+        return native_stream()
+
+    stream = await wrap(create_native_stream, None, (), REQUEST_KWARGS)
+    await anext(stream)
+    await stream.aclose()
+
+    assert closed == [True]
+    assert len(exporter.get_finished_spans()) == 1
+
+    await stream.aclose()
+    assert len(exporter.get_finished_spans()) == 1
+
+
+@pytest.mark.asyncio
+async def test_async_native_generator_aclose_after_exhaustion_does_not_duplicate():
+    """Closing an exhausted native generator must not process the span twice."""
+    tracer, exporter = _tracer_with_exporter()
+    wrap = _factory(tracer, is_async=True)
+    closed = []
+
+    async def native_stream():
+        try:
+            for chunk in CHUNKS:
+                yield chunk
+        finally:
+            closed.append(True)
+
+    async def create_native_stream(*_args, **_kwargs):
+        return native_stream()
+
+    stream = await wrap(create_native_stream, None, (), REQUEST_KWARGS)
+    async for _chunk in stream:
+        pass
+
+    assert closed == [True]
+    assert len(exporter.get_finished_spans()) == 1
+
+    await stream.aclose()
     assert len(exporter.get_finished_spans()) == 1
