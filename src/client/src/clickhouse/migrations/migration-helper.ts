@@ -94,5 +94,9 @@ export default async function migrationHelper({
 		return { migrationExist: false, queriesRun: true };
 	}
 
-	return { migrationExist: false, queriesRun: false };
+	return {
+		migrationExist: false,
+		queriesRun: false,
+		err: queriesRun.find(({ err }) => err)?.err,
+	};
 }

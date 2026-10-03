@@ -316,14 +316,10 @@ export const getFilterWhereCondition = (
 			}
 
 			if (filter.selectedConfig.environments?.length) {
-				// OTel-standard location for environment is
-				// `ResourceAttributes['deployment.environment']`. Older code
-				// here used `getTraceMappingKeyFullPath("environment")` which
-				// returns the dotted `SpanAttributes.gen_ai.environment` path
-				// and then wrapped *that* in `ResourceAttributes[...]`,
-				// producing a non-existent column key that always matched
-				// zero rows. Match both the OTel resource attribute and the
-				// legacy span attribute so any historic data still resolves.
+				// Playground / agent `envs` filter uses OTel
+				// `deployment.environment` (and legacy `gen_ai.environment`).
+				// API-key tenant env is stamped separately as
+				// `organisation.environment.name` and must not replace this.
 				const envList = filter.selectedConfig.environments
 					.map((environment: string) =>
 						`'${escapeClickHouseString(environment)}'`

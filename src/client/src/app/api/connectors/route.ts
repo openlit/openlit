@@ -18,6 +18,10 @@ import {
 	createMemoryConnector,
 	isMemoryConnectorType,
 } from "@/lib/platform/connectors/memory/crud";
+import {
+	createScannerConnector,
+	isScannerConnectorType,
+} from "@/lib/platform/connectors/scanner/crud";
 import { fireConnectorCreateTelemetry } from "@/helpers/server/connector-analytics";
 
 /**
@@ -76,6 +80,25 @@ async function POSTHandler(request: NextRequest) {
 		fireConnectorCreateTelemetry({
 			success: true,
 			type: String((connector as { type?: string })?.type || type || "memory"),
+			environment,
+			startTimestamp,
+		});
+		return Response.json(connector);
+	}
+	if (category === "scanner" || isScannerConnectorType(type)) {
+		const [err, connector] = await asaw(createScannerConnector(body));
+		if (err) {
+			fireConnectorCreateTelemetry({
+				success: false,
+				type: type || "scanner",
+				environment,
+				startTimestamp,
+			});
+			return errorResponse(err, "Failed to create connector");
+		}
+		fireConnectorCreateTelemetry({
+			success: true,
+			type: String((connector as { type?: string })?.type || type || "scanner"),
 			environment,
 			startTimestamp,
 		});

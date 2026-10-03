@@ -391,6 +391,14 @@ export const OBSERVABILITY_CHAT_MODEL_CHANGES = (count: number) =>
 export const OBSERVABILITY_TIMELINE = "Timeline";
 export const OBSERVABILITY_GRAPH = "Graph";
 export const OBSERVABILITY_NO_SERVER_CONNECTION = "Cannot connect to server!";
+export const API_UNEXPECTED_NON_JSON_RESPONSE =
+	"The server returned an unexpected non-JSON response.";
+export const API_UNEXPECTED_HTML_RESPONSE = (status?: number) =>
+	typeof status === "number"
+		? `The server returned a page instead of data (${status}). Refresh the page and try again.`
+		: "The server returned a page instead of data. Refresh the page and try again.";
+export const API_REQUEST_FAILED = (status: number) => `Request failed (${status})`;
+export const API_EMPTY_RESPONSE = "The telemetry service returned an empty response.";
 export const OBSERVABILITY_ADD = "Add";
 export const OBSERVABILITY_SPAN_NAME_EXAMPLE = "e.g. SpanName";
 export const OBSERVABILITY_ATTRIBUTE_KEY_EXAMPLE = "e.g. gen_ai.system";
@@ -753,7 +761,9 @@ export const FEATURE_OPENGROUND = "Openground";
 export const FEATURE_PROMPTS = "Prompt Hub";
 export const FEATURE_VAULT = "Vault";
 export const FEATURE_MEMORY = "Memory";
+export const FEATURE_SCANNER = "Scanner";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
+export const FLEET_HUB_UNAVAILABLE = "Fleet Hub is not available in this edition.";
 export const FLEET_HUB_BACK_TO_LIST = "Back to Fleet Hub";
 export const FEATURE_AGENTS = "Agents";
 export const FEATURE_EVALS = "Evaluations";
@@ -1675,7 +1685,9 @@ export const PERSONAL_ORGANISATION = "Personal";
 
 // Auth
 export const AUTH_WELCOME = "Welcome to OpenLIT";
-export const AUTH_SUBTITLE = "Open Source Platform for AI Engineering";
+export const AUTH_SUBTITLE = "Open source Agent Harness Engineering platform";
+export const TALK_TO_FOUNDER = "Talk to founder";
+export const TALK_TO_FOUNDER_HINT = "Schedule a 30-minute call";
 export const AUTH_SIGNING_IN = "Signing in...";
 export const AUTH_CONTINUE_WITH_GOOGLE = "Continue with Google";
 export const AUTH_CONTINUE_WITH_GITHUB = "Continue with Github";
@@ -1690,7 +1702,7 @@ export const AUTH_NO_ACCOUNT = "Don't have an account?";
 export const AUTH_HAVE_ACCOUNT = "Already have an account?";
 export const AUTH_GITHUB = "Github";
 export const AUTH_DOCUMENTATION = "Documentation";
-export const AUTH_FOOTER = "Open Source AI Observability Platform";
+export const AUTH_FOOTER = "Open source, built on OpenTelemetry";
 export const AUTH_ERROR_ACCESS_DENIED = "Access denied for this account.";
 export const AUTH_ERROR_TRY_DIFFERENT = "Try signing with a different account.";
 export const AUTH_ERROR_CONFIRM_IDENTITY = "To confirm your identity, sign in with the same account you used originally.";
@@ -1701,27 +1713,29 @@ export const AUTH_ERROR_DEFAULT = "Unable to sign in.";
 export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
 export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
 
-// Auth feature highlights
-export const AUTH_FEATURE_TRACING = "End-to-End Tracing";
-export const AUTH_FEATURE_TRACING_DESC = "Full request tracing across LLM providers";
-export const AUTH_FEATURE_ANALYTICS = "Cost & Token Analytics";
-export const AUTH_FEATURE_ANALYTICS_DESC = "Real-time cost tracking and token usage";
-export const AUTH_FEATURE_EVALS = "11 Evaluation Types";
-export const AUTH_FEATURE_EVALS_DESC = "Hallucination, bias, toxicity, safety & more";
-export const AUTH_FEATURE_JUDGE = "LLM-as-a-Judge";
-export const AUTH_FEATURE_JUDGE_DESC = "Automated quality scoring with any LLM";
-export const AUTH_FEATURE_OPENGROUND = "OpenGround";
-export const AUTH_FEATURE_OPENGROUND_DESC = "Compare LLMs side-by-side on cost & quality";
-export const AUTH_FEATURE_PROMPT_HUB = "Prompt Hub";
-export const AUTH_FEATURE_PROMPT_HUB_DESC = "Version, manage, and deploy prompts";
-export const AUTH_FEATURE_RULE_ENGINE = "Rule Engine";
-export const AUTH_FEATURE_RULE_ENGINE_DESC = "Conditional context and prompt retrieval";
-export const AUTH_FEATURE_VAULT = "Vault";
-export const AUTH_FEATURE_VAULT_DESC = "Secure secrets and API key management";
-export const AUTH_FEATURE_AGENTS = "Agents";
-export const AUTH_FEATURE_AGENTS_DESC = "Manage and operate AI agents from a single hub";
-export const AUTH_FEATURE_OTEL = "OpenTelemetry Native";
-export const AUTH_FEATURE_OTEL_DESC = "Built on open standards, no vendor lock-in";
+// Founder call sidebar card
+export const FOUNDER_CARD_BADGE = "From the founder";
+export const FOUNDER_CARD_TITLE = "Want more features?";
+export const FOUNDER_CARD_BODY =
+	"Tell us what your agents are missing. Grab 30 minutes and we'll figure it out together.";
+export const FOUNDER_CARD_CTA = "Schedule a call";
+export const FOUNDER_CARD_DISMISS = "Dismiss founder call card";
+
+// Error pages
+export const ERROR_PAGE_NOT_FOUND_CODE = "404";
+export const ERROR_PAGE_NOT_FOUND_LABEL = "Page not found";
+export const ERROR_PAGE_NOT_FOUND_TITLE = "Bug or feature?";
+export const ERROR_PAGE_NOT_FOUND_DESCRIPTION =
+	"This page drifted outside our observability zone. Let's head back to reality.";
+export const ERROR_PAGE_SERVER_ERROR_CODE = "500";
+export const ERROR_PAGE_SERVER_ERROR_LABEL = "Something went wrong";
+export const ERROR_PAGE_SERVER_ERROR_TITLE = "Something went wrong";
+export const ERROR_PAGE_SERVER_ERROR_DESCRIPTION =
+	"An unexpected error interrupted this page. Try again, or head back and pick up where you left off.";
+export const ERROR_PAGE_REFERENCE = "Reference";
+export const ERROR_PAGE_TRY_AGAIN = "Try again";
+export const ERROR_PAGE_GO_TO_DASHBOARD = "Return to dashboard";
+export const ERROR_PAGE_GO_TO_SIGN_IN = "Go to sign in";
 
 // Context UI
 export const CONTEXT_TITLE = "Context";
@@ -2447,6 +2461,7 @@ export const CONNECTOR_FILTER_SIGNAL = "Signal";
 export const CONNECTOR_TYPE_PLACEHOLDER = "Select a connector type";
 export const CONNECTOR_CATEGORY_DATASOURCE = "Data sources";
 export const CONNECTOR_CATEGORY_MEMORY = "Memory";
+export const CONNECTOR_CATEGORY_SCANNER = "Scanners";
 export const DATA_SOURCE_TEST_UNSAVED =
 	"Save the connector before testing the connection.";
 export const DATA_SOURCE_EDIT_ACTION = "Edit connector";
@@ -2477,10 +2492,249 @@ export const MEMORY_CONNECTOR_FILTER_REQUIRED =
 	"A user, agent, or session is required to list memories.";
 export const MEMORY_CONNECTOR_INLINE_SECRET_REQUIRED =
 	"This memory connector must store its API key on the connector. Edit the connector and save the API key again.";
+export const SCANNER_CONNECTOR_NAME_REQUIRED = "A scanner connector name is required.";
+export const SCANNER_CONNECTOR_NAME_TAKEN = (name: string, environment: string) =>
+	`A connector named "${name}" already exists in the ${environment} environment. Choose a different name.`;
+export const SCANNER_CONNECTOR_TYPE_UNKNOWN = (type: string) =>
+	`Unknown scanner connector type "${type}".`;
+export const SCANNER_CONNECTOR_NO_PROJECT = "No current project is selected.";
+export const SCANNER_CONNECTOR_NOT_FOUND =
+	"Scanner connector not found in the current project.";
+export const SCANNER_CONNECTOR_INLINE_SECRET_REQUIRED =
+	"This scanner connector must store its token on the connector. Edit the connector and save the token again.";
+export const SCANNER_TARGET_REQUIRED = "A GitHub repository URL is required.";
+export const SCANNER_TARGET_INVALID =
+	"Enter an https://github.com/owner/repo URL. Local paths are not allowed.";
+export const SCANNER_PROCESS_REJECTED =
+	"Scanner command arguments were rejected as unsafe.";
+export const SCANNER_REF_INVALID =
+	"Ref must use letters, numbers, dots, slashes, hyphens, or underscores.";
+export const SCANNER_DETECTORS_INVALID =
+	"Detectors must be a comma-separated list of detector ids such as claude_sdk,mcp.";
+export const SCANNER_RULES_SOURCE_INVALID =
+	"Rules source must be production, staging, or git.";
+export const SCANNER_RULES_REPO_INVALID =
+	"Rules repository must be an https URL.";
+export const SCANNER_REPO_NOT_FOUND =
+	"GitHub could not find that repository. Check the URL and add a GitHub token on the connector for private repos.";
+export const SCANNER_RUNTIME_NOT_INSTALLED =
+	"The Trustabl CLI is not installed on this OpenLIT server. Install it from the connector, then run a scan.";
+export const SCANNER_RUNTIME_VERSION_FAILED =
+	"The Trustabl CLI did not report a version. Install or upgrade it from the connector, then try again.";
+export const SCANNER_RUNTIME_DOWNLOAD_FAILED =
+	"OpenLIT could not download the Trustabl CLI release. Check outbound access to GitHub and try again.";
+export const SCANNER_RUNTIME_CHECKSUM_FAILED =
+	"The Trustabl CLI download did not match the published checksum. The install was aborted.";
+export const SCANNER_RUNTIME_EXTRACT_FAILED =
+	"OpenLIT downloaded the Trustabl CLI but could not extract the binary.";
+export const SCANNER_RUNTIME_UNSUPPORTED_PLATFORM =
+	"This OpenLIT server platform does not have a Trustabl CLI release.";
+export const SCANNER_JOB_NOT_FOUND = "Scanner job not found.";
+export const SCANNER_JOB_ID_INVALID = "Scanner job id is invalid.";
+export const SCANNER_JOB_RUNNING =
+	"A scan is already running for this connector. Wait for it to finish.";
+export const SCANNER_SCAN_FAILED = "The scanner failed before producing a report.";
+export const SCANNER_INVALID_JSON = "Request body is not valid JSON.";
+export const SCANNER_LOAD_FAILED = "Failed to load scanner data.";
+export const SCANNER_INSTALL_FAILED = "Failed to prepare the scanner runtime.";
+export const SCANNER_PAGE_DESCRIPTION =
+	"Connect scanners for this environment, run jobs, and review findings.";
+export const SCANNER_CONNECTOR_LABEL = "Scanner connector";
+export const SCANNER_REPOSITORY_LABEL = "Repository";
+export const SCANNER_JOB_RUN_LABEL = "Scan run";
+export const SCANNER_JOB_RUN_PLACEHOLDER = "No scans for this repository";
+export const SCANNER_NO_REPOS = "Run a scan to list repositories here.";
+export const SCANNER_EMPTY_REPO_JOBS = "No scans have been run for this repository yet.";
+export const SCANNER_SEARCH_FINDINGS = "Search findings";
+export const SCANNER_OPEN_COUNT = (count: number) => `${count} Open`;
+export const SCANNER_FINDING_COUNT = (count: number) =>
+	count === 1 ? "1 finding" : `${count} findings`;
+export const SCANNER_FINDING_NUMBER = (n: number) => `#${n}`;
+export const SCANNER_SEVERITY_WITH_LEVEL = (severity: string) => `${severity} severity`;
+export const SCANNER_DETECTED = "Detected";
+export const SCANNER_BACK_TO_FINDINGS = "Back to findings";
+export const SCANNER_JOB_RUN_OPTION = (parts: Array<string | undefined> | string) =>
+	(Array.isArray(parts) ? parts : [parts]).filter(Boolean).join(" · ");
+export const SCANNER_JOB_DETAILS = "Scan details";
+export const SCANNER_CLI_MENU = "CLI";
+export const SCANNER_PAGE_OF = (current: number, total: number) => `${current} of ${total}`;
+export const SCANNER_PAGE_PREVIOUS = "Previous page";
+export const SCANNER_PAGE_NEXT = "Next page";
+export const SCANNER_RUN = "Run scan";
+export const SCANNER_RUN_DEFAULTS = "Run with defaults";
+export const SCANNER_RUN_PARAMS = "Run with new parameters";
+export const SCANNER_RUN_PARAMS_TITLE = "Run scan with parameters";
+export const SCANNER_RUN_PARAMS_DESCRIPTION =
+	"Override the connector defaults for this job only. Saved connector settings stay unchanged.";
+export const SCANNER_RUN_PARAMS_TARGET_SECTION = "Target";
+export const SCANNER_RUN_PARAMS_SCAN_SECTION = "Scan flags";
+export const SCANNER_RUN_PARAMS_RULES_SECTION = "Rules";
+export const SCANNER_RUN_PARAMS_TOKEN_NOTE =
+	"The GitHub token stays on the connector. Edit the connector to change credentials.";
+export const SCANNER_RUN_MENU = "More scan options";
+export const SCANNER_JOB_ID = "Job";
+export const SCANNER_FINDING_OVERVIEW = "Overview";
+export const SCANNER_FINDING_DETAIL = "Details";
+export const SCANNER_FINDING_FIX = "Suggested fix";
+export const SCANNER_FINDING_CONFIDENCE = "Confidence";
+export const SCANNER_FINDING_DOCS = "Rule documentation";
+export const SCANNER_FINDING_NO_DETAIL = "This finding has no extra detail in the scan report.";
+export const SCANNER_CRITICAL = "Critical";
+export const SCANNER_HIGH = "High";
+export const SCANNER_MEDIUM = "Medium";
+export const SCANNER_LOW = "Low";
+export const SCANNER_SCORE = "Score";
+export const SCANNER_SCORE_VALUE = (score: number) => `${score} / 100`;
+export const SCANNER_STATUS = "Status";
+export const SCANNER_EXIT_CODE = "Exit";
+export const SCANNER_TARGET = "Target";
+export const SCANNER_RULES_SOURCE = "Rules source";
+export const SCANNER_RULES_VERSION = "Rules version";
+export const SCANNER_LANGUAGES = "Languages";
+export const SCANNER_SDKS = "SDKs";
+export const SCANNER_INVENTORY = "Inventory";
+export const SCANNER_TOOLS = "Tools";
+export const SCANNER_AGENTS = "Agents";
+export const SCANNER_MCP = "MCP servers";
+export const SCANNER_SKILLS = "Skills";
+export const SCANNER_SUBAGENTS = "Subagents";
+export const SCANNER_COVERAGE = "Coverage";
+export const SCANNER_SCOPE = "Scope";
+export const SCANNER_TOOL_NAME = "Tool";
+export const SCANNER_NO_AGENT_SURFACES = "No agent surfaces were discovered in this scan.";
+export const SCANNER_SPLIT_RESIZE = "Resize jobs and findings";
+export const SCANNER_JOB_ERROR = "Scan error";
+export const SCANNER_VS_PREVIOUS = (delta: number) =>
+	delta === 0 ? "Same as previous job" : `${delta > 0 ? "+" : ""}${delta} vs previous job`;
+export const SCANNER_SELECTED_JOB = "Selected job";
+export const SCANNER_INSTALL = "Install CLI";
+export const SCANNER_UPGRADE = "Upgrade CLI";
+export const SCANNER_UPGRADE_TO = (version: string) => `Upgrade to ${version}`;
+export const SCANNER_RUNTIME_SECTION = "Trustabl CLI";
+export const SCANNER_RUNTIME_SECTION_DESCRIPTION =
+	"The CLI runs on the OpenLIT server. Install it once, then scans use the cached binary.";
+export const SCANNER_VERSION_INSTALLED = "Installed";
+export const SCANNER_CLI_VERSION = "CLI";
+export const SCANNER_VERSION_LATEST = "Latest";
+export const SCANNER_VERSION_UNKNOWN = "Not installed";
+export const SCANNER_RUNTIME_CHECKING = "Checking CLI";
+export const SCANNER_REFRESH = "Refresh";
+export const SCANNER_JOBS = "Jobs";
+export const SCANNER_FINDINGS = "Findings";
+export const SCANNER_EMPTY_TITLE = "No scanner connectors yet";
+export const SCANNER_EMPTY_CONNECTORS =
+	"Add a scanner for this environment to run jobs and collect findings. Each connector type brings its own runtime, target, and report format.";
+export const SCANNER_EMPTY_CONNECTORS_ACTION = "Add scanner connector";
+export const SCANNER_EMPTY_DOCS = "Connector documentation";
+export const SCANNER_EMPTY_HOW = "How scanners work";
+export const SCANNER_EMPTY_PREVIEW = "What this page will show";
+export const SCANNER_EMPTY_CAP_TYPES = "Pluggable scanner types";
+export const SCANNER_EMPTY_CAP_ENV = "Environment-scoped jobs";
+export const SCANNER_EMPTY_CAP_OUTPUT = "Findings with severity and path";
+export const SCANNER_EMPTY_STEP_CONNECTOR = "Add a scanner connector";
+export const SCANNER_EMPTY_STEP_CONNECTOR_BODY =
+	"Pick a scanner type for this environment. Vendor setup, credentials, and CLI install live on the connector.";
+export const SCANNER_EMPTY_STEP_TARGET = "Configure the scan target";
+export const SCANNER_EMPTY_STEP_TARGET_BODY =
+	"Each scanner defines its own target and options, such as a repository URL or runtime endpoint.";
+export const SCANNER_EMPTY_STEP_RUN = "Run and review findings";
+export const SCANNER_EMPTY_STEP_RUN_BODY =
+	"Jobs and findings stay on this page for the selected connector so you can re-run scans over time.";
+export const SCANNER_EMPTY_FINDINGS = "No findings yet. Run a scan to populate this table.";
+export const SCANNER_EMPTY_JOBS = "No scans have been run for this connector yet.";
+export const SCANNER_SEVERITY = "Severity";
+export const SCANNER_RULE = "Rule";
+export const SCANNER_PATH = "Path";
+export const SCANNER_TITLE = "Title";
+export const SCANNER_STARTED = "Started";
+export const SCANNER_DURATION = "Duration";
+export const SCANNER_RESULT = "Result";
+export const SCANNER_STATUS_READY = "Runtime ready";
+export const SCANNER_STATUS_MISSING = "Runtime missing";
+export const SCANNER_OPEN_FINDING = "Open finding";
+export const SCANNER_TRUSTABL_DESCRIPTION =
+	"Scan agent SDKs and MCP servers for reliability and safety findings.";
+export const SCANNER_FIELD_TARGET = "Repository URL";
+export const SCANNER_FIELD_TARGET_HELP =
+	"GitHub repository to scan, for example https://github.com/owner/repo. Add /tree/branch to pin a branch.";
+export const SCANNER_FIELD_REF = "Ref";
+export const SCANNER_FIELD_REF_HELP =
+	"Optional branch, tag, or commit. Leave blank to use the branch in the repository URL, or the repository default.";
+export const SCANNER_FIELD_DETECTORS = "Detectors";
+export const SCANNER_FIELD_DETECTORS_HELP =
+	"Limit the scan to detector ids, comma-separated (for example claude_sdk,mcp). Leave blank to run all detectors.";
+export const SCANNER_FIELD_REQUIRE_SIGNED = "Require signed rules";
+export const SCANNER_FIELD_REQUIRE_SIGNED_HELP =
+	"Fail the scan unless rules come from a signed Production or Staging channel. Ignored when Rules source is Git.";
+export const SCANNER_FIELD_STRICT = "Strict (fail on low+)";
+export const SCANNER_FIELD_STRICT_HELP =
+	"Mark the job failed if any finding is low or higher. Findings are still listed either way.";
+export const SCANNER_FIELD_SECRET_SCAN = "Secret scan";
+export const SCANNER_FIELD_SECRET_SCAN_HELP =
+	"Look for hardcoded secrets and credentials in repository text files.";
+export const SCANNER_FIELD_VULN_SCAN = "Vulnerability scan";
+export const SCANNER_FIELD_VULN_SCAN_HELP =
+	"Check declared dependencies for known CVEs from the OSV database.";
+export const SCANNER_FIELD_LICENSE_SCAN = "License scan";
+export const SCANNER_FIELD_LICENSE_SCAN_HELP =
+	"Report copyleft licenses on dependencies (GPL, AGPL, LGPL, SSPL).";
+export const SCANNER_FIELD_RULES_SOURCE = "Rules source";
+export const SCANNER_FIELD_RULES_SOURCE_HELP =
+	"Which Trustabl rules pack to load. Follow environment maps this OpenLIT environment: production → signed production, staging → signed staging, development → unsigned git. Production and Staging are signed channels. Git pulls unsigned rules from the rules repository (for local pack development).";
+export const SCANNER_FIELD_RULES_SOURCE_ENVIRONMENT = "Follow environment";
+export const SCANNER_FIELD_RULES_SOURCE_PRODUCTION = "Production (signed)";
+export const SCANNER_FIELD_RULES_SOURCE_STAGING = "Staging (signed)";
+export const SCANNER_FIELD_RULES_SOURCE_GIT = "Git (unsigned)";
+export const SCANNER_FIELD_RULES_REPO = "Rules repository";
+export const SCANNER_FIELD_RULES_REPO_HELP =
+	"Optional custom rules git URL. Leave blank for the official Trustabl pack.";
+export const SCANNER_FIELD_RULES_REF = "Rules ref";
+export const SCANNER_FIELD_RULES_REF_HELP =
+	"Branch, tag, or commit of the rules pack. Used with Git or a custom rules repository.";
+export const SCANNER_FIELD_NO_RULES_UPDATE = "Use cached rules only";
+export const SCANNER_FIELD_NO_RULES_UPDATE_HELP =
+	"Do not download rules. Use the pack already cached on this OpenLIT server.";
+export const SCANNER_FIELD_VERBOSE = "Verbose diagnostics";
+export const SCANNER_FIELD_VERBOSE_HELP =
+	"Keep extra scanner diagnostics on failed jobs so you can see why a scan broke.";
+export const SCANNER_FIELD_GITHUB_TOKEN = "GitHub token";
+export const SCANNER_CLI_FLAG_LABEL = (flag: string) =>
+	flag
+		.split("-")
+		.filter(Boolean)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+export const SCANNER_CLI_FLAG_HELP = "This option is provided by the installed Trustabl CLI.";
+export const SCANNER_FINDING_EXTRA = "Additional fields";
+export const SCANNER_REPORT_EXTRA = "Report extras";
+export const SCANNER_AUTH_HELP_TRUSTABL =
+	"Default token for private repositories on every scan. Stored on the connector, not in ClickHouse.";
+export const SCANNER_DEFAULTS_SECTION = "Default scan parameters";
+export const SCANNER_DEFAULTS_SECTION_DESCRIPTION =
+	"Used when you run with defaults. Override them for one job from Run with new parameters.";
+export const SCANNER_CREDENTIALS_SECTION = "Default credentials";
+export const SCANNER_CREDENTIALS_HELP =
+	"Used for every scan of this connector. Leave blank to keep the stored GitHub token.";
+export const SCANNER_SETUP_TRUSTABL_SUMMARY =
+	"Trustabl scans an agent repository for SDK, MCP, and policy findings. Install the CLI from the connector, then run scans from the Scanner page.";
+export const SCANNER_OPEN_FINDINGS = "Open findings";
+export const SCANNER_MEDIUM_PLUS = "Medium+";
+export const SCANNER_SESSION_TAB = "Scanner";
+export const SCANNER_SESSION_OPEN = "Open in Scanner";
+export const SCANNER_SESSION_EMPTY =
+	"No scanner findings for this repository in this environment.";
+export const SCANNER_SESSION_CLEAN = "Latest scan found no issues.";
+export const SCANNER_SESSION_SUMMARY = (mediumPlus: number, total: number) =>
+	`${mediumPlus} medium+ of ${total} findings`;
+export const SCANNER_FINDINGS_LOAD_FAILED = "Failed to load scanner findings.";
+export const SCANNER_LAST_REF = "Last scanned ref";
+export const SCANNER_LAST_DURATION = "Last job duration";
 export const MEMORY_CONNECTOR_CLAUDE_DESCRIPTION =
 	"Browse and edit memories in Anthropic Claude memory stores.";
 export const MEMORY_CONNECTOR_MEM0_DESCRIPTION =
 	"Store and search long-term agent memories with Mem0.";
+export const MEMORY_CONNECTOR_MEMCODE_DESCRIPTION =
+	"Store and search long-term agent memories with MemCode.";
 export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =
 	"Store and search session memory and a knowledge graph with Zep.";
 export const MEMORY_CONNECTOR_FIELD_ORG_ID = "Mem0 organization ID";
@@ -2490,12 +2744,26 @@ export const MEMORY_CONNECTOR_AUTH_HELP_CLAUDE =
 	"Use an Anthropic API key. Memory store calls send x-api-key with the agent-memory beta header.";
 export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
 	"Use a Mem0 Platform API key. Self-hosted Mem0 can use a custom endpoint with the same Token authentication.";
+export const MEMORY_CONNECTOR_MEMCODE_NO_TEST_ROUTE =
+	"This MemCode deployment has no GET /v2/test route. Update the Memory API to verify connections.";
+export const MEMORY_CONNECTOR_MEMCODE_NOT_FOUND =
+	"No MemCode Memory API answered at this URL. Check the connector URL.";
+export const MEMORY_CONNECTOR_MEMCODE_NOT_READY =
+	"The MemCode Memory API is reachable but still starting up. Try again shortly.";
+export const MEMORY_CONNECTOR_MEMCODE_KEY_REJECTED =
+	"The MemCode Memory API rejected this key. Check the key and try again.";
+export const MEMORY_CONNECTOR_MEMCODE_PAYMENT_REQUIRED =
+	"This MemCode key is valid but the account is out of credit.";
+export const MEMORY_CONNECTOR_AUTH_HELP_MEMCODE =
+	"Use a MemCode API key from memory.memcode.in. Calls send Authorization: Bearer.";
 export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
 	"Use a Zep Cloud API key. Self-hosted Zep can use a custom endpoint with the same Api-Key authentication.";
 export const MEMORY_CONNECTOR_SETUP_CLAUDE_SUMMARY =
 	"Claude memory stores keep agent notes across Managed Agents sessions.";
 export const MEMORY_CONNECTOR_SETUP_MEM0_SUMMARY =
 	"Mem0 stores long-term memories scoped by user, run, or agent.";
+export const MEMORY_CONNECTOR_SETUP_MEMCODE_SUMMARY =
+	"MemCode stores long-term memories that agents can search later.";
 export const MEMORY_CONNECTOR_SETUP_ZEP_SUMMARY =
 	"Zep stores session memory and a knowledge graph for agents.";
 export const MEMORY_PAGE_DESCRIPTION =
@@ -2534,6 +2802,11 @@ export const MEMORY_PAGE_OF = (current: number, total: number) =>
 	`${current} of ${total}`;
 export const MEMORY_PAGE_PREVIOUS = "Previous page";
 export const MEMORY_PAGE_NEXT = "Next page";
+export const MEMORY_LIST_SHOWING = (loaded: number, total: number) =>
+	`${loaded} of ${total} loaded`;
+export const MEMORY_LIST_LOAD_MORE = "Load more";
+export const MEMORY_LIST_LOADING_MORE = "Loading…";
+export const MEMORY_LIST_LOAD_MORE_FAILED = "Failed to load more memories.";
 export const MEMORY_CONNECTOR_LABEL = "Memory connector";
 export const MEMORY_USER_FILTER = "User";
 export const MEMORY_SESSION_FILTER = "Session";
@@ -2571,6 +2844,26 @@ export const MEMORY_GRAPH_TYPE_ALL = "All";
 export const MEMORY_GRAPH_ZOOM_IN = "Zoom in";
 export const MEMORY_GRAPH_ZOOM_OUT = "Zoom out";
 export const MEMORY_GRAPH_TYPE_FILTER = "Entity type";
+export const MEMORY_GRAPH_STRENGTH_FILTER = "Connection strength";
+export const MEMORY_GRAPH_STRENGTH_ALL = "All connections";
+export const MEMORY_GRAPH_STRENGTH_FAINT = "Faint and above";
+export const MEMORY_GRAPH_STRENGTH_WEAK = "Weak and above";
+export const MEMORY_GRAPH_STRENGTH_MEDIUM = "Medium and above";
+export const MEMORY_GRAPH_STRENGTH_STRONG = "Strong only";
+export const MEMORY_GRAPH_TIER_STRONG = "Strong";
+export const MEMORY_GRAPH_TIER_MEDIUM = "Medium";
+export const MEMORY_GRAPH_TIER_WEAK = "Weak";
+export const MEMORY_GRAPH_TIER_FAINT = "Faint";
+export const MEMORY_GRAPH_CONNECTIONS_LEGEND = "Connections";
+export const MEMORY_GRAPH_EDGE_TOOLTIP = (
+	label: string,
+	weight: string,
+	tier: string
+) => `${label} · ${weight} (${tier})`;
+export const MEMORY_GRAPH_TRUNCATED = (shown: number) =>
+	`Showing the first ${shown} memories of this graph.`;
+export const MEMORY_GRAPH_COUNTS = (nodes: number, edges: number) =>
+	`${nodes} memories · ${edges} connections`;
 export const MEMORY_ENTITY = "Entity";
 export const MEMORY_EVENT = "Event";
 export const MEMORY_LOCATION = "Location";
@@ -2579,7 +2872,8 @@ export const MEMORY_PREFERENCE = "Preference";
 export const MEMORY_TOPIC = "Topic";
 export const MEMORY_USER = "User";
 export const MEMORY_INVALID_FILTER = "A memory filter value is invalid.";
-export const MEMORY_INVALID_LIMIT = "Limit must be a number between 1 and 100.";
+export const MEMORY_INVALID_LIMIT = "Limit must be a number between 1 and 500.";
+export const MEMORY_INVALID_OFFSET = "Offset must be a number between 0 and 1000000.";
 export const MEMORY_INVALID_JSON = "Request body must be valid JSON.";
 export const MEMORY_FEEDBACK_INVALID =
 	"Feedback must be positive, negative, very negative, or empty to clear.";
@@ -2750,10 +3044,24 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		steps: ["Create a Mem0 Platform API key, or point the endpoint at a self-hosted Mem0 service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Optionally set organization and project IDs for a Mem0 Platform workspace, then test the connection."],
 		docsUrl: "https://docs.mem0.ai/api-reference",
 	},
+	memcode: {
+		summary: "Connect OpenLIT to MemCode for long-term agent memory.",
+		steps: ["Create a MemCode API key. The key identifies the MemCode account, so no user ID is needed.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from the Memory page."],
+		docsUrl: "https://memcode.in/docs",
+	},
 	zep: {
 		summary: "Connect OpenLIT to Zep for session memory and graph search.",
 		steps: ["Create a Zep Cloud API key, or point the endpoint at a self-hosted Zep service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from agents."],
 		docsUrl: "https://help.getzep.com/sdk-reference",
+	},
+	trustabl: {
+		summary: "Connect OpenLIT to Trustabl for agent reliability scans.",
+		steps: [
+			"Install the Trustabl CLI from the connector. OpenLIT downloads a checksum-verified GitHub release onto the server.",
+			"Save a GitHub repository URL for this environment. Add a GitHub token for private repos.",
+			"Save the connector, then run a scan from the Scanner page.",
+		],
+		docsUrl: "https://github.com/trustabl/trustabl",
 	},
 };
 export const DATA_SOURCE_EMPTY_TITLE = "No external sources yet";

@@ -8,6 +8,7 @@ const DOCUMENTATION_LINKS = {
 	connectors: "https://docs.openlit.io/latest/openlit/connectors/overview",
 	memoryConnectors: "https://docs.openlit.io/latest/openlit/connectors/memory",
 	datasourceConnectors: "https://docs.openlit.io/latest/openlit/connectors/datasource",
+	scannerConnectors: "https://docs.openlit.io/latest/openlit/connectors/scanner",
 	signalRouting: "https://docs.openlit.io/latest/openlit/organisation/signal-routing",
 	telemetrySources: "https://docs.openlit.io/latest/openlit/organisation/telemetry-sources",
 	anonymousTelemetry: "https://docs.openlit.io/latest/openlit/developer-resources/anonymous-telemetry",
