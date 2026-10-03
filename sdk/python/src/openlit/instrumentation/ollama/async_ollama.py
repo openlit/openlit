@@ -272,6 +272,13 @@ def async_generate(
                 if not exc_type:
                     self._finalize_streaming_span()
 
+        async def aclose(self):
+            """Close the wrapped stream and finalize the span if not ended."""
+            try:
+                await self.__wrapped__.aclose()
+            finally:
+                self._finalize_streaming_span()
+
         def __aiter__(self):
             return self
 
