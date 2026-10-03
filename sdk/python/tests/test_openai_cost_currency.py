@@ -2,7 +2,6 @@
 
 import time
 from unittest.mock import MagicMock
-import pytest
 
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -12,10 +11,11 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 
 from openlit._config import OpenlitConfig
 from openlit.instrumentation.openai.utils import (
+    process_audio_response,
     process_chat_response,
     process_embedding_response,
     process_image_response,
-    process_audio_response,
+    process_response_response,
     process_transcription_response,
 )
 from openlit.semcov import SemanticConvention
@@ -78,6 +78,52 @@ def test_openai_chat_cost_currency_attribute():
             version="test-version",
             model="gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
+        )
+
+    attrs = exporter.get_finished_spans()[0].attributes
+    assert SemanticConvention.GEN_AI_USAGE_COST in attrs
+    assert SemanticConvention.GEN_AI_USAGE_COST_CURRENCY in attrs
+    assert attrs[SemanticConvention.GEN_AI_USAGE_COST_CURRENCY] == "USD"
+    assert attrs["gen_ai.usage.cost.currency"] == "USD"
+
+
+def test_openai_response_cost_currency_attribute():
+    """Verify that OpenAI responses API response emits gen_ai.usage.cost.currency as USD."""
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _metrics_dict()
+    response = {
+        "id": "resp_test",
+        "model": "gpt-4o",
+        "output": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hello from responses!"}],
+            }
+        ],
+        "usage": {
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "total_tokens": 15,
+        },
+    }
+    with tracer.start_as_current_span("responses test") as span:
+        process_response_response(
+            response,
+            request_model="gpt-4o",
+            pricing_info={"chat": {"gpt-4o": {"prompt": 0.005, "completion": 0.015}}},
+            server_port=443,
+            server_address="api.openai.com",
+            environment="test-env",
+            application_name="test-app",
+            metrics=metrics,
+            start_time=time.time(),
+            span=span,
+            capture_message_content=False,
+            disable_metrics=False,
+            version="test-version",
+            model="gpt-4o",
+            input="hi",
         )
 
     attrs = exporter.get_finished_spans()[0].attributes
@@ -159,7 +205,40 @@ def test_openai_image_cost_currency_attribute():
 
 
 def test_openai_audio_cost_currency_attribute():
-    """Verify that OpenAI audio/transcription response emits gen_ai.usage.cost.currency as USD."""
+    """Verify that OpenAI audio/speech response emits gen_ai.usage.cost.currency as USD."""
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _metrics_dict()
+    response = b"fake audio data"
+    with tracer.start_as_current_span("audio speech test") as span:
+        now = time.time()
+        process_audio_response(
+            response,
+            request_model="tts-1",
+            pricing_info={"audio": {"tts-1": 0.015}},
+            server_port=443,
+            server_address="api.openai.com",
+            environment="test-env",
+            application_name="test-app",
+            metrics=metrics,
+            start_time=now,
+            end_time=now + 1.0,
+            span=span,
+            capture_message_content=False,
+            disable_metrics=False,
+            version="test-version",
+            input="Hello world",
+            voice="alloy",
+        )
+
+    attrs = exporter.get_finished_spans()[0].attributes
+    assert SemanticConvention.GEN_AI_USAGE_COST in attrs
+    assert SemanticConvention.GEN_AI_USAGE_COST_CURRENCY in attrs
+    assert attrs[SemanticConvention.GEN_AI_USAGE_COST_CURRENCY] == "USD"
+    assert attrs["gen_ai.usage.cost.currency"] == "USD"
+
+
+def test_openai_transcription_cost_currency_attribute():
+    """Verify that OpenAI transcription response emits gen_ai.usage.cost.currency as USD."""
     tracer, exporter = _tracer_and_exporter()
     metrics = _metrics_dict()
     response = {"text": "Hello world transcription"}
