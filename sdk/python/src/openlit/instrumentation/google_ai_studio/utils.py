@@ -9,14 +9,14 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
-    calculate_ttft,
-    response_as_dict,
     calculate_tbt,
-    get_chat_model_cost,
+    calculate_ttft,
     common_span_attributes,
     general_tokens,
+    get_chat_model_cost,
     otel_event,
     record_completion_metrics,
+    response_as_dict,
     truncate_message_content,
 )
 from openlit._config import OpenlitConfig
@@ -276,9 +276,7 @@ def build_output_messages(response_text, finish_reason, function_calls=None):
         # arguments (OTel ToolCallRequestPart).
         if function_calls:
             calls = (
-                function_calls
-                if isinstance(function_calls, list)
-                else [function_calls]
+                function_calls if isinstance(function_calls, list) else [function_calls]
             )
             for function_call in calls:
                 if not isinstance(function_call, dict) or not function_call:
@@ -622,7 +620,7 @@ def common_chat_logic(
         request_model,
         pricing_info,
         input_tokens,
-        output_tokens,
+        output_tokens + (getattr(scope, "_reasoning_tokens", 0) or 0),
         cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
         cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
         prompt_tokens_include_cache=True,
