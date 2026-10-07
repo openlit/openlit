@@ -1,7 +1,10 @@
 openapi: 3.0.0
 info:
   title: API Keys API
-  description: Create, list, update the feature access of, and delete OpenLIT API keys.
+  description: >-
+    Create, list, update the feature access of, and delete OpenLIT API keys.
+    These endpoints require a signed-in OpenLIT session; Bearer API keys are
+    rejected with `403`, so a key can't list, create, change, or delete keys.
   version: 1.0.0
 servers:
   - url: http://localhost:3000
@@ -10,9 +13,8 @@ paths:
     get:
       summary: List API Keys
       description: >-
-        Lists the API keys for the current database configuration. With a Bearer
-        API key, lists the keys that share that key's database configuration.
-        Only a preview of each key is returned.
+        Lists the API keys for the current database configuration. Only a
+        preview of each key is returned.
       operationId: listApiKeys
       responses:
         '200':
@@ -26,7 +28,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
       security:
-        - apiKeyAuth: []
+        - sessionAuth: []
     post:
       summary: Create API Key
       description: >-
@@ -89,7 +91,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
       security:
-        - apiKeyAuth: []
+        - sessionAuth: []
   /api/api-key/{id}:
     patch:
       summary: Update API Key Access
@@ -151,7 +153,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       security:
-        - apiKeyAuth: []
+        - sessionAuth: []
     delete:
       summary: Delete API Key
       description: >-
@@ -176,7 +178,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
       security:
-        - apiKeyAuth: []
+        - sessionAuth: []
 components:
   parameters:
     ApiKeyId:
@@ -194,8 +196,8 @@ components:
         `telemetry` (`/api/telemetry/*`, `/api/metrics/*`), `prompts`
         (`/api/prompt/*`), `vault` (`/api/vault/*`), `rule_engine`
         (`/api/rule-engine/*`), `evaluation` (`/api/evaluation/*`), `chat`
-        (`/api/chat/*`), `controller` (`/api/controller/*`), `api_keys`
-        (`/api/api-key*`), `db_config` (`/api/db-config*`).
+        (`/api/chat/*`), `controller` (`/api/controller/*`), `db_config`
+        (`/api/db-config*`).
       enum:
         - ingest
         - telemetry
@@ -205,7 +207,6 @@ components:
         - evaluation
         - chat
         - controller
-        - api_keys
         - db_config
     ApiKey:
       type: object
@@ -245,15 +246,16 @@ components:
             $ref: '#/components/schemas/Error'
     Forbidden:
       description: >-
-        The caller lacks the required permission, the edition or license doesn't
-        support restricting keys, or the caller's role doesn't include a
-        requested feature.
+        The request used a Bearer API key, the caller lacks the required
+        permission, the edition or license doesn't support restricting keys, or
+        the caller's role doesn't include a requested feature.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
   securitySchemes:
-    apiKeyAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+      description: Signed-in OpenLIT browser session.

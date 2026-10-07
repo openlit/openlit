@@ -6,14 +6,11 @@ import {
 } from "@/lib/platform/api-key-access/server";
 import asaw from "@/utils/asaw";
 import getMessage from "@/constants/messages";
-import { MIDDLEWARE_DATABASE_CONFIG_HEADER } from "@/constants/openlit-context";
 
-async function GETHandler(request: Request) {
-	// Bearer requests carry the key's DB config (set by the auth middleware,
-	// which strips client-supplied copies); session requests resolve their own.
-	const apiKeyDatabaseConfigId =
-		request.headers?.get?.(MIDDLEWARE_DATABASE_CONFIG_HEADER)?.trim() || undefined;
-	const res: any = await getAllAPIKeys(apiKeyDatabaseConfigId);
+// Session-only: the auth middleware rejects Bearer API keys on this route, so
+// one key can't enumerate the others' names, previews, and creators.
+async function GETHandler() {
+	const res: any = await getAllAPIKeys();
 	return Response.json(res);
 }
 

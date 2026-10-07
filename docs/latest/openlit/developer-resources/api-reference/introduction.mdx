@@ -98,7 +98,6 @@ Create and manage keys under **Settings → API Keys**. Each key shows its acces
 | Evaluations (`evaluation`) | `/api/evaluation/*` |
 | Otter chat (`chat`) | `/api/chat/*` |
 | Controller (`controller`) | `/api/controller/*` |
-| API keys (`api_keys`) | `/api/api-key*` |
 | Database config (`db_config`) | `/api/db-config*` |
 
-Use [Create API Key](/latest/openlit/developer-resources/api-reference/endpoint/api-keys/create) and [Update API Key Access](/latest/openlit/developer-resources/api-reference/endpoint/api-keys/update) to manage access programmatically. Both require a signed-in session; an API key can't change its own access.
+Use [Create API Key](/latest/openlit/developer-resources/api-reference/endpoint/api-keys/create) and [Update API Key Access](/latest/openlit/developer-resources/api-reference/endpoint/api-keys/update) to manage access programmatically. API key management (`/api/api-key`) requires a signed-in session, so an API key can't list, create, change, or delete keys, including its own.

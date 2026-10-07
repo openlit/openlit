@@ -88,6 +88,24 @@ describe('checkAuth', () => {
       expect(nextHandler).not.toHaveBeenCalled();
     });
 
+    it('rejects a Bearer token on API key management routes', async () => {
+      for (const [method, path] of [
+        ['GET', '/api/api-key'],
+        ['POST', '/api/api-key'],
+        ['PATCH', '/api/api-key/key-1'],
+        ['DELETE', '/api/api-key/key-1'],
+      ]) {
+        (NextResponse.json as jest.Mock).mockClear();
+        const req = makeRequest(method, path, '', { Authorization: 'Bearer abc123' });
+        await middleware(req as any, makeFetchEvent());
+        expect(NextResponse.json).toHaveBeenCalledWith(
+          { error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+      expect(nextHandler).not.toHaveBeenCalled();
+    });
+
     it('rejects an empty API key', async () => {
       const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer   ' });
       await middleware(req as any, makeFetchEvent());
