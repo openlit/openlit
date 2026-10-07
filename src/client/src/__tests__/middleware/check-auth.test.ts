@@ -142,6 +142,20 @@ describe('checkAuth', () => {
       expect(forwardedRequest.headers.get('x-openlit-environment')).toBe('staging');
     });
 
+    const mockVerifiedKey = (scopes: string[] | null) => {
+      (global as any).fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ valid: true, databaseConfigId: 'db-config-1', scopes }),
+      });
+    };
+
+    it('ignores API key scopes in the community edition', async () => {
+      mockVerifiedKey(['prompts']);
+      const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });
+      await middleware(req as any, makeFetchEvent());
+      expect(nextHandler).toHaveBeenCalled();
+    });
+
     it('strips a client-supplied x-database-config-id on session API requests', async () => {
       (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
       const headers = new Headers({ 'x-database-config-id': 'victim-db' });
