@@ -1,0 +1,259 @@
+openapi: 3.0.0
+info:
+  title: API Keys API
+  description: Create, list, update the feature access of, and delete OpenLIT API keys.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/api-key:
+    get:
+      summary: List API Keys
+      description: >-
+        Lists the API keys for the current database configuration. With a Bearer
+        API key, lists the keys that share that key's database configuration.
+        Only a preview of each key is returned.
+      operationId: listApiKeys
+      responses:
+        '200':
+          description: API keys for the database configuration.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      security:
+        - apiKeyAuth: []
+    post:
+      summary: Create API Key
+      description: >-
+        Creates an API key for the current database configuration. The full key
+        is returned only in this response. Omit `scopes` for a full-access key.
+        Restricting a key with `scopes` requires OpenLIT Enterprise with
+        role-based access control; the community edition ignores `scopes` and
+        always creates full-access keys. Requires a signed-in session.
+      operationId: createApiKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 3
+                  example: production-sdk
+                scopes:
+                  description: >-
+                    Features the key may use. Omit for full access. Must contain
+                    at least one feature when provided.
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/ApiKeyScope'
+                  example: ["ingest", "prompts"]
+      responses:
+        '200':
+          description: The created key, including the secret value.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: cmuybwm0s0051dmipjv6jd3hm
+                  apiKey:
+                    type: string
+                    description: The secret key. Shown only once.
+                    example: openlit-3kJ9…
+                  databaseConfigId:
+                    type: string
+                  organisationId:
+                    type: string
+                    nullable: true
+                  projectId:
+                    type: string
+                    nullable: true
+                  environment:
+                    type: string
+                    example: production
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      security:
+        - apiKeyAuth: []
+  /api/api-key/{id}:
+    patch:
+      summary: Update API Key Access
+      description: >-
+        Changes which features an existing key can use. Send `scopes: null` for
+        full access or a list of features to restrict the key. Changes apply to
+        API requests immediately. Requires OpenLIT Enterprise with role-based
+        access control and a signed-in session; an API key cannot change its own
+        access. The community edition responds with `403`.
+      operationId: updateApiKeyAccess
+      parameters:
+        - $ref: '#/components/parameters/ApiKeyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - scopes
+              properties:
+                scopes:
+                  description: '`null` for full access, or the features the key may use.'
+                  type: array
+                  nullable: true
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/ApiKeyScope'
+                  example: ["prompts", "vault"]
+      responses:
+        '200':
+          description: The key's updated access.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  scopes:
+                    type: array
+                    nullable: true
+                    items:
+                      $ref: '#/components/schemas/ApiKeyScope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: No signed-in user. Key access can't be changed with an API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: No such key in the current database configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - apiKeyAuth: []
+    delete:
+      summary: Delete API Key
+      description: >-
+        Revokes an API key. Applications using it stop authenticating
+        immediately. Requires a signed-in session.
+      operationId: deleteApiKey
+      parameters:
+        - $ref: '#/components/parameters/ApiKeyId'
+      responses:
+        '200':
+          description: The key was deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      security:
+        - apiKeyAuth: []
+components:
+  parameters:
+    ApiKeyId:
+      name: id
+      in: path
+      required: true
+      description: The API key ID (not the secret value).
+      schema:
+        type: string
+  schemas:
+    ApiKeyScope:
+      type: string
+      description: >-
+        A feature an API key can use: `ingest` (OTLP telemetry ingestion),
+        `telemetry` (`/api/telemetry/*`, `/api/metrics/*`), `prompts`
+        (`/api/prompt/*`), `vault` (`/api/vault/*`), `rule_engine`
+        (`/api/rule-engine/*`), `evaluation` (`/api/evaluation/*`), `chat`
+        (`/api/chat/*`), `controller` (`/api/controller/*`), `api_keys`
+        (`/api/api-key*`), `db_config` (`/api/db-config*`).
+      enum:
+        - ingest
+        - telemetry
+        - prompts
+        - vault
+        - rule_engine
+        - evaluation
+        - chat
+        - controller
+        - api_keys
+        - db_config
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        apiKeyPreview:
+          type: string
+          example: openlit-3kJ9…x7Qp2A
+        createdAt:
+          type: string
+          format: date-time
+        createdByUser:
+          type: object
+          properties:
+            email:
+              type: string
+        scopes:
+          description: '`null` for full access, otherwise the features the key may use.'
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ApiKeyScope'
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+  responses:
+    BadRequest:
+      description: Invalid JSON, an invalid name, or an invalid list of features.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: >-
+        The caller lacks the required permission, the edition or license doesn't
+        support restricting keys, or the caller's role doesn't include a
+        requested feature.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  securitySchemes:
+    apiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
