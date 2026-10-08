@@ -110,6 +110,7 @@ model Project {
   currentForUsers OrganisationUser[]        @relation("CurrentOrganisationProject")
   members         ProjectUser[]
   apiKeys         APIKeys[]
+  realtimeFindings RealtimeFinding[]
 
   @@unique([organisationId, slug])
   @@map("projects")
@@ -273,6 +274,42 @@ model ProjectEnvironment {
 
   @@unique([projectId, name])
   @@map("project_environments")
+}
+
+// Findings produced by the realtime engine from the NATS signal stream. Rows
+// are tenant-scoped (organisation -> project -> environment) and upserted by
+// `dedupeKey` so engine replays and retries never duplicate a finding.
+model RealtimeFinding {
+  id             String    @id @default(cuid())
+  organisationId String    @map("organisation_id")
+  projectId      String    @map("project_id")
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  environment    String
+  ruleId         String    @map("rule_id")
+  ruleName       String    @map("rule_name")
+  kind           String
+  mode           String
+  severity       String
+  state          String
+  dedupeKey      String    @unique @map("dedupe_key")
+  metric         String?
+  operator       String?
+  value          Float
+  threshold      Float
+  windowSec      Int?      @map("window_sec")
+  sampleCount    Int       @default(0) @map("sample_count")
+  group          String    @default("{}")
+  sample         String    @default("{}")
+  occurrences    Int       @default(1)
+  firstSeenAt    DateTime  @map("first_seen_at")
+  lastSeenAt     DateTime  @map("last_seen_at")
+  resolvedAt     DateTime? @map("resolved_at")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([projectId, environment, lastSeenAt])
+  @@index([organisationId])
+  @@map("realtime_findings")
 }
 
 // Per-signal routing: which TelemetrySource serves a given signal in a project

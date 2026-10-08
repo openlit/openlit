@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -13,6 +14,22 @@ type Config struct {
 	RequireAPIKey     bool
 	InitDB            ClickHouseConfig
 	TenantCacheTTLSec int
+	NATS              NATSConfig
+}
+
+// NATSConfig enables realtime fan-out when URL is set. The receiver only
+// needs publish rights on openlit.signal.> (plus stream create/info when
+// EnsureStream is on).
+type NATSConfig struct {
+	URL          string
+	User         string
+	Password     string
+	Token        string
+	CredsFile    string
+	Stream       string
+	MaxAge       time.Duration
+	Buffer       int
+	EnsureStream bool
 }
 
 type ClickHouseConfig struct {
@@ -30,6 +47,17 @@ func Load() Config {
 		SQLitePath:        sqlitePath(os.Getenv("SQLITE_DATABASE_URL")),
 		RequireAPIKey:     boolEnv("OTLP_REQUIRE_API_KEY", false),
 		TenantCacheTTLSec: intEnv("OTLP_TENANT_CACHE_TTL_SEC", 30),
+		NATS: NATSConfig{
+			URL:          strings.TrimSpace(os.Getenv("NATS_URL")),
+			User:         strings.TrimSpace(os.Getenv("NATS_USER")),
+			Password:     os.Getenv("NATS_PASSWORD"),
+			Token:        os.Getenv("NATS_TOKEN"),
+			CredsFile:    strings.TrimSpace(os.Getenv("NATS_CREDS")),
+			Stream:       env("OPENLIT_SIGNALS_STREAM", "OPENLIT_SIGNALS"),
+			MaxAge:       durationEnv("OPENLIT_SIGNALS_MAX_AGE", 10*time.Minute),
+			Buffer:       intEnv("NATS_PUBLISH_BUFFER", 10000),
+			EnsureStream: boolEnv("NATS_ENSURE_STREAM", true),
+		},
 		InitDB: ClickHouseConfig{
 			Host:     env("INIT_DB_HOST", "127.0.0.1"),
 			Port:     env("INIT_DB_PORT", "8123"),
@@ -84,4 +112,16 @@ func intEnv(key string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+func durationEnv(key string, fallback time.Duration) time.Duration {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil || d <= 0 {
+		return fallback
+	}
+	return d
 }

@@ -11,7 +11,9 @@ import {
 	type ClickHouseAdapterConfig,
 } from "@openplait/adapter-clickhouse";
 import { DatasourceRegistry, OpenPlaitRuntime } from "@openplait/runtime";
+import { createClient, type ClickHouseClient } from "@clickhouse/client";
 import { constructURL, parseQueryStringToObject } from "@/utils/parser";
+import { tenantReadFilterSettings } from "@/lib/platform/clickhouse/tenant-read-filter";
 
 export {
 	DIRECT_INTELLIGENCE_READ_FEATURES,
@@ -31,6 +33,7 @@ const DEFAULT_MAX_ROWS_TO_READ = 10_000_000;
 interface RuntimeEntry {
 	fingerprint: string;
 	adapter: ClickHouseAdapter;
+	client: ClickHouseClient;
 	runtime: OpenPlaitRuntime;
 	datasourceName: string;
 }
@@ -59,12 +62,13 @@ function configFingerprint(dbConfig: DatabaseConfig): string {
 	const database = String(dbConfig.database ?? "");
 	const username = String(dbConfig.username ?? "");
 	const query = String(dbConfig.query || "");
+	const tenant = `${dbConfig.projectId ?? ""}\u0000${dbConfig.environment ?? ""}`;
 	const updatedAt =
 		dbConfig.updatedAt instanceof Date
 			? dbConfig.updatedAt.toISOString()
 			: String(dbConfig.updatedAt || "");
 	return createHash("sha256")
-		.update([host, port, database, username, query, updatedAt].join("\0"))
+		.update([host, port, database, username, query, tenant, updatedAt].join("\0"))
 		.digest("hex");
 }
 
@@ -104,9 +108,25 @@ async function runtimeFor(dbConfig: DatabaseConfig): Promise<RuntimeEntry> {
 	const fingerprint = configFingerprint(dbConfig);
 	const current = runtimeEntries.get(dbConfig.id);
 	if (current?.fingerprint === fingerprint) return current;
-	if (current) await current.adapter.close();
+	if (current) await closeEntry(current);
 
-	const adapter = new ClickHouseAdapter(connectionConfig(dbConfig));
+	const adapterConfig = connectionConfig(dbConfig);
+	// The adapter's own tenant policy only covers compiled semantic queries.
+	// A client-level `additional_table_filters` setting also binds the native
+	// SQL reads OpenLIT issues, so tenant scoping cannot be bypassed by query shape.
+	const tenantSettings = tenantReadFilterSettings(dbConfig);
+	const client = createClient({
+		url: adapterConfig.url,
+		username: adapterConfig.username,
+		password: adapterConfig.password,
+		database: adapterConfig.database,
+		http_headers: adapterConfig.httpHeaders,
+		application: adapterConfig.applicationName,
+		request_timeout: adapterConfig.queryTimeoutMs,
+		use_multipart_params_auto: true,
+		...(tenantSettings ? { clickhouse_settings: tenantSettings } : {}),
+	});
+	const adapter = new ClickHouseAdapter(adapterConfig, { client });
 	const name = datasourceName(dbConfig);
 	const registry = new DatasourceRegistry().register({
 		name,
@@ -125,6 +145,7 @@ async function runtimeFor(dbConfig: DatabaseConfig): Promise<RuntimeEntry> {
 	const entry = {
 		fingerprint,
 		adapter,
+		client,
 		runtime: new OpenPlaitRuntime(registry, {
 			defaultTimeoutMs: positiveInteger(
 				process.env.OPENPLAIT_CLICKHOUSE_QUERY_TIMEOUT_MS,
@@ -174,7 +195,12 @@ async function evictRuntime(
 ): Promise<void> {
 	if (runtimeEntries.get(dbConfigId) !== expected) return;
 	runtimeEntries.delete(dbConfigId);
-	await expected.adapter.close();
+	await closeEntry(expected);
+}
+
+async function closeEntry(entry: RuntimeEntry): Promise<void> {
+	await entry.adapter.close();
+	await entry.client.close();
 }
 
 /** Construct and validate a ClickHouse datasource through OpenPlait before persistence. */
@@ -269,5 +295,5 @@ export async function executeOpenPlaitRead({
 export async function closeOpenPlaitRuntimes(): Promise<void> {
 	const entries = Array.from(runtimeEntries.values());
 	runtimeEntries.clear();
-	await Promise.all(entries.map(({ adapter }) => adapter.close()));
+	await Promise.all(entries.map(closeEntry));
 }

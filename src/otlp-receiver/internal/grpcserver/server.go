@@ -53,7 +53,10 @@ func authorization(ctx context.Context) string {
 	if !ok {
 		return ""
 	}
-	values := md.Get("authorization")
+	return tenant.Credential(first(md.Get("authorization")), first(md.Get("x-openlit-api-key")))
+}
+
+func first(values []string) string {
 	if len(values) == 0 {
 		return ""
 	}

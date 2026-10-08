@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -19,18 +20,33 @@ import (
 )
 
 func New(svc *ingest.Service) http.Handler {
+	return NewWithStats(svc, nil)
+}
+
+// NewWithStats also serves GET /stats with non-sensitive pipeline counters.
+func NewWithStats(svc *ingest.Service, stats func() any) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	if stats != nil {
+		mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(stats())
+		})
+	}
 	mux.HandleFunc("/v1/traces", func(w http.ResponseWriter, r *http.Request) {
 		handle(w, r, func(body []byte, contentType string) error {
 			var req colltrace.ExportTraceServiceRequest
 			if err := unmarshal(body, contentType, &req); err != nil {
 				return err
 			}
-			return svc.Traces(r.Context(), r.Header.Get("Authorization"), &req)
+			return svc.Traces(r.Context(), credential(r), &req)
 		})
 	})
 	mux.HandleFunc("/v1/logs", func(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +55,7 @@ func New(svc *ingest.Service) http.Handler {
 			if err := unmarshal(body, contentType, &req); err != nil {
 				return err
 			}
-			return svc.Logs(r.Context(), r.Header.Get("Authorization"), &req)
+			return svc.Logs(r.Context(), credential(r), &req)
 		})
 	})
 	mux.HandleFunc("/v1/metrics", func(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +64,7 @@ func New(svc *ingest.Service) http.Handler {
 			if err := unmarshal(body, contentType, &req); err != nil {
 				return err
 			}
-			return svc.Metrics(r.Context(), r.Header.Get("Authorization"), &req)
+			return svc.Metrics(r.Context(), credential(r), &req)
 		})
 	})
 	return headerGuard(mux)
@@ -132,6 +148,10 @@ func unmarshal(body []byte, contentType string, msg proto.Message) error {
 		return &decodeError{err}
 	}
 	return nil
+}
+
+func credential(r *http.Request) string {
+	return tenant.Credential(r.Header.Get("Authorization"), r.Header.Get("x-openlit-api-key"))
 }
 
 func UnauthorizedFrom(err error) bool {

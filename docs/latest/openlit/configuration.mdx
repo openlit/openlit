@@ -228,6 +228,58 @@ Tune the background job that materializes the [Agents](/latest/openlit/observabi
   ```
 </ResponseField>
 
+## Realtime variables
+
+Realtime findings evaluate GenAI spans as they are ingested. The OTLP receiver publishes each span sent with an API key to NATS JetStream, and the bundled `openlit-engine` evaluates the built-in rules and shows breaches on the **Signals** page. That page also lists the live signals the engine has seen. Docker Compose includes a NATS service by default. Realtime is disabled when `NATS_URL` is unset.
+
+<ResponseField name="NATS_URL">
+  NATS JetStream server URL. When set, the receiver publishes realtime signals and the container starts the realtime engine.
+
+  **Example**:
+  ```yaml
+  export NATS_URL="nats://nats:4222"
+  ```
+</ResponseField>
+
+<ResponseField name="NATS_USER / NATS_PASSWORD / NATS_TOKEN / NATS_CREDS">
+  Optional NATS credentials, used by both the receiver and the engine.
+</ResponseField>
+
+<ResponseField name="OPENLIT_ENGINE_URL">
+  Base URL the UI uses to read the signal inspector from the engine. Defaults to `http://127.0.0.1:4320`, which matches the engine inside the Docker container and `scripts/dev-realtime.sh`.
+
+  **Example**:
+  ```yaml
+  export OPENLIT_ENGINE_URL="http://127.0.0.1:4320"
+  ```
+</ResponseField>
+
+<ResponseField name="OPENLIT_REALTIME_BUILTIN_RULES">
+  Set to `false` to disable the built-in realtime rules.
+</ResponseField>
+
+<ResponseField name="OPENLIT_REALTIME_WINDOW_SEC / OPENLIT_REALTIME_MIN_SAMPLES / OPENLIT_REALTIME_COOLDOWN_SEC">
+  Evaluation window (default `300`, max `3600`), minimum samples per window before a rule can fire (default `20`), and the cooldown before the same finding can fire again (default `900`).
+</ResponseField>
+
+<ResponseField name="OPENLIT_SIGNAL_ATTRIBUTES">
+  Extra span and resource attribute keys to copy onto realtime signals, in addition to the built-in allowlist (`user.id`, `session.id`, `gen_ai.tool.name`, `gen_ai.request.temperature`, and the other operational fields). Comma-separated. Rules can match and group by these keys. Prompt, completion, and message attributes are ignored.
+
+  **Example**:
+  ```yaml
+  export OPENLIT_SIGNAL_ATTRIBUTES="app.tier,tenant.id"
+  ```
+</ResponseField>
+
+<ResponseField name="OPENLIT_REALTIME_ERROR_RATE / OPENLIT_REALTIME_P95_LATENCY_MS / OPENLIT_REALTIME_TOKENS_PER_WINDOW / OPENLIT_REALTIME_COST_PER_WINDOW_USD">
+  Thresholds for the built-in rules: error rate per service (default `0.25`), p95 latency per model (default `30000`), total tokens per model per window (default `1000000`), and span-reported cost per model per window (default `25`).
+
+  **Example**:
+  ```yaml
+  export OPENLIT_REALTIME_ERROR_RATE=0.1
+  ```
+</ResponseField>
+
 ## Telemetry variables
 
 <Note>

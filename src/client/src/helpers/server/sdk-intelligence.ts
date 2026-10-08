@@ -67,13 +67,16 @@ export async function resolveSdkIntelligenceDatabaseConfig(
 	);
 
 	if (environment) {
-		let projectId = projectIdHeader;
-		if (!projectId) {
-			const keyDatabase = await getDBConfigByIdInternal({
-				id: keyBoundDatabaseConfigId,
-			});
-			projectId = keyDatabase?.projectId || undefined;
+		const keyDatabase = await getDBConfigByIdInternal({
+			id: keyBoundDatabaseConfigId,
+		});
+		const keyProjectId = keyDatabase?.projectId || undefined;
+		// An API key is bound to its DatabaseConfig's project; a project header
+		// can never widen it to another project's intelligence state.
+		if (projectIdHeader && keyProjectId && projectIdHeader !== keyProjectId) {
+			return [messages.SDK_PROJECT_SCOPE_MISMATCH, null];
 		}
+		const projectId = projectIdHeader || keyProjectId;
 
 		if (projectId) {
 			const resolution = await resolveSignalSource("intelligence", {

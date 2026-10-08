@@ -16,9 +16,15 @@ import (
 	"github.com/openlit/openlit/otlp-receiver/internal/tenant"
 )
 
+// TraceFanout receives rows only after they are durably written to ClickHouse.
+type TraceFanout interface {
+	PublishTraces(t tenant.Tenant, rows []otlpconv.TraceRow)
+}
+
 type Service struct {
 	Tenants *tenant.Store
 	Writer  *chwrite.Writer
+	Fanout  TraceFanout
 }
 
 func (s *Service) Traces(ctx context.Context, authorization string, req *colltrace.ExportTraceServiceRequest) error {
@@ -28,7 +34,13 @@ func (s *Service) Traces(ctx context.Context, authorization string, req *colltra
 	}
 	rows := otlpconv.Traces(&tracepb.TracesData{ResourceSpans: req.GetResourceSpans()})
 	otlpconv.StampTraces(rows, resolved.Resource())
-	return s.Writer.InsertTraces(ctx, resolved.ClickHouse, rows)
+	if err := s.Writer.InsertTraces(ctx, resolved.ClickHouse, rows); err != nil {
+		return err
+	}
+	if s.Fanout != nil {
+		s.Fanout.PublishTraces(resolved, rows)
+	}
+	return nil
 }
 
 func (s *Service) Logs(ctx context.Context, authorization string, req *colllog.ExportLogsServiceRequest) error {

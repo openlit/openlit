@@ -81,6 +81,14 @@ service cron start
 echo "Starting OTLP receiver..."
 /app/otlp-receiver/otlp-receiver &
 
+# The realtime engine consumes the NATS signal stream and posts findings back
+# to the UI server's internal API, authenticated with CRON_JOB_SECRET.
+if [ -n "${NATS_URL:-}" ]; then
+    echo "Starting realtime engine..."
+    OPENLIT_URL="${OPENLIT_URL:-http://127.0.0.1:${DOCKER_PORT:-3000}}" \
+        /app/engine/openlit-engine &
+fi
+
 # Starting the OpenLIT UI Server
 export PORT=${DOCKER_PORT:-3000}
 export HOSTNAME="${HOSTNAME:-0.0.0.0}"

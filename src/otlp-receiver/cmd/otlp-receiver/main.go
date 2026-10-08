@@ -14,6 +14,9 @@ import (
 	"github.com/openlit/openlit/otlp-receiver/internal/grpcserver"
 	"github.com/openlit/openlit/otlp-receiver/internal/httpserver"
 	"github.com/openlit/openlit/otlp-receiver/internal/ingest"
+	"github.com/openlit/openlit/otlp-receiver/internal/natsx"
+	"github.com/openlit/openlit/otlp-receiver/internal/realtime"
+	sigpkg "github.com/openlit/openlit/otlp-receiver/internal/signal"
 	"github.com/openlit/openlit/otlp-receiver/internal/tenant"
 )
 
@@ -28,9 +31,41 @@ func main() {
 	svc := &ingest.Service{Tenants: tenants, Writer: chwrite.New()}
 	defer svc.Writer.Close()
 
+	var publisher *natsx.Publisher
+	var fanout *realtime.Fanout
+	if cfg.NATS.URL != "" {
+		publisher, err = natsx.Connect(natsx.Config{
+			URL:          cfg.NATS.URL,
+			User:         cfg.NATS.User,
+			Password:     cfg.NATS.Password,
+			Token:        cfg.NATS.Token,
+			CredsFile:    cfg.NATS.CredsFile,
+			Stream:       cfg.NATS.Stream,
+			Subjects:     []string{sigpkg.SubjectPrefix + ".>"},
+			MaxAge:       cfg.NATS.MaxAge,
+			Buffer:       cfg.NATS.Buffer,
+			EnsureStream: cfg.NATS.EnsureStream,
+		})
+		if err != nil {
+			log.Fatalf("nats: %v", err)
+		}
+		fanout = realtime.New(publisher)
+		svc.Fanout = fanout
+		log.Printf("Realtime fan-out enabled (stream %s)", cfg.NATS.Stream)
+	}
+
+	stats := func() any {
+		out := map[string]any{"realtime_enabled": publisher != nil}
+		if publisher != nil {
+			out["nats"] = publisher.Stats()
+			out["fanout"] = fanout.Stats()
+		}
+		return out
+	}
+
 	httpSrv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           httpserver.New(svc),
+		Handler:           httpserver.NewWithStats(svc, stats),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	grpcSrv := grpcserver.New(svc)
@@ -56,4 +91,7 @@ func main() {
 	defer cancel()
 	_ = httpSrv.Shutdown(ctx)
 	grpcSrv.GracefulStop()
+	if publisher != nil {
+		publisher.Close(ctx)
+	}
 }

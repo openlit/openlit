@@ -22,6 +22,20 @@ services:
       start_period: 100s
     restart: always
 
+  nats:
+    image: nats:2.10-alpine
+    container_name: nats
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8222/healthz?js-enabled-only=true || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: always
+
   openlit:
     image: openlit
     build:
@@ -40,6 +54,10 @@ services:
       INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
       INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
       SQLITE_DATABASE_URL: file:/app/client/data/data.db
+      # Realtime signal fan-out (receiver publishes, engine consumes).
+      # Set NATS_URL to an empty string to disable realtime findings.
+      NATS_URL: ${NATS_URL-nats://nats:4222}
+      OPENLIT_SIGNAL_ATTRIBUTES: ${OPENLIT_SIGNAL_ATTRIBUTES:-}
       PORT: ${PORT:-3000}
       DOCKER_PORT: ${DOCKER_PORT:-3000}
 
@@ -58,6 +76,8 @@ services:
       - "4318:4318"  # OTLP HTTP receiver
     depends_on:
       clickhouse:
+        condition: service_healthy
+      nats:
         condition: service_healthy
     volumes:
       - openlit-data:/app/client/data
@@ -231,3 +251,4 @@ services:
 volumes:
   clickhouse-data:
   openlit-data:
+  nats-data:

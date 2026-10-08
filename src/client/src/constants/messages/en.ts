@@ -8,6 +8,61 @@ export const OPERATION_FAILED = "Operation failed!";
 
 // API Keys
 export const NO_API_KEY = "No such apiKey exists!";
+export const SDK_PROJECT_SCOPE_MISMATCH =
+	"The requested project is not available for this API key.";
+
+// Realtime findings
+export const REALTIME_RULE_ERROR_RATE = "Error rate spike";
+export const REALTIME_RULE_P95_LATENCY = "P95 latency breach";
+export const REALTIME_RULE_TOKEN_SPIKE = "Token usage spike";
+export const REALTIME_RULE_COST_SPIKE = "Cost spike";
+export const REALTIME_FINDING_INVALID = "Invalid realtime finding payload.";
+export const REALTIME_FINDING_INVALID_JSON = "Realtime finding body must be valid JSON.";
+export const REALTIME_FINDING_RULE_UNKNOWN = "The realtime rule is not active for this tenant.";
+export const REALTIME_FINDING_TENANT_UNKNOWN = "The organisation, project, or environment does not exist.";
+export const REALTIME_FINDING_TENANT_CONFLICT = "The finding belongs to a different tenant.";
+export const REALTIME_FINDING_NO_PROJECT = "Select a project to view signals.";
+export const REALTIME_FINDINGS_FETCH_FAILED = "Failed to load findings.";
+export const REALTIME_SIGNALS_FETCH_FAILED = "Failed to load live signals.";
+export const REALTIME_RULES_UNAVAILABLE = "Custom realtime rules are not available in this edition.";
+export const REALTIME_TITLE = "Signals";
+export const REALTIME_DESCRIPTION =
+	"Live spans for this project, and the findings they raise.";
+export const REALTIME_VIEW_FINDINGS = "Findings";
+export const REALTIME_VIEW_INSPECTOR = "Inspector";
+export const REALTIME_FILTER_FIRING = "Firing";
+export const REALTIME_FILTER_RESOLVED = "Resolved";
+export const REALTIME_FILTER_ALL = "All";
+export const REALTIME_REFRESH = "Refresh";
+export const REALTIME_EMPTY_TITLE = "No findings";
+export const REALTIME_EMPTY_DESCRIPTION =
+	"Findings appear here when spans sent with an API key for this environment breach a rule. Evaluation needs NATS and the OpenLIT engine.";
+export const REALTIME_SIGNALS_EMPTY_TITLE = "No live signals";
+export const REALTIME_SIGNALS_EMPTY_DESCRIPTION =
+	"Signals appear here as GenAI spans are ingested for this project and environment. The OpenLIT engine keeps the most recent ones in memory.";
+export const REALTIME_SIGNALS_UNAVAILABLE =
+	"The OpenLIT engine is not reachable, so live signals cannot be shown.";
+export const REALTIME_SIGNALS_COLUMN_TIME = "Time";
+export const REALTIME_SIGNALS_COLUMN_SERVICE = "Service";
+export const REALTIME_SIGNALS_COLUMN_MODEL = "Model";
+export const REALTIME_SIGNALS_COLUMN_STATUS = "Status";
+export const REALTIME_SIGNALS_COLUMN_LATENCY = "Latency";
+export const REALTIME_SIGNALS_COLUMN_TOKENS = "Tokens";
+export const REALTIME_SIGNALS_COLUMN_COST = "Cost";
+export const REALTIME_SIGNALS_COLUMN_ATTRIBUTES = "Attributes";
+export const REALTIME_ALERTS_LABEL = "Signal alerts";
+export const REALTIME_ALERTS_EMPTY = "No firing alerts";
+export const REALTIME_ALERTS_VIEW = "View findings";
+export const REALTIME_COLUMN_SEVERITY = "Severity";
+export const REALTIME_COLUMN_RULE = "Rule";
+export const REALTIME_COLUMN_SCOPE = "Scope";
+export const REALTIME_COLUMN_VALUE = "Value / threshold";
+export const REALTIME_COLUMN_STATE = "State";
+export const REALTIME_COLUMN_LAST_SEEN = "Last seen";
+export const REALTIME_STATE_FIRING = "Firing";
+export const REALTIME_STATE_RESOLVED = "Resolved";
+export const REALTIME_SIGNAL_STATUS_OK = "ok";
+export const REALTIME_SIGNAL_STATUS_ERROR = "error";
 export const MANAGE_API_KEYS = "Manage API Keys";
 export const OPENAI_SPEC = "OpenAPI Specification";
 export const GENERATE_NEW_API_KEY = "Generate New API Key";

@@ -459,6 +459,7 @@ export function getChatTools(userId: string, databaseConfigId: string, environme
 								"vault_secret_change",
 								"context_change",
 								"rule_engine_change",
+								"realtime_finding",
 							],
 						},
 					},

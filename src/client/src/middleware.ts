@@ -53,6 +53,7 @@ export const config = {
 		"/organisation/:path*",
 		"/connectors",
 		"/costs",
+		"/realtime",
 		"/evaluations",
 		"/evaluations/:path*",
 		"/pricing",

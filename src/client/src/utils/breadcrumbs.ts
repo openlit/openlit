@@ -205,6 +205,13 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getBreadcrumbs: () => [],
 	},
 	
+	// Realtime
+	{
+		regex: /^\/realtime$/,
+		getTitle: () => getMessage().REALTIME_TITLE,
+		getBreadcrumbs: () => [],
+	},
+
 	// Prompt Hub
 	{
 		regex: /^\/prompt-hub$/,
