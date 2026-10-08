@@ -103,6 +103,14 @@ describe('fetchDatabaseConfigList', () => {
     expect(successCb).toHaveBeenCalledWith([{ id: 'db1' }]);
     expect(mockSetList).toHaveBeenCalledWith([{ id: 'db1' }]);
   });
+
+  it('coerces non-array payloads to an empty list', async () => {
+    (asaw as jest.Mock).mockResolvedValue([null, '<html>login</html>']);
+    const successCb = jest.fn();
+    await fetchDatabaseConfigList(successCb);
+    expect(successCb).toHaveBeenCalledWith([]);
+    expect(mockSetList).toHaveBeenCalledWith([]);
+  });
 });
 
 describe('pingActiveDatabaseConfig', () => {

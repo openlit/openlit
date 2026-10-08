@@ -102,6 +102,15 @@ describe('getModelInstance', () => {
     expect(instance).toBeDefined();
   });
 
+  it('attributes Perplexity requests to OpenLIT', () => {
+    getModelInstance('perplexity', 'key', 'sonar');
+    expect(createOpenAI).toHaveBeenCalledWith({
+      baseURL: 'https://api.perplexity.ai',
+      apiKey: 'key',
+      headers: { 'X-Pplx-Integration': 'openlit' },
+    });
+  });
+
   it('supports all built-in providers including MiniMax', () => {
     for (const p of CHAT_PROVIDER_IDS) {
       expect(() => getModelInstance(p, 'key', 'model')).not.toThrow();

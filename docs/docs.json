@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "aspen",
   "name": "OpenLIT",
-  "description": "OpenLIT is the leading open-source AI observability platform with zero-code instrumentation for LLMs, vector databases, and AI frameworks. Monitor OpenAI, Anthropic, LangChain, LlamaIndex with OpenTelemetry. Features include cost tracking, performance metrics, prompt management, and enterprise-grade security for production AI applications.",
+  "description": "OpenLIT is the open-source agent harness engineering platform: OpenTelemetry-native agent observability, evals, guardrails, prompt management, and cost and GPU monitoring for AI agents and coding agents. Free to self-host under Apache 2.0.",
   "colors": {
     "primary": "#F36C06",
     "light": "#FF8A3D",
@@ -42,6 +42,7 @@
             "pages": [
               "latest/overview",
               "latest/openlit/installation",
+              "latest/openlit/otlp-receiver",
               {
                 "group": "Quickstarts",
                 "icon": "bolt",
@@ -78,6 +79,15 @@
                   "latest/openlit/connectors/scanner"
                 ]
               }
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "latest/concepts/glossary",
+              "latest/glossary/what-is-ai-observability",
+              "latest/glossary/what-is-ai-evaluation",
+              "latest/glossary/what-is-prompt-engineering"
             ]
           },
           {
@@ -118,9 +128,7 @@
                   "latest/openlit/coding-agents/sessions",
                   "latest/openlit/coding-agents/users",
                   "latest/openlit/coding-agents/privacy-and-governance",
-                  "latest/openlit/coding-agents/troubleshooting",
-                  "latest/openlit/coding-agents/onboarding",
-                  "latest/openlit/coding-agents/architecture"
+                  "latest/openlit/coding-agents/troubleshooting"
                 ]
               }
             ]
@@ -162,7 +170,7 @@
                 "pages": [
                   "latest/openlit/dashboards/widgets/overview",
                   "latest/openlit/dashboards/widgets/area-chart-widget",
-                  "latest/openlit/dashboards/widgets/bar-chart-widget", 
+                  "latest/openlit/dashboards/widgets/bar-chart-widget",
                   "latest/openlit/dashboards/widgets/line-chart-widget",
                   "latest/openlit/dashboards/widgets/pie-chart-widget",
                   "latest/openlit/dashboards/widgets/stat-widget",
@@ -303,6 +311,7 @@
                     "pages": [
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/create",
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/get",
+                      "latest/openlit/developer-resources/api-reference/endpoint/api-keys/update",
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/delete"
                     ]
                   },
@@ -580,9 +589,65 @@
     }
   },
   "contextual": {
-    "options": ["copy", "chatgpt", "claude"]
+    "options": [
+      "copy",
+      "chatgpt",
+      "claude"
+    ]
   },
   "redirects": [
+    {
+      "source": "/latest/features/evaluations",
+      "destination": "/latest/openlit/evaluations/overview"
+    },
+    {
+      "source": "/latest/features/guardrails",
+      "destination": "/latest/sdk/features/guardrails"
+    },
+    {
+      "source": "/latest/features/gpu",
+      "destination": "/latest/gpu-collector/overview"
+    },
+    {
+      "source": "/latest/features/agent-observability",
+      "destination": "/latest/openlit/observability/agents/overview"
+    },
+    {
+      "source": "/latest/quickstart",
+      "destination": "/latest/openlit/quickstart-ai-observability"
+    },
+    {
+      "source": "/latest/destinations/intro",
+      "destination": "/latest/sdk/destinations/overview"
+    },
+    {
+      "source": "/latest/integrations/nvidia-gpu",
+      "destination": "/latest/gpu-collector/gpus/nvidia"
+    },
+    {
+      "source": "/latest/integrations/amd-gpu",
+      "destination": "/latest/gpu-collector/gpus/amd"
+    },
+    {
+      "source": "/latest/integrations/intel-gpu",
+      "destination": "/latest/gpu-collector/gpus/intel"
+    },
+    {
+      "source": "/latest/integrations/embedchain",
+      "destination": "/latest/sdk/integrations/overview"
+    },
+    {
+      "source": "/latest/sdk/integrations/embedchain",
+      "destination": "/latest/sdk/integrations/overview"
+    },
+    {
+      "source": "/latest/integrations/:slug",
+      "destination": "/latest/sdk/integrations/:slug"
+    },
+    {
+      "source": "/latest/connections/:slug",
+      "destination": "/latest/sdk/destinations/:slug"
+    },
     {
       "source": "/latest/openlit/observability/tracing",
       "destination": "/latest/openlit/observability/telemetry/traces"

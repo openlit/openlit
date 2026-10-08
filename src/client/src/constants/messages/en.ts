@@ -393,6 +393,14 @@ export const OBSERVABILITY_CHAT_MODEL_CHANGES = (count: number) =>
 export const OBSERVABILITY_TIMELINE = "Timeline";
 export const OBSERVABILITY_GRAPH = "Graph";
 export const OBSERVABILITY_NO_SERVER_CONNECTION = "Cannot connect to server!";
+export const API_UNEXPECTED_NON_JSON_RESPONSE =
+	"The server returned an unexpected non-JSON response.";
+export const API_UNEXPECTED_HTML_RESPONSE = (status?: number) =>
+	typeof status === "number"
+		? `The server returned a page instead of data (${status}). Refresh the page and try again.`
+		: "The server returned a page instead of data. Refresh the page and try again.";
+export const API_REQUEST_FAILED = (status: number) => `Request failed (${status})`;
+export const API_EMPTY_RESPONSE = "The telemetry service returned an empty response.";
 export const OBSERVABILITY_ADD = "Add";
 export const OBSERVABILITY_SPAN_NAME_EXAMPLE = "e.g. SpanName";
 export const OBSERVABILITY_ATTRIBUTE_KEY_EXAMPLE = "e.g. gen_ai.system";
@@ -757,6 +765,7 @@ export const FEATURE_VAULT = "Vault";
 export const FEATURE_MEMORY = "Memory";
 export const FEATURE_SCANNER = "Scanner";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
+export const FLEET_HUB_UNAVAILABLE = "Fleet Hub is not available in this edition.";
 export const FLEET_HUB_BACK_TO_LIST = "Back to Fleet Hub";
 export const FEATURE_AGENTS = "Agents";
 export const FEATURE_EVALS = "Evaluations";
@@ -1678,7 +1687,9 @@ export const PERSONAL_ORGANISATION = "Personal";
 
 // Auth
 export const AUTH_WELCOME = "Welcome to OpenLIT";
-export const AUTH_SUBTITLE = "Open Source Platform for AI Engineering";
+export const AUTH_SUBTITLE = "Open source Agent Harness Engineering platform";
+export const TALK_TO_FOUNDER = "Talk to founder";
+export const TALK_TO_FOUNDER_HINT = "Schedule a 30-minute call";
 export const AUTH_SIGNING_IN = "Signing in...";
 export const AUTH_CONTINUE_WITH_GOOGLE = "Continue with Google";
 export const AUTH_CONTINUE_WITH_GITHUB = "Continue with Github";
@@ -1693,7 +1704,7 @@ export const AUTH_NO_ACCOUNT = "Don't have an account?";
 export const AUTH_HAVE_ACCOUNT = "Already have an account?";
 export const AUTH_GITHUB = "Github";
 export const AUTH_DOCUMENTATION = "Documentation";
-export const AUTH_FOOTER = "Open Source AI Observability Platform";
+export const AUTH_FOOTER = "Open source, built on OpenTelemetry";
 export const AUTH_ERROR_ACCESS_DENIED = "Access denied for this account.";
 export const AUTH_ERROR_TRY_DIFFERENT = "Try signing with a different account.";
 export const AUTH_ERROR_CONFIRM_IDENTITY = "To confirm your identity, sign in with the same account you used originally.";
@@ -1704,27 +1715,29 @@ export const AUTH_ERROR_DEFAULT = "Unable to sign in.";
 export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
 export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
 
-// Auth feature highlights
-export const AUTH_FEATURE_TRACING = "End-to-End Tracing";
-export const AUTH_FEATURE_TRACING_DESC = "Full request tracing across LLM providers";
-export const AUTH_FEATURE_ANALYTICS = "Cost & Token Analytics";
-export const AUTH_FEATURE_ANALYTICS_DESC = "Real-time cost tracking and token usage";
-export const AUTH_FEATURE_EVALS = "11 Evaluation Types";
-export const AUTH_FEATURE_EVALS_DESC = "Hallucination, bias, toxicity, safety & more";
-export const AUTH_FEATURE_JUDGE = "LLM-as-a-Judge";
-export const AUTH_FEATURE_JUDGE_DESC = "Automated quality scoring with any LLM";
-export const AUTH_FEATURE_OPENGROUND = "OpenGround";
-export const AUTH_FEATURE_OPENGROUND_DESC = "Compare LLMs side-by-side on cost & quality";
-export const AUTH_FEATURE_PROMPT_HUB = "Prompt Hub";
-export const AUTH_FEATURE_PROMPT_HUB_DESC = "Version, manage, and deploy prompts";
-export const AUTH_FEATURE_RULE_ENGINE = "Rule Engine";
-export const AUTH_FEATURE_RULE_ENGINE_DESC = "Conditional context and prompt retrieval";
-export const AUTH_FEATURE_VAULT = "Vault";
-export const AUTH_FEATURE_VAULT_DESC = "Secure secrets and API key management";
-export const AUTH_FEATURE_AGENTS = "Agents";
-export const AUTH_FEATURE_AGENTS_DESC = "Manage and operate AI agents from a single hub";
-export const AUTH_FEATURE_OTEL = "OpenTelemetry Native";
-export const AUTH_FEATURE_OTEL_DESC = "Built on open standards, no vendor lock-in";
+// Founder call sidebar card
+export const FOUNDER_CARD_BADGE = "From the founder";
+export const FOUNDER_CARD_TITLE = "Want more features?";
+export const FOUNDER_CARD_BODY =
+	"Tell us what your agents are missing. Grab 30 minutes and we'll figure it out together.";
+export const FOUNDER_CARD_CTA = "Schedule a call";
+export const FOUNDER_CARD_DISMISS = "Dismiss founder call card";
+
+// Error pages
+export const ERROR_PAGE_NOT_FOUND_CODE = "404";
+export const ERROR_PAGE_NOT_FOUND_LABEL = "Page not found";
+export const ERROR_PAGE_NOT_FOUND_TITLE = "Bug or feature?";
+export const ERROR_PAGE_NOT_FOUND_DESCRIPTION =
+	"This page drifted outside our observability zone. Let's head back to reality.";
+export const ERROR_PAGE_SERVER_ERROR_CODE = "500";
+export const ERROR_PAGE_SERVER_ERROR_LABEL = "Something went wrong";
+export const ERROR_PAGE_SERVER_ERROR_TITLE = "Something went wrong";
+export const ERROR_PAGE_SERVER_ERROR_DESCRIPTION =
+	"An unexpected error interrupted this page. Try again, or head back and pick up where you left off.";
+export const ERROR_PAGE_REFERENCE = "Reference";
+export const ERROR_PAGE_TRY_AGAIN = "Try again";
+export const ERROR_PAGE_GO_TO_DASHBOARD = "Return to dashboard";
+export const ERROR_PAGE_GO_TO_SIGN_IN = "Go to sign in";
 
 // Context UI
 export const CONTEXT_TITLE = "Context";
@@ -2722,6 +2735,8 @@ export const MEMORY_CONNECTOR_CLAUDE_DESCRIPTION =
 	"Browse and edit memories in Anthropic Claude memory stores.";
 export const MEMORY_CONNECTOR_MEM0_DESCRIPTION =
 	"Store and search long-term agent memories with Mem0.";
+export const MEMORY_CONNECTOR_MEMCODE_DESCRIPTION =
+	"Store and search long-term agent memories with MemCode.";
 export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =
 	"Store and search session memory and a knowledge graph with Zep.";
 export const MEMORY_CONNECTOR_FIELD_ORG_ID = "Mem0 organization ID";
@@ -2731,12 +2746,26 @@ export const MEMORY_CONNECTOR_AUTH_HELP_CLAUDE =
 	"Use an Anthropic API key. Memory store calls send x-api-key with the agent-memory beta header.";
 export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
 	"Use a Mem0 Platform API key. Self-hosted Mem0 can use a custom endpoint with the same Token authentication.";
+export const MEMORY_CONNECTOR_MEMCODE_NO_TEST_ROUTE =
+	"This MemCode deployment has no GET /v2/test route. Update the Memory API to verify connections.";
+export const MEMORY_CONNECTOR_MEMCODE_NOT_FOUND =
+	"No MemCode Memory API answered at this URL. Check the connector URL.";
+export const MEMORY_CONNECTOR_MEMCODE_NOT_READY =
+	"The MemCode Memory API is reachable but still starting up. Try again shortly.";
+export const MEMORY_CONNECTOR_MEMCODE_KEY_REJECTED =
+	"The MemCode Memory API rejected this key. Check the key and try again.";
+export const MEMORY_CONNECTOR_MEMCODE_PAYMENT_REQUIRED =
+	"This MemCode key is valid but the account is out of credit.";
+export const MEMORY_CONNECTOR_AUTH_HELP_MEMCODE =
+	"Use a MemCode API key from memory.memcode.in. Calls send Authorization: Bearer.";
 export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
 	"Use a Zep Cloud API key. Self-hosted Zep can use a custom endpoint with the same Api-Key authentication.";
 export const MEMORY_CONNECTOR_SETUP_CLAUDE_SUMMARY =
 	"Claude memory stores keep agent notes across Managed Agents sessions.";
 export const MEMORY_CONNECTOR_SETUP_MEM0_SUMMARY =
 	"Mem0 stores long-term memories scoped by user, run, or agent.";
+export const MEMORY_CONNECTOR_SETUP_MEMCODE_SUMMARY =
+	"MemCode stores long-term memories that agents can search later.";
 export const MEMORY_CONNECTOR_SETUP_ZEP_SUMMARY =
 	"Zep stores session memory and a knowledge graph for agents.";
 export const MEMORY_PAGE_DESCRIPTION =
@@ -2775,6 +2804,11 @@ export const MEMORY_PAGE_OF = (current: number, total: number) =>
 	`${current} of ${total}`;
 export const MEMORY_PAGE_PREVIOUS = "Previous page";
 export const MEMORY_PAGE_NEXT = "Next page";
+export const MEMORY_LIST_SHOWING = (loaded: number, total: number) =>
+	`${loaded} of ${total} loaded`;
+export const MEMORY_LIST_LOAD_MORE = "Load more";
+export const MEMORY_LIST_LOADING_MORE = "Loading…";
+export const MEMORY_LIST_LOAD_MORE_FAILED = "Failed to load more memories.";
 export const MEMORY_CONNECTOR_LABEL = "Memory connector";
 export const MEMORY_USER_FILTER = "User";
 export const MEMORY_SESSION_FILTER = "Session";
@@ -2812,6 +2846,26 @@ export const MEMORY_GRAPH_TYPE_ALL = "All";
 export const MEMORY_GRAPH_ZOOM_IN = "Zoom in";
 export const MEMORY_GRAPH_ZOOM_OUT = "Zoom out";
 export const MEMORY_GRAPH_TYPE_FILTER = "Entity type";
+export const MEMORY_GRAPH_STRENGTH_FILTER = "Connection strength";
+export const MEMORY_GRAPH_STRENGTH_ALL = "All connections";
+export const MEMORY_GRAPH_STRENGTH_FAINT = "Faint and above";
+export const MEMORY_GRAPH_STRENGTH_WEAK = "Weak and above";
+export const MEMORY_GRAPH_STRENGTH_MEDIUM = "Medium and above";
+export const MEMORY_GRAPH_STRENGTH_STRONG = "Strong only";
+export const MEMORY_GRAPH_TIER_STRONG = "Strong";
+export const MEMORY_GRAPH_TIER_MEDIUM = "Medium";
+export const MEMORY_GRAPH_TIER_WEAK = "Weak";
+export const MEMORY_GRAPH_TIER_FAINT = "Faint";
+export const MEMORY_GRAPH_CONNECTIONS_LEGEND = "Connections";
+export const MEMORY_GRAPH_EDGE_TOOLTIP = (
+	label: string,
+	weight: string,
+	tier: string
+) => `${label} · ${weight} (${tier})`;
+export const MEMORY_GRAPH_TRUNCATED = (shown: number) =>
+	`Showing the first ${shown} memories of this graph.`;
+export const MEMORY_GRAPH_COUNTS = (nodes: number, edges: number) =>
+	`${nodes} memories · ${edges} connections`;
 export const MEMORY_ENTITY = "Entity";
 export const MEMORY_EVENT = "Event";
 export const MEMORY_LOCATION = "Location";
@@ -2820,7 +2874,8 @@ export const MEMORY_PREFERENCE = "Preference";
 export const MEMORY_TOPIC = "Topic";
 export const MEMORY_USER = "User";
 export const MEMORY_INVALID_FILTER = "A memory filter value is invalid.";
-export const MEMORY_INVALID_LIMIT = "Limit must be a number between 1 and 100.";
+export const MEMORY_INVALID_LIMIT = "Limit must be a number between 1 and 500.";
+export const MEMORY_INVALID_OFFSET = "Offset must be a number between 0 and 1000000.";
 export const MEMORY_INVALID_JSON = "Request body must be valid JSON.";
 export const MEMORY_FEEDBACK_INVALID =
 	"Feedback must be positive, negative, very negative, or empty to clear.";
@@ -2991,6 +3046,11 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		steps: ["Create a Mem0 Platform API key, or point the endpoint at a self-hosted Mem0 service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Optionally set organization and project IDs for a Mem0 Platform workspace, then test the connection."],
 		docsUrl: "https://docs.mem0.ai/api-reference",
 	},
+	memcode: {
+		summary: "Connect OpenLIT to MemCode for long-term agent memory.",
+		steps: ["Create a MemCode API key. The key identifies the MemCode account, so no user ID is needed.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from the Memory page."],
+		docsUrl: "https://memcode.in/docs",
+	},
 	zep: {
 		summary: "Connect OpenLIT to Zep for session memory and graph search.",
 		steps: ["Create a Zep Cloud API key, or point the endpoint at a self-hosted Zep service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from agents."],
@@ -3078,3 +3138,13 @@ export const DATA_SOURCE_BINDING_FAILED = "Failed to update signal routing.";
 export const DATA_SOURCE_LOAD_FAILED = "Failed to load data sources.";
 export const DATA_SOURCE_RETRY = "Try again";
 
+export const API_KEY_FULL_ACCESS = "Full access";
+export const API_KEY_ACCESS_SELECT_FEATURE = "Select at least one feature.";
+export const API_KEY_FEATURE_ACCESS_DENIED =
+	"This API key does not have access to this feature";
+export const API_KEY_ACCESS_CONTROL_UNAVAILABLE =
+	"API key access control is not available in this edition.";
+export const API_KEY_FULL_ACCESS_DESCRIPTION =
+	"Can use every feature that accepts API keys.";
+export const API_KEY_DELETE = "Delete API key";
+export const API_KEY_INVALID_JSON = "Request body must be valid JSON.";

@@ -33,6 +33,12 @@ description: 'OpenAPI specification for API Endpoints in OpenLIT'
     href="/latest/openlit/developer-resources/api-reference/endpoint/scanners/scan"
   >
   </Card>
+  <Card
+    title="API Keys API"
+    icon="key"
+    href="/latest/openlit/developer-resources/api-reference/endpoint/api-keys/create"
+  >
+  </Card>
 </CardGroup>
 
 ## Product surfaces
@@ -74,3 +80,24 @@ Authorization: Bearer <api-key>
 ```
 
 [Manage Models](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/models) UI pages also accept a signed-in OpenLIT session in the browser. The [public pricing export](/latest/openlit/developer-resources/api-reference/endpoint/manage-models/public-pricing) requires no auth.
+
+## API key access
+
+Create and manage keys under **Settings → API Keys**. Each key shows its access in the **Access** column.
+
+- **Community edition:** every API key has full access to every endpoint that accepts API keys.
+- **OpenLIT Enterprise:** with role-based access control, a key can be restricted to specific features when it's created, or later with **Edit access**. A restricted key gets a `403` (`This API key does not have access to this feature`) on endpoints outside its features, and OTLP ingestion needs the **Telemetry ingestion** feature.
+
+| Feature | Endpoints |
+| --- | --- |
+| Telemetry ingestion (`ingest`) | OTLP `/v1/traces`, `/v1/metrics`, `/v1/logs` |
+| Telemetry & metrics read (`telemetry`) | `/api/telemetry/*`, `/api/metrics/*` |
+| Prompt Hub (`prompts`) | `/api/prompt/*` |
+| Vault (`vault`) | `/api/vault/*` |
+| Rule engine (`rule_engine`) | `/api/rule-engine/*` |
+| Evaluations (`evaluation`) | `/api/evaluation/*` |
+| Otter chat (`chat`) | `/api/chat/*` |
+| Controller (`controller`) | `/api/controller/*` |
+| Database config (`db_config`) | `/api/db-config*` |
+
+Use [Create API Key](/latest/openlit/developer-resources/api-reference/endpoint/api-keys/create) and [Update API Key Access](/latest/openlit/developer-resources/api-reference/endpoint/api-keys/update) to manage access programmatically. API key management (`/api/api-key`) requires a signed-in session, so an API key can't list, create, change, or delete keys, including its own.

@@ -21,7 +21,7 @@
     "LICENSE",
     "package.json"
   ],
-  "description": "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects",
+  "description": "OpenTelemetry-native SDK for OpenLIT, the open-source agent harness engineering platform: auto-instrument LLMs, agents, vector DBs and GPUs for tracing, evals and guardrails.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -52,7 +52,17 @@
     "monitoring",
     "gpt",
     "Generative AI",
-    "chatGPT"
+    "chatGPT",
+    "agent-harness",
+    "harness-engineering",
+    "agent-observability",
+    "llm-evaluation",
+    "evals",
+    "guardrails",
+    "prompt-management",
+    "ai-agents",
+    "coding-agents",
+    "mcp"
   ],
   "author": "Aman Agarwal <aman.agarwal@openlit.io>",
   "license": "ISC",

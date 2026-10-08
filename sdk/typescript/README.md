@@ -1,7 +1,7 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
-<h3>OpenTelemetry-native</h3>
-<h1>AI Observability, Monitoring and Evaluation Framework</h1>
+<h3>OpenTelemetry-native SDK for</h3>
+<h1>OpenLIT — the open-source agent harness engineering platform</h1>
 
 **[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started-with-llm-observability) | [Roadmap](#️-roadmap) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)** 
 
@@ -18,9 +18,9 @@
 
 </div>
 
-OpenLIT SDK is a monitoring framework built on top of **OpenTelemetry** that gives your complete Observability for your AI stack, from LLMs to vector databases, with just one line of code with tracing and metrics. It also allows you to send the generated traces and metrics to your existing monitoring tools like Grafana, New Relic, and more.
+OpenLIT is the open-source agent harness engineering platform. This TypeScript SDK is the OpenTelemetry-native auto-instrumentation library for tracing LLMs, agents, and vector databases — with one line of code. Send traces and metrics to OpenLIT or to existing tools like Grafana, Datadog, and New Relic.
 
-This project proudly follows and maintains the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) with the OpenTelemetry community, consistently updating to align with the latest standards in Observability.
+The SDK follows and maintains the [OpenTelemetry GenAI Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) with the OpenTelemetry community.
 
 ## ⚡ Features
 
@@ -34,19 +34,19 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 | LLMs                                                                                        |
 | ------------------------------------------------------------------------------------------- |
-| [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)                             |
-| [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)                       |
-| [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)                             |
-| [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                                 |
-| [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)                           |
-| [✅ Google AI Studio](https://docs.openlit.io/latest/integrations/google-ai-studio)         |
-| [✅ Google Vertex AI](https://docs.openlit.io/latest/integrations/vertex-ai) *(via `@google-cloud/vertexai`)* |
-| [✅ Together AI](https://docs.openlit.io/latest/integrations/together)                      |
-| [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)                             |
-| [✅ AWS Bedrock](https://docs.openlit.io/latest/integrations/bedrock)                        |
-| [✅ Hugging Face](https://docs.openlit.io/latest/integrations/huggingface) *(Inference API + local Transformers.js)* |
-| [✅ Replicate](https://docs.openlit.io/latest/integrations/replicate)                      |
-| [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai) *(via OpenAI SDK)* |
+| [✅ OpenAI](https://docs.openlit.io/latest/sdk/integrations/openai)                         |
+| [✅ Anthropic](https://docs.openlit.io/latest/sdk/integrations/anthropic)                   |
+| [✅ Cohere](https://docs.openlit.io/latest/sdk/integrations/cohere)                         |
+| [✅ Groq](https://docs.openlit.io/latest/sdk/integrations/groq)                             |
+| [✅ Mistral](https://docs.openlit.io/latest/sdk/integrations/mistral)                       |
+| [✅ Google AI Studio](https://docs.openlit.io/latest/sdk/integrations/google-ai-studio)     |
+| [✅ Google Vertex AI](https://docs.openlit.io/latest/sdk/integrations/vertexai) *(via `@google-cloud/vertexai`)* |
+| [✅ Together AI](https://docs.openlit.io/latest/sdk/integrations/together)                  |
+| [✅ Ollama](https://docs.openlit.io/latest/sdk/integrations/ollama)                         |
+| [✅ AWS Bedrock](https://docs.openlit.io/latest/sdk/integrations/bedrock)                    |
+| [✅ Hugging Face](https://docs.openlit.io/latest/sdk/integrations/huggingface) *(Inference API + local Transformers.js)* |
+| [✅ Replicate](https://docs.openlit.io/latest/sdk/integrations/replicate)                  |
+| [✅ Azure OpenAI](https://docs.openlit.io/latest/sdk/integrations/azure-openai) *(via OpenAI SDK)* |
 | [✅ TypeSafe Jev](https://docs.openlit.io/latest/sdk/integrations/typesafe) *(System One `systemOne`)* |
 
 | Audio / Speech                                                                              |
@@ -55,32 +55,32 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 | Vector Databases                                                                            |
 | ------------------------------------------------------------------------------------------- |
-| [✅ Chroma](https://docs.openlit.io/latest/integrations/chromadb)                           |
-| [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)                         |
-| [✅ Qdrant](https://docs.openlit.io/latest/integrations/qdrant)                             |
-| [✅ Milvus](https://docs.openlit.io/latest/integrations/milvus)                             |
+| [✅ Chroma](https://docs.openlit.io/latest/sdk/integrations/chromadb)                       |
+| [✅ Pinecone](https://docs.openlit.io/latest/sdk/integrations/pinecone)                     |
+| [✅ Qdrant](https://docs.openlit.io/latest/sdk/integrations/qdrant)                         |
+| [✅ Milvus](https://docs.openlit.io/latest/sdk/integrations/milvus)                         |
 
 | Frameworks                                                                                  |
 | ------------------------------------------------------------------------------------------- |
-| [✅ LangChain](https://docs.openlit.io/latest/integrations/langchain)                       |
-| [✅ LlamaIndex](https://docs.openlit.io/latest/integrations/llama-index)                    |
-| [✅ Vercel AI SDK](https://docs.openlit.io/latest/integrations/vercel-ai)                   |
+| [✅ LangChain](https://docs.openlit.io/latest/sdk/integrations/langchain)                   |
+| [✅ LlamaIndex](https://docs.openlit.io/latest/sdk/integrations/llama-index)                |
+| [✅ Vercel AI SDK](https://docs.openlit.io/latest/sdk/integrations/vercel-ai)               |
 
 ## Supported Destinations
 
-- [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
-- [✅ Prometheus + Tempo](https://docs.openlit.io/latest/connections/prometheus-tempo)
-- [✅ Prometheus + Jaeger](https://docs.openlit.io/latest/connections/prometheus-jaeger)
-- [✅ Grafana Cloud](https://docs.openlit.io/latest/connections/grafanacloud)
-- [✅ New Relic](https://docs.openlit.io/latest/connections/new-relic)
-- [✅ Elastic](https://docs.openlit.io/latest/connections/elastic)
-- [✅ HyperDX](https://docs.openlit.io/latest/connections/hyperdx)
-- [✅ DataDog](https://docs.openlit.io/latest/connections/datadog)
-- [✅ SigNoz](https://docs.openlit.io/latest/connections/signoz)
-- [✅ OneUptime](https://docs.openlit.io/latest/connections/oneuptime)
-- [✅ Dynatrace](https://docs.openlit.io/latest/connections/dynatrace)
-- [✅ OpenObserve](https://docs.openlit.io/latest/connections/openobserve)
-- [✅ Highlight.io](https://docs.openlit.io/latest/connections/highlight)
+- [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/sdk/destinations/otelcol)
+- [✅ Prometheus + Tempo](https://docs.openlit.io/latest/sdk/destinations/prometheus-tempo)
+- [✅ Prometheus + Jaeger](https://docs.openlit.io/latest/sdk/destinations/prometheus-jaeger)
+- [✅ Grafana Cloud](https://docs.openlit.io/latest/sdk/destinations/grafanacloud)
+- [✅ New Relic](https://docs.openlit.io/latest/sdk/destinations/new-relic)
+- [✅ Elastic](https://docs.openlit.io/latest/sdk/destinations/elastic)
+- [✅ HyperDX](https://docs.openlit.io/latest/sdk/destinations/hyperdx)
+- [✅ DataDog](https://docs.openlit.io/latest/sdk/destinations/datadog)
+- [✅ SigNoz](https://docs.openlit.io/latest/sdk/destinations/signoz)
+- [✅ OneUptime](https://docs.openlit.io/latest/sdk/destinations/oneuptime)
+- [✅ Dynatrace](https://docs.openlit.io/latest/sdk/destinations/dynatrace)
+- [✅ OpenObserve](https://docs.openlit.io/latest/sdk/destinations/openobserve)
+- [✅ Highlight.io](https://docs.openlit.io/latest/sdk/destinations/highlight)
 
 ## Supported Metrics
 
@@ -185,9 +185,9 @@ export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_OTEL_ENDPOINT_AUTH"
 ### Step 3: Visualize and Optimize!
 Now that your LLM observability data is being collected and sent to configured OpenTelemetry destination, the next step is to visualize and analyze this data. This will help you understand your LLM application's performance and behavior and identify where it can be improved.
 
-If you want to use OpenLIT's Observability Dashboard to monitor LLM usage—like cost, tokens, and user interactions—please check out our [Quickstart Guide](https://docs.openlit.io/latest/quickstart).
+If you want to use OpenLIT's Observability Dashboard to monitor LLM usage—like cost, tokens, and user interactions—please check out our [Quickstart Guide](https://docs.openlit.io/latest/openlit/quickstart-ai-observability).
 
-If you're sending metrics and traces to other observability tools, take a look at our [Connections Guide](https://docs.openlit.io/latest/destinations/intro) to start using a pre-built dashboard we have created for these tools.
+If you're sending metrics and traces to other observability tools, take a look at our [Connections Guide](https://docs.openlit.io/latest/sdk/destinations/overview) to start using a pre-built dashboard we have created for these tools.
 
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
 

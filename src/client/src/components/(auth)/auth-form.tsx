@@ -146,9 +146,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 	}
 
 	return (
-		<div className="mx-auto grid gap-6 w-[350px] text-stone-900 dark:text-stone-100">
-			<div className="grid gap-2 text-center">
-			</div>
+		<div className="grid w-full gap-6 text-stone-900 dark:text-stone-100">
 			{error && <SignInError error={error} />}
 
 			{/* Google Sign-in Button */}
@@ -158,7 +156,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 					variant="outline"
 					onClick={handleGoogleSignIn}
 					disabled={isGoogleLoading}
-					className="w-full bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-full hover:text-stone-900 dark:hover:text-stone-100"
+					className="w-full bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-md hover:text-stone-900 dark:hover:text-stone-100"
 				>
 					{isGoogleLoading ? (
 						m.AUTH_SIGNING_IN
@@ -186,7 +184,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 					variant="outline"
 					onClick={handleGithubSignIn}
 					disabled={isGithubLoading}
-					className="w-full bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-full hover:text-stone-900 dark:hover:text-stone-100"
+					className="w-full bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-md hover:text-stone-900 dark:hover:text-stone-100"
 				>
 					{isGithubLoading ? (
 						m.AUTH_SIGNING_IN
@@ -216,7 +214,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 							<span className="w-full border-t border-stone-300 dark:border-stone-700" />
 						</div>
 						<div className="relative flex justify-center text-xs uppercase">
-							<span className="bg-stone-50 dark:bg-stone-900 px-2 text-stone-500 dark:text-stone-400">{m.AUTH_OR}</span>
+							<span className="bg-white dark:bg-stone-950 px-2 text-stone-500 dark:text-stone-400">{m.AUTH_OR}</span>
 						</div>
 					</div>
 				)
@@ -255,13 +253,13 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 					</div>
 					<Button
 						type="submit"
-						className="w-full bg-primary dark:bg-primary text-white dark:text-white hover:bg-primary/90 dark:hover:bg-primary/90 rounded-full"
+						className="w-full rounded-md bg-primary text-white hover:bg-primary/90 dark:bg-primary dark:text-white dark:hover:bg-primary/90"
 					>
 						{type === "login" ? m.AUTH_SIGN_IN : m.AUTH_SIGN_UP}
 					</Button>
 				</div>
 			</form>
-			<div className="text-center text-sm">
+			<div className="text-sm text-stone-600 dark:text-stone-400">
 				{type === "login"
 					? `${m.AUTH_NO_ACCOUNT} `
 					: m.AUTH_HAVE_ACCOUNT}{" "}

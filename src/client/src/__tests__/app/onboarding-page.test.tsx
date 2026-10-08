@@ -118,7 +118,7 @@ describe("OnboardingPage database config step", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Add database config" }));
 
-		expect(screen.getByText("Add ClickHouse connector")).toBeInTheDocument();
+		expect(screen.getByText("Add source")).toBeInTheDocument();
 		expect(screen.getByPlaceholderText("127.0.0.1")).toBeInTheDocument();
 		expect(screen.getByPlaceholderText("8123")).toBeInTheDocument();
 	});
