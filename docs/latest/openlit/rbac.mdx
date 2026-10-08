@@ -68,6 +68,10 @@ With the RBAC entitlement, each API key can be restricted to specific features f
 - **Full access**: the key can use every feature that accepts API keys. All keys created before this feature, and every key in the community edition, have full access.
 - **Restricted**: the key can only use the selected features.
 
+<Frame>
+  <img src="/images/enterprise/api-key-access.png" alt="Create API key dialog with Restricted selected and per-feature access checkboxes" />
+</Frame>
+
 | Feature | What it unlocks | Permission needed to grant it |
 | --- | --- | --- |
 | Telemetry ingestion | Sending traces, metrics and logs over OTLP | `api_key:create` |
@@ -92,6 +96,10 @@ With the RBAC entitlement, each API key can be restricted to specific features f
 
 Open the RBAC management page from **Roles** in the sidebar.
 
+<Frame>
+  <img src="/images/enterprise/roles-user-permissions.png" alt="Roles page on the User permissions tab, with members assigned Owner or Member" />
+</Frame>
+
 The page has two tabs:
 
 - **User permissions**: Assign built-in roles or custom role groups to members, and optionally set direct permissions for a specific user.
@@ -115,6 +123,10 @@ Role groups are reusable custom permission sets.
 
 Use role groups when multiple users need the same access profile, such as support, security reviewer, billing admin, or read-only operator.
 
+<Frame>
+  <img src="/images/enterprise/roles-role-groups.png" alt="Role Group tab listing the default Admin, Member, and Owner roles" />
+</Frame>
+
 From **Roles → Role Group**, you can:
 
 - Create a role group with a name, optional description, and selected permissions.
@@ -123,6 +135,10 @@ From **Roles → Role Group**, you can:
 - View the permissions granted by any existing role group, including default/system roles.
 
 The permission view and assignment modals group permissions by area, feature, and action so reviewers can scan what a role grants before assigning it.
+
+<Frame>
+  <img src="/images/enterprise/roles-view-permissions.png" alt="Admin permissions dialog grouped by organisation, RBAC and billing, and product features" />
+</Frame>
 
 ## Direct user permissions
 
