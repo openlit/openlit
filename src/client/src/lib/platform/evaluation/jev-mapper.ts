@@ -129,8 +129,64 @@ function instructionsForType(type: EvaluationTypeForJev): string {
 	return `Evaluate ${label} of the model response against the prompt and ground-truth context.`;
 }
 
-function scoreCriteria(): string[] {
-	return [...JEV_QUALITY_SCORE_LEVELS];
+/**
+ * Score questions are rubrics: `criteria` is an ordered list of level
+ * descriptions, lowest first, and each level is judged on its own without
+ * seeing its neighbours or numbering. TypeSafe's guidance is to describe
+ * situations rather than degrees, so a bare "minor" or "severe" is not enough.
+ * Level 0 means no problem and the top level means the worst, which keeps the
+ * direction consistent with noul questions (higher = more of an issue).
+ * Docs: https://docs.typesafe.ai/primitives/score.md
+ */
+const QUALITY_RUBRICS: Record<string, readonly [string, string, string, string]> = {
+	relevance: [
+		"Directly addresses the prompt and everything in it is on topic",
+		"Addresses the prompt but includes noticeable off-topic or tangential content",
+		"Only partly addresses the prompt; a key part of the request is ignored",
+		"Does not address the prompt or is largely off topic",
+	],
+	coherence: [
+		"Clear, logically ordered, and internally consistent",
+		"Mostly clear, with an occasional awkward transition or minor inconsistency",
+		"Hard to follow in places; ideas are disorganised or contradict each other",
+		"Incoherent; cannot be followed or contradicts itself throughout",
+	],
+	faithfulness: [
+		"Every claim is supported by the prompt and the ground-truth context",
+		"Mostly supported, with a minor unsupported detail that does not change the meaning",
+		"Contains claims that are not supported by, or that stretch, the context",
+		"Contradicts the ground-truth context or fabricates key claims",
+	],
+	instruction_following: [
+		"Follows every instruction in the prompt, including format and constraints",
+		"Follows the main instructions but misses a minor constraint or format detail",
+		"Misses or misreads one or more significant instructions",
+		"Ignores or contradicts the instructions in the prompt",
+	],
+	completeness: [
+		"Covers everything the prompt asks for",
+		"Covers the main points but omits a minor detail",
+		"Omits a significant part of what the prompt asks for",
+		"Provides only a fragment of what was asked for, or nothing useful",
+	],
+	conciseness: [
+		"Direct and to the point, with no unnecessary content",
+		"Mostly direct, with a little avoidable repetition or filler",
+		"Noticeably padded or repetitive; the point is buried",
+		"Extremely verbose; most of the response is filler or repetition",
+	],
+};
+
+export function scoreCriteria(type: EvaluationTypeForJev): string[] {
+	const rubric = QUALITY_RUBRICS[type.id];
+	if (rubric) return [...rubric];
+	const label = resolveEvaluationTypeLabel(type);
+	return [
+		`No problem with ${label}`,
+		`A minor problem with ${label} that does not change the outcome`,
+		`A significant problem with ${label} that affects the outcome`,
+		`A severe problem with ${label}; the response fails on this dimension`,
+	];
 }
 
 export function resolveJevTypes(
@@ -162,7 +218,7 @@ export function buildSystemOneRequest(params: {
 			questions[type.id] = {
 				type: "score",
 				instructions,
-				criteria: scoreCriteria(),
+				criteria: scoreCriteria(type),
 			};
 		} else {
 			questions[type.id] = {
@@ -192,25 +248,23 @@ function asFiniteNumber(value: unknown): number | undefined {
 	return undefined;
 }
 
-function legendLabel(
+function levelDescription(
 	answer: Extract<SystemOneAnswer, { type: "score" }>,
-	scoreValue: number
-): string {
-	if (typeof answer.legend === "string" && answer.legend.trim()) {
-		return answer.legend.trim();
-	}
+	level: number
+): string | undefined {
+	// The API echoes the submitted criteria as `legend`, keyed by level number.
 	if (answer.legend && typeof answer.legend === "object") {
-		const keyed =
-			answer.legend[String(scoreValue)];
-		if (typeof keyed === "string" && keyed.trim()) return keyed.trim();
+		const described = answer.legend[String(level)];
+		if (typeof described === "string" && described.trim()) return described.trim();
 	}
-	return JEV_QUALITY_SCORE_LEVELS[scoreValue] ?? "none";
+	return undefined;
 }
 
 function synthesizeExplanation(params: {
 	label: string;
 	score: number;
 	classification: string;
+	description?: string;
 }): string {
 	if (params.classification === "none") {
 		return `No ${params.label} detected`;
@@ -218,7 +272,8 @@ function synthesizeExplanation(params: {
 	if (params.classification === "detected") {
 		return `${params.label} detected (score ${params.score.toFixed(2)})`;
 	}
-	return `${params.label} classified as ${params.classification} (score ${params.score.toFixed(2)})`;
+	const base = `${params.label} classified as ${params.classification} (score ${params.score.toFixed(2)})`;
+	return params.description ? `${base}: ${params.description}` : base;
 }
 
 function normalizeScoreSeverity(rawScore: number, levelCount: number): number {
@@ -254,20 +309,21 @@ export function mapSystemOneAnswers(params: {
 		let score = 0;
 		let classification = "none";
 		let confidence: number | undefined;
+		let description: string | undefined;
 
 		if (answer?.type === "noul") {
 			score = Math.min(Math.max(asFiniteNumber(answer.noul) ?? 0, 0), 1);
 			classification = noulClassification(score);
 		} else if (answer?.type === "score") {
-			const raw = asFiniteNumber(answer.score) ?? 0;
-			// Clamp once so severity and classification always agree, even when
-			// the API returns a level outside the configured scale.
-			const level = Math.min(
-				Math.max(Math.round(raw), 0),
-				JEV_QUALITY_SCORE_LEVELS.length - 1
-			);
-			score = normalizeScoreSeverity(level, JEV_QUALITY_SCORE_LEVELS.length);
-			classification = legendLabel(answer, level);
+			// `score` is probability-weighted and can fall between levels (1.43),
+			// so severity uses it as-is, clamped to the scale. The nearest level
+			// picks the label and description, so the two always agree.
+			const maxLevel = JEV_QUALITY_SCORE_LEVELS.length - 1;
+			const raw = Math.min(Math.max(asFiniteNumber(answer.score) ?? 0, 0), maxLevel);
+			const level = Math.round(raw);
+			score = normalizeScoreSeverity(raw, JEV_QUALITY_SCORE_LEVELS.length);
+			classification = JEV_QUALITY_SCORE_LEVELS[level];
+			description = levelDescription(answer, level);
 			confidence = asFiniteNumber(answer.confidence);
 			if (answer.probabilities && typeof answer.probabilities === "object") {
 				probabilitiesByType[label] = answer.probabilities;
@@ -291,6 +347,7 @@ export function mapSystemOneAnswers(params: {
 				label,
 				score,
 				classification,
+				description,
 			}),
 			verdict,
 		});

@@ -3,6 +3,8 @@ import {
 	mapSystemOneAnswers,
 	questionKindForType,
 	resolveJevTypes,
+	scoreCriteria,
+	JEV_QUALITY_SCORE_LEVELS,
 	stripEvaluationContextHeader,
 	TYPESAFE_PROVIDER_ID,
 } from '@/lib/platform/evaluation/jev-mapper';
@@ -52,12 +54,8 @@ describe('jev-mapper', () => {
 		});
 		expect(body.questions.relevance.type).toBe('score');
 		if (body.questions.relevance.type === 'score') {
-			expect(body.questions.relevance.criteria).toEqual([
-				'none',
-				'minor',
-				'moderate',
-				'severe',
-			]);
+			expect(body.questions.relevance.criteria).toEqual(scoreCriteria({ id: 'relevance' }));
+			expect(body.questions.relevance.criteria).toHaveLength(4);
 		}
 	});
 
@@ -89,9 +87,9 @@ describe('jev-mapper', () => {
 				relevance: {
 					type: 'score',
 					score: 3,
-					legend: 'severe',
+					legend: { '3': 'Does not address the prompt or is largely off topic' },
 					confidence: 0.91,
-					probabilities: { none: 0.01, severe: 0.9 },
+					probabilities: { '0': 0.01, '3': 0.9 },
 				},
 			},
 			thresholdScore: 0.5,
@@ -100,12 +98,12 @@ describe('jev-mapper', () => {
 		expect(mapped.evaluations[0].score).toBe(1);
 		expect(mapped.evaluations[0].classification).toBe('severe');
 		expect(mapped.evaluations[0].explanation).toBe(
-			'Relevance classified as severe (score 1.00)'
+			'Relevance classified as severe (score 1.00): Does not address the prompt or is largely off topic'
 		);
 		expect(mapped.evaluations[0].verdict).toBe('yes');
 		expect(JSON.parse(mapped.extraMeta.confidence)).toEqual({ Relevance: 0.91 });
 		expect(JSON.parse(mapped.extraMeta.probabilities)).toEqual({
-			Relevance: { none: 0.01, severe: 0.9 },
+			Relevance: { '0': 0.01, '3': 0.9 },
 		});
 	});
 
@@ -173,5 +171,65 @@ describe('jev-mapper', () => {
 			answers: { hallucination: { type: 'choice', choice: 'yes' } },
 		});
 		expect(evaluations).toEqual([]);
+	});
+
+	it('uses the interpolated score for severity and the nearest level for the label', () => {
+		const [ev] = mapSystemOneAnswers({
+			types: [{ id: 'completeness', label: 'Completeness' }],
+			answers: {
+				completeness: {
+					type: 'score',
+					score: 1.43,
+					confidence: 0.35,
+					legend: {
+						'1': 'Covers the main points but omits a minor detail',
+						'2': 'Omits a significant part of what the prompt asks for',
+					},
+					probabilities: { '1': 0.57, '2': 0.43 },
+				},
+			},
+			thresholdScore: 0.5,
+		}).evaluations;
+		// 1.43 / 3 keeps the fractional position instead of rounding to level 1.
+		expect(ev.score).toBeCloseTo(1.43 / 3, 5);
+		expect(ev.classification).toBe('minor');
+		expect(ev.explanation).toContain('Covers the main points but omits a minor detail');
+		expect(ev.verdict).toBe('no');
+	});
+
+	it('still labels the score when the response carries no legend', () => {
+		const [ev] = mapSystemOneAnswers({
+			types: [{ id: 'conciseness', label: 'Conciseness' }],
+			answers: { conciseness: { type: 'score', score: 2 } },
+		}).evaluations;
+		expect(ev.classification).toBe('moderate');
+		expect(ev.explanation).toBe('Conciseness classified as moderate (score 0.67)');
+	});
+
+	describe('score rubrics', () => {
+		const QUALITY_IDS = [
+			'relevance',
+			'coherence',
+			'faithfulness',
+			'instruction_following',
+			'completeness',
+			'conciseness',
+		];
+
+		it.each(QUALITY_IDS)('%s has a distinct descriptive rubric within API limits', (id) => {
+			const criteria = scoreCriteria({ id });
+			expect(criteria).toHaveLength(JEV_QUALITY_SCORE_LEVELS.length);
+			expect(criteria.length).toBeGreaterThanOrEqual(2);
+			expect(criteria.length).toBeLessThanOrEqual(10);
+			expect(new Set(criteria).size).toBe(criteria.length);
+			// Describe situations, not degrees: no bare one-word levels.
+			for (const level of criteria) expect(level.split(' ').length).toBeGreaterThan(3);
+		});
+
+		it('falls back to a labelled rubric for unknown quality ids', () => {
+			const criteria = scoreCriteria({ id: 'tone', label: 'Tone' });
+			expect(criteria).toHaveLength(4);
+			expect(criteria[0]).toContain('Tone');
+		});
 	});
 });

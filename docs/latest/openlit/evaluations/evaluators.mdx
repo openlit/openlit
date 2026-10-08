@@ -45,7 +45,7 @@ Legacy URLs `/evaluations/types` and `/evaluations/settings` redirect to the Eva
 
 ## TypeSafe Jev judge
 
-Select **TypeSafe** as the evaluation provider and a Jev model (`jev-latest`, `jev-1.13.0`, or `jev-preview`). OpenLIT calls the native TypeSafe System One API (`POST /v1/systemone`) with the Vault TypeSafe key. Issue types (hallucination, bias, toxicity, safety, sensitivity) map to **noul**; quality types map to **score** and are normalized to 0 to 1 severity. Explanation is the classification bucket plus score. Pin **jev-1.13.0** when calibrating verdict thresholds.
+Select **TypeSafe** as the evaluation provider and a Jev model (`jev-latest`, `jev-1.13.0`, or `jev-preview`). OpenLIT calls the native TypeSafe System One API (`POST /v1/systemone`) with the Vault TypeSafe key. Issue types (hallucination, bias, toxicity, safety, sensitivity) map to **noul**; quality types (relevance, coherence, faithfulness, instruction following, completeness, conciseness) map to **score** questions with a four-level rubric per type, from no problem to severe. The probability-weighted score is normalized to 0 to 1 severity, so a result between two levels is kept rather than rounded. The explanation is the classification (`none`, `minor`, `moderate`, `severe`), the score, and the description of the nearest rubric level. Pin **jev-1.13.0** when calibrating verdict thresholds.
 
 Vercel AI Gateway `experimental_evaluate` is not used for the in-product judge. Chat playground and OpenGround do not support Jev. Application calls to `system_one` / `systemOne` are auto-instrumented separately: [Monitor TypeSafe Jev](/latest/sdk/integrations/typesafe).
 
