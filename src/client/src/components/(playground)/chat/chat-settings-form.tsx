@@ -19,6 +19,7 @@ import {
 import getMessage from "@/constants/messages";
 import SecretForm from "@/components/(playground)/vault/form";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import { isChatProvider } from "@/constants/chat-providers";
 
 interface ModelMetadata {
 	id: string;
@@ -64,9 +65,9 @@ export default function ChatSettingsForm() {
 					setHasExistingConfig(true);
 				}
 				if (Array.isArray(providersRes)) {
-					setProviders(providersRes);
+					setProviders(providersRes.filter((p: ProviderMetadata) => isChatProvider(p.providerId)));
 				} else if (providersRes?.data && Array.isArray(providersRes.data)) {
-					setProviders(providersRes.data);
+					setProviders(providersRes.data.filter((p: ProviderMetadata) => isChatProvider(p.providerId)));
 				}
 				if (Array.isArray(vaultRes)) {
 					setVaultSecrets(vaultRes);

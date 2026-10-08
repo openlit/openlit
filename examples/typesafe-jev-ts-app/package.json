@@ -1,0 +1,15 @@
+{
+  "name": "openlit-typesafe-jev-ts-example",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node app.cjs"
+  },
+  "dependencies": {
+    "@typesafe-ai/sdk": "0.6.0",
+    "openlit": "file:../../sdk/typescript"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

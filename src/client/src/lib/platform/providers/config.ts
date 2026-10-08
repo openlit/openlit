@@ -1,5 +1,6 @@
 import { dataCollector } from "@/lib/platform/common";
 import getMessage from "@/constants/messages";
+import { isChatProvider } from "@/constants/chat-providers";
 import Sanitizer from "@/utils/sanitizer";
 import { decryptValue } from "@/utils/crypto";
 import { OPENLIT_VAULT_TABLE_NAME } from "@/lib/platform/vault/table-details";
@@ -144,6 +145,9 @@ export async function upsertOpenGroundConfig(data: {
 	databaseConfigId: string;
 	isActive?: boolean;
 }): Promise<{ data?: OpenGroundConfigData; err?: string }> {
+	if (!isChatProvider(data.provider)) {
+		return { err: getMessage().PROVIDER_EVALUATION_ONLY_ERROR };
+	}
 	try {
 		const checkQuery = `
       SELECT id

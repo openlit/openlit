@@ -92,6 +92,20 @@ export const EVALUATION_CREATE_NEW = "Create new";
 export const EVALUATION_ENGINE_TITLE = "Evaluations";
 export const EVALUATION_ENGINE_DESCRIPTION =
 	"Choose the evaluation framework. Rule engine context and evaluation types are applied for both manual and auto runs.";
+export const EVALUATION_TYPESAFE_HINT =
+	"TypeSafe Jev returns noul/score with a classification used as the explanation. Pin jev-1.13.0 when calibrating verdict thresholds. Chat playground does not support Jev.";
+export const EVALUATION_ERROR_MISSING_CONFIG =
+	"Missing apiKey, provider, or model";
+export const EVALUATION_ERROR_INVALID_RESPONSE = "Invalid response format";
+export const EVALUATION_ERROR_UNKNOWN_TYPES = "Unknown eval types";
+export const EVALUATION_ERROR_TYPESAFE_REQUEST_FAILED =
+	"TypeSafe System One request failed";
+export const EVALUATION_ERROR_TYPESAFE_STATUS =
+	"TypeSafe System One returned status";
+export const EVALUATION_ERROR_TYPESAFE_INVALID_JSON =
+	"TypeSafe System One returned invalid JSON";
+export const PROVIDER_EVALUATION_ONLY_ERROR =
+	"This provider is evaluation-only and cannot be used here";
 export const EVALUATION_ENGINE_LABEL = "Engine";
 export const EVALUATION_CONFIG_SECTION = "Configuration";
 export const EVALUATION_PROVIDER_LABEL = "Provider";
