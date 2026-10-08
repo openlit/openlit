@@ -7,10 +7,11 @@ Includes support for async generators and streaming responses.
 
 import logging
 import time
+from opentelemetry import trace as trace_api
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
 
-from openlit.__helpers import handle_exception
+from openlit.__helpers import handle_exception, safe_detach
 from openlit.instrumentation.crawl4ai.utils import (
     Crawl4AIInstrumentationContext,
     get_operation_name,
@@ -108,9 +109,17 @@ def async_general_wrap(
                 # For crawl operations, use the new improved naming
                 span_name = create_crawl_span_name(operation_name, ctx, gen_ai_endpoint)
 
-            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
-                start_time = time.time()
+            # Whether the response streams is only known after awaiting it, so the
+            # span cannot be scoped with ``with``: a streaming response is consumed
+            # by the caller after this coroutine returns, and a context manager
+            # would end the span first, discarding everything the tracked
+            # generator records. The span is started detached and ended here for
+            # non-streaming and error paths, or handed to the tracked generator.
+            span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            token = context_api.attach(trace_api.set_span_in_context(span))
+            start_time = time.time()
 
+            try:
                 try:
                     # Set comprehensive span attributes
                     set_crawl_attributes(span, ctx, operation_name)
@@ -120,6 +129,8 @@ def async_general_wrap(
 
                     # Handle async generators (streaming responses)
                     if hasattr(response, "__aiter__"):
+                        # The tracked generator ends the span once the stream is
+                        # exhausted or closed.
                         return await _handle_async_generator(
                             span,
                             response,
@@ -132,7 +143,7 @@ def async_general_wrap(
                         )
 
                     # Handle regular responses
-                    return await _handle_regular_response(
+                    result = await _handle_regular_response(
                         span,
                         response,
                         ctx,
@@ -144,6 +155,9 @@ def async_general_wrap(
                         instance,  # Add missing parameter
                         args,  # Add missing parameter
                     )
+                    if span.is_recording():
+                        span.end()
+                    return result
 
                 except Exception as e:
                     # Calculate duration even for errors
@@ -167,8 +181,13 @@ def async_general_wrap(
                                 "Error recording error metrics: %s", metrics_error
                             )
 
+                    if span.is_recording():
+                        span.end()
+
                     # Re-raise the exception to maintain original behavior
                     raise
+            finally:
+                safe_detach(token)
 
         return async_wrapper()
 
@@ -301,18 +320,53 @@ async def _handle_async_generator(
 
             except StopAsyncIteration:
                 # Generator is complete, finalize metrics
-                if not self.completed:
-                    await self._finalize_metrics()
-                    self.completed = True
+                await self._finalize()
                 raise
             except Exception as e:
                 # Handle errors in streaming
                 handle_exception(self.span, e)
                 logger.error("Error in streaming crawl operation: %s", e)
+                self.completed = True
+                if self.span.is_recording():
+                    self.span.end()
                 raise
 
+        async def _finalize(self):
+            """Finalize the span exactly once, then end it.
+
+            The span is not the current span here: it outlives ``async_wrapper``
+            so that it is still open while the caller consumes this generator.
+            Ending it is therefore this object's responsibility, on every exit
+            path -- exhaustion, ``aclose()`` and errors -- and the ``completed``
+            flag keeps repeat calls a no-op.
+            """
+            if self.completed:
+                return
+            self.completed = True
+            try:
+                await self._finalize_metrics()
+            except Exception as e:  # pylint: disable=broad-except
+                handle_exception(self.span, e)
+            finally:
+                if self.span.is_recording():
+                    self.span.end()
+
+        async def aclose(self):
+            """Close the wrapped generator and finalize the span.
+
+            A caller that stops consuming before exhaustion never raises
+            ``StopAsyncIteration``, so without this the span would stay open
+            and never be exported.
+            """
+            try:
+                inner_close = getattr(self.generator, "aclose", None)
+                if inner_close is not None:
+                    await inner_close()
+            finally:
+                await self._finalize()
+
         async def _finalize_metrics(self):
-            """Finalize metrics when streaming is complete."""
+            """Record the streaming telemetry on the span."""
             end_time = time.time()
             duration_ms = (end_time - self.start_time) * 1000
             self.span.set_attribute("gen_ai.client.operation.duration", duration_ms)
