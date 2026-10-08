@@ -1,0 +1,146 @@
+---
+title: 'Notification connectors'
+sidebarTitle: 'Notification'
+description: 'Send OpenLIT alerts to Slack, email, webhooks, Discord, PagerDuty, Opsgenie, and Datadog'
+icon: 'paper-plane'
+tag: 'Enterprise'
+---
+
+import EnterpriseFeature from '/snippets/enterprise-feature.mdx';
+
+<EnterpriseFeature />
+
+Notification connectors deliver [Alerts](/latest/openlit/alerts) to the tools your team already uses. Each connector holds one destination and its credentials, and any alert in the organisation can send to it.
+
+## Availability
+
+Notification connectors are **premium connectors**: creating, editing, and testing them needs an [OpenLIT Enterprise](/latest/openlit/enterprise) license that includes **Premium connectors**. Sending alerts also needs the **Alerts** feature.
+
+Without the license, the connector catalog shows these types with a **Premium** badge and a lock, and **Add connector** reads **License required**.
+
+## Add a notification connector
+
+You can add a notification connector in either place; both create the same connector and alert destination:
+
+- **Connectors** (`/connectors`): find the type in the **Notification** group of the catalog and select **Add connector**.
+- **Alerts → Destinations**: select **Add destination**, or select **Destination** while creating an alert.
+
+Every connector has a **Name** (unique within its environment) and an **Environment**. Fields under **Authentication** are encrypted and only decrypted on the server. Select **Test connection** after saving to send a test notification titled "OpenLIT alert test".
+
+Outbound requests must use `http` or `https` and can't target localhost, private, or reserved network addresses.
+
+## Connector types
+
+<Note>
+Microsoft Teams isn't available as a destination yet.
+</Note>
+
+### Slack
+
+Posts an alert card to a channel through a Slack [incoming webhook](https://api.slack.com/messaging/webhooks).
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Webhook URL | Yes | The Slack incoming webhook URL. |
+| Channel | No | Overrides the webhook's default channel, such as `#alerts`. Each alert can override it again. |
+
+The card shows the title, the message, the severity, the trigger, and, if enabled on the alert, the matched fields.
+
+### Email
+
+Sends alert emails as JSON to an email relay endpoint that you run or a provider offers.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Recipients | Yes | Comma-separated email addresses. |
+| From address | No | Sender address. Defaults to `alerts@openlit.local`. |
+| Relay URL | Yes, to send | The JSON relay endpoint that sends the email. |
+| Authorization header | No | Sent as the `Authorization` header to the relay. |
+
+<Note>
+Email doesn't support SMTP yet. Without a **Relay URL**, sends fail with "Email relay URL is required until a native SMTP adapter is configured."
+</Note>
+
+OpenLIT POSTs `to`, `from`, `subject`, `text`, and `html` to the relay.
+
+### Webhook
+
+POSTs the alert as JSON to any HTTPS endpoint.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Webhook URL | Yes | The endpoint that receives the alert. |
+| Authorization header | No | Sent as the `Authorization` header. |
+
+The payload includes:
+
+```json
+{
+  "title": "API key access changed",
+  "message": "API key sdk-key access was updated.",
+  "severity": "high",
+  "alert_id": "...",
+  "alert_name": "API key access changes",
+  "event_id": "...",
+  "trigger_type": "api_key_change",
+  "fields": { "event": "api_key_access_updated", "access": "full" },
+  "presentation": { "style": "default", "accentColor": "#e11d48", "includeFields": true }
+}
+```
+
+### Discord
+
+Posts an embed to a Discord channel webhook.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Webhook URL | Yes | The Discord channel webhook URL. |
+| Bot username | No | Display name for the message. Defaults to `OpenLIT Alerts`. |
+
+The embed colour follows the alert's accent colour, or red for critical, orange for high, and blue otherwise.
+
+### PagerDuty
+
+Triggers incidents through the PagerDuty Events API v2.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Routing key | Yes | Your Events API v2 integration routing key. |
+| Source | No | Event source. Defaults to `openlit`. |
+| Component, Group, Class | No | Optional PagerDuty event fields. Class defaults to the trigger type. |
+
+Severity maps to PagerDuty as critical → `critical`, high → `error`, medium → `warning`, and low → `info`. OpenLIT only triggers incidents; resolve them in PagerDuty.
+
+### Opsgenie
+
+Creates alerts through the Opsgenie Alerts API.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| API key | Yes | An Opsgenie API integration key. |
+| Region | No | `us` (default) or `eu`. |
+| Responders | No | Comma-separated responder names, teams, or escalations. |
+
+Severity maps to priority as critical → `P1`, high → `P2`, medium → `P3`, and low → `P4`.
+
+### Datadog
+
+Creates events through the Datadog Events API.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Datadog site | No | Your Datadog site. Defaults to `datadoghq.com`. |
+| API key | Yes | A Datadog API key. |
+
+Critical alerts create `error` events; others create `warning` events. Events are tagged with `openlit`, the severity, and the trigger.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Alerts" href="/latest/openlit/alerts" icon="bell">
+    Create alerts and attach notification connectors as destinations
+  </Card>
+  <Card title="Connectors overview" href="/latest/openlit/connectors/overview" icon="plug">
+    How connectors work across data sources, memory, and scanners
+  </Card>
+</CardGroup>

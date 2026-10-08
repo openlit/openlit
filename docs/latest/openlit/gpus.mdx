@@ -1,0 +1,76 @@
+---
+title: 'GPUs'
+description: 'Monitor GPU fleet health, workloads, kernels, errors, and cloud cost in one place'
+icon: 'microchip'
+tag: 'Enterprise'
+---
+
+import EnterpriseFeature from '/snippets/enterprise-feature.mdx';
+
+<EnterpriseFeature />
+
+The **GPUs** page brings your GPU fleet into one view: how many GPUs are active and effectively used, device health and errors, which workloads and kernels run on each GPU, and what the fleet costs, with Otter highlighting what needs attention.
+
+Open **GPUs** from the sidebar under **Monitor** (`/gpus`).
+
+## Availability
+
+The GPUs page is part of the [OpenLIT Enterprise](/latest/openlit/enterprise) build. It doesn't need a separate license feature. The community edition collects GPU metrics with the [GPU collector](/latest/gpu-collector/quickstart), which you can chart in [dashboards](/latest/openlit/quickstart-gpu).
+
+## Before you start
+
+- **Collect GPU metrics** with the [OpenLIT GPU collector](/latest/gpu-collector/quickstart). If no GPU data is arriving, the page shows ready-to-copy **Kubernetes**, **Docker**, and **Linux** commands that send metrics to your project's metrics backend.
+- **Bind a metrics backend** for the project and environment in [signal routing](/latest/openlit/organisation/signal-routing). The GPUs page reads the **metrics** binding, which can be the built-in ClickHouse, [Prometheus](/latest/openlit/connectors/datasource), [Datadog, or New Relic](/latest/openlit/connectors/datasource#enterprise-data-source-connectors). Tempo, Loki, and Jaeger can't serve GPU metrics.
+- **Enable eBPF in the collector** for Kernel Insights, with the `OTEL_GPU_EBPF_ENABLED` [collector setting](/latest/gpu-collector/configuration). Kernel Insights works with ClickHouse and Prometheus, not Datadog or New Relic.
+- **Configure Otter** with an LLM provider key in Otter settings for GPU insights and recommendations.
+
+## Explore your GPUs
+
+Use the filters to narrow by **GPU**, **Region**, **Device**, **Cluster**, and **Provider**, and the time picker to change the range. Select a device in a table to open its own view at `/gpus/<device-id>`.
+
+| Tab | What it shows |
+| --- | --- |
+| **Overview** | Your fleet at a glance: total, active, and effectively used GPUs, clusters, hosts, and devices; GPU allocation and cloud cost meters; average utilization, memory, power, and temperature, max temperature, and throttled GPUs; utilization, temperature, and power over time; allocation over time; instance type mix; and a breakdown by GPU model. |
+| **Fleet** | The busiest devices by utilization and memory, active versus inactive devices, and a table of every GPU with its status, ECC errors, activity, memory, and allocation. |
+| **Workloads** | Running, sleeping, and zombie processes; the top workloads by GPU core utilization and memory; and tables of workloads and zombie processes. |
+| **Kernel Insights** | Kernel and CUDA graph launch rates, grid, block, and shared memory sizes, core occupancy, estimated SM activity, the top kernels by launch rate, and memory allocation and copy rates. Needs eBPF. |
+| **Errors** | Devices with uncorrected ECC errors and PCIe replay errors, errors over time, and errors by device. |
+| **Costs** | Total, idle, and used spend; priced SKU coverage; spend and instance hours by SKU; matched and unmatched SKUs; and your **Instance rates**. |
+| **Recommendations** | Otter's recommendations for the fleet, by severity, with links to the relevant tab. |
+
+## Track GPU cost
+
+The **Costs** tab prices the GPU hours seen in the selected range:
+
+- **Cloud instances** reporting an instance type (`host.type`), provider, and region are matched to an instance rate and billed **per host-hour**.
+- **Local or on-prem GPUs** without an instance type are matched by GPU name and billed **per GPU-hour**.
+- **Idle cost** is the share of time GPUs weren't allocated.
+- GPUs with no matching rate appear under **Unmatched SKUs** and are **left out of the total**, not counted as $0. Select add on an unmatched SKU to price it.
+
+OpenLIT includes on-demand list prices for AWS, Google Cloud, Azure, Oracle Cloud, and CoreWeave. Under **Instance rates** you can add a rate, edit the USD per hour, or delete a rate. A rate for a specific region takes precedence over a rate for all regions (`*`), and your custom rates take precedence over list prices.
+
+## Otter insights and recommendations
+
+Each tab can show a short **Otter** headline and notes about the metrics on screen. The **Recommendations** tab lists Otter's suggestions with a severity (Critical, Major, Minor, or Info), the suggested action, and a link to the tab to investigate.
+
+Dismiss a recommendation with a reason, such as "A fix has already been started", to move it to **Closed**, and **Reopen** it later. Dismissals are shared with everyone working in the same project environment and recorded in [Audit Logs](/latest/openlit/audit-logs). Dismissing and reopening need the `gpu:configure` permission.
+
+## Permissions
+
+| Permission | Allows | Default roles |
+| --- | --- | --- |
+| `gpu:read` | View the GPUs page, costs, and rates | Owner, Admin, Member |
+| `gpu:configure` | Add, edit, and delete instance rates; dismiss and reopen recommendations | Owner, Admin |
+
+Changes to instance rates and recommendation dismissals are recorded in [Audit Logs](/latest/openlit/audit-logs) when audit logging is licensed.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="GPU collector" href="/latest/gpu-collector/quickstart" icon="microchip">
+    Collect GPU metrics from Kubernetes, Docker, and Linux hosts
+  </Card>
+  <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
+    Choose which backend serves metrics for each environment
+  </Card>
+</CardGroup>

@@ -1,0 +1,122 @@
+---
+title: 'Audit Logs'
+description: 'Review who changed what across your organisation, with filters by action, target, project, database config, and actor'
+icon: 'clock-rotate-left'
+tag: 'Enterprise'
+---
+
+import EnterpriseFeature from '/snippets/enterprise-feature.mdx';
+
+<EnterpriseFeature />
+
+Audit Logs record privileged changes made in OpenLIT, such as member and role changes, license updates, API key changes, connector and configuration updates, so you can see who did what, to which resource, and when.
+
+Open **Audit Logs** from the sidebar under **Monitor** (`/audit-logs`). Audit logs are organisation-wide, so you don't need to select a project first.
+
+## Availability
+
+Audit Logs need an [OpenLIT Enterprise](/latest/openlit/enterprise) license that includes the **Audit log** feature for your organisation.
+
+- Events are recorded only while the organisation is licensed. Changes made while it isn't licensed are never logged, even if a license is applied later.
+- Without the license, the page is locked and the API returns `403` with `upgrade_required`.
+
+## Permissions
+
+Viewing audit logs needs the `audit_logs:read` permission. **Owner** and **Admin** have it by default; **Member** doesn't. With [RBAC](/latest/openlit/rbac) you can grant it to a custom role group. Audit logs are read-only: nobody can edit or delete entries.
+
+## Browse audit logs
+
+The page shows:
+
+- **Recent volume**: a bar chart of events per hour for the entries on the current page.
+- **The event list**: one card per event with the target type, time, and action, plus the target, actor, project, database config, and a short summary of the details.
+
+Use the toolbar to choose a time range (**24H**, **7D**, **1M**, **3M**, or **CUSTOM**), change the page size (10, 25, or 50), and **Refresh**.
+
+### Filter events
+
+Select **Filters** to narrow the list by:
+
+| Filter | Matches |
+| --- | --- |
+| Action | The event action, such as `api_key.created` |
+| Target type | The kind of resource changed, such as `api_key` or `license` |
+| Target ID | The ID of the changed resource |
+| Project | Events in one project |
+| DB config | Events for one database config; choosing a project limits this list to that project |
+| Actor | The user who made the change |
+
+Each list shows values found in the selected time range. Select **Apply filters** to update the list, or **Clear filters** to reset.
+
+### Event details
+
+Select an event to open its details. The panel shows the target, the actor, project, and database config by name where possible, the time, and a **Metadata** section with everything captured for the event: the request path and parameters, the request and response bodies, the status, the client user agent, and IP address.
+
+<Note>
+Sensitive values are redacted before they're stored. Any field whose name looks like a password, secret, token, API key, license key, authorization header, cookie, session, or secret value is saved as `[REDACTED]`.
+</Note>
+
+## What gets recorded
+
+OpenLIT records an event when a privileged request **succeeds**. Failed or denied requests aren't recorded.
+
+| Area | Actions |
+| --- | --- |
+| Organisation | `organisation.selected`, `organisation.updated`, `organisation.deleted` |
+| Members and invitations | `member.invited`, `member.invitation_cancelled`, `member.invitation_declined`, `member.invitation_accepted`, `member.role_changed`, `member.permissions_updated`, `member.project_access_updated`, `member.ownership_transferred`, `member.removed` |
+| Roles | `role.created`, `role.updated`, `role.deleted` |
+| Licenses and entitlements | `license.applied`, `license.revoked`, `entitlement.granted`, `entitlement.revoked` |
+| Projects | `project.created`, `project.updated`, `project.deleted`, `project.selected`, `project.environment_created` |
+| Database configs | `db_config.created`, `db_config.updated`, `db_config.deleted`, `db_config.selected`, `db_config.shared` |
+| API keys | `api_key.created`, `api_key.deleted`, `api_key.access_updated` |
+| Alerts | `alerts.alert_created`, `alerts.alert_updated`, `alerts.alert_deleted`, `alerts.alert_tested`, `alerts.destination_created`, `alerts.destination_updated`, `alerts.destination_deleted`, `alerts.destination_tested` |
+| Connectors and telemetry sources | `connectors.connector_created`, `connectors.connector_updated`, `connectors.connector_deleted`, `connectors.connector_tested`, `connectors.connector_bound`, `connectors.connector_unbound` |
+| Controller | `controller.config_updated`, `controller.service_instrumented`, `controller.service_uninstrumented`, `controller.service_started`, `controller.service_stopped`, `controller.service_restarted`, `controller.agent_instrumented`, `controller.agent_uninstrumented` |
+| Fleet Hub | `fleet_hub.config_updated`, `fleet_hub.tls_tested` |
+| Dashboards | `dashboard.board_created`, `dashboard.board_updated`, `dashboard.board_deleted`, `dashboard.layout_updated`, `dashboard.layout_imported`, `dashboard.folder_created`, `dashboard.folder_updated`, `dashboard.folder_deleted`, `dashboard.widget_created`, `dashboard.widget_updated`, `dashboard.widget_deleted` |
+| Prompts | `prompt.created`, `prompt.deleted`, `prompt.version_created` |
+| Vault | `vault.secret_created`, `vault.secret_updated`, `vault.secret_deleted` |
+| Context | `context.created`, `context.updated`, `context.deleted` |
+| Evaluations | `evaluation.config_updated`, `evaluation.auto_config_updated`, `evaluation.offline_created`, `evaluation.feedback_created`, `evaluation.type_created`, `evaluation.type_updated`, `evaluation.type_deleted` |
+| Rule engine | `rule_engine.conditions_updated` |
+| OpenGround and models | `openground.created`, `openground.deleted`, `openground.provider_created`, `openground.provider_updated`, `openground.provider_deleted`, `openground.config_created`, `openground.config_updated`, `openground.config_deleted`, `manage_models.model_created`, `manage_models.model_deleted`, `manage_models.model_imported`, `manage_models.model_cleaned` |
+| Pricing | `pricing.config_updated`, `pricing.auto_config_updated`, `pricing.exported`, `pricing.usage_refreshed` |
+| Memory | `memory.memory_created`, `memory.memory_updated`, `memory.memory_deleted`, `memory.memory_feedback`, `memory.memory_copied`, `memory.memory_extracted`, `memory.memory_imported`, `memory.config_updated` |
+| GPUs | `gpu.price_created`, `gpu.price_updated`, `gpu.price_deleted`, `gpu.recommendation_dismissed`, `gpu.recommendation_reopened` |
+| Governance | `governance.report_viewed`, `governance.passport_exported` |
+
+Each event stores the organisation, the project and database config when known, the actor, the action, the target type and ID, the metadata, and the time.
+
+## Retention
+
+Audit logs are kept until the organisation is deleted; deleting a project or database config doesn't remove its events. Each query can cover up to 366 days.
+
+If the license lapses, recording stops and the page locks, but existing events are kept and become visible again once the license is reapplied.
+
+## Audit logs API
+
+Signed-in users with `audit_logs:read` can query audit logs:
+
+```http
+GET /api/organisation/{organisationId}/audit-logs
+```
+
+| Query parameter | Description |
+| --- | --- |
+| `page` | Page number. Defaults to `1`. |
+| `take` | Page size. Defaults to `50`, maximum `100`. |
+| `from`, `to` | ISO 8601 time range. Defaults to the last 30 days; the range can't exceed 366 days. |
+| `action`, `targetType`, `targetId`, `projectId`, `databaseConfigId`, `actorUserId` | Exact-match filters. |
+
+Results are newest first and include pagination totals. This endpoint needs a signed-in session; API keys can't read audit logs.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Role-based access control" href="/latest/openlit/rbac" icon="shield-check">
+    Control who can view audit logs and manage your organisation
+  </Card>
+  <Card title="Alerts" href="/latest/openlit/alerts" icon="bell">
+    Get notified when important changes happen
+  </Card>
+</CardGroup>

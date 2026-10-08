@@ -1,0 +1,92 @@
+---
+title: 'OpenLIT Enterprise'
+sidebarTitle: 'Overview'
+description: 'Enterprise features for OpenLIT, how to get access to the enterprise build, and how licensing works'
+icon: 'crown'
+tag: 'Enterprise'
+---
+
+OpenLIT is open source under the Apache-2.0 license, and the community edition includes everything you need to observe, evaluate, and secure your AI applications. **OpenLIT Enterprise** adds organisation-wide governance, compliance, and alerting features on top of the same platform.
+
+Pages for enterprise features are marked with an **Enterprise** tag in the sidebar and an **Enterprise feature** note at the top.
+
+## Community and Enterprise
+
+| Capability | Community | Enterprise |
+| --- | :---: | :---: |
+| AI observability, evaluations, guardrails, dashboards, Prompt Hub, Vault, Rule Engine, OpenGround, and Otter | ✓ | ✓ |
+| Organisations, projects, environments, and built-in roles (Owner, Admin, Member) | ✓ | ✓ |
+| API keys with full access | ✓ | ✓ |
+| [Role-based access control](/latest/openlit/rbac): custom role groups and direct user permissions | | ✓ |
+| [Per-feature API key access](/latest/openlit/rbac#api-key-access): restrict each key to specific features | | ✓ |
+| [Audit logs](/latest/openlit/audit-logs) for organisation, member, role, license, API key, connector, and configuration changes across OpenLIT features | | ✓ |
+| [Alerts](/latest/openlit/alerts) on access, API key, Vault, connector, scanner, and other changes, with reusable notification destinations | | ✓ |
+| Premium connectors: [Slack, email, webhook, Discord, PagerDuty, Opsgenie, and Datadog notifications](/latest/openlit/connectors/notification); [Datadog and New Relic data sources](/latest/openlit/connectors/datasource#enterprise-data-source-connectors) | | ✓ |
+| [GPUs](/latest/openlit/gpus): fleet health, workloads, kernels, errors, cost, and Otter recommendations¹ | | ✓ |
+
+¹ The GPUs page comes with the enterprise build and doesn't need a separate license feature. The community edition collects GPU metrics with the [GPU collector](/latest/gpu-collector/quickstart).
+
+## Enterprise features
+
+<CardGroup cols={2}>
+  <Card title="Role-based access control" href="/latest/openlit/rbac" icon="shield-check">
+    Custom role groups, direct user permissions, and per-feature API key access
+  </Card>
+  <Card title="Audit Logs" href="/latest/openlit/audit-logs" icon="clock-rotate-left">
+    Who changed what across your organisation
+  </Card>
+  <Card title="Alerts" href="/latest/openlit/alerts" icon="bell">
+    Notify your team when important changes happen
+  </Card>
+  <Card title="Notification connectors" href="/latest/openlit/connectors/notification" icon="paper-plane">
+    Slack, email, webhook, Discord, PagerDuty, Opsgenie, and Datadog
+  </Card>
+  <Card title="Enterprise data sources" href="/latest/openlit/connectors/datasource#enterprise-data-source-connectors" icon="database">
+    Read traces, logs, and metrics from Datadog and New Relic
+  </Card>
+  <Card title="GPUs" href="/latest/openlit/gpus" icon="microchip">
+    GPU fleet health, workloads, kernels, errors, and cost
+  </Card>
+</CardGroup>
+
+## Get OpenLIT Enterprise
+
+OpenLIT Enterprise is built from a private repository and unlocked with a license for your organisation. To get access to the enterprise build and a license, or to ask about a trial or pricing:
+
+<CardGroup cols={2}>
+  <Card title="Book a call" icon="calendar" href="https://cal.com/aman.openlit/30min">
+    Talk to the OpenLIT team about your requirements and get access to OpenLIT Enterprise.
+  </Card>
+  <Card title="Email us" icon="envelope" href="mailto:developers@openlit.io">
+    Write to developers@openlit.io about enterprise access, licensing, or the enterprise repository.
+  </Card>
+</CardGroup>
+
+## How licensing works
+
+Enterprise features are licensed per organisation. A license lists the enterprise features it unlocks and is signed, so it can't be modified.
+
+<Steps>
+  <Step title="Run the enterprise build">
+    Deploy OpenLIT Enterprise in place of the community edition. Your existing organisations, projects, and data carry over.
+  </Step>
+  <Step title="Apply the license">
+    Open your organisation's settings, go to the **Licensing** tab, and select **Apply enterprise license**. Applying or removing a license needs the organisation owner, or a custom role with the `license:manage` permission.
+  </Step>
+  <Step title="Use the unlocked features">
+    Features included in the license unlock immediately for that organisation. Features that aren't licensed stay visible but locked, with an upgrade prompt.
+  </Step>
+</Steps>
+
+If a license expires or is revoked, its enterprise features lock again. The community features keep working, and your organisations, projects, database configurations, and data stay available. See [license revocation behaviour](/latest/openlit/rbac#license-revocation-behavior) for how RBAC handles this.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Role-based access control" href="/latest/openlit/rbac" icon="shield-check">
+    Custom role groups, direct user permissions, and per-feature API key access
+  </Card>
+  <Card title="Organisation" href="/latest/openlit/organisation/overview" icon="building">
+    Organisations, projects, environments, and built-in roles
+  </Card>
+</CardGroup>

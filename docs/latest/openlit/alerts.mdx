@@ -1,0 +1,139 @@
+---
+title: 'Alerts'
+description: 'Get notified in Slack, email, PagerDuty, and more when important changes happen in your organisation'
+icon: 'bell'
+tag: 'Enterprise'
+---
+
+import EnterpriseFeature from '/snippets/enterprise-feature.mdx';
+
+<EnterpriseFeature />
+
+Alerts notify your team when something important changes in OpenLIT, such as a member's access changing, an API key being created, a Vault secret being deleted, or a scanner finishing with findings. Each alert watches one or more **triggers**, filters them with optional **conditions**, and delivers to one or more **destinations** like Slack, PagerDuty, or a webhook.
+
+Open **Alerts** from the sidebar under **Monitor** (`/alerts`). The page has three tabs: **Alerts**, **Events**, and **Destinations**.
+
+<Note>
+Alerts fire on changes made in OpenLIT, when they happen. They don't evaluate telemetry or metric thresholds such as latency or cost.
+</Note>
+
+## Availability
+
+Alerts need an [OpenLIT Enterprise](/latest/openlit/enterprise) license that includes the **Alerts** feature. Sending to destinations such as Slack or PagerDuty uses [notification connectors](/latest/openlit/connectors/notification), which also need the **Premium connectors** feature.
+
+Without the Alerts license, the page is locked and the alerts API returns `403` with `upgrade_required`.
+
+## Permissions
+
+| Permission | Allows | Default roles |
+| --- | --- | --- |
+| `alerts:read` | View alerts, events, and destinations | Owner, Admin, Member |
+| `alerts:create` | Create alerts | Owner, Admin |
+| `alerts:update` | Edit alerts | Owner, Admin |
+| `alerts:delete` | Delete alerts | Owner, Admin |
+| `alerts:test` | Send test alerts | Owner, Admin |
+| `alerts:manage_destinations` | Add, edit, and delete destinations | Owner, Admin |
+
+With [RBAC](/latest/openlit/rbac), you can grant these to custom role groups.
+
+## Create an alert
+
+<Steps>
+  <Step title="Add a destination">
+    Open **Destinations** and select **Add destination**, or select **Destination** while creating an alert. Choose a provider and fill in its settings. See [Notification connectors](/latest/openlit/connectors/notification) for the fields each provider needs. Destinations are shared by every alert in the organisation.
+  </Step>
+  <Step title="Describe the alert">
+    On the **Alerts** tab, select **Create new Alert**. Under **Details**, enter a **Name**, an optional **Description**, a **Status** (**Active** or **Paused**), and a **Severity** (low, medium, high, or critical).
+  </Step>
+  <Step title="Choose triggers">
+    Under **Trigger**, pick one or more triggers. The alert fires when any selected trigger matches its own conditions. Leave **Conditions** empty to fire on every event of that trigger.
+  </Step>
+  <Step title="Pick destinations">
+    Under **Destinations**, select where to send the alert. Use the **Attachment** tab for each destination to customise the message.
+  </Step>
+  <Step title="Set delivery options and save">
+    Under **Delivery**, set **Cooldown seconds** (default 300) and an optional **Dedupe key**, then select **Save**. Use the test button on the alert to send a test notification.
+  </Step>
+</Steps>
+
+### Conditions
+
+Conditions narrow when a trigger fires. Each trigger has its own condition groups:
+
+- Every group with conditions must match, and within a group you choose whether conditions are combined with **AND** or **OR**.
+- Text fields support equals, not equals, contains, not contains, starts with, ends with, regex, in, and not in. For **in** and **not in**, separate values with commas.
+- Number fields support `=`, `≠`, `>`, `≥`, `<`, `≤`, and **between** (enter `min,max`).
+- Text fields suggest values that OpenLIT has already seen for that trigger, and you can type your own.
+
+For example, to alert only when someone grants full access to an API key, use the **API keys** trigger with the conditions `event` equals `api_key_access_updated` and `access` equals `full`.
+
+### Customise each destination
+
+The **Attachment** tab for each selected destination lets you:
+
+- Turn **Active for this alert** off to keep the destination attached without sending to it.
+- Override the Slack **Channel** for this alert.
+- Set a **Title template** and **Message template**.
+- Choose a **Card style** (Default, Compact, Detailed, or Incident) and an **Accent** colour.
+- Include the matched event fields in the notification.
+
+Templates can use `{{alert.id}}`, `{{alert.name}}`, `{{alert.severity}}`, `{{event.id}}`, `{{event.triggerType}}`, `{{payload.message}}`, and `{{payload.<field>}}` for any trigger field.
+
+## Triggers
+
+| Trigger | Fires on | Fields you can filter on |
+| --- | --- | --- |
+| **Access updates** | A member's project access, role, or direct permissions change | event, target email, target user ID, actor email, old role, new role, project count, project IDs, permission count, permissions |
+| **Invites** | A member is invited or added | event, email, invitee email, actor email, role, project count |
+| **Prompt versions** | A prompt version is created or updated | event, prompt ID, version, status |
+| **Fleet Hub configuration** | A Fleet Hub agent configuration changes | event, agent ID, config key |
+| **Vault keys** | A Vault secret is created, updated, or deleted | event, secret ID, key |
+| **Contexts** | A context is created, updated, or deleted | event, context ID, name, status |
+| **Rule engine** | A rule is created, updated, or deleted, its conditions change, or an entity is linked or unlinked | event, rule ID, rule name, status, entity type |
+| **Memories** | A memory is created, updated, or deleted | event, memory ID, source type, application |
+| **API keys** | An API key is created or deleted, or its access changes | event, name, environment, access (`full` or `restricted`), features |
+| **Connectors** | A connector is created, updated, or deleted | event, connector ID, name, type, environment |
+| **Scanners** | A scanner is created, updated, or deleted, or a scan finishes | event, scanner ID, name, type, environment, target, status, finding count |
+
+## How delivery works
+
+When a matching change happens, OpenLIT records an **alert event** and sends it to every active destination attached to the alert.
+
+- **Cooldown:** an alert doesn't fire again until **Cooldown seconds** have passed since its last event. Set `0` to turn cooldown off.
+- **Dedupe key:** when set, repeated events with the same key are dropped within the cooldown window, or within 300 seconds if cooldown is off.
+- **Retries:** a failed delivery is retried once after 2 seconds.
+- **Paused alerts** don't fire.
+
+Each event ends in one of these states: **success** (all deliveries succeeded), **partial_failure** (some failed), or **failure** (all failed, or the alert has no destinations).
+
+## Review alert events
+
+The **Events** tab shows a timeline of fired events and a list you can filter by status, trigger, alert, provider, and delivery status. Select an event to see its payload, the conditions that matched, and the result of each delivery. Alert events are kept for 90 days.
+
+The **Alerts** tab summarises your alerts: how many are active, ready, need a destination, failed on their last run, or are paused.
+
+## Alerts API
+
+Signed-in users can manage alerts through the API. Every endpoint needs the Alerts license and the matching permission.
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /api/alerts` | List alerts for the organisation and current project |
+| `POST /api/alerts` | Create an alert |
+| `GET`, `PATCH`, `DELETE /api/alerts/{id}` | Read (with its last 25 events), update, or delete an alert |
+| `POST /api/alerts/{id}/test` | Send a test alert |
+| `GET /api/alerts/triggers` | List triggers and their fields |
+| `GET /api/alerts/events` | List alert events with filters and pagination |
+| `GET /api/alert-destinations` | List destinations |
+| `GET /api/alerts/spec` | OpenAPI specification for the alerts API |
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Notification connectors" href="/latest/openlit/connectors/notification" icon="paper-plane">
+    Configure Slack, email, webhook, Discord, PagerDuty, Opsgenie, and Datadog destinations
+  </Card>
+  <Card title="Audit Logs" href="/latest/openlit/audit-logs" icon="clock-rotate-left">
+    Review every privileged change in your organisation
+  </Card>
+</CardGroup>
