@@ -73,6 +73,44 @@ Prometheus-compatible APIs (for example Grafana Mimir's PromQL endpoint) use the
 
 \* Aggregate graphs are reconstructed in-process from a bounded sample of full traces when the backend cannot aggregate server-side.
 
+## Enterprise data-source connectors
+
+<Info>
+**Enterprise feature.** Datadog and New Relic connectors are premium connectors in [OpenLIT Enterprise](/latest/openlit/enterprise) and need a license that includes **Premium connectors**. Without it, they appear in the catalog with a **Premium** badge and a lock, and **Add connector** reads **License required**.
+</Info>
+
+| Connector | Signals | What it's for |
+| --- | --- | --- |
+| **Datadog** | traces, logs, metrics | Read spans, logs, and metrics from Datadog |
+| **New Relic** | traces, logs, metrics | Read spans, logs, and metrics from New Relic with NRQL |
+
+Add them from **Connectors** like any other data source, then bind them per signal in [signal routing](/latest/openlit/organisation/signal-routing). A bound connector must be in the same environment as the binding.
+
+### Datadog
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Datadog site | No | Your Datadog site, such as `datadoghq.com` (default) or `datadoghq.eu`. |
+| API key | Yes | A Datadog API key. |
+| Application key | Yes | A Datadog application key with access to spans, logs, and metrics. |
+
+- Logs are read without AI filtering, so all logs in the range are returned.
+- When you don't filter on a metric name, metric series default to `system.cpu.user`.
+- The Datadog spans API is rate limited, so OpenLIT caches span queries for 30 seconds.
+
+### New Relic
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Region | No | `US` (default) or `EU`. |
+| Account ID | Yes | Your New Relic account ID. |
+| API key | Yes | A user API key with NerdGraph and NRQL access to the account. |
+
+- Metric series need a metric-name filter.
+- Span events are stored as separate rows in New Relic, so they aren't shown on spans.
+
+Both connectors support the trace tree and server-side aggregation, and correlate signals by trace ID, span ID, and service. Neither supports raw queries or span events. **Test connection** checks the credentials and looks for AI telemetry from the last hour.
+
 ## Add a Jaeger connector
 
 <Frame>

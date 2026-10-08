@@ -19,9 +19,35 @@ Pages for enterprise features are marked with an **Enterprise** tag in the sideb
 | API keys with full access | ✓ | ✓ |
 | [Role-based access control](/latest/openlit/rbac): custom role groups and direct user permissions | | ✓ |
 | [Per-feature API key access](/latest/openlit/rbac#api-key-access): restrict each key to specific features | | ✓ |
-| Audit logs for organisation, member, role, license, API key, connector, and configuration changes across OpenLIT features | | ✓ |
-| Alerts with reusable notification destinations | | ✓ |
-| Premium connectors: Slack, email, webhook, Discord, PagerDuty, and Opsgenie notifications; Datadog and New Relic data sources | | ✓ |
+| [Audit logs](/latest/openlit/audit-logs) for organisation, member, role, license, API key, connector, and configuration changes across OpenLIT features | | ✓ |
+| [Alerts](/latest/openlit/alerts) on access, API key, Vault, connector, scanner, and other changes, with reusable notification destinations | | ✓ |
+| Premium connectors: [Slack, email, webhook, Discord, PagerDuty, Opsgenie, and Datadog notifications](/latest/openlit/connectors/notification); [Datadog and New Relic data sources](/latest/openlit/connectors/datasource#enterprise-data-source-connectors) | | ✓ |
+| [GPUs](/latest/openlit/gpus): fleet health, workloads, kernels, errors, cost, and Otter recommendations¹ | | ✓ |
+
+¹ The GPUs page comes with the enterprise build and doesn't need a separate license feature. The community edition collects GPU metrics with the [GPU collector](/latest/gpu-collector/quickstart).
+
+## Enterprise features
+
+<CardGroup cols={2}>
+  <Card title="Role-based access control" href="/latest/openlit/rbac" icon="shield-check">
+    Custom role groups, direct user permissions, and per-feature API key access
+  </Card>
+  <Card title="Audit Logs" href="/latest/openlit/audit-logs" icon="clock-rotate-left">
+    Who changed what across your organisation
+  </Card>
+  <Card title="Alerts" href="/latest/openlit/alerts" icon="bell">
+    Notify your team when important changes happen
+  </Card>
+  <Card title="Notification connectors" href="/latest/openlit/connectors/notification" icon="paper-plane">
+    Slack, email, webhook, Discord, PagerDuty, Opsgenie, and Datadog
+  </Card>
+  <Card title="Enterprise data sources" href="/latest/openlit/connectors/datasource#enterprise-data-source-connectors" icon="database">
+    Read traces, logs, and metrics from Datadog and New Relic
+  </Card>
+  <Card title="GPUs" href="/latest/openlit/gpus" icon="microchip">
+    GPU fleet health, workloads, kernels, errors, and cost
+  </Card>
+</CardGroup>
 
 ## Get OpenLIT Enterprise
 
