@@ -2,11 +2,11 @@
  * Native TypeSafe System One transport for OpenLIT evaluations.
  * Does not use Vercel AI SDK `generateText` or `@typesafe-ai/sdk`.
  */
+import getMessage from "@/constants/messages";
 import { Evaluation } from "@/types/evaluation";
 import {
 	buildSystemOneRequest,
 	mapSystemOneAnswers,
-	TYPESAFE_DEFAULT_MODEL,
 	type EvaluationTypeForJev,
 	type SystemOneResponseBody,
 } from "./jev-mapper";
@@ -41,7 +41,7 @@ async function postSystemOne(
 	apiKey: string,
 	body: unknown
 ): Promise<{ ok: true; data: SystemOneResponseBody } | { ok: false; error: string }> {
-	let lastError = "TypeSafe System One request failed";
+	let lastError: string = getMessage().EVALUATION_ERROR_TYPESAFE_REQUEST_FAILED;
 	for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
 		const isLastAttempt = attempt === MAX_ATTEMPTS - 1;
 		let res: Response;
@@ -69,14 +69,14 @@ async function postSystemOne(
 
 		const text = await res.text();
 		if (!res.ok) {
-			lastError = `TypeSafe System One returned ${res.status}${text ? `: ${text.slice(0, 300)}` : ""}`;
+			lastError = `${getMessage().EVALUATION_ERROR_TYPESAFE_STATUS} ${res.status}${text ? `: ${text.slice(0, 300)}` : ""}`;
 			return { ok: false, error: lastError };
 		}
 
 		try {
 			return { ok: true, data: JSON.parse(text) as SystemOneResponseBody };
 		} catch {
-			return { ok: false, error: "TypeSafe System One returned invalid JSON" };
+			return { ok: false, error: getMessage().EVALUATION_ERROR_TYPESAFE_INVALID_JSON };
 		}
 	}
 	return { ok: false, error: lastError };
@@ -99,7 +99,7 @@ export async function runJevEvaluation(
 		return {
 			success: false,
 			result: DEFAULT_RESULT,
-			error: "Missing apiKey, provider, or model",
+			error: getMessage().EVALUATION_ERROR_MISSING_CONFIG,
 		};
 	}
 
@@ -107,7 +107,7 @@ export async function runJevEvaluation(
 		prompt,
 		response,
 		groundTruthContext: contexts,
-		model: model || TYPESAFE_DEFAULT_MODEL,
+		model,
 		evaluationTypes,
 	});
 
@@ -128,7 +128,7 @@ export async function runJevEvaluation(
 			return {
 				success: false,
 				result: DEFAULT_RESULT,
-				error: "Invalid response format",
+				error: getMessage().EVALUATION_ERROR_INVALID_RESPONSE,
 			};
 		}
 

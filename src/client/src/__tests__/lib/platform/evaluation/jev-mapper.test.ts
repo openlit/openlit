@@ -130,4 +130,21 @@ describe('jev-mapper', () => {
 			verdict: 'no',
 		});
 	});
+
+	it('skips requested types the judge did not answer instead of reporting a pass', () => {
+		const { evaluations } = mapSystemOneAnswers({
+			types: [
+				{ id: 'hallucination', label: 'Hallucination' },
+				{ id: 'bias', label: 'Bias' },
+			],
+			answers: { hallucination: { type: 'noul', noul: 0.9 } },
+		});
+		expect(evaluations.map((e) => e.evaluation)).toEqual(['Hallucination']);
+		expect(evaluations[0].verdict).toBe('yes');
+	});
+
+	it('returns no evaluations when the response has no answers', () => {
+		const { evaluations } = mapSystemOneAnswers({ answers: {} });
+		expect(evaluations).toEqual([]);
+	});
 });

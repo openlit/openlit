@@ -1116,7 +1116,7 @@ export async function runOfflineEvaluation(
 		if (unknown.length > 0) {
 			return {
 				success: false,
-				error: `Unknown eval types: ${unknown.join(", ")}`,
+				error: `${getMessage().EVALUATION_ERROR_UNKNOWN_TYPES}: ${unknown.join(", ")}`,
 			};
 		}
 	}

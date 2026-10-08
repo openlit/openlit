@@ -201,7 +201,7 @@ function legendLabel(
 	}
 	if (answer.legend && typeof answer.legend === "object") {
 		const keyed =
-			answer.legend[String(scoreValue)] ?? answer.legend[scoreValue as unknown as string];
+			answer.legend[String(scoreValue)];
 		if (typeof keyed === "string" && keyed.trim()) return keyed.trim();
 	}
 	return JEV_QUALITY_SCORE_LEVELS[scoreValue] ?? "none";
@@ -251,6 +251,7 @@ export function mapSystemOneAnswers(params: {
 		const label = resolveEvaluationTypeLabel(type);
 		const threshold = type.thresholdScore ?? defaultThreshold;
 		const answer = answers[type.id];
+		if (!answer) continue;
 		let score = 0;
 		let classification = "none";
 		let confidence: number | undefined;

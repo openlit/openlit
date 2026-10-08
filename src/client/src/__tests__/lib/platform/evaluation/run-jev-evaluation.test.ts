@@ -178,4 +178,30 @@ describe('runJevEvaluation', () => {
 		expect(result.success).toBe(false);
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
+
+	it('fails with an invalid-response error when no requested type is answered', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			text: async () => JSON.stringify({ model: 'jev-latest', answers: {} }),
+		}) as unknown as typeof fetch;
+
+		const result = await runJevEvaluation({ apiKey: 'ts-key', model: 'jev-latest' });
+
+		expect(result.success).toBe(false);
+		expect(result.error).toBe('Invalid response format');
+	});
+
+	it('reports invalid JSON from System One', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			text: async () => 'not json',
+		}) as unknown as typeof fetch;
+
+		const result = await runJevEvaluation({ apiKey: 'ts-key', model: 'jev-latest' });
+
+		expect(result.success).toBe(false);
+		expect(result.error).toBe('TypeSafe System One returned invalid JSON');
+	});
 });
