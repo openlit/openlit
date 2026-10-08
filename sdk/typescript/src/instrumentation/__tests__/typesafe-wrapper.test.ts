@@ -198,23 +198,7 @@ describe('TypeSafe wrapper', () => {
   });
 });
 
-function loadTypesafeKey(): string | undefined {
-  if (process.env.TYPESAFE_API_KEY) return process.env.TYPESAFE_API_KEY;
-  try {
-    const text = require('fs').readFileSync('/Users/ishanjain/private/openlit/.env', 'utf8');
-    for (const line of text.split('\n')) {
-      const s = line.trim();
-      if (s.startsWith('TYPESAFE_API_KEY=')) {
-        return s.slice('TYPESAFE_API_KEY='.length).trim().replace(/^['"]|['"]$/g, '');
-      }
-    }
-  } catch {
-    return undefined;
-  }
-  return undefined;
-}
-
-const liveKey = loadTypesafeKey();
+const liveKey = process.env.TYPESAFE_API_KEY;
 const liveIt = liveKey ? it : it.skip;
 
 describe('TypeSafe live systemOne', () => {
