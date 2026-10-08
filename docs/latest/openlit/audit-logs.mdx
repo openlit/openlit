@@ -82,7 +82,7 @@ OpenLIT records an event when a privileged request **succeeds**. Failed or denie
 | OpenGround and models | `openground.created`, `openground.deleted`, `openground.provider_created`, `openground.provider_updated`, `openground.provider_deleted`, `openground.config_created`, `openground.config_updated`, `openground.config_deleted`, `manage_models.model_created`, `manage_models.model_deleted`, `manage_models.model_imported`, `manage_models.model_cleaned` |
 | Pricing | `pricing.config_updated`, `pricing.auto_config_updated`, `pricing.exported`, `pricing.usage_refreshed` |
 | Memory | `memory.memory_created`, `memory.memory_updated`, `memory.memory_deleted`, `memory.memory_feedback`, `memory.memory_copied`, `memory.memory_extracted`, `memory.memory_imported`, `memory.config_updated` |
-| GPU pricing | `gpu.price_created`, `gpu.price_updated`, `gpu.price_deleted` |
+| GPUs | `gpu.price_created`, `gpu.price_updated`, `gpu.price_deleted`, `gpu.recommendation_dismissed`, `gpu.recommendation_reopened` |
 | Governance | `governance.report_viewed`, `governance.passport_exported` |
 
 Each event stores the organisation, the project and database config when known, the actor, the action, the target type and ID, the metadata, and the time.

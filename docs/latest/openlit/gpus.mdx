@@ -53,16 +53,16 @@ OpenLIT includes on-demand list prices for AWS, Google Cloud, Azure, Oracle Clou
 
 Each tab can show a short **Otter** headline and notes about the metrics on screen. The **Recommendations** tab lists Otter's suggestions with a severity (Critical, Major, Minor, or Info), the suggested action, and a link to the tab to investigate.
 
-Dismiss a recommendation with a reason, such as "A fix has already been started", to move it to **Closed**, and **Reopen** it later. Dismissals are saved in your browser, so they aren't shared with teammates.
+Dismiss a recommendation with a reason, such as "A fix has already been started", to move it to **Closed**, and **Reopen** it later. Dismissals are shared with everyone working in the same project environment and recorded in [Audit Logs](/latest/openlit/audit-logs). Dismissing and reopening need the `gpu:configure` permission.
 
 ## Permissions
 
 | Permission | Allows | Default roles |
 | --- | --- | --- |
 | `gpu:read` | View the GPUs page, costs, and rates | Owner, Admin, Member |
-| `gpu:configure` | Add, edit, and delete instance rates | Owner, Admin |
+| `gpu:configure` | Add, edit, and delete instance rates; dismiss and reopen recommendations | Owner, Admin |
 
-Changes to instance rates are recorded in [Audit Logs](/latest/openlit/audit-logs) when audit logging is licensed.
+Changes to instance rates and recommendation dismissals are recorded in [Audit Logs](/latest/openlit/audit-logs) when audit logging is licensed.
 
 ---
 
