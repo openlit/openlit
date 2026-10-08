@@ -78,6 +78,14 @@
                   "latest/openlit/connectors/memory",
                   "latest/openlit/connectors/scanner"
                 ]
+              },
+              {
+                "group": "Enterprise",
+                "icon": "crown",
+                "pages": [
+                  "latest/openlit/enterprise",
+                  "latest/openlit/rbac"
+                ]
               }
             ]
           },
