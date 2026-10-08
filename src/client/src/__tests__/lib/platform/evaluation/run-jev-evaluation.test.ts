@@ -96,4 +96,86 @@ describe('runJevEvaluation', () => {
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('401');
 	});
+
+	it('retries network errors then succeeds', async () => {
+		const fetchMock = jest
+			.fn()
+			.mockRejectedValueOnce(new Error('socket hang up'))
+			.mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				text: async () =>
+					JSON.stringify({
+						model: 'jev-latest',
+						answers: { hallucination: { type: 'noul', noul: 0 } },
+					}),
+			});
+		global.fetch = fetchMock as unknown as typeof fetch;
+		jest.spyOn(global, 'setTimeout').mockImplementation((fn: any) => {
+			fn();
+			return 0 as unknown as NodeJS.Timeout;
+		});
+
+		const result = await runJevEvaluation({
+			apiKey: 'ts-key',
+			model: 'jev-latest',
+			evaluationTypes: [{ id: 'hallucination', label: 'Hallucination' }],
+		});
+
+		expect(result.success).toBe(true);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it('fails with the last error after exhausting retries', async () => {
+		const fetchMock = jest.fn().mockRejectedValue(new Error('network down'));
+		global.fetch = fetchMock as unknown as typeof fetch;
+		jest.spyOn(global, 'setTimeout').mockImplementation((fn: any) => {
+			fn();
+			return 0 as unknown as NodeJS.Timeout;
+		});
+
+		const result = await runJevEvaluation({ apiKey: 'ts-key', model: 'jev-latest' });
+
+		expect(result.success).toBe(false);
+		expect(result.error).toBe('network down');
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+	});
+
+	it('sends an abort signal so a hung request times out', async () => {
+		const fetchMock = jest.fn().mockResolvedValue({
+			ok: false,
+			status: 400,
+			text: async () => 'bad request',
+		});
+		global.fetch = fetchMock as unknown as typeof fetch;
+
+		await runJevEvaluation({ apiKey: 'ts-key', model: 'jev-latest' });
+
+		expect((fetchMock.mock.calls[0][1] as RequestInit).signal).toBeInstanceOf(AbortSignal);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not retry non-retryable statuses and never echoes the api key', async () => {
+		const fetchMock = jest.fn().mockResolvedValue({
+			ok: false,
+			status: 401,
+			text: async () => 'unauthorized',
+		});
+		global.fetch = fetchMock as unknown as typeof fetch;
+
+		const result = await runJevEvaluation({ apiKey: 'secret-key', model: 'jev-latest' });
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(result.error).not.toContain('secret-key');
+	});
+
+	it('fails fast without an api key', async () => {
+		const fetchMock = jest.fn();
+		global.fetch = fetchMock as unknown as typeof fetch;
+
+		const result = await runJevEvaluation({ apiKey: '', model: 'jev-latest' });
+
+		expect(result.success).toBe(false);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
 });

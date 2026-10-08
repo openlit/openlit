@@ -202,13 +202,29 @@ describe('opengroundStoreSlice', () => {
 
   describe('loadAvailableProviders', () => {
     it('updates availableProviders when fetch succeeds', async () => {
-      const providers = [{ name: 'openai' }, { name: 'anthropic' }];
+      const providers = [
+        { providerId: 'openai', name: 'openai' },
+        { providerId: 'anthropic', name: 'anthropic' },
+      ];
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: jest.fn().mockResolvedValue(providers),
       });
       await store.getState().openground.loadAvailableProviders();
       expect(store.getState().openground.availableProviders).toEqual(providers);
+    });
+
+    it('excludes evaluation-only providers such as typesafe', async () => {
+      const providers = [
+        { providerId: 'openai', name: 'OpenAI' },
+        { providerId: 'typesafe', name: 'TypeSafe' },
+      ];
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(providers),
+      });
+      await store.getState().openground.loadAvailableProviders();
+      expect(store.getState().openground.availableProviders).toEqual([providers[0]]);
     });
 
     it('does not update availableProviders when fetch returns ok=false', async () => {

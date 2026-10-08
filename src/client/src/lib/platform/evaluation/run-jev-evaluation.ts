@@ -15,6 +15,7 @@ import type { RunEvaluationResult } from "./run-evaluation";
 const SYSTEM_ONE_URL = "https://api.typesafe.ai/v1/systemone";
 const RETRY_STATUSES = new Set([429, 529]);
 const MAX_ATTEMPTS = 3;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 const DEFAULT_RESULT: Evaluation[] = [
 	{ score: 0, evaluation: "Hallucination", classification: "none", explanation: "No Hallucination detected", verdict: "no" },
@@ -42,16 +43,26 @@ async function postSystemOne(
 ): Promise<{ ok: true; data: SystemOneResponseBody } | { ok: false; error: string }> {
 	let lastError = "TypeSafe System One request failed";
 	for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-		const res = await fetch(SYSTEM_ONE_URL, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(body),
-		});
+		const isLastAttempt = attempt === MAX_ATTEMPTS - 1;
+		let res: Response;
+		try {
+			res = await fetch(SYSTEM_ONE_URL, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${apiKey}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(body),
+				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+			});
+		} catch (e) {
+			lastError = e instanceof Error ? e.message : String(e);
+			if (isLastAttempt) break;
+			await sleep(500 * 2 ** attempt);
+			continue;
+		}
 
-		if (RETRY_STATUSES.has(res.status) && attempt < MAX_ATTEMPTS - 1) {
+		if (RETRY_STATUSES.has(res.status) && !isLastAttempt) {
 			await sleep(500 * 2 ** attempt);
 			continue;
 		}
@@ -59,9 +70,6 @@ async function postSystemOne(
 		const text = await res.text();
 		if (!res.ok) {
 			lastError = `TypeSafe System One returned ${res.status}${text ? `: ${text.slice(0, 300)}` : ""}`;
-			if (RETRY_STATUSES.has(res.status) && attempt < MAX_ATTEMPTS - 1) {
-				continue;
-			}
 			return { ok: false, error: lastError };
 		}
 
