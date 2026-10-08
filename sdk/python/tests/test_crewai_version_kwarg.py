@@ -1,3 +1,5 @@
+"""Regression tests for forwarding CrewAI tool version arguments."""
+
 from unittest.mock import MagicMock
 from openlit.instrumentation.crewai.utils import process_crewai_response
 from openlit.instrumentation.crewai.crewai import general_wrap
