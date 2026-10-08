@@ -184,8 +184,6 @@ Below is a detailed overview of the configuration options available, allowing yo
 |-------------------------|-----------------------------------------------------------------------------------------------|----------------|----------|
 | `environment`           | The deployment environment of the application.                                                | `"default"`    |    Yes   |
 | `application_name`      | Identifies the name of your application.                                                      | `"default"`    |    Yes   |
-| `tracer`                | An instance of OpenTelemetry Tracer for tracing operations.                                   | `None`         |    No    |
-| `meter`                 | An OpenTelemetry Metrics instance for capturing metrics.                                      | `None`         |    No    |
 | `otlp_endpoint`         | Specifies the OTLP endpoint for transmitting telemetry data.                                  | `None`         |    No    |
 | `otlp_headers`          | Defines headers for the OTLP exporter, useful for backends requiring authentication.          | `None`         |    No    |
 | `disable_batch`         | A flag to disable batch span processing, favoring immediate dispatch.                         | `False`        |    No    |
@@ -195,6 +193,8 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |
 | `collect_gpu_stats`          | Flag to enable or disable GPU metrics collection.                                         | `False`        |    No    |
 | `custom_metrics_attributes`  | Custom key-value attributes applied to every metric recording. Useful for grouping metrics by custom tags (e.g., client ID, team, project). | `None` |    No    |
+
+OpenLIT does not accept `tracer` / `meter` arguments. If your application already configures an OpenTelemetry SDK `TracerProvider` or `MeterProvider` globally, `openlit.init()` detects and reuses it.
 
 ### OpenLIT Prompt Hub - `openlit.get_prompt()`
 
@@ -207,7 +207,7 @@ Below are the parameters for use with the SDK for OpenLIT Prompt Hub for prompt 
 | `name`            | Sets the name to fetch a unique prompt. Use this or `prompt_id`.                                                                    |
 | `prompt_id`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
 | `version`         | Set to `True` to get the prompt with variable substitution.. Optional                                                              |
-| `shouldCompile`        | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
+| `should_compile`       | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
 | `variables`       | Sets the variables for prompt compilation. Optional                                                                                |
 | `meta_properties` | Sets the meta-properties for storing in the prompt's access history metadata. Optional                                             |
 
