@@ -147,4 +147,31 @@ describe('jev-mapper', () => {
 		const { evaluations } = mapSystemOneAnswers({ answers: {} });
 		expect(evaluations).toEqual([]);
 	});
+
+	it('clamps out-of-range quality scores so severity and classification agree', () => {
+		const types = [{ id: 'relevance', label: 'Relevance' }];
+		const high = mapSystemOneAnswers({
+			types,
+			answers: { relevance: { type: 'score', score: 7 } },
+		}).evaluations[0];
+		expect(high.score).toBe(1);
+		expect(high.classification).toBe('severe');
+		expect(high.verdict).toBe('yes');
+
+		const low = mapSystemOneAnswers({
+			types,
+			answers: { relevance: { type: 'score', score: -2 } },
+		}).evaluations[0];
+		expect(low.score).toBe(0);
+		expect(low.classification).toBe('none');
+		expect(low.verdict).toBe('no');
+	});
+
+	it('skips unexpected choice answers instead of reporting a pass', () => {
+		const { evaluations } = mapSystemOneAnswers({
+			types: [{ id: 'hallucination', label: 'Hallucination' }],
+			answers: { hallucination: { type: 'choice', choice: 'yes' } },
+		});
+		expect(evaluations).toEqual([]);
+	});
 });

@@ -72,23 +72,15 @@ class TypeSafeWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.TYPESAFE_QUESTION_TYPES, questionTypes.join(','));
         span.setAttribute(SemanticConvention.GEN_AI_SDK_VERSION, typesafeSdkVersion());
 
-        return context
-          .with(trace.setSpan(context.active(), span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((response: any) => {
-            return TypeSafeWrapper._systemOne({
-              args,
-              genAIEndpoint,
-              response,
-              span,
-              requestModel,
-              serverAddress: address,
-              serverPort: port,
-              startTime,
-            });
-          })
-          .catch((e: any) => {
+        return (async () => {
+          let response: any;
+          try {
+            // `context.with` runs the callback synchronously, so a synchronous
+            // throw from the SDK lands in this catch as well as a rejection.
+            response = await context.with(trace.setSpan(context.active(), span), () =>
+              originalMethod.apply(this, args)
+            );
+          } catch (e: any) {
             OpenLitHelper.handleException(span, e);
             BaseWrapper.recordMetrics(span, {
               genAIEndpoint,
@@ -100,7 +92,18 @@ class TypeSafeWrapper extends BaseWrapper {
             });
             span.end();
             throw e;
+          }
+          return TypeSafeWrapper._systemOne({
+            args,
+            genAIEndpoint,
+            response,
+            span,
+            requestModel,
+            serverAddress: address,
+            serverPort: port,
+            startTime,
           });
+        })();
       };
     };
   }
@@ -138,8 +141,9 @@ class TypeSafeWrapper extends BaseWrapper {
       });
       return response;
     } catch (e: any) {
+      // Telemetry problems must not fail the caller's successful request.
       OpenLitHelper.handleException(span, e);
-      throw e;
+      return response;
     } finally {
       span.end();
       if (metricParams) {

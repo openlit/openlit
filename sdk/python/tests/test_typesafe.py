@@ -267,3 +267,41 @@ def test_live_typesafe_system_one():
     assert getattr(response, "answers", None) or (
         isinstance(response, dict) and response.get("answers")
     )
+
+
+def test_uninstrument_restores_methods_and_reinstrument_does_not_stack(monkeypatch):
+    import sys
+    import types
+
+    from openlit.instrumentation.typesafe import TypeSafeInstrumentor
+
+    class _Client:
+        def system_one(self, state, questions, model=None):
+            return "sync"
+
+    class _AsyncClient:
+        async def system_one(self, state, questions, model=None):
+            return "async"
+
+    module = types.ModuleType("typesafe_sdk")
+    module.TypeSafeClient = _Client
+    module.AsyncTypeSafeClient = _AsyncClient
+    monkeypatch.setitem(sys.modules, "typesafe_sdk", module)
+
+    original_sync = _Client.__dict__["system_one"]
+    original_async = _AsyncClient.__dict__["system_one"]
+
+    OpenlitConfig.reset_to_defaults()
+    instrumentor = TypeSafeInstrumentor()
+    instrumentor.instrument(skip_dep_check=True)
+    assert _Client.__dict__["system_one"] is not original_sync
+    assert _AsyncClient.__dict__["system_one"] is not original_async
+
+    instrumentor.uninstrument()
+    assert _Client.__dict__["system_one"] is original_sync
+    assert _AsyncClient.__dict__["system_one"] is original_async
+
+    # Re-enabling after a disable must wrap exactly once.
+    instrumentor.instrument(skip_dep_check=True)
+    instrumentor.uninstrument()
+    assert _Client.__dict__["system_one"] is original_sync

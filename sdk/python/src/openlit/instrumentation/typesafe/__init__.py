@@ -5,6 +5,7 @@ from typing import Collection
 import importlib.metadata
 from opentelemetry import _logs, trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from opentelemetry.instrumentation.utils import unwrap
 from wrapt import wrap_function_wrapper
 
 from openlit._config import OpenlitConfig
@@ -74,4 +75,11 @@ class TypeSafeInstrumentor(BaseInstrumentor):
         _safe_wrap("typesafe_sdk", "AsyncTypeSafeClient.system_one", async_wrapper)
 
     def _uninstrument(self, **kwargs):
-        pass
+        for target in (
+            "typesafe_sdk.TypeSafeClient",
+            "typesafe_sdk.AsyncTypeSafeClient",
+        ):
+            try:
+                unwrap(target, "system_one")
+            except (ImportError, AttributeError):
+                logger.debug("Skipping unwrap of %s.system_one", target)

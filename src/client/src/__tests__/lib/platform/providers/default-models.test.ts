@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { DEFAULT_MODELS_BY_PROVIDER, DEFAULT_PROVIDERS } from '@/lib/platform/providers/default-models';
 
 describe('default-models', () => {
@@ -147,6 +149,19 @@ describe('default-models', () => {
         inputPricePerMToken: 0.042,
         outputPricePerMToken: 0,
       });
+    }
+  });
+
+  it('keeps TypeSafe prices in sync with the SDK assets/pricing.json (per 1K tokens)', () => {
+    const pricing = JSON.parse(
+      readFileSync(join(__dirname, '../../../../../../../assets/pricing.json'), 'utf8')
+    ).chat as Record<string, { promptPrice: number; completionPrice: number }>;
+
+    for (const model of DEFAULT_MODELS_BY_PROVIDER.typesafe) {
+      const sdk = pricing[model.id];
+      expect(sdk).toBeDefined();
+      expect(sdk.promptPrice).toBeCloseTo(model.inputPricePerMToken / 1000, 10);
+      expect(sdk.completionPrice).toBeCloseTo(model.outputPricePerMToken / 1000, 10);
     }
   });
 });

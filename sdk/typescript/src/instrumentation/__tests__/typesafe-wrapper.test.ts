@@ -156,6 +156,46 @@ describe('TypeSafe wrapper', () => {
     expect(OpenLitHelper.handleException).toHaveBeenCalled();
     expect(mockSpan.end).toHaveBeenCalled();
   });
+
+  it('ends the span once and rethrows when systemOne throws synchronously', () => {
+    const syncThrower = function (this: any, _req: any): any {
+      throw new Error('invalid request');
+    };
+    const wrapped = TypeSafeWrapper._patchSystemOne(mockTracer)(syncThrower);
+
+    return expect(
+      wrapped.call({ defaultModel: 'jev-latest' }, { state: {}, questions: {} })
+    )
+      .rejects.toThrow('invalid request')
+      .then(() => {
+        expect(OpenLitHelper.handleException).toHaveBeenCalledTimes(1);
+        expect(mockSpan.end).toHaveBeenCalledTimes(1);
+      });
+  });
+
+  it('does not fail the caller when telemetry processing throws', async () => {
+    (OpenLitHelper.getChatModelCost as jest.Mock).mockImplementation(() => {
+      throw new Error('pricing lookup exploded');
+    });
+    const response = {
+      model: 'jev-latest',
+      answers: { hallucination: { type: 'noul', noul: 0 } },
+      usage: { input_tokens: 1, output_tokens: 1 },
+    };
+    const original = async function (this: any, _req: any) {
+      return response;
+    };
+    const wrapped = TypeSafeWrapper._patchSystemOne(mockTracer)(original);
+
+    const result = await wrapped.call(
+      { defaultModel: 'jev-latest' },
+      { state: {}, questions: { hallucination: { type: 'noul', instructions: 'x' } } }
+    );
+
+    expect(result).toBe(response);
+    expect(OpenLitHelper.handleException).toHaveBeenCalledTimes(1);
+    expect(mockSpan.end).toHaveBeenCalledTimes(1);
+  });
 });
 
 function loadTypesafeKey(): string | undefined {

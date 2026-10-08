@@ -251,7 +251,6 @@ export function mapSystemOneAnswers(params: {
 		const label = resolveEvaluationTypeLabel(type);
 		const threshold = type.thresholdScore ?? defaultThreshold;
 		const answer = answers[type.id];
-		if (!answer) continue;
 		let score = 0;
 		let classification = "none";
 		let confidence: number | undefined;
@@ -261,19 +260,22 @@ export function mapSystemOneAnswers(params: {
 			classification = noulClassification(score);
 		} else if (answer?.type === "score") {
 			const raw = asFiniteNumber(answer.score) ?? 0;
-			score = normalizeScoreSeverity(raw, JEV_QUALITY_SCORE_LEVELS.length);
-			classification = legendLabel(answer, Math.round(raw));
+			// Clamp once so severity and classification always agree, even when
+			// the API returns a level outside the configured scale.
+			const level = Math.min(
+				Math.max(Math.round(raw), 0),
+				JEV_QUALITY_SCORE_LEVELS.length - 1
+			);
+			score = normalizeScoreSeverity(level, JEV_QUALITY_SCORE_LEVELS.length);
+			classification = legendLabel(answer, level);
 			confidence = asFiniteNumber(answer.confidence);
 			if (answer.probabilities && typeof answer.probabilities === "object") {
 				probabilitiesByType[label] = answer.probabilities;
 			}
-		} else if (answer?.type === "choice") {
-			score = 0;
-			classification = answer.choice || "none";
-			confidence = asFiniteNumber(answer.confidence);
-			if (answer.probabilities && typeof answer.probabilities === "object") {
-				probabilitiesByType[label] = answer.probabilities;
-			}
+		} else {
+			// OpenLIT only requests noul and score questions. Any other answer
+			// shape is not a usable verdict, so skip it rather than report a pass.
+			continue;
 		}
 
 		if (confidence != null) {

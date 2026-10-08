@@ -12,6 +12,7 @@ import {
 	deleteOpenGroundConfig,
 	toggleOpenGroundConfigStatus,
 } from "@/lib/platform/providers/config";
+import { isChatProvider } from "@/constants/chat-providers";
 import * as messages from "@/constants/messages/en";
 
 /**
@@ -75,12 +76,27 @@ async function POSTHandler(request: NextRequest) {
 			);
 		}
 
-		const body = await request.json();
-		const { provider, vaultId, modelId, isActive } = body;
+		let body: Record<string, any>;
+		try {
+			body = await request.json();
+		} catch {
+			return NextResponse.json(
+				{ error: messages.MALFORMED_INPUTS },
+				{ status: 400 }
+			);
+		}
+		const { provider, vaultId, modelId, isActive } = body || {};
 
 		if (!provider || !vaultId) {
 			return NextResponse.json(
 				{ error: "Provider and vaultId are required" },
+				{ status: 400 }
+			);
+		}
+
+		if (!isChatProvider(provider)) {
+			return NextResponse.json(
+				{ error: messages.PROVIDER_EVALUATION_ONLY_ERROR },
 				{ status: 400 }
 			);
 		}
