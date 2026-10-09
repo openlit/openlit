@@ -14,6 +14,7 @@ span ends exactly once on each exit path.
 
 import time
 
+import pytest
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
@@ -79,6 +80,24 @@ def _factory(tracer, *, is_async):
     )
 
 
+def _direct_factory(tracer, *, is_async):
+    """`.create(stream=True)`'s wrapper, not the `.stream()` manager above:
+    it wraps the raw stream directly, so `TracedStream`/`TracedAsyncStream`
+    themselves are the with-block's context manager."""
+    mod = async_mod if is_async else sync_mod
+    make = mod.async_messages if is_async else mod.messages
+    return make(
+        version="test",
+        environment="test",
+        application_name="test",
+        tracer=tracer,
+        pricing_info={},
+        capture_message_content=True,
+        metrics=None,
+        disable_metrics=True,
+    )
+
+
 class FakeRawStream:
     """Sync/async event stream shaped like anthropic's MessageStream."""
 
@@ -104,6 +123,23 @@ class FakeRawStream:
     def close(self):
         """Record that the caller closed the stream without draining it."""
         self.closed = True
+
+
+class FakeSelfManagingStream(FakeRawStream):
+    """The `create(stream=True)` object is its own context manager, unlike
+    `.stream()`'s separate manager/stream pair modeled by `FakeManager`."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
 
 
 class FakeManager:
@@ -194,3 +230,45 @@ async def test_async_full_consumption_exports_exactly_one_span():
 
     time.sleep(0.1)
     assert len(exporter.get_finished_spans()) == 1
+
+
+def test_sync_exception_through_with_block_still_ends_span():
+    """An exception raised inside the with-block never hits StopIteration
+    either, and must still end and export the span like an early break."""
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _direct_factory(tracer, is_async=False)
+
+    stream = wrapper(
+        lambda *a, **k: FakeSelfManagingStream(),
+        None,
+        (),
+        {**REQUEST_KWARGS, "stream": True},
+    )
+    with pytest.raises(RuntimeError):
+        with stream as s:
+            next(s)
+            raise RuntimeError("boom")
+
+    time.sleep(0.1)
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1, "an exception through the with-block must still end and export the span"
+
+
+async def test_async_exception_through_with_block_still_ends_span():
+    """The async twin: an exception through the async with-block must still
+    end and export the span."""
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _direct_factory(tracer, is_async=True)
+
+    async def wrapped(*_a, **_k):
+        return FakeSelfManagingStream()
+
+    stream = await wrapper(wrapped, None, (), {**REQUEST_KWARGS, "stream": True})
+    with pytest.raises(RuntimeError):
+        async with stream as s:
+            await anext(s)
+            raise RuntimeError("boom")
+
+    time.sleep(0.1)
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1, "an exception through the async with-block must still end and export the span"
