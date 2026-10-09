@@ -517,6 +517,7 @@ class SemanticConvention:
     GEN_AI_USAGE_COST = (
         "gen_ai.usage.cost"  # OpenLIT vendor extension; not OTel GenAI semconv
     )
+    GEN_AI_USAGE_COST_CURRENCY = "gen_ai.usage.cost.currency"
     GEN_AI_RESPONSE_IMAGE = "gen_ai.response.image"
     GEN_AI_TOOL_CALLS = "gen_ai.response.tool_calls"
 
