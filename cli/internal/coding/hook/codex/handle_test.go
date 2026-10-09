@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -290,6 +291,75 @@ func TestCodexTokenSnapshotFromRollout(t *testing.T) {
 	}
 	if snap.TotalUsage.InputTokens != 1500 {
 		t.Errorf("total cumulative input: got %d want 1500", snap.TotalUsage.InputTokens)
+	}
+}
+
+// TestCodexTokenSnapshotSurvivesOversizedRecord verifies that a single
+// valid-but-large JSONL record earlier in the rollout does not stop the
+// scan before the turn's `token_count` events.
+//
+// Codex stores a whole tool result in one record, so a record larger
+// than the per-line scanner ceiling used to end the scan with
+// `bufio.ErrTooLong`. `readTokenUsageForTurn` then reported ok=false and
+// the LLM-turn span was emitted with no `gen_ai.usage.*` at all — and
+// every later turn in the same rollout hit it too, because each Stop
+// hook rescans from the beginning.
+func TestCodexTokenSnapshotSurvivesOversizedRecord(t *testing.T) {
+	dir := t.TempDir()
+	rollout := filepath.Join(dir, "rollout-2026-05-oversized.jsonl")
+
+	// Larger than the old 1 MiB per-line ceiling, well under the 32 MiB
+	// transcript budget. `item_completed` is not a record type the
+	// reader interprets, so only its size matters here.
+	huge := strings.Repeat("x", 2*1024*1024)
+
+	lines := []map[string]any{
+		{"type": "session_meta", "payload": map[string]any{"id": "cdx-tok-big"}},
+		{"type": "item_completed", "payload": map[string]any{"output": huge}},
+		{"type": "turn_context", "payload": map[string]any{"turn_id": "turn-A"}},
+		{"type": "event_msg", "payload": map[string]any{
+			"type": "token_count",
+			"info": map[string]any{
+				"total_token_usage":    map[string]any{"input_tokens": 100, "output_tokens": 0, "total_tokens": 100},
+				"model_context_window": 200000,
+			},
+		}},
+		{"type": "response_item", "payload": map[string]any{"type": "message", "role": "assistant"}},
+		{"type": "event_msg", "payload": map[string]any{
+			"type": "token_count",
+			"info": map[string]any{
+				"total_token_usage": map[string]any{"input_tokens": 1500, "output_tokens": 400, "cached_input_tokens": 800, "reasoning_output_tokens": 150, "total_tokens": 1900},
+			},
+		}},
+	}
+	var buf []byte
+	for _, l := range lines {
+		b, err := json.Marshal(l)
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		buf = append(buf, b...)
+		buf = append(buf, '\n')
+	}
+	if err := os.WriteFile(rollout, buf, 0o600); err != nil {
+		t.Fatalf("write rollout: %v", err)
+	}
+
+	snap, ok := readTokenUsageForTurn(rollout, "turn-A")
+	if !ok {
+		t.Fatalf("expected token snapshot past the oversized record, got none")
+	}
+	if snap.TurnUsage.InputTokens != 1400 {
+		t.Errorf("input_tokens: got %d want 1400", snap.TurnUsage.InputTokens)
+	}
+	if snap.TurnUsage.OutputTokens != 400 {
+		t.Errorf("output_tokens: got %d want 400", snap.TurnUsage.OutputTokens)
+	}
+	if snap.TurnUsage.CachedInputTokens != 800 {
+		t.Errorf("cached_input_tokens: got %d want 800", snap.TurnUsage.CachedInputTokens)
+	}
+	if snap.TurnUsage.ReasoningOutputTokens != 150 {
+		t.Errorf("reasoning_output_tokens: got %d want 150", snap.TurnUsage.ReasoningOutputTokens)
 	}
 }
 
