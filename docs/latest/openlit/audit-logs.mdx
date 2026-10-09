@@ -26,6 +26,10 @@ Viewing audit logs needs the `audit_logs:read` permission. **Owner** and **Admin
 
 ## Browse audit logs
 
+<Frame>
+  <img src="/images/enterprise/audit-logs.png" alt="Audit Logs page with an hourly volume chart and a list of recent events" />
+</Frame>
+
 The page shows:
 
 - **Recent volume**: a bar chart of events per hour for the entries on the current page.
@@ -51,6 +55,10 @@ Each list shows values found in the selected time range. Select **Apply filters*
 ### Event details
 
 Select an event to open its details. The panel shows the target, the actor, project, and database config by name where possible, the time, and a **Metadata** section with everything captured for the event: the request path and parameters, the request and response bodies, the status, the client user agent, and IP address.
+
+<Frame>
+  <img src="/images/enterprise/audit-log-detail.png" alt="Audit event detail for a member role change, with the actor, project, and metadata" />
+</Frame>
 
 <Note>
 Sensitive values are redacted before they're stored. Any field whose name looks like a password, secret, token, API key, license key, authorization header, cookie, session, or secret value is saved as `[REDACTED]`.
