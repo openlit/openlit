@@ -131,6 +131,19 @@ def chat_completions(
             except StopIteration:
                 self._finalize_streaming_span()
                 raise
+            except BaseException as e:
+                # A read error or Ctrl-C mid-stream never reaches
+                # StopIteration; end the span with the error instead of leaking it.
+                self._fail_streaming_span(e)
+                raise
+
+        def _fail_streaming_span(self, error):
+            """End the span once with ERROR when reading the stream raises."""
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            handle_exception(self._span, error)
+            self._span.end()
 
     def wrapper(wrapped, instance, args, kwargs):
         """
@@ -377,6 +390,19 @@ def responses(
             except StopIteration:
                 self._finalize_streaming_span()
                 raise
+            except BaseException as e:
+                # A read error or Ctrl-C mid-stream never reaches
+                # StopIteration; end the span with the error instead of leaking it.
+                self._fail_streaming_span(e)
+                raise
+
+        def _fail_streaming_span(self, error):
+            """End the span once with ERROR when reading the stream raises."""
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            handle_exception(self._span, error)
+            self._span.end()
 
     def wrapper(wrapped, instance, args, kwargs):
         """
