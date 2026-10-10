@@ -919,7 +919,7 @@ def process_response_chunk(scope, chunk):
             else None
         )
 
-        usage = response_data.get("usage", {})
+        usage = response_data.get("usage") or {}
         scope._input_tokens = usage.get("input_tokens", 0)
         scope._output_tokens = usage.get("output_tokens", 0)
 
@@ -1402,7 +1402,7 @@ def process_response_response(
     scope._response_model = response_dict.get("model", "")
 
     # Handle token usage including reasoning tokens and cached tokens
-    usage = response_dict.get("usage", {})
+    usage = response_dict.get("usage") or {}
     scope._input_tokens = usage.get("input_tokens", 0)
     scope._output_tokens = usage.get("output_tokens", 0)
 
@@ -1862,20 +1862,19 @@ def process_chat_response(
         scope._reasoning_content = reasoning_content
     scope._response_id = response_dict.get("id", "")
     scope._response_model = response_dict.get("model", "")
-    scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
-    scope._output_tokens = response_dict.get("usage", {}).get("completion_tokens", 0)
+    usage = response_dict.get("usage") or {}
+    scope._input_tokens = usage.get("prompt_tokens", 0)
+    scope._output_tokens = usage.get("completion_tokens", 0)
 
     # OpenAI chat completions report reasoning tokens under
     # usage.completion_tokens_details.reasoning_tokens (o1/o3 family). These are
     # a subset of completion_tokens, which already includes them.
     scope._reasoning_tokens = extract_reasoning_tokens(
-        response_dict.get("usage", {}), "completion_tokens_details"
+        usage, "completion_tokens_details"
     )
 
     # Extract cache tokens (OpenAI prompt caching)
-    prompt_tokens_details = (
-        response_dict.get("usage", {}).get("prompt_tokens_details", {}) or {}
-    )
+    prompt_tokens_details = usage.get("prompt_tokens_details", {}) or {}
     if not isinstance(prompt_tokens_details, dict):
         prompt_tokens_details = {}
     scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0) or 0
@@ -2416,7 +2415,8 @@ def process_embedding_response(
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
-    scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
+    usage = response_dict.get("usage") or {}
+    scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
