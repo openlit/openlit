@@ -668,20 +668,24 @@ def common_chat_logic(
             _join_tool_field(ids),
         )
         joined_args = _join_tool_field(args)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, joined_args)
-        # OTel GenAI attribute for tool-call parameters (JSON string on spans).
-        if len(calls) == 1:
-            scope._span.set_attribute(
-                SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
-                args[0] if args else "{}",
-            )
-        elif calls:
-            scope._span.set_attribute(
-                SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
-                json.dumps(
-                    [_normalize_tool_arguments(c.get("input", {})) for c in calls]
-                ),
-            )
+        # Tool arguments are model output and can carry user data, so they are
+        # only recorded when content capture is on (#1706). Tool names and
+        # call ids above are not content and always stay.
+        if capture_message_content:
+            scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, joined_args)
+            # OTel GenAI attribute for tool-call parameters (JSON string on spans).
+            if len(calls) == 1:
+                scope._span.set_attribute(
+                    SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+                    args[0] if args else "{}",
+                )
+            elif calls:
+                scope._span.set_attribute(
+                    SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+                    json.dumps(
+                        [_normalize_tool_arguments(c.get("input", {})) for c in calls]
+                    ),
+                )
 
     # Span Attributes for Cost and Tokens
     scope._span.set_attribute(
