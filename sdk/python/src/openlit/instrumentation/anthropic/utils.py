@@ -26,6 +26,14 @@ from openlit._config import OpenlitConfig
 logger = logging.getLogger(__name__)
 
 
+def _given(kwargs, key):
+    """Return a request parameter only when the caller actually set it."""
+    value = kwargs.get(key)
+    if value is None or value.__class__.__name__ in ("NotGiven", "Omit"):
+        return None
+    return value
+
+
 def format_content(messages):
     """
     Format the messages into a string for span events.
@@ -620,8 +628,8 @@ def common_chat_logic(
         (SemanticConvention.GEN_AI_REQUEST_TOP_K, "top_k"),
         (SemanticConvention.GEN_AI_REQUEST_TOP_P, "top_p"),
     ):
-        value = scope._kwargs.get(key)
-        if value is not None and value.__class__.__name__ not in ("NotGiven", "Omit"):
+        value = _given(scope._kwargs, key)
+        if value is not None:
             scope._span.set_attribute(attr, value)
 
     # Span Attributes for Response parameters
@@ -713,9 +721,9 @@ def common_chat_logic(
         tool_definitions=tool_defs,
         primary_model=scope._response_model or request_model,
         runtime_config={
-            "temperature": scope._kwargs.get("temperature"),
-            "top_p": scope._kwargs.get("top_p"),
-            "max_tokens": scope._kwargs.get("max_tokens"),
+            "temperature": _given(scope._kwargs, "temperature"),
+            "top_p": _given(scope._kwargs, "top_p"),
+            "max_tokens": _given(scope._kwargs, "max_tokens"),
             "provider": SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC,
         },
         providers=[SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC],
@@ -751,11 +759,11 @@ def common_chat_logic(
                 "response_id": scope._response_id,
                 "finish_reasons": [scope._finish_reason],
                 "output_type": output_type,
-                "temperature": scope._kwargs.get("temperature"),
-                "max_tokens": scope._kwargs.get("max_tokens"),
-                "top_p": scope._kwargs.get("top_p"),
-                "top_k": scope._kwargs.get("top_k"),
-                "stop_sequences": scope._kwargs.get("stop_sequences"),
+                "temperature": _given(scope._kwargs, "temperature"),
+                "max_tokens": _given(scope._kwargs, "max_tokens"),
+                "top_p": _given(scope._kwargs, "top_p"),
+                "top_k": _given(scope._kwargs, "top_k"),
+                "stop_sequences": _given(scope._kwargs, "stop_sequences"),
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
                 "cache_read_input_tokens": getattr(

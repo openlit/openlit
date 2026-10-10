@@ -1154,9 +1154,9 @@ def common_response_logic(
         tool_definitions=responses_tool_defs,
         primary_model=scope._response_model or request_model,
         runtime_config={
-            "temperature": handle_not_given(scope._kwargs.get("temperature"), 1.0),
-            "top_p": handle_not_given(scope._kwargs.get("top_p"), 1.0),
-            "max_tokens": handle_not_given(scope._kwargs.get("max_output_tokens"), -1),
+            "temperature": handle_not_given(scope._kwargs.get("temperature")),
+            "top_p": handle_not_given(scope._kwargs.get("top_p")),
+            "max_tokens": handle_not_given(scope._kwargs.get("max_output_tokens")),
             "provider": SemanticConvention.GEN_AI_SYSTEM_OPENAI,
         },
         providers=[SemanticConvention.GEN_AI_SYSTEM_OPENAI],
@@ -1668,8 +1668,8 @@ def common_chat_logic(
         tool_definitions=tool_defs,
         primary_model=scope._response_model or request_model,
         runtime_config={
-            "temperature": handle_not_given(scope._kwargs.get("temperature"), 1.0),
-            "top_p": handle_not_given(scope._kwargs.get("top_p"), 1.0),
+            "temperature": handle_not_given(scope._kwargs.get("temperature")),
+            "top_p": handle_not_given(scope._kwargs.get("top_p")),
             "max_tokens": handle_not_given(scope._kwargs.get("max_tokens")),
             "provider": SemanticConvention.GEN_AI_SYSTEM_OPENAI,
         },
@@ -1959,10 +1959,11 @@ def common_embedding_logic(
     )
 
     # Span Attributes for Request parameters
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS,
-        [handle_not_given(scope._kwargs.get("encoding_format"), "float")],
-    )
+    encoding_format = handle_not_given(scope._kwargs.get("encoding_format"))
+    if encoding_format is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [encoding_format]
+        )
     request_user = handle_not_given(scope._kwargs.get("user"))
     if request_user is not None:
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, request_user)
@@ -2085,14 +2086,16 @@ def common_image_logic(
     )
 
     # Span Attributes for Request parameters
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE,
-        handle_not_given(scope._kwargs.get("size"), "1024x1024"),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY,
-        handle_not_given(scope._kwargs.get("quality"), "standard"),
-    )
+    image_size = handle_not_given(scope._kwargs.get("size"))
+    if image_size is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE, image_size
+        )
+    image_quality = handle_not_given(scope._kwargs.get("quality"))
+    if image_quality is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY, image_quality
+        )
     request_user = handle_not_given(scope._kwargs.get("user"))
     if request_user is not None:
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, request_user)

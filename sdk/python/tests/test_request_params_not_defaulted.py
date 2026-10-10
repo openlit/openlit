@@ -219,3 +219,88 @@ def test_openai_chat_explicit_empty_user_and_stop_are_recorded():
     attrs = _openai_chat_attrs({"user": "", "stop": []})
     assert attrs[SemanticConvention.GEN_AI_REQUEST_USER] == ""
     assert tuple(attrs[SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES]) == ()
+
+
+def _embedding_attrs(kwargs):
+    tracer, exporter = _tracer_and_exporter()
+    with tracer.start_as_current_span("embeddings text-embedding-3-small") as span:
+        openai_utils.process_embedding_response(
+            {"data": [{"embedding": [0.1, 0.2]}], "usage": {"prompt_tokens": 2}},
+            request_model="text-embedding-3-small",
+            server_port=443,
+            server_address="api.openai.com",
+            start_time=time.time(),
+            span=span,
+            **_common(),
+            **kwargs,
+        )
+    return exporter.get_finished_spans()[0].attributes
+
+
+def _image_attrs(kwargs):
+    tracer, exporter = _tracer_and_exporter()
+    with tracer.start_as_current_span("image dall-e-3") as span:
+        openai_utils.process_image_response(
+            {"data": [{"url": "http://x/y.png"}], "created": 1},
+            request_model="dall-e-3",
+            server_port=443,
+            server_address="api.openai.com",
+            start_time=time.time(),
+            end_time=time.time(),
+            span=span,
+            **_common(),
+            **kwargs,
+        )
+    return exporter.get_finished_spans()[0].attributes
+
+
+def test_openai_embedding_unset_params_are_not_recorded():
+    attrs = _embedding_attrs({"input": "hi"})
+    assert SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS not in attrs
+    assert SemanticConvention.GEN_AI_REQUEST_USER not in attrs
+
+
+def test_openai_embedding_explicit_params_are_recorded():
+    attrs = _embedding_attrs(
+        {"input": "hi", "encoding_format": "base64", "user": ""}
+    )
+    assert tuple(attrs[SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS]) == (
+        "base64",
+    )
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_USER] == ""
+
+
+def test_openai_image_unset_params_are_not_recorded():
+    attrs = _image_attrs({"prompt": "a cat"})
+    assert SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE not in attrs
+    assert SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY not in attrs
+    assert SemanticConvention.GEN_AI_REQUEST_USER not in attrs
+
+
+def test_openai_image_explicit_params_are_recorded():
+    attrs = _image_attrs({"prompt": "a cat", "size": "512x512", "quality": "hd"})
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE] == "512x512"
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY] == "hd"
+
+
+def _hash(attrs):
+    return attrs["openlit.agent.version_hash"]
+
+
+def test_openai_version_hash_ignores_unset_but_tracks_explicit_params():
+    unset = _openai_chat_attrs({})
+    sentinel = _openai_chat_attrs(
+        {"temperature": _NotGiven(), "top_p": _NotGiven(), "max_tokens": _NotGiven()}
+    )
+    explicit = _openai_chat_attrs({"temperature": 1.0, "top_p": 1.0})
+    assert _hash(unset) == _hash(sentinel)
+    assert _hash(unset) != _hash(explicit)
+
+
+def test_anthropic_sentinels_are_dropped_from_events_and_hash():
+    assert anthropic_utils._given({"top_k": _NotGiven()}, "top_k") is None
+    assert anthropic_utils._given({"top_k": None}, "top_k") is None
+    assert anthropic_utils._given({"top_k": 0}, "top_k") == 0
+    assert _hash(_anthropic_attrs({"max_tokens": 5})) == _hash(
+        _anthropic_attrs({"max_tokens": 5, "temperature": _NotGiven()})
+    )
