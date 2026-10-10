@@ -611,24 +611,18 @@ def common_chat_logic(
     )
 
     # Span Attributes for Request parameters
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
-        scope._kwargs.get("max_tokens", -1),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
-        scope._kwargs.get("stop_sequences", []),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
-        scope._kwargs.get("temperature", 1.0),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TOP_K, scope._kwargs.get("top_k", 1.0)
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TOP_P, scope._kwargs.get("top_p", 1.0)
-    )
+    # Only record parameters the caller actually set; the provider applies its
+    # own defaults, so inventing one here would misreport the request.
+    for attr, key in (
+        (SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, "max_tokens"),
+        (SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, "stop_sequences"),
+        (SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, "temperature"),
+        (SemanticConvention.GEN_AI_REQUEST_TOP_K, "top_k"),
+        (SemanticConvention.GEN_AI_REQUEST_TOP_P, "top_p"),
+    ):
+        value = scope._kwargs.get(key)
+        if value is not None and value.__class__.__name__ not in ("NotGiven", "Omit"):
+            scope._span.set_attribute(attr, value)
 
     # Span Attributes for Response parameters
     if scope._response_id:
