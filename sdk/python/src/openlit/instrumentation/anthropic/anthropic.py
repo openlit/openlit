@@ -74,6 +74,7 @@ def messages(
             self._server_port = server_port
             self._event_provider = event_provider
             self._streaming_response_processed = False
+            self._streaming_failed = False
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -110,14 +111,10 @@ def messages(
                 raise
 
         def _fail_streaming_span(self, error):
-            """End the span once with ERROR when reading the stream raises."""
-            if self._streaming_response_processed:
-                return
-            self._streaming_response_processed = True
-            handle_exception(self._span, error)
-            self._span.end()
+            """Finalize received telemetry without clearing the read error."""
+            self._finalize_streaming_span(error)
 
-        def _finalize_streaming_span(self):
+        def _finalize_streaming_span(self, error=None):
             """Complete and end the span exactly once.
 
             Called on stream exhaustion and again from close()/manager exit;
@@ -127,8 +124,11 @@ def messages(
             if self._streaming_response_processed:
                 return
             self._streaming_response_processed = True
+            self._streaming_failed = error is not None
             try:
                 with self._span:
+                    if error is not None:
+                        handle_exception(self._span, error)
                     process_streaming_chat_response(
                         self,
                         pricing_info=pricing_info,
@@ -141,7 +141,8 @@ def messages(
                         event_provider=self._event_provider,
                     )
             except Exception as e:
-                handle_exception(self._span, e)
+                if error is None:
+                    handle_exception(self._span, e)
 
         def close(self):
             """Close the wrapped stream and finalize the span if not ended."""
