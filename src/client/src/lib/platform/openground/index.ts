@@ -1,5 +1,6 @@
 import asaw from "@/utils/asaw";
 import OpenAIProvider from "./providers/openai";
+import AtlasCloudProvider from "./providers/atlascloud";
 import AnthropicProvider from "./providers/anthropic";
 import CohereProvider from "./providers/cohere";
 import MistralProvider from "./providers/mistral";
@@ -63,6 +64,8 @@ export async function evaluate(params: evaluateParams) {
 			switch (provider) {
 				case "openai":
 					return asaw(OpenAIProvider.evaluate(objectParams));
+				case "atlascloud":
+					return asaw(AtlasCloudProvider.evaluate(objectParams));
 				case "anthropic":
 					return asaw(AnthropicProvider.evaluate(objectParams));
 				case "cohere":

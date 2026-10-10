@@ -89,7 +89,7 @@ export interface CustomModelInput {
 
 // ==================== Store Types ====================
 
-export type Providers = "anthropic" | "cohere" | "mistral" | "openai" | "google";
+export type Providers = "anthropic" | "atlascloud" | "cohere" | "mistral" | "openai" | "google";
 
 export type ProviderType = {
 	key: Providers;
