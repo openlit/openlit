@@ -213,3 +213,9 @@ def test_anthropic_explicit_params_are_recorded():
     assert attrs[SemanticConvention.GEN_AI_REQUEST_TOP_P] == 0.8
     assert attrs[SemanticConvention.GEN_AI_REQUEST_TOP_K] == 5
     assert tuple(attrs[SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES]) == ("END",)
+
+
+def test_openai_chat_explicit_empty_user_and_stop_are_recorded():
+    attrs = _openai_chat_attrs({"user": "", "stop": []})
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_USER] == ""
+    assert tuple(attrs[SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES]) == ()

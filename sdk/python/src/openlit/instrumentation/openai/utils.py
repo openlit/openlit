@@ -1541,7 +1541,7 @@ def common_chat_logic(
             SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, presence_penalty
         )
     stop_sequences = handle_not_given(scope._kwargs.get("stop"))
-    if stop_sequences:
+    if stop_sequences is not None:
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
             stop_sequences,
@@ -1555,7 +1555,7 @@ def common_chat_logic(
     if top_p is not None:
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p)
     request_user = handle_not_given(scope._kwargs.get("user"))
-    if request_user:
+    if request_user is not None:
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, request_user)
 
     # Span Attributes for Response parameters
@@ -1964,7 +1964,7 @@ def common_embedding_logic(
         [handle_not_given(scope._kwargs.get("encoding_format"), "float")],
     )
     request_user = handle_not_given(scope._kwargs.get("user"))
-    if request_user:
+    if request_user is not None:
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, request_user)
     # gen_ai.embeddings.dimension.count (from request or response when available)
     dim_count = handle_not_given(scope._kwargs.get("dimensions"))
@@ -2094,7 +2094,7 @@ def common_image_logic(
         handle_not_given(scope._kwargs.get("quality"), "standard"),
     )
     request_user = handle_not_given(scope._kwargs.get("user"))
-    if request_user:
+    if request_user is not None:
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, request_user)
 
     # Extract response data
