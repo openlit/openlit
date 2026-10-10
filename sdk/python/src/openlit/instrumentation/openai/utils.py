@@ -1010,18 +1010,16 @@ def common_response_logic(
     )
 
     # Span Attributes for Request parameters specific to responses API
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
-        handle_not_given(scope._kwargs.get("temperature"), 1.0),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TOP_P,
-        handle_not_given(scope._kwargs.get("top_p"), 1.0),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
-        handle_not_given(scope._kwargs.get("max_output_tokens"), -1),
-    )
+    # Only record parameters the caller actually set; the provider applies its
+    # own defaults, so inventing one here would misreport the request.
+    for attr, key in (
+        (SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, "temperature"),
+        (SemanticConvention.GEN_AI_REQUEST_TOP_P, "top_p"),
+        (SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, "max_output_tokens"),
+    ):
+        value = handle_not_given(scope._kwargs.get(key))
+        if value is not None:
+            scope._span.set_attribute(attr, value)
 
     # Reasoning parameters
     reasoning = scope._kwargs.get("reasoning", {})
@@ -1156,9 +1154,9 @@ def common_response_logic(
         tool_definitions=responses_tool_defs,
         primary_model=scope._response_model or request_model,
         runtime_config={
-            "temperature": handle_not_given(scope._kwargs.get("temperature"), 1.0),
-            "top_p": handle_not_given(scope._kwargs.get("top_p"), 1.0),
-            "max_tokens": handle_not_given(scope._kwargs.get("max_output_tokens"), -1),
+            "temperature": handle_not_given(scope._kwargs.get("temperature")),
+            "top_p": handle_not_given(scope._kwargs.get("top_p")),
+            "max_tokens": handle_not_given(scope._kwargs.get("max_output_tokens")),
             "provider": SemanticConvention.GEN_AI_SYSTEM_OPENAI,
         },
         providers=[SemanticConvention.GEN_AI_SYSTEM_OPENAI],
@@ -1199,11 +1197,9 @@ def common_response_logic(
                 "response_id": scope._response_id,
                 "finish_reasons": [scope._finish_reason],
                 "output_type": "text",
-                "temperature": handle_not_given(scope._kwargs.get("temperature"), 1.0),
-                "max_tokens": handle_not_given(
-                    scope._kwargs.get("max_output_tokens"), -1
-                ),
-                "top_p": handle_not_given(scope._kwargs.get("top_p"), 1.0),
+                "temperature": handle_not_given(scope._kwargs.get("temperature")),
+                "max_tokens": handle_not_given(scope._kwargs.get("max_output_tokens")),
+                "top_p": handle_not_given(scope._kwargs.get("top_p")),
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
                 "cache_read_input_tokens": getattr(
@@ -1521,43 +1517,46 @@ def common_chat_logic(
     )
 
     # Span Attributes for Request parameters
+    # Only record parameters the caller actually set; the provider applies its
+    # own defaults, so inventing one here would misreport the request.
     seed_value = handle_not_given(scope._kwargs.get("seed"))
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_SEED,
-        int(seed_value) if seed_value else 0,
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-        handle_not_given(scope._kwargs.get("frequency_penalty"), 0.0),
-    )
+    if seed_value is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_SEED, int(seed_value)
+        )
+    frequency_penalty = handle_not_given(scope._kwargs.get("frequency_penalty"))
+    if frequency_penalty is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, frequency_penalty
+        )
     max_tokens = handle_not_given(scope._kwargs.get("max_tokens"))
     if max_tokens is not None:
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
             max_tokens,
         )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
-        handle_not_given(scope._kwargs.get("presence_penalty"), 0.0),
-    )
+    presence_penalty = handle_not_given(scope._kwargs.get("presence_penalty"))
+    if presence_penalty is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, presence_penalty
+        )
     stop_sequences = handle_not_given(scope._kwargs.get("stop"))
-    if stop_sequences:
+    if stop_sequences is not None:
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
             stop_sequences,
         )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
-        handle_not_given(scope._kwargs.get("temperature"), 1.0),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_TOP_P,
-        handle_not_given(scope._kwargs.get("top_p"), 1.0),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_USER,
-        handle_not_given(scope._kwargs.get("user"), ""),
-    )
+    temperature = handle_not_given(scope._kwargs.get("temperature"))
+    if temperature is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature
+        )
+    top_p = handle_not_given(scope._kwargs.get("top_p"))
+    if top_p is not None:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p)
+    request_user = handle_not_given(scope._kwargs.get("user"))
+    if request_user is not None:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, request_user)
 
     # Span Attributes for Response parameters
     if scope._response_id:
@@ -1669,8 +1668,8 @@ def common_chat_logic(
         tool_definitions=tool_defs,
         primary_model=scope._response_model or request_model,
         runtime_config={
-            "temperature": handle_not_given(scope._kwargs.get("temperature"), 1.0),
-            "top_p": handle_not_given(scope._kwargs.get("top_p"), 1.0),
+            "temperature": handle_not_given(scope._kwargs.get("temperature")),
+            "top_p": handle_not_given(scope._kwargs.get("top_p")),
             "max_tokens": handle_not_given(scope._kwargs.get("max_tokens")),
             "provider": SemanticConvention.GEN_AI_SYSTEM_OPENAI,
         },
@@ -1720,18 +1719,18 @@ def common_chat_logic(
                 "output_type": "text"
                 if isinstance(scope._llmresponse, str)
                 else "json",
-                "temperature": handle_not_given(scope._kwargs.get("temperature"), 1.0),
+                "temperature": handle_not_given(scope._kwargs.get("temperature")),
                 "max_tokens": handle_not_given(scope._kwargs.get("max_tokens")),
-                "top_p": handle_not_given(scope._kwargs.get("top_p"), 1.0),
+                "top_p": handle_not_given(scope._kwargs.get("top_p")),
                 "frequency_penalty": handle_not_given(
-                    scope._kwargs.get("frequency_penalty"), 0.0
+                    scope._kwargs.get("frequency_penalty")
                 ),
                 "presence_penalty": handle_not_given(
-                    scope._kwargs.get("presence_penalty"), 0.0
+                    scope._kwargs.get("presence_penalty")
                 ),
                 "stop_sequences": handle_not_given(scope._kwargs.get("stop")),
-                "seed": int(handle_not_given(scope._kwargs.get("seed"), 0))
-                if handle_not_given(scope._kwargs.get("seed"))
+                "seed": int(handle_not_given(scope._kwargs.get("seed")))
+                if handle_not_given(scope._kwargs.get("seed")) is not None
                 else None,
                 "choice_count": scope._kwargs.get("n", 1),
                 "input_tokens": input_tokens,
@@ -1960,14 +1959,14 @@ def common_embedding_logic(
     )
 
     # Span Attributes for Request parameters
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS,
-        [handle_not_given(scope._kwargs.get("encoding_format"), "float")],
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_USER,
-        handle_not_given(scope._kwargs.get("user"), ""),
-    )
+    encoding_format = handle_not_given(scope._kwargs.get("encoding_format"))
+    if encoding_format is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [encoding_format]
+        )
+    request_user = handle_not_given(scope._kwargs.get("user"))
+    if request_user is not None:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, request_user)
     # gen_ai.embeddings.dimension.count (from request or response when available)
     dim_count = handle_not_given(scope._kwargs.get("dimensions"))
     if dim_count is None and getattr(scope, "_embedding_dimension", None) is not None:
@@ -2087,18 +2086,19 @@ def common_image_logic(
     )
 
     # Span Attributes for Request parameters
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE,
-        handle_not_given(scope._kwargs.get("size"), "1024x1024"),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY,
-        handle_not_given(scope._kwargs.get("quality"), "standard"),
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_REQUEST_USER,
-        handle_not_given(scope._kwargs.get("user"), ""),
-    )
+    image_size = handle_not_given(scope._kwargs.get("size"))
+    if image_size is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE, image_size
+        )
+    image_quality = handle_not_given(scope._kwargs.get("quality"))
+    if image_quality is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY, image_quality
+        )
+    request_user = handle_not_given(scope._kwargs.get("user"))
+    if request_user is not None:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, request_user)
 
     # Extract response data
     response_dict = scope._response_dict
