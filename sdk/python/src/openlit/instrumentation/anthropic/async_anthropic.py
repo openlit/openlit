@@ -17,6 +17,7 @@ from openlit.instrumentation.anthropic.utils import (
     process_chunk,
     process_chat_response,
     process_streaming_chat_response,
+    set_anthropic_request_span_attributes,
 )
 from openlit.semcov import SemanticConvention
 
@@ -168,9 +169,46 @@ def async_messages(
             )
 
         else:
-            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            with tracer.start_as_current_span(
+                span_name, kind=SpanKind.CLIENT, record_exception=False
+            ) as span:
                 start_time = time.time()
-                response = await wrapped(*args, **kwargs)
+                set_anthropic_request_span_attributes(
+                    span,
+                    server_address,
+                    server_port,
+                    request_model,
+                    environment,
+                    application_name,
+                    False,
+                    version,
+                    kwargs,
+                )
+                try:
+                    response = await wrapped(*args, **kwargs)
+                except Exception as e:
+                    handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC,
+                            server_address,
+                            server_port,
+                            request_model,
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
+                    raise
 
                 try:
                     response = process_chat_response(

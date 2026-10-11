@@ -10,7 +10,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from openlit.instrumentation.openai.async_openai import async_chat_completions
-from openlit.instrumentation.openai.openai import chat_completions
+from openlit.instrumentation.openai.openai import chat_completions, responses
 from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
 
@@ -32,6 +32,11 @@ def _chat_kwargs(stream=False):
         "model": "ministral-3:3b",
         "messages": [{"role": "user", "content": "ping"}],
         "stream": stream,
+        "temperature": 0.3,
+        "top_p": 0.8,
+        "max_tokens": 64,
+        "seed": 7,
+        "stop": ["END"],
     }
 
 
@@ -54,6 +59,19 @@ def _assert_failed_chat_span(span, *, is_stream=False):
     assert attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "ministral-3:3b"
     assert attrs[SemanticConvention.GEN_AI_REQUEST_IS_STREAM] is is_stream
     assert attrs[SemanticConvention.ERROR_TYPE] == "APITimeoutError"
+
+    if not is_stream:
+        assert attrs[SemanticConvention.GEN_AI_REQUEST_TEMPERATURE] == 0.3
+        assert attrs[SemanticConvention.GEN_AI_REQUEST_TOP_P] == 0.8
+        assert attrs[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] == 64
+        assert attrs[SemanticConvention.GEN_AI_REQUEST_SEED] == 7
+        assert tuple(attrs[SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES]) == (
+            "END",
+        )
+        assert SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY not in attrs
+        assert SemanticConvention.GEN_AI_REQUEST_USER not in attrs
+
+    assert sum(event.name == "exception" for event in span.events) == 1
 
 
 def test_sync_chat_completion_error_keeps_request_span_attributes():
@@ -160,3 +178,46 @@ async def test_async_streaming_chat_completion_error_keeps_request_span_attribut
     spans = exporter.get_finished_spans()
     assert len(spans) == 1
     _assert_failed_chat_span(spans[0], is_stream=True)
+
+
+def test_sync_responses_error_keeps_request_params():
+    """Verify sync Responses API errors keep the request parameters."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = responses(
+        version="test-version",
+        environment="test-env",
+        application_name="test-app",
+        tracer=tracer,
+        pricing_info={},
+        capture_message_content=False,
+        metrics=None,
+        disable_metrics=True,
+    )
+
+    def raise_timeout(*_args, **_kwargs):
+        raise _openai_timeout_error()
+
+    with pytest.raises(APITimeoutError):
+        wrapper(
+            raise_timeout,
+            _openai_instance(),
+            [],
+            {
+                "model": "ministral-3:3b",
+                "input": "ping",
+                "temperature": 0.3,
+                "top_p": 0.8,
+                "max_output_tokens": 64,
+            },
+        )
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    attrs = spans[0].attributes
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "ministral-3:3b"
+    assert attrs[SemanticConvention.ERROR_TYPE] == "APITimeoutError"
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_TEMPERATURE] == 0.3
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_TOP_P] == 0.8
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] == 64
+    assert sum(event.name == "exception" for event in spans[0].events) == 1

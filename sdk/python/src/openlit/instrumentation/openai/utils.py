@@ -96,6 +96,47 @@ def handle_not_given(value, default=None):
     return value
 
 
+def set_openai_request_params(span, kwargs):
+    """
+    Set the request parameters the caller sent, so a failed call keeps them.
+
+    Provider defaults are not written: they are not facts about the request.
+    """
+
+    max_tokens = handle_not_given(kwargs.get("max_tokens"))
+    if max_tokens is None:
+        max_tokens = handle_not_given(kwargs.get("max_output_tokens"))
+
+    seed = handle_not_given(kwargs.get("seed"))
+    if seed is not None:
+        try:
+            seed = int(seed)
+        except (TypeError, ValueError):
+            seed = None
+
+    stop = handle_not_given(kwargs.get("stop"))
+
+    attributes = {
+        SemanticConvention.GEN_AI_REQUEST_SEED: seed,
+        SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS: max_tokens,
+        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES: stop,
+        SemanticConvention.GEN_AI_REQUEST_TEMPERATURE: handle_not_given(
+            kwargs.get("temperature")
+        ),
+        SemanticConvention.GEN_AI_REQUEST_TOP_P: handle_not_given(kwargs.get("top_p")),
+        SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY: handle_not_given(
+            kwargs.get("frequency_penalty")
+        ),
+        SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY: handle_not_given(
+            kwargs.get("presence_penalty")
+        ),
+        SemanticConvention.GEN_AI_REQUEST_USER: handle_not_given(kwargs.get("user")),
+    }
+    for key, value in attributes.items():
+        if value is not None:
+            span.set_attribute(key, value)
+
+
 def extract_reasoning_content(payload):
     """Return OpenAI-compatible reasoning text from a message or delta payload."""
     if not isinstance(payload, dict):

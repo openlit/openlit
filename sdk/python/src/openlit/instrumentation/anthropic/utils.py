@@ -6,9 +6,15 @@ import json
 import logging
 import time
 
+from opentelemetry.sdk.resources import (
+    DEPLOYMENT_ENVIRONMENT,
+    SERVICE_NAME,
+    TELEMETRY_SDK_NAME,
+)
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    _apply_custom_span_attributes,
     apply_agent_version_attributes,
     calculate_ttft,
     response_as_dict,
@@ -24,6 +30,59 @@ from openlit.semcov import SemanticConvention
 from openlit._config import OpenlitConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _given(kwargs, key):
+    """Return a request parameter only when the caller actually set it."""
+    value = kwargs.get(key)
+    if value is None or value.__class__.__name__ in ("NotGiven", "Omit"):
+        return None
+    return value
+
+
+def set_anthropic_request_span_attributes(
+    span,
+    server_address,
+    server_port,
+    request_model,
+    environment,
+    application_name,
+    is_stream,
+    version,
+    kwargs,
+):
+    """
+    Set Anthropic request attributes that are known before the provider returns.
+
+    Request parameters are written only when the caller sent them; provider
+    defaults are not facts about the request.
+    """
+
+    attributes = {
+        TELEMETRY_SDK_NAME: "openlit",
+        SemanticConvention.GEN_AI_OPERATION: SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        SemanticConvention.GEN_AI_PROVIDER_NAME: SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC,
+        SemanticConvention.SERVER_ADDRESS: server_address,
+        SemanticConvention.SERVER_PORT: server_port,
+        DEPLOYMENT_ENVIRONMENT: environment,
+        SERVICE_NAME: application_name,
+        SemanticConvention.GEN_AI_REQUEST_IS_STREAM: is_stream,
+        SemanticConvention.GEN_AI_SDK_VERSION: version,
+        SemanticConvention.GEN_AI_REQUEST_MODEL: request_model or None,
+        SemanticConvention.GEN_AI_REQUEST_TEMPERATURE: _given(kwargs, "temperature"),
+        SemanticConvention.GEN_AI_REQUEST_TOP_P: _given(kwargs, "top_p"),
+        SemanticConvention.GEN_AI_REQUEST_TOP_K: _given(kwargs, "top_k"),
+        SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS: _given(kwargs, "max_tokens"),
+        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES: _given(
+            kwargs, "stop_sequences"
+        ),
+    }
+
+    for key, value in attributes.items():
+        if value is not None:
+            span.set_attribute(key, value)
+
+    _apply_custom_span_attributes(span)
 
 
 def format_content(messages):
