@@ -106,6 +106,8 @@ def set_openai_request_params(span, kwargs):
     max_tokens = handle_not_given(kwargs.get("max_tokens"))
     if max_tokens is None:
         max_tokens = handle_not_given(kwargs.get("max_output_tokens"))
+    if max_tokens is None:
+        max_tokens = handle_not_given(kwargs.get("max_completion_tokens"))
 
     seed = handle_not_given(kwargs.get("seed"))
     if seed is not None:
@@ -132,6 +134,25 @@ def set_openai_request_params(span, kwargs):
         ),
         SemanticConvention.GEN_AI_REQUEST_USER: handle_not_given(kwargs.get("user")),
     }
+
+    # Match successful spans: skip the provider defaults ("auto", n=1).
+    req_tier = handle_not_given(kwargs.get("service_tier"))
+    if req_tier and str(req_tier) != "auto":
+        attributes[SemanticConvention.OPENAI_REQUEST_SERVICE_TIER] = str(req_tier)
+
+    n_choices = handle_not_given(kwargs.get("n"))
+    if n_choices is not None and n_choices != 1:
+        try:
+            attributes[SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT] = int(n_choices)
+        except (TypeError, ValueError):
+            pass
+
+    reasoning = handle_not_given(kwargs.get("reasoning"))
+    if isinstance(reasoning, dict):
+        effort = reasoning.get("effort")
+        if effort:
+            attributes[SemanticConvention.GEN_AI_REQUEST_REASONING_EFFORT] = effort
+
     for key, value in attributes.items():
         if value is not None:
             span.set_attribute(key, value)

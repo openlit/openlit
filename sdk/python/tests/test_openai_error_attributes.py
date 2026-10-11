@@ -70,6 +70,8 @@ def _assert_failed_chat_span(span, *, is_stream=False):
         )
         assert SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY not in attrs
         assert SemanticConvention.GEN_AI_REQUEST_USER not in attrs
+        assert SemanticConvention.OPENAI_REQUEST_SERVICE_TIER not in attrs
+        assert SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT not in attrs
 
     assert sum(event.name == "exception" for event in span.events) == 1
 
@@ -220,4 +222,82 @@ def test_sync_responses_error_keeps_request_params():
     assert attrs[SemanticConvention.GEN_AI_REQUEST_TEMPERATURE] == 0.3
     assert attrs[SemanticConvention.GEN_AI_REQUEST_TOP_P] == 0.8
     assert attrs[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] == 64
+    assert SemanticConvention.GEN_AI_REQUEST_REASONING_EFFORT not in attrs
+    assert SemanticConvention.OPENAI_REQUEST_SERVICE_TIER not in attrs
     assert sum(event.name == "exception" for event in spans[0].events) == 1
+
+
+def test_sync_chat_completion_error_keeps_completion_limit_and_options():
+    """Verify a rejected chat call keeps completion limit, tier, and choice count."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = chat_completions(
+        version="test-version",
+        environment="test-env",
+        application_name="test-app",
+        tracer=tracer,
+        pricing_info={},
+        capture_message_content=False,
+        metrics=None,
+        disable_metrics=True,
+    )
+
+    def raise_timeout(*_args, **_kwargs):
+        raise _openai_timeout_error()
+
+    kwargs = _chat_kwargs()
+    kwargs.pop("max_tokens")
+    kwargs["max_completion_tokens"] = 128
+    kwargs["service_tier"] = "flex"
+    kwargs["n"] = 3
+
+    with pytest.raises(APITimeoutError):
+        wrapper(raise_timeout, _openai_instance(), [], kwargs)
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    attrs = spans[0].attributes
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] == 128
+    assert attrs[SemanticConvention.OPENAI_REQUEST_SERVICE_TIER] == "flex"
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT] == 3
+
+
+def test_sync_responses_error_keeps_reasoning_effort_and_options():
+    """Verify a rejected Responses call keeps reasoning effort, tier, and choices."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = responses(
+        version="test-version",
+        environment="test-env",
+        application_name="test-app",
+        tracer=tracer,
+        pricing_info={},
+        capture_message_content=False,
+        metrics=None,
+        disable_metrics=True,
+    )
+
+    def raise_timeout(*_args, **_kwargs):
+        raise _openai_timeout_error()
+
+    with pytest.raises(APITimeoutError):
+        wrapper(
+            raise_timeout,
+            _openai_instance(),
+            [],
+            {
+                "model": "gpt-5",
+                "input": "ping",
+                "reasoning": {"effort": "high"},
+                "service_tier": "priority",
+                "n": 2,
+            },
+        )
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    attrs = spans[0].attributes
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_REASONING_EFFORT] == "high"
+    assert attrs[SemanticConvention.OPENAI_REQUEST_SERVICE_TIER] == "priority"
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT] == 2
+    assert SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS not in attrs
