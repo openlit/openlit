@@ -13,12 +13,15 @@ import (
 // Enricher resolves PID → pod identity using cgroup + optional PodResources + API.
 // Outside Kubernetes (or when both enrichment flags are off) Resolve is a free no-op.
 type Enricher struct {
-	logger *slog.Logger
-	cfg    *config.Config
+	logger  *slog.Logger
+	cfg     *config.Config
 	enabled bool
 
+	// resolveCgroup reads the process's own pod UID / container id (ResolvePod); injectable for tests.
+	resolveCgroup func(pid int32) (PodInfo, bool)
+
 	mu       sync.RWMutex
-	cache    map[int32]PodInfo
+	cache    map[int32]cachedPod
 	negCache map[int32]time.Time // PID → when negative miss was cached
 	cacheAt  time.Time
 	ttl      time.Duration
@@ -40,6 +43,14 @@ type Enricher struct {
 	connectInterval time.Duration
 }
 
+// cachedPod is a resolved identity. deviceID is set when the pod name came from the
+// PodResources owner of that GPU (fallback), in which case the entry only applies to
+// that device: a process can hold contexts on GPUs allocated to other pods.
+type cachedPod struct {
+	info     PodInfo
+	deviceID string
+}
+
 // NewEnricher builds a workload enricher. Safe on non-K8s (no-op enrichment).
 func NewEnricher(cfg *config.Config, logger *slog.Logger) *Enricher {
 	if cfg == nil {
@@ -51,7 +62,8 @@ func NewEnricher(cfg *config.Config, logger *slog.Logger) *Enricher {
 		logger:          logger,
 		cfg:             cfg,
 		enabled:         enabled,
-		cache:           make(map[int32]PodInfo),
+		resolveCgroup:   ResolvePod,
+		cache:           make(map[int32]cachedPod),
 		negCache:        make(map[int32]time.Time),
 		byUID:           make(map[string]PodInfo),
 		byName:          make(map[string]PodInfo),
@@ -121,15 +133,22 @@ func (e *Enricher) ensureClients() {
 
 // Resolve returns the best-known pod identity for pid.
 // deviceID is an optional GPU UUID used to join PodResources device allocations.
+//
+// Identity comes from the process itself first (cgroup → container id / pod UID →
+// kubelet PodResources and pod API maps). The pod that PodResources allocated the GPU
+// to is only a fallback when the process has no pod name of its own: a process may
+// hold a context on a GPU allocated to a different pod (privileged pods,
+// NVIDIA_VISIBLE_DEVICES=all, host processes), and the GPU owner is not that process's
+// pod. Fallback results are cached per (pid, device); cgroup-based results per pid.
 func (e *Enricher) Resolve(pid int32, deviceID string) (PodInfo, bool) {
 	if e == nil || !e.enabled || pid <= 0 {
 		return PodInfo{}, false
 	}
 
 	e.mu.RLock()
-	if info, ok := e.cache[pid]; ok {
+	if c, ok := e.cache[pid]; ok && (c.deviceID == "" || c.deviceID == deviceID) {
 		e.mu.RUnlock()
-		return info, info.PodUID != "" || info.PodName != ""
+		return c.info, c.info.PodUID != "" || c.info.PodName != ""
 	}
 	if at, ok := e.negCache[pid]; ok && time.Since(at) < e.ttl {
 		e.mu.RUnlock()
@@ -141,8 +160,12 @@ func (e *Enricher) Resolve(pid int32, deviceID string) (PodInfo, bool) {
 	byDev := e.byDevice
 	e.mu.RUnlock()
 
+	resolveCgroup := e.resolveCgroup
+	if resolveCgroup == nil {
+		resolveCgroup = ResolvePod
+	}
 	info := byPID
-	if cg, ok := ResolvePod(pid); ok {
+	if cg, ok := resolveCgroup(pid); ok {
 		if info.PodUID == "" {
 			info.PodUID = cg.PodUID
 		}
@@ -150,13 +173,7 @@ func (e *Enricher) Resolve(pid int32, deviceID string) (PodInfo, bool) {
 			info.ContainerID = cg.ContainerID
 		}
 	}
-	// Device allocation from PodResources (works without Pod UID).
-	if deviceID != "" {
-		if p, ok := byDev[deviceID]; ok {
-			mergePod(&info, p)
-		}
-	}
-	// Prefer container ID for multi-container pods.
+	// 1. The process's own pod: container id (multi-container pods) then pod UID.
 	if info.ContainerID != "" {
 		if p, ok := byCont[info.ContainerID]; ok {
 			mergePod(&info, p)
@@ -167,11 +184,20 @@ func (e *Enricher) Resolve(pid int32, deviceID string) (PodInfo, bool) {
 			mergePod(&info, p)
 		}
 	}
+	// 2. Fallback: the pod PodResources allocated this GPU to. Never when the process is
+	// known to belong to a different pod.
+	fromDevice := ""
+	if deviceID != "" && info.PodName == "" {
+		if p, ok := byDev[deviceID]; ok && (info.PodUID == "" || p.PodUID == "" || p.PodUID == info.PodUID) {
+			mergePod(&info, p)
+			fromDevice = deviceID
+		}
+	}
 
 	hit := info.PodUID != "" || info.PodName != ""
 	e.mu.Lock()
 	if hit {
-		e.cache[pid] = info
+		e.cache[pid] = cachedPod{info: info, deviceID: fromDevice}
 		delete(e.negCache, pid)
 	} else {
 		e.negCache[pid] = time.Now()
@@ -247,7 +273,7 @@ func (e *Enricher) refreshMaps() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if indexed {
-		e.cache = make(map[int32]PodInfo)
+		e.cache = make(map[int32]cachedPod)
 		e.negCache = make(map[int32]time.Time)
 		e.byUID = byUID
 		e.byName = byName
