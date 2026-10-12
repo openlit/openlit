@@ -4,7 +4,9 @@
  * and src/engine/internal/signal/attrs.go.
  *
  * Prompt, completion, and message attributes are never accepted, including
- * when OPENLIT_SIGNAL_ATTRIBUTES names them.
+ * when OPENLIT_SIGNAL_ATTRIBUTES names them. User, session, and conversation
+ * identifiers, `url.path`, and `server.address` are personal or sensitive
+ * data, so they cross the bus only when OPENLIT_SIGNAL_ATTRIBUTES lists them.
  */
 
 export const REALTIME_ATTRIBUTE_FIELDS = [
@@ -20,16 +22,9 @@ export const REALTIME_ATTRIBUTE_FIELDS = [
 	"http.request.method",
 	"http.method",
 	"http.route",
-	"url.path",
-	"server.address",
 	"server.port",
 	"db.system",
 	"db.operation.name",
-	"user.id",
-	"session.id",
-	"enduser.id",
-	"conversation.id",
-	"gen_ai.conversation.id",
 	"service.version",
 	"deployment.environment",
 ] as const;

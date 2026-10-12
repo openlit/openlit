@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/openlit/openlit/engine/internal/api"
 	"github.com/openlit/openlit/engine/internal/engine"
 	sig "github.com/openlit/openlit/engine/internal/signal"
 )
@@ -40,11 +41,25 @@ func TestSignalsHandlerScopesAndAuthenticates(t *testing.T) {
 	}
 
 	ok := httptest.NewRequest(http.MethodGet, "/signals?organisation_id=orgA&project_id=p&environment=prod", nil)
-	ok.Header.Set("X-CRON-JOB", "s3cret")
+	ok.Header.Set(api.SecretHeader, "s3cret")
 	rec = httptest.NewRecorder()
 	signalsHandler(rec, ok, "s3cret", eng)
 	body := rec.Body.String()
 	if rec.Code != http.StatusOK || !strings.Contains(body, `"service":"a"`) || strings.Contains(body, `"service":"b"`) {
 		t.Fatalf("scoped body = %d %s", rec.Code, body)
+	}
+}
+
+func TestSignalsHandlerRejectsCronHeader(t *testing.T) {
+	eng := engine.New(nil)
+	req := httptest.NewRequest(http.MethodGet, "/signals?organisation_id=o&project_id=p&environment=prod", nil)
+	req.Header.Set("X-CRON-JOB", "s3cret")
+	rec := httptest.NewRecorder()
+	signalsHandler(rec, req, "s3cret", eng)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("cron header must not authenticate: %d", rec.Code)
+	}
+	if secretEqual("", "") || secretEqual("true", "") {
+		t.Fatal("empty secrets must never match")
 	}
 }

@@ -8,7 +8,9 @@ import (
 )
 
 // Keep this list in sync with src/otlp-receiver/internal/signal/attrs.go and
-// src/client/src/lib/platform/realtime/attributes.ts.
+// src/client/src/lib/platform/realtime/attributes.ts. User, session, and
+// conversation ids, url.path, and server.address are opt-in only (via
+// OPENLIT_SIGNAL_ATTRIBUTES).
 
 const maxAttributes = 32
 
@@ -25,16 +27,9 @@ var defaultAttributes = []string{
 	"http.request.method",
 	"http.method",
 	"http.route",
-	"url.path",
-	"server.address",
 	"server.port",
 	"db.system",
 	"db.operation.name",
-	"user.id",
-	"session.id",
-	"enduser.id",
-	"conversation.id",
-	"gen_ai.conversation.id",
 	"service.version",
 	"deployment.environment",
 }

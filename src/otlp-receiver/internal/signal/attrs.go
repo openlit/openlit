@@ -4,7 +4,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"unicode/utf8"
 )
 
 // Keep this list in sync with src/engine/internal/signal/attrs.go and
@@ -12,12 +11,12 @@ import (
 //
 // These are operational span and resource attributes a rule may match or
 // group by. Prompt, completion, and message attributes are never copied,
-// even when OPENLIT_SIGNAL_ATTRIBUTES names them.
+// even when OPENLIT_SIGNAL_ATTRIBUTES names them. Identifiers of end users,
+// sessions, and conversations, plus URL paths and server addresses, are
+// personal or sensitive data: they only cross the bus when an operator lists
+// them in OPENLIT_SIGNAL_ATTRIBUTES (see OptInAttributes).
 
-const (
-	maxAttributes     = 32
-	maxAttributeRunes = 256
-)
+const maxAttributes = 32
 
 var defaultAttributes = []string{
 	"gen_ai.tool.name",
@@ -32,18 +31,23 @@ var defaultAttributes = []string{
 	"http.request.method",
 	"http.method",
 	"http.route",
-	"url.path",
-	"server.address",
 	"server.port",
 	"db.system",
 	"db.operation.name",
-	"user.id",
-	"session.id",
-	"enduser.id",
-	"conversation.id",
-	"gen_ai.conversation.id",
 	"service.version",
 	"deployment.environment",
+}
+
+// OptInAttributes are recognised but never copied unless named in
+// OPENLIT_SIGNAL_ATTRIBUTES.
+var OptInAttributes = []string{
+	"user.id",
+	"enduser.id",
+	"session.id",
+	"conversation.id",
+	"gen_ai.conversation.id",
+	"url.path",
+	"server.address",
 }
 
 var sensitiveAttributeParts = []string{
@@ -155,16 +159,12 @@ func Attributes(span, resource map[string]string) map[string]string {
 		if len(out) >= maxAttributes {
 			break
 		}
-		value := strings.TrimSpace(span[key])
+		value := Clean(span[key])
 		if value == "" {
-			value = strings.TrimSpace(resource[key])
+			value = Clean(resource[key])
 		}
 		if value == "" {
 			continue
-		}
-		if utf8.RuneCountInString(value) > maxAttributeRunes {
-			runes := []rune(value)
-			value = string(runes[:maxAttributeRunes])
 		}
 		out[key] = value
 	}

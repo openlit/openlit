@@ -23,7 +23,7 @@ describe("parseLiveSignals", () => {
 						status: "error",
 						durationMs: 120,
 						cost: 0.02,
-						attributes: { "user.id": "user-1", "gen_ai.prompt": "secret prompt" },
+						attributes: { "user.id": "user-1", "http.route": "/chat", "gen_ai.prompt": "secret prompt" },
 					},
 					{
 						timestamp: "2026-10-05T12:00:01.000Z",
@@ -40,7 +40,7 @@ describe("parseLiveSignals", () => {
 		expect(signals).toHaveLength(1);
 		expect(signals[0].service).toBe("chat");
 		expect(signals[0].cost).toBe(0.02);
-		expect(signals[0].attributes).toEqual({ "user.id": "user-1" });
+		expect(signals[0].attributes).toEqual({ "http.route": "/chat" });
 		expect(signals[0]).not.toHaveProperty("organisationId");
 	});
 });
@@ -54,7 +54,7 @@ describe("listLiveSignals", () => {
 		(getCurrentOrganisation as jest.Mock).mockResolvedValue({ id: "org1" });
 		(getCurrentProjectForOrganisation as jest.Mock).mockResolvedValue({ id: "proj1" });
 		process.env.OPENLIT_ENGINE_URL = "http://127.0.0.1:4320";
-		process.env.CRON_JOB_SECRET = "s3cret";
+		process.env.OPENLIT_ENGINE_SECRET = "s3cret";
 	});
 
 	it("asks the engine for the current project and filters the body", async () => {
@@ -80,7 +80,15 @@ describe("listLiveSignals", () => {
 		expect(String(url)).toContain("organisation_id=org1");
 		expect(String(url)).toContain("project_id=proj1");
 		expect(String(url)).toContain("environment=production");
-		expect(init.headers["X-CRON-JOB"]).toBe("s3cret");
+		expect(init.headers["X-OpenLIT-Engine-Secret"]).toBe("s3cret");
+		expect(init.headers["X-CRON-JOB"]).toBeUndefined();
+	});
+
+	it("does not call the engine without OPENLIT_ENGINE_SECRET", async () => {
+		delete process.env.OPENLIT_ENGINE_SECRET;
+		const result = await listLiveSignals({ environment: "production" });
+		expect(result).toEqual({ available: false, signals: [] });
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it("reports the engine as unavailable instead of failing the page", async () => {

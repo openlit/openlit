@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import getMessage from "@/constants/messages";
-import { isValidCronJobRequest } from "@/helpers/server/cron-auth";
+import { isValidEngineRequest } from "@/helpers/server/engine-auth";
 import {
 	RealtimeFindingError,
 	parseRealtimeFindingInput,
+	pruneRealtimeFindings,
 	recordRealtimeFinding,
 } from "@/lib/platform/realtime/findings";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
 	const messages = getMessage();
-	if (!isValidCronJobRequest(request)) {
+	if (!isValidEngineRequest(request)) {
 		return Response.json({ error: messages.FORBIDDEN_ACTION }, { status: 403 });
 	}
 
@@ -25,6 +26,9 @@ export async function POST(request: NextRequest) {
 	try {
 		const input = parseRealtimeFindingInput(body);
 		const { transition, finding } = await recordRealtimeFinding(input);
+		pruneRealtimeFindings().catch((error) =>
+			console.error("[realtime] failed to prune findings", error)
+		);
 		return Response.json({ transition, id: finding?.id ?? null });
 	} catch (error) {
 		if (error instanceof RealtimeFindingError) {

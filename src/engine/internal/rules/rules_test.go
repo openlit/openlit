@@ -29,7 +29,7 @@ func TestConditions(t *testing.T) {
 	t.Parallel()
 	s := signal.Signal{
 		Provider: "OpenAI", HTTPStatus: 403, Status: "error",
-		Attrs: map[string]string{"user.id": "user-1", "gen_ai.request.temperature": "0.7", "gen_ai.prompt": "secret"},
+		Attrs: map[string]string{"gen_ai.tool.name": "search", "user.id": "user-1", "gen_ai.request.temperature": "0.7", "gen_ai.prompt": "secret"},
 	}
 	cases := []struct {
 		c    Condition
@@ -43,7 +43,9 @@ func TestConditions(t *testing.T) {
 		{Condition{Field: "model", Op: "not_in", Values: []string{"x"}}, false},
 		{Condition{Field: "status", Op: "eq", Values: []string{"error"}}, true},
 		{Condition{Field: "unknown", Op: "exists"}, false},
-		{Condition{Field: "user.id", Op: "eq", Values: []string{"user-1"}}, true},
+		{Condition{Field: "gen_ai.tool.name", Op: "eq", Values: []string{"search"}}, true},
+		// user.id is opt-in personal data and not allowlisted by default.
+		{Condition{Field: "user.id", Op: "eq", Values: []string{"user-1"}}, false},
 		{Condition{Field: "gen_ai.request.temperature", Op: "gte", Values: []string{"0.5"}}, true},
 		{Condition{Field: "gen_ai.prompt", Op: "contains", Values: []string{"secret"}}, false},
 	}

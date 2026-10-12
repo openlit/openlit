@@ -19,6 +19,15 @@ describe("tenant read filter", () => {
 		);
 	});
 
+	it("hides unstamped rows in strict mode", () => {
+		process.env.OPENLIT_TENANT_READ_FILTER = "strict";
+		expect(
+			tenantRowPredicate({ projectId: "proj1", environment: "staging", database: "openlit" })
+		).toBe(
+			"ResourceAttributes['openlit.project.id'] = 'proj1' AND ResourceAttributes['organisation.environment.name'] = 'staging'"
+		);
+	});
+
 	it("does not filter configs without a project", () => {
 		expect(tenantRowPredicate({ projectId: null, environment: "production", database: "openlit" })).toBeNull();
 		expect(

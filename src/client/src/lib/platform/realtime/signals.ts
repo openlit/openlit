@@ -1,5 +1,6 @@
 import getMessage from "@/constants/messages";
 import { getCurrentOrganisation, getCurrentProjectForOrganisation } from "@/lib/organisation";
+import { ENGINE_SECRET_HEADER, getEngineSecret } from "@/helpers/server/engine-auth";
 import { isRealtimeAttributeField } from "./attributes";
 
 const ENVIRONMENT_PATTERN = /^[a-z0-9][a-z0-9._-]{0,62}$/;
@@ -115,7 +116,8 @@ export async function listLiveSignals(options: {
 		throw new LiveSignalError(messages.REALTIME_SIGNALS_FETCH_FAILED, 400);
 	}
 	const base = engineURL();
-	if (!base) return { available: false, signals: [] };
+	const secret = getEngineSecret();
+	if (!base || !secret) return { available: false, signals: [] };
 
 	const limit = Math.min(Math.max(Math.floor(options.limit || 100), 1), 200);
 	const url = new URL("/signals", base);
@@ -127,7 +129,7 @@ export async function listLiveSignals(options: {
 	try {
 		const response = await fetch(url, {
 			method: "GET",
-			headers: { "X-CRON-JOB": process.env.CRON_JOB_SECRET || "true" },
+			headers: { [ENGINE_SECRET_HEADER]: secret },
 			cache: "no-store",
 			signal: AbortSignal.timeout(2000),
 		});

@@ -1,12 +1,13 @@
 package engine
 
 import (
+	"container/list"
 	"time"
 
 	"github.com/openlit/openlit/engine/internal/signal"
 )
 
-const recentCap = 500
+const recentPerTenant = 200
 
 // ObservedSignal is one ingested GenAI span kept for the signal inspector.
 // It never carries prompt text, API keys, or database credentials.
@@ -32,18 +33,52 @@ type ObservedSignal struct {
 	Attributes     map[string]string `json:"attributes,omitempty"`
 }
 
-// remember stores a signal for the inspector. Caller holds e.mu.
-func (e *Engine) remember(s signal.Signal, at time.Time) {
-	capN := e.recentCap
-	if capN <= 0 {
-		capN = recentCap
+// recentStore keeps a fixed-size ring of signals per tenant for the
+// inspector. Tenants are evicted least-recently-seen first, so one noisy
+// tenant can neither push out another tenant's signals nor grow memory.
+// Callers hold e.mu.
+type recentStore struct {
+	maxTenants int
+	perTenant  int
+	tenants    map[tenantKey]*list.Element
+	lru        *list.List
+}
+
+type recentRing struct {
+	tenant tenantKey
+	buf    []ObservedSignal
+	next   int
+	n      int
+}
+
+func (r *recentStore) configure(maxTenants, perTenant int) {
+	r.maxTenants = maxTenants
+	r.perTenant = perTenant
+	r.tenants = map[tenantKey]*list.Element{}
+	r.lru = list.New()
+}
+
+func (r *recentStore) remember(s signal.Signal, at time.Time) {
+	tk := tenantKey{s.OrganisationID, s.ProjectID, s.Environment}
+	el, ok := r.tenants[tk]
+	if !ok {
+		el = r.lru.PushFront(&recentRing{tenant: tk, buf: make([]ObservedSignal, r.perTenant)})
+		r.tenants[tk] = el
+		for r.lru.Len() > r.maxTenants {
+			oldest := r.lru.Back()
+			r.lru.Remove(oldest)
+			delete(r.tenants, oldest.Value.(*recentRing).tenant)
+		}
+	} else {
+		r.lru.MoveToFront(el)
 	}
+	ring := el.Value.(*recentRing)
 	var cost *float64
 	if s.Cost != nil {
 		v := *s.Cost
 		cost = &v
 	}
-	e.recent = append(e.recent, ObservedSignal{
+	ring.buf[ring.next] = ObservedSignal{
 		Timestamp:      at.UTC(),
 		OrganisationID: s.OrganisationID,
 		ProjectID:      s.ProjectID,
@@ -63,13 +98,14 @@ func (e *Engine) remember(s signal.Signal, at time.Time) {
 		TraceID:        s.TraceID,
 		SpanID:         s.SpanID,
 		Attributes:     publicAttributes(s),
-	})
-	if extra := len(e.recent) - capN; extra > 0 {
-		e.recent = append([]ObservedSignal(nil), e.recent[extra:]...)
+	}
+	ring.next = (ring.next + 1) % len(ring.buf)
+	if ring.n < len(ring.buf) {
+		ring.n++
 	}
 }
 
-// Recent returns the newest matching signals for one tenant, up to limit.
+// Recent returns the newest signals for one tenant, up to limit.
 func (e *Engine) Recent(org, project, env string, limit int) []ObservedSignal {
 	if org == "" || project == "" || env == "" || limit <= 0 {
 		return nil
@@ -77,11 +113,14 @@ func (e *Engine) Recent(org, project, env string, limit int) []ObservedSignal {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	out := make([]ObservedSignal, 0, limit)
-	for i := len(e.recent) - 1; i >= 0 && len(out) < limit; i-- {
-		s := e.recent[i]
-		if s.OrganisationID == org && s.ProjectID == project && s.Environment == env {
-			out = append(out, s)
-		}
+	el, ok := e.recent.tenants[tenantKey{org, project, env}]
+	if !ok {
+		return out
+	}
+	ring := el.Value.(*recentRing)
+	for i := 0; i < ring.n && len(out) < limit; i++ {
+		idx := (ring.next - 1 - i + len(ring.buf)) % len(ring.buf)
+		out = append(out, ring.buf[idx])
 	}
 	return out
 }

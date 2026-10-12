@@ -35,6 +35,11 @@ export const CRON_JOB_ROUTES = [
 	"/api/pricing/auto",
 	"/api/agents/materialize",
 	"/api/telemetry-snapshot",
+];
+
+// Realtime engine callbacks. Middleware only checks the secret header is
+// present; the route handlers verify it against OPENLIT_ENGINE_SECRET.
+export const ENGINE_INTERNAL_ROUTES = [
 	"/api/internal/realtime/rules",
 	"/api/internal/realtime/findings",
 ];

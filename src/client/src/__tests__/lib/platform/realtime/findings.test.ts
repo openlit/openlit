@@ -8,6 +8,8 @@ jest.mock("@/lib/prisma", () => ({
 			create: jest.fn(),
 			update: jest.fn(),
 			findMany: jest.fn(),
+			count: jest.fn(async () => 0),
+			deleteMany: jest.fn(async () => ({ count: 0 })),
 		},
 	},
 }));
@@ -27,7 +29,9 @@ import {
 	RealtimeFindingError,
 	listRealtimeFindings,
 	parseRealtimeFindingInput,
+	pruneRealtimeFindings,
 	recordRealtimeFinding,
+	resetRealtimeFindingPruneClock,
 } from "@/lib/platform/realtime/findings";
 
 const now = new Date("2026-10-02T10:00:00.000Z");
@@ -214,5 +218,33 @@ describe("listRealtimeFindings", () => {
 	it("requires a current project", async () => {
 		(getCurrentProjectForOrganisation as jest.Mock).mockResolvedValue(null);
 		await expect(listRealtimeFindings({ environment: "production" })).rejects.toMatchObject({ status: 400 });
+	});
+});
+
+describe("realtime finding limits", () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+		(prisma.project.findUnique as jest.Mock).mockResolvedValue({ organisationId: "org1" });
+		(prisma.projectEnvironment.findUnique as jest.Mock).mockResolvedValue({ id: "env1" });
+		(prisma.realtimeFinding.findUnique as jest.Mock).mockResolvedValue(null);
+	});
+
+	it("drops new findings once an environment hits the open-finding cap", async () => {
+		(prisma.realtimeFinding.count as jest.Mock).mockResolvedValueOnce(1000);
+		const result = await recordRealtimeFinding(parseRealtimeFindingInput(payload()));
+		expect(result).toEqual({ transition: "ignored", finding: null });
+		expect(prisma.realtimeFinding.create).not.toHaveBeenCalled();
+		expect(onRealtimeFinding).not.toHaveBeenCalled();
+	});
+
+	it("prunes only resolved findings past retention, at most hourly", async () => {
+		resetRealtimeFindingPruneClock();
+		(prisma.realtimeFinding.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 3 });
+		expect(await pruneRealtimeFindings(now)).toBe(3);
+		const where = (prisma.realtimeFinding.deleteMany as jest.Mock).mock.calls[0][0].where;
+		expect(where.state).toBe("resolved");
+		expect(where.resolvedAt.lt.toISOString()).toBe("2026-09-02T10:00:00.000Z");
+		expect(await pruneRealtimeFindings(new Date(now.getTime() + 60_000))).toBe(0);
+		expect(prisma.realtimeFinding.deleteMany).toHaveBeenCalledTimes(1);
 	});
 });

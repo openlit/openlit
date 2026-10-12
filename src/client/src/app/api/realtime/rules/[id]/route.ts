@@ -1,1 +1,1 @@
-export { DELETE, PATCH } from "@/lib/rbac/routes/api/realtime/rules/[id]/route";
+export { DELETE, GET, PATCH } from "@/lib/rbac/routes/api/realtime/rules/[id]/route";

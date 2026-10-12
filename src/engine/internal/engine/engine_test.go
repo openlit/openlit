@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -143,7 +144,7 @@ func TestUnscopedSignalsIgnored(t *testing.T) {
 
 func TestRecentKeepsEverySignalAndIsolatesTenants(t *testing.T) {
 	e, _, now := newEngine(t)
-	e.recentCap = 2
+	e.SetLimits(Limits{RecentPerTenant: 1})
 	a := sig("orgA", "p", "prod", "ok")
 	a.Service = "first"
 	b := sig("orgB", "p", "prod", "error")
@@ -187,6 +188,9 @@ func TestAttributeRuleFiresForAllowlistedField(t *testing.T) {
 		Match:   []rules.Condition{{Field: "gen_ai.tool.name", Op: "eq", Values: []string{"shell"}}},
 		GroupBy: []string{"user.id"},
 	}
+	// user.id is opt-in personal data; the operator must allowlist it.
+	signal.SetExtraAttributes("user.id")
+	t.Cleanup(func() { signal.SetExtraAttributes("") })
 	e, sink, now := newEngine(t, rule)
 	miss := sig("o", "p", "prod", "ok")
 	miss.Attrs = map[string]string{"gen_ai.tool.name": "search", "user.id": "u1", "gen_ai.prompt": "secret"}
@@ -204,5 +208,126 @@ func TestAttributeRuleFiresForAllowlistedField(t *testing.T) {
 	}
 	if _, ok := recent[0].Attributes["gen_ai.prompt"]; ok {
 		t.Fatal("inspector must not show prompt text")
+	}
+}
+
+func modelRule() rules.Rule {
+	return rules.Rule{
+		ID: "builtin.latency", Name: "Latency", Kind: "threshold", Mode: rules.ModeWindow,
+		Severity: "warning", GroupBy: []string{"model"}, Metric: "error_rate", Operator: "gt",
+		Threshold: 0.5, WindowSec: 60, MinSamples: 1, CooldownSec: 60,
+	}
+}
+
+func TestWindowCapsPerTenantAndGlobal(t *testing.T) {
+	e, _, now := newEngine(t, modelRule())
+	e.SetLimits(Limits{MaxWindowsPerTenant: 3, MaxWindows: 5})
+	for i := 0; i < 50; i++ {
+		s := sig("orgA", "p", "prod", "ok")
+		s.Model = fmt.Sprintf("random-%d", i)
+		e.Observe(s, *now)
+	}
+	st := e.Stats()
+	if st.Windows != 3 || st.DroppedWindows != 47 {
+		t.Fatalf("per-tenant cap not enforced: %+v", st)
+	}
+	for i := 0; i < 10; i++ {
+		s := sig(fmt.Sprintf("org%d", i), "p", "prod", "ok")
+		e.Observe(s, *now)
+	}
+	if st := e.Stats(); st.Windows != 5 {
+		t.Fatalf("global cap not enforced: %+v", st)
+	}
+}
+
+func TestSamplesPerWindowCapped(t *testing.T) {
+	e, _, now := newEngine(t, modelRule())
+	e.SetLimits(Limits{MaxSamplesPerWindow: 10})
+	for i := 0; i < 100; i++ {
+		e.Observe(sig("o", "p", "prod", "ok"), *now)
+	}
+	for _, w := range e.windows {
+		if len(w.samples) != 10 {
+			t.Fatalf("samples = %d", len(w.samples))
+		}
+	}
+}
+
+func TestIdleWindowsEvicted(t *testing.T) {
+	e, _, now := newEngine(t, modelRule())
+	e.Observe(sig("o", "p", "prod", "ok"), *now)
+	*now = now.Add(121 * time.Second)
+	e.Tick()
+	if st := e.Stats(); st.Windows != 0 || st.Tenants != 0 {
+		t.Fatalf("idle window kept: %+v", st)
+	}
+}
+
+func TestFindingsRateLimitedPerTenant(t *testing.T) {
+	rule := rules.Rule{
+		ID: "custom.errors", Name: "Errors", Kind: "compliance", Mode: rules.ModeInstant,
+		Severity: "critical", GroupBy: []string{"model"}, CooldownSec: 60,
+		Match: []rules.Condition{{Field: "status", Op: "in", Values: []string{"error"}}},
+	}
+	e, sink, now := newEngine(t, rule)
+	e.SetLimits(Limits{FindingsPerMinute: 2})
+	for i := 0; i < 10; i++ {
+		s := sig("orgA", "p", "prod", "error")
+		s.Model = fmt.Sprintf("m-%d", i)
+		e.Observe(s, *now)
+	}
+	other := sig("orgB", "p", "prod", "error")
+	e.Observe(other, *now)
+	byOrg := map[string]int{}
+	for _, f := range sink.findings {
+		byOrg[f.OrganisationID]++
+	}
+	if byOrg["orgA"] != 2 || byOrg["orgB"] != 1 {
+		t.Fatalf("rate limit not per tenant: %+v", byOrg)
+	}
+	if e.Stats().RateLimited != 8 {
+		t.Fatalf("stats = %+v", e.Stats())
+	}
+}
+
+func TestEnvironmentNormalisedAndValidated(t *testing.T) {
+	e, _, now := newEngine(t)
+	e.Observe(sig("o", "p", "Production", "ok"), *now)
+	if got := e.Recent("o", "p", "production", 10); len(got) != 1 {
+		t.Fatalf("mixed-case env not normalised: %+v", got)
+	}
+	e.Observe(sig("o", "p", "bad env!", "ok"), *now)
+	if st := e.Stats(); st.Invalid != 1 || st.Observed != 1 {
+		t.Fatalf("invalid env not dropped: %+v", st)
+	}
+}
+
+func TestRecentTenantsBounded(t *testing.T) {
+	e, _, now := newEngine(t)
+	e.SetLimits(Limits{MaxRecentTenants: 2})
+	for _, org := range []string{"a", "b", "c"} {
+		e.Observe(sig(org, "p", "prod", "ok"), *now)
+	}
+	if len(e.Recent("a", "p", "prod", 10)) != 0 || len(e.Recent("c", "p", "prod", 10)) != 1 {
+		t.Fatal("least recent tenant must be evicted")
+	}
+}
+
+type reentrantSink struct{ e *Engine }
+
+func (r reentrantSink) Emit(Finding) { _ = r.e.Stats() }
+
+func TestSinkCalledWithoutLock(t *testing.T) {
+	e, _, now := newEngine(t, errorRateRule())
+	e.sink = reentrantSink{e}
+	for i := 0; i < 4; i++ {
+		e.Observe(sig("o", "p", "prod", "error"), *now)
+	}
+	done := make(chan struct{})
+	go func() { e.Tick(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("sink invoked while holding the engine lock")
 	}
 }

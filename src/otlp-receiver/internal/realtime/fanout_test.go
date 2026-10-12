@@ -67,3 +67,17 @@ func TestNilFanoutIsSafe(t *testing.T) {
 	var f *Fanout
 	f.PublishTraces(tenant.Tenant{Scoped: true}, []otlpconv.TraceRow{genAIRow("1")})
 }
+
+func TestFanoutNormalisesEnvironment(t *testing.T) {
+	tr := &fakeTransport{}
+	f := New(tr)
+	row := genAIRow("1")
+	f.PublishTraces(tenant.Tenant{Scoped: true, OrganisationID: "o", ProjectID: "p", Environment: "Production"}, []otlpconv.TraceRow{row})
+	f.PublishTraces(tenant.Tenant{Scoped: true, OrganisationID: "o", ProjectID: "p", Environment: "bad env"}, []otlpconv.TraceRow{row})
+	if len(tr.msgs) != 1 || tr.msgs[0].subject != "openlit.signal.o.p.production" {
+		t.Fatalf("messages = %+v", tr.msgs)
+	}
+	if st := f.Stats(); st.InvalidEnv != 1 || st.Enqueued != 1 {
+		t.Fatalf("stats = %+v", st)
+	}
+}

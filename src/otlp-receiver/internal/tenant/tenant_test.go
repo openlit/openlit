@@ -2,8 +2,10 @@ package tenant
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/openlit/openlit/otlp-receiver/internal/config"
 	_ "modernc.org/sqlite"
@@ -200,5 +202,86 @@ func TestResolveAPIKeyLegacyColumns(t *testing.T) {
 	}
 	if cfg.OrganisationID != "org-1" || cfg.ProjectID != "proj-1" || cfg.Environment != "production" || !cfg.Scoped {
 		t.Fatalf("unexpected legacy scope %+v", cfg)
+	}
+}
+
+func TestCacheIsBounded(t *testing.T) {
+	s := openStore(t, scopedSchema+`
+		INSERT INTO APIKeys VALUES ('k-good', 'openlit-good', 'db-1', 'org-1', 'proj-1', 'staging', 0);
+	`)
+	s.maxEntries = 5
+	if _, err := s.Resolve(context.Background(), "Bearer openlit-good"); err != nil {
+		t.Fatal(err)
+	}
+	// A flood of random keys never grows the cache past the cap.
+	for i := 0; i < 50; i++ {
+		if _, err := s.Resolve(context.Background(), fmt.Sprintf("Bearer openlit-random-%d", i)); err != ErrUnauthorized {
+			t.Fatalf("got %v", err)
+		}
+		if n := s.CacheLen(); n > 5 {
+			t.Fatalf("cache grew to %d", n)
+		}
+	}
+	// The valid key was evicted, not corrupted: it still resolves.
+	if _, err := s.Resolve(context.Background(), "Bearer openlit-good"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCacheSweepsExpired(t *testing.T) {
+	s := &Store{maxEntries: 100}
+	past := time.Now().Add(-time.Minute)
+	for i := 0; i < 10; i++ {
+		s.store(cacheEntry{key: fmt.Sprintf("k-%d", i), err: ErrUnauthorized, expiry: past})
+	}
+	s.lastSweep = time.Time{}
+	s.store(cacheEntry{key: "fresh", err: ErrUnauthorized, expiry: time.Now().Add(time.Minute)})
+	if n := s.CacheLen(); n != 1 {
+		t.Fatalf("expired entries not swept, len=%d", n)
+	}
+}
+
+func TestFailLimiter(t *testing.T) {
+	l := NewFailLimiter(3, 60)
+	now := time.Unix(1000, 0)
+	l.now = func() time.Time { return now }
+	for i := 0; i < 3; i++ {
+		if !l.Allow("1.2.3.4") {
+			t.Fatalf("blocked after %d failures", i)
+		}
+		l.Fail("1.2.3.4")
+	}
+	if l.Allow("1.2.3.4") {
+		t.Fatal("expected block after burst")
+	}
+	if !l.Allow("5.6.7.8") {
+		t.Fatal("other IPs must not be affected")
+	}
+	now = now.Add(2 * time.Second) // 1 token/sec refill
+	if !l.Allow("1.2.3.4") {
+		t.Fatal("expected refill")
+	}
+
+	l.maxClients = 10
+	for i := 0; i < 100; i++ {
+		l.Fail(fmt.Sprintf("10.0.0.%d", i))
+	}
+	if l.Len() > 10 {
+		t.Fatalf("limiter tracked %d clients", l.Len())
+	}
+	if NewFailLimiter(0, 60) != nil || NewFailLimiter(1, 0) != nil {
+		t.Fatal("disabled limiter must be nil")
+	}
+	var disabled *FailLimiter
+	disabled.Fail("x")
+	if !disabled.Allow("x") {
+		t.Fatal("nil limiter must allow")
+	}
+}
+
+func TestClientIP(t *testing.T) {
+	t.Parallel()
+	if ClientIP("1.2.3.4:5678") != "1.2.3.4" || ClientIP("[::1]:80") != "::1" || ClientIP("bare") != "bare" {
+		t.Fatal("unexpected client ip parsing")
 	}
 }

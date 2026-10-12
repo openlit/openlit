@@ -21,17 +21,41 @@ type Config struct {
 	Password     string
 	Token        string
 	CredsFile    string
+	TLS          TLSConfig
 	Stream       string
 	Subjects     []string
 	MaxAge       time.Duration
+	MaxBytes     int64
+	MaxMsgs      int64
+	MaxMsgSize   int32
 	Buffer       int
 	EnsureStream bool
 }
 
+// TLSConfig enables TLS (and optionally mTLS) to NATS.
+type TLSConfig struct {
+	CAFile   string
+	CertFile string
+	KeyFile  string
+	Required bool
+}
+
+const (
+	// inboxPrefix gives the receiver its own reply subjects so NATS
+	// permissions can keep other users from reading its acknowledgements.
+	inboxPrefix       = "_INBOX_RECEIVER"
+	maxPendingAcks    = 4096
+	DefaultMaxBytes   = 256 << 20
+	DefaultMaxMsgSize = 64 << 10
+)
+
+// Stats counts messages by outcome. Published only counts messages the
+// stream acknowledged; Failed counts rejected or unacknowledged ones.
 type Stats struct {
 	Published uint64 `json:"published"`
 	Dropped   uint64 `json:"dropped"`
 	Failed    uint64 `json:"failed"`
+	Pending   int    `json:"pending"`
 	Connected bool   `json:"connected"`
 }
 
@@ -46,6 +70,7 @@ type Publisher struct {
 	nc         *nats.Conn
 	js         jetstream.JetStream
 	queue      chan message
+	acks       chan jetstream.PubAckFuture
 	published  atomic.Uint64
 	dropped    atomic.Uint64
 	failed     atomic.Uint64
@@ -63,8 +88,15 @@ func Connect(cfg Config) (*Publisher, error) {
 	if cfg.Buffer <= 0 {
 		cfg.Buffer = 10000
 	}
+	if cfg.MaxBytes <= 0 {
+		cfg.MaxBytes = DefaultMaxBytes
+	}
+	if cfg.MaxMsgSize <= 0 {
+		cfg.MaxMsgSize = DefaultMaxMsgSize
+	}
 	opts := []nats.Option{
 		nats.Name("openlit-otlp-receiver"),
+		nats.CustomInboxPrefix(inboxPrefix),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(2 * time.Second),
@@ -84,18 +116,21 @@ func Connect(cfg Config) (*Publisher, error) {
 		opts = append(opts, nats.Token(cfg.Token))
 	case cfg.User != "":
 		opts = append(opts, nats.UserInfo(cfg.User, cfg.Password))
+	default:
+		log.Printf("nats: no credentials configured; production NATS must require auth")
 	}
+	tlsOpts, err := TLSOptions(cfg.TLS)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, tlsOpts...)
 	nc, err := nats.Connect(cfg.URL, opts...)
 	if err != nil {
 		return nil, err
 	}
 	js, err := jetstream.New(nc,
-		jetstream.WithPublishAsyncMaxPending(4096),
-		jetstream.WithPublishAsyncErrHandler(func(_ jetstream.JetStream, _ *nats.Msg, err error) {
-			if err != nil {
-				log.Printf("nats: async publish failed: %v", err)
-			}
-		}),
+		jetstream.WithPublishAsyncMaxPending(maxPendingAcks),
+		jetstream.WithPublishAsyncTimeout(10*time.Second),
 	)
 	if err != nil {
 		nc.Close()
@@ -106,6 +141,7 @@ func Connect(cfg Config) (*Publisher, error) {
 		nc:    nc,
 		js:    js,
 		queue: make(chan message, cfg.Buffer),
+		acks:  make(chan jetstream.PubAckFuture, maxPendingAcks),
 		done:  make(chan struct{}),
 	}
 	if !cfg.EnsureStream {
@@ -113,12 +149,52 @@ func Connect(cfg Config) (*Publisher, error) {
 	}
 	p.wg.Add(1)
 	go p.run()
+	go p.collectAcks()
 	return p, nil
+}
+
+// TLSOptions maps TLSConfig to connection options.
+func TLSOptions(cfg TLSConfig) ([]nats.Option, error) {
+	if (cfg.CertFile == "") != (cfg.KeyFile == "") {
+		return nil, errors.New("natsx: NATS_TLS_CERT and NATS_TLS_KEY must be set together")
+	}
+	var opts []nats.Option
+	if cfg.CAFile != "" {
+		opts = append(opts, nats.RootCAs(cfg.CAFile))
+	}
+	if cfg.CertFile != "" {
+		opts = append(opts, nats.ClientCert(cfg.CertFile, cfg.KeyFile))
+	}
+	if cfg.Required {
+		opts = append(opts, nats.Secure())
+	}
+	return opts, nil
+}
+
+// collectAcks resolves publish futures in order and counts the outcome.
+func (p *Publisher) collectAcks() {
+	var lastErr string
+	for f := range p.acks {
+		select {
+		case <-f.Ok():
+			p.published.Add(1)
+		case err := <-f.Err():
+			p.failed.Add(1)
+			if err != nil && err.Error() != lastErr {
+				lastErr = err.Error()
+				log.Printf("nats: publish not acknowledged: %v", err)
+			}
+		}
+	}
 }
 
 // Publish enqueues without blocking. It reports false when the message was
 // dropped because the buffer is full or the publisher is closed.
 func (p *Publisher) Publish(subject, msgID string, data []byte) bool {
+	if len(data) > int(p.cfg.MaxMsgSize) {
+		p.dropped.Add(1)
+		return false
+	}
 	select {
 	case <-p.done:
 		p.dropped.Add(1)
@@ -139,6 +215,7 @@ func (p *Publisher) Stats() Stats {
 		Published: p.published.Load(),
 		Dropped:   p.dropped.Load(),
 		Failed:    p.failed.Load(),
+		Pending:   p.js.PublishAsyncPending(),
 		Connected: p.nc.IsConnected(),
 	}
 }
@@ -161,10 +238,13 @@ func (p *Publisher) ensureStream() bool {
 		Name:       p.cfg.Stream,
 		Subjects:   p.cfg.Subjects,
 		MaxAge:     p.cfg.MaxAge,
+		MaxBytes:   p.cfg.MaxBytes,
+		MaxMsgs:    maxMsgs(p.cfg.MaxMsgs),
+		MaxMsgSize: p.cfg.MaxMsgSize,
 		Storage:    jetstream.FileStorage,
 		Retention:  jetstream.LimitsPolicy,
 		Discard:    jetstream.DiscardOld,
-		Duplicates: 2 * time.Minute,
+		Duplicates: duplicatesWindow(p.cfg.MaxAge),
 	})
 	if err != nil {
 		log.Printf("nats: ensure stream %s: %v", p.cfg.Stream, err)
@@ -206,11 +286,28 @@ func (p *Publisher) send(msg message) {
 	if msg.msgID != "" {
 		out.Header.Set(jetstream.MsgIDHeader, msg.msgID)
 	}
-	if _, err := p.js.PublishMsgAsync(out); err != nil {
+	f, err := p.js.PublishMsgAsync(out)
+	if err != nil {
 		p.failed.Add(1)
 		return
 	}
-	p.published.Add(1)
+	p.acks <- f
+}
+
+// duplicatesWindow keeps JetStream dedupe at 2m but never above MaxAge,
+// which the server rejects.
+func duplicatesWindow(maxAge time.Duration) time.Duration {
+	if maxAge > 0 && maxAge < 2*time.Minute {
+		return maxAge
+	}
+	return 2 * time.Minute
+}
+
+func maxMsgs(n int64) int64 {
+	if n <= 0 {
+		return -1
+	}
+	return n
 }
 
 func (p *Publisher) Close(ctx context.Context) {
@@ -221,6 +318,7 @@ func (p *Publisher) Close(ctx context.Context) {
 		case <-p.js.PublishAsyncComplete():
 		case <-ctx.Done():
 		}
+		close(p.acks)
 		_ = p.nc.Drain()
 	})
 }

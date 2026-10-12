@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -24,25 +25,43 @@ import (
 	sig "github.com/openlit/openlit/engine/internal/signal"
 )
 
-const subjectFilter = "openlit.signal.>"
+const (
+	subjectFilter = "openlit.signal.>"
+	// inboxPrefix gives the engine its own reply subjects so NATS permissions
+	// can keep it from reading the receiver's publish acknowledgements.
+	inboxPrefix = "_INBOX_ENGINE"
+)
 
 func main() {
 	cfg := config.Load()
+	if cfg.EngineSecret == "" {
+		log.Fatal("openlit-engine: OPENLIT_ENGINE_SECRET is required. Set the same value for the engine and the OpenLIT server (the Docker image generates one per install).")
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	client := api.New(cfg.OpenLITURL, cfg.CronSecret)
+	client := api.New(cfg.OpenLITURL, cfg.EngineSecret)
 	defer client.Close()
 	eng := engine.New(client)
+	eng.SetLimits(engine.Limits{
+		MaxWindows:          cfg.Limits.MaxWindows,
+		MaxWindowsPerTenant: cfg.Limits.MaxWindowsPerTenant,
+		MaxSamplesPerWindow: cfg.Limits.MaxSamplesPerWindow,
+		FindingsPerMinute:   cfg.Limits.FindingsPerMinute,
+	})
 
 	var rejected atomic.Uint64
 	go refreshRules(ctx, client, eng, cfg.RulesInterval)
 	go tick(ctx, eng, cfg.TickInterval)
-	go serveHTTP(ctx, cfg.HTTPAddr, cfg.CronSecret, eng, func() any {
+	go serveHTTP(ctx, cfg.HTTPAddr, cfg.EngineSecret, eng, func() any {
 		return map[string]any{"engine": eng.Stats(), "delivery": client.Stats(), "rejected": rejected.Load()}
 	})
 
-	nc, err := nats.Connect(cfg.NATSURL, natsOptions(cfg)...)
+	opts, err := natsOptions(cfg)
+	if err != nil {
+		log.Fatalf("nats: %v", err)
+	}
+	nc, err := nats.Connect(cfg.NATSURL, opts...)
 	if err != nil {
 		log.Fatalf("nats: %v", err)
 	}
@@ -72,12 +91,13 @@ func main() {
 	consumeCtx.Stop()
 }
 
-func natsOptions(cfg config.Config) []nats.Option {
+func natsOptions(cfg config.Config) ([]nats.Option, error) {
 	opts := []nats.Option{
 		nats.Name("openlit-engine"),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(2 * time.Second),
+		nats.CustomInboxPrefix(inboxPrefix),
 	}
 	switch {
 	case cfg.NATSCreds != "":
@@ -86,8 +106,23 @@ func natsOptions(cfg config.Config) []nats.Option {
 		opts = append(opts, nats.Token(cfg.NATSToken))
 	case cfg.NATSUser != "":
 		opts = append(opts, nats.UserInfo(cfg.NATSUser, cfg.NATSPassword))
+	default:
+		log.Printf("nats: no credentials configured; production NATS must require auth")
 	}
-	return opts
+	tls := cfg.NATSTLS
+	if (tls.CertFile == "") != (tls.KeyFile == "") {
+		return nil, errors.New("NATS_TLS_CERT and NATS_TLS_KEY must be set together")
+	}
+	if tls.CAFile != "" {
+		opts = append(opts, nats.RootCAs(tls.CAFile))
+	}
+	if tls.CertFile != "" {
+		opts = append(opts, nats.ClientCert(tls.CertFile, tls.KeyFile))
+	}
+	if tls.Required {
+		opts = append(opts, nats.Secure())
+	}
+	return opts, nil
 }
 
 // consume waits for the stream to exist, then replays the last cfg.Replay of
@@ -165,7 +200,11 @@ func serveHTTP(ctx context.Context, addr, secret string, eng *engine.Engine, sta
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	})
-	mux.HandleFunc("/stats", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		if !secretEqual(r.Header.Get(api.SecretHeader), secret) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(stats())
 	})
@@ -192,18 +231,18 @@ func secretEqual(got, want string) bool {
 }
 
 // signalsHandler lists recent signals for one tenant. The caller must send the
-// shared cron secret; the response never includes another tenant's spans.
+// engine secret; the response never includes another tenant's spans.
 func signalsHandler(w http.ResponseWriter, r *http.Request, secret string, eng *engine.Engine) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	if !secretEqual(r.Header.Get("X-CRON-JOB"), secret) {
+	if !secretEqual(r.Header.Get(api.SecretHeader), secret) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 	q := r.URL.Query()
-	org, project, env := q.Get("organisation_id"), q.Get("project_id"), q.Get("environment")
+	org, project, env := q.Get("organisation_id"), q.Get("project_id"), strings.ToLower(q.Get("environment"))
 	if !tenantToken.MatchString(org) || !tenantToken.MatchString(project) || !tenantToken.MatchString(env) {
 		w.WriteHeader(http.StatusBadRequest)
 		return

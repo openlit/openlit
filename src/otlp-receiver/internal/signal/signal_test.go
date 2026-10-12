@@ -1,8 +1,10 @@
 package signal
 
 import (
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/openlit/openlit/otlp-receiver/internal/otlpconv"
 )
@@ -77,8 +79,11 @@ func TestFromTrace(t *testing.T) {
 	if s.TotalTokens != 150 || s.Cost == nil || *s.Cost != 0.0123 || s.HTTPStatus != 429 {
 		t.Fatalf("unexpected usage %+v", s)
 	}
-	if s.Attrs["gen_ai.request.temperature"] != "0.7" || s.Attrs["gen_ai.tool.name"] != "search" || s.Attrs["user.id"] != "user-1" {
+	if s.Attrs["gen_ai.request.temperature"] != "0.7" || s.Attrs["gen_ai.tool.name"] != "search" {
 		t.Fatalf("attributes = %+v", s.Attrs)
+	}
+	if _, ok := s.Attrs["user.id"]; ok {
+		t.Fatal("user.id is opt-in and must not be copied by default")
 	}
 	if _, ok := s.Attrs["gen_ai.prompt"]; ok {
 		t.Fatal("prompt text must not be copied")
@@ -106,5 +111,85 @@ func TestExtraAttributesIgnoreSensitiveKeys(t *testing.T) {
 	}
 	if AllowedAttribute("not a key") {
 		t.Fatal("invalid key was allowlisted")
+	}
+}
+
+func TestOptInAttributesRequireConfiguration(t *testing.T) {
+	row := otlpconv.TraceRow{SpanAttributes: map[string]string{
+		"user.id": "user-1", "session.id": "s-1", "url.path": "/reset?token=abc", "server.address": "10.0.0.5",
+	}}
+	for _, key := range OptInAttributes {
+		if AllowedAttribute(key) {
+			t.Fatalf("%s must not be allowed by default", key)
+		}
+	}
+	if s := FromTrace(row, Tenant{}); len(s.Attrs) != 0 {
+		t.Fatalf("opt-in attributes copied by default: %+v", s.Attrs)
+	}
+	SetExtraAttributes("user.id")
+	t.Cleanup(func() { SetExtraAttributes("") })
+	s := FromTrace(row, Tenant{})
+	if s.Attrs["user.id"] != "user-1" || len(s.Attrs) != 1 {
+		t.Fatalf("opt-in attribute missing: %+v", s.Attrs)
+	}
+}
+
+func TestCleanRedactsAndTruncates(t *testing.T) {
+	t.Parallel()
+	secrets := []string{
+		"Bearer abcdefghijklmnop",
+		"key sk-" + strings.Repeat("a1B2", 8),
+		"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+		"AKIAIOSFODNN7EXAMPLE",
+		"ghp_abcdefghijklmnopqrstuvwxyz0123456789",
+		"openlit-0123456789abcdef0123",
+		"https://x.test/cb?api_key=hunter22&x=1",
+	}
+	for _, v := range secrets {
+		got := Clean(v)
+		if !strings.Contains(got, redacted) {
+			t.Fatalf("not redacted: %q -> %q", v, got)
+		}
+	}
+	if Clean("gpt-4o-mini") != "gpt-4o-mini" || Clean("  search  ") != "search" {
+		t.Fatal("ordinary values must pass through")
+	}
+	long := strings.Repeat("é", 300) // 2 bytes per rune
+	got := Clean(long)
+	if len(got) > MaxFieldBytes || !utf8.ValidString(got) {
+		t.Fatalf("truncation broke utf-8 or limit: len=%d", len(got))
+	}
+}
+
+func TestFromTraceBoundsEveryString(t *testing.T) {
+	t.Parallel()
+	long := strings.Repeat("x", 5000)
+	row := otlpconv.TraceRow{
+		ServiceName: long, SpanName: long,
+		SpanAttributes: map[string]string{
+			"gen_ai.system": long, "gen_ai.request.model": long, "gen_ai.operation.name": long,
+			"error.type": long, "gen_ai.tool.name": long,
+		},
+	}
+	s := FromTrace(row, Tenant{})
+	for name, v := range map[string]string{
+		"service": s.Service, "span": s.SpanName, "provider": s.Provider, "model": s.Model,
+		"operation": s.Operation, "error": s.ErrorType, "tool": s.Attrs["gen_ai.tool.name"],
+	} {
+		if len(v) > MaxFieldBytes {
+			t.Fatalf("%s not truncated: %d", name, len(v))
+		}
+	}
+}
+
+func TestNormalizeEnvironment(t *testing.T) {
+	t.Parallel()
+	if env, ok := NormalizeEnvironment(" Production "); !ok || env != "production" {
+		t.Fatalf("got %q %v", env, ok)
+	}
+	for _, bad := range []string{"", "has space", "-lead", strings.Repeat("a", 64)} {
+		if _, ok := NormalizeEnvironment(bad); ok {
+			t.Fatalf("expected %q rejected", bad)
+		}
 	}
 }

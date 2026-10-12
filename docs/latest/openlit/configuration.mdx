@@ -241,8 +241,36 @@ Realtime findings evaluate GenAI spans as they are ingested. The OTLP receiver p
   ```
 </ResponseField>
 
-<ResponseField name="NATS_USER / NATS_PASSWORD / NATS_TOKEN / NATS_CREDS">
-  Optional NATS credentials, used by both the receiver and the engine.
+<ResponseField name="NATS_RECEIVER_USER / NATS_RECEIVER_PASSWORD">
+  NATS user for the OTLP receiver. Docker Compose uses `openlit-receiver`, which [`assets/nats.conf`](https://github.com/openlit/openlit/blob/main/assets/nats.conf) only allows to publish signals and manage the signal stream. `NATS_RECEIVER_TOKEN` and `NATS_RECEIVER_CREDS` are also accepted.
+</ResponseField>
+
+<ResponseField name="NATS_ENGINE_USER / NATS_ENGINE_PASSWORD">
+  NATS user for the realtime engine. Docker Compose uses `openlit-engine`, which can only read the signal stream. `NATS_ENGINE_TOKEN` and `NATS_ENGINE_CREDS` are also accepted. `NATS_USER`, `NATS_PASSWORD`, `NATS_TOKEN`, and `NATS_CREDS` are used as a shared fallback for both.
+
+  <Warning>
+    Docker Compose ships placeholder passwords (`openlit-receiver-change-me`, `openlit-engine-change-me`). Set `NATS_RECEIVER_PASSWORD` and `NATS_ENGINE_PASSWORD` for any deployment other people can reach. The same values are passed to the NATS server and to OpenLIT.
+  </Warning>
+</ResponseField>
+
+<ResponseField name="NATS_TLS_CA / NATS_TLS_CERT / NATS_TLS_KEY / NATS_TLS_REQUIRED">
+  TLS for NATS: a CA bundle, an optional client certificate and key for mutual TLS, and `NATS_TLS_REQUIRED=true` to refuse plaintext connections. Use TLS whenever NATS runs outside the OpenLIT container network.
+</ResponseField>
+
+<ResponseField name="OPENLIT_ENGINE_SECRET">
+  Shared secret between the UI server and the realtime engine, sent as `X-OpenLIT-Engine-Secret`. The Docker image generates one per install and stores it in the data volume. Outside Docker, set the same value for both processes; the engine refuses to start without it, and the internal realtime routes reject every request. It is separate from `CRON_JOB_SECRET`.
+</ResponseField>
+
+<ResponseField name="OPENLIT_SIGNAL_STREAM_MAX_BYTES / OPENLIT_SIGNALS_MAX_AGE">
+  Size cap (default 256 MiB) and retention (default `10m`) of the signal stream. The oldest signals are discarded first.
+</ResponseField>
+
+<ResponseField name="OPENLIT_ENGINE_MAX_WINDOWS_PER_TENANT / OPENLIT_ENGINE_MAX_WINDOWS / OPENLIT_ENGINE_MAX_SAMPLES_PER_WINDOW / OPENLIT_ENGINE_FINDINGS_PER_MIN">
+  Engine limits: rule windows per organisation/project/environment (default `1000`) and in total (default `50000`), samples per window (default `5000`), and findings each environment can open per minute (default `60`). Excess is dropped and counted.
+</ResponseField>
+
+<ResponseField name="OTLP_STATS_ADDR / OTLP_TENANT_CACHE_MAX / OTLP_AUTH_FAIL_BURST / OTLP_AUTH_FAIL_PER_MIN">
+  Receiver hardening: the loopback listener for pipeline counters (default `127.0.0.1:4319`, `off` disables), the API key cache size (default `10000`), and how many rejected API keys a client IP may send (default burst `20`, refilling `60` per minute) before it receives `429`.
 </ResponseField>
 
 <ResponseField name="OPENLIT_ENGINE_URL">
@@ -263,7 +291,7 @@ Realtime findings evaluate GenAI spans as they are ingested. The OTLP receiver p
 </ResponseField>
 
 <ResponseField name="OPENLIT_SIGNAL_ATTRIBUTES">
-  Extra span and resource attribute keys to copy onto realtime signals, in addition to the built-in allowlist (`user.id`, `session.id`, `gen_ai.tool.name`, `gen_ai.request.temperature`, and the other operational fields). Comma-separated. Rules can match and group by these keys. Prompt, completion, and message attributes are ignored.
+  Extra span and resource attribute keys to copy onto realtime signals, in addition to the built-in allowlist of operational fields (`gen_ai.tool.name`, `gen_ai.request.temperature`, `http.route`, and similar). Comma-separated. Rules can match and group by these keys. `user.id`, `enduser.id`, `session.id`, `conversation.id`, `gen_ai.conversation.id`, `url.path`, and `server.address` identify people or internal systems, so they are only copied when listed here. Prompt, completion, and message attributes are always ignored, and values that look like credentials are redacted.
 
   **Example**:
   ```yaml
@@ -279,6 +307,14 @@ Realtime findings evaluate GenAI spans as they are ingested. The OTLP receiver p
   export OPENLIT_REALTIME_ERROR_RATE=0.1
   ```
 </ResponseField>
+
+### Realtime production checklist
+
+- Set strong `NATS_RECEIVER_PASSWORD` and `NATS_ENGINE_PASSWORD` values (or use NATS creds files), and keep NATS on a private network. Docker Compose does not publish NATS ports.
+- Enable TLS (`NATS_TLS_*`) when NATS is not on the same host or container network.
+- Keep `OPENLIT_ENGINE_SECRET` and `CRON_JOB_SECRET` distinct and secret, and keep `ENGINE_HTTP_ADDR` and `OTLP_STATS_ADDR` on loopback.
+- Set `OTLP_REQUIRE_API_KEY=true` so every span is attributed to a project.
+- Leave personal-data attributes out of `OPENLIT_SIGNAL_ATTRIBUTES` unless rules need them.
 
 ## Telemetry variables
 

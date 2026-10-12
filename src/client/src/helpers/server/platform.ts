@@ -310,7 +310,7 @@ export const getFilterWhereCondition = (
 			if (filter.selectedConfig.spanNames?.length) {
 				whereArray.push(
 					`SpanName IN (${filter.selectedConfig.spanNames
-						.map((spanName) => `'${spanName}'`)
+						.map((spanName) => `'${escapeClickHouseString(String(spanName))}'`)
 						.join(", ")})`
 				);
 			}

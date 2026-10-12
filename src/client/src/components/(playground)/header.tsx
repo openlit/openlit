@@ -11,6 +11,7 @@ import { playgroundTopBarClassName } from "./sidebar-layout-context";
 import { ChatHeaderButton } from "./chat/chat-floating-button";
 import TalkToFounderLink from "@/components/common/talk-to-founder-link";
 import SignalAlertsButton from "./realtime/signal-alerts-button";
+import FeatureAccess from "@/components/rbac/feature-access";
 
 export function HeaderContextRow() {
 	const { setHeaderRef } = usePortal();
@@ -36,7 +37,9 @@ export function HeaderContextRow() {
 			<HeaderAppTrail />
 			<HeaderPageTrail />
 			<div className="ml-auto flex items-center gap-2">
-				<SignalAlertsButton />
+				<FeatureAccess access="realtime.read" requireProject hideWhenDenied>
+					<SignalAlertsButton />
+				</FeatureAccess>
 				<TalkToFounderLink />
 				<ChatHeaderButton />
 				<div ref={containerRef} className="flex items-center" />

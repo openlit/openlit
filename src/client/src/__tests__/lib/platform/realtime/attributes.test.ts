@@ -10,7 +10,7 @@ describe("realtime attribute allowlist", () => {
 
 	it("accepts operational attributes and extra keys, and blocks prompt text", () => {
 		process.env.OPENLIT_SIGNAL_ATTRIBUTES = "app.tier, gen_ai.prompt, not a key";
-		expect(isRealtimeAttributeField("user.id")).toBe(true);
+		expect(isRealtimeAttributeField("user.id")).toBe(false);
 		expect(isRealtimeAttributeField("gen_ai.tool.name")).toBe(true);
 		expect(isRealtimeAttributeField("app.tier")).toBe(true);
 		expect(isRealtimeAttributeField("gen_ai.prompt")).toBe(false);
@@ -19,5 +19,16 @@ describe("realtime attribute allowlist", () => {
 		expect(isRealtimeAttributeField("model")).toBe(false);
 		expect(isRealtimeMapKey("traceId")).toBe(true);
 		expect(isRealtimeMapKey("gen_ai.prompt")).toBe(false);
+	});
+
+	it("only allows personal identifiers when explicitly listed", () => {
+		delete process.env.OPENLIT_SIGNAL_ATTRIBUTES;
+		for (const key of ["user.id", "enduser.id", "session.id", "conversation.id", "gen_ai.conversation.id", "url.path", "server.address"]) {
+			expect(isRealtimeAttributeField(key)).toBe(false);
+		}
+		process.env.OPENLIT_SIGNAL_ATTRIBUTES = "user.id,url.path";
+		expect(isRealtimeAttributeField("user.id")).toBe(true);
+		expect(isRealtimeAttributeField("url.path")).toBe(true);
+		expect(isRealtimeAttributeField("session.id")).toBe(false);
 	});
 });

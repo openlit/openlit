@@ -1,6 +1,7 @@
 package tenant
 
 import (
+	"container/list"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -22,7 +23,13 @@ var (
 	ErrNoTenant     = errors.New("no tenant")
 )
 
-const negativeCacheTTL = 10 * time.Second
+const (
+	negativeCacheTTL = 10 * time.Second
+	// DefaultCacheMax bounds resolved and rejected keys together. Rejected
+	// keys are attacker-controlled, so the cache must never grow without limit.
+	DefaultCacheMax    = 10000
+	cacheSweepInterval = 30 * time.Second
+)
 
 type Tenant struct {
 	ClickHouse       config.ClickHouseConfig
@@ -50,11 +57,16 @@ type Store struct {
 	RequireKey bool
 	InitDB     config.ClickHouseConfig
 	ttl        time.Duration
+	maxEntries int
 	mu         sync.Mutex
-	cache      map[string]cacheEntry
+	// cache maps hashed keys to elements of lru (front = most recent).
+	cache     map[string]*list.Element
+	lru       *list.List
+	lastSweep time.Time
 }
 
 type cacheEntry struct {
+	key    string
 	tenant Tenant
 	err    error
 	expiry time.Time
@@ -65,7 +77,7 @@ func Open(cfg config.Config) (*Store, error) {
 		RequireKey: cfg.RequireAPIKey,
 		InitDB:     cfg.InitDB,
 		ttl:        time.Duration(cfg.TenantCacheTTLSec) * time.Second,
-		cache:      map[string]cacheEntry{},
+		maxEntries: cfg.TenantCacheMax,
 	}
 	if cfg.SQLitePath == "" {
 		return s, nil
@@ -131,15 +143,9 @@ func (s *Store) Resolve(ctx context.Context, authorization string) (Tenant, erro
 	}
 
 	key := cacheKey(token)
-	s.mu.Lock()
-	if s.cache == nil {
-		s.cache = map[string]cacheEntry{}
+	if tenant, err, ok := s.cached(key); ok {
+		return tenant, err
 	}
-	if entry, ok := s.cache[key]; ok && time.Now().Before(entry.expiry) {
-		s.mu.Unlock()
-		return entry.tenant, entry.err
-	}
-	s.mu.Unlock()
 
 	tenant, err := s.lookupScoped(ctx, token)
 	if err != nil && isMissingColumn(err) {
@@ -149,14 +155,76 @@ func (s *Store) Resolve(ctx context.Context, authorization string) (Tenant, erro
 		return Tenant{}, err
 	}
 
-	s.mu.Lock()
 	if err != nil {
-		s.cache[key] = cacheEntry{err: err, expiry: time.Now().Add(negativeCacheTTL)}
+		s.store(cacheEntry{key: key, err: err, expiry: time.Now().Add(negativeCacheTTL)})
 	} else {
-		s.cache[key] = cacheEntry{tenant: tenant, expiry: time.Now().Add(s.ttl)}
+		s.store(cacheEntry{key: key, tenant: tenant, expiry: time.Now().Add(s.ttl)})
 	}
-	s.mu.Unlock()
 	return tenant, err
+}
+
+func (s *Store) cached(key string) (Tenant, error, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	el, ok := s.cache[key]
+	if !ok {
+		return Tenant{}, nil, false
+	}
+	entry := el.Value.(*cacheEntry)
+	if !time.Now().Before(entry.expiry) {
+		s.lru.Remove(el)
+		delete(s.cache, key)
+		return Tenant{}, nil, false
+	}
+	s.lru.MoveToFront(el)
+	return entry.tenant, entry.err, true
+}
+
+// store inserts or refreshes an entry, sweeping expired entries periodically
+// and evicting the least recently used ones beyond the size cap.
+func (s *Store) store(entry cacheEntry) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cache == nil {
+		s.cache = map[string]*list.Element{}
+	}
+	if s.lru == nil {
+		s.lru = list.New()
+	}
+	now := time.Now()
+	if now.Sub(s.lastSweep) >= cacheSweepInterval {
+		s.lastSweep = now
+		for el := s.lru.Back(); el != nil; {
+			prev := el.Prev()
+			if e := el.Value.(*cacheEntry); !now.Before(e.expiry) {
+				s.lru.Remove(el)
+				delete(s.cache, e.key)
+			}
+			el = prev
+		}
+	}
+	if el, ok := s.cache[entry.key]; ok {
+		*el.Value.(*cacheEntry) = entry
+		s.lru.MoveToFront(el)
+		return
+	}
+	s.cache[entry.key] = s.lru.PushFront(&entry)
+	max := s.maxEntries
+	if max <= 0 {
+		max = DefaultCacheMax
+	}
+	for s.lru.Len() > max {
+		oldest := s.lru.Back()
+		s.lru.Remove(oldest)
+		delete(s.cache, oldest.Value.(*cacheEntry).key)
+	}
+}
+
+// CacheLen reports the number of cached keys, for tests and stats.
+func (s *Store) CacheLen() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.cache)
 }
 
 type resolvedRow struct {

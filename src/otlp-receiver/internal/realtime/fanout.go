@@ -17,6 +17,7 @@ type Transport interface {
 type SkipStats struct {
 	Unscoped      uint64 `json:"unscoped"`
 	InvalidTenant uint64 `json:"invalid_tenant"`
+	InvalidEnv    uint64 `json:"invalid_environment"`
 	NonGenAI      uint64 `json:"non_genai"`
 	Enqueued      uint64 `json:"enqueued"`
 }
@@ -25,6 +26,7 @@ type Fanout struct {
 	transport     Transport
 	unscoped      atomic.Uint64
 	invalidTenant atomic.Uint64
+	invalidEnv    atomic.Uint64
 	nonGenAI      atomic.Uint64
 	enqueued      atomic.Uint64
 }
@@ -44,10 +46,17 @@ func (f *Fanout) PublishTraces(t tenant.Tenant, rows []otlpconv.TraceRow) {
 		f.unscoped.Add(uint64(len(rows)))
 		return
 	}
+	// Environments are published lowercase; names the UI cannot select are
+	// dropped so no finding is raised that nobody can see.
+	env, ok := signal.NormalizeEnvironment(t.Environment)
+	if !ok {
+		f.invalidEnv.Add(uint64(len(rows)))
+		return
+	}
 	st := signal.Tenant{
 		OrganisationID:   t.OrganisationID,
 		ProjectID:        t.ProjectID,
-		Environment:      t.Environment,
+		Environment:      env,
 		DatabaseConfigID: t.DatabaseConfigID,
 		APIKeyID:         t.APIKeyID,
 	}
@@ -79,6 +88,7 @@ func (f *Fanout) Stats() SkipStats {
 	return SkipStats{
 		Unscoped:      f.unscoped.Load(),
 		InvalidTenant: f.invalidTenant.Load(),
+		InvalidEnv:    f.invalidEnv.Load(),
 		NonGenAI:      f.nonGenAI.Load(),
 		Enqueued:      f.enqueued.Load(),
 	}

@@ -19,6 +19,16 @@ const ENVIRONMENT_PATTERN = /^[a-z0-9][a-z0-9._-]{0,62}$/;
 const DEDUPE_PATTERN = /^[a-f0-9]{16,64}$/;
 const MAX_MAP_ENTRIES = 16;
 const MAX_MAP_VALUE = 256;
+const DEFAULT_RETENTION_DAYS = 30;
+const DEFAULT_MAX_OPEN_PER_ENVIRONMENT = 1000;
+const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+
+let lastPrunedAt = 0;
+
+function positiveIntEnv(name: string, fallback: number): number {
+	const value = Number(process.env[name]);
+	return Number.isInteger(value) && value > 0 ? value : fallback;
+}
 
 export class RealtimeFindingError extends Error {
 	constructor(message: string, readonly status: number) {
@@ -204,6 +214,18 @@ export async function recordRealtimeFinding(
 		});
 		transition = "resolved";
 	} else if (!existing) {
+		// A noisy or hostile tenant cannot grow the table without bound: once an
+		// environment has this many firing findings, new groups are dropped.
+		const open = await prisma.realtimeFinding.count({
+			where: {
+				projectId: input.projectId,
+				environment: input.environment,
+				state: "firing",
+			},
+		});
+		if (open >= positiveIntEnv("OPENLIT_REALTIME_MAX_OPEN_FINDINGS", DEFAULT_MAX_OPEN_PER_ENVIRONMENT)) {
+			return { transition: "ignored", finding: null };
+		}
 		row = await prisma.realtimeFinding.create({
 			data: {
 				...measurement,
@@ -241,6 +263,27 @@ export async function recordRealtimeFinding(
 		}
 	}
 	return { transition, finding: view };
+}
+
+/**
+ * Delete resolved findings older than OPENLIT_REALTIME_FINDING_RETENTION_DAYS
+ * (default 30). Runs at most once an hour per server process; the engine's
+ * finding posts drive it, so no separate cron entry is needed.
+ */
+export async function pruneRealtimeFindings(now = new Date()): Promise<number> {
+	if (now.getTime() - lastPrunedAt < PRUNE_INTERVAL_MS) return 0;
+	lastPrunedAt = now.getTime();
+	const days = positiveIntEnv("OPENLIT_REALTIME_FINDING_RETENTION_DAYS", DEFAULT_RETENTION_DAYS);
+	const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+	const { count } = await prisma.realtimeFinding.deleteMany({
+		where: { state: "resolved", resolvedAt: { lt: cutoff } },
+	});
+	return count;
+}
+
+/** Test hook: forget the last prune time. */
+export function resetRealtimeFindingPruneClock() {
+	lastPrunedAt = 0;
 }
 
 /** Findings for the caller's current project, scoped to one environment. */

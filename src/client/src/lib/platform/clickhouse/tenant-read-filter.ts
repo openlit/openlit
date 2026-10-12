@@ -22,16 +22,28 @@ const SAFE_DATABASE = /^[A-Za-z0-9_]{1,128}$/;
 
 type TenantReadConfig = Pick<DatabaseConfig, "projectId" | "environment" | "database">;
 
+function tenantReadFilterMode(): string {
+	return (process.env.OPENLIT_TENANT_READ_FILTER || "").trim().toLowerCase();
+}
+
 export function isTenantReadFilterEnabled(): boolean {
-	const raw = (process.env.OPENLIT_TENANT_READ_FILTER || "").trim().toLowerCase();
-	return !["0", "false", "off", "no"].includes(raw);
+	return !["0", "false", "off", "no"].includes(tenantReadFilterMode());
+}
+
+/**
+ * `OPENLIT_TENANT_READ_FILTER=strict` also hides unstamped rows. Use it when
+ * several projects share one ClickHouse database and the receiver requires
+ * API keys, so every legitimate row carries a project.
+ */
+export function isTenantReadFilterStrict(): boolean {
+	return tenantReadFilterMode() === "strict";
 }
 
 /**
  * Row predicate for one DatabaseConfig: rows stamped for another project or
  * environment are never readable through this config. Unstamped rows (ingest
- * without an API key) stay visible to the store owner. Identifiers that are
- * not safe to embed fail closed.
+ * without an API key) stay visible to the store owner unless strict mode is
+ * on. Identifiers that are not safe to embed fail closed.
  */
 export function tenantRowPredicate(config: TenantReadConfig): string | null {
 	const projectId = (config.projectId || "").trim();
@@ -39,6 +51,12 @@ export function tenantRowPredicate(config: TenantReadConfig): string | null {
 	const environment = (config.environment || "production").trim();
 	if (!SAFE_IDENTIFIER.test(projectId) || !SAFE_ENVIRONMENT.test(environment)) {
 		return "0";
+	}
+	if (isTenantReadFilterStrict()) {
+		return (
+			`ResourceAttributes['${PROJECT_ATTRIBUTE}'] = '${projectId}' AND ` +
+			`ResourceAttributes['${ENVIRONMENT_ATTRIBUTE}'] = '${environment}'`
+		);
 	}
 	return (
 		`ResourceAttributes['${PROJECT_ATTRIBUTE}'] IN ('', '${projectId}') AND ` +

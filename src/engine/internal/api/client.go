@@ -1,5 +1,6 @@
 // Package api talks to the OpenLIT server's internal realtime routes. Both
-// routes are authenticated with the per-install cron job secret.
+// routes are authenticated with the per-install engine secret
+// (OPENLIT_ENGINE_SECRET), sent in SecretHeader.
 package api
 
 import (
@@ -22,6 +23,8 @@ import (
 const (
 	RulesPath    = "/api/internal/realtime/rules"
 	FindingsPath = "/api/internal/realtime/findings"
+	// SecretHeader carries OPENLIT_ENGINE_SECRET in both directions.
+	SecretHeader = "X-OpenLIT-Engine-Secret"
 )
 
 type Client struct {
@@ -51,7 +54,7 @@ func New(baseURL, secret string) *Client {
 }
 
 func (c *Client) authorize(req *http.Request) {
-	req.Header.Set("X-CRON-JOB", c.secret)
+	req.Header.Set(SecretHeader, c.secret)
 }
 
 type rulesResponse struct {

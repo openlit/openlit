@@ -13,24 +13,38 @@ OTLP receiver ──► NATS JetStream (OPENLIT_SIGNALS) ──► openlit-engin
 - Rules are fetched from `/api/internal/realtime/rules` every `ENGINE_RULES_REFRESH`. Community Edition ships four built-in rules: error rate, p95 latency, token volume, and cost. Their thresholds are set with `OPENLIT_REALTIME_*` variables on the UI server.
 - Window rules fire when the metric breaches its threshold with at least `minSamples` samples, and resolve when it recovers. A cooldown suppresses re-firing.
 - Findings are delivered with retries. The server re-validates the rule, scope, and tenant before storing anything.
-- The engine keeps the latest 500 signals in memory. `GET /signals` returns one tenant's signals and requires the `X-CRON-JOB` secret. The UI proxies this for the Signals inspector.
-- Rules can match and group by an allowlist of span attributes (`user.id`, `gen_ai.tool.name`, `gen_ai.request.temperature`, and the other operational fields). `OPENLIT_SIGNAL_ATTRIBUTES` adds keys. Prompt, completion, and message attributes are never copied or matched.
+- The engine keeps the latest 200 signals per tenant (organisation, project, environment) for up to 1,000 tenants. `GET /signals` returns one tenant's signals. The UI proxies this for the Signals inspector.
+- Environments are lowercased; signals whose environment is not a valid OpenLIT environment name are dropped and counted.
+- Rules can match and group by an allowlist of operational span attributes (`gen_ai.tool.name`, `gen_ai.request.temperature`, `http.route`, and similar). `OPENLIT_SIGNAL_ATTRIBUTES` adds keys. User, session, and conversation ids, `url.path`, and `server.address` are personal or sensitive and only allowed when listed there. Prompt, completion, and message attributes are never copied or matched.
+
+## Security and limits
+
+- `OPENLIT_ENGINE_SECRET` is required; the engine exits without it. It is sent as `X-OpenLIT-Engine-Secret` to the internal routes, and every engine API call except `/health` must present it. It is separate from `CRON_JOB_SECRET`.
+- Group values come from span data, so state is capped: windows per tenant and in total, samples per window, and findings opened per tenant per minute. Excess is dropped and counted in `/stats`. Idle windows are evicted. Resolutions are never rate-limited.
+- Findings are handed to the delivery queue after the evaluation lock is released.
+- The engine connects to NATS with its own user (`NATS_ENGINE_USER`), which `assets/nats.conf` limits to reading the signal stream; it cannot publish signals.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `NATS_URL` | required | NATS server URL |
-| `NATS_USER` / `NATS_PASSWORD` / `NATS_TOKEN` / `NATS_CREDS` | unset | NATS authentication |
+| `NATS_ENGINE_USER` / `NATS_ENGINE_PASSWORD` / `NATS_ENGINE_TOKEN` / `NATS_ENGINE_CREDS` | falls back to `NATS_USER` / `NATS_PASSWORD` / `NATS_TOKEN` / `NATS_CREDS` | NATS authentication |
+| `NATS_TLS_CA` / `NATS_TLS_CERT` / `NATS_TLS_KEY` | unset | CA bundle and client certificate (mTLS) for NATS |
+| `NATS_TLS_REQUIRED` | `false` | Refuse non-TLS NATS connections |
 | `OPENLIT_SIGNALS_STREAM` | `OPENLIT_SIGNALS` | JetStream stream name |
 | `OPENLIT_URL` | `http://127.0.0.1:3000` | OpenLIT UI server |
-| `CRON_JOB_SECRET` | `true` | Shared secret sent as `X-CRON-JOB` to the internal routes |
-| `ENGINE_HTTP_ADDR` | `127.0.0.1:4320` | `GET /health`, `GET /stats`, and `GET /signals` |
+| `OPENLIT_ENGINE_SECRET` | required | Shared secret with the UI server |
+| `ENGINE_HTTP_ADDR` | `127.0.0.1:4320` | `GET /health`, `GET /stats`, and `GET /signals`. Keep it on loopback |
+| `OPENLIT_ENGINE_MAX_WINDOWS` | `50000` | Rule windows across all tenants |
+| `OPENLIT_ENGINE_MAX_WINDOWS_PER_TENANT` | `1000` | Rule windows per organisation/project/environment |
+| `OPENLIT_ENGINE_MAX_SAMPLES_PER_WINDOW` | `5000` | Samples kept per window |
+| `OPENLIT_ENGINE_FINDINGS_PER_MIN` | `60` | Findings a tenant can open per minute |
 | `ENGINE_RULES_REFRESH` | `60s` | Rule refresh interval |
 | `ENGINE_TICK` | `5s` | Window evaluation interval |
 | `ENGINE_REPLAY` | `10m` | How far back to replay on start |
 
-The Docker image starts the engine automatically when `NATS_URL` is set and passes it the persisted `CRON_JOB_SECRET`.
+The Docker image starts the engine automatically when `NATS_URL` is set, and generates and persists `OPENLIT_ENGINE_SECRET` for both the engine and the UI server.
 
 ## Local development
 

@@ -20,33 +20,18 @@ import (
 )
 
 func New(svc *ingest.Service) http.Handler {
-	return NewWithStats(svc, nil)
-}
-
-// NewWithStats also serves GET /stats with non-sensitive pipeline counters.
-func NewWithStats(svc *ingest.Service, stats func() any) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	if stats != nil {
-		mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodGet {
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(stats())
-		})
-	}
 	mux.HandleFunc("/v1/traces", func(w http.ResponseWriter, r *http.Request) {
 		handle(w, r, func(body []byte, contentType string) error {
 			var req colltrace.ExportTraceServiceRequest
 			if err := unmarshal(body, contentType, &req); err != nil {
 				return err
 			}
-			return svc.Traces(r.Context(), credential(r), &req)
+			return svc.Traces(r.Context(), tenant.ClientIP(r.RemoteAddr), credential(r), &req)
 		})
 	})
 	mux.HandleFunc("/v1/logs", func(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +40,7 @@ func NewWithStats(svc *ingest.Service, stats func() any) http.Handler {
 			if err := unmarshal(body, contentType, &req); err != nil {
 				return err
 			}
-			return svc.Logs(r.Context(), credential(r), &req)
+			return svc.Logs(r.Context(), tenant.ClientIP(r.RemoteAddr), credential(r), &req)
 		})
 	})
 	mux.HandleFunc("/v1/metrics", func(w http.ResponseWriter, r *http.Request) {
@@ -64,10 +49,25 @@ func NewWithStats(svc *ingest.Service, stats func() any) http.Handler {
 			if err := unmarshal(body, contentType, &req); err != nil {
 				return err
 			}
-			return svc.Metrics(r.Context(), credential(r), &req)
+			return svc.Metrics(r.Context(), tenant.ClientIP(r.RemoteAddr), credential(r), &req)
 		})
 	})
 	return headerGuard(mux)
+}
+
+// NewStats serves GET /stats with pipeline counters. It is mounted on its own
+// listener (OTLP_STATS_ADDR, loopback by default), never the public OTLP port.
+func NewStats(stats func() any) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(stats())
+	})
+	return mux
 }
 
 func headerGuard(next http.Handler) http.Handler {
@@ -107,6 +107,11 @@ func handle(w http.ResponseWriter, r *http.Request, fn func([]byte, string) erro
 		status := ingest.HTTPStatus(err)
 		if status == http.StatusUnauthorized {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if status == http.StatusTooManyRequests {
+			w.Header().Set("Retry-After", "60")
+			http.Error(w, "too many failed authentication attempts", http.StatusTooManyRequests)
 			return
 		}
 		http.Error(w, "ingest failed", status)

@@ -19,6 +19,8 @@
 #   SEED=1               Run `prisma db seed` (default user, org, project, DB config) after migrating
 #   OPENLIT_REALTIME_*   Built-in trigger thresholds, passed through to the UI server
 #   OPENLIT_SIGNAL_ATTRIBUTES  Extra span attributes rules may match (comma-separated)
+#   NATS_RECEIVER_PASSWORD / NATS_ENGINE_PASSWORD  NATS user passwords (random per session)
+#   OPENLIT_ENGINE_SECRET      Engine <-> UI secret (random per session)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -90,10 +92,15 @@ export INIT_DB_USERNAME="${INIT_DB_USERNAME:-default}"
 export INIT_DB_PASSWORD="${INIT_DB_PASSWORD:-OPENLIT}"
 export INIT_DB_DATABASE="${INIT_DB_DATABASE:-openlit}"
 
-# One secret per session, shared by the UI server and the engine so the
-# internal realtime routes never accept the unauthenticated "true" fallback.
+# Per-session secrets. The engine secret is shared by the UI server and the
+# engine; the cron secret keeps cron routes off the "true" fallback.
 export CRON_JOB_SECRET="${CRON_JOB_SECRET:-$(openssl rand -hex 24)}"
+export OPENLIT_ENGINE_SECRET="${OPENLIT_ENGINE_SECRET:-$(openssl rand -hex 24)}"
 export NATS_URL="nats://127.0.0.1:${NATS_PORT}"
+# NATS runs with assets/nats.conf, so dev exercises the production permissions.
+NATS_CONF="$ROOT/assets/nats.conf"
+export NATS_RECEIVER_PASSWORD="${NATS_RECEIVER_PASSWORD:-$(openssl rand -hex 16)}"
+export NATS_ENGINE_PASSWORD="${NATS_ENGINE_PASSWORD:-$(openssl rand -hex 16)}"
 
 # ---- process supervision ---------------------------------------------------
 
@@ -142,26 +149,33 @@ log "ClickHouse ready on ${INIT_DB_HOST}:${INIT_DB_PORT}"
 NATS_BIN="$(command -v nats-server 2>/dev/null || true)"
 [ -z "$NATS_BIN" ] && [ -x "$(go env GOPATH)/bin/nats-server" ] && NATS_BIN="$(go env GOPATH)/bin/nats-server"
 
-if curl -fsS -o /dev/null "http://127.0.0.1:${NATS_MONITOR_PORT}/healthz?js-enabled-only=true" 2>/dev/null; then
-	log "reusing NATS already running on port ${NATS_PORT}"
-elif [ -n "$NATS_BIN" ] && [ "${NATS_USE_DOCKER:-0}" != 1 ]; then
+if [ -n "$NATS_BIN" ] && [ "${NATS_USE_DOCKER:-0}" != 1 ]; then
 	port_busy "$NATS_PORT" && die "NATS port $NATS_PORT is already in use; set NATS_PORT"
 	NATS_STORE="${NATS_STORE:-${TMPDIR:-/tmp}/openlit-dev-nats}"
 	mkdir -p "$NATS_STORE"
 	log "starting $NATS_BIN (store: $NATS_STORE)"
-	run nats 34 "$ROOT" "$NATS_BIN" -js -sd "$NATS_STORE" \
+	run nats 34 "$ROOT" "$NATS_BIN" -c "$NATS_CONF" -sd "$NATS_STORE" \
 		-a 127.0.0.1 -p "$NATS_PORT" -m "$NATS_MONITOR_PORT"
+	wait_for "NATS JetStream" "http://127.0.0.1:${NATS_MONITOR_PORT}/healthz?js-enabled-only=true"
 else
 	docker rm -f "$NATS_CONTAINER" >/dev/null 2>&1 || true
 	port_busy "$NATS_PORT" && die "NATS port $NATS_PORT is already in use; set NATS_PORT"
 	log "starting NATS in docker ($NATS_IMAGE); install nats-server locally to skip docker:"
 	log "  go install github.com/nats-io/nats-server/v2@v2.12.15"
+	# Monitoring stays on loopback inside the container (see nats.conf).
 	docker run -d --name "$NATS_CONTAINER" \
-		-p "127.0.0.1:${NATS_PORT}:4222" -p "127.0.0.1:${NATS_MONITOR_PORT}:8222" \
-		"$NATS_IMAGE" -js -m 8222 >/dev/null
+		-e NATS_RECEIVER_PASSWORD -e NATS_ENGINE_PASSWORD \
+		-v "$NATS_CONF:/etc/nats/nats.conf:ro" \
+		-p "127.0.0.1:${NATS_PORT}:4222" \
+		"$NATS_IMAGE" -c /etc/nats/nats.conf >/dev/null
 	STARTED_NATS=1
+	for _ in $(seq 1 60); do
+		docker exec "$NATS_CONTAINER" wget -qO- "http://127.0.0.1:8222/healthz?js-enabled-only=true" >/dev/null 2>&1 && break
+		sleep 1
+	done
+	docker exec "$NATS_CONTAINER" wget -qO- "http://127.0.0.1:8222/healthz?js-enabled-only=true" >/dev/null 2>&1 ||
+		die "timed out waiting for NATS JetStream (docker logs $NATS_CONTAINER)"
 fi
-wait_for "NATS JetStream" "http://127.0.0.1:${NATS_MONITOR_PORT}/healthz?js-enabled-only=true"
 log "NATS ready on $NATS_URL"
 
 if [ "${SKIP_MIGRATE:-0}" != 1 ]; then
@@ -184,18 +198,21 @@ run ui 35 "$CLIENT_DIR" env \
 run receiver 33 "$RECEIVER_DIR" env \
 	OTLP_HTTP_ADDR="127.0.0.1:${OTLP_HTTP_PORT}" \
 	OTLP_GRPC_ADDR="127.0.0.1:${OTLP_GRPC_PORT}" \
+	OTLP_STATS_ADDR="${OTLP_STATS_ADDR:-127.0.0.1:4319}" \
+	NATS_RECEIVER_USER=openlit-receiver \
 	go run ./cmd/otlp-receiver
 
 run engine 32 "$ENGINE_DIR" env \
 	OPENLIT_URL="http://127.0.0.1:${UI_PORT}" \
 	ENGINE_HTTP_ADDR="$ENGINE_HTTP_ADDR" \
+	NATS_ENGINE_USER=openlit-engine \
 	go run ./cmd/openlit-engine
 
 log "UI:            http://localhost:${UI_PORT}"
-log "OTLP HTTP:     http://127.0.0.1:${OTLP_HTTP_PORT}  (stats: /stats)"
+log "OTLP HTTP:     http://127.0.0.1:${OTLP_HTTP_PORT}"
 log "OTLP gRPC:     127.0.0.1:${OTLP_GRPC_PORT}"
-log "Engine stats:  http://${ENGINE_HTTP_ADDR}/stats"
-log "NATS monitor:  http://127.0.0.1:${NATS_MONITOR_PORT}/jsz"
+log "OTLP stats:    http://${OTLP_STATS_ADDR:-127.0.0.1:4319}/stats"
+log "Engine stats:  curl -H \"X-OpenLIT-Engine-Secret: \$OPENLIT_ENGINE_SECRET\" http://${ENGINE_HTTP_ADDR}/stats"
 log "press Ctrl+C to stop"
 
 # bash 3.2 (macOS) has no `wait -n`; poll so one crashed service stops all.
