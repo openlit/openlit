@@ -2,7 +2,9 @@
 Utility functions for Firecrawl instrumentation
 """
 
+import contextvars
 import logging
+import time
 from typing import Dict, Any, Optional
 
 from opentelemetry.trace import Status, StatusCode
@@ -16,28 +18,54 @@ from openlit.semcov import SemanticConvention
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
+# Set while a Firecrawl span is open. SDK methods that call other instrumented
+# methods (scrape_url -> scrape, async crawl -> start_crawl) get one span.
+_firecrawl_span_active = contextvars.ContextVar(
+    "openlit_firecrawl_span_active", default=False
+)
+
 # Comprehensive operation mapping for all Firecrawl endpoints following the framework guide pattern
 FIRECRAWL_OPERATION_MAP = {
     # === CORE SCRAPING OPERATIONS ===
     "firecrawl.scrape_url": "scrape",
     "firecrawl.async_scrape_url": "scrape",
+    "firecrawl.scrape": "scrape",
+    "firecrawl.async_scrape": "scrape",
     # === CRAWLING OPERATIONS ===
     "firecrawl.crawl_url": "crawl",
     "firecrawl.async_crawl_url": "crawl",
+    "firecrawl.crawl": "crawl",
+    "firecrawl.async_crawl": "crawl",
+    "firecrawl.start_crawl": "crawl",
+    "firecrawl.async_start_crawl": "crawl",
     # === STATUS OPERATIONS ===
     "firecrawl.get_crawl_status": "crawl_status",
     "firecrawl.async_get_crawl_status": "crawl_status",
+    "firecrawl.wait_crawl": "crawl_status",
+    "firecrawl.async_wait_crawl": "crawl_status",
+    "firecrawl.get_batch_scrape_status": "scrape_status",
+    "firecrawl.async_get_batch_scrape_status": "scrape_status",
+    "firecrawl.async_wait_batch_scrape": "scrape_status",
     "firecrawl.get_scrape_status": "scrape_status",
     "firecrawl.async_get_scrape_status": "scrape_status",
     # === MAPPING OPERATIONS ===
     "firecrawl.map_url": "map",
     "firecrawl.async_map_url": "map",
+    "firecrawl.map": "map",
+    "firecrawl.async_map": "map",
     # === SEARCH OPERATIONS ===
     "firecrawl.search": "search",
     "firecrawl.async_search": "search",
     # === BATCH OPERATIONS ===
     "firecrawl.batch_scrape_urls": "scrape",
     "firecrawl.async_batch_scrape_urls": "scrape",
+    "firecrawl.batch_scrape": "scrape",
+    "firecrawl.async_batch_scrape": "scrape",
+    "firecrawl.start_batch_scrape": "scrape",
+    "firecrawl.async_start_batch_scrape": "scrape",
+    # === EXTRACT OPERATIONS ===
+    "firecrawl.extract": "extract",
+    "firecrawl.async_extract": "extract",
     # === CANCEL OPERATIONS ===
     "firecrawl.cancel_crawl": "crawl",
     "firecrawl.async_cancel_crawl": "crawl",
@@ -58,6 +86,7 @@ class FirecrawlInstrumentationContext:
         "_urls",
         "_formats",
         "_api_key_masked",
+        "start_time",
     )
 
     def __init__(self, instance, args, kwargs, version, environment, application_name):
@@ -67,6 +96,7 @@ class FirecrawlInstrumentationContext:
         self.version = version
         self.environment = environment
         self.application_name = application_name
+        self.start_time = time.time()
 
         # Cache expensive operations with lazy loading
         self._url = None
@@ -130,8 +160,8 @@ def get_span_name(
 ) -> str:
     """Create span name following the '{operation_type} {target}' format."""
 
-    # Handle batch operations
-    if "batch" in endpoint and ctx.urls:
+    # Handle multi-URL operations (batch scrape, extract)
+    if ctx.urls:
         if len(ctx.urls) <= 3:
             urls_str = ", ".join(ctx.urls)
             if len(urls_str) <= 80:  # Keep reasonable length
@@ -165,8 +195,9 @@ def set_span_attributes(
         # Set framework attributes using common_framework_span_attributes
         scope = type("GenericScope", (), {})()
         scope._span = span
-        scope._start_time = getattr(span, "start_time", None)
-        scope._end_time = getattr(span, "end_time", None)
+        # The call has not run yet; set_operation_duration sets the real value
+        scope._start_time = ctx.start_time
+        scope._end_time = ctx.start_time
 
         # Set common framework attributes
         common_framework_span_attributes(
@@ -186,6 +217,7 @@ def set_span_attributes(
             "crawl": SemanticConvention.GEN_AI_OPERATION_TYPE_CRAWL,
             "search": SemanticConvention.GEN_AI_OPERATION_TYPE_SEARCH,
             "map": SemanticConvention.GEN_AI_OPERATION_TYPE_MAP,
+            "extract": SemanticConvention.GEN_AI_OPERATION_TYPE_EXTRACT,
             "crawl_status": SemanticConvention.GEN_AI_OPERATION_TYPE_CRAWL_STATUS,
             "scrape_status": SemanticConvention.GEN_AI_OPERATION_TYPE_SCRAPE_STATUS,
         }
@@ -199,18 +231,33 @@ def set_span_attributes(
         )
 
         # URL information
-        if "batch" in endpoint and ctx.urls:
+        if ctx.urls:
             span.set_attribute(SemanticConvention.GEN_AI_CRAWL_URL_COUNT, len(ctx.urls))
             # Set primary URL as browse URL
             if ctx.urls:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_AGENT_BROWSE_URL, ctx.urls[0]
                 )
-        elif ctx.url and ctx.url != "unknown":
+        elif (
+            ctx.url
+            and ctx.url != "unknown"
+            and not operation_name.endswith("_status")
+        ):
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_BROWSE_URL, ctx.url)
 
     except Exception as e:
         logger.debug("Failed to set span attributes: %s", e)
+
+
+def set_operation_duration(span, ctx: FirecrawlInstrumentationContext):
+    """Record how long the Firecrawl call took, whether it succeeded or failed."""
+    try:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
+            time.time() - ctx.start_time,
+        )
+    except Exception as e:
+        logger.debug("Failed to set operation duration: %s", e)
 
 
 def format_content(content, max_length: int = 1000) -> str:
@@ -222,6 +269,27 @@ def format_content(content, max_length: int = 1000) -> str:
     if len(content_str) > max_length:
         return content_str[:max_length] + "..."
     return content_str
+
+
+# firecrawl-py v2 models use snake_case for fields the v1 API returned in camelCase
+_CAMEL_CASE_FIELDS = {
+    "raw_html": "rawHtml",
+    "credits_used": "creditsUsed",
+    "expires_at": "expiresAt",
+    "status_code": "statusCode",
+}
+
+
+def _camel_case_keys(value):
+    """Rename v2 snake_case fields to the camelCase keys read below."""
+    if isinstance(value, dict):
+        return {
+            _CAMEL_CASE_FIELDS.get(key, key): _camel_case_keys(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_camel_case_keys(item) for item in value]
+    return value
 
 
 def process_response(
@@ -237,6 +305,26 @@ def process_response(
     try:
         if response is None:
             return
+
+        # firecrawl-py returns pydantic models (Document, SearchData, CrawlJob, ...)
+        if hasattr(response, "model_dump"):
+            response = _camel_case_keys(response.model_dump(exclude_none=True))
+
+        # v2 search groups results by source instead of returning a data list
+        if (
+            endpoint
+            and "search" in endpoint
+            and isinstance(response, dict)
+            and "data" not in response
+        ):
+            response = {
+                **response,
+                "data": [
+                    item
+                    for source in ("web", "news", "images")
+                    for item in response.get(source) or []
+                ],
+            }
 
         # Handle different response types
         if isinstance(response, dict):
@@ -333,6 +421,10 @@ def _process_single_response(
                 )
             if "error" in metadata:
                 span.set_attribute("gen_ai.response.error", metadata["error"])
+            if metadata.get("creditsUsed") is not None:
+                span.set_attribute(
+                    "gen_ai.response.credits_used", metadata["creditsUsed"]
+                )
 
         # === CONTENT LENGTH METRICS ===
         if "markdown" in response and response["markdown"]:
