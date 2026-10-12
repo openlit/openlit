@@ -4,6 +4,7 @@ Supports comprehensive Firecrawl API operations with enhanced business intellige
 """
 
 import logging
+import re
 from typing import Collection
 import importlib.metadata
 from opentelemetry import trace
@@ -66,14 +67,21 @@ _V2_SYNC_CLIENT = ("firecrawl.v2.client", "FirecrawlClient")
 _V2_ASYNC_CLIENT = ("firecrawl.v2.client_async", "AsyncFirecrawlClient")
 
 
+def _release(version):
+    """Leading numeric part of a version string, e.g. "4.50.0" -> (4, 50, 0)."""
+    match = re.match(r"\d+(?:\.\d+)*", version)
+    return tuple(int(part) for part in match.group().split(".")) if match else ()
+
+
 def _installed_distribution():
-    """Return the name of the installed Firecrawl SDK distribution, if any."""
+    """Return the first installed Firecrawl SDK distribution that meets the minimum."""
     for distribution in _DISTRIBUTIONS:
         try:
-            importlib.metadata.version(distribution)
-            return distribution
+            version = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError:
             continue
+        if _release(version) >= _release(_MIN_VERSION):
+            return distribution
     return None
 
 

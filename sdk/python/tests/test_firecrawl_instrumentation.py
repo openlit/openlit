@@ -203,6 +203,19 @@ def test_dependency_check_accepts_either_distribution(monkeypatch, installed):
     assert FireCrawlInstrumentor().instrumentation_dependencies() == (f"{installed} >= 1.6.3",)
 
 
+def test_dependency_check_skips_distribution_below_minimum(monkeypatch):
+    versions = {"firecrawl-py": "1.0.0", "firecrawl": "4.46.2"}
+
+    def fake_version(name):
+        if name not in versions:
+            raise importlib.metadata.PackageNotFoundError(name)
+        return versions[name]
+
+    monkeypatch.setattr(firecrawl_instrumentation.importlib.metadata, "version", fake_version)
+
+    assert FireCrawlInstrumentor().instrumentation_dependencies() == ("firecrawl >= 1.6.3",)
+
+
 def _record_wraps(monkeypatch, missing_modules=()):
     wrapped = set()
 
@@ -319,3 +332,27 @@ def test_failed_call_is_sent_once_and_recorded(exporter, requests_seen):
     assert span.status.status_code == StatusCode.ERROR
     assert span.attributes[SemanticConvention.GEN_AI_OPERATION] == SemanticConvention.GEN_AI_OPERATION_TYPE_MAP
     assert span.attributes[SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION] > 0
+
+
+def test_installed_targets_resolve_to_real_methods(monkeypatch):
+    """Every target in a layout the installed SDK ships points at a real method."""
+    resolved = set()
+    unresolved = set()
+
+    def resolving_wrap(module, class_method, wrapper):
+        try:
+            obj = importlib.import_module(module)
+        except ImportError:
+            return
+        for part in class_method.split("."):
+            obj = getattr(obj, part, None)
+        (resolved if callable(obj) else unresolved).add((module, class_method))
+
+    monkeypatch.setattr(firecrawl_instrumentation, "wrap_function_wrapper", resolving_wrap)
+    monkeypatch.setattr(firecrawl_instrumentation.importlib.metadata, "version", lambda name: "4.46.2")
+    FireCrawlInstrumentor()._instrument(environment="test", application_name="test")
+
+    assert ("firecrawl.v2.client", "FirecrawlClient.scrape") in resolved
+    assert ("firecrawl.v2.client_async", "AsyncFirecrawlClient.scrape") in resolved
+    assert ("firecrawl.v1.client", "V1FirecrawlApp.scrape_url") in resolved
+    assert not unresolved

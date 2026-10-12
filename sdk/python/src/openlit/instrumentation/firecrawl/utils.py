@@ -87,6 +87,7 @@ class FirecrawlInstrumentationContext:
         "_formats",
         "_api_key_masked",
         "start_time",
+        "start_monotonic",
     )
 
     def __init__(self, instance, args, kwargs, version, environment, application_name):
@@ -97,6 +98,7 @@ class FirecrawlInstrumentationContext:
         self.environment = environment
         self.application_name = application_name
         self.start_time = time.time()
+        self.start_monotonic = time.monotonic()
 
         # Cache expensive operations with lazy loading
         self._url = None
@@ -254,7 +256,7 @@ def set_operation_duration(span, ctx: FirecrawlInstrumentationContext):
     try:
         span.set_attribute(
             SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
-            time.time() - ctx.start_time,
+            time.monotonic() - ctx.start_monotonic,
         )
     except Exception as e:
         logger.debug("Failed to set operation duration: %s", e)
@@ -280,15 +282,16 @@ _CAMEL_CASE_FIELDS = {
 }
 
 
+def _rename_fields(value):
+    """Rename v2 snake_case fields of one dict to the camelCase keys read below."""
+    return {_CAMEL_CASE_FIELDS.get(key, key): item for key, item in value.items()}
+
+
 def _camel_case_keys(value):
-    """Rename v2 snake_case fields to the camelCase keys read below."""
-    if isinstance(value, dict):
-        return {
-            _CAMEL_CASE_FIELDS.get(key, key): _camel_case_keys(item)
-            for key, item in value.items()
-        }
-    if isinstance(value, list):
-        return [_camel_case_keys(item) for item in value]
+    """Rename the top-level and metadata fields without copying nested data."""
+    value = _rename_fields(value)
+    if isinstance(value.get("metadata"), dict):
+        value["metadata"] = _rename_fields(value["metadata"])
     return value
 
 
