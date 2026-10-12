@@ -10,7 +10,7 @@
 #   OTLP_GRPC_PORT       Receiver OTLP/gRPC port (default 4317, falls back to 14317 if busy)
 #   NATS_PORT            NATS client port (default 4222)
 #   NATS_MONITOR_PORT    NATS monitoring port (default 8222)
-#   ENGINE_HTTP_ADDR     Engine health/stats address (default 127.0.0.1:4320)
+#   ENGINE_HTTP_ADDR     Engine health/stats address (default 127.0.0.1:4330)
 #   SQLITE_DATABASE_URL  Defaults to the value in src/client/.env
 #   INIT_DB_HOST/PORT/USERNAME/PASSWORD/DATABASE  ClickHouse (default 127.0.0.1:8123 default/OPENLIT openlit)
 #   NATS_USE_DOCKER=1    Run NATS in docker even when a local nats-server binary exists
@@ -84,7 +84,7 @@ OTLP_HTTP_PORT="$(pick_port OTLP_HTTP "${OTLP_HTTP_PORT:-4318}" 14318 "${OTLP_HT
 OTLP_GRPC_PORT="$(pick_port OTLP_GRPC "${OTLP_GRPC_PORT:-4317}" 14317 "${OTLP_GRPC_PORT:-}")"
 NATS_PORT="${NATS_PORT:-4222}"
 NATS_MONITOR_PORT="${NATS_MONITOR_PORT:-8222}"
-ENGINE_HTTP_ADDR="${ENGINE_HTTP_ADDR:-127.0.0.1:4320}"
+ENGINE_HTTP_ADDR="${ENGINE_HTTP_ADDR:-127.0.0.1:4330}"
 
 export INIT_DB_HOST="${INIT_DB_HOST:-127.0.0.1}"
 export INIT_DB_PORT="${INIT_DB_PORT:-8123}"

@@ -96,7 +96,7 @@ export function parseLiveSignals(body: unknown, scope: SignalScope): LiveSignal[
 }
 
 function engineURL(): string | null {
-	const raw = (process.env.OPENLIT_ENGINE_URL || "http://127.0.0.1:4320").trim().replace(/\/$/, "");
+	const raw = (process.env.OPENLIT_ENGINE_URL || "http://127.0.0.1:4330").trim().replace(/\/$/, "");
 	if (!/^https?:\/\//.test(raw)) return null;
 	return raw;
 }

@@ -53,7 +53,7 @@ describe("listLiveSignals", () => {
 		global.fetch = fetchMock as unknown as typeof fetch;
 		(getCurrentOrganisation as jest.Mock).mockResolvedValue({ id: "org1" });
 		(getCurrentProjectForOrganisation as jest.Mock).mockResolvedValue({ id: "proj1" });
-		process.env.OPENLIT_ENGINE_URL = "http://127.0.0.1:4320";
+		process.env.OPENLIT_ENGINE_URL = "http://127.0.0.1:4330";
 		process.env.OPENLIT_ENGINE_SECRET = "s3cret";
 	});
 

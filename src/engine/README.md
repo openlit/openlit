@@ -35,7 +35,7 @@ OTLP receiver ──► NATS JetStream (OPENLIT_SIGNALS) ──► openlit-engin
 | `OPENLIT_SIGNALS_STREAM` | `OPENLIT_SIGNALS` | JetStream stream name |
 | `OPENLIT_URL` | `http://127.0.0.1:3000` | OpenLIT UI server |
 | `OPENLIT_ENGINE_SECRET` | required | Shared secret with the UI server |
-| `ENGINE_HTTP_ADDR` | `127.0.0.1:4320` | `GET /health`, `GET /stats`, and `GET /signals`. Keep it on loopback |
+| `ENGINE_HTTP_ADDR` | `127.0.0.1:4330` | `GET /health`, `GET /stats`, and `GET /signals`. Keep it on loopback |
 | `OPENLIT_ENGINE_MAX_WINDOWS` | `50000` | Rule windows across all tenants |
 | `OPENLIT_ENGINE_MAX_WINDOWS_PER_TENANT` | `1000` | Rule windows per organisation/project/environment |
 | `OPENLIT_ENGINE_MAX_SAMPLES_PER_WINDOW` | `5000` | Samples kept per window |
