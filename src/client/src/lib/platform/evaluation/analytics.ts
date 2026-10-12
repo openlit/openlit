@@ -1,3 +1,4 @@
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { dataCollector, MetricParams } from "../common";
 import { OPENLIT_EVALUATION_TABLE_NAME } from "./table-details";
 import {
@@ -27,8 +28,8 @@ const EXCLUDED_SOURCES = `('${EVALUATION_SOURCE.MANUAL_FEEDBACK}', '${EVALUATION
 
 function timeWhere(parameters: MetricParams) {
 	return `
-		created_at >= parseDateTimeBestEffort('${parameters.timeLimit.start}')
-		AND created_at <= parseDateTimeBestEffort('${parameters.timeLimit.end}')
+		created_at >= parseDateTimeBestEffort('${escapeClickHouseString(String(parameters.timeLimit.start))}')
+		AND created_at <= parseDateTimeBestEffort('${escapeClickHouseString(String(parameters.timeLimit.end))}')
 		AND meta['source'] NOT IN ${EXCLUDED_SOURCES}
 	`;
 }

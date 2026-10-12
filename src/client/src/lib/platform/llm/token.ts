@@ -1,3 +1,4 @@
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
 import { getTraceMappingKeyFullPaths } from "@/helpers/server/trace";
 import {
@@ -45,7 +46,7 @@ export async function getAverageTokensPerRequest(params: TokenParams) {
 
 	const commonQuery = (parameters: any) => `SELECT
 			AVG(toInt32OrZero(${keyPath})) AS total_tokens
-			${params.type === "total" ? `, '${params.timeLimit.start}' as start_date` : ""}
+			${params.type === "total" ? `, '${escapeClickHouseString(String(params.timeLimit.start))}' as start_date` : ""}
 			FROM ${OTEL_TRACES_TABLE_NAME}
 			WHERE ${getFilterWhereCondition({ ...parameters, operationType: "llm" }, true)}`;
 

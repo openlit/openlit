@@ -114,7 +114,7 @@ function buildWhere(params: MetricParams, table: FilterTable) {
 	const { start, end } = params.timeLimit || {};
 	if (start && end) {
 		where.push(
-			`${timeColumn} >= parseDateTimeBestEffort('${start}') AND ${timeColumn} <= parseDateTimeBestEffort('${end}')`
+			`${timeColumn} >= parseDateTimeBestEffort('${escapeClickHouseString(String(start))}') AND ${timeColumn} <= parseDateTimeBestEffort('${escapeClickHouseString(String(end))}')`
 		);
 	}
 
