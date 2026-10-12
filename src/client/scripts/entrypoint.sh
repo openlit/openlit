@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Secrets and the SQLite database live here. Create it so the container also
+# starts without a mounted volume (secrets then last only as long as the
+# container).
+mkdir -p /app/client/data
+chmod 700 /app/client/data
+
 # Generate and persist NextAuth.js secret to ensure session persistence across restarts
 NEXTAUTH_SECRET_FILE="/app/client/data/.nextauth_secret"
 
