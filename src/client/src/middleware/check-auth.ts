@@ -181,12 +181,15 @@ export default function checkAuth(next: NextMiddleware) {
 								requestHeaders.delete("x-openlit-environment");
 							}
 							requestHeaders.delete("x-openlit-database-config-id");
-							return next(
-								new NextRequest(request, {
-									headers: requestHeaders,
-								}),
-								_next
-							);
+							// An API-key request acts as the key, never as whoever is
+							// also logged in: route wrappers skip RBAC for verified keys,
+							// so a session cookie must not ride along.
+							requestHeaders.delete("cookie");
+							// Forward the rewritten request headers. Passing a NextRequest
+							// to NextResponse.next() would use it as the *response* init,
+							// echoing every request header (Authorization, cookies) back
+							// to the client and dropping the deletions above.
+							return continueWithoutClientTenant();
 						}
 					}
 				} catch (e) {

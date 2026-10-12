@@ -50,6 +50,11 @@ jest.mock("@/utils/log", () => ({
 }));
 
 let headerValues: Record<string, string | null> = {};
+jest.mock("@/lib/platform/api-keys", () => ({
+	getAPIKeyInfo: jest.fn(async ({ apiKey }: { apiKey: string }) =>
+		apiKey === "live-key" ? [null, { databaseConfigId: "db-header" }] : [null, null]
+	),
+}));
 jest.mock("next/headers", () => ({
 	headers: jest.fn(async () => ({
 		get: (key: string) => headerValues[key] ?? null,
@@ -214,6 +219,7 @@ describe("request-context header resolution (getCurrentProjectId)", () => {
 
 	it("resolves the project via the middleware database-config header when no project header is present", async () => {
 		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "db-header";
+		headerValues.authorization = "Bearer live-key";
 		mockGetDBConfigByIdInternal.mockResolvedValue({
 			id: "db-header",
 			projectId: "proj-fromheader",
@@ -230,8 +236,22 @@ describe("request-context header resolution (getCurrentProjectId)", () => {
 		});
 	});
 
+	it("ignores a middleware database-config header that no live API key backs", async () => {
+		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "victim-db";
+		headerValues.authorization = "Bearer live-key";
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		mockFindFirst.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		await resolveTelemetrySourceDescriptor();
+
+		expect(mockGetDBConfigByIdInternal).not.toHaveBeenCalledWith({ id: "victim-db" });
+	});
+
 	it("falls through to org lookup when the header database config has no projectId", async () => {
 		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "db-header";
+		headerValues.authorization = "Bearer live-key";
 		mockGetDBConfigByIdInternal.mockResolvedValue({ id: "db-header" });
 		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
 		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
@@ -666,6 +686,7 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 
 	it("resolves the active vault database from the middleware header when no dbConfigId/projectId override is given", async () => {
 		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "db-header";
+		headerValues.authorization = "Bearer live-key";
 		mockGetDBConfigByIdInternal.mockResolvedValue({
 			...dbConfig,
 			id: "db-header",
