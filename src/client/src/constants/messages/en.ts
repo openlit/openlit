@@ -63,6 +63,35 @@ export const REALTIME_STATE_FIRING = "Firing";
 export const REALTIME_STATE_RESOLVED = "Resolved";
 export const REALTIME_SIGNAL_STATUS_OK = "ok";
 export const REALTIME_SIGNAL_STATUS_ERROR = "error";
+export const REALTIME_VIEW_FINDINGS_HINT =
+	"Findings are raised when a realtime rule's condition is breached over its window for this project and environment.";
+export const REALTIME_VIEW_INSPECTOR_HINT =
+	"The latest GenAI spans the realtime engine received for this project and environment. Click a row for its details.";
+export const REALTIME_FILTER_FIRING_HINT =
+	"Firing: the rule is breached right now. The finding stays firing until a full window passes without a breach.";
+export const REALTIME_FILTER_RESOLVED_HINT =
+	"Resolved: the condition cleared on its own. The finding reopens if the rule breaches again, and is deleted after the retention period.";
+export const REALTIME_FILTER_ALL_HINT = "All: firing and resolved findings together.";
+export const REALTIME_SORT_NEWEST = "Newest first";
+export const REALTIME_SORT_OLDEST = "Oldest first";
+export const REALTIME_SIGNAL_DETAIL_BACK = "Back to inspector";
+export const REALTIME_SIGNAL_DETAIL_CLOSE = "Close";
+export const REALTIME_SIGNAL_DETAIL_OPEN_TRACE = "Open trace";
+export const REALTIME_SIGNAL_DETAIL_OVERVIEW = "Overview";
+export const REALTIME_SIGNAL_DETAIL_USAGE = "Usage";
+export const REALTIME_SIGNAL_DETAIL_IDENTIFIERS = "Identifiers";
+export const REALTIME_SIGNAL_DETAIL_ATTRIBUTES = "Attributes";
+export const REALTIME_SIGNAL_DETAIL_ATTRIBUTES_EMPTY =
+	"No allowlisted attributes on this span. Prompts and completions are never sent to the realtime engine.";
+export const REALTIME_SIGNAL_FIELD_TIMESTAMP = "Timestamp";
+export const REALTIME_SIGNAL_FIELD_SPAN_NAME = "Span name";
+export const REALTIME_SIGNAL_FIELD_OPERATION = "Operation";
+export const REALTIME_SIGNAL_FIELD_PROVIDER = "Provider";
+export const REALTIME_SIGNAL_FIELD_HTTP_STATUS = "HTTP status";
+export const REALTIME_SIGNAL_FIELD_INPUT_TOKENS = "Input tokens";
+export const REALTIME_SIGNAL_FIELD_OUTPUT_TOKENS = "Output tokens";
+export const REALTIME_SIGNAL_FIELD_TRACE_ID = "Trace ID";
+export const REALTIME_SIGNAL_FIELD_SPAN_ID = "Span ID";
 export const MANAGE_API_KEYS = "Manage API Keys";
 export const OPENAI_SPEC = "OpenAPI Specification";
 export const GENERATE_NEW_API_KEY = "Generate New API Key";

@@ -1,12 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import getMessage from "@/constants/messages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRootStore } from "@/store";
 import { getCurrentProject } from "@/selectors/project";
 import { getData } from "@/utils/api";
 import type { LiveSignal } from "@/lib/platform/realtime/signals";
+import SignalDetailSheet from "./signal-detail-sheet";
+
+export type SortOrder = "newest" | "oldest";
+
+function signalKey(signal: LiveSignal): string {
+	return `${signal.traceId}:${signal.spanId}:${signal.timestamp}`;
+}
 
 const REFRESH_MS = 5_000;
 
@@ -27,15 +34,18 @@ function cost(value: number | null): string {
 export default function SignalInspector({
 	environment,
 	refreshToken,
+	order = "newest",
 }: {
 	environment: string;
 	refreshToken: number;
+	order?: SortOrder;
 }) {
 	const m = getMessage();
 	const project = useRootStore(getCurrentProject);
 	const [signals, setSignals] = useState<LiveSignal[] | null>(null);
 	const [available, setAvailable] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [selected, setSelected] = useState<LiveSignal | null>(null);
 
 	const load = useCallback(async () => {
 		if (!project?.id) return;
@@ -57,6 +67,12 @@ export default function SignalInspector({
 		return () => clearInterval(timer);
 	}, [load, refreshToken]);
 
+	const sorted = useMemo(() => {
+		if (!signals) return signals;
+		const direction = order === "oldest" ? 1 : -1;
+		return [...signals].sort((a, b) => direction * a.timestamp.localeCompare(b.timestamp));
+	}, [signals, order]);
+
 	if (error) {
 		return (
 			<div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300">
@@ -64,7 +80,7 @@ export default function SignalInspector({
 			</div>
 		);
 	}
-	if (signals === null) {
+	if (sorted === null || signals === null) {
 		return (
 			<div className="flex flex-col gap-2">
 				{[0, 1, 2].map((i) => (
@@ -106,8 +122,22 @@ export default function SignalInspector({
 					</tr>
 				</thead>
 				<tbody className="divide-y divide-stone-200 dark:divide-stone-800">
-					{signals.map((signal) => (
-						<tr key={`${signal.traceId}:${signal.spanId}:${signal.timestamp}`} className="text-stone-700 dark:text-stone-200">
+					{sorted.map((signal) => (
+						<tr
+							key={signalKey(signal)}
+							onClick={() => setSelected(signal)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter" || event.key === " ") {
+									event.preventDefault();
+									setSelected(signal);
+								}
+							}}
+							tabIndex={0}
+							aria-selected={selected ? signalKey(selected) === signalKey(signal) : false}
+							className={`cursor-pointer text-stone-700 transition-colors hover:bg-stone-50 focus-visible:bg-stone-50 focus-visible:outline-none dark:text-stone-200 dark:hover:bg-stone-900 dark:focus-visible:bg-stone-900 ${
+								selected && signalKey(selected) === signalKey(signal) ? "bg-stone-100 dark:bg-stone-900" : ""
+							}`}
+						>
 							<td className="whitespace-nowrap px-3 py-2 text-stone-500 dark:text-stone-400">
 								{new Date(signal.timestamp).toLocaleTimeString()}
 							</td>
@@ -138,6 +168,7 @@ export default function SignalInspector({
 					))}
 				</tbody>
 			</table>
+			<SignalDetailSheet signal={selected} onClose={() => setSelected(null)} />
 		</div>
 	);
 }

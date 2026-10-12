@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { RefreshCw, Radio } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, RefreshCw, Radio } from "lucide-react";
 import getMessage from "@/constants/messages";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import RealtimeRulesExtension from "@/components/(playground)/realtime/realtime-rules-extension";
-import SignalInspector from "@/components/(playground)/realtime/signal-inspector";
+import SignalInspector, { type SortOrder } from "@/components/(playground)/realtime/signal-inspector";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRootStore } from "@/store";
@@ -81,6 +81,22 @@ export default function RealtimeFindings() {
 	const [findings, setFindings] = useState<RealtimeFindingView[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
+	const [order, setOrder] = useState<SortOrder>("newest");
+
+	const sortedFindings = useMemo(() => {
+		if (!findings) return findings;
+		const direction = order === "oldest" ? 1 : -1;
+		return [...findings].sort((a, b) => direction * a.lastSeenAt.localeCompare(b.lastSeenAt));
+	}, [findings, order]);
+
+	const hint =
+		view === "inspector"
+			? m.REALTIME_VIEW_INSPECTOR_HINT
+			: stateFilter === "firing"
+				? m.REALTIME_FILTER_FIRING_HINT
+				: stateFilter === "resolved"
+					? m.REALTIME_FILTER_RESOLVED_HINT
+					: m.REALTIME_FILTER_ALL_HINT;
 
 	const load = useCallback(async () => {
 		if (!project?.id) return;
@@ -136,44 +152,65 @@ export default function RealtimeFindings() {
 				}
 			/>
 
-			{view === "findings" ? (
-				<div className="flex items-center justify-end border-b border-stone-200 px-4 py-2 dark:border-stone-800">
-					<Tabs
-						value={stateFilter}
-						onValueChange={(value) => setStateFilter(value as StateFilter)}
-						className="min-w-0 shrink"
-					>
-						<TabsList className="h-[30px] shrink-0 overflow-hidden border border-stone-200 p-0 dark:border-stone-800">
-							<TabsTrigger value="firing" className="shrink-0 px-1.5 py-1.5 text-xs sm:px-2">
-								{m.REALTIME_FILTER_FIRING}
-							</TabsTrigger>
-							<TabsTrigger value="resolved" className="shrink-0 px-1.5 py-1.5 text-xs sm:px-2">
-								{m.REALTIME_FILTER_RESOLVED}
-							</TabsTrigger>
-							<TabsTrigger value="all" className="shrink-0 px-1.5 py-1.5 text-xs sm:px-2">
-								{m.REALTIME_FILTER_ALL}
-							</TabsTrigger>
-						</TabsList>
-					</Tabs>
+			<div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 px-4 py-2 dark:border-stone-800">
+				<div className="min-w-0 flex-1">
+					<p className="text-xs text-stone-500 dark:text-stone-400">
+						{view === "findings" ? `${m.REALTIME_VIEW_FINDINGS_HINT} ` : null}
+						{hint}
+					</p>
 				</div>
-			) : null}
+				<div className="flex shrink-0 items-center gap-2">
+					<button
+						type="button"
+						onClick={() => setOrder((current) => (current === "newest" ? "oldest" : "newest"))}
+						aria-label={order === "newest" ? m.REALTIME_SORT_NEWEST : m.REALTIME_SORT_OLDEST}
+						className="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2 text-xs font-medium text-stone-600 transition hover:bg-stone-50 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-900"
+					>
+						{order === "newest" ? (
+							<ArrowDownWideNarrow className="h-3.5 w-3.5" />
+						) : (
+							<ArrowUpNarrowWide className="h-3.5 w-3.5" />
+						)}
+						{order === "newest" ? m.REALTIME_SORT_NEWEST : m.REALTIME_SORT_OLDEST}
+					</button>
+					{view === "findings" ? (
+						<Tabs
+							value={stateFilter}
+							onValueChange={(value) => setStateFilter(value as StateFilter)}
+							className="min-w-0 shrink"
+						>
+							<TabsList className="h-[30px] shrink-0 overflow-hidden border border-stone-200 p-0 dark:border-stone-800">
+								<TabsTrigger value="firing" title={m.REALTIME_FILTER_FIRING_HINT} className="shrink-0 px-1.5 py-1.5 text-xs sm:px-2">
+									{m.REALTIME_FILTER_FIRING}
+								</TabsTrigger>
+								<TabsTrigger value="resolved" title={m.REALTIME_FILTER_RESOLVED_HINT} className="shrink-0 px-1.5 py-1.5 text-xs sm:px-2">
+									{m.REALTIME_FILTER_RESOLVED}
+								</TabsTrigger>
+								<TabsTrigger value="all" title={m.REALTIME_FILTER_ALL_HINT} className="shrink-0 px-1.5 py-1.5 text-xs sm:px-2">
+									{m.REALTIME_FILTER_ALL}
+								</TabsTrigger>
+							</TabsList>
+						</Tabs>
+					) : null}
+				</div>
+			</div>
 
 			<section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
 				{!project?.id ? (
 					<p className="text-xs text-stone-500 dark:text-stone-400">{m.REALTIME_FINDING_NO_PROJECT}</p>
 				) : view === "inspector" ? (
-					<SignalInspector environment={environment} refreshToken={refreshToken} />
+					<SignalInspector environment={environment} refreshToken={refreshToken} order={order} />
 				) : error ? (
 					<div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300">
 						{error}
 					</div>
-				) : findings === null ? (
+				) : sortedFindings === null ? (
 					<div className="flex flex-col gap-2">
 						{[0, 1, 2].map((i) => (
 							<Skeleton key={i} className="h-10 w-full" />
 						))}
 					</div>
-				) : findings.length === 0 ? (
+				) : sortedFindings.length === 0 ? (
 					<div className="rounded-md border border-dashed border-stone-200 px-4 py-8 text-center dark:border-stone-800">
 						<p className="text-sm font-medium text-stone-800 dark:text-stone-100">{m.REALTIME_EMPTY_TITLE}</p>
 						<p className="mt-1 text-xs text-stone-500 dark:text-stone-400">{m.REALTIME_EMPTY_DESCRIPTION}</p>
@@ -192,7 +229,7 @@ export default function RealtimeFindings() {
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-stone-200 dark:divide-stone-800">
-								{findings.map((f) => (
+								{sortedFindings.map((f) => (
 									<tr key={f.id} className="text-stone-700 dark:text-stone-200">
 										<td className="px-3 py-2">
 											<span className={`inline-flex rounded border px-1.5 py-0.5 text-[11px] font-medium ${SEVERITY_CLASSES[f.severity] || SEVERITY_CLASSES.info}`}>
