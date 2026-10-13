@@ -1,0 +1,10 @@
+---
+title: 'Get scan findings'
+openapi: 'GET /api/scanners/findings'
+---
+
+Return the latest **succeeded** scan in the current project and environment whose target matches `repoUrl`.
+
+Accepts `https://github.com/owner/repo`, `.git`, `/tree/<ref>`, and `git@github.com:owner/repo` forms. Medium+ findings are listed first. When no scan matches, `matched` is `false`.
+
+See [Scanner connectors](/latest/openlit/connectors/scanner) for setup.
