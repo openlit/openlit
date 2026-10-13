@@ -241,7 +241,10 @@ export default function ObservabilitySignalList({
 	}, [config, data]);
 	const total = (data as any)?.total || 0;
 	const telemetryError = summaryError || listError;
-	const isTraceSignal = config.key === "traces" || config.key === "exceptions";
+	const isTraceSignal =
+		config.key === "traces" ||
+		config.key === "spans" ||
+		config.key === "exceptions";
 	const isMetricSignal = config.key === "metrics";
 	const isLogSignal = config.key === "logs";
 	// Coding-agent sessions render through the same TraceDetailView used
@@ -340,7 +343,7 @@ export default function ObservabilitySignalList({
 		if (isTraceSignal) {
 			skipSelectedHydrationRef.current = false;
 			setPreviewSpanId(row.spanId);
-			setSelectedInUrl(row.spanId, row.traceId);
+			setSelectedInUrl(row.spanId, row.traceId || row.id || null);
 			return;
 		}
 		if (isSessionSignal) {
@@ -382,8 +385,20 @@ export default function ObservabilitySignalList({
 			config.key === "exceptions"
 				? "/telemetry/exceptions"
 				: "/telemetry/traces";
-		return `${prefix}/${activeSpanId}?from=${encodeURIComponent(from)}`;
-	}, [config.key, previewSpanId, selectedParam]);
+		const row = rows.find((item: any) => item.spanId === activeSpanId);
+		const params = new URLSearchParams();
+		params.set("from", from);
+		if (
+			config.key === "traces" ||
+			config.key === "spans" ||
+			config.key === "exceptions"
+		) {
+			params.set("signal", config.key);
+		}
+		const traceId = row?.traceId || row?.id;
+		if (traceId) params.set("traceId", String(traceId));
+		return `${prefix}/${activeSpanId}?${params.toString()}`;
+	}, [config.key, previewSpanId, rows, selectedParam]);
 
 	const metricPreviewHref = useMemo(() => {
 		if (!selectedMetricRow) return "";
@@ -540,6 +555,13 @@ export default function ObservabilitySignalList({
 									spanId={previewSpanId}
 									type={config.key === "exceptions" ? "exceptions" : "traces"}
 									variant="sheet"
+									listUrl={
+										config.key === "traces" ||
+										config.key === "spans" ||
+										config.key === "exceptions"
+											? config.listUrl
+											: undefined
+									}
 									onSpanChange={updateTraceSelection}
 									onActiveSpanChange={updateActiveTraceSelection}
 									onNavigationPageChange={updateTraceNavigationPage}
