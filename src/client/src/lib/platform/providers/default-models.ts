@@ -1167,7 +1167,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 		{
 			id: "jev-latest",
 			displayName: "Jev Latest",
-			modelType: "evaluation",
+			modelType: "chat",
 			contextWindow: 64000,
 			inputPricePerMToken: 0.042,
 			outputPricePerMToken: 0,
@@ -1176,7 +1176,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 		{
 			id: "jev-1.13.0",
 			displayName: "Jev 1.13.0",
-			modelType: "evaluation",
+			modelType: "chat",
 			contextWindow: 64000,
 			inputPricePerMToken: 0.042,
 			outputPricePerMToken: 0,
@@ -1185,7 +1185,7 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 		{
 			id: "jev-preview",
 			displayName: "Jev Preview",
-			modelType: "evaluation",
+			modelType: "chat",
 			contextWindow: 64000,
 			inputPricePerMToken: 0.042,
 			outputPricePerMToken: 0,

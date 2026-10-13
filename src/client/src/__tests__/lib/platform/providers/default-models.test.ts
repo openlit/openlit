@@ -144,7 +144,7 @@ describe('default-models', () => {
     expect(models.map((m) => m.id)).toEqual(['jev-latest', 'jev-1.13.0', 'jev-preview']);
     for (const model of models) {
       expect(model).toMatchObject({
-        modelType: 'evaluation',
+        modelType: 'chat',
         contextWindow: 64000,
         inputPricePerMToken: 0.042,
         outputPricePerMToken: 0,
@@ -162,6 +162,16 @@ describe('default-models', () => {
       expect(sdk).toBeDefined();
       expect(sdk.promptPrice).toBeCloseTo(model.inputPricePerMToken / 1000, 10);
       expect(sdk.completionPrice).toBeCloseTo(model.outputPricePerMToken / 1000, 10);
+    }
+  });
+
+  it('only uses model types the editor and pricing export understand', () => {
+    // Anything else is silently dropped from the exported SDK pricing JSON.
+    const exportable = new Set(['chat', 'embeddings', 'images', 'audio']);
+    for (const models of Object.values(DEFAULT_MODELS_BY_PROVIDER)) {
+      for (const model of models) {
+        expect(exportable.has(model.modelType || 'chat')).toBe(true);
+      }
     }
   });
 });

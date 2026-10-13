@@ -119,7 +119,7 @@ export default async function SeedTypeSafeProviderMigration(
 			provider: PROVIDER_ID,
 			model_id: model.id,
 			display_name: model.displayName,
-			model_type: model.modelType || "evaluation",
+			model_type: model.modelType || "chat",
 			context_window: model.contextWindow,
 			input_price_per_m_token: model.inputPricePerMToken,
 			output_price_per_m_token: model.outputPricePerMToken,
