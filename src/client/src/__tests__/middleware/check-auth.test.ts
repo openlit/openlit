@@ -88,6 +88,24 @@ describe('checkAuth', () => {
       expect(nextHandler).not.toHaveBeenCalled();
     });
 
+    it('rejects a Bearer token on API key management routes', async () => {
+      for (const [method, path] of [
+        ['GET', '/api/api-key'],
+        ['POST', '/api/api-key'],
+        ['PATCH', '/api/api-key/key-1'],
+        ['DELETE', '/api/api-key/key-1'],
+      ]) {
+        (NextResponse.json as jest.Mock).mockClear();
+        const req = makeRequest(method, path, '', { Authorization: 'Bearer abc123' });
+        await middleware(req as any, makeFetchEvent());
+        expect(NextResponse.json).toHaveBeenCalledWith(
+          { error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+      expect(nextHandler).not.toHaveBeenCalled();
+    });
+
     it('rejects an empty API key', async () => {
       const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer   ' });
       await middleware(req as any, makeFetchEvent());
@@ -140,6 +158,20 @@ describe('checkAuth', () => {
       expect(forwardedRequest.headers.get('x-openlit-organisation-id')).toBe('org-1');
       expect(forwardedRequest.headers.get('x-openlit-project-id')).toBe('proj-1');
       expect(forwardedRequest.headers.get('x-openlit-environment')).toBe('staging');
+    });
+
+    const mockVerifiedKey = (scopes: string[] | null) => {
+      (global as any).fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ valid: true, databaseConfigId: 'db-config-1', scopes }),
+      });
+    };
+
+    it('ignores API key scopes in the community edition', async () => {
+      mockVerifiedKey(['prompts']);
+      const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });
+      await middleware(req as any, makeFetchEvent());
+      expect(nextHandler).toHaveBeenCalled();
     });
 
     it('strips a client-supplied x-database-config-id on session API requests', async () => {
