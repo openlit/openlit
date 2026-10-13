@@ -42,6 +42,7 @@ var builtinTargets = []llmTarget{
 	{Host: "ai-gateway.vercel.sh", Port: 443, ProviderID: 10},             // PROVIDER_VERCEL_AI
 	{Host: "aiplatform.googleapis.com", Port: 443, ProviderID: 11},        // PROVIDER_VERTEX_AI
 	{Host: "models.inference.ai.azure.com", Port: 443, ProviderID: 12},    // PROVIDER_AZURE_INFERENCE (GitHub Models)
+	{Host: "api.orcarouter.ai", Port: 443, ProviderID: 14},                // PROVIDER_ORCAROUTER
 }
 
 // Well-known Bedrock regions. New regions are detected dynamically if

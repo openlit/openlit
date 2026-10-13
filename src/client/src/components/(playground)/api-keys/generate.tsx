@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { noop } from "@/utils/noop";
 import copy from "copy-to-clipboard";
 import { toast } from "sonner";
-import FormBuilder from "@/components/common/form-builder";
 import {
 	Dialog,
 	DialogContent,
@@ -12,22 +12,42 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { jsonStringify } from "@/utils/json";
-import { useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
-import { FieldProps, FormBuilderEvent } from "@/types/form";
 import getMessage from "@/constants/messages";
+import {
+	ApiKeyAccessSelector,
+	ApiKeyAccessValue,
+} from "@/components/(playground)/api-keys/access";
 
 export default function Generate({ refresh }: { refresh: () => void }) {
 	const posthog = usePostHog();
 	const messages = getMessage();
 	const [isOpen, setIsOpen] = useState(false);
+	const [name, setName] = useState("default");
+	const [scopes, setScopes] = useState<ApiKeyAccessValue>(null);
 	const { fireRequest: fireCreateRequest, isLoading: isCreating } =
 		useFetchWrapper();
-	const handleCreation: FormBuilderEvent = async (event, formdata) => {
+
+	useEffect(() => {
+		if (isOpen) {
+			setName("default");
+			setScopes(null);
+		}
+	}, [isOpen]);
+
+	const handleCreation = async (event: FormEvent) => {
 		event.preventDefault();
-		if (formdata.name?.length < 3) {
+		if (isCreating) return;
+		if (name.trim().length < 3) {
 			toast.error("Name length should be greater than 2...", {
+				id: "api-key",
+			});
+			return;
+		}
+		if (Array.isArray(scopes) && scopes.length === 0) {
+			toast.error(messages.API_KEY_ACCESS_SELECT_FEATURE, {
 				id: "api-key",
 			});
 			return;
@@ -39,7 +59,9 @@ export default function Generate({ refresh }: { refresh: () => void }) {
 			requestType: "POST",
 			url: `/api/api-key`,
 			body: jsonStringify({
-				name: formdata.name,
+				name: name.trim(),
+				// Omitted (full access) unless the edition supports restricting it.
+				...(Array.isArray(scopes) ? { scopes } : {}),
 			}),
 			successCb: (data: any) => {
 				copy(data.apiKey);
@@ -59,21 +81,6 @@ export default function Generate({ refresh }: { refresh: () => void }) {
 		});
 	};
 
-	const formFields: FieldProps[] = [
-		{
-			label: "Name",
-			description: "Assign a name to api key for better references in future",
-			inputKey: `api-name`,
-			fieldType: "INPUT",
-			fieldTypeProps: {
-				type: "text",
-				name: "name",
-				placeholder: "",
-				defaultValue: "default",
-			},
-		},
-	];
-
 	return (
 		<Dialog onOpenChange={setIsOpen} open={isOpen}>
 			<DialogTrigger asChild>
@@ -85,21 +92,43 @@ export default function Generate({ refresh }: { refresh: () => void }) {
 					{messages.GENERATE_NEW_API_KEY}
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="max-w-lg">
+			<DialogContent className="max-w-2xl">
 				<DialogHeader>
 					<DialogTitle className="dark:text-stone-200 text-stone-800">
 						{messages.CREATE_NEW_KEY}
 					</DialogTitle>
 				</DialogHeader>
-				<div className="flex items-center overflow-y-auto">
-					<FormBuilder
-						alignment="vertical"
-						fields={formFields}
-						isLoading={isCreating}
-						onSubmit={isCreating ? noop : handleCreation}
-						submitButtonText={messages.CREATE}
-					/>
-				</div>
+				<form
+					onSubmit={handleCreation}
+					className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto"
+				>
+					<div className="flex flex-col gap-1.5">
+						<Label
+							htmlFor="api-key-name"
+							className="text-sm font-medium text-stone-900 dark:text-stone-200"
+						>
+							Name
+						</Label>
+						<Input
+							id="api-key-name"
+							name="name"
+							value={name}
+							onChange={(event) => setName(event.target.value)}
+						/>
+						<span className="text-xs text-stone-500 dark:text-stone-400">
+							Assign a name to api key for better references in future
+						</span>
+					</div>
+					<ApiKeyAccessSelector value={scopes} onChange={setScopes} />
+					<Button
+						type="submit"
+						size="sm"
+						disabled={isCreating}
+						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-8 self-end"
+					>
+						{messages.CREATE}
+					</Button>
+				</form>
 			</DialogContent>
 		</Dialog>
 	);

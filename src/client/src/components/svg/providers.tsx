@@ -387,6 +387,31 @@ export function CustomGatewaySvg({ className }: SvgProps) {
 	);
 }
 
+export function OrcaRouterSvg({ className }: SvgProps) {
+	// Theme-safe mark (currentColor) so it reads on light and dark surfaces.
+	// Distinct from CustomGatewaySvg: a single routed body rather than a hub.
+	return (
+		<svg
+			viewBox="0 0 24 24"
+			xmlns="http://www.w3.org/2000/svg"
+			className={className}
+			fill="currentColor"
+		>
+			<path d="M3.2 13.2c2.2-3.4 5.4-5.1 9.3-5.1 3.1 0 5.8 1 7.6 2.7-.4 2.1-2.6 3.8-5.6 4.6-2 .5-4.2.5-6.2 0-2.1-.6-3.8-1.2-5.1-2.2z" />
+			<path d="M11.4 8.2c.3-1.6 1-3 2.1-4.1.2 1.3.1 2.7-.2 4.1" />
+			<circle cx="8.4" cy="11.1" r="0.85" />
+			<path
+				d="M16.2 10.4c1.6.1 2.9.6 3.5 1.4"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.4"
+				strokeLinecap="round"
+				strokeDasharray="2 1.6"
+			/>
+		</svg>
+	);
+}
+
 const PROVIDER_ICON_MAP: Record<string, React.FC<SvgProps>> = {
 	openai: OpenAISvg,
 	anthropic: AnthropicSvg,
@@ -394,6 +419,7 @@ const PROVIDER_ICON_MAP: Record<string, React.FC<SvgProps>> = {
 	cohere: CohereSvg,
 	mistral: MistralSvg,
 	groq: GroqSvg,
+	orcarouter: OrcaRouterSvg,
 	azure_openai: AzureSvg,
 	azure_inference: AzureSvg,
 	bedrock: BedrockSvg,

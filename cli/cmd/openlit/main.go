@@ -11,6 +11,8 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"os"
 
 	"github.com/openlit/openlit/cli/internal/coding"
@@ -21,15 +23,21 @@ import (
 )
 
 func main() {
-	root := newRootCmd()
-	if err := root.Execute(); err != nil {
-		// cobra already prints to stderr; just set the exit code.
-		// We never use os.Exit on telemetry-path errors; those swallow
-		// inside the command handlers themselves so the agent never
-		// sees a non-zero exit. Errors here are misuse (bad flags,
-		// unknown subcommands) where exiting non-zero is correct.
+	if execute(os.Args[1:], os.Stdout, os.Stderr) != 0 {
 		os.Exit(1)
 	}
+}
+
+func execute(args []string, stdout, stderr io.Writer) int {
+	root := newRootCmd()
+	root.SetArgs(args)
+	root.SetOut(stdout)
+	root.SetErr(stderr)
+	if err := root.Execute(); err != nil {
+		fmt.Fprintf(stderr, "openlit: %v\n", err)
+		return 1
+	}
+	return 0
 }
 
 func newRootCmd() *cobra.Command {
@@ -55,13 +63,12 @@ Configure the OTLP endpoint and (optional) API key via:
   - or std: OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS
   - or file: ~/.config/openlit/config.env (allow-listed keys)
 `,
-		// Suppress cobra's default usage spam on errors that bubble up
-		// from subcommands; the subcommands handle their own messaging.
+		// Suppress cobra's default usage spam on errors that bubble up;
+		// execute reports the concise error instead.
 		SilenceUsage: true,
-		// Errors are printed by cobra by default. We keep that for misuse
-		// errors (bad flags) but swallow telemetry-path errors inside the
-		// subcommand handlers so they never leak to stdout/stderr at all.
-		SilenceErrors: false,
+		// execute prints returned command errors exactly once. Telemetry-path
+		// failures are swallowed inside their handlers and never reach it.
+		SilenceErrors: true,
 	}
 
 	registerSubcommands(root)

@@ -1,15 +1,24 @@
-import { dataCollector } from "@/lib/platform/common";
+import {
+	CONTROLLER_ACTIONS_TABLE,
+	CONTROLLER_INSTANCES_TABLE,
+	CONTROLLER_SERVICES_TABLE,
+} from "@/lib/platform/controller/table-details";
+import migrationHelper from "./migration-helper";
+
+const MIGRATION_ID = "add-controller-cluster-id";
 
 export default async function AddControllerClusterIdMigration(
 	databaseConfigId?: string
 ) {
 	const queries = [
-		`ALTER TABLE openlit_controller_services ADD COLUMN IF NOT EXISTS cluster_id String DEFAULT 'default'`,
-		`ALTER TABLE openlit_controller_instances ADD COLUMN IF NOT EXISTS cluster_id String DEFAULT 'default'`,
-		`ALTER TABLE openlit_controller_actions ADD COLUMN IF NOT EXISTS cluster_id String DEFAULT 'default'`,
+		`ALTER TABLE ${CONTROLLER_SERVICES_TABLE} ADD COLUMN IF NOT EXISTS cluster_id String DEFAULT 'default';`,
+		`ALTER TABLE ${CONTROLLER_INSTANCES_TABLE} ADD COLUMN IF NOT EXISTS cluster_id String DEFAULT 'default';`,
+		`ALTER TABLE ${CONTROLLER_ACTIONS_TABLE} ADD COLUMN IF NOT EXISTS cluster_id String DEFAULT 'default';`,
 	];
 
-	for (const query of queries) {
-		await dataCollector({ query }, "query", databaseConfigId);
-	}
+	return migrationHelper({
+		clickhouseMigrationId: MIGRATION_ID,
+		databaseConfigId,
+		queries,
+	});
 }

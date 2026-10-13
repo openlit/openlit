@@ -101,11 +101,20 @@ describe('getModelInstance', () => {
     expect(instance).toBeDefined();
   });
 
+  it('attributes Perplexity requests to OpenLIT', () => {
+    getModelInstance('perplexity', 'key', 'sonar');
+    expect(createOpenAI).toHaveBeenCalledWith({
+      baseURL: 'https://api.perplexity.ai',
+      apiKey: 'key',
+      headers: { 'X-Pplx-Integration': 'openlit' },
+    });
+  });
+
   it('supports all built-in providers including MiniMax', () => {
     const providers = [
       'openai', 'anthropic', 'google', 'mistral', 'cohere',
       'groq', 'perplexity', 'azure', 'together', 'fireworks',
-      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax',
+      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax', 'orcarouter',
     ];
     for (const p of providers) {
       expect(() => getModelInstance(p, 'key', 'model')).not.toThrow();
@@ -117,6 +126,14 @@ describe('getModelInstance', () => {
     expect(instance).toBeDefined();
     expect(createOpenAI).toHaveBeenCalledWith(
       expect.objectContaining({ baseURL: 'https://api.minimax.io/v1' })
+    );
+  });
+
+  it('supports OrcaRouter via the OpenAI-compatible endpoint', () => {
+    const instance = getModelInstance('orcarouter', 'sk-orca-test', 'orcarouter/auto');
+    expect(instance).toBeDefined();
+    expect(createOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: 'https://api.orcarouter.ai/v1' })
     );
   });
 
