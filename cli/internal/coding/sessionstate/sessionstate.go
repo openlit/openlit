@@ -104,7 +104,22 @@ type State struct {
 	SubagentCount int     `json:"subagent_count,omitempty"`
 	InputTokens   int64   `json:"input_tokens,omitempty"`
 	OutputTokens  int64   `json:"output_tokens,omitempty"`
+	TotalTokens   int64   `json:"total_tokens,omitempty"`
 	CostUSD       float64 `json:"cost_usd,omitempty"`
+
+	// OpenCode has no terminal SessionEnd signal. In minimal capture mode
+	// its idle hook emits non-terminal snapshot deltas instead of inventing
+	// a completed session root. These watermarks cover usage already emitted
+	// either on a per-turn span or on a prior snapshot, so capture-mode changes
+	// cannot double-count token and cost totals in downstream SUM queries.
+	OpenCodeSnapshotInputTokens  int64   `json:"opencode_snapshot_input_tokens,omitempty"`
+	OpenCodeSnapshotOutputTokens int64   `json:"opencode_snapshot_output_tokens,omitempty"`
+	OpenCodeSnapshotTotalTokens  int64   `json:"opencode_snapshot_total_tokens,omitempty"`
+	OpenCodeSnapshotCostUSD      float64 `json:"opencode_snapshot_cost_usd,omitempty"`
+	// OpenCodePendingErrorType carries a safe error class to the next
+	// minimal-mode snapshot. The generic error event itself is suppressed
+	// in minimal mode, and OpenCode's following idle event is non-terminal.
+	OpenCodePendingErrorType string `json:"opencode_pending_error_type,omitempty"`
 
 	// Per-session code-change rollups accumulated across hook
 	// invocations and stamped on the session-root span at
@@ -156,6 +171,11 @@ type State struct {
 	// streaming fragments) doesn't double-count tokens or chat
 	// content. Bounded to the most recent ~256 ids.
 	EmittedAssistantTurnIDs []string `json:"emitted_assistant_turn_ids,omitempty"`
+
+	// EmittedToolCallIDs records terminal tool calls already normalized
+	// by adapters that can receive overlapping success/error signals.
+	// It is bounded by the adapter before saving.
+	EmittedToolCallIDs []string `json:"emitted_tool_call_ids,omitempty"`
 
 	// CodexTurns holds per-turn fragments for the Codex adapter,
 	// keyed by Codex's `turn_id`. Codex's hook protocol scopes

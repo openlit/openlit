@@ -38,6 +38,14 @@ const nextConfig = {
 	experimental: {
 		instrumentationHook: true,
 	},
+	async rewrites() {
+		const otlp = process.env.OTLP_PROXY_ORIGIN || "http://127.0.0.1:4318";
+		return [
+			{ source: "/v1/traces", destination: `${otlp}/v1/traces` },
+			{ source: "/v1/metrics", destination: `${otlp}/v1/metrics` },
+			{ source: "/v1/logs", destination: `${otlp}/v1/logs` },
+		];
+	},
 	async headers() {
 		return [
 			{

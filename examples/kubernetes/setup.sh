@@ -54,7 +54,7 @@ k3d image import \
 echo "All images loaded."
 echo ""
 
-# ── 4. Deploy infrastructure (namespace, clickhouse, dashboard w/ bundled OTEL collector) ──
+# ── 4. Deploy infrastructure (namespace, clickhouse, dashboard with OTLP receiver) ──
 echo "Deploying infrastructure..."
 kubectl apply -f "$SCRIPT_DIR/namespace.yaml"
 kubectl apply -f "$SCRIPT_DIR/clickhouse.yaml"
@@ -62,7 +62,7 @@ kubectl apply -f "$SCRIPT_DIR/openlit.yaml"
 
 echo "Waiting for ClickHouse..."
 kubectl rollout status statefulset/clickhouse -n "$K8S_NAMESPACE" --timeout=120s
-echo "Waiting for OpenLIT dashboard (includes bundled OTEL collector)..."
+echo "Waiting for OpenLIT dashboard (includes OTLP receiver)..."
 kubectl rollout status deployment/openlit -n "$K8S_NAMESPACE" --timeout=120s
 echo ""
 
