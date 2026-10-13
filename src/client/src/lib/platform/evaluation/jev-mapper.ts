@@ -338,7 +338,10 @@ export function mapSystemOneAnswers(params: {
 			confidenceByType[label] = confidence;
 		}
 
-		const verdict: Evaluation["verdict"] = score > threshold ? "yes" : "no";
+		// Inclusive so a score that reaches the "detected" bucket (>= 0.5) also
+		// fails at the default 0.5 threshold; a zero score never fails.
+		const verdict: Evaluation["verdict"] =
+			score > 0 && score >= threshold ? "yes" : "no";
 		evaluations.push({
 			score,
 			evaluation: label,

@@ -232,4 +232,23 @@ describe('jev-mapper', () => {
 			expect(criteria[0]).toContain('Tone');
 		});
 	});
+
+	it('fails a score that lands exactly on the threshold so the label and verdict agree', () => {
+		const [ev] = mapSystemOneAnswers({
+			types: [{ id: 'hallucination', label: 'Hallucination' }],
+			answers: { hallucination: { type: 'noul', noul: 0.5 } },
+			thresholdScore: 0.5,
+		}).evaluations;
+		expect(ev.classification).toBe('detected');
+		expect(ev.verdict).toBe('yes');
+	});
+
+	it('never fails a zero score, even with a zero threshold', () => {
+		const [ev] = mapSystemOneAnswers({
+			types: [{ id: 'hallucination', label: 'Hallucination' }],
+			answers: { hallucination: { type: 'noul', noul: 0 } },
+			thresholdScore: 0,
+		}).evaluations;
+		expect(ev.verdict).toBe('no');
+	});
 });
