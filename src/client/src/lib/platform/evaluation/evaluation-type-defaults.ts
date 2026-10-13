@@ -1,17 +1,19 @@
 import { dataCollector } from "@/lib/platform/common";
+import { consoleLog } from "@/utils/log";
 import { OPENLIT_EVALUATION_TYPE_DEFAULTS_TABLE_NAME } from "./table-details";
 
-// Cache keyed by databaseConfigId (or "" for the user-session path).
-// This prevents the offline evaluation API path from sharing a cache that
-// was populated (or left empty) by the UI user-session path — fixing the
-// restart-until-dashboard-opened failure described in issue #1587.
+// Per database config. "" is only the no-id fallback; UI, offline, and
+// auto-eval all pass the ClickHouse config id they already resolved.
+// Evaluations stay on dataCollector (OpenPlait). An explicit id lets the
+// no-session paths use getDBConfigByIdForBackground instead of the user session.
 const CACHE = new Map<string, Record<string, string>>();
 
 async function loadDefaults(
 	databaseConfigId?: string
 ): Promise<Record<string, string>> {
 	const key = databaseConfigId ?? "";
-	if (CACHE.has(key)) return CACHE.get(key)!;
+	const cached = CACHE.get(key);
+	if (cached) return cached;
 
 	const { data, err } = await dataCollector(
 		{
@@ -22,15 +24,22 @@ async function loadDefaults(
 	);
 
 	if (err || !Array.isArray(data)) {
-		// Do not cache a failed load — let the next call retry.
-		return CACHE.get(key) ?? {};
+		// Leave the key uncached so the next evaluation retries. The judge
+		// otherwise reports this as "Invalid response format".
+		consoleLog("Failed to load evaluation type default prompts", key, err);
+		return {};
 	}
 
 	const result: Record<string, string> = {};
 	for (const r of data as Array<{ id: string; default_prompt: string }>) {
 		if (r?.id) result[r.id] = r.default_prompt ?? "";
 	}
-	CACHE.set(key, result);
+
+	// A zero-row read is not a loaded cache. Caching it would pin missing
+	// [X evaluation context] blocks until process restart.
+	if (Object.keys(result).length > 0) {
+		CACHE.set(key, result);
+	}
 	return result;
 }
 
