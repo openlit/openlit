@@ -76,7 +76,19 @@
                   "latest/openlit/connectors/overview",
                   "latest/openlit/connectors/datasource",
                   "latest/openlit/connectors/memory",
-                  "latest/openlit/connectors/scanner"
+                  "latest/openlit/connectors/scanner",
+                  "latest/openlit/connectors/notification"
+                ]
+              },
+              {
+                "group": "Enterprise",
+                "icon": "crown",
+                "pages": [
+                  "latest/openlit/enterprise",
+                  "latest/openlit/rbac",
+                  "latest/openlit/audit-logs",
+                  "latest/openlit/alerts",
+                  "latest/openlit/gpus"
                 ]
               }
             ]
@@ -311,6 +323,7 @@
                     "pages": [
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/create",
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/get",
+                      "latest/openlit/developer-resources/api-reference/endpoint/api-keys/update",
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/delete"
                     ]
                   },

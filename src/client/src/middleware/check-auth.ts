@@ -18,6 +18,8 @@ import {
 	ONBOARDING_WHITELIST_API_ROUTES,
 } from "@/constants/route";
 import { isValidCronJobRequest } from "@/helpers/server/cron-auth";
+import { isApiKeyPathAllowed } from "@/lib/platform/api-key-access/scopes";
+import getMessage from "@/constants/messages";
 
 const CLIENT_TENANT_HEADERS = [
 	"x-database-config-id",
@@ -146,6 +148,12 @@ export default function checkAuth(next: NextMiddleware) {
 					if (res.ok) {
 						const data = await res.json();
 						if (data.valid && data.databaseConfigId) {
+							if (!isApiKeyPathAllowed(pathname, data.scopes)) {
+								return NextResponse.json(
+									{ error: getMessage().API_KEY_FEATURE_ACCESS_DENIED },
+									{ status: 403 }
+								);
+							}
 							requestHeaders.set("x-database-config-id", data.databaseConfigId);
 							if (data.organisationId) {
 								requestHeaders.set(
