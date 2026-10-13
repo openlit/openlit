@@ -242,6 +242,38 @@ export function pickRootSpan(spans: NormalizedSpan[]): NormalizedSpan | undefine
 	);
 }
 
+/** Span count, error count, and wall-clock duration for one already-loaded tree. */
+export function summarizeTraceSpans(spans: NormalizedSpan[]): NonNullable<
+	NormalizedSpan["traceSummary"]
+> {
+	let start = Number.POSITIVE_INFINITY;
+	let end = Number.NEGATIVE_INFINITY;
+	let errorCount = 0;
+	for (const span of spans) {
+		if (String(span.statusCode || "").toUpperCase().includes("ERROR")) {
+			errorCount += 1;
+		}
+		const startedAt = Date.parse(span.timestamp);
+		if (!Number.isFinite(startedAt)) continue;
+		const durationMs = Number.isFinite(span.durationNs) ? span.durationNs / 1e6 : 0;
+		const endedAt = startedAt + durationMs;
+		if (startedAt < start) start = startedAt;
+		if (endedAt > end) end = endedAt;
+	}
+	const hasWindow = Number.isFinite(start) && Number.isFinite(end);
+	return {
+		spanCount: spans.length,
+		errorCount,
+		...(hasWindow
+			? {
+					durationNs: Math.max(0, Math.round((end - start) * 1e6)),
+					start: new Date(start).toISOString(),
+					...(errorCount ? { statusCode: "STATUS_CODE_ERROR" } : {}),
+				}
+			: {}),
+	};
+}
+
 /** Collapse full-trace spans to one root row per trace, newest first. */
 export function collapseToRootSpans(spans: NormalizedSpan[]): NormalizedSpan[] {
 	const byTrace = new Map<string, NormalizedSpan[]>();
