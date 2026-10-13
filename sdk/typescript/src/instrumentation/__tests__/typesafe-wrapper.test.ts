@@ -199,7 +199,16 @@ describe('TypeSafe wrapper', () => {
 });
 
 const liveKey = process.env.TYPESAFE_API_KEY;
-const liveIt = liveKey ? it : it.skip;
+const hasTypeSafeSdk = (() => {
+  try {
+    require.resolve('@typesafe-ai/sdk');
+    return true;
+  } catch {
+    return false;
+  }
+})();
+// Needs both a key and the optional SDK; skip rather than fail when either is missing.
+const liveIt = liveKey && hasTypeSafeSdk ? it : it.skip;
 
 describe('TypeSafe live systemOne', () => {
   let mockSpan: any;
@@ -222,12 +231,7 @@ describe('TypeSafe live systemOne', () => {
 
   liveIt('wraps a real TypeSafeClient.systemOne call', async () => {
     process.env.TYPESAFE_API_KEY = liveKey;
-    let TypeSafeClient: any;
-    try {
-      ({ TypeSafeClient } = require('@typesafe-ai/sdk'));
-    } catch (e) {
-      throw new Error(`@typesafe-ai/sdk is required for the live test: ${e}`);
-    }
+    const { TypeSafeClient } = require('@typesafe-ai/sdk');
     const client = new TypeSafeClient();
     const wrapped = TypeSafeWrapper._patchSystemOne(mockTracer)(TypeSafeClient.prototype.systemOne);
     const result = await wrapped.call(client, {

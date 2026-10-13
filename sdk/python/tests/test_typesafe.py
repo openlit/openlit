@@ -275,6 +275,11 @@ def test_uninstrument_restores_methods_and_reinstrument_does_not_stack(monkeypat
 
     from openlit.instrumentation.typesafe import TypeSafeInstrumentor
 
+    # The instrumentor is a process-wide singleton and other tests (the live
+    # one calls openlit.init()) may have left it instrumented. Reset it against
+    # whatever typesafe_sdk is currently importable, before swapping in a fake.
+    TypeSafeInstrumentor().uninstrument()
+
     class _Client:
         def system_one(self, state, questions, model=None):
             return "sync"
