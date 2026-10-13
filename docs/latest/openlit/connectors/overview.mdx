@@ -19,7 +19,7 @@ Connectors share one registry model across categories. **Data-source connectors*
 
 ## Connector categories
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card title="Data-source connectors" href="/latest/openlit/connectors/datasource" icon="database">
     ClickHouse, Tempo, Loki, Prometheus, and Jaeger — read traces, logs, and metrics with per-signal routing.
   </Card>
@@ -29,7 +29,14 @@ Connectors share one registry model across categories. **Data-source connectors*
   <Card title="Scanner connectors" href="/latest/openlit/connectors/scanner" icon="magnifying-glass">
     Trustabl — scan GitHub repositories for agent SDK, MCP, and policy findings.
   </Card>
+  <Card title="Notification connectors" href="/latest/openlit/connectors/notification" icon="paper-plane">
+    Enterprise — send alerts to Slack, email, webhooks, Discord, PagerDuty, Opsgenie, and Datadog.
+  </Card>
 </CardGroup>
+
+<Note>
+Premium connectors (the notification connectors, plus the [Datadog and New Relic data sources](/latest/openlit/connectors/datasource#enterprise-data-source-connectors)) are part of [OpenLIT Enterprise](/latest/openlit/enterprise) and show a **Premium** badge in the catalog.
+</Note>
 
 ## Mental model
 
@@ -72,7 +79,7 @@ flowchart LR
 | Browse / search / write memories | — | Yes (capability-dependent) | — |
 | Run scan / list findings | — | — | Yes |
 
-Enterprise audit logs record connector create, update, delete, test, bind, and unbind events. RBAC permissions are `connectors:read|create|update|delete|test|bind` (owner/admin by default).
+[Enterprise](/latest/openlit/enterprise) [audit logs](/latest/openlit/audit-logs) record connector create, update, delete, test, bind, and unbind events. [RBAC](/latest/openlit/rbac) permissions are `connectors:read|create|update|delete|test|bind` (owner/admin by default).
 
 ## Related
 

@@ -211,18 +211,25 @@ export const validateMetricsRequest = (
 	return { success: true };
 };
 
+/** Time predicate shared by span filters and the trace-summary page scan. */
+export function getTimeRangeWhereCondition(filter: {
+	timeLimit?: { start?: unknown; end?: unknown };
+}): string {
+	const { start, end } = filter.timeLimit || {};
+	if (start && end) {
+		return `Timestamp >= parseDateTimeBestEffort('${start}') AND Timestamp <= parseDateTimeBestEffort('${end}')`;
+	}
+	return "";
+}
+
 export const getFilterWhereCondition = (
 	filter: FilterWhereConditionType,
 	filterSelectedConfig?: boolean
 ) => {
 	const whereArray: string[] = [];
 	try {
-		const { start, end } = filter.timeLimit || {};
-		if (start && end) {
-			whereArray.push(
-				`Timestamp >= parseDateTimeBestEffort('${start}') AND Timestamp <= parseDateTimeBestEffort('${end}')`
-			);
-		}
+		const timeWhere = getTimeRangeWhereCondition(filter);
+		if (timeWhere) whereArray.push(timeWhere);
 
 		if (filterSelectedConfig && filter.selectedConfig) {
 			if (filter.selectedConfig.models?.length) {
@@ -316,14 +323,10 @@ export const getFilterWhereCondition = (
 			}
 
 			if (filter.selectedConfig.environments?.length) {
-				// OTel-standard location for environment is
-				// `ResourceAttributes['deployment.environment']`. Older code
-				// here used `getTraceMappingKeyFullPath("environment")` which
-				// returns the dotted `SpanAttributes.gen_ai.environment` path
-				// and then wrapped *that* in `ResourceAttributes[...]`,
-				// producing a non-existent column key that always matched
-				// zero rows. Match both the OTel resource attribute and the
-				// legacy span attribute so any historic data still resolves.
+				// Playground / agent `envs` filter uses OTel
+				// `deployment.environment` (and legacy `gen_ai.environment`).
+				// API-key tenant env is stamped separately as
+				// `organisation.environment.name` and must not replace this.
 				const envList = filter.selectedConfig.environments
 					.map((environment: string) =>
 						`'${escapeClickHouseString(environment)}'`
