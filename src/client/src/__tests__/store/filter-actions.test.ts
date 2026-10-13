@@ -105,6 +105,37 @@ describe('filterStoreSlice actions', () => {
       store.getState().filter.updateFilter('refreshRate', '30s', { clearFilter: true });
       expect(store.getState().filter.details.selectedConfig).toEqual({});
     });
+
+    it('keeps customFilters when a later selectedConfig update omits them as undefined', () => {
+      store.getState().filter.updateFilter('selectedConfig', {
+        serviceNames: ['support-agent-demo'],
+        customFilters: [
+          { attributeType: 'SpanAttributes', key: 'gen_ai.system', value: 'openai' },
+        ],
+      });
+      store.getState().filter.updateFilter('selectedConfig', {
+        serviceNames: ['support-agent-demo'],
+        customFilters: undefined,
+      });
+      expect(store.getState().filter.details.selectedConfig.customFilters).toEqual([
+        { attributeType: 'SpanAttributes', key: 'gen_ai.system', value: 'openai' },
+      ]);
+    });
+
+    it('keeps customFilters when AgentScope re-asserts serviceNames', () => {
+      store.getState().filter.updateFilter('selectedConfig', {
+        serviceNames: ['support-agent-demo'],
+        customFilters: [
+          { attributeType: 'ResourceAttributes', key: 'service.version', value: '1' },
+        ],
+      });
+      store.getState().filter.updateFilter('selectedConfig.serviceNames', [
+        'support-agent-demo',
+      ]);
+      expect(store.getState().filter.details.selectedConfig.customFilters).toEqual([
+        { attributeType: 'ResourceAttributes', key: 'service.version', value: '1' },
+      ]);
+    });
   });
 
   describe('updateConfig', () => {
