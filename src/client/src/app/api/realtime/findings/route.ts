@@ -37,4 +37,4 @@ async function GETHandler(request: NextRequest) {
 	}
 }
 
-export const GET = withRouteAccess("realtime.read", GETHandler);
+export const GET = withRouteAccess("alerts.read", GETHandler);

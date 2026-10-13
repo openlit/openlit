@@ -3,6 +3,7 @@ jest.mock("@/lib/prisma", () => ({
 	default: {
 		project: { findUnique: jest.fn() },
 		projectEnvironment: { findUnique: jest.fn() },
+		realtimeRule: { findMany: jest.fn(async () => []) },
 		realtimeFinding: {
 			findUnique: jest.fn(),
 			create: jest.fn(),
@@ -25,6 +26,7 @@ jest.mock("@/lib/platform/realtime/extension", () => ({
 import prisma from "@/lib/prisma";
 import { getCurrentOrganisation, getCurrentProjectForOrganisation } from "@/lib/organisation";
 import { getExtensionRealtimeRules, onRealtimeFinding } from "@/lib/platform/realtime/extension";
+import { resetRealtimeRuleCache } from "@/lib/platform/realtime/rule-source";
 import {
 	RealtimeFindingError,
 	listRealtimeFindings,
@@ -36,9 +38,32 @@ import {
 
 const now = new Date("2026-10-02T10:00:00.000Z");
 
+// A stored threshold alert, as the engine sees it: `alert.<id>`, scoped to org1/proj1/production.
+function storedRule(overrides: Record<string, unknown> = {}) {
+	return {
+		id: "r1",
+		organisationId: "org1",
+		projectId: "proj1",
+		environment: "production",
+		owner: "alert",
+		name: "Error rate spike",
+		description: "",
+		kind: "threshold",
+		mode: "window",
+		severity: "warning",
+		enabled: true,
+		definition: JSON.stringify({ match: [], groupBy: ["service"], metric: "error_rate", operator: "gt", threshold: 0.25, windowSec: 300, minSamples: 20, cooldownSec: 900 }),
+		createdByUserId: "u1",
+		updatedByUserId: "u1",
+		createdAt: now,
+		updatedAt: now,
+		...overrides,
+	};
+}
+
 function payload(overrides: Record<string, unknown> = {}) {
 	return {
-		ruleId: "builtin.error_rate",
+		ruleId: "alert.r1",
 		ruleName: "ignored from payload",
 		kind: "security",
 		severity: "info",
@@ -66,7 +91,7 @@ function row(overrides: Record<string, unknown> = {}) {
 		organisationId: "org1",
 		projectId: "proj1",
 		environment: "production",
-		ruleId: "builtin.error_rate",
+		ruleId: "alert.r1",
 		ruleName: "Error rate spike",
 		kind: "threshold",
 		mode: "window",
@@ -117,7 +142,9 @@ describe("parseRealtimeFindingInput", () => {
 describe("recordRealtimeFinding", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		resetRealtimeRuleCache();
 		(getExtensionRealtimeRules as jest.Mock).mockResolvedValue([]);
+		(prisma.realtimeRule.findMany as jest.Mock).mockResolvedValue([storedRule()]);
 		(prisma.project.findUnique as jest.Mock).mockResolvedValue({ organisationId: "org1" });
 		(prisma.projectEnvironment.findUnique as jest.Mock).mockResolvedValue({ id: "env1" });
 		(prisma.realtimeFinding.findUnique as jest.Mock).mockResolvedValue(null);
@@ -137,7 +164,7 @@ describe("recordRealtimeFinding", () => {
 
 	it("rejects unknown rules", async () => {
 		await expect(
-			recordRealtimeFinding(parseRealtimeFindingInput(payload({ ruleId: "custom.nope" })))
+			recordRealtimeFinding(parseRealtimeFindingInput(payload({ ruleId: "alert.nope" })))
 		).rejects.toMatchObject({ status: 404 });
 	});
 
@@ -148,6 +175,18 @@ describe("recordRealtimeFinding", () => {
 		await expect(
 			recordRealtimeFinding(parseRealtimeFindingInput(payload({ ruleId: "custom.1" })))
 		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it("rejects a finding for a stored alert that belongs to another project", async () => {
+		(prisma.realtimeRule.findMany as jest.Mock).mockResolvedValue([storedRule({ projectId: "proj-other" })]);
+		await expect(recordRealtimeFinding(parseRealtimeFindingInput(payload()))).rejects.toMatchObject({ status: 404 });
+		expect(prisma.realtimeFinding.create).not.toHaveBeenCalled();
+	});
+
+	it("ignores disabled alerts", async () => {
+		(prisma.realtimeRule.findMany as jest.Mock).mockResolvedValue([]);
+		await expect(recordRealtimeFinding(parseRealtimeFindingInput(payload()))).rejects.toMatchObject({ status: 404 });
+		expect((prisma.realtimeRule.findMany as jest.Mock).mock.calls[0][0].where).toEqual({ enabled: true });
 	});
 
 	it("rejects a project that belongs to another organisation", async () => {

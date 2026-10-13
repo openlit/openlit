@@ -1,27 +1,61 @@
 ---
 title: 'Alerts'
-description: 'Get notified in Slack, email, PagerDuty, and more when important changes happen in your organisation'
+description: 'Fire within seconds when cost, latency, tokens, or errors cross a threshold, and get notified in OpenLIT, Slack, email, PagerDuty, and more'
 icon: 'bell'
-tag: 'Enterprise'
 ---
 
 import EnterpriseFeature from '/snippets/enterprise-feature.mdx';
 
+Open **Alerts** from the sidebar under **Monitor** (`/alerts`). There are two kinds of alert:
+
+| Kind | Watches | Notifies | Edition |
+| --- | --- | --- | --- |
+| **Threshold** | Live GenAI spans: error rate, latency, tokens, cost, span counts | In OpenLIT (Alerts pages and the header bell). Enterprise adds Slack, email, webhooks, and other destinations | All editions |
+| **Event** | Changes made in OpenLIT, such as access updates, API keys, Vault secrets, or scanner results | Slack, email, PagerDuty, webhooks, and other destinations | Enterprise |
+
+## Threshold alerts
+
+A threshold alert is one form: pick a metric, an operator, a threshold, and a window, optionally narrow it to some spans and group it by a field, and choose who to notify. OpenLIT evaluates it on the live span stream as spans arrive, without querying ClickHouse.
+
+1. Go to **Alerts → New alert**.
+2. Start from a template (**Error rate spike**, **P95 latency breach**, **Token usage spike**, **Cost spike**) or from blank.
+3. Set the condition:
+   - **Metric**: error rate, error count, span count, p95 or average latency, total tokens, or cost.
+   - **Operator** and **threshold**, for example `> 25` for cost in USD.
+   - **Window**: the period the metric is computed over (30 seconds to 1 hour).
+   - **Group by** (up to three fields): each value, such as each model or service, is tracked and alerted on separately.
+   - **Minimum spans** before the window can fire, and a **cooldown** between two firings of the same group.
+4. Add **span filters** to evaluate only some spans, for example `model = gpt-4o` or `service in checkout-bot, search`. Filters are case-insensitive and all must match.
+5. Choose where to notify, then **Create alert**.
+
+The form shows the alert in plain language before you save, for example *Fires when Cost > $25.00 over 5m · per model, for model = gpt-4o.*
+
+### Firing, resolved, and history
+
+Each group an alert fires for (for example one model) is tracked separately:
+
+- **Firing**: the condition is breached right now. It stays firing until a full window passes without a breach.
+- **Resolved**: the condition cleared on its own. It reopens if the alert breaches again. Resolved history is kept for 30 days by default (`OPENLIT_REALTIME_FINDING_RETENTION_DAYS`).
+
+The **Overview** tab shows what is firing by severity, recent activity, and the most-triggered alerts. Open an alert for its **Activity** (every group it fired for, with value, threshold, and times), **Live spans** (the latest spans that match its filters; click a span for its details), and **Configuration**.
+
+Threshold alerts are scoped to the current project and environment, and only see spans sent to that project with an API key. Prompts and completions are never part of the stream they evaluate.
+
+### Notifications
+
+In every edition, firing alerts appear on the Alerts pages and as a count in the header bell. With OpenLIT Enterprise and the **Alerts** feature, the same form also lets you pick notification destinations such as Slack, email, or a webhook, and each delivery is listed on the alert and in **Events**.
+
+## Event alerts
+
 <EnterpriseFeature />
 
-Alerts notify your team when something important changes in OpenLIT, such as a member's access changing, an API key being created, a Vault secret being deleted, or a scanner finishing with findings. Each alert watches one or more **triggers**, filters them with optional **conditions**, and delivers to one or more **destinations** like Slack, PagerDuty, or a webhook.
-
-Open **Alerts** from the sidebar under **Monitor** (`/alerts`). The page has three tabs: **Alerts**, **Events**, and **Destinations**.
-
-<Note>
-Alerts fire on changes made in OpenLIT, when they happen. They don't evaluate telemetry or metric thresholds such as latency or cost.
-</Note>
+Event alerts notify your team when something important changes in OpenLIT, such as a member's access changing, an API key being created, a Vault secret being deleted, or a scanner finishing with findings. Each alert watches one or more **triggers**, filters them with optional **conditions**, and delivers to one or more **destinations** like Slack, PagerDuty, or a webhook.
 
 ## Availability
 
 Alerts need an [OpenLIT Enterprise](/latest/openlit/enterprise) license that includes the **Alerts** feature. Sending to destinations such as Slack or PagerDuty uses [notification connectors](/latest/openlit/connectors/notification), which also need the **Premium connectors** feature.
 
-Without the Alerts license, the page is locked and the alerts API returns `403` with `upgrade_required`.
+Without the Alerts license, event alerts and destinations are locked and their APIs return `403` with `upgrade_required`. Threshold alerts with in-app notifications work in every edition.
 
 ## Permissions
 

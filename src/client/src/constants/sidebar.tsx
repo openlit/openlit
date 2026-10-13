@@ -23,7 +23,7 @@ import {
 	SlidersHorizontal,
 	User,
 	ScanSearch,
-	Radio,
+	BellRing,
 } from "lucide-react";
 
 export const ICON_CLASSES = "flex-shrink-0 size-4";
@@ -77,9 +77,9 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						type: "action",
 					},
 					{
-						icon: <Radio className={ICON_CLASSES} />,
-						text: m.REALTIME_TITLE,
-						link: "/realtime",
+						icon: <BellRing className={ICON_CLASSES} />,
+						text: m.ALERTING_TITLE,
+						link: "/alerts",
 						type: "action",
 					},
 				],

@@ -15,7 +15,130 @@ export const SDK_PROJECT_SCOPE_MISMATCH =
 export const REALTIME_RULE_ERROR_RATE = "Error rate spike";
 export const REALTIME_RULE_P95_LATENCY = "P95 latency breach";
 export const REALTIME_RULE_TOKEN_SPIKE = "Token usage spike";
+// Alerts (threshold alerts on the realtime signal stream)
+export const ALERTING_TITLE = "Alerts";
+export const ALERTING_OVERVIEW = "Overview";
+export const ALERTING_ALERTS = "Alerts";
+export const ALERTING_NEW = "New alert";
+export const ALERTING_NEW_TITLE = "New alert";
+export const ALERTING_EDIT_TITLE = "Edit alert";
+export const ALERTING_DETAIL_TITLE = "Alert";
+export const ALERTING_BACK = "Back";
+export const ALERTING_REFRESH = "Refresh";
+export const ALERTING_OVERVIEW_HINT =
+	"Threshold alerts watch live GenAI spans for this project and environment and fire within seconds of a breach.";
+export const ALERTING_LIST_HINT =
+	"Every alert in this project environment. Click an alert to see what it is firing on and the spans it evaluates.";
+export const ALERTING_EMPTY_TITLE = "No alerts yet";
+export const ALERTING_EMPTY_DESCRIPTION =
+	"Create an alert from a template such as error rate or cost spike, or define your own threshold on any metric.";
+export const ALERTING_TILE_FIRING_ALERTS = "Alerts firing";
+export const ALERTING_TILE_FIRING_FINDINGS = "Firing groups";
+export const ALERTING_TILE_RESOLVED_24H = "Resolved (24h)";
+export const ALERTING_TILE_ENABLED = "Enabled";
+export const ALERTING_TILE_TOTAL = "Total alerts";
+export const ALERTING_FIRING_BY_SEVERITY = "Firing by severity";
+export const ALERTING_N_FIRING = (count: number) => `${count} firing`;
+export const ALERTING_NOTHING_FIRING = "Nothing firing";
+export const ALERTING_RECENT_ACTIVITY = "Recent activity";
+export const ALERTING_NOISIEST = "Most triggered";
+export const ALERTING_VIEW_ALL = "View all";
+export const ALERTING_NO_ACTIVITY = "No activity yet.";
+export const ALERTING_TIMES = (count: number) => `${count}×`;
+export const ALERTING_COLUMN_STATUS = "Status";
+export const ALERTING_COLUMN_ALERT = "Alert";
+export const ALERTING_COLUMN_CONDITION = "Condition";
+export const ALERTING_COLUMN_SEVERITY = "Severity";
+export const ALERTING_COLUMN_LAST_TRIGGERED = "Last triggered";
+export const ALERTING_COLUMN_ENABLED = "Enabled";
+export const ALERTING_COLUMN_FIRST_SEEN = "First seen";
+export const ALERTING_COLUMN_RESOLVED = "Resolved";
+export const ALERTING_COLUMN_OCCURRENCES = "Times fired";
+export const ALERTING_STATUS_FIRING = "Firing";
+export const ALERTING_STATUS_FIRING_N = (count: number) => `Firing · ${count}`;
+export const ALERTING_STATUS_OK = "OK";
+export const ALERTING_STATUS_DISABLED = "Disabled";
+export const ALERTING_TYPE_THRESHOLD = "Threshold";
+export const ALERTING_EDIT = "Edit";
+export const ALERTING_DELETE = "Delete";
+export const ALERTING_DELETE_TITLE = "Delete this alert?";
+export const ALERTING_DELETE_DESCRIPTION = "The alert stops evaluating and its history is removed.";
+export const ALERTING_DELETED = "Alert deleted.";
+export const ALERTING_CREATED = "Alert created.";
+export const ALERTING_SAVED = "Alert saved.";
+export const ALERTING_CREATE = "Create alert";
+export const ALERTING_SAVE = "Save alert";
+export const ALERTING_START_FROM = "Start from";
+export const ALERTING_START_FROM_HINT = "Pick a template to prefill the condition, then adjust anything below.";
+export const ALERTING_TEMPLATE_BLANK = "Blank";
+export const ALERTING_TEMPLATE_BLANK_HINT = "Choose the metric and threshold yourself.";
+export const ALERTING_SECTION_DETAILS = "Details";
+export const ALERTING_SECTION_CONDITION = "Condition";
+export const ALERTING_SECTION_CONDITION_HINT =
+	"Fire when the metric crosses the threshold over the window. Each group-by value is tracked and alerted on separately.";
+export const ALERTING_SECTION_FILTERS = "Span filters";
+export const ALERTING_SECTION_FILTERS_HINT =
+	"Only evaluate spans that match all of these. Leave empty to evaluate every GenAI span in this environment.";
+export const ALERTING_SECTION_DELIVERY = "Notify";
+export const ALERTING_DELIVERY_IN_APP =
+	"Notifications appear in OpenLIT: on the Alerts pages and in the bell in the header.";
+export const ALERTING_FIELD_NAME = "Name";
+export const ALERTING_FIELD_NAME_PLACEHOLDER = "e.g. gpt-4o cost above budget";
+export const ALERTING_FIELD_DESCRIPTION = "Description";
+export const ALERTING_FIELD_SEVERITY = "Severity";
+export const ALERTING_FIELD_METRIC = "Metric";
+export const ALERTING_FIELD_OPERATOR = "Operator";
+export const ALERTING_FIELD_THRESHOLD = "Threshold";
+export const ALERTING_FIELD_WINDOW = "Window";
+export const ALERTING_FIELD_GROUP_BY = "Group by";
+export const ALERTING_FIELD_GROUP_BY_HINT = "Up to three fields, such as model or service.";
+export const ALERTING_FIELD_MIN_SAMPLES = "Minimum spans";
+export const ALERTING_FIELD_MIN_SAMPLES_HINT = "Spans needed in the window before it can fire.";
+export const ALERTING_FIELD_COOLDOWN = "Cooldown (seconds)";
+export const ALERTING_FIELD_COOLDOWN_HINT = "Minimum time between two firings of the same group.";
+export const ALERTING_ADD_GROUP = "Add field";
+export const ALERTING_ADD_FILTER = "Add filter";
+export const ALERTING_REMOVE = "Remove";
+export const ALERTING_FILTER_VALUE_PLACEHOLDER = "value, or comma-separated values";
+export const ALERTING_PREVIEW = (condition: string, filters: string) => `Fires when ${condition}, for ${filters}.`;
+export const ALERTING_OVER = "over";
+export const ALERTING_PER = "per";
+export const ALERTING_ALL_SPANS = "all GenAI spans";
+export const ALERTING_METRIC_ERROR_RATE = "Error rate";
+export const ALERTING_METRIC_ERROR_COUNT = "Error count";
+export const ALERTING_METRIC_COUNT = "Span count";
+export const ALERTING_METRIC_P95_LATENCY = "P95 latency";
+export const ALERTING_METRIC_AVG_LATENCY = "Average latency";
+export const ALERTING_METRIC_TOTAL_TOKENS = "Total tokens";
+export const ALERTING_METRIC_COST = "Cost";
+export const ALERTING_FIRING_NOW = "Firing groups";
+export const ALERTING_TOTAL_OCCURRENCES = "Times fired";
+export const ALERTING_TAB_ACTIVITY = "Activity";
+export const ALERTING_TAB_SPANS = "Live spans";
+export const ALERTING_TAB_CONFIGURATION = "Configuration";
+export const ALERTING_ACTIVITY_HINT = "Each row is one group (for example one model) this alert fired for.";
+export const ALERTING_FIRING_GROUPS = (count: number) => `${count} group${count === 1 ? "" : "s"} firing now.`;
+export const ALERTING_NO_FINDINGS = "This alert has not fired yet.";
+export const ALERTING_SPANS_HINT =
+	"The latest spans the realtime engine received that match this alert's span filters. Click a row for its details.";
+export const ALERTING_ENGINE_RULE_ID = "Engine rule";
+export const ALERTING_CREATED_AT = "Created";
+export const ALERTING_UPDATED_AT = "Updated";
+export const ALERTING_JUST_NOW = "just now";
+export const ALERTING_MINUTES_AGO = (minutes: number) => `${minutes}m ago`;
+export const ALERTING_HOURS_AGO = (hours: number) => `${hours}h ago`;
 export const REALTIME_RULE_COST_SPIKE = "Cost spike";
+export const REALTIME_RULE_INVALID =
+	"Invalid alert. Check the fields, metric, operator, window, and limits.";
+export const REALTIME_RULE_NOT_FOUND = "Alert not found in this project environment.";
+export const REALTIME_RULE_ENVIRONMENT_UNKNOWN = "The environment does not exist in the current project.";
+export const REALTIME_RULE_LIMIT = "This project has reached the threshold alert limit.";
+export const ALERT_THRESHOLD_FAILED = "Failed to update the alert.";
+export const ALERT_THRESHOLD_INVALID_JSON = "Alert body must be valid JSON.";
+export const ALERT_TEMPLATE_ERROR_RATE = "Share of failing GenAI spans per service over the window.";
+export const ALERT_TEMPLATE_P95_LATENCY = "95th percentile latency per model over the window.";
+export const ALERT_TEMPLATE_TOKEN_SPIKE = "Total tokens per model over the window.";
+export const ALERT_TEMPLATE_COST_SPIKE = "Total spend per model over the window.";
 export const REALTIME_FINDING_INVALID = "Invalid realtime finding payload.";
 export const REALTIME_FINDING_INVALID_JSON = "Realtime finding body must be valid JSON.";
 export const REALTIME_FINDING_RULE_UNKNOWN = "The realtime rule is not active for this tenant.";
@@ -24,19 +147,9 @@ export const REALTIME_FINDING_TENANT_CONFLICT = "The finding belongs to a differ
 export const REALTIME_FINDING_NO_PROJECT = "Select a project to view signals.";
 export const REALTIME_FINDINGS_FETCH_FAILED = "Failed to load findings.";
 export const REALTIME_SIGNALS_FETCH_FAILED = "Failed to load live signals.";
-export const REALTIME_RULES_UNAVAILABLE = "Custom realtime rules are not available in this edition.";
-export const REALTIME_TITLE = "Signals";
-export const REALTIME_DESCRIPTION =
-	"Live spans for this project, and the findings they raise.";
-export const REALTIME_VIEW_FINDINGS = "Findings";
-export const REALTIME_VIEW_INSPECTOR = "Inspector";
 export const REALTIME_FILTER_FIRING = "Firing";
 export const REALTIME_FILTER_RESOLVED = "Resolved";
 export const REALTIME_FILTER_ALL = "All";
-export const REALTIME_REFRESH = "Refresh";
-export const REALTIME_EMPTY_TITLE = "No findings";
-export const REALTIME_EMPTY_DESCRIPTION =
-	"Findings appear here when spans sent with an API key for this environment breach a rule. Evaluation needs NATS and the OpenLIT engine.";
 export const REALTIME_SIGNALS_EMPTY_TITLE = "No live signals";
 export const REALTIME_SIGNALS_EMPTY_DESCRIPTION =
 	"Signals appear here as GenAI spans are ingested for this project and environment. The OpenLIT engine keeps the most recent ones in memory.";
@@ -53,8 +166,6 @@ export const REALTIME_SIGNALS_COLUMN_ATTRIBUTES = "Attributes";
 export const REALTIME_ALERTS_LABEL = "Signal alerts";
 export const REALTIME_ALERTS_EMPTY = "No firing alerts";
 export const REALTIME_ALERTS_VIEW = "View findings";
-export const REALTIME_COLUMN_SEVERITY = "Severity";
-export const REALTIME_COLUMN_RULE = "Rule";
 export const REALTIME_COLUMN_SCOPE = "Scope";
 export const REALTIME_COLUMN_VALUE = "Value / threshold";
 export const REALTIME_COLUMN_STATE = "State";
@@ -63,10 +174,6 @@ export const REALTIME_STATE_FIRING = "Firing";
 export const REALTIME_STATE_RESOLVED = "Resolved";
 export const REALTIME_SIGNAL_STATUS_OK = "ok";
 export const REALTIME_SIGNAL_STATUS_ERROR = "error";
-export const REALTIME_VIEW_FINDINGS_HINT =
-	"Findings are raised when a realtime rule's condition is breached over its window for this project and environment.";
-export const REALTIME_VIEW_INSPECTOR_HINT =
-	"The latest GenAI spans the realtime engine received for this project and environment. Click a row for its details.";
 export const REALTIME_FILTER_FIRING_HINT =
 	"Firing: the rule is breached right now. The finding stays firing until a full window passes without a breach.";
 export const REALTIME_FILTER_RESOLVED_HINT =
@@ -74,7 +181,6 @@ export const REALTIME_FILTER_RESOLVED_HINT =
 export const REALTIME_FILTER_ALL_HINT = "All: firing and resolved findings together.";
 export const REALTIME_SORT_NEWEST = "Newest first";
 export const REALTIME_SORT_OLDEST = "Oldest first";
-export const REALTIME_SIGNAL_DETAIL_BACK = "Back to inspector";
 export const REALTIME_SIGNAL_DETAIL_CLOSE = "Close";
 export const REALTIME_SIGNAL_DETAIL_OPEN_TRACE = "Open trace";
 export const REALTIME_SIGNAL_DETAIL_OVERVIEW = "Overview";

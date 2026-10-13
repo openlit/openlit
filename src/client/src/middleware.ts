@@ -54,6 +54,8 @@ export const config = {
 		"/connectors",
 		"/costs",
 		"/realtime",
+		"/alerts",
+		"/alerts/:path*",
 		"/evaluations",
 		"/evaluations/:path*",
 		"/pricing",

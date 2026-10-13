@@ -1,10 +1,15 @@
-import { getBuiltinRealtimeRules } from "./builtin-rules";
 import { getExtensionRealtimeRules } from "@/lib/platform/realtime/extension";
+import { listEngineRealtimeRules, parseEngineRuleId } from "./rule-source";
 import type { RealtimeRule } from "./types";
 
-/** Every rule the engine should evaluate: the built-in pack plus extensions. */
+/** Every rule the engine should evaluate: stored rules of every owner plus extensions. */
 export async function getActiveRealtimeRules(): Promise<RealtimeRule[]> {
-	const builtin = getBuiltinRealtimeRules();
+	let stored: RealtimeRule[] = [];
+	try {
+		stored = await listEngineRealtimeRules();
+	} catch (error) {
+		console.error("[realtime] stored rule source failed", error);
+	}
 	let extension: RealtimeRule[] = [];
 	try {
 		extension = await getExtensionRealtimeRules();
@@ -13,7 +18,7 @@ export async function getActiveRealtimeRules(): Promise<RealtimeRule[]> {
 	}
 	const seen = new Set<string>();
 	const out: RealtimeRule[] = [];
-	for (const rule of [...builtin, ...extension]) {
+	for (const rule of [...stored, ...extension]) {
 		if (!rule?.id || seen.has(rule.id)) continue;
 		seen.add(rule.id);
 		out.push(rule);
@@ -22,7 +27,7 @@ export async function getActiveRealtimeRules(): Promise<RealtimeRule[]> {
 }
 
 export async function findActiveRealtimeRule(id: string): Promise<RealtimeRule | null> {
-	const rules = await getActiveRealtimeRules();
+	const rules = parseEngineRuleId(id) ? await listEngineRealtimeRules() : await getActiveRealtimeRules();
 	return rules.find((rule) => rule.id === id) || null;
 }
 

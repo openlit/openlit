@@ -230,7 +230,7 @@ Tune the background job that materializes the [Agents](/latest/openlit/observabi
 
 ## Realtime variables
 
-Realtime findings evaluate GenAI spans as they are ingested. The OTLP receiver publishes each span sent with an API key to NATS JetStream, and the bundled `openlit-engine` evaluates the built-in rules and shows breaches on the **Signals** page. That page also lists the live signals the engine has seen. Docker Compose includes a NATS service by default. Realtime is disabled when `NATS_URL` is unset.
+Realtime evaluation powers [threshold alerts](/latest/openlit/alerts#threshold-alerts). The OTLP receiver publishes each GenAI span sent with an API key to NATS JetStream, and the bundled `openlit-engine` evaluates every enabled alert and records breaches, which appear under **Alerts**. Docker Compose includes a NATS service by default. Realtime is disabled when `NATS_URL` is unset.
 
 <ResponseField name="NATS_URL">
   NATS JetStream server URL. When set, the receiver publishes realtime signals and the container starts the realtime engine.
@@ -282,16 +282,12 @@ Realtime findings evaluate GenAI spans as they are ingested. The OTLP receiver p
   ```
 </ResponseField>
 
-<ResponseField name="OPENLIT_REALTIME_BUILTIN_RULES">
-  Set to `false` to disable the built-in realtime rules.
-</ResponseField>
-
 <ResponseField name="OPENLIT_REALTIME_WINDOW_SEC / OPENLIT_REALTIME_MIN_SAMPLES / OPENLIT_REALTIME_COOLDOWN_SEC">
-  Evaluation window (default `300`, max `3600`), minimum samples per window before a rule can fire (default `20`), and the cooldown before the same finding can fire again (default `900`).
+  Suggested window (default `300`, max `3600`), minimum spans (default `20`), and cooldown (default `900`) in the threshold alert templates. They only change the values a new alert starts with.
 </ResponseField>
 
 <ResponseField name="OPENLIT_SIGNAL_ATTRIBUTES">
-  Extra span and resource attribute keys to copy onto realtime signals, in addition to the built-in allowlist of operational fields (`gen_ai.tool.name`, `gen_ai.request.temperature`, `http.route`, and similar). Comma-separated. Rules can match and group by these keys. `user.id`, `enduser.id`, `session.id`, `conversation.id`, `gen_ai.conversation.id`, `url.path`, and `server.address` identify people or internal systems, so they are only copied when listed here. Prompt, completion, and message attributes are always ignored, and values that look like credentials are redacted.
+  Extra span and resource attribute keys to copy onto realtime signals, in addition to the built-in allowlist of operational fields (`gen_ai.tool.name`, `gen_ai.request.temperature`, `http.route`, and similar). Comma-separated. Threshold alerts can filter and group by these keys. `user.id`, `enduser.id`, `session.id`, `conversation.id`, `gen_ai.conversation.id`, `url.path`, and `server.address` identify people or internal systems, so they are only copied when listed here. Prompt, completion, and message attributes are always ignored, and values that look like credentials are redacted.
 
   **Example**:
   ```yaml
@@ -300,7 +296,7 @@ Realtime findings evaluate GenAI spans as they are ingested. The OTLP receiver p
 </ResponseField>
 
 <ResponseField name="OPENLIT_REALTIME_ERROR_RATE / OPENLIT_REALTIME_P95_LATENCY_MS / OPENLIT_REALTIME_TOKENS_PER_WINDOW / OPENLIT_REALTIME_COST_PER_WINDOW_USD">
-  Thresholds for the built-in rules: error rate per service (default `0.25`), p95 latency per model (default `30000`), total tokens per model per window (default `1000000`), and span-reported cost per model per window (default `25`).
+  Suggested thresholds in the [threshold alert](/latest/openlit/alerts#threshold-alerts) templates: error rate per service (default `0.25`), p95 latency per model (default `30000`), total tokens per model per window (default `1000000`), and span-reported cost per model per window (default `25`). Nothing alerts until someone creates an alert.
 
   **Example**:
   ```yaml
