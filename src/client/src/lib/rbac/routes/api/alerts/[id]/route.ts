@@ -1,11 +1,5 @@
-import { withAudit } from "@/lib/audit/route";
-import { withRouteAccess } from "@/lib/access/route-access";
-import {
-	deleteThresholdAlertHandler,
-	getThresholdAlertHandler,
-	updateThresholdAlertHandler,
-} from "@/lib/platform/alerts/threshold-handlers";
+import { alertingUnavailable } from "../unavailable";
 
-export const GET = withRouteAccess("alerts.read", getThresholdAlertHandler);
-export const PATCH = withAudit(withRouteAccess("alerts.update", updateThresholdAlertHandler));
-export const DELETE = withAudit(withRouteAccess("alerts.delete", deleteThresholdAlertHandler));
+export const GET = alertingUnavailable;
+export const PATCH = alertingUnavailable;
+export const DELETE = alertingUnavailable;

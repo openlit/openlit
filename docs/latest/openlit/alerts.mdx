@@ -146,9 +146,23 @@ The **Events** tab shows a timeline of fired events and a list you can filter by
 
 The **Alerts** tab summarises your alerts: how many are active, ready, need a destination, failed on their last run, or are paused.
 
-## Alerts API
+## Threshold alerts API
 
-Signed-in users can manage alerts through the API. Every endpoint needs the Alerts license and the matching permission.
+Available in every edition to signed-in users. Requests act on the current project and the environment in the `x-openlit-environment` header (default `production`); the organisation, project, and environment are never read from the body.
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /api/alerts/threshold` | List threshold alerts with status, firing groups, and last trigger time |
+| `POST /api/alerts/threshold` | Create a threshold alert (`name`, `severity`, `definition` with `metric`, `operator`, `threshold`, `windowSec`, optional `groupBy`, `match`, `minSamples`, `cooldownSec`) |
+| `GET`, `PATCH`, `DELETE /api/alerts/threshold/{id}` | Read, update (send `{ "enabled": false }` alone to pause), or delete an alert and its history |
+| `GET /api/alerts/threshold/{id}/findings` | Firing and resolved history (`state`, `limit`) |
+| `GET /api/alerts/threshold/{id}/signals` | Recent spans that match the alert's span filters |
+| `GET /api/alerts/threshold/overview` | Counts, firing by severity, recent activity, and most-triggered alerts |
+| `GET /api/alerts/threshold/templates` | Templates used by the New alert form |
+
+## Event alerts API
+
+Signed-in users can manage event alerts through the API. Every endpoint needs the Alerts license and the matching permission.
 
 | Endpoint | Description |
 | --- | --- |

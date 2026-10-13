@@ -1,4 +1,6 @@
 import { alertingUnavailable } from "@/lib/rbac/routes/api/alerts/unavailable";
+import * as alertsRoute from "@/lib/rbac/routes/api/alerts/route";
+import * as alertByIdRoute from "@/lib/rbac/routes/api/alerts/[id]/route";
 import * as alertTestRoute from "@/lib/rbac/routes/api/alerts/[id]/test/route";
 import * as alertEventsRoute from "@/lib/rbac/routes/api/alerts/events/route";
 import * as alertSpecRoute from "@/lib/rbac/routes/api/alerts/spec/route";
@@ -8,11 +10,13 @@ import * as alertDestinationByIdRoute from "@/lib/rbac/routes/api/alert-destinat
 import * as alertDestinationTestRoute from "@/lib/rbac/routes/api/alert-destinations/[id]/test/route";
 import * as alertProvidersRoute from "@/lib/rbac/routes/api/alert-providers/route";
 
-// Threshold alerts (/api/alerts, /api/alerts/[id]) are available in CE and
-// covered in __tests__/lib/platform/alerts. Event alerts, notification
-// destinations, and providers stay enterprise-only.
-describe("CE event alert and destination routes (enterprise-only)", () => {
+describe("CE alert route handlers (no entitlement/RBAC available in this edition)", () => {
 	it.each([
+		["alerts/route.ts GET", alertsRoute.GET],
+		["alerts/route.ts POST", alertsRoute.POST],
+		["alerts/[id]/route.ts GET", alertByIdRoute.GET],
+		["alerts/[id]/route.ts PATCH", alertByIdRoute.PATCH],
+		["alerts/[id]/route.ts DELETE", alertByIdRoute.DELETE],
 		["alerts/[id]/test/route.ts POST", alertTestRoute.POST],
 		["alerts/events/route.ts GET", alertEventsRoute.GET],
 		["alerts/spec/route.ts GET", alertSpecRoute.GET],

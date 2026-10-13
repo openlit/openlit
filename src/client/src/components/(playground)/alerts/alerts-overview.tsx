@@ -50,7 +50,7 @@ export default function AlertsOverview() {
 		if (!project?.id) return;
 		setLoading(true);
 		try {
-			setData(await alertsRequest<ThresholdAlertOverview>("/api/alerts/overview"));
+			setData(await alertsRequest<ThresholdAlertOverview>("/api/alerts/threshold/overview"));
 			setError(null);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : m.ALERT_THRESHOLD_FAILED);

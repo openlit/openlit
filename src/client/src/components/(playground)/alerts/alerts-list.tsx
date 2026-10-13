@@ -46,7 +46,7 @@ export default function AlertsList() {
 	const load = useCallback(async () => {
 		if (!project?.id) return;
 		try {
-			setAlerts(await alertsRequest<ThresholdAlertView[]>("/api/alerts"));
+			setAlerts(await alertsRequest<ThresholdAlertView[]>("/api/alerts/threshold"));
 			setError(null);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : m.ALERT_THRESHOLD_FAILED);
@@ -63,7 +63,7 @@ export default function AlertsList() {
 
 	const toggle = async (alert: ThresholdAlertView, enabled: boolean) => {
 		try {
-			await alertsRequest(`/api/alerts/${alert.id}`, { method: "PATCH", body: { enabled } });
+			await alertsRequest(`/api/alerts/threshold/${alert.id}`, { method: "PATCH", body: { enabled } });
 			await load();
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : m.ALERT_THRESHOLD_FAILED);
@@ -72,7 +72,7 @@ export default function AlertsList() {
 
 	const remove = async ({ id }: { id: string }) => {
 		try {
-			await alertsRequest(`/api/alerts/${id}`, { method: "DELETE" });
+			await alertsRequest(`/api/alerts/threshold/${id}`, { method: "DELETE" });
 			toast.success(m.ALERTING_DELETED);
 			await load();
 		} catch (err) {

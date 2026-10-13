@@ -78,8 +78,8 @@ export default function AlertDetail({ alertId }: { alertId: string }) {
 			const params = new URLSearchParams({ limit: "200" });
 			if (stateFilter !== "all") params.set("state", stateFilter);
 			const [view, rows] = await Promise.all([
-				alertsRequest<ThresholdAlertView>(`/api/alerts/${alertId}`),
-				alertsRequest<RealtimeFindingView[]>(`/api/alerts/${alertId}/findings?${params}`),
+				alertsRequest<ThresholdAlertView>(`/api/alerts/threshold/${alertId}`),
+				alertsRequest<RealtimeFindingView[]>(`/api/alerts/threshold/${alertId}/findings?${params}`),
 			]);
 			setAlert(view);
 			setFindings(rows);
@@ -103,7 +103,7 @@ export default function AlertDetail({ alertId }: { alertId: string }) {
 
 	const toggle = async (enabled: boolean) => {
 		try {
-			setAlert(await alertsRequest<ThresholdAlertView>(`/api/alerts/${alertId}`, { method: "PATCH", body: { enabled } }));
+			setAlert(await alertsRequest<ThresholdAlertView>(`/api/alerts/threshold/${alertId}`, { method: "PATCH", body: { enabled } }));
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : m.ALERT_THRESHOLD_FAILED);
 		}
@@ -111,7 +111,7 @@ export default function AlertDetail({ alertId }: { alertId: string }) {
 
 	const remove = async () => {
 		try {
-			await alertsRequest(`/api/alerts/${alertId}`, { method: "DELETE" });
+			await alertsRequest(`/api/alerts/threshold/${alertId}`, { method: "DELETE" });
 			toast.success(m.ALERTING_DELETED);
 			router.push("/alerts/list");
 		} catch (err) {
@@ -274,7 +274,7 @@ export default function AlertDetail({ alertId }: { alertId: string }) {
 				) : tab === "spans" ? (
 					<div className="flex flex-col gap-2">
 						<p className="text-xs text-stone-500 dark:text-stone-400">{m.ALERTING_SPANS_HINT}</p>
-						<SignalInspector url={`/api/alerts/${alert.id}/signals`} order={order} />
+						<SignalInspector url={`/api/alerts/threshold/${alert.id}/signals`} order={order} />
 					</div>
 				) : (
 					<div className="rounded-md border border-stone-200 px-3 dark:border-stone-800">

@@ -33,12 +33,12 @@ import {
 	setThresholdAlertEnabled,
 	updateThresholdAlert,
 } from "@/lib/platform/alerts/threshold";
-import { GET as LIST, POST as CREATE } from "@/lib/rbac/routes/api/alerts/route";
-import { DELETE, GET as GET_ONE, PATCH } from "@/lib/rbac/routes/api/alerts/[id]/route";
-import { GET as OVERVIEW } from "@/lib/rbac/routes/api/alerts/overview/route";
-import { GET as TEMPLATES } from "@/lib/rbac/routes/api/alerts/templates/route";
-import { GET as FINDINGS } from "@/lib/rbac/routes/api/alerts/[id]/findings/route";
-import { GET as SIGNALS } from "@/lib/rbac/routes/api/alerts/[id]/signals/route";
+import { GET as LIST, POST as CREATE } from "@/lib/rbac/routes/api/alerts/threshold/route";
+import { DELETE, GET as GET_ONE, PATCH } from "@/lib/rbac/routes/api/alerts/threshold/[id]/route";
+import { GET as OVERVIEW } from "@/lib/rbac/routes/api/alerts/threshold/overview/route";
+import { GET as TEMPLATES } from "@/lib/rbac/routes/api/alerts/threshold/templates/route";
+import { GET as FINDINGS } from "@/lib/rbac/routes/api/alerts/threshold/[id]/findings/route";
+import { GET as SIGNALS } from "@/lib/rbac/routes/api/alerts/threshold/[id]/signals/route";
 
 const scope = { organisationId: "org1", projectId: "proj1", environment: "staging", userId: "u1" };
 const ctx = { params: { id: "a1" } };
@@ -49,7 +49,7 @@ const validBody = {
 
 function request(options: { json?: () => Promise<unknown>; env?: string; url?: string } = {}) {
 	return {
-		url: options.url ?? "http://localhost/api/alerts",
+		url: options.url ?? "http://localhost/api/alerts/threshold",
 		headers: { get: (name: string) => (name === "x-openlit-environment" ? options.env ?? null : null) },
 		json: options.json ?? (async () => validBody),
 	} as unknown as Request;

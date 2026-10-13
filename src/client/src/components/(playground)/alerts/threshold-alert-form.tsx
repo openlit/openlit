@@ -178,11 +178,11 @@ export default function ThresholdAlertForm({ alertId }: { alertId?: string }) {
 
 	useEffect(() => {
 		if (editing) {
-			alertsRequest<ThresholdAlertView>(`/api/alerts/${alertId}`)
+			alertsRequest<ThresholdAlertView>(`/api/alerts/threshold/${alertId}`)
 				.then((view) => setDraft(fromView(view)))
 				.catch((err) => setError(err instanceof Error ? err.message : m.ALERT_THRESHOLD_FAILED));
 		} else {
-			alertsRequest<ThresholdAlertTemplate[]>("/api/alerts/templates")
+			alertsRequest<ThresholdAlertTemplate[]>("/api/alerts/threshold/templates")
 				.then(setTemplates)
 				.catch(() => setTemplates([]));
 		}
@@ -216,8 +216,8 @@ export default function ThresholdAlertForm({ alertId }: { alertId?: string }) {
 		try {
 			const body = { ...toBody(draft), delivery };
 			const saved = editing
-				? await alertsRequest<ThresholdAlertView>(`/api/alerts/${alertId}`, { method: "PATCH", body })
-				: await alertsRequest<ThresholdAlertView>("/api/alerts", { method: "POST", body });
+				? await alertsRequest<ThresholdAlertView>(`/api/alerts/threshold/${alertId}`, { method: "PATCH", body })
+				: await alertsRequest<ThresholdAlertView>("/api/alerts/threshold", { method: "POST", body });
 			toast.success(editing ? m.ALERTING_SAVED : m.ALERTING_CREATED);
 			router.push(`/alerts/${saved.id}`);
 		} catch (err) {
