@@ -34,8 +34,8 @@ The collector is configured entirely via environment variables. All variables fo
 | `K8S_NODE_NAME` | | Kubernetes node name via downward API (`spec.nodeName`). Also accepts `OTEL_RESOURCE_ATTRIBUTES_NODE_NAME` (Operator) or legacy `NODE_NAME` |
 | `K8S_CLUSTER_NAME` | | Explicit cluster name when cloud auto-detect fails (on-prem). Alias: `OPENLIT_K8S_CLUSTER_NAME`. Only applied in Kubernetes |
 | `OPENLIT_K8S_NODE_LOOKUP` | `true` | When `false`, skip `GET /api/v1/nodes/$K8S_NODE_NAME` for instance-type / provider discovery |
-| `OPENLIT_K8S_POD_RESOURCES` | `true` in K8s | Use kubelet PodResources socket; joins GPU UUID → `k8s.pod.name` / namespace / container (fallback when the process's own cgroup identity does not resolve to a pod name; a GPU's owner is never applied to a process known to belong to another pod) |
-| `OPENLIT_K8S_POD_LOOKUP` | `true` in K8s when `K8S_NODE_NAME` is set | List pods on this node via the Kubernetes API (needs `list` on pods) for UID/container-id joins |
+| `OPENLIT_K8S_POD_RESOURCES` | `true` in K8s | Use kubelet PodResources socket; joins GPU UUID → `k8s.pod.name` / namespace / container for processes with no pod identity of their own (host processes). A GPU's owner is applied to a process with a cgroup pod UID only when the owner's UID matches, so containerized processes need `OPENLIT_K8S_POD_LOOKUP` for `k8s.pod.name` |
+| `OPENLIT_K8S_POD_LOOKUP` | `true` in K8s when `K8S_NODE_NAME` is set | List pods on this node via the Kubernetes API (needs `list` on pods) for UID/container-id joins; this is what resolves a containerized process's cgroup pod UID to its own `k8s.pod.name` / namespace |
 | `POD_RESOURCES_SOCKET` | OS default | Override kubelet PodResources socket / named pipe path |
 | `OPENLIT_CLOUD_DETECT` | `true` | When `false`, skip AWS/GCP/Azure IMDS probes (recommended on bare metal to avoid link-local timeouts) |
 | `OTEL_GPU_DCGM_ENABLED` | mode-dependent (`true` for `serving`+) | Optional NVIDIA DCGM profiling (soft-skipped without libdcgm / when DCGM cannot init) |

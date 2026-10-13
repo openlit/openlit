@@ -70,8 +70,9 @@ func newTestEnricher(cgroup func(int32) (PodInfo, bool)) *Enricher {
 	return &Enricher{
 		enabled:       true,
 		resolveCgroup: cgroup,
-		cache:         make(map[int32]cachedPod),
-		negCache:      make(map[int32]time.Time),
+		own:           make(map[int32]PodInfo),
+		cache:         make(map[cacheKey]PodInfo),
+		negCache:      make(map[cacheKey]time.Time),
 		byUID:         make(map[string]PodInfo),
 		byName:        make(map[string]PodInfo),
 		byContID:      make(map[string]PodInfo),
@@ -121,9 +122,11 @@ func TestResolveContainerIDBeatsDeviceOwner(t *testing.T) {
 	}
 }
 
-// PodResources only (no pod API): the GPU owner is the best guess, but it is a guess per
-// device, so a process seen on two GPUs is not pinned to the owner of the first one.
-func TestResolveDeviceOwnerFallbackIsPerDevice(t *testing.T) {
+// PodResources only (no pod API): the process has a cgroup pod UID but no name for it,
+// and the GPU owner carries no UID. The owner cannot be confirmed to be this process's
+// pod, so its name must not be attached next to a UID that may belong to another pod
+// (the #1718 mislabel). Identity stays UID-only, on every device.
+func TestResolveUnconfirmedDeviceOwnerNotAppliedToCgroupProcess(t *testing.T) {
 	e := newTestEnricher(func(int32) (PodInfo, bool) {
 		return PodInfo{PodUID: "uid-lmcache"}, true
 	})
@@ -131,17 +134,108 @@ func TestResolveDeviceOwnerFallbackIsPerDevice(t *testing.T) {
 	e.byDevice["GPU-3"] = owner(gemma)
 	e.byDevice["GPU-0"] = owner(qwen)
 
+	for _, dev := range []string{"GPU-3", "GPU-0", "GPU-3"} {
+		got, ok := e.Resolve(9, dev)
+		if !ok || got.PodUID != "uid-lmcache" {
+			t.Fatalf("%s: expected cgroup uid, got %+v ok=%v", dev, got, ok)
+		}
+		if got.PodName != "" || got.Namespace != "" || got.ContainerName != "" {
+			t.Fatalf("%s: borrowed unconfirmed owner labels: %+v", dev, got)
+		}
+	}
+}
+
+// The GPU owner is applied to a process with a cgroup pod UID only when the owner's UID
+// confirms it is the same pod.
+func TestResolveDeviceOwnerConfirmedByUID(t *testing.T) {
+	e := newTestEnricher(func(int32) (PodInfo, bool) {
+		return PodInfo{PodUID: "uid-gemma"}, true
+	})
+	e.byDevice["GPU-3"] = gemma
+
+	got, ok := e.Resolve(10, "GPU-3")
+	if !ok || got.PodName != "gemma-worker-0" || got.Namespace != "llms" || got.PodUID != "uid-gemma" {
+		t.Fatalf("expected confirmed owner, got %+v", got)
+	}
+}
+
+// A process without pod identity of its own (host process) falls back to the GPU owner,
+// but that is a guess per device: seen on two GPUs it is not pinned to the owner of the
+// first one.
+func TestResolveDeviceOwnerFallbackIsPerDevice(t *testing.T) {
+	e := newTestEnricher(func(int32) (PodInfo, bool) { return PodInfo{}, false })
+	e.byDevice["GPU-3"] = gemma
+	e.byDevice["GPU-0"] = qwen
+
 	got, ok := e.Resolve(9, "GPU-3")
-	if !ok || got.PodName != "gemma-worker-0" || got.PodUID != "uid-lmcache" {
-		t.Fatalf("expected device-owner fallback with cgroup uid kept, got %+v", got)
+	if !ok || got.PodName != "gemma-worker-0" || got.Namespace != "llms" {
+		t.Fatalf("expected device-owner fallback, got %+v", got)
 	}
 	got, _ = e.Resolve(9, "GPU-0")
-	if got.PodName != "qwen-worker-0" {
+	if got.PodName != "qwen-worker-0" || got.Namespace != "llms-dev" {
 		t.Fatalf("fallback must be per device, got %+v", got)
 	}
 	got, _ = e.Resolve(9, "GPU-3")
 	if got.PodName != "gemma-worker-0" {
 		t.Fatalf("per-device fallback not reproducible, got %+v", got)
+	}
+}
+
+// A miss on a GPU without an owner must not be cached per PID: the same process on a
+// GPU that has an owner still reaches the fallback.
+func TestResolveMissOnOneDeviceDoesNotHideOwnerOnAnother(t *testing.T) {
+	e := newTestEnricher(func(int32) (PodInfo, bool) { return PodInfo{}, false })
+	e.byDevice["GPU-3"] = gemma
+
+	if got, ok := e.Resolve(13, "GPU-5"); ok {
+		t.Fatalf("no owner for GPU-5: expected miss, got %+v", got)
+	}
+	got, ok := e.Resolve(13, "GPU-3")
+	if !ok || got.PodName != "gemma-worker-0" {
+		t.Fatalf("negative cache leaked across devices, got %+v ok=%v", got, ok)
+	}
+	if got, ok := e.Resolve(13, "GPU-5"); ok {
+		t.Fatalf("GPU-5 still has no owner: expected miss, got %+v", got)
+	}
+}
+
+// A UID-only partial identity (cgroup uid, no name) resolved on a GPU without an owner
+// must not be cached per PID either: on a GPU whose owner confirms the UID, the name
+// is still joined.
+func TestResolvePartialIdentityDoesNotHideOwnerOnAnotherDevice(t *testing.T) {
+	e := newTestEnricher(func(int32) (PodInfo, bool) {
+		return PodInfo{PodUID: "uid-gemma"}, true
+	})
+	e.byDevice["GPU-3"] = gemma
+
+	got, ok := e.Resolve(14, "GPU-5")
+	if !ok || got.PodUID != "uid-gemma" || got.PodName != "" {
+		t.Fatalf("expected uid-only partial on GPU-5, got %+v ok=%v", got, ok)
+	}
+	got, ok = e.Resolve(14, "GPU-3")
+	if !ok || got.PodName != "gemma-worker-0" {
+		t.Fatalf("partial identity cached per pid hid the owner, got %+v", got)
+	}
+}
+
+// Identity resolved from the process itself is cached once and reused on every device.
+func TestResolveOwnIdentityCachedAcrossDevices(t *testing.T) {
+	calls := 0
+	e := newTestEnricher(func(int32) (PodInfo, bool) {
+		calls++
+		return PodInfo{PodUID: "uid-lmcache"}, true
+	})
+	e.byUID["uid-lmcache"] = lmcache
+	e.byDevice["GPU-3"] = gemma
+
+	for _, dev := range []string{"GPU-3", "GPU-0", "GPU-1"} {
+		got, _ := e.Resolve(15, dev)
+		if got.PodName != "lmcache-server" {
+			t.Fatalf("%s: expected own pod, got %+v", dev, got)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("own identity should be resolved once per pid, cgroup read %d times", calls)
 	}
 }
 
