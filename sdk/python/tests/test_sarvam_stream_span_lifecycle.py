@@ -1,182 +1,468 @@
-# pylint: disable=protected-access, missing-function-docstring
-"""Regression tests: the Sarvam AI streaming wrappers must end their span on
-every exit path.
+"""Tests that an early-exited Sarvam chat stream still ends and exports its span.
 
-`TracedSyncStream.__exit__` / `TracedAsyncStream.__aexit__` only forwarded to
-the wrapped stream, and the span ended solely in the `StopIteration` /
-`StopAsyncIteration` handler. Leaving iteration early (a `break` before
-exhaustion, or a bare `stream.close()`) left the span recording forever, so
-it was never exported and its telemetry was lost — the Sarvam AI instance of the
-early-close streaming bug filed for OpenAI in #1454 and fixed for
-Anthropic in #1461, AI21 in #1553 and Together AI in #1555. These tests drive the real `chat` / `async_chat` wrapper factories
-with synthetic OpenAI-shaped dict chunks, and assert the span ends exactly
-once on each exit path.
+``ChatClient.completions(stream=True)`` returns the generator from
+``with httpx_client.stream``. The async method returns an async generator.
+Neither has ``__enter__`` / ``__aenter__``. A bare ``for`` does not call
+``close()`` on this wrapper.
 """
 
-import time
+import asyncio
+import gc
 from types import SimpleNamespace
 
+import pytest
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
+from opentelemetry.trace import StatusCode
 
 from openlit._config import OpenlitConfig
-from openlit.instrumentation.sarvam import sarvam as sync_mod
-from openlit.instrumentation.sarvam import async_sarvam as async_mod
-
-REQUEST_KWARGS = {
-    "model": "sarvam-m",
-    "messages": [{"role": "user", "content": "hi"}],
-    "stream": True,
-}
-
-def _chunk(content=None, finish=None):
-    delta = SimpleNamespace(content=content)
-    choice = SimpleNamespace(delta=delta, finish_reason=finish)
-    return SimpleNamespace(id="sarvam-test", choices=[choice], usage=None)
+from openlit.instrumentation.sarvam.async_sarvam import async_chat_completions
+from openlit.instrumentation.sarvam.sarvam import chat_completions
 
 
-CHUNKS = [
-    _chunk("pa"),
-    _chunk("rtial answer"),
-    _chunk(None, "stop"),
-]
-
-
-def _tracer_with_exporter():
+def _tracer_and_exporter():
     OpenlitConfig.reset_to_defaults()
     exporter = InMemorySpanExporter()
-    provider = TracerProvider()
-    provider.add_span_processor(SimpleSpanProcessor(exporter))
-    return provider.get_tracer(__name__), exporter
+    tracer_provider = TracerProvider()
+    tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+    return tracer_provider.get_tracer("test-sarvam-stream-lifecycle"), exporter
 
 
-def _factory(tracer, *, is_async):
-    mod = async_mod if is_async else sync_mod
-    make = mod.async_chat_completions if is_async else mod.chat_completions
-    return make(
-        version="test",
-        environment="test",
-        application_name="test",
+def _chat_kwargs():
+    return {
+        "model": "sarvam-m",
+        "messages": [{"role": "user", "content": "ping"}],
+        "stream": True,
+    }
+
+
+def _chunk(text, finish_reason=None):
+    return SimpleNamespace(
+        id="chatcmpl-sarvam",
+        model="sarvam-m",
+        choices=[
+            SimpleNamespace(
+                delta=SimpleNamespace(content=text),
+                finish_reason=finish_reason,
+            )
+        ],
+        usage=None,
+    )
+
+
+def _stop_chunk():
+    return _chunk("", finish_reason="stop")
+
+
+def _sync_wrapper(tracer, capture_message_content=False):
+    return chat_completions(
+        version="test-version",
+        environment="test-env",
+        application_name="test-app",
         tracer=tracer,
         pricing_info={},
-        capture_message_content=True,
+        capture_message_content=capture_message_content,
         metrics=None,
         disable_metrics=True,
     )
 
 
-class FakeRawStream:
-    """Sync/async event stream shaped like an OpenAI-style chunk iterator."""
+def _async_wrapper(tracer, capture_message_content=False):
+    return async_chat_completions(
+        version="test-version",
+        environment="test-env",
+        application_name="test-app",
+        tracer=tracer,
+        pricing_info={},
+        capture_message_content=capture_message_content,
+        metrics=None,
+        disable_metrics=True,
+    )
 
-    def __init__(self):
-        self._it = iter(CHUNKS)
-        self.closed = False
+
+def _finish_reasons(span):
+    return tuple(span.attributes["gen_ai.response.finish_reasons"])
+
+
+class _ClosingSyncSource:
+    """HTTP stand-in whose ``with`` exits when the generator is closed."""
+
+    def __init__(self, chunks, box, raise_after=None):
+        self._chunks = list(chunks)
+        self._box = box
+        self._raise_after = raise_after
+        self._index = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._box["closed"] = True
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        return next(self._it)
+        if self._raise_after is not None and self._index >= self._raise_after:
+            raise RuntimeError("stream failed")
+        if self._index >= len(self._chunks):
+            raise StopIteration
+        chunk = self._chunks[self._index]
+        self._index += 1
+        return chunk
+
+
+def _sync_generator(chunks, box, raise_after=None):
+    """Same shape as Sarvam's ``with httpx_client.stream: yield``."""
+
+    def _generate():
+        with _ClosingSyncSource(chunks, box, raise_after) as raw:
+            yield from raw
+
+    return _generate()
+
+
+class _ClosingAsyncSource:
+    """Async twin of ``_ClosingSyncSource``."""
+
+    def __init__(self, chunks, box, raise_after=None):
+        self._chunks = list(chunks)
+        self._box = box
+        self._raise_after = raise_after
+        self._index = 0
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        self._box["closed"] = True
 
     def __aiter__(self):
         return self
 
     async def __anext__(self):
-        try:
-            return next(self._it)
-        except StopIteration:
-            raise StopAsyncIteration from None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc):
-        return False
-
-    def close(self):
-        """Record that the caller closed the stream without draining it."""
-        self.closed = True
+        if self._raise_after is not None and self._index >= self._raise_after:
+            raise RuntimeError("stream failed")
+        if self._index >= len(self._chunks):
+            raise StopAsyncIteration
+        chunk = self._chunks[self._index]
+        self._index += 1
+        return chunk
 
 
-async def _fake_create_async(*a, **k):
-    return FakeRawStream()
+def _async_generator(chunks, box, raise_after=None):
+    """Same shape as Sarvam's ``async with httpx_client.stream: yield``."""
+
+    async def _generate():
+        async with _ClosingAsyncSource(chunks, box, raise_after) as raw:
+            async for chunk in raw:
+                yield chunk
+
+    return _generate()
 
 
-def test_sync_early_break_ends_span():
-    """Leaving iteration after one chunk must still end the span."""
-    tracer, exporter = _tracer_with_exporter()
-    wrap = _factory(tracer, is_async=False)
+async def _wait_for_async_close(box):
+    """Async generator aclose() is scheduled from GC and can take two turns."""
+    for _ in range(5):
+        if box["closed"]:
+            return
+        gc.collect()
+        await asyncio.sleep(0)
 
-    stream = wrap(lambda *a, **k: FakeRawStream(), None, (), REQUEST_KWARGS)
-    with stream:
-        next(stream)  # consume one chunk, then leave the block early
 
-    time.sleep(0.1)
+def test_sync_stream_closed_via_context_manager_break_still_exports_span():
+    """An early break inside ``with`` must end the span and close the generator."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _sync_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
+
+    def fake_create(*_args, **_kwargs):
+        return _sync_generator([_chunk("hi"), _chunk("there")], box)
+
+    traced_stream = wrapper(fake_create, object(), [], _chat_kwargs())
+
+    with traced_stream as stream:
+        for _item in stream:
+            break
+
+    assert box["closed"]
     spans = exporter.get_finished_spans()
-    assert len(spans) == 1, "early exit must still end and export the span"
+    assert len(spans) == 1
+    assert spans[0].status.status_code == StatusCode.OK
+    assert _finish_reasons(spans[0]) == ("incomplete",)
+    assert "hi" in spans[0].attributes["gen_ai.output.messages"]
 
 
-def test_sync_full_consumption_exports_exactly_one_span():
-    """Draining the sync stream must export exactly one finished span."""
-    tracer, exporter = _tracer_with_exporter()
-    wrap = _factory(tracer, is_async=False)
+def test_sync_stream_explicit_close_still_exports_span():
+    """Calling ``.close()`` directly must finalize."""
 
-    stream = wrap(lambda *a, **k: FakeRawStream(), None, (), REQUEST_KWARGS)
-    with stream:
-        for _ in stream:
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _sync_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
+
+    def fake_create(*_args, **_kwargs):
+        return _sync_generator([_chunk("hi")], box)
+
+    traced_stream = wrapper(fake_create, object(), [], _chat_kwargs())
+    next(traced_stream)
+    traced_stream.close()
+
+    assert box["closed"]
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert _finish_reasons(spans[0]) == ("incomplete",)
+
+
+def test_sync_stream_full_consumption_exports_exactly_one_span():
+    """StopIteration inside ``with`` must not double-finalize or rewrite stop."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _sync_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
+
+    def fake_create(*_args, **_kwargs):
+        return _sync_generator([_chunk("hi"), _stop_chunk()], box)
+
+    traced_stream = wrapper(fake_create, object(), [], _chat_kwargs())
+
+    with traced_stream as stream:
+        for _item in stream:
             pass
 
-    time.sleep(0.1)
-    assert len(exporter.get_finished_spans()) == 1
-
-
-def test_sync_close_finalizes_span():
-    """Calling close() mid-iteration must finalize the span once."""
-    tracer, exporter = _tracer_with_exporter()
-    wrap = _factory(tracer, is_async=False)
-
-    stream = wrap(lambda *a, **k: FakeRawStream(), None, (), REQUEST_KWARGS)
-    with stream:
-        next(stream)
-        stream.close()
-
-    time.sleep(0.1)
+    assert box["closed"]
     spans = exporter.get_finished_spans()
-    assert len(spans) == 1, "close() must finalize the span exactly once"
+    assert len(spans) == 1
+    assert _finish_reasons(spans[0]) == ("stop",)
 
 
-async def test_async_early_break_ends_span():
-    """Leaving async iteration after one chunk must still end the span."""
-    tracer, exporter = _tracer_with_exporter()
-    wrap = _factory(tracer, is_async=True)
+def test_sync_bare_for_break_exports_span_when_wrapper_is_released():
+    """A bare ``for`` plus ``break`` ends the span when the wrapper is released."""
 
-    stream = await wrap(_fake_create_async, None, (), REQUEST_KWARGS)
-    async with stream:
-        await anext(stream)
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _sync_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
 
-    time.sleep(0.1)
+    def fake_create(*_args, **_kwargs):
+        return _sync_generator([_chunk("hi"), _chunk("there")], box)
+
+    def run():
+        traced_stream = wrapper(fake_create, object(), [], _chat_kwargs())
+        for _item in traced_stream:
+            break
+
+    run()
+    gc.collect()
+
+    assert box["closed"]
     spans = exporter.get_finished_spans()
-    assert len(spans) == 1, "early async exit must still end and export the span"
+    assert len(spans) == 1
+    assert spans[0].status.status_code == StatusCode.OK
+    assert _finish_reasons(spans[0]) == ("incomplete",)
+    assert "hi" in spans[0].attributes["gen_ai.output.messages"]
 
 
-async def test_async_full_consumption_exports_exactly_one_span():
-    """Draining the async stream must export exactly one finished span."""
-    tracer, exporter = _tracer_with_exporter()
-    wrap = _factory(tracer, is_async=True)
+def test_sync_held_stream_stays_open_until_released():
+    """Keeping the stream object must leave it resumable until that name is dropped."""
 
-    stream = await wrap(_fake_create_async, None, (), REQUEST_KWARGS)
-    async with stream:
-        async for _ in stream:
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _sync_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
+    chunks = [_chunk("one"), _chunk("two"), _chunk("three")]
+
+    def fake_create(*_args, **_kwargs):
+        return _sync_generator(chunks, box)
+
+    response = wrapper(fake_create, object(), [], _chat_kwargs())
+    for item in response:
+        assert item == chunks[0]
+        break
+
+    assert len(exporter.get_finished_spans()) == 0
+    assert box["closed"] is False
+    assert next(response) == chunks[1]
+
+    del response
+    gc.collect()
+
+    assert box["closed"]
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert _finish_reasons(spans[0]) == ("incomplete",)
+    output = spans[0].attributes["gen_ai.output.messages"]
+    assert "onetwo" in output
+    assert "three" not in output
+
+
+def test_sync_stream_error_inside_with_marks_span_error():
+    """A failure from the generator is a failed span, with text already seen."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _sync_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
+
+    def fake_create(*_args, **_kwargs):
+        return _sync_generator([_chunk("hi"), _chunk("nope")], box, raise_after=1)
+
+    traced_stream = wrapper(fake_create, object(), [], _chat_kwargs())
+
+    with pytest.raises(RuntimeError, match="stream failed"):
+        with traced_stream as stream:
+            for _item in stream:
+                pass
+
+    assert box["closed"]
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].status.status_code == StatusCode.ERROR
+    assert spans[0].attributes["error.type"] == "RuntimeError"
+    assert _finish_reasons(spans[0]) == ("error",)
+    assert "hi" in spans[0].attributes["gen_ai.output.messages"]
+
+
+def test_sync_caller_exception_inside_with_stays_ok():
+    """A raise from user code is not a Sarvam failure. The cancel is incomplete."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _sync_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
+
+    def fake_create(*_args, **_kwargs):
+        return _sync_generator([_chunk("hi"), _chunk("more")], box)
+
+    traced_stream = wrapper(fake_create, object(), [], _chat_kwargs())
+
+    with pytest.raises(ValueError, match="caller"):
+        with traced_stream as stream:
+            for _item in stream:
+                raise ValueError("caller")
+
+    assert box["closed"]
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].status.status_code == StatusCode.OK
+    assert _finish_reasons(spans[0]) == ("incomplete",)
+
+
+@pytest.mark.asyncio
+async def test_async_stream_explicit_aclose_still_exports_span():
+    """``aclose`` is the async generator cleanup method and must finalize the span."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _async_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
+
+    async def fake_create(*_args, **_kwargs):
+        return _async_generator([_chunk("hi")], box)
+
+    traced_stream = await wrapper(fake_create, object(), [], _chat_kwargs())
+    await anext(traced_stream)
+    await traced_stream.aclose()
+
+    assert box["closed"]
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert _finish_reasons(spans[0]) == ("incomplete",)
+
+
+@pytest.mark.asyncio
+async def test_async_stream_full_consumption_exports_exactly_one_span():
+    """Async full drain must export one span and keep the real stop reason."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _async_wrapper(tracer)
+    box = {"closed": False}
+
+    async def fake_create(*_args, **_kwargs):
+        return _async_generator([_chunk("hi"), _stop_chunk()], box)
+
+    traced_stream = await wrapper(fake_create, object(), [], _chat_kwargs())
+
+    async with traced_stream as stream:
+        async for _item in stream:
             pass
 
-    time.sleep(0.1)
-    assert len(exporter.get_finished_spans()) == 1
+    assert box["closed"]
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert _finish_reasons(spans[0]) == ("stop",)
+
+
+@pytest.mark.asyncio
+async def test_async_bare_for_break_exports_span_when_wrapper_is_released():
+    """A bare ``async for`` ends the span in ``__del__`` without awaiting ``aclose``."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _async_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
+
+    async def fake_create(*_args, **_kwargs):
+        return _async_generator([_chunk("hi"), _chunk("there")], box)
+
+    async def run():
+        traced_stream = await wrapper(fake_create, object(), [], _chat_kwargs())
+        async for _item in traced_stream:
+            break
+
+    await run()
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert _finish_reasons(spans[0]) == ("incomplete",)
+    assert "hi" in spans[0].attributes["gen_ai.output.messages"]
+
+    await _wait_for_async_close(box)
+    assert box["closed"]
+
+
+@pytest.mark.asyncio
+async def test_async_stream_error_inside_with_marks_span_error():
+    """Async twin of the generator-failure status test."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _async_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
+
+    async def fake_create(*_args, **_kwargs):
+        return _async_generator([_chunk("hi"), _chunk("nope")], box, raise_after=1)
+
+    traced_stream = await wrapper(fake_create, object(), [], _chat_kwargs())
+
+    with pytest.raises(RuntimeError, match="stream failed"):
+        async with traced_stream as stream:
+            async for _item in stream:
+                pass
+
+    assert box["closed"]
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].status.status_code == StatusCode.ERROR
+    assert spans[0].attributes["error.type"] == "RuntimeError"
+    assert _finish_reasons(spans[0]) == ("error",)
+
+
+@pytest.mark.asyncio
+async def test_async_caller_exception_inside_with_stays_ok():
+    """Async twin of the caller-abort status test."""
+
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _async_wrapper(tracer, capture_message_content=True)
+    box = {"closed": False}
+
+    async def fake_create(*_args, **_kwargs):
+        return _async_generator([_chunk("hi"), _chunk("more")], box)
+
+    traced_stream = await wrapper(fake_create, object(), [], _chat_kwargs())
+
+    with pytest.raises(ValueError, match="caller"):
+        async with traced_stream as stream:
+            async for _item in stream:
+                raise ValueError("caller")
+
+    assert box["closed"]
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].status.status_code == StatusCode.OK
+    assert _finish_reasons(spans[0]) == ("incomplete",)
