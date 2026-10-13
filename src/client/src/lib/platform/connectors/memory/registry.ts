@@ -2,7 +2,7 @@
  * Memory connector adapter registry (CE).
  *
  * Holds adapter factories keyed by connector type. `bootstrap.ts` registers
- * Claude, Mem0, and Zep. Extra private factories can still be contributed
+ * Claude, Mem0, MemCode, and Zep. Extra private factories can still be contributed
  * through the neutral `getExternalMemoryAdapters()` hook without an
  * `@/ee/**` import.
  */

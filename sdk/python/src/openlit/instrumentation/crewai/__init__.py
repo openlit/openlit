@@ -14,6 +14,10 @@ from wrapt import wrap_function_wrapper
 from openlit._config import OpenlitConfig
 from openlit.instrumentation.crewai.crewai import general_wrap
 from openlit.instrumentation.crewai.async_crewai import async_general_wrap
+from openlit.instrumentation.crewai.openai_llm import (
+    async_openai_completion_call,
+    openai_completion_call,
+)
 
 _instruments = ("crewai >= 1.10.0",)
 
@@ -137,6 +141,25 @@ class CrewAIInstrumentor(BaseInstrumentor):
                 wrap_function_wrapper(module, method, wrapper)
             except Exception:
                 pass
+
+        # Native OpenAI provider. CrewAI calls responses.create and
+        # chat.completions.create on its own client, not through LiteLLM, so
+        # nothing else sets the framework-LLM flag. Own the LLM span here and
+        # hold the flag for the whole call. Older CrewAI builds without this
+        # class are skipped.
+        try:
+            wrap_function_wrapper(
+                "crewai.llms.providers.openai.completion",
+                "OpenAICompletion.call",
+                openai_completion_call(*wrap_args),
+            )
+            wrap_function_wrapper(
+                "crewai.llms.providers.openai.completion",
+                "OpenAICompletion.acall",
+                async_openai_completion_call(*wrap_args),
+            )
+        except Exception:
+            pass
 
         # -- thread context propagation --
         self._install_context_propagation()
