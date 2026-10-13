@@ -143,6 +143,7 @@ def chat_stream(
             self._cache_creation_input_tokens = 0
             self._event_provider = event_provider
             self._streaming_response_processed = False
+            self._stream_error = None
 
             self._args = args
             self._kwargs = kwargs
@@ -172,25 +173,56 @@ def chat_stream(
             try:
                 self.__wrapped__.close()
             finally:
-                self._finalize_streaming_span()
+                self._finalize_streaming_span(ended_cleanly=False)
 
-        def _finalize_streaming_span(self):
+        def __del__(self):
+            """Finalize a span abandoned by a bare ``for`` loop.
+
+            ``for chunk in stream: break`` drops this wrapper when the
+            statement ends. A native generator's dealloc would have called
+            ``close()``; this class would not, so the span would never
+            export. Socket close stays on that generator dealloc, which runs
+            when members are dropped after this method returns.
+            """
+            try:
+                self._finalize_streaming_span(ended_cleanly=False)
+            except Exception:
+                pass
+
+        def _finalize_streaming_span(self, ended_cleanly):
+            """End the span once.
+
+            ``ended_cleanly`` is True only for StopIteration. An empty finish
+            reason is otherwise a cancel: the output-message mapper would
+            store it as ``stop``. A failure raised by the wrapped stream is
+            recorded after attributes are set, so partial text stays on the
+            span and the status is ERROR rather than the OK that
+            ``process_streaming_chat_response`` always writes.
+            """
             if self._streaming_response_processed:
                 return
             self._streaming_response_processed = True
+            if self._stream_error is not None and not self._finish_reason:
+                self._finish_reason = "error"
+            elif not ended_cleanly and not self._finish_reason:
+                self._finish_reason = "incomplete"
             try:
                 with self._span:
-                    process_streaming_chat_response(
-                        self,
-                        pricing_info=pricing_info,
-                        environment=environment,
-                        application_name=application_name,
-                        metrics=metrics,
-                        capture_message_content=capture_message_content,
-                        disable_metrics=disable_metrics,
-                        version=version,
-                        event_provider=self._event_provider,
-                    )
+                    try:
+                        process_streaming_chat_response(
+                            self,
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version,
+                            event_provider=self._event_provider,
+                        )
+                    finally:
+                        if self._stream_error is not None:
+                            handle_exception(self._span, self._stream_error)
             except Exception as e:
                 handle_exception(self._span, e)
 
@@ -200,7 +232,10 @@ def chat_stream(
                 process_chunk(self, chunk)
                 return chunk
             except StopIteration:
-                self._finalize_streaming_span()
+                self._finalize_streaming_span(ended_cleanly=True)
+                raise
+            except Exception as exc:
+                self._stream_error = exc
                 raise
 
     def wrapper(wrapped, instance, args, kwargs):
