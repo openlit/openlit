@@ -96,7 +96,11 @@ describe('runEvaluation — provider routing', () => {
 
   it('creates OpenAI-compatible model for provider=perplexity', async () => {
     await runEvaluation({ ...BASE_PARAMS, provider: 'perplexity' });
-    expect(createOpenAI).toHaveBeenCalledWith(expect.objectContaining({ baseURL: 'https://api.perplexity.ai' }));
+    expect(createOpenAI).toHaveBeenCalledWith({
+      baseURL: 'https://api.perplexity.ai',
+      apiKey: 'sk-test',
+      headers: { 'X-Pplx-Integration': 'openlit' },
+    });
   });
 
   it('creates OpenAI-compatible model for provider=deepseek', async () => {
@@ -117,6 +121,11 @@ describe('runEvaluation — provider routing', () => {
   it('creates OpenAI-compatible model for provider=fireworks', async () => {
     await runEvaluation({ ...BASE_PARAMS, provider: 'fireworks' });
     expect(createOpenAI).toHaveBeenCalledWith(expect.objectContaining({ baseURL: 'https://api.fireworks.ai/inference/v1' }));
+  });
+
+  it('creates OpenAI-compatible model for provider=orcarouter', async () => {
+    await runEvaluation({ ...BASE_PARAMS, provider: 'orcarouter' });
+    expect(createOpenAI).toHaveBeenCalledWith(expect.objectContaining({ baseURL: 'https://api.orcarouter.ai/v1' }));
   });
 
   it('maps gemini provider alias to google', async () => {

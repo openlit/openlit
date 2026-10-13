@@ -27,6 +27,7 @@ import { agentLoopDetailLine } from "@/lib/platform/agent-loop/format";
 import Evaluations from "@/components/(playground)/request/components/evaluations";
 import { RequestProvider } from "@/components/(playground)/request/request-context";
 import TraceAiAnalysisPanel from "@/components/(playground)/request/components/trace-ai-analysis-panel";
+import ScannerSessionFindings from "@/components/(playground)/scanner/scanner-session-findings";
 import DetailObjectTabs, { buildObjectTabs } from "./detail-object-tabs";
 import {
 	ResizableHandle,
@@ -341,6 +342,32 @@ function filterFromSource(from: string | null, offsetOverride?: number): FilterT
 	};
 }
 
+function tabFromLocation(from: string | null): string | null {
+	if (!from) return null;
+	try {
+		return new URL(from, "http://localhost").searchParams.get("tab");
+	} catch {
+		return null;
+	}
+}
+
+function detailListUrl(args: {
+	type: "traces" | "exceptions";
+	listUrl?: string;
+	signal: string | null;
+	tab: string | null;
+	from: string | null;
+}): string {
+	if (args.listUrl) return args.listUrl;
+	const hinted = args.signal || args.tab || tabFromLocation(args.from);
+	if (args.type === "exceptions" || hinted === "exceptions") {
+		return "/api/telemetry/exception";
+	}
+	if (hinted === "traces") return "/api/telemetry/trace?view=traces";
+	if (hinted === "spans") return "/api/telemetry/trace";
+	return "/api/telemetry/request";
+}
+
 function sourceWithOffset(from: string | null, offset: number) {
 	if (!from || typeof window === "undefined") return from;
 	const url = new URL(from, window.location.origin);
@@ -360,6 +387,7 @@ export function TraceDetailView({
 	navigationTotal,
 	navigationFilter,
 	onNavigationPageChange,
+	listUrl,
 }: {
 	spanId: string;
 	type: "traces" | "exceptions";
@@ -372,6 +400,8 @@ export function TraceDetailView({
 	navigationTotal?: number;
 	navigationFilter?: FilterType;
 	onNavigationPageChange?: (offset: number) => void;
+	/** Neighbor-list endpoint. The full-page view falls back to `signal` / `tab`. */
+	listUrl?: string;
 }) {
 	const m = getMessage();
 	const router = useRouter();
@@ -426,7 +456,15 @@ export function TraceDetailView({
 		total?: number;
 	} | null>(null);
 	const fromRef = useRef(from);
-	const listUrlRef = useRef(type === "exceptions" ? "/api/telemetry/exception" : "/api/telemetry/request");
+	const listUrlRef = useRef(
+		detailListUrl({
+			type,
+			listUrl,
+			signal: searchParams.get("signal"),
+			tab: searchParams.get("tab"),
+			from: searchParams.get("from"),
+		})
+	);
 	const detailBasePathRef = useRef(
 		type === "exceptions" ? "/telemetry/exceptions" : "/telemetry/traces"
 	);
@@ -481,6 +519,8 @@ export function TraceDetailView({
 			const source = fromRef.current;
 			const params = new URLSearchParams();
 			if (source) params.set("from", source);
+			const signal = searchParams.get("signal");
+			if (signal) params.set("signal", signal);
 			if (nextTraceId) params.set("traceId", nextTraceId);
 			const qs = params.toString() ? `?${params.toString()}` : "";
 			if (variant === "page") {
@@ -488,7 +528,7 @@ export function TraceDetailView({
 			}
 			onSpanChange?.(nextSpanId);
 		},
-		[onSpanChange, router, variant]
+		[onSpanChange, router, searchParams, variant]
 	);
 
 	const selectSpanInCurrentTrace = useCallback(
@@ -742,6 +782,15 @@ export function TraceDetailView({
 		: null;
 	const extraDetailTabs = [
 		...(analysisTab ? [analysisTab] : []),
+		...(isCodingAgentTrace && repoUrl
+			? [
+					{
+						id: "scanner-findings",
+						label: m.SCANNER_SESSION_TAB,
+						content: <ScannerSessionFindings repoUrl={repoUrl} />,
+					},
+			  ]
+			: []),
 		...(hasEvaluationPanel && trace
 			? [
 					{

@@ -7,4 +7,6 @@ export type ApiKey = {
 	};
 	id: string;
 	name: string;
+	// Enterprise per-feature access. `null` = full access.
+	scopes?: string[] | null;
 };
