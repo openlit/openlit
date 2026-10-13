@@ -1,5 +1,6 @@
 """Initializer of Auto Instrumentation of Together AI Functions"""
 
+import logging
 from typing import Collection, Sequence
 import importlib
 import importlib.metadata
@@ -16,6 +17,8 @@ from openlit.instrumentation.together.async_together import (
 
 _instruments = ("together >= 1.3.5",)
 
+logger = logging.getLogger(__name__)
+
 # together 2.0 renamed every resource class this instrumentor wraps. The 2.x
 # name comes first, the 1.x name second, so both layouts stay instrumented
 # across the ">= 1.3.5" range declared above.
@@ -30,27 +33,50 @@ def _wrap_first_present(
 ) -> bool:
     """Wrap ``<class>.<method>`` for the first candidate that provides it.
 
-    ``wrap_function_wrapper`` resolves the target eagerly, so naming a class
-    that no longer exists raises ``PathResolutionError`` and aborts the rest of
-    ``_instrument``. Resolving the name here keeps the instrumentor working
-    across renames, and skips quietly when no candidate matches.
+    ``wrap_function_wrapper`` resolves the target eagerly and raises
+    ``PathResolutionError`` for a name that is not there. ``instrument_if_available``
+    catches that and stops the rest of ``_instrument``, so one bad target used to
+    leave chat and images unwrapped together. A miss is logged and the next
+    candidate is tried. The caller keeps going either way.
 
-    A candidate must carry ``method`` to be chosen: during a partial rename a
-    release can expose both class names while only one still implements it, and
-    picking on class name alone would raise exactly the error this avoids.
+    A candidate must carry ``method``. During a partial rename a release can
+    expose both class names while only one still implements it.
 
     Returns True when a target was wrapped.
     """
     try:
         module = importlib.import_module(module_path)
     except ImportError:
+        logger.warning(
+            "Together instrumentation skipped %s.%s; module is not importable",
+            module_path,
+            method,
+        )
         return False
 
     for class_name in class_names:
         candidate = getattr(module, class_name, None)
-        if candidate is not None and hasattr(candidate, method):
+        if candidate is None or not hasattr(candidate, method):
+            continue
+        try:
             wrap_function_wrapper(module_path, f"{class_name}.{method}", wrapper)
-            return True
+        except Exception:
+            logger.warning(
+                "Together instrumentation could not wrap %s.%s.%s",
+                module_path,
+                class_name,
+                method,
+                exc_info=True,
+            )
+            continue
+        return True
+
+    logger.warning(
+        "Together instrumentation skipped %s.%s; none of %s could be wrapped",
+        module_path,
+        method,
+        list(class_names),
+    )
     return False
 
 

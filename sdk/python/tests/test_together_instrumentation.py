@@ -1,3 +1,4 @@
+# pylint: disable=protected-access, missing-class-docstring, missing-function-docstring, too-few-public-methods
 """Regression tests for the Together AI instrumentation wiring.
 
 These need no API key and make no network calls. They assert that the
@@ -14,6 +15,7 @@ silently untraced.
 """
 
 import importlib
+import logging
 
 import pytest
 
@@ -59,12 +61,16 @@ def test_the_resolved_class_actually_has_the_method(module_path, class_names, me
     assert hasattr(resolved, method), f"{resolved.__name__} has no .{method}() to wrap"
 
 
-def test_wrap_first_present_reports_failure_instead_of_raising():
+def test_wrap_first_present_reports_failure_instead_of_raising(caplog):
     """An unknown class must return False, not abort the rest of _instrument."""
-    assert (
-        _wrap_first_present(CHAT_MODULE, ("NoSuchClass",), "create", lambda *a: None)
-        is False
-    )
+    with caplog.at_level(logging.WARNING):
+        assert (
+            _wrap_first_present(
+                CHAT_MODULE, ("NoSuchClass",), "create", lambda *a: None
+            )
+            is False
+        )
+    assert "skipped" in caplog.text
 
 
 def test_wrap_first_present_tolerates_a_missing_module():
@@ -76,31 +82,87 @@ def test_wrap_first_present_tolerates_a_missing_module():
     )
 
 
-def test_wrap_first_present_skips_a_candidate_that_lacks_the_method():
+def test_wrap_first_present_skips_a_candidate_that_lacks_the_method(monkeypatch):
     """A class present without the method must not be chosen.
 
     During a partial rename a release can expose both names while only one
     still implements the method; picking on class name alone would raise the
     PathResolutionError this helper exists to avoid.
     """
-    calls = []
+    from openlit.instrumentation import together as together_module
 
-    class Stub:
-        pass
+    wrapped = []
+    monkeypatch.setattr(
+        together_module,
+        "wrap_function_wrapper",
+        lambda _module_path, class_method, _wrapper: wrapped.append(class_method),
+    )
 
     module = importlib.import_module(CHAT_MODULE)
-    module.StubWithoutCreate = Stub
+    module.StubWithoutCreate = type("StubWithoutCreate", (), {})
     try:
-        wrapped = _wrap_first_present(
+        ok = _wrap_first_present(
             CHAT_MODULE,
             ("StubWithoutCreate",) + tuple(CHAT_CLASSES),
             "create",
-            lambda *a: calls.append(a),
+            lambda *_a, **_k: None,
+        )
+        chosen = next(
+            name
+            for name in CHAT_CLASSES
+            if getattr(module, name, None) is not None
+            and hasattr(getattr(module, name), "create")
         )
     finally:
         delattr(module, "StubWithoutCreate")
 
-    assert wrapped is True
+    assert ok is True
+    assert wrapped == [f"{chosen}.create"]
+
+
+def test_wrap_failure_falls_through_to_the_next_candidate(monkeypatch):
+    """A wrap that raises must not abandon the remaining class names.
+
+    instrument_if_available stops the whole instrumentor when _instrument
+    raises, so this failure has to stay inside the helper.
+    """
+    from openlit.instrumentation import together as together_module
+
+    module = importlib.import_module(CHAT_MODULE)
+    real_name = next(
+        name
+        for name in CHAT_CLASSES
+        if getattr(module, name, None) is not None
+        and hasattr(getattr(module, name), "create")
+    )
+    original = getattr(getattr(module, real_name), "create")
+    wrapped = []
+
+    def flaky(_module_path, class_method, _wrapper):
+        if class_method.startswith("StubWithCreate"):
+            raise RuntimeError("cannot wrap stub")
+        wrapped.append(class_method)
+
+    monkeypatch.setattr(together_module, "wrap_function_wrapper", flaky)
+
+    class StubWithCreate:
+        def create(self):
+            return None
+
+    module.StubWithCreate = StubWithCreate
+    try:
+        ok = _wrap_first_present(
+            CHAT_MODULE,
+            ("StubWithCreate", real_name),
+            "create",
+            lambda *_a, **_k: None,
+        )
+    finally:
+        delattr(module, "StubWithCreate")
+
+    assert ok is True
+    assert wrapped == [f"{real_name}.create"]
+    assert getattr(getattr(module, real_name), "create") is original
 
 
 def test_instrument_binds_every_target(monkeypatch):
