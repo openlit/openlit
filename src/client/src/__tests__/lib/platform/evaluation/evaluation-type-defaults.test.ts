@@ -1,7 +1,8 @@
-// Module-level cache (CACHE + cacheLoaded) means we must isolate modules per test.
+// The prompt cache is module-level, so each test needs a fresh module registry.
 // jest.isolateModulesAsync gives each test a fresh module registry.
 
 jest.mock('@/lib/platform/common', () => ({ dataCollector: jest.fn() }));
+jest.mock('@/utils/log', () => ({ consoleLog: jest.fn() }));
 jest.mock('@/lib/platform/evaluation/table-details', () => ({
   OPENLIT_EVALUATION_TYPE_DEFAULTS_TABLE_NAME: 'openlit_evaluation_type_defaults',
 }));
@@ -91,6 +92,119 @@ describe('getEvaluationTypeDefaultPrompts', () => {
       expect(dataCollector).toHaveBeenCalledTimes(1);
     });
   });
+
+  it('passes databaseConfigId through to dataCollector', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { dataCollector } = require('@/lib/platform/common') as { dataCollector: jest.Mock };
+      jest.clearAllMocks();
+      dataCollector.mockResolvedValue({
+        data: [{ id: 'hallucination', default_prompt: 'prompt' }],
+        err: null,
+      });
+      const mod = await import('@/lib/platform/evaluation/evaluation-type-defaults');
+      await mod.getEvaluationTypeDefaultPrompts('db-1');
+      expect(dataCollector).toHaveBeenCalledWith(
+        expect.objectContaining({
+          query: expect.stringContaining('openlit_evaluation_type_defaults'),
+        }),
+        'query',
+        'db-1'
+      );
+    });
+  });
+
+  it('keeps a separate cache entry per databaseConfigId', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { dataCollector } = require('@/lib/platform/common') as { dataCollector: jest.Mock };
+      jest.clearAllMocks();
+      dataCollector.mockResolvedValue({
+        data: [{ id: 'hallucination', default_prompt: 'prompt' }],
+        err: null,
+      });
+      const mod = await import('@/lib/platform/evaluation/evaluation-type-defaults');
+      await mod.getEvaluationTypeDefaultPrompts('db-1');
+      await mod.getEvaluationTypeDefaultPrompts('db-1');
+      await mod.getEvaluationTypeDefaultPrompts('db-2');
+      expect(dataCollector).toHaveBeenCalledTimes(2);
+      expect(dataCollector).toHaveBeenNthCalledWith(
+        1,
+        expect.any(Object),
+        'query',
+        'db-1'
+      );
+      expect(dataCollector).toHaveBeenNthCalledWith(
+        2,
+        expect.any(Object),
+        'query',
+        'db-2'
+      );
+    });
+  });
+
+  it('does not cache a failed load', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { dataCollector } = require('@/lib/platform/common') as { dataCollector: jest.Mock };
+      const { consoleLog } = require('@/utils/log') as { consoleLog: jest.Mock };
+      jest.clearAllMocks();
+      dataCollector
+        .mockResolvedValueOnce({ data: [], err: 'DB error' })
+        .mockResolvedValueOnce({
+          data: [{ id: 'hallucination', default_prompt: 'prompt' }],
+          err: null,
+        });
+      const mod = await import('@/lib/platform/evaluation/evaluation-type-defaults');
+      await expect(mod.getEvaluationTypeDefaultPrompts('db-1')).resolves.toEqual({});
+      await expect(mod.getEvaluationTypeDefaultPrompts('db-1')).resolves.toEqual({
+        hallucination: 'prompt',
+      });
+      expect(dataCollector).toHaveBeenCalledTimes(2);
+      expect(consoleLog).toHaveBeenCalledWith(
+        'Failed to load evaluation type default prompts',
+        'db-1',
+        'DB error'
+      );
+    });
+  });
+
+  it('does not cache a successful read that returns no prompts', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { dataCollector } = require('@/lib/platform/common') as { dataCollector: jest.Mock };
+      jest.clearAllMocks();
+      dataCollector
+        .mockResolvedValueOnce({ data: [], err: null })
+        .mockResolvedValueOnce({
+          data: [{ id: 'bias', default_prompt: 'bias prompt' }],
+          err: null,
+        });
+      const mod = await import('@/lib/platform/evaluation/evaluation-type-defaults');
+      await expect(mod.getEvaluationTypeDefaultPrompts('db-1')).resolves.toEqual({});
+      await expect(mod.getEvaluationTypeDefaultPrompts('db-1')).resolves.toEqual({
+        bias: 'bias prompt',
+      });
+      expect(dataCollector).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('does not share the no-id cache with an explicit databaseConfigId', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { dataCollector } = require('@/lib/platform/common') as { dataCollector: jest.Mock };
+      jest.clearAllMocks();
+      dataCollector.mockResolvedValue({
+        data: [{ id: 'hallucination', default_prompt: 'prompt' }],
+        err: null,
+      });
+      const mod = await import('@/lib/platform/evaluation/evaluation-type-defaults');
+      await mod.getEvaluationTypeDefaultPrompts();
+      await mod.getEvaluationTypeDefaultPrompts('db-1');
+      expect(dataCollector).toHaveBeenCalledTimes(2);
+      expect(dataCollector).toHaveBeenNthCalledWith(
+        1,
+        expect.any(Object),
+        'query',
+        undefined
+      );
+    });
+  });
 });
 
 describe('getEvaluationTypeDefaultPrompt', () => {
@@ -122,5 +236,25 @@ describe('getEvaluationTypeDefaultPrompt', () => {
       (mod) => mod.getEvaluationTypeDefaultPrompt('hallucination')
     );
     expect(result).toBeUndefined();
+  });
+
+  it('forwards databaseConfigId when loading one prompt', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { dataCollector } = require('@/lib/platform/common') as { dataCollector: jest.Mock };
+      jest.clearAllMocks();
+      dataCollector.mockResolvedValue({
+        data: [{ id: 'hallucination', default_prompt: 'hallucination prompt' }],
+        err: null,
+      });
+      const mod = await import('@/lib/platform/evaluation/evaluation-type-defaults');
+      await expect(
+        mod.getEvaluationTypeDefaultPrompt('hallucination', 'db-9')
+      ).resolves.toBe('hallucination prompt');
+      expect(dataCollector).toHaveBeenCalledWith(
+        expect.any(Object),
+        'query',
+        'db-9'
+      );
+    });
   });
 });
