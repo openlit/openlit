@@ -15,9 +15,11 @@ in #1517.
 These tests drive the real `complete`/`async_complete` wrapper factories with
 a synthetic stream shaped like azure-ai-inference's `StreamingChatCompletions`
 and `AsyncStreamingChatCompletions`, and assert exactly one span is exported
-on exhaustion, context-manager exit (clean or with an exception) and explicit
-`close()`/`aclose()`, carrying the token usage streamed so far or, for an
-exception exit, the error status.
+on exhaustion, context-manager exit (clean or with an exception), explicit
+`close()`/`aclose()`, and a failure raised by the iterator itself. Cancels
+export finish reason ``incomplete``. Failures keep the partial text, set
+finish reason ``error``, and record metrics with ``error.type``. Chunk
+``id`` and ``model`` are copied onto the span.
 """
 
 import pytest
@@ -33,6 +35,7 @@ from openlit.instrumentation.azure_ai_inference import azure_ai_inference as syn
 from openlit.instrumentation.azure_ai_inference import (
     async_azure_ai_inference as async_mod,
 )
+from openlit.instrumentation.azure_ai_inference import utils as azure_utils
 from openlit.semcov import SemanticConvention
 
 REQUEST_KWARGS = {
@@ -65,7 +68,7 @@ def _tracer_with_exporter():
     return provider.get_tracer(__name__), exporter
 
 
-def _factory(tracer, *, is_async):
+def _factory(tracer, *, is_async, disable_metrics=True):
     mod = async_mod if is_async else sync_mod
     make = mod.async_complete if is_async else mod.complete
     return make(
@@ -76,7 +79,7 @@ def _factory(tracer, *, is_async):
         pricing_info={},
         capture_message_content=True,
         metrics=None,
-        disable_metrics=True,
+        disable_metrics=disable_metrics,
         event_provider=None,
     )
 
@@ -84,9 +87,11 @@ def _factory(tracer, *, is_async):
 class FakeSyncStream:
     """Sync stream shaped like azure-ai-inference's StreamingChatCompletions."""
 
-    def __init__(self, raise_on_close=False):
+    def __init__(self, raise_on_close=False, raise_after=None):
         self._it = iter(CHUNKS)
         self._raise_on_close = raise_on_close
+        self._raise_after = raise_after
+        self._seen = 0
         self.closed = False
 
     def __enter__(self):
@@ -99,6 +104,9 @@ class FakeSyncStream:
         return self
 
     def __next__(self):
+        if self._raise_after is not None and self._seen >= self._raise_after:
+            raise RuntimeError("stream failed")
+        self._seen += 1
         return next(self._it)
 
     def close(self):
@@ -110,9 +118,11 @@ class FakeSyncStream:
 class FakeAsyncStream:
     """Async stream shaped like azure-ai-inference's AsyncStreamingChatCompletions."""
 
-    def __init__(self, raise_on_close=False):
+    def __init__(self, raise_on_close=False, raise_after=None):
         self._it = iter(CHUNKS)
         self._raise_on_close = raise_on_close
+        self._raise_after = raise_after
+        self._seen = 0
         self.closed = False
 
     async def __aenter__(self):
@@ -125,6 +135,9 @@ class FakeAsyncStream:
         return self
 
     async def __anext__(self):
+        if self._raise_after is not None and self._seen >= self._raise_after:
+            raise RuntimeError("stream failed")
+        self._seen += 1
         try:
             return next(self._it)
         except StopIteration:
@@ -156,19 +169,42 @@ def _count_calls(monkeypatch, mod, name):
     return calls
 
 
-def _assert_one_span_with_tokens(exporter, *, input_tokens, output_tokens):
+def _assert_one_span_with_tokens(exporter, *, input_tokens, output_tokens, finish_reason):
     spans = exporter.get_finished_spans()
     assert len(spans) == 1, "expected exactly one exported span"
-    attrs = spans[0].attributes
+    span = spans[0]
+    assert span.status.status_code == StatusCode.OK
+    attrs = span.attributes
     assert attrs[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == input_tokens
     assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == output_tokens
+    assert tuple(attrs[SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON]) == (finish_reason,)
+    assert attrs[SemanticConvention.GEN_AI_RESPONSE_ID] == "chatcmpl-1"
+    assert attrs[SemanticConvention.GEN_AI_RESPONSE_MODEL] == "gpt-4o"
+    assert "partial" in attrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES]
 
 
 def _assert_one_error_span(exporter):
     spans = exporter.get_finished_spans()
     assert len(spans) == 1, "expected exactly one exported span"
-    assert spans[0].status.status_code == StatusCode.ERROR
-    assert spans[0].attributes[SemanticConvention.ERROR_TYPE] == "RuntimeError"
+    span = spans[0]
+    assert span.status.status_code == StatusCode.ERROR
+    attrs = span.attributes
+    assert attrs[SemanticConvention.ERROR_TYPE] == "RuntimeError"
+    assert tuple(attrs[SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON]) == ("error",)
+    assert attrs[SemanticConvention.GEN_AI_RESPONSE_ID] == "chatcmpl-1"
+    assert attrs[SemanticConvention.GEN_AI_RESPONSE_MODEL] == "gpt-4o"
+    assert "partial" in attrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES]
+    assert attrs[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 0
+
+
+def _spy_metrics(monkeypatch):
+    recorded = []
+
+    def spy(*_args, **kwargs):
+        recorded.append(kwargs)
+
+    monkeypatch.setattr(azure_utils, "record_completion_metrics", spy)
+    return recorded
 
 
 def test_sync_full_consumption_without_with_exports_exactly_one_span():
@@ -179,7 +215,7 @@ def test_sync_full_consumption_without_with_exports_exactly_one_span():
     for _ in stream:
         pass
 
-    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5)
+    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5, finish_reason="stop")
 
 
 def test_sync_full_consumption_inside_with_exports_exactly_one_span():
@@ -191,7 +227,7 @@ def test_sync_full_consumption_inside_with_exports_exactly_one_span():
         for _ in s:
             pass
 
-    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5)
+    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5, finish_reason="stop")
 
 
 def test_sync_early_break_inside_with_ends_span():
@@ -205,7 +241,9 @@ def test_sync_early_break_inside_with_ends_span():
 
     # The final usage-bearing update was not consumed, so an early exit must
     # export the span without inventing token counts.
-    _assert_one_span_with_tokens(exporter, input_tokens=0, output_tokens=0)
+    _assert_one_span_with_tokens(
+        exporter, input_tokens=0, output_tokens=0, finish_reason="incomplete"
+    )
 
 
 def test_sync_close_finalizes_span():
@@ -218,7 +256,9 @@ def test_sync_close_finalizes_span():
     stream.close()
 
     assert raw.closed
-    _assert_one_span_with_tokens(exporter, input_tokens=0, output_tokens=0)
+    _assert_one_span_with_tokens(
+        exporter, input_tokens=0, output_tokens=0, finish_reason="incomplete"
+    )
 
 
 def test_sync_close_finalizes_span_when_wrapped_close_raises():
@@ -231,7 +271,9 @@ def test_sync_close_finalizes_span_when_wrapped_close_raises():
     with pytest.raises(RuntimeError, match="wrapped close failed"):
         stream.close()
 
-    _assert_one_span_with_tokens(exporter, input_tokens=0, output_tokens=0)
+    _assert_one_span_with_tokens(
+        exporter, input_tokens=0, output_tokens=0, finish_reason="incomplete"
+    )
 
 
 def test_sync_exception_inside_with_ends_error_span():
@@ -263,7 +305,7 @@ def test_sync_exception_after_exhaustion_keeps_finalized_span(monkeypatch):
     # be written onto it. OTel silently drops writes to an ended span, so the
     # exported span cannot show this: count the calls instead.
     assert not error_calls, "the finalized span must not take the later error"
-    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5)
+    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5, finish_reason="stop")
     assert exporter.get_finished_spans()[0].status.status_code == StatusCode.OK
 
 
@@ -279,7 +321,60 @@ def test_sync_finalizes_once_across_exhaustion_exit_and_close(monkeypatch):
     stream.close()
 
     assert len(calls) == 1, "span telemetry must be processed exactly once"
-    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5)
+    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5, finish_reason="stop")
+
+
+def test_sync_iterator_error_without_with_exports_error_span(monkeypatch):
+    recorded = _spy_metrics(monkeypatch)
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=False, disable_metrics=False)
+
+    raw = FakeSyncStream(raise_after=1)
+    stream = wrapper(lambda *a, **k: raw, None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="stream failed"):
+        for _ in stream:
+            pass
+
+    assert raw.closed
+    _assert_one_error_span(exporter)
+    assert len(recorded) == 1
+    assert recorded[0]["error_type"] == "RuntimeError"
+
+
+def test_sync_iterator_error_exports_span_when_wrapped_close_raises():
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=False)
+
+    raw = FakeSyncStream(raise_on_close=True, raise_after=1)
+    stream = wrapper(lambda *a, **k: raw, None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="stream failed"):
+        for _ in stream:
+            pass
+
+    assert raw.closed
+    _assert_one_error_span(exporter)
+
+
+def test_sync_process_chunk_error_exports_span_without_closing(monkeypatch):
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("chunk failed")
+
+    monkeypatch.setattr(sync_mod, "process_chunk", boom)
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=False)
+
+    raw = FakeSyncStream()
+    stream = wrapper(lambda *a, **k: raw, None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="chunk failed"):
+        next(stream)
+
+    assert not raw.closed
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].status.status_code == StatusCode.ERROR
+    assert spans[0].attributes[SemanticConvention.ERROR_TYPE] == "RuntimeError"
+    finish = spans[0].attributes[SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON]
+    assert tuple(finish) == ("error",)
 
 
 @pytest.mark.asyncio
@@ -291,7 +386,7 @@ async def test_async_full_consumption_without_with_exports_exactly_one_span():
     async for _ in stream:
         pass
 
-    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5)
+    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5, finish_reason="stop")
 
 
 @pytest.mark.asyncio
@@ -304,7 +399,7 @@ async def test_async_full_consumption_inside_with_exports_exactly_one_span():
         async for _ in s:
             pass
 
-    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5)
+    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5, finish_reason="stop")
 
 
 @pytest.mark.asyncio
@@ -317,7 +412,9 @@ async def test_async_early_break_inside_with_ends_span():
         async for _ in s:
             break
 
-    _assert_one_span_with_tokens(exporter, input_tokens=0, output_tokens=0)
+    _assert_one_span_with_tokens(
+        exporter, input_tokens=0, output_tokens=0, finish_reason="incomplete"
+    )
 
 
 @pytest.mark.asyncio
@@ -331,7 +428,9 @@ async def test_async_aclose_finalizes_span():
     await stream.aclose()
 
     assert raw.closed
-    _assert_one_span_with_tokens(exporter, input_tokens=0, output_tokens=0)
+    _assert_one_span_with_tokens(
+        exporter, input_tokens=0, output_tokens=0, finish_reason="incomplete"
+    )
 
 
 @pytest.mark.asyncio
@@ -345,7 +444,9 @@ async def test_async_aclose_finalizes_span_when_wrapped_aclose_raises():
     with pytest.raises(RuntimeError, match="wrapped close failed"):
         await stream.aclose()
 
-    _assert_one_span_with_tokens(exporter, input_tokens=0, output_tokens=0)
+    _assert_one_span_with_tokens(
+        exporter, input_tokens=0, output_tokens=0, finish_reason="incomplete"
+    )
 
 
 @pytest.mark.asyncio
@@ -376,7 +477,7 @@ async def test_async_exception_after_exhaustion_keeps_finalized_span(monkeypatch
             raise RuntimeError("caller failed")
 
     assert not error_calls, "the finalized span must not take the later error"
-    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5)
+    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5, finish_reason="stop")
     assert exporter.get_finished_spans()[0].status.status_code == StatusCode.OK
 
 
@@ -393,4 +494,60 @@ async def test_async_finalizes_once_across_exhaustion_exit_and_aclose(monkeypatc
     await stream.aclose()
 
     assert len(calls) == 1, "span telemetry must be processed exactly once"
-    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5)
+    _assert_one_span_with_tokens(exporter, input_tokens=10, output_tokens=5, finish_reason="stop")
+
+
+@pytest.mark.asyncio
+async def test_async_iterator_error_without_with_exports_error_span(monkeypatch):
+    recorded = _spy_metrics(monkeypatch)
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=True, disable_metrics=False)
+
+    raw = FakeAsyncStream(raise_after=1)
+    stream = await wrapper(_acreate(raw), None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="stream failed"):
+        async for _ in stream:
+            pass
+
+    assert raw.closed
+    _assert_one_error_span(exporter)
+    assert len(recorded) == 1
+    assert recorded[0]["error_type"] == "RuntimeError"
+
+
+@pytest.mark.asyncio
+async def test_async_iterator_error_exports_span_when_wrapped_aclose_raises():
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=True)
+
+    raw = FakeAsyncStream(raise_on_close=True, raise_after=1)
+    stream = await wrapper(_acreate(raw), None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="stream failed"):
+        async for _ in stream:
+            pass
+
+    assert raw.closed
+    _assert_one_error_span(exporter)
+
+
+@pytest.mark.asyncio
+async def test_async_process_chunk_error_exports_span_without_closing(monkeypatch):
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("chunk failed")
+
+    monkeypatch.setattr(async_mod, "process_chunk", boom)
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=True)
+
+    raw = FakeAsyncStream()
+    stream = await wrapper(_acreate(raw), None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="chunk failed"):
+        await anext(stream)
+
+    assert not raw.closed
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].status.status_code == StatusCode.ERROR
+    assert spans[0].attributes[SemanticConvention.ERROR_TYPE] == "RuntimeError"
+    finish = spans[0].attributes[SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON]
+    assert tuple(finish) == ("error",)
