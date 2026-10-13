@@ -12,6 +12,11 @@ import {
 	isMemoryConnectorId,
 	updateMemoryConnector,
 } from "@/lib/platform/connectors/memory/crud";
+import {
+	deleteScannerConnector,
+	isScannerConnectorId,
+	updateScannerConnector,
+} from "@/lib/platform/connectors/scanner/crud";
 
 function telemetrySourceId(id: string) {
 	return id.startsWith("telemetry:") ? id.slice("telemetry:".length) : id;
@@ -34,6 +39,11 @@ async function PATCHHandler(
 		if (err) return errorResponse(err, "Failed to update connector");
 		return Response.json(connector);
 	}
+	if (isScannerConnectorId(params.id)) {
+		const [err, connector] = await asaw(updateScannerConnector(params.id, body));
+		if (err) return errorResponse(err, "Failed to update connector");
+		return Response.json(connector);
+	}
 	const [err, connector] = await asaw(updateTelemetrySource(telemetrySourceId(params.id), body));
 	if (err) return errorResponse(err, "Failed to update connector");
 	return Response.json({ ...connector, category: "datasource", scope: "project" });
@@ -47,6 +57,11 @@ async function DELETEHandler(
 	if (!user) return Response.json("Unauthorized", { status: 401 });
 	if (isMemoryConnectorId(params.id)) {
 		const [err, result] = await asaw(deleteMemoryConnector(params.id));
+		if (err) return errorResponse(err, "Failed to delete connector");
+		return Response.json(result);
+	}
+	if (isScannerConnectorId(params.id)) {
+		const [err, result] = await asaw(deleteScannerConnector(params.id));
 		if (err) return errorResponse(err, "Failed to delete connector");
 		return Response.json(result);
 	}
