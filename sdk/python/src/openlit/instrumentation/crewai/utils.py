@@ -216,9 +216,16 @@ def process_crewai_response(
     instance,
     args,
     endpoint=None,
-    **kwargs,
+    tool_kwargs=None,
 ):
-    """Set OTel-compliant span attributes, capture content, and record metrics."""
+    """Set OTel-compliant span attributes, capture content, and record metrics.
+
+    ``tool_kwargs`` carries the keyword arguments the wrapped CrewAI entity was
+    called with. They are passed as one value rather than unpacked into this
+    signature, because a tool may legitimately be called with an argument named
+    like any parameter below (``version`` is the common one), which unpacking
+    would reject with ``TypeError: got multiple values for argument``.
+    """
     end_time = time.time()
 
     # -- common framework attributes (provider, model, server, duration …) --
@@ -260,7 +267,13 @@ def process_crewai_response(
     _set_agent_attributes(span, instance, endpoint, capture_message_content)
     _set_task_attributes(span, instance, endpoint, capture_message_content)
     _set_tool_attributes(
-        span, instance, endpoint, capture_message_content, args, kwargs, response
+        span,
+        instance,
+        endpoint,
+        capture_message_content,
+        args,
+        tool_kwargs or {},
+        response,
     )
     _set_flow_attributes(span, instance, endpoint)
 
