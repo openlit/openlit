@@ -39,7 +39,7 @@ def complete(
     Generates a telemetry wrapper for GenAI function call
     """
 
-    class TracedSyncStream:
+    class TracedSyncStream:  # pylint: disable=too-many-instance-attributes
         """
         Wrapper for streaming responses to collect telemetry.
         """
@@ -80,35 +80,119 @@ def complete(
             self._server_address = server_address
             self._server_port = server_port
             self._event_provider = event_provider
+            self._streaming_response_processed = False
+            self._stream_error = None
 
         def __enter__(self):
             self.__wrapped__.__enter__()
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            self.__wrapped__.__exit__(exc_type, exc_val, exc_tb)
-            process_streaming_chat_response(
-                self,
-                pricing_info,
-                environment,
-                application_name,
-                metrics,
-                capture_message_content,
-                disable_metrics,
-                version,
-                event_provider=self._event_provider,
-            )
+            try:
+                self.__wrapped__.__exit__(exc_type, exc_val, exc_tb)
+            finally:
+                # Exhaustion already ended the span. Leave that export alone,
+                # including when the body raises after the stream is consumed.
+                # Do not return from this finally: a return would swallow an
+                # exception raised by the wrapped __exit__.
+                if not self._streaming_response_processed:
+                    stream_error = exc_val if exc_type is not None else None
+                    # A break never hits StopIteration, so a clean exit is a cancel.
+                    self._finalize_streaming_span(False, stream_error)
 
         def __iter__(self):
             return self
 
         def __next__(self):
-            chunk = next(self.__wrapped__)
-            process_chunk(self, chunk)
+            try:
+                chunk = next(self.__wrapped__)
+            except StopIteration:
+                self._finalize_streaming_span(True)
+                raise
+            except Exception as exc:
+                self._abort_stream(exc, close_wrapped=True)
+                raise
+            try:
+                process_chunk(self, chunk)
+            except Exception as exc:
+                # The chunk itself failed instrumentation. Leave the SDK
+                # stream open so a surrounding ``with`` can still close it.
+                self._abort_stream(exc, close_wrapped=False)
+                raise
             return chunk
 
         def __getattr__(self, name):
             return getattr(self.__wrapped__, name)
+
+        def _close_wrapped_quietly(self):
+            """Close the SDK stream without masking the error that aborted it."""
+            try:
+                self.__wrapped__.close()
+            except Exception as exc:
+                logger.warning("Failed to close Azure AI Inference stream: %s", exc)
+
+        def _abort_stream(self, exc, close_wrapped):
+            """End the span for a stream or chunk failure."""
+            if close_wrapped:
+                self._close_wrapped_quietly()
+            self._finalize_streaming_span(False, exc)
+
+        def _finalize_streaming_span(self, ended_cleanly, stream_error=None):
+            """Complete and end the span exactly once.
+
+            ``ended_cleanly`` is True only for StopIteration. Any other exit
+            with no finish reason is ``incomplete``, or ``error`` when
+            ``stream_error`` is set. Partial text and usage are written first.
+            A failed stream does not set OK, because the SDK ignores a later
+            ERROR. The error status is applied while the span is still recording.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            if stream_error is not None:
+                # common_chat_logic reads this for the metrics error.type.
+                self._stream_error = stream_error
+                if not self._finish_reason:
+                    self._finish_reason = "error"
+            elif not ended_cleanly and not self._finish_reason:
+                self._finish_reason = "incomplete"
+            try:
+                with self._span:
+                    try:
+                        process_streaming_chat_response(
+                            self,
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version,
+                            event_provider=self._event_provider,
+                        )
+                    except Exception as exc:
+                        if stream_error is None:
+                            stream_error = exc
+                            self._stream_error = exc
+                        raise
+                    finally:
+                        if stream_error is not None:
+                            handle_exception(self._span, stream_error)
+            except Exception as exc:
+                if self._span.is_recording():
+                    handle_exception(self._span, exc)
+                    self._span.end()
+
+        def close(self):
+            """Close the wrapped stream and finalize the span if not ended.
+
+            A wrapped close that raises still exports the span. That close
+            error is not a model failure, so it is not stored as one.
+            """
+            try:
+                self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span(False)
 
     def wrapper(wrapped, instance, args, kwargs):
         """
