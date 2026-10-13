@@ -173,7 +173,7 @@
               ```
 
               Replace:
-              1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector.
+              1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT.
 
               **Note:** `collect_system_metrics=True` replaces the deprecated `collect_gpu_stats=True`
               </Tab>
@@ -193,7 +193,7 @@
               ```
 
               Replace:
-              1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector.
+              1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT.
               </Tab>
             </Tabs>
           </Tab>
@@ -258,18 +258,18 @@
             environment:
               OTEL_SERVICE_NAME: 'chatbot'
               OTEL_RESOURCE_ATTRIBUTES: 'deployment.environment=staging'
-              OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+              OTEL_EXPORTER_OTLP_ENDPOINT: "http://openlit:4318"
             device_requests:
             - driver: nvidia
               count: all
               capabilities: [gpu]
             depends_on:
-            - otel-collector
+            - openlit
             restart: always
           ```
 
           </Accordion>
-          <Accordion title="Host IP: Use the Host IP to connect to OTel Collector">
+          <Accordion title="Host IP: Use the Host IP to connect to OpenLIT">
 
           ```sh
           OTEL_EXPORTER_OTLP_ENDPOINT="http://192.168.10.15:4318"
