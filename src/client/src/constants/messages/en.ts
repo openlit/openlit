@@ -233,10 +233,14 @@ export const OBSERVABILITY_EXCEPTIONS = "Exceptions";
 export const OBSERVABILITY_METRICS = "Metrics";
 export const OBSERVABILITY_LOGS = "Logs";
 export const OBSERVABILITY_TRACE_SHORT_LABEL = "Latency, cost, tokens";
+export const OBSERVABILITY_SPAN_SHORT_LABEL = "Individual operations";
 export const OBSERVABILITY_EXCEPTION_SHORT_LABEL = "Failures and error spans";
 export const OBSERVABILITY_METRIC_SHORT_LABEL = "Gauges, sums, histograms";
 export const OBSERVABILITY_LOG_SHORT_LABEL = "Events and correlated context";
 export const OBSERVABILITY_TRACE_SUMMARY = "Span flow";
+export const OBSERVABILITY_SPAN_SUMMARY = "Raw span flow";
+export const OBSERVABILITY_SPAN_COUNT_LABEL = "spans";
+export const OBSERVABILITY_ERROR_COUNT_LABEL = "errors";
 export const OBSERVABILITY_EXCEPTION_SUMMARY = "Failure path";
 export const OBSERVABILITY_METRIC_SUMMARY = "Signal shape";
 export const OBSERVABILITY_LOG_SUMMARY = "Event stream";
@@ -3136,3 +3140,13 @@ export const DATA_SOURCE_BINDING_FAILED = "Failed to update signal routing.";
 export const DATA_SOURCE_LOAD_FAILED = "Failed to load data sources.";
 export const DATA_SOURCE_RETRY = "Try again";
 
+export const API_KEY_FULL_ACCESS = "Full access";
+export const API_KEY_ACCESS_SELECT_FEATURE = "Select at least one feature.";
+export const API_KEY_FEATURE_ACCESS_DENIED =
+	"This API key does not have access to this feature";
+export const API_KEY_ACCESS_CONTROL_UNAVAILABLE =
+	"API key access control is not available in this edition.";
+export const API_KEY_FULL_ACCESS_DESCRIPTION =
+	"Can use every feature that accepts API keys.";
+export const API_KEY_DELETE = "Delete API key";
+export const API_KEY_INVALID_JSON = "Request body must be valid JSON.";

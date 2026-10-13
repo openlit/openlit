@@ -557,7 +557,7 @@ Yes. The `openlit` CLI ingests each coding agent's hook events and maps them to 
 Yes. Run LLM-as-a-judge and programmatic evals online on production traces, or offline through the SDK as CI/CD gates.
 
 **Is OpenLIT free?**
-Yes. Self-hosted OpenLIT is free under Apache 2.0, with no license key and no per-trace fee.
+Yes. Self-hosted OpenLIT is free under Apache 2.0, with no license key and no per-trace fee. Organisation-wide governance features such as custom roles, audit logs, and alerts are part of [OpenLIT Enterprise](https://docs.openlit.io/latest/openlit/enterprise).
 
 **Does OpenLIT add latency?**
 No proxy is required. SDKs instrument in-process and export telemetry asynchronously over OTLP.
