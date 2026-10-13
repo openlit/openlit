@@ -68,17 +68,19 @@ func TestMergePodPrefersExistingContainer(t *testing.T) {
 
 func newTestEnricher(cgroup func(int32) (PodInfo, bool)) *Enricher {
 	return &Enricher{
-		enabled:       true,
-		resolveCgroup: cgroup,
-		own:           make(map[int32]PodInfo),
-		cache:         make(map[cacheKey]PodInfo),
-		negCache:      make(map[cacheKey]time.Time),
-		byUID:         make(map[string]PodInfo),
-		byName:        make(map[string]PodInfo),
-		byContID:      make(map[string]PodInfo),
-		byPID:         make(map[int32]PodInfo),
-		byDevice:      make(map[string]PodInfo),
-		ttl:           15 * time.Second,
+		enabled:         true,
+		resolveCgroup:   cgroup,
+		resolveHostname: func(int32) string { return "" }, // unreadable unless a test sets it
+		own:             make(map[int32]PodInfo),
+		cache:           make(map[cacheKey]PodInfo),
+		negCache:        make(map[cacheKey]time.Time),
+		hostnames:       make(map[int32]string),
+		byUID:           make(map[string]PodInfo),
+		byName:          make(map[string]PodInfo),
+		byContID:        make(map[string]PodInfo),
+		byPID:           make(map[int32]PodInfo),
+		byDevice:        make(map[string]PodInfo),
+		ttl:             15 * time.Second,
 	}
 }
 
@@ -123,25 +125,106 @@ func TestResolveContainerIDBeatsDeviceOwner(t *testing.T) {
 }
 
 // PodResources only (no pod API): the process has a cgroup pod UID but no name for it,
-// and the GPU owner carries no UID. The owner cannot be confirmed to be this process's
-// pod, so its name must not be attached next to a UID that may belong to another pod
-// (the #1718 mislabel). Identity stays UID-only, on every device.
+// and the GPU owner carries no UID. With no hostname to confirm the owner (unreadable),
+// or a hostname naming another pod (lmcache on a GPU allocated to gemma: the #1718
+// mislabel), the owner's name must not be attached next to a UID that may belong to
+// another pod. Identity stays UID-only, on every device.
 func TestResolveUnconfirmedDeviceOwnerNotAppliedToCgroupProcess(t *testing.T) {
+	for name, hostname := range map[string]string{"unreadable": "", "other pod": "lmcache-server"} {
+		t.Run(name, func(t *testing.T) {
+			e := newTestEnricher(func(int32) (PodInfo, bool) {
+				return PodInfo{PodUID: "uid-lmcache"}, true
+			})
+			e.resolveHostname = func(int32) string { return hostname }
+			owner := func(p PodInfo) PodInfo { p.PodUID = ""; return p } // PodResources carries no UID
+			e.byDevice["GPU-3"] = owner(gemma)
+			e.byDevice["GPU-0"] = owner(qwen)
+
+			for _, dev := range []string{"GPU-3", "GPU-0", "GPU-3"} {
+				got, ok := e.Resolve(9, dev)
+				if !ok || got.PodUID != "uid-lmcache" {
+					t.Fatalf("%s: expected cgroup uid, got %+v ok=%v", dev, got, ok)
+				}
+				if got.PodName != "" || got.Namespace != "" || got.ContainerName != "" {
+					t.Fatalf("%s: borrowed unconfirmed owner labels: %+v", dev, got)
+				}
+			}
+		})
+	}
+}
+
+// PodResources only, common case: a pod's own process on the GPU allocated to it. The
+// owner carries no UID, but the container hostname is the pod name, which confirms it.
+// The confirmed identity is the process's own: cached per pid, hostname read once, and
+// kept on a GPU allocated to another pod.
+func TestResolveDeviceOwnerConfirmedByHostname(t *testing.T) {
+	for name, hostname := range map[string]string{
+		"pod name": "gemma-worker-0",
+		"fqdn":     "gemma-worker-0.gemma.llms.svc.cluster.local",
+	} {
+		t.Run(name, func(t *testing.T) {
+			reads := 0
+			e := newTestEnricher(func(int32) (PodInfo, bool) {
+				return PodInfo{PodUID: "uid-gemma", ContainerID: "cid-gemma"}, true
+			})
+			e.resolveHostname = func(int32) string { reads++; return hostname }
+			owner := func(p PodInfo) PodInfo { p.PodUID = ""; return p }
+			e.byDevice["GPU-3"] = owner(gemma)
+			e.byDevice["GPU-0"] = owner(qwen)
+
+			got, ok := e.Resolve(21, "GPU-3")
+			if !ok || got.PodName != "gemma-worker-0" || got.Namespace != "llms" || got.ContainerName != "main" {
+				t.Fatalf("expected hostname-confirmed owner, got %+v", got)
+			}
+			if got.PodUID != "uid-gemma" || got.ContainerID != "cid-gemma" {
+				t.Fatalf("cgroup identity lost: %+v", got)
+			}
+			got, _ = e.Resolve(21, "GPU-0")
+			if got.PodName != "gemma-worker-0" {
+				t.Fatalf("confirmed identity must follow the process to other GPUs, got %+v", got)
+			}
+			if reads != 1 {
+				t.Fatalf("hostname should be read once per pid, got %d", reads)
+			}
+		})
+	}
+}
+
+// A hostname that does not match the owner of the first GPU can still confirm the owner
+// of another: the mismatch is per device, not a verdict on the process.
+func TestResolveHostnameMismatchIsPerDevice(t *testing.T) {
 	e := newTestEnricher(func(int32) (PodInfo, bool) {
-		return PodInfo{PodUID: "uid-lmcache"}, true
+		return PodInfo{PodUID: "uid-qwen"}, true
 	})
-	owner := func(p PodInfo) PodInfo { p.PodUID = ""; return p } // PodResources carries no UID
+	e.resolveHostname = func(int32) string { return "qwen-worker-0" }
+	owner := func(p PodInfo) PodInfo { p.PodUID = ""; return p }
 	e.byDevice["GPU-3"] = owner(gemma)
 	e.byDevice["GPU-0"] = owner(qwen)
 
-	for _, dev := range []string{"GPU-3", "GPU-0", "GPU-3"} {
-		got, ok := e.Resolve(9, dev)
-		if !ok || got.PodUID != "uid-lmcache" {
-			t.Fatalf("%s: expected cgroup uid, got %+v ok=%v", dev, got, ok)
-		}
-		if got.PodName != "" || got.Namespace != "" || got.ContainerName != "" {
-			t.Fatalf("%s: borrowed unconfirmed owner labels: %+v", dev, got)
-		}
+	got, ok := e.Resolve(22, "GPU-3")
+	if !ok || got.PodName != "" || got.PodUID != "uid-qwen" {
+		t.Fatalf("GPU-3 owner is not this pod: expected uid-only, got %+v", got)
+	}
+	got, _ = e.Resolve(22, "GPU-0")
+	if got.PodName != "qwen-worker-0" {
+		t.Fatalf("GPU-0 owner matches the hostname: expected name, got %+v", got)
+	}
+	got, _ = e.Resolve(22, "GPU-3")
+	if got.PodName != "qwen-worker-0" {
+		t.Fatalf("once confirmed, identity is the process's own on every GPU, got %+v", got)
+	}
+}
+
+// Hostname confirmation is only for processes with a cgroup pod UID: a host process
+// (node hostname) keeps the per-device owner fallback.
+func TestResolveHostProcessIgnoresHostname(t *testing.T) {
+	e := newTestEnricher(func(int32) (PodInfo, bool) { return PodInfo{}, false })
+	e.resolveHostname = func(int32) string { return "gpu-node-7" }
+	e.byDevice["GPU-3"] = gemma
+
+	got, ok := e.Resolve(23, "GPU-3")
+	if !ok || got.PodName != "gemma-worker-0" {
+		t.Fatalf("host process should still fall back to the GPU owner, got %+v", got)
 	}
 }
 
