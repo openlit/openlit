@@ -502,6 +502,16 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 		expect(res.via).toBe("none");
 	});
 
+	it("falls back to built-in ClickHouse when an explicit environment has no binding", async () => {
+		mockBindingFindUnique.mockResolvedValue(null);
+		mockFindMany.mockResolvedValue([]);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+		const res = await resolveSignalSource("traces", { environment: "demo" });
+		expect(res.via).toBe("builtin");
+		expect(res.hasSource).toBe(true);
+		expect(res.descriptor.dbConfigId).toBe("db-1");
+	});
+
 	it("never routes a signal to a source that lacks it; falls back to built-in", async () => {
 		mockBindingFindUnique.mockResolvedValue(null);
 		mockFindMany.mockResolvedValue([
@@ -634,9 +644,9 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 			},
 			include: { source: true, databaseConfig: true },
 		});
-		// An explicitly requested (if invalid) environment still fails closed
-		// when nothing is routed for it, rather than silently using a default.
-		expect(res.via).toBe("none");
+		expect(res.via).toBe("builtin");
+		expect(res.hasSource).toBe(true);
+		expect(res.descriptor.dbConfigId).toBe("db-1");
 	});
 
 	it("scopes resolveActiveCredentialDatabase to null when an explicit projectId is given without a dbConfigId", async () => {
@@ -814,7 +824,7 @@ describe("getTelemetryAdapterForDbConfig", () => {
 		expect(mockGetDBConfigById).not.toHaveBeenCalled();
 	});
 
-	it("throws the typed no-source error when the DatabaseConfig's environment has no routed connector", async () => {
+	it("falls back to the DatabaseConfig ClickHouse when the environment has no dedicated binding", async () => {
 		mockGetDBConfigByIdInternal.mockResolvedValue({
 			...dbConfig,
 			environment: "production",
@@ -823,7 +833,10 @@ describe("getTelemetryAdapterForDbConfig", () => {
 
 		await expect(
 			getTelemetryAdapterForDbConfig("db-1", "traces")
-		).rejects.toThrow(/No connector is configured/);
+		).resolves.toMatchObject({
+			isBuiltIn: true,
+			descriptor: { id: "builtin:db-1", dbConfigId: "db-1" },
+		});
 	});
 
 	it("resolves the isBuiltIn descriptor unchanged (no dbConfigId re-attachment) when the binding routes to the built-in store", async () => {

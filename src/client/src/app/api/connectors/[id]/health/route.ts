@@ -10,6 +10,10 @@ import {
 	healthCheckMemoryConnector,
 	isMemoryConnectorId,
 } from "@/lib/platform/connectors/memory/crud";
+import {
+	healthCheckScannerConnector,
+	isScannerConnectorId,
+} from "@/lib/platform/connectors/scanner/crud";
 
 const DEFAULT_PROBE_MS = 60 * 60 * 1000;
 
@@ -20,6 +24,14 @@ function telemetrySourceId(id: string) {
 async function healthAndValidate(id: string) {
 	if (isMemoryConnectorId(id)) {
 		const [healthErr, health] = await asaw(healthCheckMemoryConnector(id));
+		if (healthErr) return errorResponse(healthErr, "Connector health check failed");
+		return Response.json({
+			health,
+			validation: { supported: false },
+		});
+	}
+	if (isScannerConnectorId(id)) {
+		const [healthErr, health] = await asaw(healthCheckScannerConnector(id));
 		if (healthErr) return errorResponse(healthErr, "Connector health check failed");
 		return Response.json({
 			health,
