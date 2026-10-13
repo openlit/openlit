@@ -17,7 +17,7 @@ import { getCurrentProjectEnvironment } from "@/selectors/project";
 import type { ThresholdAlertView } from "@/lib/platform/alerts/threshold";
 import type { RealtimeFindingView } from "@/lib/platform/realtime/types";
 import { AlertsPageFrame } from "./alerts-shell";
-import { AlertStatusBadge } from "./alerts-list";
+import { AlertStatusBadge } from "./alert-status-badge";
 import { alertsRequest } from "./alert-api";
 import {
 	SEVERITY_CLASSES,

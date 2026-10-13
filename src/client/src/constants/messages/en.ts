@@ -59,6 +59,7 @@ export const ALERTING_STATUS_FIRING_N = (count: number) => `Firing · ${count}`;
 export const ALERTING_STATUS_OK = "OK";
 export const ALERTING_STATUS_DISABLED = "Disabled";
 export const ALERTING_TYPE_THRESHOLD = "Threshold";
+export const ALERTING_IN_APP = "In-app";
 export const ALERTING_EDIT = "Edit";
 export const ALERTING_DELETE = "Delete";
 export const ALERTING_DELETE_TITLE = "Delete this alert?";

@@ -16,24 +16,9 @@ import { getCurrentProject, getCurrentProjectEnvironment } from "@/selectors/pro
 import type { ThresholdAlertView } from "@/lib/platform/alerts/threshold";
 import { AlertsPageFrame } from "./alerts-shell";
 import { alertsRequest } from "./alert-api";
-import { SEVERITY_CLASSES, STATUS_CLASSES, conditionSummary, filtersSummary, relativeTime } from "./alert-format";
+import { SEVERITY_CLASSES, conditionSummary, filtersSummary, relativeTime } from "./alert-format";
+import { AlertStatusBadge } from "./alert-status-badge";
 
-export function AlertStatusBadge({ status, firingCount }: { status: string; firingCount?: number }) {
-	const m = getMessage();
-	const label =
-		status === "firing"
-			? firingCount && firingCount > 1
-				? m.ALERTING_STATUS_FIRING_N(firingCount)
-				: m.ALERTING_STATUS_FIRING
-			: status === "disabled"
-				? m.ALERTING_STATUS_DISABLED
-				: m.ALERTING_STATUS_OK;
-	return (
-		<span className={`inline-flex whitespace-nowrap rounded border px-1.5 py-0.5 text-[11px] font-medium ${STATUS_CLASSES[status] || STATUS_CLASSES.ok}`}>
-			{label}
-		</span>
-	);
-}
 
 export default function AlertsList() {
 	const m = getMessage();
