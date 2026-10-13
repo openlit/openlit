@@ -57,7 +57,7 @@ export function buildAutoInstrumentationCRD({
 				endpoint:
 					otlpEndpoint ||
 					process.env.OPENLIT_OTLP_ENDPOINT ||
-					"http://otel-collector:4318",
+					"http://openlit:4318",
 			},
 		},
 	};

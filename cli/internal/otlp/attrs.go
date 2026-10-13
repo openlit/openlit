@@ -266,13 +266,14 @@ func setToolCallAttrs(span trace.Span, t normalize.ToolCall, scrub scrubFn, capt
 	setStr(span, semconv.CodingAgentMCPSource, t.MCPSource, scrub)
 	setStr(span, semconv.CodingAgentClient, t.Vendor, scrub)
 
+	// Required on every canonical tool span, including successful calls.
+	span.SetAttributes(attribute.Bool("coding_agent.tool.errored", t.Errored))
 	if t.Errored {
 		// Stamp the boolean alongside the error.type string so
 		// dashboards filtering on `errored = true` work without
 		// the implicit "error.type non-empty" idiom (which fires
 		// false positives on shell tools that surface stderr but
 		// completed successfully).
-		span.SetAttributes(attribute.Bool("coding_agent.tool.errored", true))
 		setStr(span, semconv.ErrorType, nonEmpty(t.FailureType, "tool_error"), scrub)
 		setStr(span, "exception.message", truncate(t.ErrorMsg, 1024), scrub)
 		if t.IsInterrupt {
@@ -299,9 +300,13 @@ func setToolCallAttrs(span trace.Span, t normalize.ToolCall, scrub scrubFn, capt
 	if t.AgentMessage != "" && bodyAllowed(capture) {
 		setStr(span, "coding_agent.tool.agent_message", truncate(t.AgentMessage, 4096), scrub)
 	}
-	if dur := t.EndedAt.Sub(t.StartedAt); dur > 0 {
-		span.SetAttributes(attribute.Int64("coding_agent.tool.duration_ms", dur.Milliseconds()))
+	dur := t.EndedAt.Sub(t.StartedAt)
+	if dur < 0 {
+		dur = 0
 	}
+	// Duration is required even when the host's millisecond clock rounds
+	// a very fast call down to zero.
+	span.SetAttributes(attribute.Int64("coding_agent.tool.duration_ms", dur.Milliseconds()))
 }
 
 func nonEmpty(s, fallback string) string {
@@ -356,10 +361,15 @@ func setLLMTurnAttrs(span trace.Span, t normalize.LLMTurn, scrub scrubFn, captur
 		setStr(span, "user.email", t.UserEmail, scrub)
 		setStr(span, semconv.GenAIRequestUser, t.UserEmail, scrub)
 	}
-	if t.AssistantMessageOnly {
-		setStr(span, "coding_agent.llm.turn.kind", "assistant_only", scrub)
-	} else if t.Prompt != "" {
-		setStr(span, "coding_agent.llm.turn.kind", "user_prompt", scrub)
+	switch {
+	case t.AssistantMessageOnly:
+		setStr(span, semconv.CodingAgentLLMTurnKind, semconv.CodingAgentLLMTurnKindResponse, scrub)
+	case t.Prompt != "":
+		setStr(span, semconv.CodingAgentLLMTurnKind, semconv.CodingAgentLLMTurnKindPrompt, scrub)
+	case t.ThoughtText != "":
+		setStr(span, semconv.CodingAgentLLMTurnKind, semconv.CodingAgentLLMTurnKindThought, scrub)
+	case t.Response != "":
+		setStr(span, semconv.CodingAgentLLMTurnKind, semconv.CodingAgentLLMTurnKindResponse, scrub)
 	}
 
 	if t.InputTokens > 0 {
@@ -367,6 +377,9 @@ func setLLMTurnAttrs(span trace.Span, t normalize.LLMTurn, scrub scrubFn, captur
 	}
 	if t.OutputTokens > 0 {
 		span.SetAttributes(attribute.Int64(semconv.GenAIUsageOutputTokens, t.OutputTokens))
+	}
+	if t.ReasoningTokens > 0 {
+		span.SetAttributes(attribute.Int64(semconv.GenAIUsageReasoningTokens, t.ReasoningTokens))
 	}
 	if t.TotalTokens > 0 {
 		span.SetAttributes(attribute.Int64(semconv.GenAIUsageTotalTokens, t.TotalTokens))

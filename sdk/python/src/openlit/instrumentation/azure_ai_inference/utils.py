@@ -381,6 +381,16 @@ def process_chunk(scope, chunk):
         scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
     chunked = response_as_dict(chunk)
+    # Identity is on every StreamingChatCompletionsUpdate, including deltas
+    # that have not carried usage yet. Non-streaming copies these in
+    # process_chat_response; streaming has to copy them here or exported
+    # spans and metrics keep an empty gen_ai.response.model.
+    response_id = chunked.get("id")
+    if response_id:
+        scope._response_id = response_id
+    response_model = chunked.get("model")
+    if response_model:
+        scope._response_model = response_model
 
     # Collect message IDs and aggregated response from events
     choices = chunked.get("choices", [])
@@ -711,7 +721,11 @@ def common_chat_logic(
         except Exception as e:
             logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
-    scope._span.set_status(Status(StatusCode.OK))
+    # OK is sticky in the OTel SDK: set_status(ERROR) after OK is ignored.
+    # Leave the status unset when the stream already failed so the caller
+    # can record ERROR while the span is still recording.
+    if getattr(scope, "_stream_error", None) is None:
+        scope._span.set_status(Status(StatusCode.OK))
 
     # Metrics
     if not disable_metrics:
@@ -721,6 +735,8 @@ def common_chat_logic(
                 scope._timestamps[i] - scope._timestamps[i - 1]
                 for i in range(1, len(scope._timestamps))
             ]
+        stream_error = getattr(scope, "_stream_error", None)
+        error_type = type(stream_error).__name__ if stream_error is not None else None
         record_completion_metrics(
             metrics,
             SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -738,6 +754,7 @@ def common_chat_logic(
             cost,
             scope._tbt,
             scope._ttft,
+            error_type=error_type,
             is_stream=is_stream,
             time_per_chunk_observations=inter_chunk_durations,
         )
