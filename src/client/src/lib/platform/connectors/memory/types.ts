@@ -9,6 +9,7 @@
 
 import type { ConnectorHealthResult, ConnectorRuntime } from "../types";
 import type { AuthStyle, FieldDef } from "../datasource/types";
+import type { MemoryGraphModel } from "./graph";
 
 export interface MemoryCapabilities {
 	add: boolean;
@@ -136,6 +137,29 @@ export interface MemoryListFilter {
 	agentId?: string;
 	sessionId?: string;
 	limit?: number;
+	offset?: number;
+}
+
+/**
+ * One server-side page of memories. Adapters whose backend reports a durable
+ * total implement `listPage` so the Memory page can paginate instead of
+ * guessing from the records it happens to hold.
+ */
+export interface MemoryListPage {
+	records: MemoryRecord[];
+	total?: number;
+	hasMore: boolean;
+	nextOffset: number;
+}
+
+/**
+ * Bounds for a server-side graph read. `maxNodes`/`maxEdges` cap how far an
+ * adapter pages so one connector cannot stall the Memory page.
+ */
+export interface MemoryGraphFilter {
+	userId?: string;
+	maxNodes?: number;
+	maxEdges?: number;
 }
 
 export interface MemoryFilterChoice {
@@ -192,6 +216,13 @@ export interface MemoryTypeDescriptor {
 	configFields: FieldDef[];
 	/** Memory page filters for this vendor. Empty means no user/session/agent bar. */
 	filterFields?: MemoryFilterField[];
+	/**
+	 * True when a listed record is already the whole record, so there is nothing
+	 * richer to fetch by id. Lets a vendor without `get` skip the
+	 * "showing the listed record" notice, which would otherwise warn about a
+	 * limitation the operator can never observe.
+	 */
+	detailFromList?: boolean;
 	authStyle: AuthStyle;
 	authHelp?: string;
 	docsUrl?: string;
@@ -205,6 +236,16 @@ export interface MemoryAdapter extends ConnectorRuntime {
 	search(query: MemorySearchQuery): Promise<MemoryRecord[]>;
 	get(id: string): Promise<MemoryRecord | null>;
 	list(filter: MemoryListFilter): Promise<MemoryRecord[]>;
+	/**
+	 * Optional paginated list. Implemented only by adapters whose backend
+	 * returns a total and a `has_more` cursor; callers fall back to `list`.
+	 */
+	listPage?(filter: MemoryListFilter): Promise<MemoryListPage>;
+	/**
+	 * Optional server-side graph. Implemented only by adapters with a real
+	 * graph endpoint; callers fall back to deriving one from list records.
+	 */
+	graph?(options: MemoryGraphFilter): Promise<MemoryGraphModel>;
 	listFilters(): Promise<MemoryFilterOptions>;
 	update(id: string, input: MemoryUpdateInput): Promise<MemoryRecord>;
 	delete(id: string): Promise<void>;
