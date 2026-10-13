@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 // Focus-visible ring classes applied consistently across form controls and
@@ -49,8 +50,29 @@ describe("TabsTrigger accessibility", () => {
 	});
 });
 
+describe("SelectTrigger accessibility", () => {
+	it("renders a visible focus ring for keyboard navigation", () => {
+		render(
+			<Select>
+				<SelectTrigger aria-label="Choose">
+					<SelectValue placeholder="Choose" />
+				</SelectTrigger>
+			</Select>
+		);
+		const trigger = screen.getByRole("combobox", { name: "Choose" });
+		expect(hasAllClasses(trigger, FOCUS_RING_CLASSES)).toBe(true);
+		expect(
+			hasAllClasses(trigger, [
+				"focus-visible:ring-offset-white",
+				"dark:focus-visible:ring-offset-stone-950",
+			])
+		).toBe(true);
+		expect(trigger.className).not.toContain("focus:outline-none");
+	});
+});
+
 describe("Alert destructive variant accessibility", () => {
-	it("uses a bright red text class visible on dark backgrounds", () => {
+	it("owns a fill so 14px error text clears WCAG AA on any parent", () => {
 		render(
 			<Alert variant="destructive">
 				<AlertTitle>Error</AlertTitle>
@@ -58,10 +80,21 @@ describe("Alert destructive variant accessibility", () => {
 			</Alert>
 		);
 		const alert = screen.getByRole("alert");
-		// dark:text-red-400 provides sufficient contrast on dark backgrounds;
-		// the old dark:text-red-900 was near-invisible.
-		expect(alert.className).toContain("dark:text-red-400");
+		// The query debugger sits on stone-100. Transparent red-600 text there
+		// is 4.43:1. White + red-700 is 6.47:1; stone-950 + red-400 is 7.14:1.
+		expect(
+			hasAllClasses(alert, [
+				"bg-white",
+				"text-red-700",
+				"[&>svg]:text-red-700",
+				"dark:bg-stone-950",
+				"dark:text-red-400",
+				"dark:[&>svg]:text-red-400",
+			])
+		).toBe(true);
 		expect(alert.className).not.toContain("dark:text-red-900");
+		expect(alert.className).not.toContain("text-red-600");
+		expect(alert.className).not.toContain("text-red-500");
 	});
 
 	it("does not contain the invalid dark:dark: duplicate class", () => {
