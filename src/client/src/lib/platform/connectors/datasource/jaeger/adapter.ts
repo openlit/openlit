@@ -38,6 +38,7 @@ import {
 	SourceResponseError,
 } from "../http/safe-fetch";
 import { cacheKey, cachedQuery } from "../http/cache";
+import { summarizeTraceSpans } from "../graph/sample-fetch";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 import { spanMatchesAISelector, traceMatchesAISelector } from "../selector-match";
 import {
@@ -139,12 +140,18 @@ function spanMatchesFilters(
 			const isError = /error/i.test(span.statusCode || "");
 			return wantsError ? isError : !isError;
 		}
-		if (filter.target === "attribute" && filter.key) {
+		if (
+			(filter.target === "attribute" || filter.target === "field") &&
+			filter.key
+		) {
 			const raw = spanFieldValue(span, filter.key);
 			const value = raw === undefined ? undefined : String(raw);
 			if (filter.op === "exists") return !!value;
 			if (filter.op === "eq") return value === String(filter.value ?? "");
 			if (filter.op === "neq") return value !== String(filter.value ?? "");
+			if (filter.op === "contains") {
+				return !!value && value.toLowerCase().includes(String(filter.value ?? "").toLowerCase());
+			}
 			if (filter.op === "in") {
 				const values = Array.isArray(filter.value)
 					? filter.value.map(String)
@@ -569,7 +576,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				: offset + pageSize;
 		const traces = await this.collectTraces(query, budget);
 		const rows = traces
-			.map((trace) => {
+			.map((trace): NormalizedSpan | undefined => {
 				const spans = flattenJaegerTraces([trace]).map(toNormalizedSpan);
 				let listed: NormalizedSpan | undefined;
 				if (query.agentLoop) {
@@ -584,7 +591,11 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				if (!listed) listed = pickRootSpan(spans);
 				if (!listed) return undefined;
 				const hit = loopHitsByTraceId(spans).get(listed.traceId);
-				return hit ? { ...listed, agentLoop: hit } : listed;
+				return {
+					...listed,
+					traceSummary: summarizeTraceSpans(spans),
+					...(hit ? { agentLoop: hit } : {}),
+				};
 			})
 			.filter((span): span is NormalizedSpan => !!span);
 		rememberSpans(this.descriptor.id, this.spansFromTraces(traces));
