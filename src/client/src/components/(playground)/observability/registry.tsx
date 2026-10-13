@@ -96,8 +96,10 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		customAttributeTypes: ["SpanAttributes", "ResourceAttributes", "Field"],
 		normalize: (row) => ({
 			...normalizeTrace(row),
-			spanCount: Number(row.SpanCount || 0),
-			errorCount: Number(row.ErrorCount || 0),
+			spanCount:
+				row.SpanCount == null || row.SpanCount === "" ? null : Number(row.SpanCount),
+			errorCount:
+				row.ErrorCount == null || row.ErrorCount === "" ? null : Number(row.ErrorCount),
 		}),
 		getRowId: (row) => row.spanId,
 		getDetailHref: (row, from) =>

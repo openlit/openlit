@@ -174,7 +174,12 @@ function TraceRecord({
 }) {
 	const show = (key: string) => visibilityColumns[key] !== false;
 	const isTraceSummary = config.key === "traces";
-	const hasErrors = Number(row.errorCount || 0) > 0;
+	const spanCount =
+		row.spanCount == null || Number.isNaN(Number(row.spanCount))
+			? null
+			: Number(row.spanCount);
+	const errorCount = Number(row.errorCount || 0);
+	const hasErrors = errorCount > 0;
 	const health = classifyFromNormalizedTrace(row);
 	const healthChips: GenerationHealthChip[] = (
 		["truncated", "filtered", "empty", "swapped"] as GenerationHealthChip[]
@@ -226,8 +231,8 @@ function TraceRecord({
 					</div>
 				</div>
 				<div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:justify-end">
-					{isTraceSummary && <MiniMeta icon={<GitBranch className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_SPAN_COUNT_LABEL} value={row.spanCount} />}
-					{isTraceSummary && hasErrors && <MiniMeta icon={<Info className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_ERROR_COUNT_LABEL} value={row.errorCount} />}
+					{isTraceSummary && spanCount != null && <MiniMeta icon={<GitBranch className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_SPAN_COUNT_LABEL} value={spanCount} />}
+					{isTraceSummary && hasErrors && <MiniMeta icon={<Info className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_ERROR_COUNT_LABEL} value={errorCount} />}
 					{show("requestDuration") && <MiniMeta icon={<Clock className="h-3.5 w-3.5" />} label="duration" value={`${parseFloat(row.requestDuration || "0").toFixed(3)}s`} />}
 					{show("totalTokens") && <MiniMeta icon={<Zap className="h-3.5 w-3.5" />} label="tokens" value={row.totalTokens} />}
 					{show("model") && <MiniMeta icon={<Hash className="h-3.5 w-3.5" />} label="model" value={row.model || row.system} />}

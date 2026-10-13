@@ -142,30 +142,79 @@ describe("listTraceSummaries", () => {
 		);
 	});
 
-	it("loads a matching trace's root and full span counts from an external source", async () => {
+	it("uses a listed trace summary and does not download the tree", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
-		const root = {
-			traceId: "trace-1", spanId: "root-1", parentSpanId: "", name: "request",
-			serviceName: "api", timestamp: "2026-07-01T00:00:00.000Z", durationNs: 1_000_000_000,
-			statusCode: "OK", spanAttributes: {}, resourceAttributes: {},
-		};
-		const child = {
-			...root, spanId: "child-1", parentSpanId: "root-1", name: "operation",
-			timestamp: "2026-07-01T00:00:00.500Z", durationNs: 2_000_000_000,
-			statusCode: "STATUS_CODE_ERROR",
-		};
+		const getTraceSpans = jest.fn();
 		mockGetAdapter.mockResolvedValue({
-			listSpans: jest.fn().mockResolvedValue({ rows: [child] }),
+			listSpans: jest.fn().mockResolvedValue({
+				rows: [{
+					traceId: "trace-1",
+					spanId: "trace-1",
+					parentSpanId: "",
+					name: "request",
+					serviceName: "api",
+					timestamp: "2026-07-01T00:00:00.000Z",
+					durationNs: 1_000_000_000,
+					statusCode: "",
+					spanAttributes: {},
+					resourceAttributes: {},
+					traceSummary: {
+						spanCount: 4,
+						errorCount: 1,
+						durationNs: 2_500_000_000,
+						start: "2026-07-01T00:00:00.000Z",
+						statusCode: "STATUS_CODE_ERROR",
+					},
+				}],
+			}),
 			countTraces: jest.fn().mockResolvedValue({ total: 1, truncated: false }),
-			getTraceSpans: jest.fn().mockResolvedValue([child, root]),
+			getTraceSpans,
 		});
 
 		const result = await listTraceSummaries(params as any);
 
-		expect(result).toMatchObject({ total: 1, records: [expect.objectContaining({
-			TraceId: "trace-1", SpanId: "root-1", SpanCount: 2, ErrorCount: 1,
-			Duration: "2500000000",
-		})] });
+		expect(getTraceSpans).not.toHaveBeenCalled();
+		expect(result).toMatchObject({
+			total: 1,
+			records: [expect.objectContaining({
+				TraceId: "trace-1",
+				SpanId: "trace-1",
+				SpanCount: 4,
+				ErrorCount: 1,
+				Duration: "2500000000",
+				StatusCode: "STATUS_CODE_ERROR",
+			})],
+		});
+	});
+
+	it("keeps a Tempo search summary without inventing a span count", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const getTraceSpans = jest.fn();
+		mockGetAdapter.mockResolvedValue({
+			listSpans: jest.fn().mockResolvedValue({
+				rows: [{
+					traceId: "trace-1",
+					spanId: "trace-1",
+					parentSpanId: "",
+					name: "request",
+					serviceName: "api",
+					timestamp: "2026-07-01T00:00:00.000Z",
+					durationNs: 1_000_000_000,
+					statusCode: "",
+					spanAttributes: {},
+					resourceAttributes: {},
+				}],
+			}),
+			countTraces: jest.fn().mockResolvedValue({ total: 1, truncated: false }),
+			getTraceSpans,
+		});
+
+		const result = await listTraceSummaries(params as any);
+
+		expect(getTraceSpans).not.toHaveBeenCalled();
+		const record = ((result.records || []) as Record<string, unknown>[])[0];
+		expect(record).toMatchObject({ TraceId: "trace-1", SpanId: "trace-1" });
+		expect(record).not.toHaveProperty("SpanCount");
 	});
 });
 

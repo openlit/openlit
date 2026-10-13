@@ -277,14 +277,38 @@ describe('getTraceSummaries', () => {
       { TraceId: 'trace-1', SpanId: 'root-1', SpanCount: 4 },
     ]);
     const countQuery = (dataCollector as jest.Mock).mock.calls[0][0].query;
-    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query;
+    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
     expect(countQuery).toContain('uniqExact(TraceId)');
-		expect(listQuery).toContain('WITH filtered_trace_ids AS');
-		expect(listQuery).toContain('TraceId IN (SELECT TraceId FROM filtered_trace_ids)');
-    expect(listQuery).toContain('GROUP BY TraceId');
-    expect(listQuery).toContain('argMin(SpanId');
+    expect(listQuery).toContain('WITH page AS');
+    expect(listQuery).toContain('INNER JOIN page AS p ON t.TraceId = p.TraceId');
+    expect(listQuery).toContain("t.ParentSpanId = '0000000000000000'");
+    expect(listQuery).toContain('t.SpanId');
+    expect(listQuery).toContain('t.Timestamp >= parseDateTimeBestEffort');
+    expect(listQuery).toContain('LIMIT 10');
+    expect(listQuery).toContain('OFFSET 0');
+    expect(listQuery.match(/LIMIT/g)).toHaveLength(1);
+    expect(listQuery).not.toContain('argMin(Events');
+    expect(listQuery).not.toContain('argMin(Links');
     expect(listQuery).toContain('AS SpanCount');
     expect(listQuery).toContain('AS ErrorCount');
+    expect(listQuery).toContain('ORDER BY p.TraceStart DESC');
+  });
+
+  it('honors an ascending timestamp sort on the paged trace ids', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 1 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getTraceSummaries({
+      ...baseParams,
+      limit: 10,
+      offset: 0,
+      sorting: { type: 'Timestamp', direction: 'asc' },
+    });
+
+    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(listQuery).toContain('ORDER BY TraceStart ASC');
+    expect(listQuery).toContain('ORDER BY p.TraceStart ASC');
   });
 
   it('returns the count error without running the list query', async () => {

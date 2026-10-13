@@ -12,6 +12,7 @@ import {
 	dateTruncGroupingLogic,
 	getFilterPreviousParams,
 	getFilterWhereCondition,
+	getTimeRangeWhereCondition,
 } from "@/helpers/server/platform";
 import { hasGenerationHealthFilter } from "@/lib/platform/generation-health/classify";
 import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
@@ -275,17 +276,39 @@ export async function getRequests(params: MetricParams) {
 	};
 }
 
+const TRACE_ERROR_STATUS = "('STATUS_CODE_ERROR', 'Error', 'ERROR')";
+
+function boundedInteger(value: unknown, fallback: number, max: number): number {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) return fallback;
+	return Math.min(max, Math.max(0, Math.trunc(parsed)));
+}
+
+function traceSummaryDirection(sorting?: { type?: string; direction?: string }): "ASC" | "DESC" {
+	if (sorting?.type === "Timestamp" && sorting.direction === "asc") return "ASC";
+	return "DESC";
+}
+
 /**
  * Return one representative row for each trace.
  *
- * The representative span is the root span when one exists. Otherwise, it is
- * the earliest span. The returned SpanId can therefore open the existing trace
- * hierarchy without a second lookup.
+ * Page the trace ids that match the active filter first, then aggregate only
+ * that page inside the same time window. The root is an empty or all-zero
+ * parent, with SpanId as the tie-break. Events and Links are omitted: the
+ * table stores them as flattened arrays (`Events.Timestamp`, …), and the
+ * detail route loads the chosen span on open.
  */
 export async function getTraceSummaries(params: MetricParams) {
-	const { limit = 10, offset = 0 } = params;
-	const where = getFilterWhereCondition(params, true);
-	const rootOrder = "tuple(if(empty(ParentSpanId), 0, 1), Timestamp)";
+	const limit = Math.max(1, boundedInteger(params.limit, 10, 500));
+	const offset = boundedInteger(params.offset, 0, 1_000_000);
+	const direction = traceSummaryDirection(params.sorting);
+	const where = getFilterWhereCondition(params, true) || "1";
+	const timeWhere =
+		getTimeRangeWhereCondition(params).replaceAll("Timestamp", "t.Timestamp") || "1";
+	// Same root rule as pickRootSpan: empty parent, or the 16-zero placeholder.
+	const rootRank =
+		"if(empty(t.ParentSpanId) OR t.ParentSpanId = '0000000000000000', 0, 1)";
+	const rootOrder = `tuple(${rootRank}, t.Timestamp, t.SpanId)`;
 	const table = await tracesTableRef(params.databaseConfigId);
 
 	const countQuery = `SELECT CAST(uniqExact(TraceId) AS INTEGER) AS total
@@ -295,43 +318,46 @@ export async function getTraceSummaries(params: MetricParams) {
 	const { data: dataTotal, err: errTotal } = await queryTracesSql(countQuery, params.databaseConfigId);
 	if (errTotal) return { err: errTotal };
 
-	const query = `WITH filtered_trace_ids AS (
-		SELECT DISTINCT TraceId
+	const query = `WITH page AS (
+		SELECT
+			TraceId,
+			min(Timestamp) AS TraceStart
 		FROM ${table}
 		WHERE ${where}
+		GROUP BY TraceId
+		ORDER BY TraceStart ${direction}
+		LIMIT ${limit}
+		OFFSET ${offset}
 	)
 	SELECT
-		TraceId,
-		argMin(SpanId, ${rootOrder}) AS SpanId,
-		argMin(ParentSpanId, ${rootOrder}) AS ParentSpanId,
-		argMin(TraceState, ${rootOrder}) AS TraceState,
-		argMin(SpanName, ${rootOrder}) AS SpanName,
-		argMin(SpanKind, ${rootOrder}) AS SpanKind,
-		argMin(ServiceName, ${rootOrder}) AS ServiceName,
-		argMin(ResourceAttributes, ${rootOrder}) AS ResourceAttributes,
-		argMin(ScopeName, ${rootOrder}) AS ScopeName,
-		argMin(ScopeVersion, ${rootOrder}) AS ScopeVersion,
-		argMin(SpanAttributes, ${rootOrder}) AS SpanAttributes,
-		min(Timestamp) AS Timestamp,
+		t.TraceId AS TraceId,
+		argMin(t.SpanId, ${rootOrder}) AS SpanId,
+		argMin(t.ParentSpanId, ${rootOrder}) AS ParentSpanId,
+		argMin(t.TraceState, ${rootOrder}) AS TraceState,
+		argMin(t.SpanName, ${rootOrder}) AS SpanName,
+		argMin(t.SpanKind, ${rootOrder}) AS SpanKind,
+		argMin(t.ServiceName, ${rootOrder}) AS ServiceName,
+		argMin(t.ResourceAttributes, ${rootOrder}) AS ResourceAttributes,
+		argMin(t.ScopeName, ${rootOrder}) AS ScopeName,
+		argMin(t.ScopeVersion, ${rootOrder}) AS ScopeVersion,
+		argMin(t.SpanAttributes, ${rootOrder}) AS SpanAttributes,
+		min(t.Timestamp) AS Timestamp,
 		toString(
 			greatest(
 				toInt64(0),
-				toUnixTimestamp64Nano(max(addNanoseconds(Timestamp, toInt64(Duration)))) -
-				toUnixTimestamp64Nano(min(Timestamp))
+				toUnixTimestamp64Nano(max(addNanoseconds(t.Timestamp, toInt64(t.Duration)))) -
+				toUnixTimestamp64Nano(min(t.Timestamp))
 			)
 		) AS Duration,
-		if(countIf(StatusCode = 'STATUS_CODE_ERROR') > 0, 'STATUS_CODE_ERROR', argMin(StatusCode, ${rootOrder})) AS StatusCode,
-		argMaxIf(StatusMessage, Timestamp, notEmpty(StatusMessage)) AS StatusMessage,
-		argMin(Events, ${rootOrder}) AS Events,
-		argMin(Links, ${rootOrder}) AS Links,
+		if(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) > 0, 'STATUS_CODE_ERROR', argMin(t.StatusCode, ${rootOrder})) AS StatusCode,
+		argMaxIf(t.StatusMessage, t.Timestamp, notEmpty(t.StatusMessage)) AS StatusMessage,
 		CAST(count() AS INTEGER) AS SpanCount,
-		CAST(countIf(StatusCode = 'STATUS_CODE_ERROR') AS INTEGER) AS ErrorCount
-	FROM ${table}
-	WHERE TraceId IN (SELECT TraceId FROM filtered_trace_ids)
-	GROUP BY TraceId
-	ORDER BY Timestamp DESC
-	LIMIT ${limit}
-	OFFSET ${offset}`;
+		CAST(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) AS INTEGER) AS ErrorCount
+	FROM ${table} AS t
+	INNER JOIN page AS p ON t.TraceId = p.TraceId
+	WHERE ${timeWhere}
+	GROUP BY t.TraceId, p.TraceStart
+	ORDER BY p.TraceStart ${direction}`;
 
 	const { data, err } = await queryTracesSql(query, params.databaseConfigId);
 	return {
