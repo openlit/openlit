@@ -34,8 +34,8 @@ The collector is configured entirely via environment variables. All variables fo
 | `K8S_NODE_NAME` | | Kubernetes node name via downward API (`spec.nodeName`). Also accepts `OTEL_RESOURCE_ATTRIBUTES_NODE_NAME` (Operator) or legacy `NODE_NAME` |
 | `K8S_CLUSTER_NAME` | | Explicit cluster name when cloud auto-detect fails (on-prem). Alias: `OPENLIT_K8S_CLUSTER_NAME`. Only applied in Kubernetes |
 | `OPENLIT_K8S_NODE_LOOKUP` | `true` | When `false`, skip `GET /api/v1/nodes/$K8S_NODE_NAME` for instance-type / provider discovery |
-| `OPENLIT_K8S_POD_RESOURCES` | `true` in K8s | Use kubelet PodResources socket; joins GPU UUID → `k8s.pod.name` / namespace / container for processes with no pod identity of their own (host processes). For a process with a cgroup pod UID the owner is applied only when confirmed as that process's pod: by UID, or by the container hostname under `/proc/<pid>/root/etc/hostname` matching the pod name (needs `hostPID` and `/proc` access; pods with `spec.hostname` or `hostNetwork` stay UID-only without `OPENLIT_K8S_POD_LOOKUP`) |
-| `OPENLIT_K8S_POD_LOOKUP` | `true` in K8s when `K8S_NODE_NAME` is set | List pods on this node via the Kubernetes API (needs `list` on pods) for UID/container-id joins; this is what resolves a containerized process's cgroup pod UID to its own `k8s.pod.name` / namespace |
+| `OPENLIT_K8S_POD_RESOURCES` | `true` in K8s | Kubelet PodResources socket. Names a process only when it has no pod of its own, or the allocation is confirmed as its pod. See below |
+| `OPENLIT_K8S_POD_LOOKUP` | `true` in K8s when `K8S_NODE_NAME` is set | List pods on this node (`list` on pods). Resolves a containerized process's cgroup UID to its own `k8s.pod.name` and namespace |
 | `POD_RESOURCES_SOCKET` | OS default | Override kubelet PodResources socket / named pipe path |
 | `OPENLIT_CLOUD_DETECT` | `true` | When `false`, skip AWS/GCP/Azure IMDS probes (recommended on bare metal to avoid link-local timeouts) |
 | `OTEL_GPU_DCGM_ENABLED` | mode-dependent (`true` for `serving`+) | Optional NVIDIA DCGM profiling (soft-skipped without libdcgm / when DCGM cannot init) |
@@ -63,6 +63,12 @@ The collector is configured entirely via environment variables. All variables fo
 | `OTEL_HOST_INTERRUPTS_ENABLED` | mode-dependent (`true` for `all`) | Host interrupt counters |
 | `OTEL_HOST_NIC_ENABLED` | mode-dependent (`true` for `training`+) | Per-NIC `hw.network.*` (ethtool/sysfs). When enabled, `system.network.*` is skipped to avoid duplicates |
 | `OTEL_HOST_RDMA_ENABLED` | mode-dependent (`true` for `training`+) | RDMA device counters |
+
+<Note>
+**Pod name on `process.gpu.*`.** `OPENLIT_K8S_POD_LOOKUP` joins the process cgroup UID to that pod's name and namespace. It needs `list` on pods (see the DaemonSet role below). The list call is field-selected to this node; the permission itself is cluster-scoped.
+
+Without that list, kubelet PodResources supplies a name for a host process (the owner of the GPU being scraped) or when a container's `/proc/<pid>/root/etc/hostname` confirms an allocation. The kubelet writes the pod name there. `setHostnameAsFQDN` counts only when the owner's namespace is in the name (`<pod>.<subdomain>.<namespace>.svc.<cluster>`). `hostNetwork` sees the node hostname, and `spec.hostname` sees the override, so those stay UID-only unless that hostname still names the owner. Two pods with the same name in different namespaces are left UID-only. Confirmation looks at every GPU allocation on the node, so the name does not depend on which GPU is scraped first. `k8s.pod.uid` stays the cgroup value either way.
+</Note>
 
 ## Host, Kubernetes, and cloud identity
 
@@ -113,7 +119,7 @@ env:
 
 If you only set `K8S_NODE_NAME` (without packing it into `OTEL_RESOURCE_ATTRIBUTES`), the collector still maps it to `host.name` and `k8s.node.name` automatically.
 
-For K8s node label / providerID discovery, grant the DaemonSet ServiceAccount:
+For node label / providerID discovery and for resolving `k8s.pod.name`, grant the DaemonSet ServiceAccount:
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -124,6 +130,9 @@ rules:
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -8,20 +8,24 @@ import (
 
 func TestHostnameMatchesPod(t *testing.T) {
 	cases := []struct {
-		hostname, pod string
-		want          bool
+		hostname, pod, namespace string
+		want                     bool
 	}{
-		{"gemma-worker-0", "gemma-worker-0", true},
-		{"gemma-worker-0.gemma.llms.svc.cluster.local", "gemma-worker-0", true}, // setHostnameAsFQDN
-		{"gemma-worker-01", "gemma-worker-0", false},
-		{"gemma-worker-0", "gemma-worker-01", false},
-		{"gpu-node-7", "gemma-worker-0", false}, // hostNetwork pod / host process
-		{"", "gemma-worker-0", false},
-		{"gemma-worker-0", "", false},
+		{"gemma-worker-0", "gemma-worker-0", "llms", true},
+		{"gemma-worker-0.gemma.llms.svc.cluster.local", "gemma-worker-0", "llms", true}, // setHostnameAsFQDN
+		{"gemma-worker-0.gemma.llms.svc.cluster.local", "gemma-worker-0", "other", false},
+		{"api.web.prod.svc.cluster.local", "api", "prod", true},
+		{"api.web.prod.svc.cluster.local", "api", "dev", false},
+		{"gemma-worker-0.gemma.llms.svc.cluster.local", "gemma-worker-0", "", false},
+		{"gemma-worker-01", "gemma-worker-0", "llms", false},
+		{"gemma-worker-0", "gemma-worker-01", "llms", false},
+		{"gpu-node-7", "gemma-worker-0", "llms", false}, // hostNetwork pod / host process
+		{"", "gemma-worker-0", "llms", false},
+		{"gemma-worker-0", "", "llms", false},
 	}
 	for _, c := range cases {
-		if got := hostnameMatchesPod(c.hostname, c.pod); got != c.want {
-			t.Errorf("hostnameMatchesPod(%q, %q) = %v, want %v", c.hostname, c.pod, got, c.want)
+		if got := hostnameMatchesPod(c.hostname, c.pod, c.namespace); got != c.want {
+			t.Errorf("hostnameMatchesPod(%q, %q, %q) = %v, want %v", c.hostname, c.pod, c.namespace, got, c.want)
 		}
 	}
 }

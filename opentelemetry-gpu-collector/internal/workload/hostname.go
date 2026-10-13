@@ -2,7 +2,6 @@ package workload
 
 import (
 	"io"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -23,7 +22,10 @@ func ProcHostname(pid int32) string {
 }
 
 func readHostnameFile(path string) string {
-	f, err := os.Open(path)
+	// openHostname refuses symlinks, directories, and FIFOs. A container can
+	// replace /etc/hostname with a FIFO; a blocking open here stalls the single
+	// metrics callback that walks every GPU.
+	f, err := openHostname(path)
 	if err != nil {
 		return ""
 	}
@@ -39,11 +41,22 @@ func readHostnameFile(path string) string {
 	return strings.TrimSpace(s)
 }
 
-// hostnameMatchesPod reports whether a container hostname names podName: equal, or the
-// pod name followed by a domain (setHostnameAsFQDN: <pod>.<subdomain>.<ns>.svc.<cluster>).
-func hostnameMatchesPod(hostname, podName string) bool {
+// hostnameMatchesPod reports whether a container hostname names podName in namespace.
+// The kubelet default writes the pod name. setHostnameAsFQDN writes
+// <pod>.<subdomain>.<namespace>.svc.<cluster>; a dotted name counts only when
+// namespace appears in that position, so pod "api" in namespace dev does not
+// confirm hostname "api.web.prod.svc.cluster.local".
+func hostnameMatchesPod(hostname, podName, namespace string) bool {
 	if hostname == "" || podName == "" {
 		return false
 	}
-	return hostname == podName || strings.HasPrefix(hostname, podName+".")
+	if hostname == podName {
+		return true
+	}
+	if namespace == "" || !strings.HasPrefix(hostname, podName+".") {
+		return false
+	}
+	rest := hostname[len(podName)+1:]
+	needle := namespace + ".svc."
+	return strings.HasPrefix(rest, needle) || strings.Contains(rest, "."+needle)
 }

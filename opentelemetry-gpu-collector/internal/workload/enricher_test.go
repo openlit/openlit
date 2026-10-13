@@ -190,55 +190,119 @@ func TestResolveDeviceOwnerConfirmedByHostname(t *testing.T) {
 	}
 }
 
-// A hostname that does not match the owner of the first GPU can still confirm the owner
-// of another: the mismatch is per device, not a verdict on the process.
-func TestResolveHostnameMismatchIsPerDevice(t *testing.T) {
+// Confirmation searches every allocation. The GPU passed to Resolve is often a device
+// this process does not own, and the metrics callback emits that device first.
+func TestResolveHostnameConfirmIgnoresScrapeOrder(t *testing.T) {
+	reads := 0
 	e := newTestEnricher(func(int32) (PodInfo, bool) {
 		return PodInfo{PodUID: "uid-qwen"}, true
 	})
-	e.resolveHostname = func(int32) string { return "qwen-worker-0" }
+	e.resolveHostname = func(int32) string { reads++; return "qwen-worker-0" }
 	owner := func(p PodInfo) PodInfo { p.PodUID = ""; return p }
 	e.byDevice["GPU-3"] = owner(gemma)
 	e.byDevice["GPU-0"] = owner(qwen)
 
-	got, ok := e.Resolve(22, "GPU-3")
-	if !ok || got.PodName != "" || got.PodUID != "uid-qwen" {
-		t.Fatalf("GPU-3 owner is not this pod: expected uid-only, got %+v", got)
-	}
-	got, _ = e.Resolve(22, "GPU-0")
-	if got.PodName != "qwen-worker-0" {
-		t.Fatalf("GPU-0 owner matches the hostname: expected name, got %+v", got)
+	got, ok := e.Resolve(22, "GPU-9")
+	if !ok || got.PodName != "qwen-worker-0" || got.Namespace != "llms-dev" || got.PodUID != "uid-qwen" {
+		t.Fatalf("name must be present on a GPU this pod does not own, got %+v ok=%v", got, ok)
 	}
 	got, _ = e.Resolve(22, "GPU-3")
 	if got.PodName != "qwen-worker-0" {
-		t.Fatalf("once confirmed, identity is the process's own on every GPU, got %+v", got)
+		t.Fatalf("confirmed identity must follow the process, got %+v", got)
+	}
+	if reads != 1 {
+		t.Fatalf("hostname should be read once per pid, got %d", reads)
+	}
+}
+
+// Same pod name in two namespaces is not proof. Leave the process UID-only.
+func TestResolveAmbiguousHostnameStaysUIDOnly(t *testing.T) {
+	e := newTestEnricher(func(int32) (PodInfo, bool) {
+		return PodInfo{PodUID: "uid-worker"}, true
+	})
+	e.resolveHostname = func(int32) string { return "worker" }
+	owner := func(ns string) PodInfo {
+		return PodInfo{PodName: "worker", Namespace: ns, ContainerName: "main"}
+	}
+	e.byDevice["GPU-0"] = owner("a")
+	e.byDevice["GPU-1"] = owner("b")
+
+	for _, dev := range []string{"GPU-0", "GPU-1"} {
+		got, ok := e.Resolve(24, dev)
+		if !ok || got.PodUID != "uid-worker" || got.PodName != "" || got.Namespace != "" {
+			t.Fatalf("%s: ambiguous hostname must stay uid-only, got %+v", dev, got)
+		}
+	}
+}
+
+// setHostnameAsFQDN includes the namespace, so the other same-named pod is not a candidate.
+func TestResolveFQDNHostnameSelectsNamespace(t *testing.T) {
+	e := newTestEnricher(func(int32) (PodInfo, bool) {
+		return PodInfo{PodUID: "uid-gemma"}, true
+	})
+	e.resolveHostname = func(int32) string { return "gemma-worker-0.gemma.llms.svc.cluster.local" }
+	strip := func(p PodInfo, ns string) PodInfo {
+		p.PodUID = ""
+		p.Namespace = ns
+		return p
+	}
+	e.byDevice["GPU-3"] = strip(gemma, "other")
+	e.byDevice["GPU-0"] = strip(gemma, "llms")
+
+	got, ok := e.Resolve(25, "GPU-3")
+	if !ok || got.PodName != "gemma-worker-0" || got.Namespace != "llms" || got.ContainerName != "main" {
+		t.Fatalf("expected the namespace named by the FQDN, got %+v ok=%v", got, ok)
+	}
+}
+
+// Two containers of the confirmed pod must not contribute an arbitrary container name.
+func TestResolveConfirmedPodDropsDisagreeingContainerName(t *testing.T) {
+	e := newTestEnricher(func(int32) (PodInfo, bool) {
+		return PodInfo{PodUID: "uid-gemma"}, true
+	})
+	e.resolveHostname = func(int32) string { return "gemma-worker-0" }
+	e.byDevice["GPU-0"] = PodInfo{PodName: "gemma-worker-0", Namespace: "llms", ContainerName: "main"}
+	e.byDevice["GPU-1"] = PodInfo{PodName: "gemma-worker-0", Namespace: "llms", ContainerName: "sidecar"}
+
+	got, ok := e.Resolve(26, "GPU-1")
+	if !ok || got.PodName != "gemma-worker-0" || got.Namespace != "llms" || got.ContainerName != "" {
+		t.Fatalf("expected pod without a guessed container, got %+v ok=%v", got, ok)
 	}
 }
 
 // Hostname confirmation is only for processes with a cgroup pod UID: a host process
 // (node hostname) keeps the per-device owner fallback.
 func TestResolveHostProcessIgnoresHostname(t *testing.T) {
+	reads := 0
 	e := newTestEnricher(func(int32) (PodInfo, bool) { return PodInfo{}, false })
-	e.resolveHostname = func(int32) string { return "gpu-node-7" }
+	e.resolveHostname = func(int32) string { reads++; return "gpu-node-7" }
 	e.byDevice["GPU-3"] = gemma
 
 	got, ok := e.Resolve(23, "GPU-3")
 	if !ok || got.PodName != "gemma-worker-0" {
 		t.Fatalf("host process should still fall back to the GPU owner, got %+v", got)
 	}
+	if reads != 0 {
+		t.Fatalf("host process must not read a container hostname, got %d reads", reads)
+	}
 }
 
 // The GPU owner is applied to a process with a cgroup pod UID only when the owner's UID
 // confirms it is the same pod.
 func TestResolveDeviceOwnerConfirmedByUID(t *testing.T) {
+	reads := 0
 	e := newTestEnricher(func(int32) (PodInfo, bool) {
 		return PodInfo{PodUID: "uid-gemma"}, true
 	})
+	e.resolveHostname = func(int32) string { reads++; return "gemma-worker-0" }
 	e.byDevice["GPU-3"] = gemma
 
-	got, ok := e.Resolve(10, "GPU-3")
+	got, ok := e.Resolve(10, "GPU-5")
 	if !ok || got.PodName != "gemma-worker-0" || got.Namespace != "llms" || got.PodUID != "uid-gemma" {
 		t.Fatalf("expected confirmed owner, got %+v", got)
+	}
+	if reads != 0 {
+		t.Fatalf("a UID match must not read the container hostname, got %d", reads)
 	}
 }
 
@@ -282,22 +346,26 @@ func TestResolveMissOnOneDeviceDoesNotHideOwnerOnAnother(t *testing.T) {
 	}
 }
 
-// A UID-only partial identity (cgroup uid, no name) resolved on a GPU without an owner
-// must not be cached per PID either: on a GPU whose owner confirms the UID, the name
-// is still joined.
+// A UID-only result cached for a device that had no confirming owner must not stick
+// to the pid. A later device whose owner confirms the UID still supplies the name,
+// including on the device that was cached first.
 func TestResolvePartialIdentityDoesNotHideOwnerOnAnotherDevice(t *testing.T) {
 	e := newTestEnricher(func(int32) (PodInfo, bool) {
 		return PodInfo{PodUID: "uid-gemma"}, true
 	})
-	e.byDevice["GPU-3"] = gemma
 
 	got, ok := e.Resolve(14, "GPU-5")
 	if !ok || got.PodUID != "uid-gemma" || got.PodName != "" {
 		t.Fatalf("expected uid-only partial on GPU-5, got %+v ok=%v", got, ok)
 	}
+	e.byDevice["GPU-3"] = gemma
 	got, ok = e.Resolve(14, "GPU-3")
 	if !ok || got.PodName != "gemma-worker-0" {
 		t.Fatalf("partial identity cached per pid hid the owner, got %+v", got)
+	}
+	got, _ = e.Resolve(14, "GPU-5")
+	if got.PodName != "gemma-worker-0" {
+		t.Fatalf("confirmed identity must replace the earlier uid-only series, got %+v", got)
 	}
 }
 
