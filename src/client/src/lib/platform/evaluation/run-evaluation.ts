@@ -87,6 +87,7 @@ function getModel(provider: string, model: string, apiKey: string) {
 			return createOpenAI({
 				baseURL: "https://api.perplexity.ai",
 				apiKey,
+				headers: { "X-Pplx-Integration": "openlit" },
 			})(model);
 		case "deepseek":
 			return createOpenAI({
@@ -106,6 +107,11 @@ function getModel(provider: string, model: string, apiKey: string) {
 		case "fireworks":
 			return createOpenAI({
 				baseURL: "https://api.fireworks.ai/inference/v1",
+				apiKey,
+			})(model);
+		case "orcarouter":
+			return createOpenAI({
+				baseURL: "https://api.orcarouter.ai/v1",
 				apiKey,
 			})(model);
 		default:

@@ -1,4 +1,5 @@
 import { MetricParams } from "../common";
+import { getSummaryBucket } from "../observability";
 import { queryTracesSql, tracesTableRef } from "../traces/clickhouse-read";
 import {
 	getTraceMappingKeyFullPath,
@@ -11,6 +12,7 @@ import {
 	dateTruncGroupingLogic,
 	getFilterPreviousParams,
 	getFilterWhereCondition,
+	getTimeRangeWhereCondition,
 } from "@/helpers/server/platform";
 import { hasGenerationHealthFilter } from "@/lib/platform/generation-health/classify";
 import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
@@ -95,7 +97,7 @@ export async function getTotalRequests(params: MetricParams) {
 		SELECT
 			COUNT(*) AS total_requests,
 			'${params.timeLimit.start}' as start_date
-		FROM ${table} 
+		FROM ${table}
 		WHERE ${getFilterWhereCondition(parameters, true)}	
 	`;
 
@@ -224,14 +226,10 @@ export async function getRequestsConfig(params: MetricParams) {
 	);
 
 	select.push(
-		// OTel-standard environment is `ResourceAttributes['deployment.environment']`.
-		// The legacy `getTraceMappingKeyFullPath("environment")` returns a
-		// dotted SpanAttributes path that, wrapped in `ResourceAttributes[...]`,
-		// resolves to a non-existent key and silently yields no values.
 		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['deployment.environment'])) AS environments`
 	);
 
-	const query = `SELECT ${select.join(", ")} FROM ${table} 
+	const query = `SELECT ${select.join(", ")} FROM ${table}
 			WHERE ${getFilterWhereCondition(params, true)}`;
 
 	return queryTracesSql(query, params.databaseConfigId);
@@ -247,7 +245,7 @@ export async function getRequests(params: MetricParams) {
 		? "CAST(uniqExact(TraceId) AS INTEGER)"
 		: "CAST(COUNT(*) AS INTEGER)";
 
-	const countQuery = `SELECT ${totalExpr} AS total	FROM ${table} 
+	const countQuery = `SELECT ${totalExpr} AS total	FROM ${table}
 		WHERE ${getFilterWhereCondition(params, true)}`;
 
 	const { data: dataTotal, err: errTotal } = await queryTracesSql(
@@ -260,7 +258,7 @@ export async function getRequests(params: MetricParams) {
 		};
 	}
 
-	const query = `SELECT *	FROM ${table} 
+	const query = `SELECT *	FROM ${table}
 		WHERE ${getFilterWhereCondition(params, true)}
 		${params.sorting && params.sorting.type && params.sorting.direction
 			? buildRequestsOrderByClause(params.sorting.type, params.sorting.direction)
@@ -278,10 +276,129 @@ export async function getRequests(params: MetricParams) {
 	};
 }
 
+const TRACE_ERROR_STATUS = "('STATUS_CODE_ERROR', 'Error', 'ERROR')";
+
+function boundedInteger(value: unknown, fallback: number, max: number): number {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) return fallback;
+	return Math.min(max, Math.max(0, Math.trunc(parsed)));
+}
+
+function traceSummaryDirection(sorting?: { type?: string; direction?: string }): "ASC" | "DESC" {
+	if (sorting?.type === "Timestamp" && sorting.direction === "asc") return "ASC";
+	return "DESC";
+}
+
+/**
+ * Return one representative row for each trace.
+ *
+ * Page the trace ids that match the active filter first, then aggregate only
+ * that page inside the same time window. The root is an empty or all-zero
+ * parent, with SpanId as the tie-break. Events and Links are omitted: the
+ * table stores them as flattened arrays (`Events.Timestamp`, …), and the
+ * detail route loads the chosen span on open.
+ */
+export async function getTraceSummaries(params: MetricParams) {
+	const limit = Math.max(1, boundedInteger(params.limit, 10, 500));
+	const offset = boundedInteger(params.offset, 0, 1_000_000);
+	const direction = traceSummaryDirection(params.sorting);
+	const where = getFilterWhereCondition(params, true) || "1";
+	const timeWhere =
+		getTimeRangeWhereCondition(params).replaceAll("Timestamp", "t.Timestamp") || "1";
+	// Same root rule as pickRootSpan: empty parent, or the 16-zero placeholder.
+	const rootRank =
+		"if(empty(t.ParentSpanId) OR t.ParentSpanId = '0000000000000000', 0, 1)";
+	const rootOrder = `tuple(${rootRank}, t.Timestamp, t.SpanId)`;
+	const table = await tracesTableRef(params.databaseConfigId);
+
+	const countQuery = `SELECT CAST(uniqExact(TraceId) AS INTEGER) AS total
+		FROM ${table}
+		WHERE ${where}`;
+
+	const { data: dataTotal, err: errTotal } = await queryTracesSql(countQuery, params.databaseConfigId);
+	if (errTotal) return { err: errTotal };
+
+	const query = `WITH page AS (
+		SELECT
+			TraceId,
+			min(Timestamp) AS TraceStart
+		FROM ${table}
+		WHERE ${where}
+		GROUP BY TraceId
+		ORDER BY TraceStart ${direction}
+		LIMIT ${limit}
+		OFFSET ${offset}
+	)
+	SELECT
+		t.TraceId AS TraceId,
+		argMin(t.SpanId, ${rootOrder}) AS SpanId,
+		argMin(t.ParentSpanId, ${rootOrder}) AS ParentSpanId,
+		argMin(t.TraceState, ${rootOrder}) AS TraceState,
+		argMin(t.SpanName, ${rootOrder}) AS SpanName,
+		argMin(t.SpanKind, ${rootOrder}) AS SpanKind,
+		argMin(t.ServiceName, ${rootOrder}) AS ServiceName,
+		argMin(t.ResourceAttributes, ${rootOrder}) AS ResourceAttributes,
+		argMin(t.ScopeName, ${rootOrder}) AS ScopeName,
+		argMin(t.ScopeVersion, ${rootOrder}) AS ScopeVersion,
+		argMin(t.SpanAttributes, ${rootOrder}) AS SpanAttributes,
+		min(t.Timestamp) AS Timestamp,
+		toString(
+			greatest(
+				toInt64(0),
+				toUnixTimestamp64Nano(max(addNanoseconds(t.Timestamp, toInt64(t.Duration)))) -
+				toUnixTimestamp64Nano(min(t.Timestamp))
+			)
+		) AS Duration,
+		if(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) > 0, 'STATUS_CODE_ERROR', argMin(t.StatusCode, ${rootOrder})) AS StatusCode,
+		argMaxIf(t.StatusMessage, t.Timestamp, notEmpty(t.StatusMessage)) AS StatusMessage,
+		CAST(count() AS INTEGER) AS SpanCount,
+		CAST(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) AS INTEGER) AS ErrorCount
+	FROM ${table} AS t
+	INNER JOIN page AS p ON t.TraceId = p.TraceId
+	WHERE ${timeWhere}
+	GROUP BY t.TraceId, p.TraceStart
+	ORDER BY p.TraceStart ${direction}`;
+
+	const { data, err } = await queryTracesSql(query, params.databaseConfigId);
+	return {
+		err,
+		records: data,
+		total: (dataTotal as any[])?.[0]?.total || 0,
+	};
+}
+
+export async function getTraceSummarySeries(params: MetricParams) {
+	const bucket = getSummaryBucket(params);
+	const labelFormat = bucket === "hour" ? "%m/%d %H:00" : bucket === "month" ? "%Y/%m" : "%Y/%m/%d";
+	const table = await tracesTableRef(params.databaseConfigId);
+	const where = getFilterWhereCondition(params, true);
+	const query = `SELECT
+		formatDateTime(DATE_TRUNC('${bucket}', Timestamp), '${labelFormat}') AS label,
+		CAST(uniqExact(TraceId) AS INTEGER) AS count,
+		CAST(avg(Duration) * 1e-9 AS FLOAT) AS avgDuration,
+		CAST(SUM(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost'])) AS FLOAT) AS cost,
+		CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS tokens
+		FROM ${table}
+		WHERE ${where}
+		GROUP BY label
+		ORDER BY min(Timestamp)`;
+	const { data, err } = await queryTracesSql(query, params.databaseConfigId);
+	const buckets = (data as Record<string, unknown>[]) || [];
+	return {
+		err,
+		bucket,
+		buckets,
+		total: buckets.reduce((sum, row) => sum + Number(row.count || 0), 0),
+		peak: buckets.reduce((max, row) => Math.max(max, Number(row.count || 0)), 0),
+		freshness: "live" as const,
+		truncated: false,
+	};
+}
+
 export async function getRequestViaSpanId(spanId: string, databaseConfigId?: string) {
 	const table = await tracesTableRef(databaseConfigId);
 	const safeSpanId = escapeClickHouseString(String(spanId ?? ""));
-	const query = `SELECT *	FROM ${table} 
+	const query = `SELECT *	FROM ${table}
 		WHERE SpanId='${safeSpanId}'`;
 
 	const { data, err } = await queryTracesSql(query, databaseConfigId);

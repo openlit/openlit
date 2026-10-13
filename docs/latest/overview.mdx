@@ -1,10 +1,26 @@
 ---
-title: "OpenLIT Overview"
+title: "What is OpenLIT? Open-Source Agent Harness Engineering Platform"
 sidebarTitle: Overview
-description: "OpenLIT is an open-source AI Engineering platform for LLM observability, evaluations, prompt management, and cost tracking - built on OpenTelemetry, fully self-hostable."
+description: "OpenLIT is the open-source agent harness engineering platform: agent observability, evals, guardrails and prompt management on OpenTelemetry. Self-host free."
 ---
-Understand what your AI agents are doing, measure their performance, and improve them in production. 
-With OpenLIT teams can Trace LLM and agent calls, compare models, iterate on prompts, detect regressions, and optimize cost and performance using real production data. 
+
+**OpenLIT is an open-source agent harness engineering platform.** It gives teams OpenTelemetry-native tracing, evaluations, guardrails, prompt and context management, and cost and GPU monitoring for the harness around their AI agents and coding agents, so every agent failure can be traced, scored, and turned into a harness fix. OpenLIT is free to self-host under Apache 2.0 and works with any model, framework, or harness (Claude Code, Codex, OpenAI Agents SDK, LangGraph, CrewAI, and more).
+
+## What is agent harness engineering?
+
+An AI agent is a **model plus a harness**. The harness is everything except the model: tools, context, prompts, memory, hooks, guardrails, and feedback loops. **Agent harness engineering** is the discipline of designing, measuring, and improving that harness so agents are reliable in production.
+
+| Harness engineering step | OpenLIT feature |
+|---|---|
+| **Observe** every LLM call, tool call, MCP request, retrieval and agent step | [Agent observability](/latest/openlit/observability/agents/overview) & OpenTelemetry LLM tracing |
+| **Evaluate** quality, safety and cost on real traces | [Agent evals](/latest/openlit/evaluations/overview) (LLM-as-a-judge, programmatic, human feedback) |
+| **Guard** the agent at runtime | [Guardrails](/latest/sdk/features/guardrails) (prompt injection, sensitive topics, topic restriction) |
+| **Fix** the harness without redeploying | [Prompt Hub](/latest/openlit/prompts-experiments/prompt-hub/overview), [Context](/latest/openlit/prompts-experiments/context/overview), [Rule Engine](/latest/openlit/prompts-experiments/rule-engine/overview), [Vault](/latest/openlit/developer-resources/vault/overview) |
+| **Compare** models and prompts before shipping | [OpenGround](/latest/openlit/prompts-experiments/openground/overview) |
+| **Account** for cost, latency and hardware | [Cost tracking](/latest/openlit/costs/overview), [GPU monitoring](/latest/gpu-collector/overview) |
+
+See the [Concepts glossary](/latest/concepts/glossary) for short definitions of agent harness, agent observability, agent evals, guardrails, and related terms.
+
 <Tabs>
   <Tab title="Observe" icon="bars-staggered">
     <video
@@ -139,16 +155,21 @@ With OpenLIT teams can Trace LLM and agent calls, compare models, iterate on pro
 
 <AccordionGroup>
   <Accordion title="What is OpenLIT?">
-    OpenLIT is an open-source AI Engineering platform. It traces LLM and agent calls via OpenTelemetry, tracks cost and token usage, runs automated evaluations, and manages prompts - all self-hostable.
+    OpenLIT is an open-source agent harness engineering platform. It provides OpenTelemetry-native tracing, evaluations, guardrails, prompt management, and cost and GPU monitoring for AI agents and coding agents, and it is free to self-host under Apache 2.0.
+  </Accordion>
+  <Accordion title="What is an agent harness?">
+    An agent harness is everything in an AI agent except the model: the tools, context, prompts, memory, hooks, guardrails, and feedback loops that turn a model into a working agent. Claude Code, Codex, and frameworks such as LangGraph or CrewAI are harnesses; OpenLIT observes, evaluates, and improves any of them via OpenTelemetry.
+  </Accordion>
+  <Accordion title="What is agent harness engineering?">
+    Agent harness engineering is the discipline of designing, measuring, and improving everything around the model in an AI agent so the agent is reliable in production. Teams observe failures in traces, evaluate them, fix the harness, and verify the fix. OpenLIT is the open-source platform for that loop.
   </Accordion>
   <Accordion title="Is OpenLIT open source?">
-    Yes. OpenLIT is fully open source and self-hostable via Docker Compose or Helm, so your telemetry and prompts never have to leave your infrastructure.
+    Yes. OpenLIT is fully open source under Apache 2.0 and self-hostable via Docker Compose or Helm, so your telemetry and prompts never have to leave your infrastructure.
   </Accordion>
   <Accordion title="Does OpenLIT require code changes to instrument my app?">
-    No. OpenLIT's SDK auto-instruments 90+ LLMs, agent frameworks, and vector databases with zero code changes, or you can call `openlit.init()` once for manual instrumentation if you want more control - both produce the same OpenTelemetry traces.
+    No. OpenLIT's SDK auto-instruments 70+ LLMs, agent frameworks, and vector databases with zero code changes, or you can call `openlit.init()` once for manual instrumentation if you want more control - both produce the same OpenTelemetry traces.
   </Accordion>
-  <Accordion title="How is OpenLIT different from other LLM observability tools?">
-    OpenLIT combines AI observability, evaluation, cost tracking, and prompt management in one open-source platform, instead of requiring separate tools for tracing, evals, and prompt versioning.
+  <Accordion title="Can OpenLIT send data to my existing observability stack?">
+    Yes. Because OpenLIT is OpenTelemetry-native, you can export traces and metrics to Grafana, Datadog, New Relic, SigNoz, or any OTLP-compatible backend - see [Destinations](/latest/sdk/destinations/overview).
   </Accordion>
 </AccordionGroup>
-

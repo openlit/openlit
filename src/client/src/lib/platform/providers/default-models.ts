@@ -143,6 +143,14 @@ export const DEFAULT_PROVIDERS: DefaultProviderEntry[] = [
 			topP: { min: 0, max: 1, step: 0.1, default: 0.95, description: "Nucleus sampling threshold" },
 		},
 	},
+	{
+		providerId: "orcarouter", displayName: "OrcaRouter", description: "OpenAI-compatible AI gateway with adaptive routing across 200+ models", requiresVault: true,
+		configSchema: {
+			temperature: { min: 0, max: 2, step: 0.1, default: 1, description: "Sampling temperature" },
+			maxTokens: { min: 1, max: 32768, step: 1, default: 1000, description: "Maximum tokens to generate" },
+			topP: { min: 0, max: 1, step: 0.1, default: 1, description: "Nucleus sampling threshold" },
+		},
+	},
 ];
 
 export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
@@ -1101,6 +1109,52 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			cacheReadPricePerMToken: 0.06,
 			cacheCreationPricePerMToken: 0.375,
 			capabilities: ["function-calling", "streaming", "thinking"],
+		},
+	],
+	// OrcaRouter model IDs are provider-prefixed (`openai/…`, `anthropic/…`)
+	// per https://docs.orcarouter.ai/getting-started/models. Prices match the
+	// upstream OpenLIT catalog because OrcaRouter bills at zero markup.
+	orcarouter: [
+		{
+			id: "orcarouter/auto",
+			displayName: "Auto Router",
+			contextWindow: 200000,
+			// Virtual router: billed cost follows the resolved upstream
+			// (`X-Orca-Resolved-Model`). Seed gpt-4o-mini rates so the
+			// picker has a non-zero estimate rather than $0.
+			inputPricePerMToken: 0.15,
+			outputPricePerMToken: 0.6,
+			cacheReadPricePerMToken: 0.075,
+			capabilities: ["streaming"],
+		},
+		{
+			id: "openai/gpt-5.5",
+			displayName: "GPT-5.5",
+			contextWindow: 400000,
+			inputPricePerMToken: 5.0,
+			outputPricePerMToken: 30.0,
+			cacheReadPricePerMToken: 0.5,
+			capabilities: ["function-calling", "vision", "streaming"],
+		},
+		{
+			id: "anthropic/claude-opus-4.7",
+			displayName: "Claude Opus 4.7",
+			contextWindow: 1000000,
+			inputPricePerMToken: 5.0,
+			outputPricePerMToken: 25.0,
+			cacheReadPricePerMToken: 0.5,
+			cacheCreationPricePerMToken: 6.25,
+			capabilities: ["function-calling", "vision", "streaming", "thinking"],
+		},
+		{
+			id: "google/gemini-2.5-flash",
+			displayName: "Gemini 2.5 Flash",
+			contextWindow: 1000000,
+			inputPricePerMToken: 0.3,
+			outputPricePerMToken: 2.5,
+			cacheReadPricePerMToken: 0.03,
+			cacheCreationPricePerMToken: 0.3,
+			capabilities: ["function-calling", "vision", "streaming", "thinking"],
 		},
 	],
 };
