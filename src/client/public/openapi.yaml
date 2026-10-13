@@ -16,7 +16,7 @@ info:
     - `x-openlit-project-id` — active project (bindings are project-scoped)
     - `x-openlit-environment` — active environment (drives signal routing)
 
-    ### Non-SDK APIs (telemetry, Ask Otter, AI Analysis, …)
+    ### Non-SDK APIs (telemetry, Ask Otter, AI Analysis, Scanner, …)
     Use signal routing headers only. Do **not** send
     `x-openlit-database-config-id`. The API key still binds a vault/credential
     database config (middleware injects `x-database-config-id`).
@@ -30,8 +30,10 @@ info:
 
     ## Authentication
 
-    All documented endpoints require Bearer API key auth (`ApiKeyAuth`).
-  version: 1.28.0
+    All documented endpoints require Bearer API key auth (`ApiKeyAuth`), except
+    API key management (`/api/api-key`), which requires a signed-in session
+    (`SessionAuth`) so a key can't list, create, change, or delete keys.
+  version: 1.29.0
 servers:
   - url: http://localhost:3000
     description: Local development server
@@ -54,6 +56,8 @@ tags:
     description: Offline LLM evaluations
   - name: API Keys
     description: Manage browser/SDK access keys
+  - name: Scanner
+    description: Run Trustabl scanner jobs and retrieve findings for GitHub repositories
 
 paths:
   /api/telemetry/logs:
@@ -615,13 +619,12 @@ paths:
       tags:
         - API Keys
       summary: List all API Keys
-      description: Retrieve all API keys associated with the user's active database configuration.
+      description: >-
+        Retrieve the API keys for the user's active database configuration,
+        with a preview of each key and its access. Requires a signed-in
+        session; Bearer API keys are rejected with `403`.
       security:
-        - ApiKeyAuth: []
-      parameters:
-        - $ref: '#/components/parameters/OpenLitOrganisationId'
-        - $ref: '#/components/parameters/OpenLitProjectId'
-        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - SessionAuth: []
       responses:
         '200':
           description: A list of API Keys.
@@ -631,17 +634,20 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ApiKey'
+        '403':
+          description: Bearer API keys can't manage API keys, or the user lacks permission.
     post:
       tags:
         - API Keys
       summary: Generate an API Key
-      description: Create a new API key prefixed with `openlit-` linked to the active database configuration.
+      description: >-
+        Create a new API key prefixed with `openlit-` linked to the active
+        database configuration. Omit `scopes` for full access. Restricting a
+        key with `scopes` requires OpenLIT Enterprise with role-based access
+        control; the community edition ignores `scopes`. Requires a signed-in
+        session.
       security:
-        - ApiKeyAuth: []
-      parameters:
-        - $ref: '#/components/parameters/OpenLitOrganisationId'
-        - $ref: '#/components/parameters/OpenLitProjectId'
-        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - SessionAuth: []
       requestBody:
         required: true
         content:
@@ -654,35 +660,112 @@ paths:
                 name:
                   type: string
                   example: my-sdk-key
+                scopes:
+                  description: Features the key may use. Omit for full access.
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/ApiKeyScope'
+                  example: ["ingest", "prompts"]
       responses:
         '200':
-          description: API key created successfully.
+          description: API key created successfully. The key is shown only once.
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  id:
+                    type: string
                   apiKey:
                     type: string
                     example: openlit-uHpx834Jsa...
                   databaseConfigId:
                     type: string
                     example: db-config-id
+                  organisationId:
+                    type: string
+                    nullable: true
+                  projectId:
+                    type: string
+                    nullable: true
+                  environment:
+                    type: string
+                    example: production
         '400':
-          description: Bad Request.
+          description: Invalid JSON, an invalid name, or an invalid list of features.
+        '403':
+          description: >-
+            Bearer API keys can't manage API keys, the user lacks permission, or
+            the edition/license or the user's role doesn't allow the requested access.
 
   /api/api-key/{id}:
+    patch:
+      tags:
+        - API Keys
+      summary: Update API Key access
+      description: >-
+        Change which features an existing key can use. Send `scopes: null` for
+        full access or a list of features to restrict the key. Requires OpenLIT
+        Enterprise with role-based access control and a signed-in session; the
+        community edition responds with `403`.
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Path parameter. API key ID to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - scopes
+              properties:
+                scopes:
+                  description: '`null` for full access, or the features the key may use.'
+                  type: array
+                  nullable: true
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/ApiKeyScope'
+                  example: ["prompts", "vault"]
+      responses:
+        '200':
+          description: The key's updated access.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  scopes:
+                    type: array
+                    nullable: true
+                    items:
+                      $ref: '#/components/schemas/ApiKeyScope'
+        '400':
+          description: Invalid JSON or an invalid list of features.
+        '401':
+          description: No signed-in user.
+        '403':
+          description: Not available in this edition or license, or the user lacks permission.
+        '404':
+          description: No such key in the active database configuration.
     delete:
       tags:
         - API Keys
       summary: Delete an API Key
-      description: Mark an API key as deleted.
+      description: Mark an API key as deleted. Requires a signed-in session.
       security:
-        - ApiKeyAuth: []
+        - SessionAuth: []
       parameters:
-        - $ref: '#/components/parameters/OpenLitOrganisationId'
-        - $ref: '#/components/parameters/OpenLitProjectId'
-        - $ref: '#/components/parameters/OpenLitEnvironment'
         - name: id
           in: path
           required: true
@@ -1419,6 +1502,112 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
+  /api/scanners:
+    get:
+      tags:
+        - Scanner
+      summary: List scanner connectors and scan jobs
+      description: |
+        Return scanner connectors for the current project and environment, including
+        recent scan jobs and their findings. Use this to read the data of a scan after
+        `POST /api/scanners/{id}/scan`. Jobs are environment-scoped. Secrets are never
+        returned.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+      responses:
+        '200':
+          description: Scanner connectors with recent jobs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/scanners/{id}/scan:
+    post:
+      tags:
+        - Scanner
+      summary: Run a scanner job
+      description: |
+        Start a Trustabl scan for the connector. Missing body fields fall back to the
+        connector defaults. The scan target must be an `https://github.com/owner/repo`
+        URL (optional `/tree/<ref>`). Local filesystem paths are rejected.
+
+        The response includes the finished job and its findings. The request can take
+        several minutes (up to 300 seconds). A second scan is rejected while one is
+        already running on the same connector. Tokens stay on the connector and must
+        not be sent in the body.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - name: id
+          in: path
+          required: true
+          description: Scanner connector ID (`scanner:<uuid>`).
+          schema:
+            type: string
+            example: scanner:3f1c9a2b-4d6e-4a11-9c8f-1b2a3c4d5e6f
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScannerScanRequest'
+      responses:
+        '200':
+          description: Scan job result, including findings when the job finished.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerScanResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/scanners/findings:
+    get:
+      tags:
+        - Scanner
+      summary: Get latest scan findings for a repository
+      description: |
+        Return the latest succeeded scan in the current project and environment whose
+        target matches `repoUrl`. Accepts `https://github.com/owner/repo`, `.git`,
+        `/tree/<ref>`, and `git@github.com:owner/repo` forms. Medium+ findings are
+        listed first (up to 25). When no scan matches, `matched` is false.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - name: repoUrl
+          in: query
+          required: true
+          description: GitHub repository URL from `vcs.repository.url.full` or the scanner target.
+          schema:
+            type: string
+            example: https://github.com/acme/checkout-agent
+      responses:
+        '200':
+          description: Latest matching scan findings, or a miss when none exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerFindingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
 components:
   parameters:
     OpenLitOrganisationId:
@@ -1448,7 +1637,7 @@ components:
       description: |
         Header parameter. Active project environment (for example `production` or `staging`).
         Required for signal routing (traces/logs/metrics/intelligence connectors),
-        AI Analysis, and Ask Otter SQL. Defaults to `production` on some routes
+        AI Analysis, Ask Otter SQL, and scanner jobs. Defaults to `production` on some routes
         when omitted, which may hit the wrong source.
       schema:
         type: string
@@ -1493,6 +1682,11 @@ components:
         Required. Bearer token format (`Authorization: Bearer openlit-...`).
         The key binds a database configuration; clients do not need to send
         `x-openlit-database-config-id`.
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+      description: Signed-in OpenLIT browser session.
 
   schemas:
     TimeLimit:
@@ -1606,11 +1800,43 @@ components:
           type: string
         name:
           type: string
-        apiKey:
+        apiKeyPreview:
           type: string
+          example: openlit-uHpx…x7Qp2A
         createdAt:
           type: string
           format: date-time
+        createdByUser:
+          type: object
+          properties:
+            email:
+              type: string
+        scopes:
+          description: '`null` for full access, otherwise the features the key may use.'
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ApiKeyScope'
+
+    ApiKeyScope:
+      type: string
+      description: >-
+        A feature an API key can use: `ingest` (OTLP telemetry ingestion),
+        `telemetry` (`/api/telemetry/*`, `/api/metrics/*`), `prompts`
+        (`/api/prompt/*`), `vault` (`/api/vault/*`), `rule_engine`
+        (`/api/rule-engine/*`), `evaluation` (`/api/evaluation/*`), `chat`
+        (`/api/chat/*`), `controller` (`/api/controller/*`), `db_config`
+        (`/api/db-config*`).
+      enum:
+        - ingest
+        - telemetry
+        - prompts
+        - vault
+        - rule_engine
+        - evaluation
+        - chat
+        - controller
+        - db_config
 
     OfflineEvaluationInput:
       type: object
@@ -1758,6 +1984,265 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    ScannerFinding:
+      type: object
+      properties:
+        id:
+          type: string
+        ruleId:
+          type: string
+          example: MCP-004
+        severity:
+          type: string
+          example: medium
+        category:
+          type: string
+        scope:
+          type: string
+        toolName:
+          type: string
+        path:
+          type: string
+          example: src/mcp/server.ts
+        line:
+          type: integer
+        endLine:
+          type: integer
+        title:
+          type: string
+        message:
+          type: string
+        helpUrl:
+          type: string
+        fix:
+          type: string
+        confidence:
+          type: string
+
+    ScannerReportSummary:
+      type: object
+      properties:
+        scanId:
+          type: string
+        repo:
+          type: string
+        overallScore:
+          type: number
+          example: 0.72
+        rulesSource:
+          type: string
+          example: production
+        rulesVersion:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        sdks:
+          type: array
+          items:
+            type: string
+        toolCount:
+          type: integer
+        agentCount:
+          type: integer
+        mcpCount:
+          type: integer
+        vulnerabilityCount:
+          type: integer
+        secretCount:
+          type: integer
+        filesParsed:
+          type: integer
+        noAgentSurfaces:
+          type: boolean
+
+    ScannerScanParams:
+      type: object
+      description: Resolved Trustabl scan flags persisted on the job. Secrets are never included.
+      properties:
+        detectors:
+          type: string
+          example: claude_sdk,mcp
+        strict:
+          type: boolean
+        secretScan:
+          type: boolean
+        vulnScan:
+          type: boolean
+        licenseScan:
+          type: boolean
+        requireSigned:
+          type: boolean
+        rulesRepo:
+          type: string
+        rulesRef:
+          type: string
+        rulesSource:
+          type: string
+          enum: [production, staging, git]
+        noRulesUpdate:
+          type: boolean
+        verbose:
+          type: boolean
+
+    ScannerScanRequest:
+      type: object
+      description: |
+        Optional per-run overrides. Omitted fields use the scanner connector defaults.
+        Do not send GitHub tokens in this body.
+      properties:
+        target:
+          type: string
+          description: GitHub repository URL. Falls back to the connector setting.
+          example: https://github.com/acme/checkout-agent
+        ref:
+          type: string
+          description: Branch, tag, or commit. Falls back to the URL `/tree/<ref>` or the connector setting.
+          example: main
+        detectors:
+          type: string
+        strict:
+          type: boolean
+        secretScan:
+          type: boolean
+        vulnScan:
+          type: boolean
+        licenseScan:
+          type: boolean
+        requireSigned:
+          type: boolean
+        rulesRepo:
+          type: string
+        rulesRef:
+          type: string
+        rulesSource:
+          type: string
+          enum: [environment, production, staging, git]
+        noRulesUpdate:
+          type: boolean
+        verbose:
+          type: boolean
+
+    ScannerJob:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, runtime-missing]
+        target:
+          type: string
+          example: https://github.com/acme/checkout-agent
+        ref:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        durationMs:
+          type: integer
+        exitCode:
+          type: integer
+        error:
+          type: string
+        findingCount:
+          type: integer
+        mediumPlusCount:
+          type: integer
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScannerFinding'
+        params:
+          $ref: '#/components/schemas/ScannerScanParams'
+        report:
+          $ref: '#/components/schemas/ScannerReportSummary'
+        cliVersion:
+          type: string
+          example: v0.1.8
+
+    ScannerConnector:
+      type: object
+      properties:
+        id:
+          type: string
+          example: scanner:3f1c9a2b-4d6e-4a11-9c8f-1b2a3c4d5e6f
+        name:
+          type: string
+        type:
+          type: string
+          example: trustabl
+        environment:
+          type: string
+          example: production
+        settings:
+          type: string
+          description: JSON object of non-secret connector settings.
+        hasSecret:
+          type: boolean
+        category:
+          type: string
+          example: scanner
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScannerJob'
+
+    ScannerListResponse:
+      type: object
+      properties:
+        connectors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScannerConnector'
+
+    ScannerScanResponse:
+      type: object
+      properties:
+        connector:
+          $ref: '#/components/schemas/ScannerConnector'
+        job:
+          $ref: '#/components/schemas/ScannerJob'
+
+    ScannerFindingsResponse:
+      type: object
+      properties:
+        matched:
+          type: boolean
+        repoKey:
+          type: string
+          nullable: true
+          example: github.com/acme/checkout-agent
+        connectorId:
+          type: string
+        connectorName:
+          type: string
+        jobId:
+          type: string
+        target:
+          type: string
+        ref:
+          type: string
+        scannedAt:
+          type: string
+          format: date-time
+        findingCount:
+          type: integer
+        mediumPlusCount:
+          type: integer
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScannerFinding'
+        url:
+          type: string
+          description: Scanner workspace deep link (`/scanner?connectorId=&jobId=`).
+          example: /scanner?connectorId=scanner%3Aabc&jobId=job%3A1
 
   responses:
     UnauthorizedError:

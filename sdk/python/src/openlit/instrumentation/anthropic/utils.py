@@ -890,10 +890,10 @@ def process_chat_response(
 
     # Handle token usage including reasoning tokens and cached tokens
     usage = response_dict.get("usage", {})
-    scope._input_tokens = usage.get("input_tokens", 0)
-    scope._output_tokens = usage.get("output_tokens", 0)
-    scope._cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
-    scope._cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
+    scope._input_tokens = usage.get("input_tokens", 0) or 0
+    scope._output_tokens = usage.get("output_tokens", 0) or 0
+    scope._cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0) or 0
+    scope._cache_read_input_tokens = usage.get("cache_read_input_tokens", 0) or 0
 
     scope._response_model = response_dict.get("model", "")
     scope._finish_reason = response_dict.get("stop_reason", "")
