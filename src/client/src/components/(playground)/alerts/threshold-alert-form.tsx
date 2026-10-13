@@ -27,7 +27,7 @@ import type { ThresholdAlertView } from "@/lib/platform/alerts/threshold";
 import { AlertsPageFrame } from "./alerts-shell";
 import { alertsRequest } from "./alert-api";
 import { conditionSummary, filtersSummary, metricLabel, metricUnit, operatorSymbol } from "./alert-format";
-import AlertDeliveryExtension, { type AlertDeliveryValue } from "./alert-delivery-extension";
+import AlertDeliveryExtension, { type AlertDeliveryValue } from "@/components/(playground)/alerts/alert-delivery-extension";
 
 const MATCH_FIELDS = [...REALTIME_STRING_FIELDS, ...REALTIME_NUMERIC_FIELDS, ...REALTIME_ATTRIBUTE_FIELDS];
 const GROUP_FIELDS = [...REALTIME_STRING_FIELDS, ...REALTIME_ATTRIBUTE_FIELDS];

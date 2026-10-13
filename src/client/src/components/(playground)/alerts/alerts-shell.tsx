@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { BellRing } from "lucide-react";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import getMessage from "@/constants/messages";
-import { getAlertSections } from "./alert-sections";
+import { getAlertSections } from "@/components/(playground)/alerts/alert-sections";
 
 export const ALERTS_HEADER_TONE =
 	"border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/40 dark:text-rose-300";

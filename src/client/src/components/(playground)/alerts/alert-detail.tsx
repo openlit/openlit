@@ -31,7 +31,7 @@ import {
 	windowLabel,
 } from "./alert-format";
 import SignalInspector, { type SortOrder } from "./signal-inspector";
-import AlertDetailExtension from "./alert-detail-extension";
+import AlertDetailExtension from "@/components/(playground)/alerts/alert-detail-extension";
 
 type Tab = "activity" | "spans" | "configuration";
 type StateFilter = "all" | "firing" | "resolved";

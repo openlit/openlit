@@ -13,7 +13,7 @@ import type { ThresholdAlertOverview } from "@/lib/platform/alerts/threshold";
 import { AlertsPageFrame } from "./alerts-shell";
 import { alertsRequest } from "./alert-api";
 import { SEVERITY_CLASSES, STATUS_CLASSES, formatMetricValue, relativeTime } from "./alert-format";
-import AlertsOverviewExtension from "./alerts-overview-extension";
+import AlertsOverviewExtension from "@/components/(playground)/alerts/alerts-overview-extension";
 
 const REFRESH_MS = 15_000;
 
