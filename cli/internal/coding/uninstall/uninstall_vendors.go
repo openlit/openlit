@@ -31,6 +31,9 @@ func uninstallVendor(vendor string, dryRun bool) (removed []string, errs []strin
 	if vendor == "cursor" {
 		return uninstallCursorHooks(dryRun)
 	}
+	if vendor == "opencode" {
+		return uninstallOpenCodePlugin(dryRun)
+	}
 
 	dest, err := vendorDestRoot(vendor)
 	if err != nil {
