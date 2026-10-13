@@ -19,6 +19,16 @@ Save with **Save Changes** or **Create Config** depending on whether a config al
 
 To use **TypeSafe Jev** as the judge, choose provider **TypeSafe** and a Jev model. OpenLIT posts to the TypeSafe System One API with the selected Vault key. Explanation uses the noul/score classification. Pin `jev-1.13.0` when calibrating thresholds. Jev is not available in Chat or OpenGround. To trace `system_one` / `systemOne` calls from your app, see [Monitor TypeSafe Jev](/latest/sdk/integrations/typesafe).
 
+<Frame>
+  <img src="/images/jev-eval-config.png" alt="Evaluation configuration with the TypeSafe provider, the Jev 1.13.0 model, and a Vault API key selected" />
+</Frame>
+
+Selecting **TypeSafe** lists the three Jev models with their context window and price per million input tokens.
+
+<Frame>
+  <img src="/images/jev-eval-models.png" alt="Model list for the TypeSafe provider showing Jev 1.13.0, Jev Latest, and Jev Preview with 64,000 context and $0.042 per million tokens" />
+</Frame>
+
 ## Auto Evaluation
 
 **Auto Evaluation** runs enabled [evaluators](/latest/openlit/evaluations/evaluators) against newly ingested LLM traces on a schedule - no manual click or SDK call required.
