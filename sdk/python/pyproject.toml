@@ -40,7 +40,7 @@ opentelemetry-instrumentation-tornado = ">=0.52b0,<1.0.0"
 opentelemetry-instrumentation-aiohttp-client = ">=0.52b0,<1.0.0"
 opentelemetry-instrumentation-httpx = ">=0.52b0,<1.0.0"
 opentelemetry-instrumentation-requests = ">=0.52b0,<1.0.0"
-opentelemetry-instrumentation-urllib = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-urllib = ">=0.66b1,<1.0.0"
 opentelemetry-instrumentation-urllib3 = ">=0.52b0,<1.0.0"
 # Official OpenTelemetry System Metrics (optional)
 opentelemetry-instrumentation-system-metrics = {version = ">=0.52b0,<1.0.0", optional = true}
