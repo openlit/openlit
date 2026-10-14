@@ -71,7 +71,7 @@ export default function AlertsOverview() {
 
 	return (
 		<AlertsPageFrame>
-			<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+			<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 text-stone-900 dark:text-stone-100">
 				<div className="flex flex-wrap items-center gap-2">
 					<p className="min-w-0 flex-1 text-xs text-stone-500 dark:text-stone-400">{m.ALERTING_OVERVIEW_HINT}</p>
 					<Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={load} disabled={loading} aria-label={m.ALERTING_REFRESH}>

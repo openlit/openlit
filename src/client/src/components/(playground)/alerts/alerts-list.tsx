@@ -67,7 +67,7 @@ export default function AlertsList() {
 
 	return (
 		<AlertsPageFrame>
-			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
+			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 text-stone-900 dark:text-stone-100">
 				<div className="flex flex-wrap items-center gap-2">
 					<p className="min-w-0 flex-1 text-xs text-stone-500 dark:text-stone-400">{m.ALERTING_LIST_HINT}</p>
 					<FeatureAccess access="alerts.create" requireProject hideWhenDenied>

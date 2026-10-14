@@ -157,7 +157,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
 	return (
-		<section className="rounded-md border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-950">
+		<section className="rounded-md border border-stone-200 bg-white p-4 text-stone-900 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-100">
 			<h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">{title}</h2>
 			{description ? <p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">{description}</p> : null}
 			<div className="mt-3 flex flex-col gap-3">{children}</div>
@@ -237,7 +237,7 @@ export default function ThresholdAlertForm({ alertId, header }: { alertId?: stri
 		<AlertsPageFrame
 			title={editing ? m.ALERTING_EDIT_TITLE : m.ALERTING_NEW_TITLE}
 			leading={
-				<Button variant="ghost" size="sm" className="h-7 w-7 p-0" asChild>
+				<Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-stone-600 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50" asChild>
 					<Link href={editing ? `/alerts/${alertId}` : "/alerts/list"} aria-label={m.ALERTING_BACK}>
 						<ArrowLeft className="h-4 w-4" />
 					</Link>
@@ -323,9 +323,9 @@ export default function ThresholdAlertForm({ alertId, header }: { alertId?: stri
 							<Field label={m.ALERTING_FIELD_GROUP_BY} hint={m.ALERTING_FIELD_GROUP_BY_HINT}>
 								<div className="flex min-h-8 flex-wrap items-center gap-1.5">
 									{draft.groupBy.map((field) => (
-										<span key={field} className="inline-flex items-center gap-1 rounded border border-stone-200 bg-stone-50 px-1.5 py-0.5 font-mono text-[11px] dark:border-stone-800 dark:bg-stone-900">
+										<span key={field} className="inline-flex items-center gap-1 rounded border border-stone-200 bg-stone-50 px-1.5 py-0.5 font-mono text-[11px] text-stone-800 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100">
 											{field}
-											<button type="button" aria-label={m.ALERTING_REMOVE} onClick={() => set({ groupBy: draft.groupBy.filter((f) => f !== field) })}>
+											<button type="button" aria-label={m.ALERTING_REMOVE} className="text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-50" onClick={() => set({ groupBy: draft.groupBy.filter((f) => f !== field) })}>
 												<X className="h-3 w-3" />
 											</button>
 										</span>
@@ -385,7 +385,7 @@ export default function ThresholdAlertForm({ alertId, header }: { alertId?: stri
 									<Button
 										variant="ghost"
 										size="icon"
-										className="h-7 w-7"
+										className="h-7 w-7 text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-50"
 										aria-label={m.ALERTING_REMOVE}
 										onClick={() => set({ match: draft.match.filter((_, i) => i !== index) })}
 									>
@@ -398,7 +398,7 @@ export default function ThresholdAlertForm({ alertId, header }: { alertId?: stri
 							<Button
 								variant="outline"
 								size="sm"
-								className="h-8 w-fit gap-1 text-xs"
+								className="h-8 w-fit gap-1 text-xs text-stone-700 dark:text-stone-200"
 								onClick={() => set({ match: [...draft.match, { field: "model", op: "eq", value: "" }] })}
 							>
 								<Plus className="h-3.5 w-3.5" />

@@ -120,7 +120,7 @@ export default function AlertDetail({ alertId }: { alertId: string }) {
 	};
 
 	const back = (
-		<Button variant="ghost" size="sm" className="h-7 w-7 p-0" asChild>
+		<Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-stone-600 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50" asChild>
 			<Link href="/alerts/list" aria-label={m.ALERTING_BACK}>
 				<ArrowLeft className="h-4 w-4" />
 			</Link>
@@ -148,7 +148,7 @@ export default function AlertDetail({ alertId }: { alertId: string }) {
 
 	return (
 		<AlertsPageFrame title={alert.name} leading={back}>
-			<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+			<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 text-stone-900 dark:text-stone-100">
 				<div className="flex flex-wrap items-center gap-2">
 					<AlertStatusBadge status={alert.status} firingCount={alert.firingCount} />
 					<span className={`inline-flex rounded border px-1.5 py-0.5 text-[11px] font-medium ${SEVERITY_CLASSES[alert.severity] || SEVERITY_CLASSES.info}`}>
