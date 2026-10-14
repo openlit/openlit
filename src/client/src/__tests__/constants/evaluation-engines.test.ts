@@ -54,4 +54,13 @@ describe("EvaluationEngineId type", () => {
 		const id: EvaluationEngineId = "vercel";
 		expect(id).toBe("vercel");
 	});
+
+	it("contains typesafe engine", () => {
+		const ids = EVALUATION_ENGINES.map((e) => e.id);
+		expect(ids).toContain("typesafe");
+		const typesafe = EVALUATION_ENGINES.find((e) => e.id === "typesafe");
+		expect(typesafe?.requiresModel).toBe(true);
+		expect(typesafe?.requiresApiKey).toBe(true);
+		expect(typesafe?.label).toBe("TypeSafe Jev");
+	});
 });

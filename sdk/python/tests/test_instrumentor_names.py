@@ -53,6 +53,11 @@ def test_distribution_names_resolve():
     assert normalize_instrumentor_name("llama-index") == "llama_index"
     assert normalize_instrumentor_name("pydantic-ai") == "pydantic_ai"
     assert normalize_instrumentor_name("reka-api") == "reka-api"
+    assert normalize_instrumentor_name("jev") == "typesafe"
+    assert normalize_instrumentor_name("typesafe-ai") == "typesafe"
+    assert normalize_instrumentor_name("typesafe_sdk") == "typesafe"
+    assert normalize_instrumentor_name("typesafe-sdk") == "typesafe"
+    assert MODULE_NAME_MAP["typesafe"] == "typesafe_sdk"
 
 
 def test_module_directory_names_resolve():
