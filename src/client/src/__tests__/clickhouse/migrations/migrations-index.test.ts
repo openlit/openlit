@@ -40,6 +40,7 @@ const MIGRATION_MODULES = [
   "@/clickhouse/migrations/create-telemetry-rollups-migration",
   "@/clickhouse/migrations/alter-telemetry-rollups-dimensions-migration",
   "@/clickhouse/migrations/drop-vcs-migration",
+  "@/clickhouse/migrations/backfill-otel-tenant-environment-migration",
 ];
 
 describe("ClickHouse migration orchestration", () => {
