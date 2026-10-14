@@ -60,7 +60,7 @@ func Load() Config {
 		OpenLITURL:    env("OPENLIT_URL", "http://127.0.0.1:3000"),
 		EngineSecret:  strings.TrimSpace(os.Getenv("OPENLIT_ENGINE_SECRET")),
 		HTTPAddr:      env("ENGINE_HTTP_ADDR", "127.0.0.1:4330"),
-		RulesInterval: duration("ENGINE_RULES_REFRESH", 60*time.Second),
+		RulesInterval: duration("ENGINE_RULES_REFRESH", 10*time.Second),
 		TickInterval:  duration("ENGINE_TICK", 5*time.Second),
 		Replay:        duration("ENGINE_REPLAY", 10*time.Minute),
 		Limits: Limits{

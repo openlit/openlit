@@ -40,7 +40,7 @@ OTLP receiver ──► NATS JetStream (OPENLIT_SIGNALS) ──► openlit-engin
 | `OPENLIT_ENGINE_MAX_WINDOWS_PER_TENANT` | `1000` | Rule windows per organisation/project/environment |
 | `OPENLIT_ENGINE_MAX_SAMPLES_PER_WINDOW` | `5000` | Samples kept per window |
 | `OPENLIT_ENGINE_FINDINGS_PER_MIN` | `60` | Findings a tenant can open per minute |
-| `ENGINE_RULES_REFRESH` | `60s` | Rule refresh interval |
+| `ENGINE_RULES_REFRESH` | `10s` | Rule refresh interval; a new or edited alert starts evaluating within this long |
 | `ENGINE_TICK` | `5s` | Window evaluation interval |
 | `ENGINE_REPLAY` | `10m` | How far back to replay on start |
 
