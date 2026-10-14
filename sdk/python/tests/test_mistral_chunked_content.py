@@ -1,9 +1,12 @@
 # pylint: disable=protected-access, missing-function-docstring
 """Regression tests: Mistral reasoning models answer with a list of content
-chunks (a thinking chunk, then the text) instead of a string. The complete
-and stream wrappers must record that answer rather than fail on it. These
-tests drive the real wrapper factories with responses and chunks built from
-the mistralai SDK's own models, so no API key is needed.
+chunks (a thinking chunk, then the text) instead of a string. While
+streaming, thinking arrives as a chunk list, the transition event can hold
+a closing thinking chunk and the first text chunk, and the rest of the
+answer arrives as a plain string. The complete and stream wrappers must
+record that answer and the reasoning rather than fail. These tests drive
+the real wrapper factories with responses and chunks built from the
+mistralai SDK's own models, so no API key is needed.
 """
 
 from mistralai.client.models import (
@@ -74,14 +77,37 @@ def _event(content, finish_reason=None, usage=None):
 
 
 def _magistral_stream():
+    """The shape Mistral documents for reasoning_effort="high".
+
+    Thinking is a chunk list. The transition event closes that chunk and
+    carries the first text fragment. Later answer deltas are plain strings.
+    """
+
     return iter(
         [
-            _event([{"type": "thinking", "thinking": [{"type": "text", "text": REASONING}]}]),
-            _event([{"type": "text", "text": ANSWER}]),
+            _event(
+                [
+                    {
+                        "type": "thinking",
+                        "thinking": [{"type": "text", "text": REASONING}],
+                    }
+                ]
+            ),
+            _event(
+                [
+                    {"type": "thinking", "thinking": [], "closed": True},
+                    {"type": "text", "text": "Par"},
+                ]
+            ),
+            _event("is."),
             _event(
                 None,
                 finish_reason="stop",
-                usage={"prompt_tokens": 20, "completion_tokens": 41, "total_tokens": 61},
+                usage={
+                    "prompt_tokens": 20,
+                    "completion_tokens": 41,
+                    "total_tokens": 61,
+                },
             ),
         ]
     )
@@ -95,14 +121,14 @@ def _tracer_with_exporter():
     return provider.get_tracer(__name__), exporter
 
 
-def _factory(make, tracer):
+def _factory(make, tracer, capture_message_content=True):
     return make(
         version="test",
         environment="test",
         application_name="test",
         tracer=tracer,
         pricing_info={},
-        capture_message_content=True,
+        capture_message_content=capture_message_content,
         metrics=None,
         disable_metrics=True,
         event_provider=None,
@@ -137,7 +163,7 @@ def test_stream_records_chunked_answer_and_keeps_yielding():
     stream = wrapper(lambda *a, **k: _magistral_stream(), None, (), REQUEST_KWARGS)
     events = list(stream)
 
-    assert len(events) == 3, "every chunk must still reach the caller"
+    assert len(events) == 4, "every chunk must still reach the caller"
     spans = exporter.get_finished_spans()
     assert len(spans) == 1
     span = spans[0]
@@ -147,3 +173,31 @@ def test_stream_records_chunked_answer_and_keeps_yielding():
     assert ANSWER in completion
     assert REASONING not in completion
     assert span.attributes.get(SemanticConvention.GEN_AI_CONTENT_REASONING) == REASONING
+
+
+def test_capture_disabled_omits_reasoning_and_answer():
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(sync_mod.complete, tracer, capture_message_content=False)
+
+    returned = wrapper(lambda *a, **k: MAGISTRAL_RESPONSE, None, (), REQUEST_KWARGS)
+
+    assert returned is MAGISTRAL_RESPONSE
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span.status.status_code != StatusCode.ERROR
+    assert SemanticConvention.GEN_AI_CONTENT_REASONING not in span.attributes
+    assert SemanticConvention.GEN_AI_OUTPUT_MESSAGES not in span.attributes
+
+
+def test_reasoning_respects_max_content_length():
+    tracer, exporter = _tracer_with_exporter()
+    OpenlitConfig.max_content_length = 8
+    wrapper = _factory(sync_mod.complete, tracer)
+
+    wrapper(lambda *a, **k: MAGISTRAL_RESPONSE, None, (), REQUEST_KWARGS)
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    reasoning = spans[0].attributes.get(SemanticConvention.GEN_AI_CONTENT_REASONING)
+    assert reasoning == REASONING[:8] + "..."

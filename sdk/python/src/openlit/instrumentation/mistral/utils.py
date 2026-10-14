@@ -9,6 +9,7 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    append_scope_reasoning,
     apply_agent_version_attributes,
     build_system_instructions_from_messages,
     build_tool_definitions,
@@ -21,6 +22,7 @@ from openlit.__helpers import (
     otel_event,
     record_completion_metrics,
     record_embedding_metrics,
+    set_span_reasoning_content,
     truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
@@ -328,10 +330,7 @@ def process_chunk(scope, chunk):
             text, reasoning = split_content_chunks(delta.get("content"))
             if text:
                 scope._llmresponse += text
-            if reasoning:
-                scope._reasoning_content = (
-                    getattr(scope, "_reasoning_content", "") + reasoning
-                )
+            append_scope_reasoning(scope, reasoning)
 
             # Handle tool calls in streaming - optimized
             delta_tools = delta.get("tool_calls")
@@ -559,11 +558,9 @@ def common_chat_logic(
 
     if capture_message_content:
         _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
-        if getattr(scope, "_reasoning_content", ""):
-            scope._span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_REASONING,
-                scope._reasoning_content,
-            )
+        set_span_reasoning_content(
+            scope._span, scope, capture_message_content=capture_message_content
+        )
         if system_instr:
             scope._span.set_attribute(
                 SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
