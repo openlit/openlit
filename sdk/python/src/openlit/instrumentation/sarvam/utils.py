@@ -215,12 +215,13 @@ def process_chunk(scope, chunk):
         chunk: Individual chunk from the streaming response.
     """
     current_time = time.time()
-
-    # Calculate TTFT for the first chunk
-    if len(scope._timestamps) == 0:
-        scope._ttft = calculate_ttft(scope._start_time, current_time)
-
     scope._timestamps.append(current_time)
+
+    # Calculate TTFT for the first chunk (timestamps first, start time second,
+    # matching calculate_ttft's signature; every other instrumentor calls it
+    # in this order — the reversed call crashed on every chunk).
+    if len(scope._timestamps) == 1:
+        scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
     # Extract and accumulate response data from chunk
     if hasattr(chunk, "choices") and len(chunk.choices) > 0:
@@ -503,7 +504,11 @@ def common_chat_logic(
             **extra,
         )
 
-    scope._span.set_status(Status(StatusCode.OK))
+    # OK is sticky in the OTel SDK: a later set_status(ERROR) is ignored.
+    # Stream failures set scope._stream_error before this runs, then
+    # handle_exception records ERROR once these attributes are written.
+    if getattr(scope, "_stream_error", None) is None:
+        scope._span.set_status(Status(StatusCode.OK))
 
     # Span status and metrics
     if not disable_metrics:

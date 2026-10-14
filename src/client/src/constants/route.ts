@@ -17,7 +17,6 @@ export const ALLOWED_OPENLIT_ROUTES_WITH_TOKEN = [
 	"/api/vault/get-secrets",
 	"/api/rule-engine/evaluate",
 	"/api/controller/poll",
-	"/api/api-key",
 	"/api/db-config",
 ];
 
@@ -29,7 +28,6 @@ export const ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN = [
 	"/api/vault/",
 	"/api/metrics/",
 	"/api/chat/",
-	"/api/api-key/",
 ];
 
 export const CRON_JOB_ROUTES = [
