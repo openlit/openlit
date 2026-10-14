@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Plus, X } from "lucide-react";
@@ -165,7 +165,11 @@ function Section({ title, description, children }: { title: string; description?
 	);
 }
 
-export default function ThresholdAlertForm({ alertId }: { alertId?: string }) {
+/**
+ * One-step threshold alert form. `header` renders above the form; the
+ * enterprise overlay uses it for the Threshold / Event switch on New alert.
+ */
+export default function ThresholdAlertForm({ alertId, header }: { alertId?: string; header?: ReactNode }) {
 	const m = getMessage();
 	const router = useRouter();
 	const editing = !!alertId;
@@ -242,6 +246,7 @@ export default function ThresholdAlertForm({ alertId }: { alertId?: string }) {
 		>
 			<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
 				<div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4">
+					{header}
 					{!editing && templates.length ? (
 						<Section title={m.ALERTING_START_FROM} description={m.ALERTING_START_FROM_HINT}>
 							<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
