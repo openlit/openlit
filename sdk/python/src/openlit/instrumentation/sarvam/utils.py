@@ -1058,7 +1058,7 @@ def process_text_to_speech_response(
     # Set content attributes if capture is enabled
     if capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("inputs", "")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("text", "")
         )
 
     span.set_status(Status(StatusCode.OK))
@@ -1066,7 +1066,7 @@ def process_text_to_speech_response(
     # Record metrics for text-to-speech
     if not disable_metrics:
         # Calculate cost based on input text for audio operations
-        input_text = kwargs.get("inputs", "")
+        input_text = kwargs.get("text", "")
         cost = get_audio_model_cost(request_model, pricing_info, input_text)
 
         record_audio_metrics(
