@@ -148,8 +148,8 @@ def async_general_wrap(
                 except Exception as e:
                     # Calculate duration even for errors
                     end_time = time.time()
-                    duration_ms = (end_time - start_time) * 1000
-                    span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+                    duration = end_time - start_time
+                    span.set_attribute("gen_ai.client.operation.duration", duration)
 
                     # Handle and log the exception
                     handle_exception(span, e)
@@ -191,8 +191,9 @@ async def _handle_regular_response(
 
     # Calculate duration for business intelligence
     end_time = time.time()
-    duration_ms = (end_time - start_time) * 1000
-    span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+    duration = end_time - start_time
+    duration_ms = duration * 1000
+    span.set_attribute("gen_ai.client.operation.duration", duration)
 
     # Process response based on operation type
     if operation_name == "extract":
@@ -314,8 +315,9 @@ async def _handle_async_generator(
         async def _finalize_metrics(self):
             """Finalize metrics when streaming is complete."""
             end_time = time.time()
-            duration_ms = (end_time - self.start_time) * 1000
-            self.span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+            duration = end_time - self.start_time
+            duration_ms = duration * 1000
+            self.span.set_attribute("gen_ai.client.operation.duration", duration)
 
             # Process aggregated results
             if self.results:

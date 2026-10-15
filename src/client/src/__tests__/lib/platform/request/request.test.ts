@@ -19,6 +19,8 @@ import {
   getAverageRequestDuration,
   getRequestsConfig,
   getRequests,
+	getTraceSummaries,
+	getTraceSummarySeries,
   getRequestViaSpanId,
   getRequestViaTraceId,
   getHeirarchyViaSpanId,
@@ -106,6 +108,7 @@ describe('getRequestsConfig', () => {
     // Provider dropdown folds the current OTel key and the legacy fallback.
     expect(query).toContain("gen_ai.provider.name");
     expect(query).toContain("gen_ai.system");
+    expect(query).toContain("deployment.environment");
   });
 });
 
@@ -256,6 +259,80 @@ describe('getRequests', () => {
     expect(countQuery).toContain('COUNT(*)');
     expect(listQuery).not.toContain('LIMIT 1 BY TraceId');
   });
+});
+
+describe('getTraceSummaries', () => {
+  it('counts unique traces and returns one root-oriented row per trace', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 3 }], err: null })
+      .mockResolvedValueOnce({
+        data: [{ TraceId: 'trace-1', SpanId: 'root-1', SpanCount: 4 }],
+        err: null,
+      });
+
+    const result = await getTraceSummaries({ ...baseParams, limit: 10, offset: 0 });
+
+    expect(result.total).toBe(3);
+    expect(result.records).toEqual([
+      { TraceId: 'trace-1', SpanId: 'root-1', SpanCount: 4 },
+    ]);
+    const countQuery = (dataCollector as jest.Mock).mock.calls[0][0].query;
+    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(countQuery).toContain('uniqExact(TraceId)');
+    expect(listQuery).toContain('WITH page AS');
+    expect(listQuery).toContain('INNER JOIN page AS p ON t.TraceId = p.TraceId');
+    expect(listQuery).toContain("t.ParentSpanId = '0000000000000000'");
+    expect(listQuery).toContain('t.SpanId');
+    expect(listQuery).toContain('t.Timestamp >= parseDateTimeBestEffort');
+    expect(listQuery).toContain('LIMIT 10');
+    expect(listQuery).toContain('OFFSET 0');
+    expect(listQuery.match(/LIMIT/g)).toHaveLength(1);
+    expect(listQuery).not.toContain('argMin(Events');
+    expect(listQuery).not.toContain('argMin(Links');
+    expect(listQuery).toContain('AS SpanCount');
+    expect(listQuery).toContain('AS ErrorCount');
+    expect(listQuery).toContain('ORDER BY p.TraceStart DESC');
+  });
+
+  it('honors an ascending timestamp sort on the paged trace ids', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 1 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getTraceSummaries({
+      ...baseParams,
+      limit: 10,
+      offset: 0,
+      sorting: { type: 'Timestamp', direction: 'asc' },
+    });
+
+    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(listQuery).toContain('ORDER BY TraceStart ASC');
+    expect(listQuery).toContain('ORDER BY p.TraceStart ASC');
+  });
+
+  it('returns the count error without running the list query', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({
+      data: null,
+      err: 'count failed',
+    });
+
+    const result = await getTraceSummaries(baseParams);
+
+    expect(result.err).toBe('count failed');
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+  });
+});
+
+it('counts unique trace IDs in the ClickHouse trace volume series', async () => {
+  (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [{ label: '2024/01', count: 2 }], err: null });
+
+  const result = await getTraceSummarySeries(baseParams);
+
+  expect(result.total).toBe(2);
+  const query = (dataCollector as jest.Mock).mock.calls[0][0].query as string;
+  expect(query).toContain('uniqExact(TraceId)');
+  expect(query).toContain('FROM');
 });
 
 describe('getRequestViaSpanId', () => {

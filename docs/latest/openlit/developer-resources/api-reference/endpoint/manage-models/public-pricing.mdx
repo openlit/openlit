@@ -21,7 +21,7 @@ Replace the host and database config id with values from your OpenLIT deployment
     import openlit
 
     openlit.init(
-        otlp_endpoint="http://<otel-collector-host>:4318",
+        otlp_endpoint="http://<openlit-host>:4318",
         pricing_json="https://<your-openlit-host>/api/pricing/export/<your-db-config-id>",
     )
     ```
@@ -31,7 +31,7 @@ Replace the host and database config id with values from your OpenLIT deployment
     import openlit from "openlit";
 
     openlit.init({
-      otlpEndpoint: "http://<otel-collector-host>:4318",
+      otlpEndpoint: "http://<openlit-host>:4318",
       pricingJson: "https://<your-openlit-host>/api/pricing/export/<your-db-config-id>",
     });
     ```
@@ -44,7 +44,7 @@ Replace the host and database config id with values from your OpenLIT deployment
 
     func main() {
         openlit.Init(openlit.Config{
-            OtlpEndpoint: "http://<otel-collector-host>:4318",
+            OtlpEndpoint: "http://<openlit-host>:4318",
             PricingJson:  "https://<your-openlit-host>/api/pricing/export/<your-db-config-id>",
         })
     }

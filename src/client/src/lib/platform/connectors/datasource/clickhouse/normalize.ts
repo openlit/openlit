@@ -137,6 +137,19 @@ export function denormalizeSpanToTraceRow(
 		Links: [],
 		Cost: span.cost,
 		agentLoop: span.agentLoop,
+		...(span.traceSummary
+			? {
+					SpanCount: span.traceSummary.spanCount,
+					ErrorCount: span.traceSummary.errorCount,
+					...(span.traceSummary.durationNs != null
+						? { TraceDurationNs: span.traceSummary.durationNs }
+						: {}),
+					...(span.traceSummary.start ? { TraceStart: span.traceSummary.start } : {}),
+					...(span.traceSummary.statusCode
+						? { TraceStatusCode: span.traceSummary.statusCode }
+						: {}),
+				}
+			: {}),
 	};
 }
 
