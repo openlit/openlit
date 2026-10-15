@@ -60,25 +60,25 @@ export default function ApiReference({ userApiKey }: ApiReferenceProps) {
 			required: false,
 			location: "header",
 			description:
-				"Active organisation ID. Recommended for multi-organisation API-key clients.",
+				"Injected from the API key on Bearer requests. Not required in curl.",
 			example: "org_01HXYZ",
 		},
 		{
 			name: "x-openlit-project-id",
 			type: "string",
-			required: true,
+			required: false,
 			location: "header",
 			description:
-				"Active project ID. Telemetry source bindings are project-scoped.",
+				"Injected from the API key on Bearer requests. Not required in curl.",
 			example: "proj_01HXYZ",
 		},
 		{
 			name: "x-openlit-environment",
 			type: "string",
-			required: true,
+			required: false,
 			location: "header",
 			description:
-				"Active project environment (e.g. production). Required for signal routing of traces/logs/metrics/intelligence.",
+				"Injected from the API key on Bearer requests. Session UI may still send this header.",
 			example: "production",
 		},
 	];
