@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { getAPIKeyInfo } from "@/lib/platform/api-keys";
+import { getApiKeyScopes } from "@/lib/platform/api-key-access/server";
 
 export async function GET(request: NextRequest) {
 	const authHeader = request.headers.get("Authorization") || "";
@@ -13,17 +14,17 @@ export async function GET(request: NextRequest) {
 	}
 
 	try {
-		const apiInfo = await prisma.aPIKeys.findFirst({
-			where: {
-				apiKey,
-				isDeleted: false,
-			},
-		});
+		const [err, apiInfo] = await getAPIKeyInfo({ apiKey });
 
-		if (apiInfo?.databaseConfigId) {
+		if (!err && apiInfo?.databaseConfigId) {
 			return NextResponse.json({
 				valid: true,
 				databaseConfigId: apiInfo.databaseConfigId,
+				organisationId: apiInfo.organisationId || null,
+				projectId: apiInfo.projectId || null,
+				environment: apiInfo.environment || "production",
+				// null = full access; an array restricts the key to those features.
+				scopes: await getApiKeyScopes(apiInfo.id),
 			});
 		}
 	} catch (e) {
