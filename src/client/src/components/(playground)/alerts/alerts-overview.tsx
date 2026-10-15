@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { BellRing, Plus, RefreshCw } from "lucide-react";
+import { BellRing, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import FeatureAccess from "@/components/rbac/feature-access";
 import getMessage from "@/constants/messages";
 import { useRootStore } from "@/store";
 import { getCurrentProject, getCurrentProjectEnvironment } from "@/selectors/project";
@@ -70,21 +69,13 @@ export default function AlertsOverview() {
 	const firingTotal = data ? severities.reduce((sum, s) => sum + (data.firingBySeverity[s] || 0), 0) : 0;
 
 	return (
-		<AlertsPageFrame>
+		<AlertsPageFrame newAlert>
 			<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 text-stone-900 dark:text-stone-100">
 				<div className="flex flex-wrap items-center gap-2">
 					<p className="min-w-0 flex-1 text-xs text-stone-500 dark:text-stone-400">{m.ALERTING_OVERVIEW_HINT}</p>
 					<Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={load} disabled={loading} aria-label={m.ALERTING_REFRESH}>
 						<RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
 					</Button>
-					<FeatureAccess access="alerts.create" requireProject hideWhenDenied>
-						<Button size="sm" asChild className="h-8">
-							<Link href="/alerts/new">
-								<Plus className="mr-1.5 h-4 w-4" />
-								{m.ALERTING_NEW}
-							</Link>
-						</Button>
-					</FeatureAccess>
 				</div>
 
 				{error ? (

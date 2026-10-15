@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -236,13 +235,7 @@ export default function ThresholdAlertForm({ alertId, header }: { alertId?: stri
 	return (
 		<AlertsPageFrame
 			title={editing ? m.ALERTING_EDIT_TITLE : m.ALERTING_NEW_TITLE}
-			leading={
-				<Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-stone-600 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-50" asChild>
-					<Link href={editing ? `/alerts/${alertId}` : "/alerts/list"} aria-label={m.ALERTING_BACK}>
-						<ArrowLeft className="h-4 w-4" />
-					</Link>
-				</Button>
-			}
+			backHref={editing ? `/alerts/${alertId}` : "/alerts/list"}
 		>
 			<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
 				<div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4">

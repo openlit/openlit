@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -66,18 +66,10 @@ export default function AlertsList() {
 	};
 
 	return (
-		<AlertsPageFrame>
+		<AlertsPageFrame newAlert>
 			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 text-stone-900 dark:text-stone-100">
 				<div className="flex flex-wrap items-center gap-2">
 					<p className="min-w-0 flex-1 text-xs text-stone-500 dark:text-stone-400">{m.ALERTING_LIST_HINT}</p>
-					<FeatureAccess access="alerts.create" requireProject hideWhenDenied>
-						<Button size="sm" asChild className="h-8">
-							<Link href="/alerts/new">
-								<Plus className="mr-1.5 h-4 w-4" />
-								{m.ALERTING_NEW}
-							</Link>
-						</Button>
-					</FeatureAccess>
 				</div>
 
 				{error ? (

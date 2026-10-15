@@ -7,7 +7,8 @@ import { useRootStore } from "@/store";
 import { getCurrentProject } from "@/selectors/project";
 import { alertsRequest } from "./alert-api";
 import type { LiveSignal } from "@/lib/platform/realtime/signals";
-import SignalDetailSheet from "./signal-detail-sheet";
+import { RequestProvider, useRequest } from "@/components/(playground)/request/request-context";
+import TraceDetailRequestSheet from "@/components/(playground)/observability/trace-detail-request-sheet";
 
 export type SortOrder = "newest" | "oldest";
 
@@ -31,22 +32,43 @@ function cost(value: number | null): string {
 	return value === null ? "—" : `$${value.toFixed(4)}`;
 }
 
-/** Recent spans from the realtime engine, newest first, read from `url`. */
-export default function SignalInspector({
-	url,
-	refreshToken = 0,
-	order = "newest",
-}: {
+type SignalInspectorProps = {
 	url: string;
 	refreshToken?: number;
 	order?: SortOrder;
-}) {
+};
+
+/**
+ * Recent spans from the realtime engine, newest first, read from `url`.
+ * Clicking a span opens the same trace sheet as Telemetry, in place.
+ */
+export default function SignalInspector(props: SignalInspectorProps) {
+	return (
+		<RequestProvider syncUrl={false}>
+			<SignalTable {...props} />
+			<TraceDetailRequestSheet />
+		</RequestProvider>
+	);
+}
+
+function SignalTable({ url, refreshToken = 0, order = "newest" }: SignalInspectorProps) {
 	const m = getMessage();
 	const project = useRootStore(getCurrentProject);
 	const [signals, setSignals] = useState<LiveSignal[] | null>(null);
 	const [available, setAvailable] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [selected, setSelected] = useState<LiveSignal | null>(null);
+	const [request, updateRequest] = useRequest();
+	const open = (signal: LiveSignal) => {
+		if (!signal.spanId) return;
+		setSelected(signal);
+		updateRequest({ spanId: signal.spanId });
+	};
+
+	// Closing the trace sheet clears the row highlight.
+	useEffect(() => {
+		if (!request) setSelected(null);
+	}, [request]);
 
 	const load = useCallback(async () => {
 		if (!project?.id) return;
@@ -125,11 +147,11 @@ export default function SignalInspector({
 					{sorted.map((signal) => (
 						<tr
 							key={signalKey(signal)}
-							onClick={() => setSelected(signal)}
+							onClick={() => open(signal)}
 							onKeyDown={(event) => {
 								if (event.key === "Enter" || event.key === " ") {
 									event.preventDefault();
-									setSelected(signal);
+									open(signal);
 								}
 							}}
 							tabIndex={0}
@@ -168,7 +190,6 @@ export default function SignalInspector({
 					))}
 				</tbody>
 			</table>
-			<SignalDetailSheet signal={selected} onClose={() => setSelected(null)} />
 		</div>
 	);
 }

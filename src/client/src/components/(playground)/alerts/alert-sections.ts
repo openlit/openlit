@@ -6,6 +6,13 @@ export type AlertSection = { id: string; href: string; label: string; match: (pa
  * Sections in the Alerts area. The enterprise overlay replaces this file to
  * add event history and notification destinations.
  */
+export type NewAlertOption = { id: string; href: string; label: string };
+
+/** Entries in the New alert button's menu. */
+export function getNewAlertOptions(): NewAlertOption[] {
+	return [{ id: "threshold", href: "/alerts/new", label: getMessage().ALERTING_NEW_THRESHOLD }];
+}
+
 export function getAlertSections(): AlertSection[] {
 	const m = getMessage();
 	return [
