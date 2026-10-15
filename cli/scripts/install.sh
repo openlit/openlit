@@ -38,6 +38,11 @@ need() {
 need curl
 need tar
 need uname
+# The release lookup below parses the releases JSON with grep/sed/head.
+# Fail here, before any download, if one of them is missing.
+need grep
+need sed
+need head
 
 # `sha256sum` lives on Linux, `shasum` on macOS — fall back gracefully
 # below. We don't fatal on missing either: if neither tool is present,
@@ -75,32 +80,36 @@ esac
 # `/releases/latest` cannot be used to find it. This repository releases
 # many components from one tree — openlit-*, py-*, ts-*, controller-*,
 # otel-gpu-collector-* — and GitHub's "latest" is whichever of them was
-# published most recently, regardless of component. At the time of
-# writing that is `openlit-2.1.0`, which carries no assets at all, so
-# `/releases/latest/download/openlit-linux-amd64.tar.gz` answered 404
-# and the installer could never complete (#1596). The asset was there
-# the whole time, on `cli-0.0.1`.
+# published most recently, regardless of component. That release does not
+# carry the CLI archives, so the download 404s (#1596).
 #
-# So resolve the newest `cli-*` tag explicitly. The releases API returns
-# newest first, so the first match is the one we want.
+# Resolve the newest `cli-*` tag explicitly. The releases API returns
+# newest first, so the first match is the one we want. Both installers
+# use that rule; do not skip prereleases here unless install.ps1 does too.
 asset="openlit-${os}-${arch}.tar.gz"
 if [ "$OPENLIT_VERSION" = "latest" ]; then
 	info "Resolving the latest CLI release"
 	releases_api="https://api.github.com/repos/${OPENLIT_REPO}/releases"
-	# Page, rather than reading only the first 100. The CLI is a minority
-	# component here: at the time of writing this repository has more than
-	# 200 releases and the newest cli-* tag sits 17 back, so one page is
-	# enough today but stops being enough once 100 releases of other
-	# components are newer than the last CLI release.
+	# Page, rather than reading only the first 100. The CLI is one
+	# component among many, so its newest tag will not stay on page 1.
+	# Walk until a cli-* tag is found, the list ends, or a ten-page cap.
+	# The cap stops a repository with no cli-* release from reading every
+	# page before it fails.
 	#
-	# The cap stops a repository with no cli-* release at all from walking
-	# every page before failing. Unauthenticated calls are rate limited
-	# (60/hour per IP), so a throttled or offline call must produce a
-	# readable error rather than a download of the empty string.
+	# A failed call is not the end of the list. Treating it as one reports
+	# "no cli-* release" when the request never succeeded, including on a
+	# later page after earlier pages held only other components.
+	# Unauthenticated calls are rate limited (60/hour per IP).
 	tag=""
 	page=1
 	while [ "$page" -le 10 ]; do
-		body=$(curl -fsSL --retry 3 --retry-delay 1 "${releases_api}?per_page=100&page=${page}" 2>/dev/null) || break
+		if ! body=$(curl -fsSL --retry 3 --retry-delay 1 \
+			-H "Accept: application/vnd.github+json" \
+			-H "User-Agent: openlit-installer" \
+			"${releases_api}?per_page=100&page=${page}"); then
+			fatal "could not reach ${releases_api} (network error or GitHub rate limit). \
+Set OPENLIT_VERSION to a published CLI version (for example OPENLIT_VERSION=0.0.1) and re-run."
+		fi
 		# grep -o first, so each tag_name lands on its own line before
 		# anything tries to pick one. A lone sed would depend on the API
 		# pretty-printing one tag_name per line: on a compact body the
@@ -111,7 +120,8 @@ if [ "$OPENLIT_VERSION" = "latest" ]; then
 			| sed -n 's/.*"\(cli-[^"]*\)"/\1/p' \
 			| head -n 1)
 		[ -n "$tag" ] && break
-		# An empty page means the end of the list, not a transient failure.
+		# HTTP 200 with no tag_name is the end of the list. A page of
+		# other components still has tag_name and has to be turned.
 		printf '%s' "$body" | grep -q '"tag_name"' || break
 		page=$((page + 1))
 	done
@@ -124,6 +134,15 @@ else
 	tag="cli-${OPENLIT_VERSION}"
 fi
 url="https://github.com/${OPENLIT_REPO}/releases/download/${tag}/${asset}"
+
+# Test hook. cli/scripts/install_resolve_test.sh sets this so it can
+# read the tag the real installer chose without downloading. Unset for
+# a normal install. curl | sh only fetches this file, so the lookup
+# cannot live in a sibling the test imports.
+if [ "${OPENLIT_PRINT_TAG:-}" = "1" ]; then
+	printf '%s\n' "$tag"
+	exit 0
+fi
 
 info "Downloading ${asset}"
 
