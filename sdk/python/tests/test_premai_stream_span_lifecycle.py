@@ -1,4 +1,4 @@
-# pylint: disable=protected-access, duplicate-code, missing-function-docstring
+# pylint: disable=protected-access, duplicate-code, missing-function-docstring, too-few-public-methods
 """Regression tests: the premai streaming wrapper must be iterable, and must
 end its span on every exit path.
 
@@ -11,20 +11,23 @@ chunk, so the one span that did get exported carried the first delta only and
 left `gen_ai.response.id` empty, because the id is read in the finish-reason
 branch an aborted iteration never reaches.
 
-premai was the only instrumentation under `src/openlit/instrumentation/` with a
-`__iter__` and no `__next__`. These tests drive the real wrapper factory with a
-synthetic premai-shaped stream and assert the stream iterates, the span ends
-exactly once on each exit path, and the usage attributes survive.
+premai 0.3 `ChatCompletionResponseStreamContainer` defines `__iter__` only and
+returns a generator. It has no `__next__`, `close`, `__enter__`, or `__exit__`.
+Chunks are attrs objects with `to_dict`, not dicts. `FakeSyncStream` below is
+the iterator from the original repro. `IterOnlyContainer` is the 0.3 container.
 """
 
+import gc
 import time
 
+import pytest
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
+from opentelemetry.trace import StatusCode
 
 from openlit._config import OpenlitConfig
 from openlit.instrumentation.premai import premai as premai_mod
@@ -75,7 +78,10 @@ def _factory(tracer):
 
 
 class FakeSyncStream:
-    """Sync context-manager stream shaped like premai's stream."""
+    """Iterator plus context manager, the shape the original repro used.
+
+    premai 0.3 does not return this. `IterOnlyContainer` is that object.
+    """
 
     def __init__(self):
         self._it = iter(CHUNKS)
@@ -95,6 +101,47 @@ class FakeSyncStream:
 
     def close(self):
         self.closed = True
+
+
+class IterOnlyContainer:
+    """premai 0.3 `ChatCompletionResponseStreamContainer`.
+
+    `__iter__` returns a generator. There is no `__next__`, `close`,
+    `__enter__`, or `__exit__`. The generator's `finally` stands in for the
+    container's `with self._stream` block.
+    """
+
+    def __init__(self, chunks, box, raise_after=None):
+        self._chunks = list(chunks)
+        self._box = box
+        self._raise_after = raise_after
+
+    def __iter__(self):
+        chunks = self._chunks
+        box = self._box
+        raise_after = self._raise_after
+
+        def generator():
+            try:
+                for index, chunk in enumerate(chunks):
+                    if raise_after is not None and index >= raise_after:
+                        raise RuntimeError("stream failed")
+                    yield chunk
+            finally:
+                box["closed"] = True
+
+        return generator()
+
+
+class AttrsChunk:
+    """Stand-in for a premai attrs chunk. `to_dict` returns the wire dict."""
+
+    def __init__(self, payload):
+        self._payload = payload
+
+    def to_dict(self):
+        """Return the chunk the streaming reader expects."""
+        return self._payload
 
 
 def _one_finished_span(exporter):
@@ -216,3 +263,193 @@ def test_the_span_is_detached_from_context():
     time.sleep(0.05)
     _one_finished_span(exporter)
     assert trace_api.get_current_span().get_span_context().span_id == 0
+
+
+def _finish_reasons(span):
+    return list(span.attributes.get(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON))
+
+
+def test_iter_only_container_yields_every_chunk_and_one_span():
+    """The 0.3 container has no __next__. list() must still return both chunks."""
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer)
+    box = {"closed": False}
+
+    stream = wrapper(
+        lambda *a, **k: IterOnlyContainer(CHUNKS, box),
+        None,
+        (),
+        REQUEST_KWARGS,
+    )
+    received = list(stream)
+
+    assert received == CHUNKS
+    assert box["closed"]
+    time.sleep(0.05)
+    span = _one_finished_span(exporter)
+    assert span.attributes.get(SemanticConvention.GEN_AI_RESPONSE_ID) == "chatcmpl-1"
+    assert _finish_reasons(span) == ["stop"]
+    assert "partial answer" in str(span.attributes)
+
+
+def test_iter_only_container_used_as_context_manager_does_not_require_enter():
+    """``with stream`` is the wrapper's protocol. The container has no __enter__."""
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer)
+    box = {"closed": False}
+
+    stream = wrapper(
+        lambda *a, **k: IterOnlyContainer(CHUNKS, box),
+        None,
+        (),
+        REQUEST_KWARGS,
+    )
+    with stream as traced:
+        assert next(traced) == CHUNKS[0]
+    assert box["closed"]
+    time.sleep(0.05)
+    span = _one_finished_span(exporter)
+    assert _finish_reasons(span) == ["incomplete"]
+
+
+def test_close_on_iter_only_container_closes_the_generator_once():
+    """close() closes the generator the container returned, not the container."""
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer)
+    box = {"closed": False}
+
+    stream = wrapper(
+        lambda *a, **k: IterOnlyContainer(CHUNKS, box),
+        None,
+        (),
+        REQUEST_KWARGS,
+    )
+    next(stream)
+    stream.close()
+    stream.close()
+
+    assert box["closed"]
+    time.sleep(0.05)
+    span = _one_finished_span(exporter)
+    assert _finish_reasons(span) == ["incomplete"]
+    assert "partial" in str(span.attributes)
+
+
+def test_bare_break_exports_the_span_when_the_wrapper_is_released():
+    """Prem's documented call is a bare for-loop. break must not leak the span."""
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer)
+    box = {"closed": False}
+
+    def run():
+        traced = wrapper(
+            lambda *a, **k: IterOnlyContainer(CHUNKS, box),
+            None,
+            (),
+            REQUEST_KWARGS,
+        )
+        for _ in traced:
+            break
+
+    run()
+    gc.collect()
+
+    assert box["closed"]
+    span = _one_finished_span(exporter)
+    assert span.status.status_code == StatusCode.OK
+    assert _finish_reasons(span) == ["incomplete"]
+    assert "partial" in str(span.attributes)
+
+
+def test_held_iter_only_stream_stays_open_until_released():
+    """A kept reference must stay resumable. Finalizing on break would drop the tail."""
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer)
+    box = {"closed": False}
+
+    stream = wrapper(
+        lambda *a, **k: IterOnlyContainer(CHUNKS, box),
+        None,
+        (),
+        REQUEST_KWARGS,
+    )
+    first = next(stream)
+
+    assert first == CHUNKS[0]
+    assert box["closed"] is False
+    assert len(exporter.get_finished_spans()) == 0
+    assert next(stream) == CHUNKS[1]
+
+    del stream
+    gc.collect()
+
+    assert box["closed"]
+    _one_finished_span(exporter)
+
+
+def test_stream_error_is_recorded_after_partial_text():
+    """A failure from the generator stays on the span with the text already seen."""
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer)
+    box = {"closed": False}
+
+    def run():
+        traced = wrapper(
+            lambda *a, **k: IterOnlyContainer(CHUNKS, box, raise_after=1),
+            None,
+            (),
+            REQUEST_KWARGS,
+        )
+        with pytest.raises(RuntimeError, match="stream failed"):
+            list(traced)
+
+    run()
+    gc.collect()
+
+    assert box["closed"]
+    span = _one_finished_span(exporter)
+    assert span.status.status_code == StatusCode.ERROR
+    assert _finish_reasons(span) == ["error"]
+    assert "partial" in str(span.attributes)
+
+
+def test_attrs_chunks_contribute_content_and_response_id():
+    """0.3 yields attrs objects. to_dict() is what puts the text on the span."""
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer)
+    chunks = [AttrsChunk(chunk) for chunk in CHUNKS]
+    box = {"closed": False}
+
+    stream = wrapper(
+        lambda *a, **k: IterOnlyContainer(chunks, box),
+        None,
+        (),
+        REQUEST_KWARGS,
+    )
+    received = list(stream)
+
+    assert received == chunks
+    time.sleep(0.05)
+    span = _one_finished_span(exporter)
+    assert span.attributes.get(SemanticConvention.GEN_AI_RESPONSE_ID) == "chatcmpl-1"
+    assert _finish_reasons(span) == ["stop"]
+    assert "partial answer" in str(span.attributes)
+    assert span.attributes.get(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS) > 0
+
+
+def test_real_0_3_container_exposes_iter_only():
+    """Lock the surface these tests stand in for, when that SDK is installed."""
+    pytest.importorskip("premai")
+    try:
+        from premai.api.chat_completions.v1_chat_completions_create import (
+            ChatCompletionResponseStreamContainer as container,
+        )
+    except ImportError:
+        pytest.skip("premai.api is the 0.3 client; this install is newer")
+
+    present = [
+        name
+        for name in ("__iter__", "__next__", "close", "__enter__", "__exit__")
+        if name in vars(container)
+    ]
+    assert present == ["__iter__"]
