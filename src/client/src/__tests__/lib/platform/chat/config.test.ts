@@ -81,6 +81,18 @@ describe('upsertChatConfig', () => {
     });
     expect(err).toBe('insert failed');
   });
+
+  it('rejects evaluation-only providers such as typesafe without writing', async () => {
+    (dataCollector as jest.Mock).mockClear();
+    const { err, data } = await upsertChatConfig({
+      provider: 'typesafe',
+      model: 'jev-latest',
+      vaultId: 'v1',
+    });
+    expect(data).toBeUndefined();
+    expect(err).toContain('evaluation-only');
+    expect(dataCollector).not.toHaveBeenCalled();
+  });
 });
 
 describe('getChatConfigWithApiKey', () => {
