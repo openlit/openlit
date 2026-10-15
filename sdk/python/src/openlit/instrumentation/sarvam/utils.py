@@ -1020,9 +1020,10 @@ def process_text_to_speech_response(
     )
 
     # Text-to-speech specific attributes (using Sarvam API defaults)
+    # sarvamai >= 0.1.29 takes language_code; older releases took target_language_code
     span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_TTS_TARGET_LANGUAGE_CODE,
-        kwargs.get("target_language_code", ""),
+        kwargs.get("language_code", kwargs.get("target_language_code", "")),
     )
     span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_TTS_SPEAKER,
