@@ -75,6 +75,7 @@ def async_messages(
             self._server_port = server_port
             self._event_provider = event_provider
             self._streaming_response_processed = False
+            self._streaming_failed = False
 
         async def __aenter__(self):
             await self.__wrapped__.__aenter__()
@@ -104,14 +105,26 @@ def async_messages(
             except StopAsyncIteration:
                 self._finalize_streaming_span()
                 raise
+            except BaseException as e:
+                # A read error or Ctrl-C mid-stream never reaches
+                # StopAsyncIteration; end the span with the error instead of leaking it.
+                self._fail_streaming_span(e)
+                raise
 
-        def _finalize_streaming_span(self):
+        def _fail_streaming_span(self, error):
+            """Finalize received telemetry without clearing the read error."""
+            self._finalize_streaming_span(error)
+
+        def _finalize_streaming_span(self, error=None):
             """Complete and end the span exactly once (see the sync twin)."""
             if self._streaming_response_processed:
                 return
             self._streaming_response_processed = True
+            self._streaming_failed = error is not None
             try:
                 with self._span:
+                    if error is not None:
+                        handle_exception(self._span, error)
                     process_streaming_chat_response(
                         self,
                         pricing_info=pricing_info,
@@ -124,7 +137,8 @@ def async_messages(
                         event_provider=self._event_provider,
                     )
             except Exception as e:
-                handle_exception(self._span, e)
+                if error is None:
+                    handle_exception(self._span, e)
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
