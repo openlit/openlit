@@ -14,6 +14,7 @@ must keep ending their span exactly as before.
 
 import asyncio
 import logging
+from contextlib import contextmanager
 
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
@@ -54,8 +55,8 @@ class _DroppedWrites(logging.Handler):
             self.records.append(message)
 
 
-@pytest.fixture
-def telemetry():
+@contextmanager
+def _telemetry():
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
@@ -104,73 +105,69 @@ def _streaming_call(items=3):
     return call
 
 
-def test_exhausted_stream_records_its_telemetry(telemetry):
+def test_exhausted_stream_records_its_telemetry():
     """The span must still be open when the generator finalises."""
-    tracer, exporter, dropped = telemetry
+    with _telemetry() as (tracer, exporter, dropped):
+        async def drive():
+            result = await _invoke(tracer, _streaming_call())
+            assert hasattr(result, "__aiter__"), "expected the tracked generator"
+            # The span must not have been exported yet: the stream is still running.
+            assert not exporter.get_finished_spans(), (
+                "the span ended before the stream was consumed, so everything the "
+                "generator records afterwards is dropped"
+            )
+            consumed = 0
+            async for _ in result:
+                consumed += 1
+            return consumed
 
-    async def drive():
-        result = await _invoke(tracer, _streaming_call())
-        assert hasattr(result, "__aiter__"), "expected the tracked generator"
-        # The span must not have been exported yet: the stream is still running.
-        assert not exporter.get_finished_spans(), (
-            "the span ended before the stream was consumed, so everything the "
-            "generator records afterwards is dropped"
+        assert asyncio.run(drive()) == 3
+
+        assert _durations(exporter), "the streaming path recorded no duration at all"
+        assert not dropped.records, (
+            f"the SDK dropped {len(dropped.records)} writes to an ended span: "
+            f"{dropped.records[:3]}"
         )
-        consumed = 0
-        async for _ in result:
-            consumed += 1
-        return consumed
-
-    assert asyncio.run(drive()) == 3
-
-    assert _durations(exporter), "the streaming path recorded no duration at all"
-    assert not dropped.records, (
-        f"the SDK dropped {len(dropped.records)} writes to an ended span: "
-        f"{dropped.records[:3]}"
-    )
 
 
-def test_abandoned_stream_is_still_exported(telemetry):
+def test_abandoned_stream_is_still_exported():
     """Breaking out early never raises StopAsyncIteration; aclose must finalise."""
-    tracer, exporter, _dropped = telemetry
+    with _telemetry() as (tracer, exporter, _dropped):
+        async def drive():
+            result = await _invoke(tracer, _streaming_call())
+            async for _ in result:
+                break
+            await result.aclose()
 
-    async def drive():
-        result = await _invoke(tracer, _streaming_call())
-        async for _ in result:
-            break
-        await result.aclose()
+        asyncio.run(drive())
 
-    asyncio.run(drive())
-
-    assert exporter.get_finished_spans(), "the abandoned stream leaked its span"
-    assert _durations(exporter), (
-        "an abandoned stream exported a span with no duration recorded"
-    )
+        assert exporter.get_finished_spans(), "the abandoned stream leaked its span"
+        assert _durations(exporter), (
+            "an abandoned stream exported a span with no duration recorded"
+        )
 
 
-def test_non_streaming_response_still_ends_its_span(telemetry):
+def test_non_streaming_response_still_ends_its_span():
     """The ordinary path must be unaffected."""
-    tracer, exporter, dropped = telemetry
+    with _telemetry() as (tracer, exporter, dropped):
+        async def call(*_args, **_kwargs):
+            return {"success": True}
 
-    async def call(*_args, **_kwargs):
-        return {"success": True}
-
-    asyncio.run(_invoke(tracer, call))
-
-    assert len(exporter.get_finished_spans()) == 1
-    assert _durations(exporter)
-    assert not dropped.records
-
-
-def test_failing_call_still_ends_its_span(telemetry):
-    """An exception must end the span rather than leave it open."""
-    tracer, exporter, dropped = telemetry
-
-    async def call(*_args, **_kwargs):
-        raise RuntimeError("boom")
-
-    with pytest.raises(RuntimeError):
         asyncio.run(_invoke(tracer, call))
 
-    assert len(exporter.get_finished_spans()) == 1, "the error path leaked its span"
-    assert not dropped.records
+        assert len(exporter.get_finished_spans()) == 1
+        assert _durations(exporter)
+        assert not dropped.records
+
+
+def test_failing_call_still_ends_its_span():
+    """An exception must end the span rather than leave it open."""
+    with _telemetry() as (tracer, exporter, dropped):
+        async def call(*_args, **_kwargs):
+            raise RuntimeError("boom")
+
+        with pytest.raises(RuntimeError):
+            asyncio.run(_invoke(tracer, call))
+
+        assert len(exporter.get_finished_spans()) == 1, "the error path leaked its span"
+        assert not dropped.records
