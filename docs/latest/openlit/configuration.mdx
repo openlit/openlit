@@ -287,11 +287,11 @@ Realtime evaluation powers [threshold alerts](/latest/openlit/alerts#threshold-a
 </ResponseField>
 
 <ResponseField name="OPENLIT_SIGNAL_ATTRIBUTES">
-  Extra span and resource attribute keys to copy onto realtime signals, in addition to the built-in allowlist of operational fields (`gen_ai.tool.name`, `gen_ai.request.temperature`, `http.route`, and similar). Comma-separated. Threshold alerts can filter and group by these keys. `user.id`, `enduser.id`, `session.id`, `conversation.id`, `gen_ai.conversation.id`, `url.path`, and `server.address` identify people or internal systems, so they are only copied when listed here. Prompt, completion, and message attributes are always ignored, and values that look like credentials are redacted.
+  Personal span and resource attribute keys that realtime signals may carry. Comma-separated. Threshold alerts can filter and group by any span or resource attribute (up to 64 per span, values truncated to 256 bytes) without configuration, except keys that identify people or internal systems: any key with a `user`, `enduser`, `session`, `conversation`, `email`, `phone`, `ip`, `address`, or `path` segment (such as `user.id`, `gen_ai.conversation.id`, `url.path`, or `server.address`). Those are only copied when listed here. Prompt, completion, message, and secret attributes are always ignored, and values that look like credentials are redacted.
 
   **Example**:
   ```yaml
-  export OPENLIT_SIGNAL_ATTRIBUTES="app.tier,tenant.id"
+  export OPENLIT_SIGNAL_ATTRIBUTES="session.id,url.path"
   ```
 </ResponseField>
 

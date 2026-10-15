@@ -18,7 +18,7 @@
 #   SKIP_MIGRATE=1       Skip `prisma migrate deploy`
 #   SEED=1               Run `prisma db seed` (default user, org, project, DB config) after migrating
 #   OPENLIT_REALTIME_*   Built-in trigger thresholds, passed through to the UI server
-#   OPENLIT_SIGNAL_ATTRIBUTES  Extra span attributes rules may match (comma-separated)
+#   OPENLIT_SIGNAL_ATTRIBUTES  Personal span attributes rules may match (comma-separated)
 #   NATS_RECEIVER_PASSWORD / NATS_ENGINE_PASSWORD  NATS user passwords (random per session)
 #   OPENLIT_ENGINE_SECRET      Engine <-> UI secret (random per session)
 set -euo pipefail

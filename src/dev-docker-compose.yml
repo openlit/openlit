@@ -69,8 +69,9 @@ services:
       NATS_RECEIVER_PASSWORD: ${NATS_RECEIVER_PASSWORD:-openlit-receiver-change-me}
       NATS_ENGINE_USER: ${NATS_ENGINE_USER:-openlit-engine}
       NATS_ENGINE_PASSWORD: ${NATS_ENGINE_PASSWORD:-openlit-engine-change-me}
-      # Comma-separated extra span attributes signals may carry. User, session,
-      # and conversation ids, url.path, and server.address are opt-in only.
+      # Rules can use any span attribute except personal ones (user, session,
+      # conversation, email, phone, ip, address, path keys); list those here,
+      # comma-separated, to allow them.
       OPENLIT_SIGNAL_ATTRIBUTES: ${OPENLIT_SIGNAL_ATTRIBUTES:-}
       PORT: ${PORT:-3000}
       DOCKER_PORT: ${DOCKER_PORT:-3000}

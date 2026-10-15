@@ -25,11 +25,27 @@ import type { ThresholdAlertTemplate } from "@/lib/platform/realtime/templates";
 import type { ThresholdAlertView } from "@/lib/platform/alerts/threshold";
 import { AlertsPageFrame } from "./alerts-shell";
 import { alertsRequest } from "./alert-api";
+import AttributeFieldPicker from "./attribute-field-picker";
 import { conditionSummary, filtersSummary, metricLabel, metricUnit, operatorSymbol } from "./alert-format";
 import AlertDeliveryExtension, { type AlertDeliveryValue } from "@/components/(playground)/alerts/alert-delivery-extension";
 
-const MATCH_FIELDS = [...REALTIME_STRING_FIELDS, ...REALTIME_NUMERIC_FIELDS, ...REALTIME_ATTRIBUTE_FIELDS];
-const GROUP_FIELDS = [...REALTIME_STRING_FIELDS, ...REALTIME_ATTRIBUTE_FIELDS];
+const MATCH_FIELDS = [...REALTIME_STRING_FIELDS, ...REALTIME_NUMERIC_FIELDS];
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Attribute keys seen on this project's spans in the last day, as picker suggestions. */
+function useObservedAttributeKeys(): string[] {
+	const [keys, setKeys] = useState<string[]>([]);
+	useEffect(() => {
+		const end = new Date();
+		alertsRequest<{ spanAttributeKeys?: string[]; resourceAttributeKeys?: string[] }>("/api/metrics/request/attribute-keys", {
+			method: "POST",
+			body: { timeLimit: { type: "24H", start: new Date(end.getTime() - DAY_MS), end } },
+		})
+			.then((res) => setKeys([...(res?.spanAttributeKeys || []), ...(res?.resourceAttributeKeys || [])]))
+			.catch(() => undefined); // Suggestions only; typing a key still works.
+	}, []);
+	return keys;
+}
 const WINDOWS = [60, 300, 600, 900, 1800, 3600];
 const TRIGGER = "h-8 bg-white px-2 text-xs dark:bg-stone-950";
 const LABEL = "text-[11px] font-medium text-stone-600 dark:text-stone-300";
@@ -173,6 +189,8 @@ export default function ThresholdAlertForm({ alertId, header }: { alertId?: stri
 	const router = useRouter();
 	const editing = !!alertId;
 	const [draft, setDraft] = useState<Draft | null>(editing ? null : BLANK);
+	const observedKeys = useObservedAttributeKeys();
+	const attributeOptions = useMemo(() => [...REALTIME_ATTRIBUTE_FIELDS, ...observedKeys.slice().sort()], [observedKeys]);
 	const [templates, setTemplates] = useState<ThresholdAlertTemplate[]>([]);
 	const [templateId, setTemplateId] = useState<string>("");
 	const [delivery, setDelivery] = useState<AlertDeliveryValue>({});
@@ -230,7 +248,6 @@ export default function ThresholdAlertForm({ alertId, header }: { alertId?: stri
 		}
 	};
 
-	const remainingGroups = GROUP_FIELDS.filter((field) => !draft.groupBy.includes(field));
 
 	return (
 		<AlertsPageFrame
@@ -324,18 +341,14 @@ export default function ThresholdAlertForm({ alertId, header }: { alertId?: stri
 										</span>
 									))}
 									{draft.groupBy.length < REALTIME_RULE_LIMITS.maxGroupBy ? (
-										<Select value="" onValueChange={(v) => set({ groupBy: [...draft.groupBy, v] })}>
-											<SelectTrigger className={`${TRIGGER} w-32`}>
-												<SelectValue placeholder={m.ALERTING_ADD_GROUP} />
-											</SelectTrigger>
-											<SelectContent>
-												{remainingGroups.map((field) => (
-													<SelectItem key={field} value={field} className="text-xs">
-														{field}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
+										<AttributeFieldPicker
+											fields={REALTIME_STRING_FIELDS}
+											attributes={attributeOptions}
+											exclude={draft.groupBy}
+											placeholder={m.ALERTING_ADD_GROUP}
+											onSelect={(field) => set({ groupBy: [...draft.groupBy, field] })}
+											className="w-36"
+										/>
 									) : null}
 								</div>
 							</Field>
@@ -364,7 +377,13 @@ export default function ThresholdAlertForm({ alertId, header }: { alertId?: stri
 							};
 							return (
 								<div key={index} className="flex flex-wrap items-center gap-2">
-									<Options value={condition.field} options={MATCH_FIELDS} onChange={(field) => update({ field })} className="w-52" />
+									<AttributeFieldPicker
+										value={condition.field}
+										fields={MATCH_FIELDS}
+										attributes={attributeOptions}
+										onSelect={(field) => update({ field })}
+										className="w-52"
+									/>
 									<Options value={condition.op} options={REALTIME_CONDITION_OPS} onChange={(op) => update({ op })} className="w-28" labelFor={operatorSymbol} />
 									{condition.op !== "exists" ? (
 										<Input

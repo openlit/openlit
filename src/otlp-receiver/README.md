@@ -30,7 +30,7 @@ When `NATS_URL` is set, the receiver publishes a compact signal for each GenAI s
 - Message ID: `<trace_id>:<span_id>`, deduplicated by JetStream for 2 minutes
 - Only spans sent with a scoped API key are published. Requests without a key, or keys whose `DatabaseConfig` has no project, are written to ClickHouse but not published.
 - The environment is lowercased; environments that are not valid OpenLIT names are not published.
-- Every string is truncated to 256 bytes, and values that look like credentials (bearer tokens, `sk-` keys, JWTs, AWS/GitHub/Slack/OpenLIT keys, `api_key=` query params) are replaced with `[redacted]`. User, session, and conversation ids, `url.path`, and `server.address` are only copied when listed in `OPENLIT_SIGNAL_ATTRIBUTES`.
+- Every string is truncated to 256 bytes, and values that look like credentials (bearer tokens, `sk-` keys, JWTs, AWS/GitHub/Slack/OpenLIT keys, `api_key=` query params) are replaced with `[redacted]`. Up to 64 span and resource attributes are copied per span (common operational keys first). Prompt, completion, message, and secret attributes are never copied; personal keys (any `user`, `enduser`, `session`, `conversation`, `email`, `phone`, `ip`, `address`, or `path` segment, such as `user.id` or `url.path`) only when listed in `OPENLIT_SIGNAL_ATTRIBUTES`.
 - `Published` counts only messages JetStream acknowledged. `GET /stats` is served on `OTLP_STATS_ADDR` (loopback by default), never on the public OTLP port.
 - The stream is file-backed and bounded by age, bytes, and message size.
 

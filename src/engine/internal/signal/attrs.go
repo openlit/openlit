@@ -7,12 +7,17 @@ import (
 	"sync"
 )
 
-// Keep this list in sync with src/otlp-receiver/internal/signal/attrs.go and
-// src/client/src/lib/platform/realtime/attributes.ts. User, session, and
-// conversation ids, url.path, and server.address are opt-in only (via
-// OPENLIT_SIGNAL_ATTRIBUTES).
+// Keep these rules in sync with src/otlp-receiver/internal/signal/attrs.go and
+// src/client/src/lib/platform/realtime/attributes.ts.
+//
+// Rules may match or group by any span or resource attribute. Prompt,
+// completion, message, and secret attributes are never copied, even when
+// OPENLIT_SIGNAL_ATTRIBUTES names them. Personal keys (user, session, and
+// conversation ids, email, phone, IP, URL paths, server addresses) only cross
+// the bus when an operator lists them in OPENLIT_SIGNAL_ATTRIBUTES. The
+// defaults below are copied first, so they survive the per-span cap.
 
-const maxAttributes = 32
+const maxAttributes = 64
 
 var defaultAttributes = []string{
 	"gen_ai.tool.name",
@@ -84,6 +89,24 @@ func validAttributeKey(key string) bool {
 	return true
 }
 
+// personalSegments mark attributes that identify people or reveal private
+// locations (user, session, and conversation ids, email, phone, IP, URL
+// paths, server addresses). Any key containing one of these segments is
+// forwarded and matchable only when OPENLIT_SIGNAL_ATTRIBUTES names it.
+var personalSegments = map[string]struct{}{
+	"user": {}, "enduser": {}, "session": {}, "conversation": {}, "email": {},
+	"phone": {}, "ip": {}, "address": {}, "path": {},
+}
+
+func personalAttribute(key string) bool {
+	for _, segment := range strings.FieldsFunc(strings.ToLower(key), func(r rune) bool { return r == '.' || r == '_' || r == '-' }) {
+		if _, ok := personalSegments[segment]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func sensitiveAttribute(key string) bool {
 	lower := strings.ToLower(key)
 	for _, part := range sensitiveAttributeParts {
@@ -94,15 +117,16 @@ func sensitiveAttribute(key string) bool {
 	return false
 }
 
-// AllowedAttribute reports whether a rule may use this span attribute.
+// AllowedAttribute reports whether a rule may use this span attribute: any
+// well-formed key that is not sensitive, and personal keys only when
+// OPENLIT_SIGNAL_ATTRIBUTES names them.
 func AllowedAttribute(key string) bool {
-	if !validAttributeKey(key) {
+	// Built-in field names always mean the built-in field.
+	if !validAttributeKey(key) || stringBuiltin(key) || numericBuiltin(key) {
 		return false
 	}
-	for _, name := range defaultAttributes {
-		if name == key {
-			return true
-		}
+	if !personalAttribute(key) {
+		return true
 	}
 	attrMu.RLock()
 	defer attrMu.RUnlock()

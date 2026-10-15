@@ -15,7 +15,7 @@ OTLP receiver ──► NATS JetStream (OPENLIT_SIGNALS) ──► openlit-engin
 - Findings are delivered with retries. The server re-validates the rule, scope, and tenant before storing anything.
 - The engine keeps the latest 200 signals per tenant (organisation, project, environment) for up to 1,000 tenants. `GET /signals` returns one tenant's signals. The UI proxies this for the live spans on an alert's detail page.
 - Environments are lowercased; signals whose environment is not a valid OpenLIT environment name are dropped and counted.
-- Rules can match and group by an allowlist of operational span attributes (`gen_ai.tool.name`, `gen_ai.request.temperature`, `http.route`, and similar). `OPENLIT_SIGNAL_ATTRIBUTES` adds keys. User, session, and conversation ids, `url.path`, and `server.address` are personal or sensitive and only allowed when listed there. Prompt, completion, and message attributes are never copied or matched.
+- Rules can match and group by any span or resource attribute the receiver forwards. Keys with a `user`, `enduser`, `session`, `conversation`, `email`, `phone`, `ip`, `address`, or `path` segment are personal or sensitive and only allowed when listed in `OPENLIT_SIGNAL_ATTRIBUTES`. Prompt, completion, message, and secret attributes are never copied or matched.
 
 ## Security and limits
 

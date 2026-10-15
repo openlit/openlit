@@ -1,6 +1,7 @@
 package signal
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -190,6 +191,44 @@ func TestNormalizeEnvironment(t *testing.T) {
 	for _, bad := range []string{"", "has space", "-lead", strings.Repeat("a", 64)} {
 		if _, ok := NormalizeEnvironment(bad); ok {
 			t.Fatalf("expected %q rejected", bad)
+		}
+	}
+}
+
+func TestAnySafeAttributeIsForwarded(t *testing.T) {
+	s := FromTrace(otlpconv.TraceRow{
+		SpanAttributes: map[string]string{
+			"app.tier":           "gold",
+			"gen_ai.agent.name":  "planner",
+			"gen_ai.prompt":      "secret prompt",
+			"llm.content.output": "text",
+			"user.email":         "a@b.c",
+			"client.ip":          "10.0.0.1",
+		},
+		ResourceAttributes: map[string]string{"k8s.namespace.name": "prod", "app.tier": "silver"},
+	}, Tenant{})
+	if s.Attrs["app.tier"] != "gold" || s.Attrs["gen_ai.agent.name"] != "planner" || s.Attrs["k8s.namespace.name"] != "prod" {
+		t.Fatalf("custom attributes missing: %+v", s.Attrs)
+	}
+	for _, key := range []string{"gen_ai.prompt", "llm.content.output", "user.email", "client.ip"} {
+		if _, ok := s.Attrs[key]; ok {
+			t.Fatalf("%s must not be forwarded by default", key)
+		}
+	}
+}
+
+func TestAttributesAreBounded(t *testing.T) {
+	span := map[string]string{}
+	for i := 0; i < 200; i++ {
+		span[fmt.Sprintf("custom.attr%03d", i)] = strings.Repeat("x", 1000)
+	}
+	s := FromTrace(otlpconv.TraceRow{SpanAttributes: span}, Tenant{})
+	if len(s.Attrs) != maxAttributes {
+		t.Fatalf("attrs = %d, want %d", len(s.Attrs), maxAttributes)
+	}
+	for _, value := range s.Attrs {
+		if len(value) > MaxFieldBytes {
+			t.Fatalf("value not truncated: %d bytes", len(value))
 		}
 	}
 }

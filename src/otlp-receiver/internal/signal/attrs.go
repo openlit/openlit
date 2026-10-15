@@ -2,21 +2,22 @@ package signal
 
 import (
 	"os"
+	"sort"
 	"strings"
 	"sync"
 )
 
-// Keep this list in sync with src/engine/internal/signal/attrs.go and
+// Keep these rules in sync with src/engine/internal/signal/attrs.go and
 // src/client/src/lib/platform/realtime/attributes.ts.
 //
-// These are operational span and resource attributes a rule may match or
-// group by. Prompt, completion, and message attributes are never copied,
-// even when OPENLIT_SIGNAL_ATTRIBUTES names them. Identifiers of end users,
-// sessions, and conversations, plus URL paths and server addresses, are
-// personal or sensitive data: they only cross the bus when an operator lists
-// them in OPENLIT_SIGNAL_ATTRIBUTES (see OptInAttributes).
+// Rules may match or group by any span or resource attribute. Prompt,
+// completion, message, and secret attributes are never copied, even when
+// OPENLIT_SIGNAL_ATTRIBUTES names them. Personal keys (user, session, and
+// conversation ids, email, phone, IP, URL paths, server addresses) only cross
+// the bus when an operator lists them in OPENLIT_SIGNAL_ATTRIBUTES. The
+// defaults below are copied first, so they survive the per-span cap.
 
-const maxAttributes = 32
+const maxAttributes = 64
 
 var defaultAttributes = []string{
 	"gen_ai.tool.name",
@@ -100,6 +101,31 @@ func validAttributeKey(key string) bool {
 	return true
 }
 
+// builtinFields are signal fields the engine reads from the span itself.
+var builtinFields = map[string]struct{}{
+	"service": {}, "model": {}, "provider": {}, "operation": {}, "status": {}, "error_type": {},
+	"environment": {}, "span_name": {}, "http_status": {}, "duration_ms": {}, "input_tokens": {},
+	"output_tokens": {}, "total_tokens": {}, "cost": {},
+}
+
+// personalSegments mark attributes that identify people or reveal private
+// locations (user, session, and conversation ids, email, phone, IP, URL
+// paths, server addresses). Any key containing one of these segments is
+// forwarded and matchable only when OPENLIT_SIGNAL_ATTRIBUTES names it.
+var personalSegments = map[string]struct{}{
+	"user": {}, "enduser": {}, "session": {}, "conversation": {}, "email": {},
+	"phone": {}, "ip": {}, "address": {}, "path": {},
+}
+
+func personalAttribute(key string) bool {
+	for _, segment := range strings.FieldsFunc(strings.ToLower(key), func(r rune) bool { return r == '.' || r == '_' || r == '-' }) {
+		if _, ok := personalSegments[segment]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func sensitiveAttribute(key string) bool {
 	lower := strings.ToLower(key)
 	for _, part := range sensitiveAttributeParts {
@@ -110,15 +136,19 @@ func sensitiveAttribute(key string) bool {
 	return false
 }
 
-// AllowedAttribute reports whether a rule may use this span attribute.
+// AllowedAttribute reports whether a rule may use this span attribute: any
+// well-formed key that is not sensitive, and personal keys only when
+// OPENLIT_SIGNAL_ATTRIBUTES names them.
 func AllowedAttribute(key string) bool {
+	// Built-in field names always mean the built-in field in the engine.
 	if !validAttributeKey(key) {
 		return false
 	}
-	for _, name := range defaultAttributes {
-		if name == key {
-			return true
-		}
+	if _, ok := builtinFields[key]; ok {
+		return false
+	}
+	if !personalAttribute(key) {
+		return true
 	}
 	attrMu.RLock()
 	defer attrMu.RUnlock()
@@ -126,20 +156,31 @@ func AllowedAttribute(key string) bool {
 	return ok
 }
 
-// Attributes copies allowlisted span attributes, with resource attributes as
-// a fallback. Span values win. The result never includes prompt or message text.
+// Attributes copies the span's attributes onto the signal so rules can match
+// or group by any of them, with resource attributes as a fallback (span values
+// win). Well-known operational keys go first, then the rest in key order, up to
+// maxAttributes. Sensitive keys (prompt, message, secret, ...) are never
+// copied; personal keys only when configured. Values are redacted and
+// truncated by Clean.
 func Attributes(span, resource map[string]string) map[string]string {
 	if len(span) == 0 && len(resource) == 0 {
 		return nil
 	}
-	keys := make([]string, 0, len(defaultAttributes)+8)
-	seen := map[string]struct{}{}
+	out := make(map[string]string)
 	add := func(key string) {
-		if _, ok := seen[key]; ok || !AllowedAttribute(key) {
+		if len(out) >= maxAttributes {
 			return
 		}
-		seen[key] = struct{}{}
-		keys = append(keys, key)
+		if _, ok := out[key]; ok || !AllowedAttribute(key) {
+			return
+		}
+		value := Clean(span[key])
+		if value == "" {
+			value = Clean(resource[key])
+		}
+		if value != "" {
+			out[key] = value
+		}
 	}
 	for _, key := range defaultAttributes {
 		add(key)
@@ -150,23 +191,19 @@ func Attributes(span, resource map[string]string) map[string]string {
 		extra = append(extra, key)
 	}
 	attrMu.RUnlock()
+	sort.Strings(extra)
 	for _, key := range extra {
 		add(key)
 	}
-
-	out := make(map[string]string)
-	for _, key := range keys {
-		if len(out) >= maxAttributes {
-			break
+	for _, source := range []map[string]string{span, resource} {
+		keys := make([]string, 0, len(source))
+		for key := range source {
+			keys = append(keys, key)
 		}
-		value := Clean(span[key])
-		if value == "" {
-			value = Clean(resource[key])
+		sort.Strings(keys)
+		for _, key := range keys {
+			add(key)
 		}
-		if value == "" {
-			continue
-		}
-		out[key] = value
 	}
 	if len(out) == 0 {
 		return nil

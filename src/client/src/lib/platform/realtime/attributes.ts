@@ -1,12 +1,16 @@
+import { REALTIME_NUMERIC_FIELDS, REALTIME_STRING_FIELDS } from "./rule-fields";
+
 /**
- * Span and resource attributes a realtime rule may match or group by.
- * Keep this list in sync with src/otlp-receiver/internal/signal/attrs.go
- * and src/engine/internal/signal/attrs.go.
+ * Realtime rules may match or group by any span or resource attribute. Keep
+ * these rules in sync with src/otlp-receiver/internal/signal/attrs.go and
+ * src/engine/internal/signal/attrs.go.
  *
- * Prompt, completion, and message attributes are never accepted, including
- * when OPENLIT_SIGNAL_ATTRIBUTES names them. User, session, and conversation
- * identifiers, `url.path`, and `server.address` are personal or sensitive
- * data, so they cross the bus only when OPENLIT_SIGNAL_ATTRIBUTES lists them.
+ * Prompt, completion, message, and secret attributes are never accepted,
+ * including when OPENLIT_SIGNAL_ATTRIBUTES names them. Personal keys (user,
+ * session, and conversation ids, email, phone, IP, URL paths, server
+ * addresses) cross the bus only when OPENLIT_SIGNAL_ATTRIBUTES lists them.
+ *
+ * REALTIME_ATTRIBUTE_FIELDS are the common keys suggested in the editor.
  */
 
 export const REALTIME_ATTRIBUTE_FIELDS = [
@@ -37,6 +41,18 @@ export function isSensitiveAttributeKey(key: string): boolean {
 	return SENSITIVE_ATTRIBUTE.test(key);
 }
 
+const BUILTIN_FIELDS = new Set<string>([...REALTIME_STRING_FIELDS, "environment", ...REALTIME_NUMERIC_FIELDS]);
+
+const PERSONAL_SEGMENTS = new Set(["user", "enduser", "session", "conversation", "email", "phone", "ip", "address", "path"]);
+
+/** Keys that identify people or private locations; usable only when configured. */
+export function isPersonalAttributeKey(key: string): boolean {
+	return key
+		.toLowerCase()
+		.split(/[._-]/)
+		.some((segment) => PERSONAL_SEGMENTS.has(segment));
+}
+
 /** Identifier shape used for finding group keys and signal attributes. */
 export function isRealtimeMapKey(key: string): boolean {
 	return ATTRIBUTE_KEY.test(key) && !isSensitiveAttributeKey(key);
@@ -53,9 +69,10 @@ function extraAttributeFields(): Set<string> {
 	return extra;
 }
 
-/** True for the built-in allowlist and non-sensitive OPENLIT_SIGNAL_ATTRIBUTES extras. */
+/** Any well-formed, non-sensitive attribute; personal keys only when OPENLIT_SIGNAL_ATTRIBUTES lists them. */
 export function isRealtimeAttributeField(field: string): boolean {
-	if (!isRealtimeMapKey(field)) return false;
-	if ((REALTIME_ATTRIBUTE_FIELDS as readonly string[]).includes(field)) return true;
+	// Built-in field names always mean the built-in field.
+	if (!isRealtimeMapKey(field) || BUILTIN_FIELDS.has(field)) return false;
+	if (!isPersonalAttributeKey(field)) return true;
 	return extraAttributeFields().has(field);
 }

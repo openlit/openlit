@@ -1,6 +1,6 @@
 import { isRealtimeAttributeField, isRealtimeMapKey } from "@/lib/platform/realtime/attributes";
 
-describe("realtime attribute allowlist", () => {
+describe("realtime attribute fields", () => {
 	const previous = process.env.OPENLIT_SIGNAL_ATTRIBUTES;
 
 	afterEach(() => {
@@ -8,15 +8,23 @@ describe("realtime attribute allowlist", () => {
 		else process.env.OPENLIT_SIGNAL_ATTRIBUTES = previous;
 	});
 
-	it("accepts operational attributes and extra keys, and blocks prompt text", () => {
-		process.env.OPENLIT_SIGNAL_ATTRIBUTES = "app.tier, gen_ai.prompt, not a key";
-		expect(isRealtimeAttributeField("user.id")).toBe(false);
+	it("accepts any safe attribute key without configuration, and blocks prompt text", () => {
+		delete process.env.OPENLIT_SIGNAL_ATTRIBUTES;
 		expect(isRealtimeAttributeField("gen_ai.tool.name")).toBe(true);
 		expect(isRealtimeAttributeField("app.tier")).toBe(true);
+		expect(isRealtimeAttributeField("gen_ai.agent.name")).toBe(true);
+		expect(isRealtimeAttributeField("k8s.namespace.name")).toBe(true);
+		expect(isRealtimeAttributeField("user.id")).toBe(false);
+		expect(isRealtimeAttributeField("user.email")).toBe(false);
+		expect(isRealtimeAttributeField("client.ip")).toBe(false);
 		expect(isRealtimeAttributeField("gen_ai.prompt")).toBe(false);
 		expect(isRealtimeAttributeField("gen_ai.input.messages")).toBe(false);
+		expect(isRealtimeAttributeField("db.password")).toBe(false);
 		expect(isRealtimeAttributeField("not a key")).toBe(false);
 		expect(isRealtimeAttributeField("model")).toBe(false);
+		expect(isRealtimeAttributeField("http_status")).toBe(false);
+		process.env.OPENLIT_SIGNAL_ATTRIBUTES = "gen_ai.prompt";
+		expect(isRealtimeAttributeField("gen_ai.prompt")).toBe(false);
 		expect(isRealtimeMapKey("traceId")).toBe(true);
 		expect(isRealtimeMapKey("gen_ai.prompt")).toBe(false);
 	});
