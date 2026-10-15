@@ -2,8 +2,9 @@
 Module for monitoring LiteLLM API calls (async version).
 """
 
-import time
 import asyncio
+import inspect
+import time
 from opentelemetry import trace as trace_api, context as context_api
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
@@ -41,7 +42,7 @@ def acompletion(
     Generates a telemetry wrapper for GenAI function call
     """
 
-    class TracedAsyncStream:
+    class TracedAsyncStream:  # pylint: disable=too-many-instance-attributes
         """
         Wrapper for async streaming responses to collect telemetry.
         """
@@ -82,27 +83,30 @@ def acompletion(
             self._server_address = server_address
             self._server_port = server_port
             self._event_provider = event_provider
+            self._stream_error = None
 
         async def __aenter__(self):
-            await self.__wrapped__.__aenter__()
+            # CustomStreamWrapper.__aenter__(self) exists only on 1.107.
+            enter = getattr(self.__wrapped__, "__aenter__", None)
+            if enter is not None:
+                await enter()
             return self
 
         async def __aexit__(self, exc_type, exc_value, traceback):
-            # Finalize on every exit, not just the clean one: a break before
-            # exhaustion never reaches StopAsyncIteration, and an exception
-            # escaping the block would leak the span just as surely. Record
-            # whichever exception is actually in flight -- the wrapped stream's
-            # own exit may raise even when the block itself was clean.
+            # 1.107: async def __aexit__(self, *exc_info) -> None awaits aclose().
+            # 1.84 through 1.105.1 define async aclose(self) and no __aexit__.
+            exit_fn = getattr(self.__wrapped__, "__aexit__", None)
+            if exit_fn is None:
+                await self.aclose()
+                return None
             try:
-                await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+                return await exit_fn(exc_type, exc_value, traceback)
             except BaseException as exit_exc:
-                if not self._streaming_response_processed:
-                    handle_exception(self._span, exit_exc)
-                    self._finalize_streaming_span()
+                if self._stream_error is None:
+                    self._stream_error = exit_exc
                 raise
-            if exc_type and not self._streaming_response_processed:
-                handle_exception(self._span, exc_value)
-            self._finalize_streaming_span()
+            finally:
+                self._finalize_streaming_span(ended_cleanly=False)
 
         def __aiter__(self):
             return self
@@ -111,57 +115,108 @@ def acompletion(
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
+        def __del__(self):
+            """Finalize a span abandoned by a bare ``async for`` loop.
+
+            CustomStreamWrapper is not an async generator, so leaving the loop
+            does not schedule ``aclose()``. Dealloc cannot await; HTTP cleanup
+            stays with LiteLLM.
+            """
+            try:
+                self._finalize_streaming_span(ended_cleanly=False)
+            except Exception:
+                pass
+
         async def __anext__(self):
             try:
                 chunk = await self.__wrapped__.__anext__()
                 process_chunk(self, chunk)
                 return chunk
             except StopAsyncIteration:
-                self._finalize_streaming_span()
+                self._finalize_streaming_span(ended_cleanly=True)
                 raise
             except (GeneratorExit, asyncio.CancelledError):
-                self._finalize_streaming_span()
+                self._finalize_streaming_span(ended_cleanly=False)
+                raise
+            except Exception as exc:
+                self._stream_error = exc
                 raise
 
-        def _finalize_streaming_span(self):
-            """Complete and end the span exactly once.
+        def _finalize_streaming_span(self, ended_cleanly):
+            """End the span once.
 
-            Called on stream exhaustion, on cancellation, and again from
-            aclose()/manager exit; the flag keeps the repeat call a no-op so
-            early exits that never see StopAsyncIteration still export the span
-            instead of leaking it.
+            ``ended_cleanly`` is True only for StopAsyncIteration. An empty
+            finish reason is otherwise a cancel. A failure raised by the
+            wrapped stream is recorded after attributes are set, so partial
+            text stays on the span and the status is ERROR rather than the OK
+            that ``process_streaming_chat_response`` writes when nothing failed.
             """
             if self._streaming_response_processed:
                 return
             self._streaming_response_processed = True
+            if self._stream_error is not None and not self._finish_reason:
+                self._finish_reason = "error"
+            elif not ended_cleanly and not self._finish_reason:
+                self._finish_reason = "incomplete"
             try:
                 with self._span:
-                    process_streaming_chat_response(
-                        self,
-                        pricing_info=pricing_info,
-                        environment=environment,
-                        application_name=application_name,
-                        metrics=metrics,
-                        capture_message_content=capture_message_content,
-                        disable_metrics=disable_metrics,
-                        version=version,
-                        event_provider=self._event_provider,
-                    )
+                    try:
+                        process_streaming_chat_response(
+                            self,
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version,
+                            event_provider=self._event_provider,
+                        )
+                    finally:
+                        if self._stream_error is not None:
+                            handle_exception(self._span, self._stream_error)
             except Exception as e:
                 handle_exception(self._span, e)
 
-        async def aclose(self):
-            """Close the wrapped stream and finalize the span if not ended.
+        def close(self):
+            """Call sync ``CustomStreamWrapper.close(self) -> None`` and finalize.
 
-            litellm's ``CustomStreamWrapper`` exposes ``aclose`` on the async
-            side; guard the call so a wrapper without it still finalizes.
+            On 1.107 the async class has this synchronous method beside
+            ``async def aclose(self)``. The two are not aliases: ``close``
+            returns None and must not be a coroutine.
+            """
+            try:
+                closer = getattr(self.__wrapped__, "close", None)
+                if closer is not None:
+                    try:
+                        result = closer()
+                        if inspect.iscoroutine(result):
+                            result.close()
+                    except BaseException as exit_exc:
+                        if self._stream_error is None:
+                            self._stream_error = exit_exc
+                        raise
+            finally:
+                self._finalize_streaming_span(ended_cleanly=False)
+
+        async def aclose(self):
+            """Await ``CustomStreamWrapper.aclose(self)`` and finalize.
+
+            ``aclose`` has shipped since the 1.84 line. On 1.107,
+            ``__aexit__`` is ``await self.aclose()``.
             """
             try:
                 closer = getattr(self.__wrapped__, "aclose", None)
                 if closer is not None:
-                    await closer()
+                    try:
+                        await closer()
+                    except BaseException as exit_exc:
+                        if self._stream_error is None:
+                            self._stream_error = exit_exc
+                        raise
             finally:
-                self._finalize_streaming_span()
+                self._finalize_streaming_span(ended_cleanly=False)
+
     async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the GenAI function call.
