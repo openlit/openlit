@@ -36,6 +36,7 @@ import DropVcsMigration from "./drop-vcs-migration";
 import BackfillOtelTenantEnvironmentMigration from "./backfill-otel-tenant-environment-migration";
 import AddProviderModelsCachePricesMigration from "./add-provider-models-cache-prices-migration";
 import SeedOrcaRouterProviderMigration from "./seed-orcarouter-provider-migration";
+import SeedTypeSafeProviderMigration from "./seed-typesafe-provider-migration";
 import CreateTelemetryRollupsMigration from "./create-telemetry-rollups-migration";
 import AlterTelemetryRollupsDimensionsMigration from "./alter-telemetry-rollups-dimensions-migration";
 
@@ -107,6 +108,7 @@ export default async function migrations(databaseConfigId?: string) {
 		runMigration("drop-legacy-openground-tables", () => DropLegacyOpengroundTablesMigration(databaseConfigId)),
 	]);
 	await runMigration("seed-orcarouter-provider", () => SeedOrcaRouterProviderMigration(databaseConfigId));
+	await runMigration("seed-typesafe-provider", () => SeedTypeSafeProviderMigration(databaseConfigId));
 
 	await runMigration("encrypt-vault-values", () => EncryptVaultValuesMigration(databaseConfigId));
 	await runMigration("add-chat-conversation-type", () => AddChatConversationTypeMigration(databaseConfigId));

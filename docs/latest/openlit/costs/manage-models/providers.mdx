@@ -3,7 +3,15 @@ title: "Providers"
 description: "Add and edit LLM providers in Manage Models - Provider ID, display name, description, and Requires API Key (Vault)"
 ---
 
-Providers are the top-level grouping for models on **Manage Models** (`/costs?tab=models`). OpenLIT ships 16 built-in providers; you can add your own for self-hosted or niche APIs.
+Providers are the top-level grouping for models on **Manage Models** (`/costs?tab=models`). OpenLIT ships 16 built-in chat providers plus **TypeSafe** for Jev evaluation models; you can add your own for self-hosted or niche APIs.
+
+## TypeSafe Jev models
+
+**TypeSafe** is seeded with the Jev models `jev-1.13.0`, `jev-latest`, and `jev-preview`, priced at $0.042 per million input tokens and $0 for output. They are used by the [TypeSafe Jev evaluation judge](/latest/openlit/evaluations/evaluators#typesafe-jev-judge) and to cost Jev traces. Like other models, you can edit the prices here. TypeSafe is evaluation-only, so it does not appear in Chat or OpenGround.
+
+<Frame>
+  <img src="/images/jev-manage-models.png" alt="Manage Models showing the TypeSafe provider with Jev 1.13.0, Jev Latest, and Jev Preview, and the Jev 1.13.0 editor open with Model Type Chat and input price 0.042" />
+</Frame>
 
 ## Add a provider
 
