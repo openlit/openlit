@@ -13,20 +13,29 @@ import (
 // Enricher resolves PID → pod identity using cgroup + optional PodResources + API.
 // Outside Kubernetes (or when both enrichment flags are off) Resolve is a free no-op.
 type Enricher struct {
-	logger *slog.Logger
-	cfg    *config.Config
+	logger  *slog.Logger
+	cfg     *config.Config
 	enabled bool
 
-	mu       sync.RWMutex
-	cache    map[int32]PodInfo
-	negCache map[int32]time.Time // PID → when negative miss was cached
-	cacheAt  time.Time
-	ttl      time.Duration
-	byUID    map[string]PodInfo
-	byName   map[string]PodInfo
-	byContID map[string]PodInfo
-	byPID    map[int32]PodInfo
-	byDevice map[string]PodInfo // GPU UUID / device id → pod
+	// resolveCgroup reads the process's own pod UID / container id (ResolvePod); injectable for tests.
+	resolveCgroup func(pid int32) (PodInfo, bool)
+	// resolveHostname reads the process's own /etc/hostname (ProcHostname); injectable for tests.
+	resolveHostname func(pid int32) string
+
+	mu  sync.RWMutex
+	own map[int32]PodInfo // PID → identity from the process itself; valid on every device
+	// cache / negCache hold device-dependent results (GPU-owner fallback, partial
+	// identities, misses), keyed per (pid, device).
+	cache     map[cacheKey]PodInfo
+	negCache  map[cacheKey]time.Time // when the negative miss was cached
+	hostnames map[int32]string       // PID → container hostname memo ("" when unreadable)
+	cacheAt   time.Time
+	ttl       time.Duration
+	byUID     map[string]PodInfo
+	byName    map[string]PodInfo
+	byContID  map[string]PodInfo
+	byPID     map[int32]PodInfo
+	byDevice  map[string]PodInfo // GPU UUID / device id → pod
 
 	refreshMu sync.Mutex
 	stopCh    chan struct{}
@@ -40,6 +49,14 @@ type Enricher struct {
 	connectInterval time.Duration
 }
 
+// cacheKey scopes a resolution that depended on the GPU it was asked for: a process can
+// hold contexts on GPUs allocated to other pods, so whether the PodResources owner of a
+// GPU applies (or whether there is one at all) differs per device.
+type cacheKey struct {
+	pid      int32
+	deviceID string
+}
+
 // NewEnricher builds a workload enricher. Safe on non-K8s (no-op enrichment).
 func NewEnricher(cfg *config.Config, logger *slog.Logger) *Enricher {
 	if cfg == nil {
@@ -51,8 +68,12 @@ func NewEnricher(cfg *config.Config, logger *slog.Logger) *Enricher {
 		logger:          logger,
 		cfg:             cfg,
 		enabled:         enabled,
-		cache:           make(map[int32]PodInfo),
-		negCache:        make(map[int32]time.Time),
+		resolveCgroup:   ResolvePod,
+		resolveHostname: ProcHostname,
+		own:             make(map[int32]PodInfo),
+		cache:           make(map[cacheKey]PodInfo),
+		negCache:        make(map[cacheKey]time.Time),
+		hostnames:       make(map[int32]string),
 		byUID:           make(map[string]PodInfo),
 		byName:          make(map[string]PodInfo),
 		byContID:        make(map[string]PodInfo),
@@ -121,17 +142,36 @@ func (e *Enricher) ensureClients() {
 
 // Resolve returns the best-known pod identity for pid.
 // deviceID is an optional GPU UUID used to join PodResources device allocations.
+//
+// Identity comes from the process itself first (cgroup → container id / pod UID →
+// kubelet PodResources and pod API maps). The pod that PodResources allocated a GPU
+// to is only a fallback when the process has no pod name of its own: a process may
+// hold a context on a GPU allocated to a different pod (privileged pods,
+// NVIDIA_VISIBLE_DEVICES=all, host processes), and the GPU owner is not that process's
+// pod. A host process takes the owner of the device being scraped. A process with a
+// cgroup pod UID takes an owner only when that owner is confirmed as the same pod,
+// by UID or (PodResources carries no UID) by the process hostname matched against
+// every allocation on the node. The metrics callback emits GPUs in index order, so
+// confirmation cannot depend on the device passed in. An unconfirmed or ambiguous
+// owner leaves the process UID-only. Identity resolved from or confirmed against the
+// process itself is cached per pid; device-dependent fallback, partial identity, and
+// misses are cached per (pid, device).
 func (e *Enricher) Resolve(pid int32, deviceID string) (PodInfo, bool) {
 	if e == nil || !e.enabled || pid <= 0 {
 		return PodInfo{}, false
 	}
+	key := cacheKey{pid: pid, deviceID: deviceID}
 
 	e.mu.RLock()
-	if info, ok := e.cache[pid]; ok {
+	if info, ok := e.own[pid]; ok {
 		e.mu.RUnlock()
-		return info, info.PodUID != "" || info.PodName != ""
+		return info, true
 	}
-	if at, ok := e.negCache[pid]; ok && time.Since(at) < e.ttl {
+	if info, ok := e.cache[key]; ok {
+		e.mu.RUnlock()
+		return info, true
+	}
+	if at, ok := e.negCache[key]; ok && time.Since(at) < e.ttl {
 		e.mu.RUnlock()
 		return PodInfo{}, false
 	}
@@ -141,8 +181,12 @@ func (e *Enricher) Resolve(pid int32, deviceID string) (PodInfo, bool) {
 	byDev := e.byDevice
 	e.mu.RUnlock()
 
+	resolveCgroup := e.resolveCgroup
+	if resolveCgroup == nil {
+		resolveCgroup = ResolvePod
+	}
 	info := byPID
-	if cg, ok := ResolvePod(pid); ok {
+	if cg, ok := resolveCgroup(pid); ok {
 		if info.PodUID == "" {
 			info.PodUID = cg.PodUID
 		}
@@ -150,13 +194,7 @@ func (e *Enricher) Resolve(pid int32, deviceID string) (PodInfo, bool) {
 			info.ContainerID = cg.ContainerID
 		}
 	}
-	// Device allocation from PodResources (works without Pod UID).
-	if deviceID != "" {
-		if p, ok := byDev[deviceID]; ok {
-			mergePod(&info, p)
-		}
-	}
-	// Prefer container ID for multi-container pods.
+	// 1. The process's own pod: container id (multi-container pods) then pod UID.
 	if info.ContainerID != "" {
 		if p, ok := byCont[info.ContainerID]; ok {
 			mergePod(&info, p)
@@ -167,17 +205,114 @@ func (e *Enricher) Resolve(pid int32, deviceID string) (PodInfo, bool) {
 			mergePod(&info, p)
 		}
 	}
+	ownIdentity := info.PodName != ""
+	// 2. Fallback to a PodResources GPU owner.
+	// Host process: the owner of this device only, cached per device.
+	// Cgroup UID and no name yet: one confirmation against every allocation.
+	// That result is the process's own pod, so the first GPU in a scrape already
+	// carries it. The hostname file is read only when some owner has no UID.
+	if !ownIdentity && info.PodUID == "" && deviceID != "" {
+		if p, ok := byDev[deviceID]; ok {
+			mergePod(&info, p)
+		}
+	} else if !ownIdentity && info.PodUID != "" {
+		if p, ok := e.confirmProcessOwner(byDev, info.PodUID, pid); ok {
+			mergePod(&info, p)
+			ownIdentity = true
+		}
+	}
 
 	hit := info.PodUID != "" || info.PodName != ""
 	e.mu.Lock()
-	if hit {
-		e.cache[pid] = info
-		delete(e.negCache, pid)
-	} else {
-		e.negCache[pid] = time.Now()
+	switch {
+	case ownIdentity:
+		e.own[pid] = info
+	case hit:
+		e.cache[key] = info
+		delete(e.negCache, key)
+	default:
+		e.negCache[key] = time.Now()
 	}
 	e.mu.Unlock()
 	return info, hit
+}
+
+// confirmProcessOwner reports the single PodResources pod that is this process.
+// A UID match wins and does not consult the hostname. Otherwise the process hostname
+// is matched against owners that carry no UID. Two different name/namespace pairs
+// are ambiguous: a same-named pod in another namespace must not be attached.
+func (e *Enricher) confirmProcessOwner(byDev map[string]PodInfo, podUID string, pid int32) (PodInfo, bool) {
+	if p, ok, ambiguous := collectOwners(byDev, func(p PodInfo) bool {
+		return podUID != "" && p.PodUID != "" && p.PodUID == podUID
+	}); ambiguous {
+		return PodInfo{}, false
+	} else if ok {
+		return p, true
+	}
+	if !ownerNeedsHostname(byDev) {
+		return PodInfo{}, false
+	}
+	hostname := e.hostnameOf(pid)
+	p, ok, ambiguous := collectOwners(byDev, func(p PodInfo) bool {
+		return p.PodUID == "" && hostnameMatchesPod(hostname, p.PodName, p.Namespace)
+	})
+	if ambiguous || !ok {
+		return PodInfo{}, false
+	}
+	return p, true
+}
+
+// collectOwners returns the one pod wanted by match. A second pod with a different
+// name or namespace is ambiguous. Several allocations of the same pod keep the pod
+// and drop ContainerName when the containers disagree.
+func collectOwners(byDev map[string]PodInfo, match func(PodInfo) bool) (info PodInfo, ok bool, ambiguous bool) {
+	for _, p := range byDev {
+		if p.PodName == "" || !match(p) {
+			continue
+		}
+		if !ok {
+			info, ok = p, true
+			continue
+		}
+		if p.Namespace != info.Namespace || p.PodName != info.PodName {
+			return PodInfo{}, false, true
+		}
+		if p.ContainerName != info.ContainerName {
+			info.ContainerName = ""
+		}
+	}
+	return info, ok, false
+}
+
+func ownerNeedsHostname(byDev map[string]PodInfo) bool {
+	for _, p := range byDev {
+		if p.PodUID == "" && p.PodName != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// hostnameOf returns the process's container hostname, read once per pid per refresh.
+func (e *Enricher) hostnameOf(pid int32) string {
+	e.mu.RLock()
+	h, ok := e.hostnames[pid]
+	e.mu.RUnlock()
+	if ok {
+		return h
+	}
+	read := e.resolveHostname
+	if read == nil {
+		read = ProcHostname
+	}
+	h = read(pid)
+	e.mu.Lock()
+	if e.hostnames == nil {
+		e.hostnames = make(map[int32]string)
+	}
+	e.hostnames[pid] = h
+	e.mu.Unlock()
+	return h
 }
 
 func mergePod(dst *PodInfo, src PodInfo) {
@@ -246,9 +381,11 @@ func (e *Enricher) refreshMaps() {
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	e.hostnames = make(map[int32]string) // PIDs may be reused; re-read next cycle
 	if indexed {
-		e.cache = make(map[int32]PodInfo)
-		e.negCache = make(map[int32]time.Time)
+		e.own = make(map[int32]PodInfo)
+		e.cache = make(map[cacheKey]PodInfo)
+		e.negCache = make(map[cacheKey]time.Time)
 		e.byUID = byUID
 		e.byName = byName
 		e.byContID = byContID
