@@ -337,6 +337,7 @@ describe("JaegerAdapter", () => {
 			serviceName: "svc",
 			durationNs: 12_000_000,
 			cost: 0.003,
+			traceSummary: { spanCount: 2, errorCount: 0 },
 		});
 		expect(chat.resourceAttributes["telemetry.sdk.name"]).toBe("openlit");
 		expect(chat.events?.[0]).toMatchObject({
