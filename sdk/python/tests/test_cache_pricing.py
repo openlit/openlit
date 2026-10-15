@@ -274,7 +274,8 @@ class TestLiteLLMCacheExtraction:
 class TestBundledPricingFile:
     """Sanity-check the cache fields actually shipped in assets/pricing.json."""
 
-    def test_claude_cache_rates_present_and_consistent(self):
+    @staticmethod
+    def _load():
         import json
         import os
 
@@ -290,7 +291,10 @@ class TestBundledPricingFile:
             pytest.skip("bundled pricing.json not available in this checkout")
 
         with open(pricing_path, "r", encoding="utf-8") as handle:
-            pricing = json.load(handle)
+            return json.load(handle)
+
+    def test_claude_cache_rates_present_and_consistent(self):
+        pricing = self._load()
 
         entry = pricing["chat"]["claude-3-5-sonnet-20241022"]
         assert entry["cacheReadPrice"] == _approx(0.0003)
@@ -298,6 +302,42 @@ class TestBundledPricingFile:
         # cache read should be cheaper than prompt; cache write pricier.
         assert entry["cacheReadPrice"] < entry["promptPrice"]
         assert entry["cacheCreationPrice"] > entry["promptPrice"]
+
+    @pytest.mark.parametrize(
+        "model, rates",
+        [
+            # Anthropic API and the Bedrock global profile, per 1M tokens:
+            # input $4, output $20, cache read $0.20 (0.05x input), cache write $5.
+            ("claude-opus-5-5", (4, 20, 0.2, 5)),
+            ("global.anthropic.claude-opus-5-5", (4, 20, 0.2, 5)),
+            # Bedrock only serves Opus 5.5 through inference profiles; the
+            # geographic ones cost 10% more than global.
+            ("us.anthropic.claude-opus-5-5", (4.4, 22, 0.22, 5.5)),
+            ("eu.anthropic.claude-opus-5-5", (4.4, 22, 0.22, 5.5)),
+            ("jp.anthropic.claude-opus-5-5", (4.4, 22, 0.22, 5.5)),
+            ("au.anthropic.claude-opus-5-5", (4.4, 22, 0.22, 5.5)),
+        ],
+    )
+    def test_claude_opus_5_5_priced_for_bedrock_profiles(self, model, rates):
+        pricing = self._load()
+        entry = pricing["chat"][model]
+        prompt, completion, cache_read, cache_write = rates
+        # Entries are per 1K tokens. Check each rate on its own so that two
+        # wrong values cannot cancel out in the total below.
+        assert entry["promptPrice"] * 1000 == _approx(prompt)
+        assert entry["completionPrice"] * 1000 == _approx(completion)
+        assert entry["cacheReadPrice"] * 1000 == _approx(cache_read)
+        assert entry["cacheCreationPrice"] * 1000 == _approx(cache_write)
+        # 1M tokens each of uncached input, output, cache read and cache write.
+        cost = get_chat_model_cost(
+            model,
+            pricing,
+            1_000_000,
+            1_000_000,
+            cache_read_tokens=1_000_000,
+            cache_creation_tokens=1_000_000,
+        )
+        assert cost == _approx(sum(rates))
 
 
 # 200 uncached input + 5000 cache-read + 1000 cache-creation + 300 output.
