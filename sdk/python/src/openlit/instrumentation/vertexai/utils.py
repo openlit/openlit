@@ -11,13 +11,13 @@ from opentelemetry.trace import Status, StatusCode
 from openlit.__helpers import (
     apply_agent_version_attributes,
     build_tool_definitions,
-    calculate_ttft,
     calculate_tbt,
+    calculate_ttft,
+    common_span_attributes,
     general_tokens,
     get_chat_model_cost,
-    record_completion_metrics,
-    common_span_attributes,
     otel_event,
+    record_completion_metrics,
     truncate_message_content,
 )
 from openlit._config import OpenlitConfig
@@ -339,7 +339,7 @@ def common_chat_logic(
         scope._request_model,
         pricing_info,
         input_tokens,
-        output_tokens,
+        output_tokens + (getattr(scope, "_reasoning_tokens", 0) or 0),
         cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
         cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
         prompt_tokens_include_cache=True,

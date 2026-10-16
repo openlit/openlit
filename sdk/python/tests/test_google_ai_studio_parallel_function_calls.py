@@ -373,3 +373,50 @@ def test_function_calls_handles_object_shaped_parts():
         [_Part({"name": "n", "args": {}}), _Part(None)]
     )
     assert calls == [{"name": "n", "args": {}}]
+
+
+def test_thought_tokens_are_included_in_priced_completion_usage():
+    tracer, exporter = _tracer_with_exporter()
+    pricing = {
+        "chat": {
+            "gemini-2.5-flash": {"promptPrice": 0.000075, "completionPrice": 0.0003}
+        }
+    }
+    response = _FakeResponse(
+        {
+            "response_id": "resp-thinking",
+            "model_version": "gemini-2.5-flash",
+            "usage_metadata": {
+                "prompt_token_count": 100,
+                "candidates_token_count": 50,
+                "thoughts_token_count": 400,
+            },
+            "candidates": [
+                {"finish_reason": "STOP", "content": {"parts": [{"text": "ok"}]}}
+            ],
+        }
+    )
+    response["_text"] = "ok"
+    with tracer.start_as_current_span("google_ai_studio.chat") as span:
+        google_ai_studio_utils.process_chat_response(
+            instance=None,
+            response=response,
+            request_model="gemini-2.5-flash",
+            pricing_info=pricing,
+            server_port=443,
+            server_address="generativelanguage.googleapis.com",
+            environment="test",
+            application_name="test",
+            metrics=None,
+            start_time=time.time(),
+            span=span,
+            args=(),
+            kwargs={"model": "gemini-2.5-flash", "contents": "prompt"},
+            capture_message_content=False,
+            disable_metrics=True,
+            version="1.0.0",
+        )
+    attrs = exporter.get_finished_spans()[0].attributes
+    assert attrs[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 50
+    assert attrs[SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS] == 400
+    assert attrs[SemanticConvention.GEN_AI_USAGE_COST] == 0.0001425
