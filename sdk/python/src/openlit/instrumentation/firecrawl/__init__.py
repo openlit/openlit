@@ -3,6 +3,8 @@ Initializer of Auto Instrumentation of Firecrawl Functions.
 Supports comprehensive Firecrawl API operations with enhanced business intelligence.
 """
 
+import logging
+import re
 from typing import Collection
 import importlib.metadata
 from opentelemetry import trace
@@ -12,7 +14,87 @@ from wrapt import wrap_function_wrapper
 from openlit.instrumentation.firecrawl.firecrawl import general_wrap
 from openlit.instrumentation.firecrawl.async_firecrawl import async_general_wrap
 
-_instruments = ("firecrawl >= 1.6.3",)
+logger = logging.getLogger(__name__)
+
+# The SDK is published as "firecrawl-py" and, with the same code, as "firecrawl".
+_DISTRIBUTIONS = ("firecrawl-py", "firecrawl")
+_MIN_VERSION = "1.6.3"
+_instruments = (f"firecrawl-py >= {_MIN_VERSION}",)
+
+# v1 clients. firecrawl-py < 3 keeps them in firecrawl.firecrawl, 3.x and later
+# in firecrawl.v1.client under a V1 prefix.
+_V1_SYNC_METHODS = (
+    ("scrape_url", "firecrawl.scrape_url"),
+    ("crawl_url", "firecrawl.crawl_url"),
+    ("map_url", "firecrawl.map_url"),
+    ("search", "firecrawl.search"),
+    ("extract", "firecrawl.extract"),
+    ("batch_scrape_urls", "firecrawl.batch_scrape_urls"),
+    ("check_crawl_status", "firecrawl.get_crawl_status"),
+)
+_V1_ASYNC_METHODS = (
+    ("scrape_url", "firecrawl.async_scrape_url"),
+    ("async_crawl_url", "firecrawl.async_crawl_url"),
+    ("async_extract", "firecrawl.async_extract"),
+    ("async_batch_scrape_urls", "firecrawl.async_batch_scrape_urls"),
+    ("search", "firecrawl.async_search"),
+    ("map_url", "firecrawl.async_map_url"),
+)
+_V1_CLIENTS = (
+    ("firecrawl.firecrawl", "FirecrawlApp", "AsyncFirecrawlApp"),
+    ("firecrawl.v1.client", "V1FirecrawlApp", "AsyncV1FirecrawlApp"),
+)
+
+# v2 clients (firecrawl-py >= 3). Firecrawl, AsyncFirecrawl and the
+# FirecrawlApp alias delegate to these, as do the legacy *_url helpers.
+# Methods missing from a given release are skipped.
+_V2_METHODS = (
+    "scrape",
+    "search",
+    "crawl",
+    "start_crawl",
+    "get_crawl_status",
+    "wait_crawl",
+    "map",
+    "batch_scrape",
+    "start_batch_scrape",
+    "get_batch_scrape_status",
+    "extract",
+)
+# Only the async v2 client has wait_batch_scrape.
+_V2_ASYNC_ONLY_METHODS = ("wait_batch_scrape",)
+_V2_SYNC_CLIENT = ("firecrawl.v2.client", "FirecrawlClient")
+_V2_ASYNC_CLIENT = ("firecrawl.v2.client_async", "AsyncFirecrawlClient")
+
+
+def _release(version):
+    """Leading numeric part of a version string, e.g. "4.50.0" -> (4, 50, 0)."""
+    match = re.match(r"\d+(?:\.\d+)*", version)
+    return tuple(int(part) for part in match.group().split(".")) if match else ()
+
+
+def _installed_distribution():
+    """Return the first installed Firecrawl SDK distribution that meets the minimum."""
+    for distribution in _DISTRIBUTIONS:
+        try:
+            version = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+        if _release(version) >= _release(_MIN_VERSION):
+            return distribution
+    return None
+
+
+def _safe_wrap(module, class_method, wrapper):
+    """Wrap a method, skipping SDK layouts that are not installed."""
+    try:
+        wrap_function_wrapper(module, class_method, wrapper)
+    except (ImportError, AttributeError):
+        logger.debug(
+            "Skipping %s.%s - not available in this firecrawl version",
+            module,
+            class_method,
+        )
 
 
 class FireCrawlInstrumentor(BaseInstrumentor):
@@ -22,6 +104,11 @@ class FireCrawlInstrumentor(BaseInstrumentor):
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
+        # BaseInstrumentor requires every listed distribution, so declare
+        # whichever of firecrawl-py / firecrawl is installed.
+        distribution = _installed_distribution()
+        if distribution:
+            return (f"{distribution} >= {_MIN_VERSION}",)
         return _instruments
 
     def _instrument(self, **kwargs):
@@ -30,261 +117,55 @@ class FireCrawlInstrumentor(BaseInstrumentor):
         environment = kwargs.get("environment", "default")
         tracer = trace.get_tracer(__name__)
         pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content", True)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
-        version = importlib.metadata.version("firecrawl")
+        version = importlib.metadata.version(
+            _installed_distribution() or _DISTRIBUTIONS[0]
+        )
         metrics = kwargs.get("metrics")
 
-        # Core synchronous operations - targeting the correct module path
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "FirecrawlApp.scrape_url",
-                general_wrap(
-                    "firecrawl.scrape_url",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
+        def wrapper_args(endpoint):
+            return (
+                endpoint,
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
             )
-        except Exception:
-            pass
 
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "FirecrawlApp.crawl_url",
-                general_wrap(
-                    "firecrawl.crawl_url",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass
+        for module, sync_class, async_class in _V1_CLIENTS:
+            for method, endpoint in _V1_SYNC_METHODS:
+                _safe_wrap(
+                    module,
+                    f"{sync_class}.{method}",
+                    general_wrap(*wrapper_args(endpoint)),
+                )
+            for method, endpoint in _V1_ASYNC_METHODS:
+                _safe_wrap(
+                    module,
+                    f"{async_class}.{method}",
+                    async_general_wrap(*wrapper_args(endpoint)),
+                )
 
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "FirecrawlApp.map_url",
-                general_wrap(
-                    "firecrawl.map_url",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
+        module, sync_class = _V2_SYNC_CLIENT
+        for method in _V2_METHODS:
+            _safe_wrap(
+                module,
+                f"{sync_class}.{method}",
+                general_wrap(*wrapper_args(f"firecrawl.{method}")),
             )
-        except Exception:
-            pass
 
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "FirecrawlApp.search",
-                general_wrap(
-                    "firecrawl.search",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
+        module, async_class = _V2_ASYNC_CLIENT
+        for method in _V2_METHODS + _V2_ASYNC_ONLY_METHODS:
+            _safe_wrap(
+                module,
+                f"{async_class}.{method}",
+                async_general_wrap(*wrapper_args(f"firecrawl.async_{method}")),
             )
-        except Exception:
-            pass
-
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "FirecrawlApp.extract",
-                general_wrap(
-                    "firecrawl.extract",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass
-
-        # Batch operations
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "FirecrawlApp.batch_scrape_urls",
-                general_wrap(
-                    "firecrawl.batch_scrape_urls",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass
-
-        # Monitoring operations
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "FirecrawlApp.check_crawl_status",
-                general_wrap(
-                    "firecrawl.crawl_status",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass
-
-        # Async operations - targeting AsyncFirecrawlApp
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "AsyncFirecrawlApp.scrape_url",
-                async_general_wrap(
-                    "firecrawl.async_scrape_url",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass
-
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "AsyncFirecrawlApp.async_crawl_url",
-                async_general_wrap(
-                    "firecrawl.async_crawl_url",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass
-
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "AsyncFirecrawlApp.async_extract",
-                async_general_wrap(
-                    "firecrawl.async_extract",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass
-
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "AsyncFirecrawlApp.async_batch_scrape_urls",
-                async_general_wrap(
-                    "firecrawl.async_batch_scrape_urls",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass
-
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "AsyncFirecrawlApp.search",
-                async_general_wrap(
-                    "firecrawl.async_search",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass
-
-        try:
-            wrap_function_wrapper(
-                "firecrawl.firecrawl",
-                "AsyncFirecrawlApp.map_url",
-                async_general_wrap(
-                    "firecrawl.async_map_url",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    trace_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass
 
     def _uninstrument(self, **kwargs):
         pass
