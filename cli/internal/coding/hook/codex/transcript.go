@@ -7,6 +7,7 @@
 //	{"type":"session_meta",  "payload":{...}}
 //	{"type":"turn_context",  "payload":{"turn_id":"..."}}
 //	{"type":"response_item", "payload":{"type":"function_call"|"message"|"reasoning",...}}
+//	{"type":"token_usage_record", "payload":{"turn_id":"...","turn_token_usage":{...}}}
 //	{"type":"event_msg",     "payload":{"type":"token_count","info":{...}}}
 //
 // The token-count delta algorithm here: Codex's `token_count` events
@@ -14,7 +15,10 @@
 // is a running cumulative counter for the entire session. To get
 // *this* turn's usage we subtract the baseline (the value observed
 // just before the assistant started producing model output for this
-// turn) from the final (the value observed at end of turn).
+// turn) from the final (the value observed at end of turn). Forked
+// sessions can inherit the parent's cumulative counters, so their
+// first turn uses Codex's explicit per-turn usage record when there is
+// no trustworthy baseline.
 
 package codex
 
@@ -48,12 +52,13 @@ type codexLine struct {
 }
 
 // sessionMeta captures the subset of fields Codex's `session_meta`
-// record exposes about subagent linkage. We collapse the legacy
+// record exposes about fork and subagent linkage. We collapse the legacy
 // `parent_thread_id` / `Source.Subagent.ThreadSpawn.*` fallbacks
 // into the same struct so both old and new transcript versions are
 // handled.
 type sessionMeta struct {
 	SessionID       string
+	ForkedFromID    string
 	ThreadSource    string
 	ParentSessionID string
 	AgentRole       string
@@ -81,6 +86,12 @@ type codexTokenUsageInfo struct {
 	TotalTokenUsage    codexTokenUsage `json:"total_token_usage"`
 	LastTokenUsage     codexTokenUsage `json:"last_token_usage"`
 	ModelContextWindow int64           `json:"model_context_window"`
+}
+
+// codexTokenUsageRecord carries usage accumulated for one specific turn.
+type codexTokenUsageRecord struct {
+	TurnID         string          `json:"turn_id"`
+	TurnTokenUsage codexTokenUsage `json:"turn_token_usage"`
 }
 
 // codexTokenSnapshot is the result of scanning a transcript for a
@@ -124,6 +135,8 @@ func readSessionMeta(path string) (sessionMeta, bool) {
 //   - the transcript can't be opened or never contained the turn
 //   - the delta would be non-positive (defensive guard against
 //     out-of-order rollout writes)
+//   - a forked first turn has neither a per-turn usage record nor a
+//     pre-model baseline to distinguish its usage from inherited totals
 //
 // On success the returned snapshot's `TurnUsage` is the per-turn delta
 // suitable for emitting as `gen_ai.usage.input_tokens`,
@@ -137,6 +150,7 @@ func readTokenUsageForTurn(path, turnID string) (codexTokenSnapshot, bool) {
 	var (
 		activeTurnID      string
 		seenAnyTurn       bool
+		forkedSession     bool
 		targetStarted     bool
 		targetIsFirstTurn bool
 		targetModelActive bool
@@ -146,6 +160,8 @@ func readTokenUsageForTurn(path, turnID string) (codexTokenSnapshot, bool) {
 		lastTotal         codexTokenUsage
 		haveFinal         bool
 		finalInfo         codexTokenUsageInfo
+		haveTurnUsage     bool
+		turnUsageRecord   codexTokenUsage
 	)
 
 	err := scanCodexLines(path, func(raw []byte) (bool, error) {
@@ -154,6 +170,17 @@ func readTokenUsageForTurn(path, turnID string) (codexTokenSnapshot, bool) {
 			return false, nil
 		}
 		switch l.Type {
+		case "session_meta":
+			meta, ok := parseSessionMeta(l.Payload)
+			if ok && meta.ForkedFromID != "" {
+				forkedSession = true
+			}
+		case "token_usage_record":
+			record, ok := parseTokenUsageRecord(l.Payload)
+			if ok && record.TurnID == turnID {
+				turnUsageRecord = record.TurnTokenUsage
+				haveTurnUsage = true
+			}
 		case "turn_context":
 			nextTurnID := parseCodexTurnID(l.Payload)
 			if nextTurnID == "" {
@@ -204,14 +231,25 @@ func readTokenUsageForTurn(path, turnID string) (codexTokenSnapshot, bool) {
 	if err != nil || !targetStarted || !haveFinal {
 		return codexTokenSnapshot{}, false
 	}
+	useTurnUsageRecord := forkedSession && targetIsFirstTurn && haveTurnUsage &&
+		hasPositiveCodexUsage(turnUsageRecord)
 	if !haveBaseline {
-		if !targetIsFirstTurn {
+		if !targetIsFirstTurn || (forkedSession && !useTurnUsageRecord) {
 			return codexTokenSnapshot{}, false
 		}
 		baseline = codexTokenUsage{}
 	}
-	turnUsage, ok := subtractCodexUsage(finalInfo.TotalTokenUsage, baseline)
-	if !ok || !hasPositiveCodexUsage(turnUsage) {
+	turnUsage := codexTokenUsage{}
+	if useTurnUsageRecord {
+		turnUsage = turnUsageRecord
+	} else {
+		var ok bool
+		turnUsage, ok = subtractCodexUsage(finalInfo.TotalTokenUsage, baseline)
+		if !ok {
+			return codexTokenSnapshot{}, false
+		}
+	}
+	if !hasPositiveCodexUsage(turnUsage) {
 		return codexTokenSnapshot{}, false
 	}
 	return codexTokenSnapshot{
@@ -267,6 +305,7 @@ func scanCodexLines(path string, visit func(raw []byte) (bool, error)) error {
 func parseSessionMeta(raw json.RawMessage) (sessionMeta, bool) {
 	var p struct {
 		ID              string `json:"id"`
+		ForkedFromID    string `json:"forked_from_id"`
 		ThreadSource    string `json:"thread_source"`
 		ParentSessionID string `json:"parent_session_id"`
 		AgentRole       string `json:"agent_role"`
@@ -278,6 +317,7 @@ func parseSessionMeta(raw json.RawMessage) (sessionMeta, bool) {
 	}
 	meta := sessionMeta{
 		SessionID:       p.ID,
+		ForkedFromID:    p.ForkedFromID,
 		ThreadSource:    p.ThreadSource,
 		ParentSessionID: p.ParentSessionID,
 		AgentRole:       p.AgentRole,
@@ -287,7 +327,7 @@ func parseSessionMeta(raw json.RawMessage) (sessionMeta, bool) {
 	if meta.ThreadSource == "" && meta.ParentSessionID != "" {
 		meta.ThreadSource = "subagent"
 	}
-	if meta.SessionID == "" && meta.ParentSessionID == "" && meta.ThreadSource == "" {
+	if meta.SessionID == "" && meta.ForkedFromID == "" && meta.ParentSessionID == "" && meta.ThreadSource == "" {
 		return sessionMeta{}, false
 	}
 	return meta, true
@@ -315,6 +355,14 @@ func parseTokenUsageInfo(raw json.RawMessage) (codexTokenUsageInfo, bool) {
 		return codexTokenUsageInfo{}, false
 	}
 	return *p.Info, true
+}
+
+func parseTokenUsageRecord(raw json.RawMessage) (codexTokenUsageRecord, bool) {
+	var record codexTokenUsageRecord
+	if err := json.Unmarshal(raw, &record); err != nil || record.TurnID == "" {
+		return codexTokenUsageRecord{}, false
+	}
+	return record, true
 }
 
 // isModelActivity reports whether a `response_item` payload represents
