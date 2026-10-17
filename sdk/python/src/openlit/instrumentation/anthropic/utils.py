@@ -601,6 +601,15 @@ def common_chat_logic(
         cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0),
     )
 
+    # OTel GenAI semconv: gen_ai.usage.input_tokens includes the cache read
+    # and creation counts. The cost call keeps its own raw/cache split, and
+    # the cache attributes are reported separately below.
+    semconv_input_tokens = (
+        input_tokens
+        + getattr(scope, "_cache_read_input_tokens", 0)
+        + getattr(scope, "_cache_creation_input_tokens", 0)
+    )
+
     # Common Span Attributes
     common_span_attributes(
         scope,
@@ -693,14 +702,14 @@ def common_chat_logic(
 
     # Span Attributes for Cost and Tokens
     scope._span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
+        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, semconv_input_tokens
     )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens
     )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
-        input_tokens + output_tokens,
+        semconv_input_tokens + output_tokens,
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
@@ -819,7 +828,7 @@ def common_chat_logic(
             application_name,
             scope._start_time,
             scope._end_time,
-            input_tokens,
+            semconv_input_tokens,
             output_tokens,
             cost,
             scope._tbt,
