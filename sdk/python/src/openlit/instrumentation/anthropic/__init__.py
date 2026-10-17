@@ -4,6 +4,7 @@ from typing import Collection
 import importlib.metadata
 from opentelemetry import trace, _logs
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from opentelemetry.instrumentation.utils import unwrap
 from wrapt import wrap_function_wrapper
 
 from openlit._config import OpenlitConfig
@@ -104,4 +105,6 @@ class AnthropicInstrumentor(BaseInstrumentor):
         )
 
     def _uninstrument(self, **kwargs):
-        pass
+        for class_name in ("Messages", "AsyncMessages"):
+            for method in ("create", "stream"):
+                unwrap(f"anthropic.resources.messages.{class_name}", method)
