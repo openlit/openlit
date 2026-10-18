@@ -73,8 +73,11 @@ def _start_chat_model(handler, run_id):
 def test_framework_flag_reset_tolerates_foreign_context_token():
     """reset_framework_llm_active must not raise for a token from another Context."""
     token = set_framework_llm_active()
+    copied = contextvars.copy_context()
+    assert copied.run(is_framework_llm_active)
     try:
-        contextvars.copy_context().run(reset_framework_llm_active, token)
+        copied.run(reset_framework_llm_active, token)
+        assert not copied.run(is_framework_llm_active)
     finally:
         reset_framework_llm_active(token)
     assert not is_framework_llm_active()
