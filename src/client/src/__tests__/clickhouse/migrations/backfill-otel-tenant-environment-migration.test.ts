@@ -74,6 +74,63 @@ describe("BackfillOtelTenantEnvironmentMigration", () => {
 		});
 	});
 
+	// What @clickhouse/client returns for `ALTER TABLE <missing> UPDATE ...`.
+	function clickHouseError(message: string, code: string, type: string) {
+		return Object.assign(new Error(message), { code, type });
+	}
+
+	it.each([
+		[
+			"a ClickHouse UNKNOWN_TABLE error",
+			clickHouseError("Could not find table: otel_logs. ", "60", "UNKNOWN_TABLE"),
+		],
+		[
+			"a plain error message",
+			"ClickHouse Query Error: Could not find table: otel_logs",
+		],
+	])(
+		"skips otel tables that do not exist yet (%s)",
+		async (_label, missingTableErr) => {
+			// Only otel_traces exists, e.g. an external collector that exports
+			// traces only.
+			(dataCollector as jest.Mock).mockImplementation(async ({ query }) =>
+				/ALTER TABLE otel_traces\s/.test(String(query))
+					? { err: null }
+					: { err: missingTableErr }
+			);
+
+			const result = await BackfillOtelTenantEnvironmentMigration("db-1");
+
+			expect(result).toEqual({ migrationExist: false, queriesRun: true });
+			expect(dataCollector).toHaveBeenCalledTimes(7);
+			expect(prisma.clickhouseMigrations.create).toHaveBeenCalledWith({
+				data: {
+					databaseConfigId: "db-1",
+					clickhouseMigrationId: "backfill-otel-tenant-environment",
+				},
+			});
+		}
+	);
+
+	it("fails on errors other than a missing table", async () => {
+		const accessDenied = clickHouseError(
+			"default: Not enough privileges. ",
+			"497",
+			"ACCESS_DENIED"
+		);
+		(dataCollector as jest.Mock).mockResolvedValue({ err: accessDenied });
+
+		const result = await BackfillOtelTenantEnvironmentMigration("db-1");
+
+		expect(result).toEqual({
+			migrationExist: false,
+			queriesRun: false,
+			err: accessDenied,
+		});
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+		expect(prisma.clickhouseMigrations.create).not.toHaveBeenCalled();
+	});
+
 	it("skips when the migration already ran", async () => {
 		(prisma.clickhouseMigrations.findFirst as jest.Mock).mockResolvedValue({
 			id: "mig-1",

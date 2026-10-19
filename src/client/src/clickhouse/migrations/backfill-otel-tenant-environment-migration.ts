@@ -23,10 +23,15 @@ function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+// ClickHouse reports a missing table as UNKNOWN_TABLE (code 60), but the
+// message depends on the statement: ALTER says "Could not find table: x",
+// INSERT says "Table db.x does not exist".
 function isMissingTable(err: unknown) {
+	if ((err as { type?: unknown } | null)?.type === "UNKNOWN_TABLE") return true;
 	const message = String(err || "").toLowerCase();
 	return (
 		message.includes("unknown table") ||
+		message.includes("could not find table") ||
 		message.includes("doesn't exist") ||
 		message.includes("does not exist")
 	);
