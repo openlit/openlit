@@ -21,7 +21,7 @@
     "@ai-sdk/openai": "^3.0.4",
     "@anthropic-ai/sdk": "^0.21.1",
     "@clickhouse/client": "^1.23.1",
-    "@dhmk/zustand-lens": "^4.0.0",
+    "@dhmk/zustand-lens": "^5.0.0",
     "@kubernetes/client-node": "^1.4.0",
     "@mistralai/mistralai": "^0.4.0",
     "@monaco-editor/react": "^4.7.0",
