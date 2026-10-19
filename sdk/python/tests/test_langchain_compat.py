@@ -1,6 +1,7 @@
 # pylint: disable=missing-class-docstring, missing-function-docstring, duplicate-code, too-few-public-methods
 """Compatibility tests for LangChain instrumentation."""
 
+import logging
 from uuid import uuid4
 
 import pytest
@@ -128,3 +129,80 @@ class TestLangChainCompatibility:
         assert attrs[SemanticConvention.SERVER_ADDRESS] == "localhost"
         assert attrs[SemanticConvention.SERVER_PORT] == 11434
         assert attrs[SemanticConvention.ERROR_TYPE] == "TimeoutError"
+
+
+try:
+    from langgraph.graph import StateGraph, START, END
+    from langgraph.types import interrupt, Command
+    from langgraph.checkpoint.memory import InMemorySaver
+    from typing_extensions import TypedDict
+
+    LANGGRAPH_AVAILABLE = True
+except ImportError:
+    LANGGRAPH_AVAILABLE = False
+
+
+class _InterruptState(TypedDict, total=False):
+    text: str
+
+
+def _interrupt_node(_state):
+    interrupt({"question": "approve?"})
+
+
+class TestGraphLifecycleCallbacks:
+    def _handler_and_exporter(self):
+        exporter = InMemorySpanExporter()
+        tracer_provider = TracerProvider()
+        tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+        handler_cls = _create_callback_handler_class(
+            tracer_provider.get_tracer("test"),
+            "test-version",
+            "test-env",
+            "test-app",
+            {},
+            True,
+            None,
+            True,
+        )
+        return handler_cls(), exporter
+
+    @pytest.mark.skipif(not LANGGRAPH_AVAILABLE, reason="langgraph not installed")
+    def test_graph_interrupt_and_resume_recorded_without_errors(self, caplog):
+        handler, exporter = self._handler_and_exporter()
+
+        builder = StateGraph(_InterruptState)
+        builder.add_node("human", _interrupt_node)
+        builder.add_edge(START, "human")
+        builder.add_edge("human", END)
+        graph = builder.compile(checkpointer=InMemorySaver())
+        config = {"configurable": {"thread_id": "lifecycle-test"}}
+
+        import wrapt
+
+        original_init = BaseCallbackManager.__init__
+        wrapper = _BaseCallbackManagerInitWrapper(handler)
+        wrapt.wrap_function_wrapper(
+            "langchain_core.callbacks.manager",
+            "BaseCallbackManager.__init__",
+            wrapper,
+        )
+        try:
+            with caplog.at_level(logging.ERROR):
+                graph.invoke({"text": "hello"}, config)
+                graph.invoke(Command(resume="approved"), config)
+        finally:
+            BaseCallbackManager.__init__ = original_init
+
+        error_records = [
+            record for record in caplog.records if record.levelno >= logging.ERROR
+        ]
+        assert error_records == []
+
+        event_names = [
+            event.name
+            for span in exporter.get_finished_spans()
+            for event in span.events
+        ]
+        assert "graph.interrupt" in event_names
+        assert "graph.resume" in event_names
