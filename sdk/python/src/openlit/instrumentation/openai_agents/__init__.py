@@ -24,6 +24,16 @@ from openlit.instrumentation.openai_agents.processor import OpenLITTracingProces
 _instruments = ("openai-agents >= 0.0.3",)
 
 
+def _trace_include_sensitive_data_enabled() -> bool:
+    """Return the SDK default available while an Agent is being constructed."""
+    try:
+        from agents.run_config import _default_trace_include_sensitive_data
+    except ImportError:
+        return True
+
+    return _default_trace_include_sensitive_data()
+
+
 class _AgentCreationRegistry:
     """Thread-safe registry mapping agent name -> SpanContext from create_agent spans.
 
@@ -80,7 +90,11 @@ def _wrap_agent_init(
                     )
 
                 instructions = getattr(instance, "instructions", None)
-                if instructions and capture_message_content:
+                if (
+                    instructions
+                    and capture_message_content
+                    and _trace_include_sensitive_data_enabled()
+                ):
                     formatted = format_system_instructions(instructions)
                     if formatted:
                         span.set_attribute(
