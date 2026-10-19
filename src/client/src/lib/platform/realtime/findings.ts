@@ -45,13 +45,14 @@ function stringMap(value: unknown): Record<string, string> {
 	if (typeof value !== "object" || Array.isArray(value)) invalid();
 	const entries = Object.entries(value as Record<string, unknown>);
 	if (entries.length > MAX_MAP_ENTRIES) invalid();
-	// Null prototype: keys come from the engine and must never reach Object.prototype.
-	const out: Record<string, string> = Object.create(null);
+	// Keys come from the engine: collect in a Map and build a null-prototype
+	// object, so no key can reach Object.prototype.
+	const out = new Map<string, string>();
 	for (const [key, raw] of entries) {
 		if (!isRealtimeMapKey(key) || typeof raw !== "string") invalid();
-		out[key] = raw.slice(0, MAX_MAP_VALUE);
+		out.set(key, raw.slice(0, MAX_MAP_VALUE));
 	}
-	return out;
+	return Object.assign(Object.create(null) as Record<string, string>, Object.fromEntries(out));
 }
 
 function finiteNumber(value: unknown, { optional = false } = {}): number | undefined {
