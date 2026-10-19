@@ -390,8 +390,8 @@ const SESSION_BASE_COLUMNS = `
 		),
 		'unknown'
 	) AS outcome,
-	coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassification}']), ''), 'unknown') AS classification,
-	coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassificationReason}']), ''), 'no_signal') AS classification_reason,
+	coalesce(nullIf(anyIf(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'], notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'])), ''), 'unknown') AS classification,
+	coalesce(nullIf(anyIf(SpanAttributes['${CODING_AGENT_ATTR.userClassificationReason}'], notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassificationReason}'])), ''), 'no_signal') AS classification_reason,
 	-- VCS metadata. We surface the LATEST non-empty value across the
 	-- session (argMax by Timestamp), preferring the span attribute —
 	-- which carries the live per-turn value (Cursor's git_branch
@@ -409,7 +409,7 @@ const SESSION_BASE_COLUMNS = `
 		nullIf(argMaxIf(SpanAttributes['${VCS_ATTR.headRef}'], Timestamp, notEmpty(SpanAttributes['${VCS_ATTR.headRef}'])), ''),
 		nullIf(argMaxIf(ResourceAttributes['${VCS_ATTR.headRef}'], Timestamp, notEmpty(ResourceAttributes['${VCS_ATTR.headRef}'])), '')
 	)                                                                  AS branch,
-	if(any(SpanAttributes['${CODING_AGENT_ATTR.vcsDirty}']) = 'true', 1, 0) AS repo_dirty,
+	if(anyIf(SpanAttributes['${CODING_AGENT_ATTR.vcsDirty}'], notEmpty(SpanAttributes['${CODING_AGENT_ATTR.vcsDirty}'])) = 'true', 1, 0) AS repo_dirty,
 	-- Latest model used by the session (argMax keeps the most recent
 	-- non-empty value across all child spans).
 	argMaxIf(
@@ -533,21 +533,21 @@ const SESSION_BASE_COLUMNS = `
 	--      fired SessionEnd yet (the UI is allowed to show partial
 	--      data during a live session).
 	greatest(
-		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
+		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
 		toInt64(sumIf(
 			toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 		))
 	)                                                                  AS lines_added,
 	greatest(
-		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRemoved}'])),
+		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRemoved}'])),
 		toInt64(sumIf(
 			toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesRemoved}']),
 			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 		))
 	)                                                                  AS lines_removed,
 	greatest(
-		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
+		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
 		toInt64(sumIf(
 			toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
@@ -555,7 +555,7 @@ const SESSION_BASE_COLUMNS = `
 		))
 	)                                                                  AS lines_accepted,
 	greatest(
-		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
+		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
 		toInt64(sumIf(
 			toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
@@ -563,14 +563,14 @@ const SESSION_BASE_COLUMNS = `
 		))
 	)                                                                  AS lines_rejected,
 	greatest(
-		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
 		toInt64(countIf(
 			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 				AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
 		))
 	)                                                                  AS edit_accept_count,
 	greatest(
-		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
 		toInt64(countIf(
 			SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 				AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
@@ -582,13 +582,13 @@ const SESSION_BASE_COLUMNS = `
 	-- under-counted vs the per-edit sum would skew the %).
 	if(
 		(greatest(
-			toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+			max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
 			toInt64(countIf(
 				SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 					AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
 			))
 		) + greatest(
-			toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+			max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
 			toInt64(countIf(
 				SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 					AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
@@ -597,20 +597,20 @@ const SESSION_BASE_COLUMNS = `
 		toFloat64(0),
 		round(
 			toFloat64(greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
 				toInt64(countIf(
 					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
 				))
 			)) * 100 /
 			toFloat64(greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
 				toInt64(countIf(
 					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
 				))
 			) + greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
 				toInt64(countIf(
 					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
@@ -623,11 +623,11 @@ const SESSION_BASE_COLUMNS = `
 	-- session-rollup attribute, fall back to counting the
 	-- per-commit / per-PR spans.
 	greatest(
-		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
+		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
 		toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_COMMIT}'))
 	)                                                                  AS commit_count,
 	greatest(
-		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
+		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
 		toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
 	)                                                                  AS pr_count,
 	-- Is this chat a subagent-only row (hide from Sessions by default)?
@@ -981,21 +981,21 @@ export async function getCodingSessionDigest(
 			${CHAT_ID_EXPR} AS session_id,
 			${USER_EXPR} AS user,
 			greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
 				toInt64(sumIf(
 					toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 				))
 			) AS lines_added,
 			greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRemoved}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRemoved}'])),
 				toInt64(sumIf(
 					toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesRemoved}']),
 					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 				))
 			) AS lines_removed,
 			greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
 				toInt64(sumIf(
 					toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
@@ -1003,7 +1003,7 @@ export async function getCodingSessionDigest(
 				))
 			) AS lines_accepted,
 			greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
 				toInt64(sumIf(
 					toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
@@ -1011,25 +1011,25 @@ export async function getCodingSessionDigest(
 				))
 			) AS lines_rejected,
 			greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
 				toInt64(countIf(
 					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
 				))
 			) AS edit_accept_count,
 			greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
 				toInt64(countIf(
 					SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 						AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
 				))
 			) AS edit_reject_count,
 			greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
 				toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_COMMIT}'))
 			) AS commit_count,
 			greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
 				toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
 			) AS pr_count,
 			-- Session-level usage rollups. Mirrors SESSION_BASE_COLUMNS
@@ -1385,21 +1385,21 @@ export async function getCodingUserDigest(
 				-- SESSION_BASE_COLUMNS comment for the full
 				-- rationale (Codex / in-flight sessions).
 				greatest(
-					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
+					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
 					toInt64(sumIf(
 						toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 					))
 				) AS lines_added,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRemoved}'])),
+					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRemoved}'])),
 					toInt64(sumIf(
 						toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesRemoved}']),
 						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 					))
 				) AS lines_removed,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
+					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
 					toInt64(sumIf(
 						toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
@@ -1407,7 +1407,7 @@ export async function getCodingUserDigest(
 					))
 				) AS lines_accepted,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
+					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
 					toInt64(sumIf(
 						toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
@@ -1415,28 +1415,28 @@ export async function getCodingUserDigest(
 					))
 				) AS lines_rejected,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
 					toInt64(countIf(
 						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 							AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
 					))
 				) AS edit_accept_count,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
 					toInt64(countIf(
 						SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 							AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
 					))
 				) AS edit_reject_count,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
+					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
 					toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_COMMIT}'))
 				) AS commit_count,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
+					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
 					toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
 				) AS pr_count,
-				coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassification}']), ''), 'unknown') AS classification,
+				coalesce(nullIf(anyIf(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'], notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'])), ''), 'unknown') AS classification,
 				${VENDOR_EXPR} AS vendor
 			FROM ${OTEL_TRACES_TABLE}
 			${whereScope({
@@ -1731,14 +1731,14 @@ export async function listCodingUsers(
 						-- only renders summed metrics, so we don't
 						-- emit lines_removed here.
 						greatest(
-							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
+							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
 							toInt64(sumIf(
 								toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 								SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 							))
 						) AS lines_added,
 						greatest(
-							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
+							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAccepted}'])),
 							toInt64(sumIf(
 								toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 								SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
@@ -1746,7 +1746,7 @@ export async function listCodingUsers(
 							))
 						) AS lines_accepted,
 						greatest(
-							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
+							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesRejected}'])),
 							toInt64(sumIf(
 								toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.editLinesAdded}']),
 								SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
@@ -1754,28 +1754,28 @@ export async function listCodingUsers(
 							))
 						) AS lines_rejected,
 						greatest(
-							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
+							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditAcceptCount}'])),
 							toInt64(countIf(
 								SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 									AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] IN ('accept', 'auto_accepted')
 							))
 						) AS edit_accept,
 						greatest(
-							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
+							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionEditRejectCount}'])),
 							toInt64(countIf(
 								SpanName = '${CODING_AGENT_SPAN_EDIT_DECISION}'
 									AND SpanAttributes['${CODING_AGENT_ATTR.editDecision}'] = 'reject'
 							))
 						) AS edit_reject,
 						greatest(
-							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
+							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionCommitCount}'])),
 							toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_COMMIT}'))
 						) AS commits,
 						greatest(
-							toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
+							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
 							toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
 						) AS prs,
-						coalesce(nullIf(any(SpanAttributes['${CODING_AGENT_ATTR.userClassification}']), ''), 'unknown') AS classification
+						coalesce(nullIf(anyIf(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'], notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'])), ''), 'unknown') AS classification
 					FROM ${OTEL_TRACES_TABLE}
 					${whereScope({
 						since: opts.since ?? null,
