@@ -4,6 +4,8 @@
 import logging
 from uuid import uuid4
 
+from opentelemetry import trace
+
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -152,11 +154,19 @@ def _interrupt_node(_state):
 
 class TestGraphLifecycleCallbacks:
     def _handler_and_exporter(self):
+        # Attach to the GLOBAL provider: when the LangGraph instrumentation is
+        # active it owns the workflow span on that provider, and the handler's
+        # lifecycle events land there; without it the handler owns the span on
+        # whichever tracer it was built with. Reading the global provider sees
+        # both arrangements.
         exporter = InMemorySpanExporter()
-        tracer_provider = TracerProvider()
-        tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+        provider = trace.get_tracer_provider()
+        if not isinstance(provider, TracerProvider):
+            provider = TracerProvider()
+            trace.set_tracer_provider(provider)
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
         handler_cls = _create_callback_handler_class(
-            tracer_provider.get_tracer("test"),
+            provider.get_tracer("test"),
             "test-version",
             "test-env",
             "test-app",
