@@ -274,12 +274,28 @@ Realtime evaluation powers [threshold alerts](/latest/openlit/alerts#threshold-a
 </ResponseField>
 
 <ResponseField name="OPENLIT_ENGINE_URL">
-  Base URL the UI uses to read the signal inspector from the engine. Defaults to `http://127.0.0.1:4330`, which matches the engine inside the Docker container and `scripts/dev-realtime.sh`.
+  Base URL the UI uses to read live spans for an alert from the engine. Defaults to `http://127.0.0.1:4330`, which matches the engine inside the Docker container and `scripts/dev-realtime.sh`.
 
   **Example**:
   ```yaml
   export OPENLIT_ENGINE_URL="http://127.0.0.1:4330"
   ```
+</ResponseField>
+
+<ResponseField name="ENGINE_HTTP_ADDR / OPENLIT_URL">
+  The engine's internal HTTP listener (default `127.0.0.1:4330`, which serves live spans to the UI) and the UI URL the engine reads alerts from and posts findings to (default `http://127.0.0.1:3000`; the Docker image sets it from the UI port). Keep `ENGINE_HTTP_ADDR` on loopback or a private network.
+</ResponseField>
+
+<ResponseField name="ENGINE_RULES_REFRESH / ENGINE_TICK / ENGINE_REPLAY">
+  How often the engine reloads alerts (default `10s`), how often it evaluates every window (default `5s`), and how much of the signal stream it replays on start (default `10m`), as Go durations.
+</ResponseField>
+
+<ResponseField name="OPENLIT_SIGNALS_STREAM">
+  JetStream stream name for signals (default `OPENLIT_SIGNALS`). The receiver and the engine must use the same name.
+</ResponseField>
+
+<ResponseField name="OPENLIT_REALTIME_FINDING_RETENTION_DAYS / OPENLIT_REALTIME_MAX_OPEN_FINDINGS">
+  How long resolved threshold alert history is kept (default `30` days) and how many groups can be firing at once in each project environment (default `1000`). New groups beyond that limit are not recorded.
 </ResponseField>
 
 <ResponseField name="OPENLIT_REALTIME_WINDOW_SEC / OPENLIT_REALTIME_MIN_SAMPLES / OPENLIT_REALTIME_COOLDOWN_SEC">
