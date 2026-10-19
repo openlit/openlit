@@ -61,7 +61,10 @@ jest.mock("@/lib/platform/connectors/datasource/clickhouse/direct-read", () => (
 }));
 
 import { intelligenceDataCollector } from "@/lib/platform/common";
-import { materializeAgents } from "@/lib/platform/agents/materialize";
+import {
+	materializeAgents,
+	recomputeCodingAgentsForWindow,
+} from "@/lib/platform/agents/materialize";
 import { computeAgentKey } from "@/lib/platform/agents";
 
 const mockedDC = intelligenceDataCollector as jest.MockedFunction<
@@ -483,5 +486,33 @@ describe("materializeAgents — workload_key dedup", () => {
 		expect(
 			queries.some((q) => q.includes("openlit_controller_services"))
 		).toBe(false);
+	});
+});
+
+describe("coding-agent hub cost rollup", () => {
+	it("does not add the session root's gen_ai.usage.cost on top of the per-turn costs", async () => {
+		const queries: string[] = [];
+		mockedDC.mockImplementation(async (config: any) => {
+			queries.push(String(config?.query || ""));
+			return { data: [] } as any;
+		});
+
+		await recomputeCodingAgentsForWindow({
+			timeStart: "2026-10-18T00:00:00.000Z",
+			timeEnd: "2026-10-20T00:00:00.000Z",
+		});
+
+		const query = queries.find((q) => q.includes("chat_cost"));
+		expect(query).toBeDefined();
+		// At SessionEnd the CLI stamps the session total on the root span as
+		// both coding_agent.session.cost_usd and gen_ai.usage.cost, while each
+		// llm.turn span carries its own gen_ai.usage.cost. Summing
+		// gen_ai.usage.cost over every span counts an ended session twice.
+		expect(query).not.toContain(
+			"sumOrNull(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']))"
+		);
+		expect(query).toMatch(
+			/sumOrNull\(if\(\s*SpanName != 'coding_agent\.session',\s*toFloat64OrZero\(SpanAttributes\['gen_ai\.usage\.cost'\]\)/
+		);
 	});
 });

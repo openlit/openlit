@@ -705,11 +705,20 @@ async function discoverCodingAgents(
 					nullIf(ResourceAttributes['session.id'], '')
 				) AS chat_id,
 				-- session-end cost wins when present, otherwise sum of
-				-- per-turn cost estimates. Both are stamped on chat-level
-				-- spans (root and per LLM turn).
-				greatest(
-					toFloat64OrZero(any(SpanAttributes['coding_agent.session.cost_usd'])),
-					sumOrNull(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']))
+				-- per-turn cost estimates. The root span carries the
+				-- session total as both coding_agent.session.cost_usd and
+				-- gen_ai.usage.cost, so the per-turn sum skips it (same
+				-- dedupe as the cost_usd column in coding-agents/queries.ts).
+				coalesce(
+					nullIf(toFloat64OrZero(anyIf(
+						SpanAttributes['coding_agent.session.cost_usd'],
+						SpanName = 'coding_agent.session'
+					)), 0),
+					sumOrNull(if(
+						SpanName != 'coding_agent.session',
+						toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']),
+						0
+					))
 				) AS chat_cost,
 				-- Per-chat code-change rollups. The greatest(session-
 				-- rollup-attr, per-edit-decision-sum) pattern mirrors
