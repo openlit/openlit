@@ -263,18 +263,25 @@ export const validateMetricsRequest = (
 	return { success: true };
 };
 
+/** Time predicate shared by span filters and the trace-summary page scan. */
+export function getTimeRangeWhereCondition(filter: {
+	timeLimit?: { start?: unknown; end?: unknown };
+}): string {
+	const { start, end } = filter.timeLimit || {};
+	if (start && end) {
+		return `Timestamp >= parseDateTimeBestEffort(${sqlString(start)}) AND Timestamp <= parseDateTimeBestEffort(${sqlString(end)})`;
+	}
+	return "";
+}
+
 export const getFilterWhereCondition = (
 	filter: FilterWhereConditionType,
 	filterSelectedConfig?: boolean
 ) => {
 	const whereArray: string[] = [];
 	try {
-		const { start, end } = filter.timeLimit || {};
-		if (start && end) {
-			whereArray.push(
-				`Timestamp >= parseDateTimeBestEffort(${sqlString(start)}) AND Timestamp <= parseDateTimeBestEffort(${sqlString(end)})`
-			);
-		}
+		const timeWhere = getTimeRangeWhereCondition(filter);
+		if (timeWhere) whereArray.push(timeWhere);
 
 		if (filterSelectedConfig && filter.selectedConfig) {
 			if (filter.selectedConfig.models?.length) {
