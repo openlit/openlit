@@ -157,6 +157,46 @@ class TestLangGraphNodeExtract:
         assert "Monday" in attrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES]
 
 
+class TestLangGraphToolCallArguments:
+    def _result_with_tool_call(self):
+        tool_call = SimpleNamespace(
+            name="find_patient", args={"patient_id": "P-5521"}, id="call_1"
+        )
+        return {
+            "messages": [
+                SimpleNamespace(
+                    content="",
+                    role="assistant",
+                    response_metadata={},
+                    usage_metadata=None,
+                    tool_calls=[tool_call],
+                )
+            ]
+        }
+
+    def _run_extract(self, **kwargs):
+        tracer, exporter = _tracer_and_exporter()
+        with tracer.start_as_current_span("invoke_agent agent") as span:
+            extract_llm_info_from_result(
+                span, {}, self._result_with_tool_call(), **kwargs
+            )
+        return exporter.get_finished_spans()[0].attributes
+
+    def test_tool_arguments_suppressed_when_capture_off(self):
+        attrs = self._run_extract(set_tool_call_arguments=False)
+
+        assert "gen_ai.tool_call.0.arguments" not in attrs
+        assert "P-5521" not in str(dict(attrs))
+        # Tool names and call ids still record.
+        assert attrs["gen_ai.tool_call.0.name"] == "find_patient"
+        assert attrs["gen_ai.tool_call.0.id"] == "call_1"
+
+    def test_tool_arguments_recorded_when_capture_on(self):
+        attrs = self._run_extract()
+
+        assert "P-5521" in attrs["gen_ai.tool_call.0.arguments"]
+
+
 class TestLangGraphInvokeResponse:
     def _run(self, capture_message_content):
         tracer, exporter = _tracer_and_exporter()
@@ -177,3 +217,27 @@ class TestLangGraphInvokeResponse:
         attrs = self._run(capture_message_content=True)
 
         assert "Monday" in attrs[SemanticConvention.GEN_AI_OUTPUT_MESSAGES]
+
+    def test_graph_span_records_no_tool_arguments_when_capture_off(self):
+        tracer, exporter = _tracer_and_exporter()
+        tool_call = SimpleNamespace(
+            name="find_patient", args={"patient_id": "P-5521"}, id="call_1"
+        )
+        response = {
+            "messages": [
+                SimpleNamespace(
+                    content="",
+                    role="assistant",
+                    response_metadata={},
+                    usage_metadata=None,
+                    tool_calls=[tool_call],
+                )
+            ]
+        }
+        with tracer.start_as_current_span("invoke_workflow LangGraph") as span:
+            _process_invoke_response(span, response, False)
+        attrs = exporter.get_finished_spans()[0].attributes
+
+        assert "gen_ai.tool_call.0.arguments" not in attrs
+        assert "P-5521" not in str(dict(attrs))
+        assert attrs["gen_ai.tool_call.0.name"] == "find_patient"
