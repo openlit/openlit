@@ -399,7 +399,19 @@ def messages_stream(
             ctx = trace_api.set_span_in_context(self._span)
             self._token = context_api.attach(ctx)
 
-            stream = self._original_manager.__enter__()
+            try:
+                stream = self._original_manager.__enter__()
+            except Exception as e:
+                # The request failed before the stream opened: Python never
+                # calls __exit__, so detach and end the span here or it leaks
+                # and later calls nest under the failed one (#1765).
+                if self._token:
+                    safe_detach(self._token)
+                    self._token = None
+                handle_exception(self._span, e)
+                if self._span.is_recording():
+                    self._span.end()
+                raise
 
             self._traced_stream = TracedMessageStream(
                 stream,
