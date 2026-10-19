@@ -14,11 +14,15 @@ span ends exactly once on each exit path.
 
 import time
 
+import pytest
+from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
+
+from opentelemetry.trace import StatusCode
 
 from openlit._config import OpenlitConfig
 from openlit.instrumentation.anthropic import anthropic as sync_mod
@@ -194,3 +198,60 @@ async def test_async_full_consumption_exports_exactly_one_span():
 
     time.sleep(0.1)
     assert len(exporter.get_finished_spans()) == 1
+
+
+class FailingManager:
+    """Manager whose enter raises, like an HTTP 500 during the request."""
+
+    def __enter__(self):
+        raise RuntimeError("server error")
+
+    def __exit__(self, *exc):
+        return False
+
+    async def __aenter__(self):
+        raise RuntimeError("server error")
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+def test_sync_enter_failure_ends_span_and_restores_context():
+    """A failed request inside manager __enter__ must not leak the span (#1765)."""
+    tracer, exporter = _tracer_with_exporter()
+    factory = _factory(tracer, is_async=False)
+
+    before = trace_api.get_current_span().get_span_context()
+    manager = factory(lambda *a, **k: FailingManager(), None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="server error"):
+        with manager:
+            pass  # never reached: the request fails before the stream opens
+
+    time.sleep(0.1)
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1, "failed stream request must still end and export the span"
+    assert spans[0].status.status_code == StatusCode.ERROR
+    assert trace_api.get_current_span().get_span_context() == before, (
+        "the failed call's span context must not leak onto later calls"
+    )
+
+
+@pytest.mark.asyncio
+async def test_async_enter_failure_ends_span_and_restores_context():
+    """A failed request inside manager __aenter__ must not leak the span (#1765)."""
+    tracer, exporter = _tracer_with_exporter()
+    factory = _factory(tracer, is_async=True)
+
+    before = trace_api.get_current_span().get_span_context()
+    manager = factory(lambda *a, **k: FailingManager(), None, (), REQUEST_KWARGS)
+    with pytest.raises(RuntimeError, match="server error"):
+        async with manager:
+            pass  # never reached: the request fails before the stream opens
+
+    time.sleep(0.1)
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1, "failed stream request must still end and export the span"
+    assert spans[0].status.status_code == StatusCode.ERROR
+    assert trace_api.get_current_span().get_span_context() == before, (
+        "the failed call's span context must not leak onto later calls"
+    )

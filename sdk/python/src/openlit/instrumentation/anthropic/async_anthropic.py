@@ -379,7 +379,19 @@ def async_messages_stream(
             self._token = context_api.attach(ctx)
             self._attaching_task = asyncio.current_task()
 
-            stream = await self._original_manager.__aenter__()
+            try:
+                stream = await self._original_manager.__aenter__()
+            except Exception as e:
+                # The request failed before the stream opened: Python never
+                # calls __aexit__, so detach and end the span here or it leaks
+                # and later calls nest under the failed one (#1765).
+                if self._token:
+                    safe_detach(self._token, self._attaching_task)
+                    self._token = None
+                handle_exception(self._span, e)
+                if self._span.is_recording():
+                    self._span.end()
+                raise
 
             self._traced_stream = TracedAsyncMessageStream(
                 stream,
