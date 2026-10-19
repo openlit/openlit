@@ -225,7 +225,12 @@ def set_graph_attributes(span, nodes=None, edges=None):
 
 
 def extract_llm_info_from_result(
-    span, state, result, set_output_messages=True, set_input_messages=True
+    span,
+    state,
+    result,
+    set_output_messages=True,
+    set_input_messages=True,
+    set_tool_call_arguments=True,
 ):
     """
     Extract LLM token usage, model info from node result.
@@ -238,6 +243,9 @@ def extract_llm_info_from_result(
             (e.g. graph invoke already wrote assistant-only output).
         set_input_messages: When False, skip writing ``gen_ai.input.messages``
             (message content capture is disabled).
+        set_tool_call_arguments: When False, skip writing
+            ``gen_ai.tool_call.<i>.arguments`` (message content capture is
+            disabled); tool names and call ids still record.
     """
     try:
         # Extract messages from state as OTel-compliant gen_ai.input.messages
@@ -359,7 +367,7 @@ def extract_llm_info_from_result(
                             span.set_attribute(
                                 f"gen_ai.tool_call.{j}.name", tool_call.name
                             )
-                        if hasattr(tool_call, "args"):
+                        if set_tool_call_arguments and hasattr(tool_call, "args"):
                             args_str = (
                                 json.dumps(tool_call.args)
                                 if isinstance(tool_call.args, dict)
@@ -643,6 +651,7 @@ def _process_invoke_response(span, response, capture_message_content):
                 # Output messages are handled by the capture guard above;
                 # extract must never write them here.
                 set_output_messages=False,
+                set_tool_call_arguments=capture_message_content,
             )
 
     except Exception:
