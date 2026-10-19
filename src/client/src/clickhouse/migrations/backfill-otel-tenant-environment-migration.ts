@@ -25,9 +25,9 @@ function escapeClickHouseString(value: string) {
 
 // ClickHouse reports a missing table as UNKNOWN_TABLE (code 60), but the
 // message depends on the statement: ALTER says "Could not find table: x",
-// INSERT says "Table db.x does not exist".
+// INSERT says "Table db.x does not exist". dataCollector hands us the error
+// as a string, so match on the message.
 function isMissingTable(err: unknown) {
-	if ((err as { type?: unknown } | null)?.type === "UNKNOWN_TABLE") return true;
 	const message = String(err || "").toLowerCase();
 	return (
 		message.includes("unknown table") ||

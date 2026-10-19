@@ -74,20 +74,12 @@ describe("BackfillOtelTenantEnvironmentMigration", () => {
 		});
 	});
 
-	// What @clickhouse/client returns for `ALTER TABLE <missing> UPDATE ...`.
-	function clickHouseError(message: string, code: string, type: string) {
-		return Object.assign(new Error(message), { code, type });
-	}
-
+	// dataCollector returns errors as strings: asaw() stringifies a rejected
+	// client.exec(), and its catch block prefixes "ClickHouse Query Error:".
+	// ClickHouse words a missing table on ALTER as "Could not find table".
 	it.each([
-		[
-			"a ClickHouse UNKNOWN_TABLE error",
-			clickHouseError("Could not find table: otel_logs. ", "60", "UNKNOWN_TABLE"),
-		],
-		[
-			"a plain error message",
-			"ClickHouse Query Error: Could not find table: otel_logs",
-		],
+		["a rejected exec", "Error: Could not find table: otel_logs. "],
+		["a caught client error", "ClickHouse Query Error: Could not find table: otel_logs. "],
 	])(
 		"skips otel tables that do not exist yet (%s)",
 		async (_label, missingTableErr) => {
@@ -113,11 +105,8 @@ describe("BackfillOtelTenantEnvironmentMigration", () => {
 	);
 
 	it("fails on errors other than a missing table", async () => {
-		const accessDenied = clickHouseError(
-			"default: Not enough privileges. ",
-			"497",
-			"ACCESS_DENIED"
-		);
+		const accessDenied =
+			"Error: default: Not enough privileges. To execute this query, it's necessary to have the grant ALTER UPDATE ON openlit.otel_traces. ";
 		(dataCollector as jest.Mock).mockResolvedValue({ err: accessDenied });
 
 		const result = await BackfillOtelTenantEnvironmentMigration("db-1");
