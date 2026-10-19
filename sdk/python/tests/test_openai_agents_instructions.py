@@ -1,7 +1,7 @@
 # pylint: disable=missing-function-docstring, protected-access
 """Tests for OpenAI Agents instruction capture privacy."""
 
-import builtins
+from types import SimpleNamespace
 
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
@@ -99,15 +99,62 @@ def test_openlit_content_setting_still_suppresses_agent_instructions(monkeypatch
     assert SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS not in span.attributes
 
 
-def test_missing_agents_sensitive_data_helper_preserves_legacy_capture(monkeypatch):
-    original_import = builtins.__import__
-
-    def import_without_run_config(
-        name, globalns=None, localns=None, fromlist=(), level=0
-    ):
-        if name == "agents.run_config":
-            raise ImportError("run_config unavailable")
-        return original_import(name, globalns, localns, fromlist, level)
-
-    monkeypatch.setattr(builtins, "__import__", import_without_run_config)
+def test_missing_agents_run_config_module_preserves_legacy_capture(monkeypatch):
+    monkeypatch.setattr(openai_agents.util, "find_spec", lambda _name: None)
     assert _trace_include_sensitive_data_enabled() is True
+
+
+def test_missing_agents_sensitive_data_helper_preserves_legacy_capture(monkeypatch):
+    monkeypatch.setattr(openai_agents.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(
+        openai_agents, "import_module", lambda _name: SimpleNamespace()
+    )
+    assert _trace_include_sensitive_data_enabled() is True
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ModuleNotFoundError(
+            "No module named 'agents.some_dependency'", name="agents.some_dependency"
+        ),
+        ModuleNotFoundError(
+            "No module named 'agents.run_config'", name="agents.run_config"
+        ),
+        ImportError("failed while importing agents.run_config dependency"),
+    ],
+)
+def test_agents_sensitive_data_import_failure_fails_closed(monkeypatch, error):
+    def failed_import(_name):
+        raise error
+
+    monkeypatch.setattr(openai_agents.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(openai_agents, "import_module", failed_import)
+    assert _trace_include_sensitive_data_enabled() is False
+
+
+def test_agents_sensitive_data_helper_failure_fails_closed(monkeypatch):
+    def failed_helper():
+        raise RuntimeError("SDK setting is unavailable")
+
+    monkeypatch.setattr(
+        openai_agents,
+        "import_module",
+        lambda _name: SimpleNamespace(
+            _default_trace_include_sensitive_data=failed_helper
+        ),
+    )
+    monkeypatch.setattr(openai_agents.util, "find_spec", lambda _name: object())
+    assert _trace_include_sensitive_data_enabled() is False
+
+
+def test_agent_instructions_are_omitted_when_sdk_config_import_fails(monkeypatch):
+    def failed_import(_name):
+        raise ImportError("SDK dependency is unavailable")
+
+    monkeypatch.setattr(openai_agents.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(openai_agents, "import_module", failed_import)
+
+    span = _create_agent_span()
+
+    assert SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS not in span.attributes
