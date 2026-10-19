@@ -619,6 +619,7 @@ def wrap_add_node(
                                 result,
                                 set_input_messages=capture_message_content,
                                 set_output_messages=capture_message_content,
+                                set_tool_call_arguments=capture_message_content,
                             )
 
                             from opentelemetry.trace import Status, StatusCode
@@ -691,6 +692,7 @@ def wrap_add_node(
                                 result,
                                 set_input_messages=capture_message_content,
                                 set_output_messages=capture_message_content,
+                                set_tool_call_arguments=capture_message_content,
                             )
 
                             from opentelemetry.trace import Status, StatusCode
