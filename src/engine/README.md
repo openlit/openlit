@@ -38,6 +38,7 @@ OTLP receiver ──► NATS JetStream (OPENLIT_SIGNALS) ──► openlit-engin
 | `ENGINE_HTTP_ADDR` | `127.0.0.1:4330` | `GET /health`, `GET /stats`, and `GET /signals`. Keep it on loopback |
 | `OPENLIT_ENGINE_MAX_WINDOWS` | `50000` | Rule windows across all tenants |
 | `OPENLIT_ENGINE_MAX_WINDOWS_PER_TENANT` | `1000` | Rule windows per organisation/project/environment |
+| `OPENLIT_ENGINE_MAX_WINDOWS_PER_RULE` | `200` | Rule windows per alert, so one high-cardinality group by cannot starve the others |
 | `OPENLIT_ENGINE_MAX_SAMPLES_PER_WINDOW` | `5000` | Samples kept per window |
 | `OPENLIT_ENGINE_FINDINGS_PER_MIN` | `60` | Findings a tenant can open per minute |
 | `ENGINE_RULES_REFRESH` | `10s` | Rule refresh interval; a new or edited alert starts evaluating within this long |

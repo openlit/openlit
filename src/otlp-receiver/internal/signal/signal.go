@@ -127,7 +127,7 @@ func FromTrace(row otlpconv.TraceRow, t Tenant) Signal {
 		DurationMs:       float64(row.Duration) / 1e6,
 		Status:           status(row.StatusCode),
 		ErrorType:        Clean(attrs["error.type"]),
-		HTTPStatus:       int(parseInt(first(attrs, "http.response.status_code", "http.status_code"))),
+		HTTPStatus:       httpStatus(first(attrs, "http.response.status_code", "http.status_code")),
 		InputTokens:      parseInt(first(attrs, "gen_ai.usage.input_tokens", "gen_ai.usage.prompt_tokens")),
 		OutputTokens:     parseInt(first(attrs, "gen_ai.usage.output_tokens", "gen_ai.usage.completion_tokens")),
 		TotalTokens:      parseInt(attrs["gen_ai.usage.total_tokens"]),
@@ -167,6 +167,15 @@ func first(attrs map[string]string, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// httpStatus is the span's HTTP status code, or 0 when it is not a valid code.
+func httpStatus(raw string) int {
+	v := parseInt(raw)
+	if v < 100 || v > 999 {
+		return 0
+	}
+	return int(v)
 }
 
 func parseInt(raw string) int64 {

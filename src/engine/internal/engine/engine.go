@@ -79,6 +79,9 @@ type window struct {
 type Limits struct {
 	MaxWindows          int
 	MaxWindowsPerTenant int
+	// MaxWindowsPerRule keeps one alert grouped by a high-cardinality field
+	// (such as a response id) from using every window its tenant has.
+	MaxWindowsPerRule   int
 	MaxSamplesPerWindow int
 	FindingsPerMinute   int
 	MaxRecentTenants    int
@@ -89,6 +92,7 @@ func DefaultLimits() Limits {
 	return Limits{
 		MaxWindows:          50000,
 		MaxWindowsPerTenant: 1000,
+		MaxWindowsPerRule:   200,
 		MaxSamplesPerWindow: 5000,
 		FindingsPerMinute:   60,
 		MaxRecentTenants:    1000,
@@ -101,6 +105,7 @@ type Engine struct {
 	rules          map[string]rules.Rule
 	windows        map[string]*window
 	tenantWindows  map[tenantKey]int
+	ruleWindows    map[string]int
 	instantLast    map[string]time.Time
 	findingBuckets map[tenantKey]*findingBucket
 	sink           Sink
@@ -125,6 +130,7 @@ func New(sink Sink) *Engine {
 		rules:          map[string]rules.Rule{},
 		windows:        map[string]*window{},
 		tenantWindows:  map[tenantKey]int{},
+		ruleWindows:    map[string]int{},
 		instantLast:    map[string]time.Time{},
 		findingBuckets: map[tenantKey]*findingBucket{},
 		sink:           sink,
@@ -148,6 +154,7 @@ func (e *Engine) SetLimits(l Limits) {
 	e.limits = Limits{
 		MaxWindows:          pick(l.MaxWindows, d.MaxWindows),
 		MaxWindowsPerTenant: pick(l.MaxWindowsPerTenant, d.MaxWindowsPerTenant),
+		MaxWindowsPerRule:   pick(l.MaxWindowsPerRule, d.MaxWindowsPerRule),
 		MaxSamplesPerWindow: pick(l.MaxSamplesPerWindow, d.MaxSamplesPerWindow),
 		FindingsPerMinute:   pick(l.FindingsPerMinute, d.FindingsPerMinute),
 		MaxRecentTenants:    pick(l.MaxRecentTenants, d.MaxRecentTenants),
@@ -235,13 +242,15 @@ func (e *Engine) Observe(s signal.Signal, at time.Time) {
 		}
 		w := e.windows[key]
 		if w == nil {
-			if len(e.windows) >= e.limits.MaxWindows || e.tenantWindows[tk] >= e.limits.MaxWindowsPerTenant {
+			if len(e.windows) >= e.limits.MaxWindows || e.tenantWindows[tk] >= e.limits.MaxWindowsPerTenant ||
+				e.ruleWindows[r.ID] >= e.limits.MaxWindowsPerRule {
 				e.droppedWindows++
 				continue
 			}
 			w = &window{ruleID: r.ID, tenant: tk, group: group}
 			e.windows[key] = w
 			e.tenantWindows[tk]++
+			e.ruleWindows[r.ID]++
 		}
 		w.samples = append(w.samples, rules.SampleOf(s, at.UnixMilli()))
 		if max := e.limits.MaxSamplesPerWindow; len(w.samples) > max {
@@ -260,6 +269,11 @@ func (e *Engine) dropWindow(key string, w *window) {
 		e.tenantWindows[w.tenant] = n
 	} else {
 		delete(e.tenantWindows, w.tenant)
+	}
+	if n := e.ruleWindows[w.ruleID] - 1; n > 0 {
+		e.ruleWindows[w.ruleID] = n
+	} else {
+		delete(e.ruleWindows, w.ruleID)
 	}
 }
 

@@ -240,6 +240,33 @@ func TestWindowCapsPerTenantAndGlobal(t *testing.T) {
 	}
 }
 
+func TestHighCardinalityRuleCannotStarveOthers(t *testing.T) {
+	noisy := modelRule()
+	noisy.ID = "alert.noisy"
+	quiet := modelRule()
+	quiet.ID = "alert.quiet"
+	quiet.GroupBy = []string{"service"}
+	e, _, now := newEngine(t, noisy, quiet)
+	e.SetLimits(Limits{MaxWindowsPerTenant: 10, MaxWindowsPerRule: 4})
+	for i := 0; i < 50; i++ {
+		s := sig("orgA", "p", "prod", "ok")
+		s.Model = fmt.Sprintf("resp-%d", i)
+		e.Observe(s, *now)
+	}
+	if got := e.ruleWindows["alert.noisy"]; got != 4 {
+		t.Fatalf("noisy rule windows = %d, want 4", got)
+	}
+	if got := e.ruleWindows["alert.quiet"]; got != 1 {
+		t.Fatalf("quiet rule must still get a window, got %d", got)
+	}
+	for key, w := range e.windows {
+		e.dropWindow(key, w)
+	}
+	if len(e.ruleWindows) != 0 || len(e.tenantWindows) != 0 {
+		t.Fatalf("window counters not released: %v %v", e.ruleWindows, e.tenantWindows)
+	}
+}
+
 func TestSamplesPerWindowCapped(t *testing.T) {
 	e, _, now := newEngine(t, modelRule())
 	e.SetLimits(Limits{MaxSamplesPerWindow: 10})

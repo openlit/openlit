@@ -37,6 +37,7 @@ type TLSConfig struct {
 type Limits struct {
 	MaxWindows          int
 	MaxWindowsPerTenant int
+	MaxWindowsPerRule   int
 	MaxSamplesPerWindow int
 	FindingsPerMinute   int
 }
@@ -66,6 +67,7 @@ func Load() Config {
 		Limits: Limits{
 			MaxWindows:          intEnv("OPENLIT_ENGINE_MAX_WINDOWS", 50000),
 			MaxWindowsPerTenant: intEnv("OPENLIT_ENGINE_MAX_WINDOWS_PER_TENANT", 1000),
+			MaxWindowsPerRule:   intEnv("OPENLIT_ENGINE_MAX_WINDOWS_PER_RULE", 200),
 			MaxSamplesPerWindow: intEnv("OPENLIT_ENGINE_MAX_SAMPLES_PER_WINDOW", 5000),
 			FindingsPerMinute:   intEnv("OPENLIT_ENGINE_FINDINGS_PER_MIN", 60),
 		},

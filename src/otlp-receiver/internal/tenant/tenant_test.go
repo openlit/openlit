@@ -2,6 +2,8 @@ package tenant
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -283,5 +285,16 @@ func TestClientIP(t *testing.T) {
 	t.Parallel()
 	if ClientIP("1.2.3.4:5678") != "1.2.3.4" || ClientIP("[::1]:80") != "::1" || ClientIP("bare") != "bare" {
 		t.Fatal("unexpected client ip parsing")
+	}
+}
+
+func TestCacheKeyIsKeyedAndStable(t *testing.T) {
+	a, b := cacheKey("sk-openlit-test"), cacheKey("sk-openlit-test")
+	if a != b || a == cacheKey("sk-openlit-other") {
+		t.Fatal("cache key must be stable per token and differ between tokens")
+	}
+	plain := sha256.Sum256([]byte("sk-openlit-test"))
+	if a == hex.EncodeToString(plain[:]) {
+		t.Fatal("cache key must not be a plain SHA-256 of the token")
 	}
 }

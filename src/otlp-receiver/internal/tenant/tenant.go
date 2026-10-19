@@ -3,6 +3,8 @@ package tenant
 import (
 	"container/list"
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -122,9 +124,20 @@ func Credential(authorization, apiKeyHeader string) string {
 	return ""
 }
 
+// cacheSecret keys the in-memory cache so raw API keys are never used as
+// map keys and digests cannot be precomputed outside this process.
+var cacheSecret = func() []byte {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic("tenant: cannot read random cache secret: " + err.Error())
+	}
+	return b
+}()
+
 func cacheKey(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
+	mac := hmac.New(sha256.New, cacheSecret)
+	mac.Write([]byte(token))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func (s *Store) Resolve(ctx context.Context, authorization string) (Tenant, error) {
@@ -309,11 +322,11 @@ func (s *Store) lookupLegacy(ctx context.Context, token string) (Tenant, error) 
 func finalize(r resolvedRow) (Tenant, error) {
 	t := r.tenant
 	if r.configProject != "" && r.keyProject != "" && r.configProject != r.keyProject {
-		log.Printf("tenant: api key %s rejected: project does not match database config %s", t.APIKeyID, t.DatabaseConfigID)
+		log.Printf("tenant: api key rejected: project does not match database config %s", t.DatabaseConfigID)
 		return Tenant{}, ErrUnauthorized
 	}
 	if r.configOrg != "" && r.keyOrg != "" && r.configOrg != r.keyOrg {
-		log.Printf("tenant: api key %s rejected: organisation does not match database config %s", t.APIKeyID, t.DatabaseConfigID)
+		log.Printf("tenant: api key rejected: organisation does not match database config %s", t.DatabaseConfigID)
 		return Tenant{}, ErrUnauthorized
 	}
 	t.ProjectID = r.configProject

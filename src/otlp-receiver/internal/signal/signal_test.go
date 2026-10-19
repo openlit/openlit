@@ -245,3 +245,11 @@ func TestPersonalAttributeSpellings(t *testing.T) {
 		}
 	}
 }
+
+func TestHTTPStatusIsBounded(t *testing.T) {
+	for raw, want := range map[string]int{"200": 200, "503": 503, "99": 0, "1000": 0, "-1": 0, "9223372036854775807": 0, "abc": 0} {
+		if got := httpStatus(raw); got != want {
+			t.Fatalf("httpStatus(%q) = %d, want %d", raw, got, want)
+		}
+	}
+}

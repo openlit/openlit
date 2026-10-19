@@ -45,7 +45,8 @@ function stringMap(value: unknown): Record<string, string> {
 	if (typeof value !== "object" || Array.isArray(value)) invalid();
 	const entries = Object.entries(value as Record<string, unknown>);
 	if (entries.length > MAX_MAP_ENTRIES) invalid();
-	const out: Record<string, string> = {};
+	// Null prototype: keys come from the engine and must never reach Object.prototype.
+	const out: Record<string, string> = Object.create(null);
 	for (const [key, raw] of entries) {
 		if (!isRealtimeMapKey(key) || typeof raw !== "string") invalid();
 		out[key] = raw.slice(0, MAX_MAP_VALUE);

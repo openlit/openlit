@@ -117,6 +117,13 @@ function row(overrides: Record<string, unknown> = {}) {
 }
 
 describe("parseRealtimeFindingInput", () => {
+	it("keeps engine-supplied group keys off Object.prototype", () => {
+		const input = parseRealtimeFindingInput(payload({ group: { constructor: "x", toString: "y" } }));
+		expect(Object.getPrototypeOf(input.group)).toBeNull();
+		expect(input.group.constructor).toBe("x");
+		expect(({} as Record<string, unknown>).constructor).toBe(Object);
+	});
+
 	it("accepts a valid payload", () => {
 		const input = parseRealtimeFindingInput(payload({ group: { service: "svc", "user.id": "user-1" } }));
 		expect(input.projectId).toBe("proj1");

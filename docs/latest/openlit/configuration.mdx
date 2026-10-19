@@ -265,8 +265,8 @@ Realtime evaluation powers [threshold alerts](/latest/openlit/alerts#threshold-a
   Size cap (default 256 MiB) and retention (default `10m`) of the signal stream. The oldest signals are discarded first.
 </ResponseField>
 
-<ResponseField name="OPENLIT_ENGINE_MAX_WINDOWS_PER_TENANT / OPENLIT_ENGINE_MAX_WINDOWS / OPENLIT_ENGINE_MAX_SAMPLES_PER_WINDOW / OPENLIT_ENGINE_FINDINGS_PER_MIN">
-  Engine limits: rule windows per organisation/project/environment (default `1000`) and in total (default `50000`), samples per window (default `5000`), and findings each environment can open per minute (default `60`). Excess is dropped and counted.
+<ResponseField name="OPENLIT_ENGINE_MAX_WINDOWS_PER_RULE / OPENLIT_ENGINE_MAX_WINDOWS_PER_TENANT / OPENLIT_ENGINE_MAX_WINDOWS / OPENLIT_ENGINE_MAX_SAMPLES_PER_WINDOW / OPENLIT_ENGINE_FINDINGS_PER_MIN">
+  Engine limits: rule windows per alert (default `200`), per organisation/project/environment (default `1000`), and in total (default `50000`), samples per window (default `5000`), and findings each environment can open per minute (default `60`). Excess is dropped and counted.
 </ResponseField>
 
 <ResponseField name="OTLP_STATS_ADDR / OTLP_TENANT_CACHE_MAX / OTLP_AUTH_FAIL_BURST / OTLP_AUTH_FAIL_PER_MIN">

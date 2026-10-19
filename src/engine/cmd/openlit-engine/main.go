@@ -46,6 +46,7 @@ func main() {
 	eng.SetLimits(engine.Limits{
 		MaxWindows:          cfg.Limits.MaxWindows,
 		MaxWindowsPerTenant: cfg.Limits.MaxWindowsPerTenant,
+		MaxWindowsPerRule:   cfg.Limits.MaxWindowsPerRule,
 		MaxSamplesPerWindow: cfg.Limits.MaxSamplesPerWindow,
 		FindingsPerMinute:   cfg.Limits.FindingsPerMinute,
 	})

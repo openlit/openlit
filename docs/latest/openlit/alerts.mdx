@@ -63,7 +63,7 @@ Signals never include prompts, completions, or messages. Threshold alerts only s
     - **Metric**: error rate, error count, span count, p95 latency, average latency, total tokens, or cost.
     - **Operator** and **Threshold**, for example `> 25` for cost in USD or `> 0.25` for a 25% error rate.
     - **Window**: the period the metric is computed over (1 minute to 1 hour in the form; 30 seconds to 1 hour through the API).
-    - **Group by** (up to three fields): each value, such as each model or service, is tracked and alerted on separately. Pick fields with a bounded set of values (model, service, route). The engine tracks up to 1,000 groups per project environment, so grouping by a per-request value such as a response ID crowds out other alerts.
+    - **Group by** (up to three fields): each value, such as each model or service, is tracked and alerted on separately. Pick fields with a bounded set of values (model, service, route). Each alert tracks up to 200 groups (1,000 per project environment); new values beyond that are not evaluated until older groups go quiet, so grouping by a per-request value such as a response ID makes the alert miss values.
     - **Minimum spans** in the window before it can fire, and a **Cooldown** between two firings of the same group (at least 60 seconds).
   </Step>
   <Step title="Narrow it with span filters">
