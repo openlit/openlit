@@ -564,9 +564,10 @@ function buildCodingWindowClause(
  * arbitrary time window. Used by `listAgents` when the user's
  * top-right time filter is something other than the materializer's
  * fixed 24h. We deliberately call into the same query path as the
- * materializer (one row per vendor, `greatest(session.cost_usd,
- * sum(turn.cost))` per chat) so the hub numbers can never disagree
- * with the Sessions / Users / Dashboard tabs for the same window.
+ * materializer (one row per vendor; per chat, the root's
+ * session.cost_usd when present, otherwise the sum of non-root turn
+ * costs) so the hub numbers can never disagree with the Sessions /
+ * Users / Dashboard tabs for the same window.
  */
 export async function recomputeCodingAgentsForWindow(
 	window: CodingAgentDiscoveryWindow,
@@ -624,18 +625,20 @@ async function discoverCodingAgents(
 	//     estimates from text length × static pricing; Claude Code
 	//     uses authoritative provider numbers).
 	//
-	// We sum both per session and `greatest()` them — exactly how the
-	// per-session list does it — so an authoritative session-end total
-	// wins when present and a turn-by-turn estimate keeps the row
-	// non-zero in the meantime. Active-user rollup also moves to
+	// We take the root's session total when present and otherwise sum
+	// the non-root (per-turn) costs — exactly how the per-session list
+	// does it — so an authoritative session-end total wins and a
+	// turn-by-turn estimate keeps the row non-zero in the meantime. The
+	// root also carries its total as gen_ai.usage.cost, so it is left
+	// out of that sum. Active-user rollup also moves to
 	// `gen_ai.user.name` (which the CLI stamps as a resource attr) so
 	// it stops returning 0 when the per-span `user.id` isn't set.
 	// Materialize over CHAT_ID (= coalesce(parent_id, session_id)) so
 	// the hub stats agree with the Sessions list:
 	//   - 1 parent chat + N subagents = 1 session in both views
-	//   - cost is summed across all spans of the chat (the parent's
-	//     authoritative `coding_agent.session.cost_usd` still wins
-	//     when present, via greatest())
+	//   - cost is the root's authoritative
+	//     `coding_agent.session.cost_usd` when present, otherwise the
+	//     sum of the chat's non-root spans
 	//   - active_users stores the *raw* distinct-user count. The
 	//     COHORT_K_FLOOR mask used to live here, but it ran before
 	//     auth context was even resolved, so a single-developer OSS
@@ -652,8 +655,7 @@ async function discoverCodingAgents(
 	// (coalesce of parent_id and session_id, both raw map lookups),
 	// so we can GROUP BY (vendor, chat_id) directly. session-level
 	// aggregation isn't needed because each (chat_id, session_id)
-	// shares the same vendor, and cost is summed across all spans of
-	// the chat anyway.
+	// shares the same vendor, and cost is rolled up per chat anyway.
 	// The chat_id rollup MUST mirror queries.ts CHAT_ID_EXPR so the hub
 	// row counts agree with the Sessions list. New vendors should fold
 	// into the per-row coalesce here, NOT introduce a second discovery

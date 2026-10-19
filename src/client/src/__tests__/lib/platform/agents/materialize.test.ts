@@ -514,5 +514,9 @@ describe("coding-agent hub cost rollup", () => {
 		expect(query).toMatch(
 			/sumOrNull\(if\(\s*SpanName != 'coding_agent\.session',\s*toFloat64OrZero\(SpanAttributes\['gen_ai\.usage\.cost'\]\)/
 		);
+		// The root's session total still wins when present.
+		expect(query).toMatch(
+			/coalesce\(\s*nullIf\(toFloat64OrZero\(anyIf\(\s*SpanAttributes\['coding_agent\.session\.cost_usd'\],\s*SpanName = 'coding_agent\.session'\s*\)\), 0\),\s*sumOrNull/
+		);
 	});
 });
