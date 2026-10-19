@@ -10,8 +10,14 @@ import Cron from "@/helpers/server/cron";
 const CRON_ID = "openlit-agents-materialize";
 const DEFAULT_SCHEDULE = "* * * * *"; // every minute; the script self-throttles when no work
 
-/** Install (or refresh) the agents-materialize cron entry. */
-export async function restoreAgentsMaterializeCron(apiURL: string) {
+/**
+ * Install (or refresh) the agents-materialize cron entry. Failures are logged
+ * rather than thrown so startup continues; the return value tells the caller
+ * whether the entry was actually installed.
+ */
+export async function restoreAgentsMaterializeCron(
+	apiURL: string
+): Promise<boolean> {
 	try {
 		const cron = new Cron();
 		cron.updateCrontab({
@@ -28,7 +34,9 @@ export async function restoreAgentsMaterializeCron(apiURL: string) {
 			cronLogPath: path.join(process.cwd(), "logs/agents/materialize.log"),
 		});
 		console.log("Installed agents materialize cron");
+		return true;
 	} catch (e) {
 		console.error("Failed to install agents materialize cron:", e);
+		return false;
 	}
 }
