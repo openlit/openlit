@@ -338,6 +338,8 @@ Signed-in users can manage event alerts through the API. Every endpoint needs th
 | `GET /api/alert-destinations` | List destinations |
 | `GET /api/alerts/spec` | OpenAPI specification for the event alerts API |
 
+Bind destinations with `destinations: [{ "destinationId": "...", "overrides": { ... } }]` (or `destinationIds`). `overrides` takes the same settings as threshold alerts: `enabled`, `includeFields`, `channel` (up to 100 characters), `titleTemplate` (300), `messageTemplate` (2,000), `cardStyle` (`default`, `compact`, `detailed`, `incident`), and `accentColor` (`#rrggbb`). Unknown keys are dropped; invalid values return `400`.
+
 ---
 
 <CardGroup cols={2}>
