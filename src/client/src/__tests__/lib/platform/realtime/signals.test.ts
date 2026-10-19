@@ -9,6 +9,15 @@ import { listLiveSignals, parseLiveSignals } from "@/lib/platform/realtime/signa
 const scope = { organisationId: "org1", projectId: "proj1", environment: "production" };
 
 describe("parseLiveSignals", () => {
+	it("keeps up to 64 attributes, like the receiver", () => {
+		const attributes = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`custom.attr${String(i).padStart(3, "0")}`, "v"]));
+		const [signal] = parseLiveSignals(
+			{ signals: [{ timestamp: "2026-10-05T12:00:00.000Z", ...scope, service: "s", status: "ok", attributes }] },
+			scope
+		);
+		expect(Object.keys(signal.attributes)).toHaveLength(64);
+	});
+
 	it("keeps the current tenant and drops other tenants", () => {
 		const signals = parseLiveSignals(
 			{

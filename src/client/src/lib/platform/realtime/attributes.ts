@@ -47,7 +47,10 @@ const PERSONAL_SEGMENTS = new Set(["user", "enduser", "session", "conversation",
 
 /** Keys that identify people or private locations; usable only when configured. */
 export function isPersonalAttributeKey(key: string): boolean {
+	const lower = key.toLowerCase();
+	if (lower.includes("email") || lower.includes("phone")) return true;
 	return key
+		.replace(/([a-z0-9])([A-Z])/g, "$1.$2")
 		.toLowerCase()
 		.split(/[._-]/)
 		.some((segment) => PERSONAL_SEGMENTS.has(segment));

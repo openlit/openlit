@@ -45,6 +45,8 @@ function num(value: unknown): number {
 	return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+const MAX_SIGNAL_ATTRIBUTES = 64;
+
 function attributes(value: unknown): Record<string, string> {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return {};
 	const out: Record<string, string> = {};
@@ -53,7 +55,8 @@ function attributes(value: unknown): Record<string, string> {
 		const trimmed = raw.trim().slice(0, TEXT_LIMIT);
 		if (!trimmed) continue;
 		out[key] = trimmed;
-		if (Object.keys(out).length >= 32) break;
+		// Same cap as the receiver (src/otlp-receiver/internal/signal/attrs.go).
+		if (Object.keys(out).length >= MAX_SIGNAL_ATTRIBUTES) break;
 	}
 	return out;
 }

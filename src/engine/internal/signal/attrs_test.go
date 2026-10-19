@@ -41,3 +41,16 @@ func TestBuiltinNamesAreNotAttributes(t *testing.T) {
 		}
 	}
 }
+
+func TestPersonalAttributeSpellings(t *testing.T) {
+	for _, key := range []string{"userId", "app.endUserID", "customerEmail", "contact_phone_number", "clientIP", "request.urlPath", "sessionToken.id"} {
+		if AllowedAttribute(key) {
+			t.Fatalf("%s must need OPENLIT_SIGNAL_ATTRIBUTES", key)
+		}
+	}
+	for _, key := range []string{"app.tier", "gen_ai.agent.name", "zipCode", "shipping.region", "pipeline.stage"} {
+		if !AllowedAttribute(key) {
+			t.Fatalf("%s should be allowed", key)
+		}
+	}
+}

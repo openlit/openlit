@@ -55,3 +55,13 @@ func TestConditions(t *testing.T) {
 		}
 	}
 }
+
+func TestEqWithSeveralValuesMeansOneOf(t *testing.T) {
+	s := signal.Signal{Model: "gpt-4o-mini"}
+	if !(Condition{Field: "model", Op: "eq", Values: []string{"gpt-4o", "gpt-4o-mini"}}).matches(s) {
+		t.Fatal("eq should match any listed value")
+	}
+	if (Condition{Field: "model", Op: "neq", Values: []string{"gpt-4o", "gpt-4o-mini"}}).matches(s) {
+		t.Fatal("neq should exclude every listed value")
+	}
+}

@@ -133,7 +133,7 @@ function parseConditions(value: unknown): RealtimeRuleCondition[] {
 		const condition = raw as Record<string, unknown>;
 		const field = condition.field;
 		if (typeof field !== "string" || !isRuleField(field)) invalid();
-		const op = oneOf(condition.op, REALTIME_CONDITION_OPS);
+		let op = oneOf(condition.op, REALTIME_CONDITION_OPS);
 		const rawValues = condition.values ?? [];
 		if (!Array.isArray(rawValues) || rawValues.length > MAX_CONDITION_VALUES) invalid();
 		const values = rawValues.map((item) => {
@@ -141,12 +141,13 @@ function parseConditions(value: unknown): RealtimeRuleCondition[] {
 			return item.trim();
 		});
 		if (op !== "exists" && values.filter(Boolean).length === 0) invalid();
-		if (
-			(REALTIME_NUMERIC_CONDITION_OPS as readonly string[]).includes(op) &&
-			!Number.isFinite(Number(values[0]))
-		) {
-			invalid();
-		}
+		const numeric = (REALTIME_NUMERIC_CONDITION_OPS as readonly string[]).includes(op);
+		// Numeric and contains compare against one value; a list would be silently ignored.
+		if ((numeric || op === "contains") && values.length > 1) invalid();
+		if (numeric && !Number.isFinite(Number(values[0]))) invalid();
+		// "= a, b" means "is one of": eq/neq only compare the first value.
+		if (values.length > 1 && op === "eq") op = "in";
+		if (values.length > 1 && op === "neq") op = "not_in";
 		return { field, op, values: op === "exists" ? [] : values };
 	});
 }

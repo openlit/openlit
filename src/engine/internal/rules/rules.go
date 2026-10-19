@@ -203,10 +203,11 @@ func (c Condition) matches(s signal.Signal) bool {
 	switch c.Op {
 	case "exists":
 		return v != "" && v != "0"
+	// eq/neq with several values (older rules saved "= a, b") mean one-of.
 	case "eq":
-		return len(c.Values) > 0 && strings.EqualFold(v, c.Values[0])
+		return containsFold(c.Values, v)
 	case "neq":
-		return len(c.Values) > 0 && !strings.EqualFold(v, c.Values[0])
+		return len(c.Values) > 0 && !containsFold(c.Values, v)
 	case "in":
 		return containsFold(c.Values, v)
 	case "not_in":

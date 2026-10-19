@@ -84,10 +84,11 @@ function conditionMatches(signal: LiveSignal, condition: RealtimeRuleCondition, 
 	switch (condition.op) {
 		case "exists":
 			return value !== "" && value !== "0";
+		// eq/neq with several values (older rules saved "= a, b") mean one-of.
 		case "eq":
-			return values.length > 0 && has(values[0]);
+			return values.some(has);
 		case "neq":
-			return values.length > 0 && !has(values[0]);
+			return values.length > 0 && !values.some(has);
 		case "in":
 			return values.some(has);
 		case "not_in":

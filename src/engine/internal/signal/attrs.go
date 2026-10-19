@@ -99,12 +99,44 @@ var personalSegments = map[string]struct{}{
 }
 
 func personalAttribute(key string) bool {
-	for _, segment := range strings.FieldsFunc(strings.ToLower(key), func(r rune) bool { return r == '.' || r == '_' || r == '-' }) {
+	lower := strings.ToLower(key)
+	if strings.Contains(lower, "email") || strings.Contains(lower, "phone") {
+		return true
+	}
+	for _, segment := range attributeSegments(key) {
 		if _, ok := personalSegments[segment]; ok {
 			return true
 		}
 	}
 	return false
+}
+
+// attributeSegments splits a key on '.', '_', '-' and camelCase boundaries,
+// lowercased: "client.userId" -> client, user, id.
+func attributeSegments(key string) []string {
+	var segments []string
+	var current []rune
+	var prev rune
+	flush := func() {
+		if len(current) > 0 {
+			segments = append(segments, strings.ToLower(string(current)))
+			current = current[:0]
+		}
+	}
+	for _, r := range key {
+		switch {
+		case r == '.' || r == '_' || r == '-':
+			flush()
+		case r >= 'A' && r <= 'Z' && ((prev >= 'a' && prev <= 'z') || (prev >= '0' && prev <= '9')):
+			flush()
+			current = append(current, r)
+		default:
+			current = append(current, r)
+		}
+		prev = r
+	}
+	flush()
+	return segments
 }
 
 func sensitiveAttribute(key string) bool {

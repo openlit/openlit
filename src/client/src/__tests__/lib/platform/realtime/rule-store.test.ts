@@ -81,6 +81,18 @@ beforeEach(() => {
 });
 
 describe("parseRealtimeRuleInput", () => {
+	it("treats a value list on = and != as one-of, and rejects lists on single-value operators", () => {
+		const match = (op: string, values: string[]) =>
+			parseRealtimeRuleInput(body({}, { match: [{ field: "model", op, values }] })).definition.match;
+		expect(match("eq", ["gpt-4o", "gpt-4o-mini"])).toEqual([{ field: "model", op: "in", values: ["gpt-4o", "gpt-4o-mini"] }]);
+		expect(match("neq", ["a", "b"])).toEqual([{ field: "model", op: "not_in", values: ["a", "b"] }]);
+		expect(match("eq", ["gpt-4o"])).toEqual([{ field: "model", op: "eq", values: ["gpt-4o"] }]);
+		expect(() => match("contains", ["a", "b"])).toThrow();
+		expect(() =>
+			parseRealtimeRuleInput(body({}, { match: [{ field: "duration_ms", op: "gt", values: ["1", "2"] }] }))
+		).toThrow();
+	});
+
 	it("accepts a valid window rule and ignores any scope in the body", () => {
 		const input = parseRealtimeRuleInput(
 			body({ scope: { organisationId: "other", projectId: "other" }, organisationId: "other" })

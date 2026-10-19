@@ -39,4 +39,14 @@ describe("realtime attribute fields", () => {
 		expect(isRealtimeAttributeField("url.path")).toBe(true);
 		expect(isRealtimeAttributeField("session.id")).toBe(false);
 	});
+
+	it("treats camelCase and email or phone keys as personal", () => {
+		delete process.env.OPENLIT_SIGNAL_ATTRIBUTES;
+		for (const key of ["userId", "app.endUserID", "customerEmail", "contact_phone_number", "clientIP", "request.urlPath"]) {
+			expect(isRealtimeAttributeField(key)).toBe(false);
+		}
+		for (const key of ["zipCode", "shipping.region", "pipeline.stage"]) {
+			expect(isRealtimeAttributeField(key)).toBe(true);
+		}
+	});
 });

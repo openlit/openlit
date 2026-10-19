@@ -37,6 +37,12 @@ describe("signalMatchesConditions (engine parity)", () => {
 		expect(match("environment", "eq", ["production"])).toBe(true);
 	});
 
+	it("treats eq/neq with several values as one-of, like the engine", () => {
+		expect(match("model", "eq", ["gpt-4o-mini", "GPT-4o"])).toBe(true);
+		expect(match("model", "neq", ["gpt-4o-mini", "gpt-4o"])).toBe(false);
+		expect(match("model", "neq", ["gpt-4o-mini", "claude"])).toBe(true);
+	});
+
 	it("compares numbers for numeric operators", () => {
 		expect(match("duration_ms", "gt", ["4000"])).toBe(true);
 		expect(match("http_status", "gte", ["500"])).toBe(true);
