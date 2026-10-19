@@ -390,8 +390,8 @@ const SESSION_BASE_COLUMNS = `
 		),
 		'unknown'
 	) AS outcome,
-	coalesce(nullIf(anyIf(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'], notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'])), ''), 'unknown') AS classification,
-	coalesce(nullIf(anyIf(SpanAttributes['${CODING_AGENT_ATTR.userClassificationReason}'], notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassificationReason}'])), ''), 'no_signal') AS classification_reason,
+	coalesce(nullIf(argMaxIf(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'], Timestamp, notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'])), ''), 'unknown') AS classification,
+	coalesce(nullIf(argMaxIf(SpanAttributes['${CODING_AGENT_ATTR.userClassificationReason}'], Timestamp, notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassificationReason}'])), ''), 'no_signal') AS classification_reason,
 	-- VCS metadata. We surface the LATEST non-empty value across the
 	-- session (argMax by Timestamp), preferring the span attribute —
 	-- which carries the live per-turn value (Cursor's git_branch
@@ -409,7 +409,7 @@ const SESSION_BASE_COLUMNS = `
 		nullIf(argMaxIf(SpanAttributes['${VCS_ATTR.headRef}'], Timestamp, notEmpty(SpanAttributes['${VCS_ATTR.headRef}'])), ''),
 		nullIf(argMaxIf(ResourceAttributes['${VCS_ATTR.headRef}'], Timestamp, notEmpty(ResourceAttributes['${VCS_ATTR.headRef}'])), '')
 	)                                                                  AS branch,
-	if(anyIf(SpanAttributes['${CODING_AGENT_ATTR.vcsDirty}'], notEmpty(SpanAttributes['${CODING_AGENT_ATTR.vcsDirty}'])) = 'true', 1, 0) AS repo_dirty,
+	if(argMaxIf(SpanAttributes['${CODING_AGENT_ATTR.vcsDirty}'], Timestamp, notEmpty(SpanAttributes['${CODING_AGENT_ATTR.vcsDirty}'])) = 'true', 1, 0) AS repo_dirty,
 	-- Latest model used by the session (argMax keeps the most recent
 	-- non-empty value across all child spans).
 	argMaxIf(
@@ -1436,7 +1436,7 @@ export async function getCodingUserDigest(
 					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
 					toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
 				) AS pr_count,
-				coalesce(nullIf(anyIf(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'], notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'])), ''), 'unknown') AS classification,
+				coalesce(nullIf(argMaxIf(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'], Timestamp, notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'])), ''), 'unknown') AS classification,
 				${VENDOR_EXPR} AS vendor
 			FROM ${OTEL_TRACES_TABLE}
 			${whereScope({
@@ -1775,7 +1775,7 @@ export async function listCodingUsers(
 							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionPrCount}'])),
 							toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_GIT_PR}'))
 						) AS prs,
-						coalesce(nullIf(anyIf(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'], notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'])), ''), 'unknown') AS classification
+						coalesce(nullIf(argMaxIf(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'], Timestamp, notEmpty(SpanAttributes['${CODING_AGENT_ATTR.userClassification}'])), ''), 'unknown') AS classification
 					FROM ${OTEL_TRACES_TABLE}
 					${whereScope({
 						since: opts.since ?? null,

@@ -804,7 +804,7 @@ describe("coding agent query service", () => {
 			"max(toInt64OrZero(SpanAttributes['coding_agent.session.lines.added']))"
 		);
 		expect(queries[0]).toContain(
-			"anyIf(SpanAttributes['coding_agent.user.classification'], notEmpty(SpanAttributes['coding_agent.user.classification']))"
+			"argMaxIf(SpanAttributes['coding_agent.user.classification'], Timestamp, notEmpty(SpanAttributes['coding_agent.user.classification']))"
 		);
 	});
 });
