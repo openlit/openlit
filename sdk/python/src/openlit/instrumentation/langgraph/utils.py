@@ -224,7 +224,9 @@ def set_graph_attributes(span, nodes=None, edges=None):
                 span.set_attribute(f"gen_ai.graph.edge.{i}.target", parts[1])
 
 
-def extract_llm_info_from_result(span, state, result, set_output_messages=True):
+def extract_llm_info_from_result(
+    span, state, result, set_output_messages=True, set_input_messages=True
+):
     """
     Extract LLM token usage, model info from node result.
 
@@ -234,10 +236,12 @@ def extract_llm_info_from_result(span, state, result, set_output_messages=True):
         result: Result from node execution
         set_output_messages: When False, skip writing ``gen_ai.output.messages``
             (e.g. graph invoke already wrote assistant-only output).
+        set_input_messages: When False, skip writing ``gen_ai.input.messages``
+            (message content capture is disabled).
     """
     try:
         # Extract messages from state as OTel-compliant gen_ai.input.messages
-        if isinstance(state, dict) and "messages" in state:
+        if set_input_messages and isinstance(state, dict) and "messages" in state:
             messages = state["messages"]
             input_msgs = []
             for msg in messages[-3:]:
@@ -636,7 +640,9 @@ def _process_invoke_response(span, response, capture_message_content):
                 span,
                 {},
                 response,
-                set_output_messages=not capture_message_content,
+                # Output messages are handled by the capture guard above;
+                # extract must never write them here.
+                set_output_messages=False,
             )
 
     except Exception:
