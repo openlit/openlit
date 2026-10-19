@@ -778,6 +778,35 @@ describe("coding agent query service", () => {
 		);
 		errorSpy.mockRestore();
 	});
+
+	it("reads session-root-only rollups without a bare any() over every span", async () => {
+		mockDataCollector.mockResolvedValue({ err: null, data: [] });
+
+		await listSessions(auth, { limit: 10 });
+		await getCodingSessionDigest(auth, "s1");
+		await getCodingUserDigest(auth, "alice@example.com");
+		await listCodingUsers(auth, { limit: 10 });
+
+		const queries = mockDataCollector.mock.calls.map(
+			([request]) => request.query as string
+		);
+		expect(queries.length).toBeGreaterThanOrEqual(4);
+		// These attributes are stamped only on the `coding_agent.session`
+		// root span. Child spans read '' for the missing map key, and any()
+		// returns whichever row it meets first, so the rollup collapses to
+		// 0 / 'unknown' whenever a child span is read before the root.
+		const bareAnyOnRootOnlyAttr =
+			/\bany\(SpanAttributes\['coding_agent\.(?:session\.(?:lines\.(?:added|removed|accepted|rejected)|edit\.(?:accept|reject)_count|commit_count|pr_count)|user\.classification(?:\.reason)?|vcs\.dirty)'\]\)/;
+		for (const query of queries) {
+			expect(query).not.toMatch(bareAnyOnRootOnlyAttr);
+		}
+		expect(queries[0]).toContain(
+			"max(toInt64OrZero(SpanAttributes['coding_agent.session.lines.added']))"
+		);
+		expect(queries[0]).toContain(
+			"argMaxIf(SpanAttributes['coding_agent.user.classification'], Timestamp, notEmpty(SpanAttributes['coding_agent.user.classification']))"
+		);
+	});
 });
 
 describe("DisputeError", () => {
