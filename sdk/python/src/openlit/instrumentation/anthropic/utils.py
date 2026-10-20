@@ -779,7 +779,10 @@ def common_chat_logic(
                 "top_p": scope._kwargs.get("top_p"),
                 "top_k": scope._kwargs.get("top_k"),
                 "stop_sequences": scope._kwargs.get("stop_sequences"),
-                "input_tokens": input_tokens,
+                # Event `gen_ai.usage.input_tokens` reports the cache-inclusive
+                # semconv total to match the span; the raw count stays
+                # recoverable from the two cache keys below.
+                "input_tokens": semconv_input_tokens,
                 "output_tokens": output_tokens,
                 "cache_read_input_tokens": getattr(
                     scope, "_cache_read_input_tokens", 0
