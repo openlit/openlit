@@ -2,6 +2,7 @@
 Asynchronous wrappers for DigitalOcean Gradient SDK resources.
 """
 
+import inspect
 import time
 
 from opentelemetry import context as context_api, trace as trace_api
@@ -69,6 +70,8 @@ def _make_traced_async_stream(chunk_processor, final_processor):
             self._end_time = None
             self._finalized = False
             self._aiter = None
+            self._stream_error = None
+            self._gen_ai_error = None
 
         async def __aenter__(self):
             if hasattr(self.__wrapped__, "__aenter__"):
@@ -78,13 +81,33 @@ def _make_traced_async_stream(chunk_processor, final_processor):
         async def __aexit__(self, exc_type, exc_value, traceback):
             if hasattr(self.__wrapped__, "__aexit__"):
                 await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
-            self._finalize()
+            self._finalize(ended_cleanly=False)
 
         def __aiter__(self):
             return self
 
         def __getattr__(self, name):
             return getattr(self.__wrapped__, name)
+
+        async def close(self):
+            """Close the wrapped stream and finalize the span if it has not ended yet."""
+            try:
+                close = getattr(self.__wrapped__, "aclose", None)
+                if close is None:
+                    close = getattr(self.__wrapped__, "close", None)
+                if callable(close):
+                    result = close()
+                    if inspect.isawaitable(result):
+                        await result
+            finally:
+                self._finalize(ended_cleanly=False)
+
+        def __del__(self):
+            """Finalize a span abandoned by a bare ``async for`` loop or a released wrapper."""
+            try:
+                self._finalize(ended_cleanly=False)
+            except Exception:
+                pass
 
         def _ensure_aiter(self):
             if self._aiter is None:
@@ -100,18 +123,31 @@ def _make_traced_async_stream(chunk_processor, final_processor):
                 chunk_processor(self, chunk)
                 return chunk
             except StopAsyncIteration:
-                self._finalize()
+                self._finalize(ended_cleanly=True)
+                raise
+            except Exception as exc:
+                self._stream_error = exc
                 raise
 
-        def _finalize(self):
+        def _finalize(self, ended_cleanly=False):
+            """End the span once; see ``_make_traced_stream._finalize``."""
             if self._finalized:
                 return
             self._finalized = True
+            if self._stream_error is not None:
+                self._finish_reason = "error"
+                self._gen_ai_error = self._stream_error
+            elif not ended_cleanly:
+                self._finish_reason = "incomplete"
             try:
                 with trace_api.use_span(  # pylint: disable=not-context-manager
                     self._span, end_on_exit=True
                 ):
-                    final_processor(self, **self._finalize_kwargs)
+                    try:
+                        final_processor(self, **self._finalize_kwargs)
+                    finally:
+                        if self._stream_error is not None:
+                            handle_exception(self._span, self._stream_error)
             except Exception as exc:
                 handle_exception(self._span, exc)
 
