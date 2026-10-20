@@ -1,6 +1,7 @@
 name: CI / CLI
 
-# Runs go-test + the plugin-tree drift check for the openlit CLI.
+# Runs go-test, the installer release-resolution check, and the
+# plugin-tree drift check for the openlit CLI.
 # Splits out from release-cli.yml so test failures don't have to wait
 # for a tag push: every PR that touches cli/ or plugins/ gets the
 # same signal the release workflow would.
@@ -39,6 +40,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+      # Offline. Runs before setup-go so a broken installer does not wait
+      # on the toolchain. release-cli.yml calls this workflow, so a CLI
+      # release runs the same check.
+      - name: Test installer release resolution
+        run: sh cli/scripts/install_resolve_test.sh
       - uses: actions/setup-go@v6
         with:
           go-version-file: cli/go.mod
