@@ -24,6 +24,7 @@ from openlit.__helpers import (
     get_audio_model_cost,
     record_audio_metrics,
     truncate_message_content,
+    truncate_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -1058,7 +1059,8 @@ def process_text_to_speech_response(
     # Set content attributes if capture is enabled
     if capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("text", "")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES,
+            truncate_content(kwargs.get("text", "")),
         )
 
     span.set_status(Status(StatusCode.OK))
