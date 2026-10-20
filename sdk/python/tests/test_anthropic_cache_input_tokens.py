@@ -28,6 +28,14 @@ class _FakeSpan:
         pass
 
 
+class _FakeEventProvider:
+    def __init__(self) -> None:
+        self.emitted: list = []
+
+    def emit(self, event) -> None:
+        self.emitted.append(event)
+
+
 class _Scope:
     def __init__(self):
         self._timestamps = []
@@ -93,3 +101,37 @@ def test_no_cache_stays_on_raw_input_tokens():
 
     assert span.attrs[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 128
     assert span.attrs[SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE] == 138
+
+
+def test_event_input_tokens_match_span_cache_inclusive_total():
+    """The inference event must agree with the span on gen_ai.usage.input_tokens."""
+    scope = _Scope()
+    scope._input_tokens = 128
+    scope._output_tokens = 10
+    scope._cache_read_input_tokens = 64
+    scope._cache_creation_input_tokens = 32
+    span = _FakeSpan()
+    provider = _FakeEventProvider()
+
+    OpenlitConfig.reset_to_defaults()
+    scope._span = span
+    common_chat_logic(
+        scope,
+        pricing_info={},
+        environment=None,
+        application_name="",
+        metrics=None,
+        capture_message_content=False,
+        disable_metrics=True,
+        version="",
+        is_stream=False,
+        event_provider=provider,
+    )
+
+    assert len(provider.emitted) == 1
+    event = provider.emitted[0]
+    assert event.attributes[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 224
+    assert event.attributes[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] == 10
+    # Raw count stays recoverable from the separate cache keys.
+    assert event.attributes[SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS] == 64
+    assert event.attributes[SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS] == 32
