@@ -5,6 +5,7 @@ Supports comprehensive 0.7.x operations with business intelligence and enhanced 
 Includes support for async generators and streaming responses.
 """
 
+import asyncio
 import logging
 import time
 from opentelemetry import trace as trace_api
@@ -113,11 +114,14 @@ def async_general_wrap(
             # span cannot be scoped with ``with``: a streaming response is consumed
             # by the caller after this coroutine returns, and a context manager
             # would end the span first, discarding everything the tracked
-            # generator records. The span is started detached and ended here for
-            # non-streaming and error paths, or handed to the tracked generator.
+            # generator records. The span is started detached. ``finally`` ends it
+            # for every path that does not hand it to the generator, including
+            # ``CancelledError``, which ``except Exception`` does not see. The
+            # generator ends it once the stream is exhausted, closed, or dropped.
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
             token = context_api.attach(trace_api.set_span_in_context(span))
             start_time = time.time()
+            handed_off = False
 
             try:
                 try:
@@ -130,8 +134,8 @@ def async_general_wrap(
                     # Handle async generators (streaming responses)
                     if hasattr(response, "__aiter__"):
                         # The tracked generator ends the span once the stream is
-                        # exhausted or closed.
-                        return await _handle_async_generator(
+                        # exhausted, closed, or discarded.
+                        tracked = await _handle_async_generator(
                             span,
                             response,
                             ctx,
@@ -141,9 +145,11 @@ def async_general_wrap(
                             metrics,
                             disable_metrics,
                         )
+                        handed_off = True
+                        return tracked
 
-                    # Handle regular responses
-                    result = await _handle_regular_response(
+                    # Handle regular responses. The span ends in ``finally``.
+                    return await _handle_regular_response(
                         span,
                         response,
                         ctx,
@@ -155,9 +161,6 @@ def async_general_wrap(
                         instance,  # Add missing parameter
                         args,  # Add missing parameter
                     )
-                    if span.is_recording():
-                        span.end()
-                    return result
 
                 except Exception as e:
                     # Calculate duration even for errors
@@ -181,12 +184,12 @@ def async_general_wrap(
                                 "Error recording error metrics: %s", metrics_error
                             )
 
-                    if span.is_recording():
-                        span.end()
-
-                    # Re-raise the exception to maintain original behavior
+                    # Re-raise the exception to maintain original behavior.
+                    # ``finally`` ends the span.
                     raise
             finally:
+                if not handed_off and span.is_recording():
+                    span.end()
                 safe_detach(token)
 
         return async_wrapper()
@@ -308,6 +311,21 @@ async def _handle_async_generator(
         def __aiter__(self):
             return self
 
+        def __del__(self):
+            """Export a span abandoned by ``async for`` without ``aclose()``.
+
+            This class is not an async generator. ``break`` compiles to a
+            return, and ``END_ASYNC_FOR`` does not run, so the loop never
+            calls ``aclose()``. The same is true of a return or an exception
+            in the loop body. Dealloc cannot await; closing the inner crawl
+            stays with that generator's own finalizer once this object drops
+            it. Same constraint as the LiteLLM stream wrapper.
+            """
+            try:
+                self._finalize()
+            except Exception:  # pylint: disable=broad-except
+                pass
+
         async def __anext__(self):
             try:
                 result = await self.generator.__anext__()
@@ -321,85 +339,115 @@ async def _handle_async_generator(
 
             except StopAsyncIteration:
                 # Generator is complete, finalize metrics
-                await self._finalize()
+                self._finalize()
                 raise
-            except Exception as e:
-                # Handle errors in streaming
-                handle_exception(self.span, e)
+            except (GeneratorExit, asyncio.CancelledError):
+                # Not a crawl failure. Record whatever was consumed and end.
+                # Do not await the inner close here: this task is already
+                # unwinding, and the inner generator is finalized on dealloc.
+                self._finalize()
+                raise
+            except Exception as e:  # pylint: disable=broad-except
                 logger.error("Error in streaming crawl operation: %s", e)
-                self.completed = True
-                if self.span.is_recording():
-                    self.span.end()
+                try:
+                    await self._close_inner_quietly()
+                finally:
+                    self._finalize(e)
                 raise
 
-        async def _finalize(self):
-            """Finalize the span exactly once, then end it.
+        def _finalize(self, error=None):
+            """Record streaming telemetry exactly once, then end the span.
 
-            The span is not the current span here: it outlives ``async_wrapper``
-            so that it is still open while the caller consumes this generator.
-            Ending it is therefore this object's responsibility, on every exit
-            path -- exhaustion, ``aclose()`` and errors -- and the ``completed``
-            flag keeps repeat calls a no-op.
+            The span is not current here: it outlives ``async_wrapper`` so it
+            is still open while the caller consumes this generator. Exhaustion,
+            ``aclose()``, cancellation, and ``__del__`` all come through here.
+            The ``completed`` flag keeps a repeat call a no-op.
+
+            ``error`` is set only for a failure raised by the stream. Cleanup
+            exits leave it unset so a partial crawl is not forced to ERROR.
+            Attributes are written before the status: ``process_crawl_response``
+            must not stamp OK on a failure, because this SDK then ignores ERROR.
             """
             if self.completed:
                 return
             self.completed = True
             try:
-                await self._finalize_metrics()
-            except Exception as e:  # pylint: disable=broad-except
-                handle_exception(self.span, e)
+                self._record(error)
+            except Exception as exc:  # pylint: disable=broad-except
+                if error is None:
+                    error = exc
+                logger.debug("Error finalizing crawl4ai stream: %s", exc)
             finally:
-                if self.span.is_recording():
-                    self.span.end()
+                try:
+                    if error is not None:
+                        handle_exception(self.span, error)
+                finally:
+                    if self.span.is_recording():
+                        self.span.end()
+
+        async def _close_inner_quietly(self):
+            """Close the inner stream without masking the error that aborted it."""
+            closer = getattr(self.generator, "aclose", None)
+            if closer is None:
+                return
+            try:
+                await closer()
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.warning("Failed to close crawl4ai stream: %s", exc)
 
         async def aclose(self):
             """Close the wrapped generator and finalize the span.
 
-            A caller that stops consuming before exhaustion never raises
-            ``StopAsyncIteration``, so without this the span would stay open
-            and never be exported.
+            Callers that stop early and still hold the iterator should close
+            it so the span ends before the iterator is discarded. ``async for``
+            does not call this on ``break``. A second call is a no-op.
             """
             try:
-                inner_close = getattr(self.generator, "aclose", None)
-                if inner_close is not None:
-                    await inner_close()
+                await self._close_inner_quietly()
             finally:
-                await self._finalize()
+                self._finalize()
 
-        async def _finalize_metrics(self):
-            """Record the streaming telemetry on the span."""
+        def _record(self, error):
+            """Write duration and the pages consumed so far onto the open span."""
             end_time = time.time()
             duration = end_time - self.start_time
             duration_ms = duration * 1000
             self.span.set_attribute("gen_ai.client.operation.duration", duration)
 
             # Process aggregated results
-            if self.results:
-                process_crawl_response(self.span, self.results, self.ctx)
+            if not self.results:
+                return
 
-                # Capture message content for streaming
-                capture_message_content_if_enabled(
-                    self.span, self.ctx, self.results, self.capture_message_content
+            # OK would stick and hide the failure status applied by _finalize.
+            process_crawl_response(
+                self.span, self.results, self.ctx, mark_ok=error is None
+            )
+
+            # Capture message content for streaming
+            capture_message_content_if_enabled(
+                self.span, self.ctx, self.results, self.capture_message_content
+            )
+
+            # A failed stream is not a completed one.
+            if error is not None or self.disable_metrics or not self.metrics:
+                return
+
+            try:
+                metrics_key = f"crawl4ai.{self.operation_name}.stream.duration"
+                if metrics_key not in self.metrics:
+                    self.metrics[metrics_key] = []
+                self.metrics[metrics_key].append(duration_ms)
+
+                # Record stream completion
+                stream_key = f"crawl4ai.{self.operation_name}.stream.completed"
+                if stream_key not in self.metrics:
+                    self.metrics[stream_key] = 0
+                self.metrics[stream_key] += 1
+
+            except Exception as metrics_error:
+                logger.debug(
+                    "Error recording streaming metrics: %s", metrics_error
                 )
-
-                # Record streaming metrics
-                if not self.disable_metrics and self.metrics:
-                    try:
-                        metrics_key = f"crawl4ai.{self.operation_name}.stream.duration"
-                        if metrics_key not in self.metrics:
-                            self.metrics[metrics_key] = []
-                        self.metrics[metrics_key].append(duration_ms)
-
-                        # Record stream completion
-                        stream_key = f"crawl4ai.{self.operation_name}.stream.completed"
-                        if stream_key not in self.metrics:
-                            self.metrics[stream_key] = 0
-                        self.metrics[stream_key] += 1
-
-                    except Exception as metrics_error:
-                        logger.debug(
-                            "Error recording streaming metrics: %s", metrics_error
-                        )
 
     # Return the tracked generator
     return TrackedAsyncGenerator(
