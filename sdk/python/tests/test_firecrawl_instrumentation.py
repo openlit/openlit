@@ -243,6 +243,17 @@ def test_missing_layout_does_not_stop_other_wraps(monkeypatch):
     }
 
 
+def test_installed_layouts_are_wrapped(exporter):
+    """Every target in the installed SDK resolves and is really wrapped."""
+    for module, class_method in EXPECTED_V1_TARGETS | EXPECTED_V2_TARGETS:
+        try:
+            owner = importlib.import_module(module)
+        except ImportError:
+            continue  # firecrawl.firecrawl only exists before firecrawl-py 3
+        cls, method = class_method.split(".")
+        assert hasattr(getattr(getattr(owner, cls), method), "__wrapped__"), (module, class_method)
+
+
 def test_scrape_emits_span(exporter):
     document = firecrawl.Firecrawl(api_key="fc-test").scrape(URL, formats=["markdown"])
 
