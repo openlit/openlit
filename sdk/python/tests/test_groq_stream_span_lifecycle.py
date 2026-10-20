@@ -288,3 +288,50 @@ async def test_async_exception_inside_with_ends_error_span():
             raise RuntimeError("stream failed")
 
     _assert_one_error_span(exporter)
+
+
+
+def test_sync_read_error_ends_error_span_without_close():
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=False)
+
+    class _Stream(FakeSyncStream):
+        def __next__(self):
+            if self._read:
+                raise RuntimeError("stream failed")
+            self._read = True
+            return super().__next__()
+
+        _read = False
+
+    stream = wrapper(lambda *a, **k: _Stream(), None, (), REQUEST_KWARGS)
+    next(stream)
+    with pytest.raises(RuntimeError, match="stream failed"):
+        next(stream)
+
+    _assert_one_error_span(exporter)
+
+
+@pytest.mark.asyncio
+async def test_async_read_error_ends_error_span_without_close():
+    tracer, exporter = _tracer_with_exporter()
+    wrapper = _factory(tracer, is_async=True)
+
+    class _Stream(FakeAsyncStream):
+        _read = False
+
+        async def __anext__(self):
+            if self._read:
+                raise RuntimeError("stream failed")
+            self._read = True
+            return await super().__anext__()
+
+    async def acreate(*_a, **_k):
+        return _Stream()
+
+    stream = await wrapper(acreate, None, (), REQUEST_KWARGS)
+    await anext(stream)
+    with pytest.raises(RuntimeError, match="stream failed"):
+        await anext(stream)
+
+    _assert_one_error_span(exporter)
