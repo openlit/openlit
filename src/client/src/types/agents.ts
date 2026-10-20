@@ -24,6 +24,7 @@ export type AgentSource = "controller" | "sdk" | "both" | "coding";
  */
 export type CodingAgentVendor =
 	| "claude-code"
+	| "opencode"
 	| "cursor"
 	| "codex"
 	| "windsurf";

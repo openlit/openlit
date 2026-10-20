@@ -279,6 +279,29 @@ def emit_inference_event(
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
+def _chunk_mapping(chunk):
+    """Return a dict for one premai stream chunk.
+
+    0.3 streams yield attrs objects. ``response_as_dict`` returns those
+    unchanged, and this reader only understands dicts. ``to_dict`` on the
+    chunk already recurses into choices and usage. Dict chunks pass through.
+    This stays in the premai package: ``response_as_dict`` is shared by every
+    provider.
+    """
+
+    parsed = response_as_dict(chunk)
+    if isinstance(parsed, dict):
+        return parsed
+    to_dict = getattr(chunk, "to_dict", None)
+    if not callable(to_dict):
+        return {}
+    try:
+        parsed = to_dict()
+    except Exception:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
 def process_chunk(scope, chunk):
     """
     Process a chunk of response data and update state.
@@ -290,7 +313,7 @@ def process_chunk(scope, chunk):
     if len(scope._timestamps) == 1:
         scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
-    chunked = response_as_dict(chunk)
+    chunked = _chunk_mapping(chunk)
     choices = chunked.get("choices", []) if isinstance(chunked, dict) else []
     if choices:
         first_choice = choices[0] if isinstance(choices[0], dict) else {}
@@ -561,8 +584,10 @@ def common_chat_logic(
         except Exception as e:
             logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
-    # Span status and metrics
-    scope._span.set_status(Status(StatusCode.OK))
+    # Span status and metrics. OTel drops set_status(ERROR) once status is
+    # OK, and a stream failure records ERROR after this returns.
+    if getattr(scope, "_stream_error", None) is None:
+        scope._span.set_status(Status(StatusCode.OK))
     if not disable_metrics:
         inter_chunk_durations = None
         if getattr(scope, "_timestamps", None) and len(scope._timestamps) > 1:

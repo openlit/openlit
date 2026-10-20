@@ -92,6 +92,20 @@ export const EVALUATION_CREATE_NEW = "Create new";
 export const EVALUATION_ENGINE_TITLE = "Evaluations";
 export const EVALUATION_ENGINE_DESCRIPTION =
 	"Choose the evaluation framework. Rule engine context and evaluation types are applied for both manual and auto runs.";
+export const EVALUATION_TYPESAFE_HINT =
+	"TypeSafe Jev returns noul/score with a classification used as the explanation. Pin jev-1.13.0 when calibrating verdict thresholds. Chat playground does not support Jev.";
+export const EVALUATION_ERROR_MISSING_CONFIG =
+	"Missing apiKey, provider, or model";
+export const EVALUATION_ERROR_INVALID_RESPONSE = "Invalid response format";
+export const EVALUATION_ERROR_UNKNOWN_TYPES = "Unknown eval types";
+export const EVALUATION_ERROR_TYPESAFE_REQUEST_FAILED =
+	"TypeSafe System One request failed";
+export const EVALUATION_ERROR_TYPESAFE_STATUS =
+	"TypeSafe System One returned status";
+export const EVALUATION_ERROR_TYPESAFE_INVALID_JSON =
+	"TypeSafe System One returned invalid JSON";
+export const PROVIDER_EVALUATION_ONLY_ERROR =
+	"This provider is evaluation-only and cannot be used here";
 export const EVALUATION_ENGINE_LABEL = "Engine";
 export const EVALUATION_CONFIG_SECTION = "Configuration";
 export const EVALUATION_PROVIDER_LABEL = "Provider";
@@ -233,10 +247,14 @@ export const OBSERVABILITY_EXCEPTIONS = "Exceptions";
 export const OBSERVABILITY_METRICS = "Metrics";
 export const OBSERVABILITY_LOGS = "Logs";
 export const OBSERVABILITY_TRACE_SHORT_LABEL = "Latency, cost, tokens";
+export const OBSERVABILITY_SPAN_SHORT_LABEL = "Individual operations";
 export const OBSERVABILITY_EXCEPTION_SHORT_LABEL = "Failures and error spans";
 export const OBSERVABILITY_METRIC_SHORT_LABEL = "Gauges, sums, histograms";
 export const OBSERVABILITY_LOG_SHORT_LABEL = "Events and correlated context";
 export const OBSERVABILITY_TRACE_SUMMARY = "Span flow";
+export const OBSERVABILITY_SPAN_SUMMARY = "Raw span flow";
+export const OBSERVABILITY_SPAN_COUNT_LABEL = "spans";
+export const OBSERVABILITY_ERROR_COUNT_LABEL = "errors";
 export const OBSERVABILITY_EXCEPTION_SUMMARY = "Failure path";
 export const OBSERVABILITY_METRIC_SUMMARY = "Signal shape";
 export const OBSERVABILITY_LOG_SUMMARY = "Event stream";
@@ -802,6 +820,8 @@ export const AGENTS_TAB_CONTROLLERS = "Controllers";
 export const AGENTS_TAB_CODING = "Coding Agents";
 export const AGENTS_ADD_CONTROLLER = "Add Controller";
 export const AGENTS_ADD_CODING_AGENT = "Add Coding Agent";
+export const AGENTS_CODING_VENDOR_OPENCODE_LABEL = "OpenCode";
+export const AGENTS_CODING_VENDOR_OPENCODE_RESTART = "Restart OpenCode.";
 export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the install snippet. The OpenLit CLI hooks into the agent and ships every session, tool call, and LLM turn to this stack — no SDK or code changes required.";
 
 // Trace-detail content-capture banner. Surfaces a one-liner the user
@@ -872,8 +892,9 @@ export const AGENTS_CODING_COLUMN_ACCEPTANCE = "Acceptance";
 export const AGENTS_CODING_COLUMN_COMMITS = "Commits";
 export const AGENTS_CODING_COLUMN_PRS = "PRs";
 export const AGENTS_CODING_EMPTY_TITLE = "No coding agents yet";
+export const AGENTS_CODING_SETUP_GUIDE = "coding-agents setup guide";
 export const AGENTS_CODING_EMPTY_BODY =
-	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, or Codex session. The first hook event will surface the agent here within a minute.";
+	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, Codex, or OpenCode session. The first hook event will surface the agent here within a minute.";
 export const AGENTS_CODING_TAB_SESSIONS = "Sessions";
 export const AGENTS_CODING_SESSIONS_EMPTY = "No sessions in the selected time range.";
 export const AGENTS_CODING_SESSIONS_SESSION = "Session";
@@ -890,7 +911,7 @@ export const AGENTS_CODING_SESSIONS_OUTCOME = "Outcome";
 export const AGENTS_CODING_SESSIONS_CLASSIFICATION = "Classification";
 export const AGENTS_CODING_SESSIONS_LABEL = "Coding sessions";
 export const AGENTS_CODING_SESSIONS_SHORT_LABEL = "Sessions";
-export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex).";
+export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex, OpenCode).";
 export const AGENTS_CODING_USERS_LABEL = "Coding users";
 export const AGENTS_CODING_USERS_SHORT_LABEL = "Users";
 export const AGENTS_CODING_USERS_SUMMARY = "Per-user roll-up of coding-agent activity.";

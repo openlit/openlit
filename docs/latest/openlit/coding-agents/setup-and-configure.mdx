@@ -103,6 +103,26 @@ description: "Install the openlit CLI, wire each vendor's hooks, then configure 
     Older Codex builds use `hooks = true` and `plugin_hooks = true` instead of `codex_hooks`.
 
     </Tab>
+    <Tab title="OpenCode">
+
+    ```bash
+    openlit coding install --vendor=opencode
+
+    # Or install and launch OpenCode in one step
+    openlit coding launch opencode
+    ```
+
+    Plugin path: `$XDG_CONFIG_HOME/opencode/plugins/openlit.ts` when `XDG_CONFIG_HOME` is set, otherwise `<user-home>/.config/opencode/plugins/openlit.ts`. OpenCode [automatically loads global JavaScript and TypeScript plugins](https://opencode.ai/docs/plugins/#from-local-files) from this directory at startup, so restart OpenCode after installation.
+
+    The plugin projects session lifecycle, completed-assistant metadata, and tool execution into `openlit coding hook --vendor=opencode`. OpenLIT emits canonical LLM-turn and tool-call spans with `coding_agent.client=opencode`. Provider-executed tools, which bypass OpenCode's explicit tool hooks, are recovered from terminal tool-part metadata and deduplicated by call ID.
+
+    OpenCode does not expose a terminal `SessionEnd` hook: `session.idle` is a turn boundary and can also follow errors or cancellation. OpenLIT therefore does not fabricate a completed session root. In `metadata_only` and `full`, it records lifecycle events as they arrive. In `minimal`, it emits non-terminal `coding_agent.session.snapshot.start` / `coding_agent.session.snapshot` spans; token and cost values are per-snapshot deltas, while duration and tool count are cumulative. None of these snapshots carries `coding_agent.session.outcome`.
+
+    OpenCode message text, reasoning text, system messages, and structured parts are never forwarded. Explicit tool arguments and results are included only when `OPENLIT_CODING_CONTENT_CAPTURE=full`; provider-executed fallback events contain terminal metadata only.
+
+    Re-running the install is idempotent and replaces only `openlit.ts`; other files in your global OpenCode plugin directory are preserved.
+
+    </Tab>
     </Tabs>
   </Step>
 
@@ -155,6 +175,7 @@ What each flag removes:
 | `~/.local/share/openlit/claude-marketplace/` | ✓ (when `<v>` is `claude-code` or `all`) | - |
 | openlit entries in `~/.cursor/hooks.json` (other tools' entries preserved; file deleted if it ends up empty) | ✓ (when `<v>` is `cursor` or `all`) | - |
 | `~/.local/share/openlit/codex-marketplace/` | ✓ (when `<v>` is `codex` or `all`) | - |
+| `$XDG_CONFIG_HOME/opencode/plugins/openlit.ts` when set; otherwise `<user-home>/.config/opencode/plugins/openlit.ts` | ✓ (when `<v>` is `opencode` or `all`) | - |
 | `claude plugin uninstall openlit-cc@openlit` | ✓ best-effort | - |
 | `codex plugin remove openlit@openlit` + `codex plugin marketplace remove openlit` | ✓ best-effort | - |
 | `~/.config/openlit/` (your `configure` output) | - | ✓ |

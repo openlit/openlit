@@ -385,6 +385,12 @@ def async_responses(
         Wraps the OpenAI async responses API call.
         """
 
+        # Same guard as async chat completions. The flag is held for the
+        # whole framework call, including stream iteration that happens
+        # inside that call.
+        if is_framework_llm_active():
+            return await wrapped(*args, **kwargs)
+
         streaming = kwargs.get("stream", False)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
