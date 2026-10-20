@@ -400,5 +400,38 @@ describe('AnthropicWrapper', () => {
       expect(captured.usage.output_tokens).toBe(25);
       expect(captured.usage.input_tokens).toBe(10);
     });
+
+    it('keeps a reported zero output total rather than falling back to message_start', async () => {
+      // A zero from message_delta is the authoritative total, not a missing
+      // value, so it must not leave the message_start count in place.
+      const chunks = [
+        { type: 'message_start', message: { id: 'msg_2', model: 'claude-3-5-sonnet-latest', usage: { input_tokens: 7, output_tokens: 4 } } },
+        { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 0 } },
+        { type: 'message_stop' },
+      ];
+
+      let captured: any;
+      jest
+        .spyOn(AnthropicWrapper, '_messageCreateCommonSetter')
+        .mockImplementation(async ({ result }: any) => {
+          captured = result;
+          return undefined as any;
+        });
+      jest.spyOn(BaseWrapper, 'recordMetrics').mockImplementation(() => {});
+
+      const generator = AnthropicWrapper._messageCreateGenerator({
+        args: [{ model: 'claude-3-5-sonnet-latest', messages: [{ role: 'user', content: 'hi' }] }],
+        genAIEndpoint: 'anthropic.resources.messages',
+        response: (async function* () {
+          for (const chunk of chunks) yield chunk;
+        })(),
+        span,
+      });
+      for await (const _chunk of generator) {
+        // drain
+      }
+
+      expect(captured.usage.output_tokens).toBe(0);
+    });
   });
 });
