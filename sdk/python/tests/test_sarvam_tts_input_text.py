@@ -30,8 +30,10 @@ class _TtsResponse:  # pylint: disable=too-few-public-methods
         return {"request_id": self.request_id, "audios": self.audios}
 
 
-def _convert(pricing_info, disable_metrics):
+def _convert(pricing_info, disable_metrics, max_content_length=None):
     OpenlitConfig.reset_to_defaults()
+    if max_content_length is not None:
+        OpenlitConfig.max_content_length = max_content_length
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
@@ -73,3 +75,8 @@ def test_tts_cost_is_computed_from_the_request_text(monkeypatch):
     _convert(pricing_info={"audio": {"bulbul:v2": 2.0}}, disable_metrics=False)
 
     assert recorded == [len(TEXT) / 1000 * 2.0]
+
+def test_tts_span_respects_max_content_length():
+    """Captured TTS text is truncated when the configured limit is positive."""
+    span = _convert(pricing_info={}, disable_metrics=True, max_content_length=5)
+    assert span.attributes[SemanticConvention.GEN_AI_INPUT_MESSAGES] == TEXT[:5] + "..."
