@@ -67,13 +67,15 @@ def completion(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._streaming_response_processed = False
+            self._stream_error = None
 
         def __enter__(self):
-            self.__wrapped__.__enter__()
+            # Together returns a generator expression, which has no __enter__.
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
-            self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+            self.close()
 
         def __iter__(self):
             return self
@@ -82,14 +84,43 @@ def completion(
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
-        def __next__(self):
+        def close(self):
+            """Close the wrapped generator and finalize the span if it has not ended yet."""
             try:
-                chunk = self.__wrapped__.__next__()
-                process_chunk(self, chunk)
-                return chunk
-            except StopIteration:
-                try:
-                    with self._span:
+                self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span(ended_cleanly=False)
+
+        def __del__(self):
+            """Finalize a span abandoned by a bare ``for`` loop.
+
+            The wrapper is the iterator, so ``break`` never calls ``close()``.
+            The wrapped generator's dealloc still closes the HTTP response.
+            """
+            try:
+                self._finalize_streaming_span(ended_cleanly=False)
+            except Exception:
+                pass
+
+        def _finalize_streaming_span(self, ended_cleanly):
+            """End the span once.
+
+            ``ended_cleanly`` is True only for StopIteration. An empty finish
+            reason is otherwise a cancel. A failure raised by the wrapped
+            stream is recorded after attributes are set, so partial text stays
+            on the span and the status is ERROR rather than the OK that
+            ``process_streaming_chat_response`` writes when nothing failed.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            if self._stream_error is not None and not self._finish_reason:
+                self._finish_reason = "error"
+            elif not ended_cleanly and not self._finish_reason:
+                self._finish_reason = "incomplete"
+            try:
+                with self._span:
+                    try:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -100,10 +131,22 @@ def completion(
                             disable_metrics=disable_metrics,
                             version=version,
                         )
+                    finally:
+                        if self._stream_error is not None:
+                            handle_exception(self._span, self._stream_error)
+            except Exception as e:
+                handle_exception(self._span, e)
 
-                except Exception as e:
-                    handle_exception(self._span, e)
-
+        def __next__(self):
+            try:
+                chunk = self.__wrapped__.__next__()
+                process_chunk(self, chunk)
+                return chunk
+            except StopIteration:
+                self._finalize_streaming_span(ended_cleanly=True)
+                raise
+            except Exception as exc:
+                self._stream_error = exc
                 raise
 
     def wrapper(wrapped, instance, args, kwargs):
