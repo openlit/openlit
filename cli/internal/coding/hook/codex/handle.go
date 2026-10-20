@@ -136,7 +136,8 @@ func handle(ctx context.Context, in normalize.Input) error {
 		t := buildToolCall(in, p, cwd)
 		_ = in.Emit.EmitToolCall(t)
 		// Detect agent-attributed git commits / PR creations from
-		// shell-style tools. Codex emits `shell` and `local_shell`.
+		// shell-style tools. Codex emits `Bash` (current) and
+		// `shell`/`local_shell` (older rollouts).
 		// We only attribute when the tool completed successfully —
 		// a failed git invocation does NOT count toward the commit
 		// / PR rollups.
@@ -815,7 +816,11 @@ func commandFromToolInput(toolName string, raw json.RawMessage, capture string) 
 	}
 	cmd := ""
 	switch strings.ToLower(toolName) {
-	case "shell", "local_shell", "local-shell":
+	// Current Codex serializes the shell tools as `Bash`
+	// (codex-rs/core/src/tools/hook_names.rs, HookToolName::bash);
+	// `shell`/`local_shell` are the older rollout names kept for
+	// compatibility.
+	case "shell", "local_shell", "local-shell", "bash":
 		cmd = pickStr("command", "cmd", "shell")
 		if cmd == "" {
 			// some shells ship an array — fall back to joining
@@ -829,8 +834,10 @@ func commandFromToolInput(toolName string, raw json.RawMessage, capture string) 
 	case "apply_patch", "apply-patch":
 		// apply_patch carries a diff — surface the first hunk header
 		// so dashboards can show "edited <file>" without leaking the
-		// patch body.
-		if patch := pickStr("input", "patch"); patch != "" {
+		// patch body. Current Codex serializes the patch as
+		// `tool_input.command` (handlers/apply_patch.rs); `input` and
+		// `patch` are older rollout field names.
+		if patch := pickStr("command", "input", "patch"); patch != "" {
 			for _, line := range strings.Split(patch, "\n") {
 				if strings.HasPrefix(line, "*** ") {
 					return strings.TrimSpace(line)
@@ -898,8 +905,10 @@ func emitApplyPatchEditDecisions(in normalize.Input, p codexPayload, cwd string)
 }
 
 // applyPatchBody extracts the patch text from Codex's apply_patch
-// tool_input. Tries `input`, `patch`, and `diff` field names — Codex
-// has shipped each in different rollout versions.
+// tool_input. Tries `command` first — current Codex serializes the raw
+// patch there (handlers/apply_patch.rs serializes
+// `{"command": <patch>}` for both PreToolUse and PostToolUse) — then the
+// `input`, `patch`, and `diff` field names older rollout versions shipped.
 func applyPatchBody(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
@@ -908,7 +917,7 @@ func applyPatchBody(raw json.RawMessage) string {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return ""
 	}
-	for _, k := range []string{"input", "patch", "diff"} {
+	for _, k := range []string{"command", "input", "patch", "diff"} {
 		v, ok := m[k]
 		if !ok || len(v) == 0 {
 			continue
@@ -975,9 +984,13 @@ func emitGitArtifactsCodex(in normalize.Input, p codexPayload, cwd string) {
 	}
 }
 
+// isShellTool reports whether the tool name is one of Codex's
+// shell-style tools. Current Codex serializes them as `Bash`
+// (codex-rs/core/src/tools/hook_names.rs, HookToolName::bash);
+// `shell`/`local_shell` are the older rollout names.
 func isShellTool(name string) bool {
 	switch strings.ToLower(name) {
-	case "shell", "local_shell", "local-shell":
+	case "shell", "local_shell", "local-shell", "bash":
 		return true
 	}
 	return false
