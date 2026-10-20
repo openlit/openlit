@@ -336,4 +336,55 @@ describe('CohereWrapper', () => {
       });
     });
   });
+
+  describe('cache token usage', () => {
+    async function callSetter(result: any) {
+      jest.restoreAllMocks();
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0.3);
+
+      await CohereWrapper._chatCommonSetter({
+        args: [{ model: 'command-r', message: 'Ping' }],
+        genAIEndpoint: 'cohere.chat',
+        result,
+        span,
+      });
+    }
+
+    it('reports cached tokens from usage.cached_tokens (matches Python)', async () => {
+      await callSetter({
+        text: 'Pong',
+        usage: { billed_units: { input_tokens: 30, output_tokens: 9 }, cached_tokens: 18 },
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 30);
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        18
+      );
+    });
+
+    it('falls back to meta.cached_tokens', async () => {
+      await callSetter({
+        text: 'Pong',
+        meta: { billedUnits: { inputTokens: 30, outputTokens: 9 }, cached_tokens: 4 },
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        4
+      );
+    });
+
+    it('sets nothing when the provider reports no cached tokens', async () => {
+      await callSetter({
+        text: 'Pong',
+        usage: { billed_units: { input_tokens: 30, output_tokens: 9 } },
+      });
+
+      const attrKeys = (span.setAttribute as jest.Mock).mock.calls.map((c: any[]) => c[0]);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS);
+    });
+  });
 });
