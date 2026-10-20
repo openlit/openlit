@@ -623,9 +623,16 @@ func primeSubagentLink(p codexPayload) {
 }
 
 // normalizeStatus maps Codex's PostToolUse `status` / `error` /
-// response-shape signals onto our `completed` / `error` enum.
+// response-shape signals onto our `completed` / `error` enum. Error
+// evidence beats a completed label: the top-level status is consulted
+// first only in its error direction, and after it the response's own
+// signals — `status`/`state`, `is_error`, `success`, and a nonzero
+// `exit_code` — win over a top-level `status: "completed"` that
+// contradicts them. A shell command that exited nonzero is a failed
+// command no matter what the status label says, so it never counts
+// toward the commit / PR rollups.
 func normalizeStatus(p codexPayload) string {
-	if s := canonicalStatus(p.Status); s != "" {
+	if s := canonicalStatus(p.Status); s == "error" {
 		return s
 	}
 	if hasErrorEvidence(p.Error) {
@@ -638,7 +645,7 @@ func normalizeStatus(p codexPayload) string {
 	if s := statusFromToolResponse(resp); s != "" {
 		return s
 	}
-	return ""
+	return canonicalStatus(p.Status)
 }
 
 func canonicalStatus(raw string) string {
@@ -835,9 +842,11 @@ func commandFromToolInput(toolName string, raw json.RawMessage, capture string) 
 		// apply_patch carries a diff — surface the first hunk header
 		// so dashboards can show "edited <file>" without leaking the
 		// patch body. Current Codex serializes the patch as
-		// `tool_input.command` (handlers/apply_patch.rs); `input` and
-		// `patch` are older rollout field names.
-		if patch := pickStr("command", "input", "patch"); patch != "" {
+		// `tool_input.command` (handlers/apply_patch.rs); `input`,
+		// `patch` and `diff` are older/alternative rollout field
+		// names — the same list applyPatchBody reads, so a payload
+		// either helper can parse also gets its command label.
+		if patch := pickStr("command", "input", "patch", "diff"); patch != "" {
 			for _, line := range strings.Split(patch, "\n") {
 				if strings.HasPrefix(line, "*** ") {
 					return strings.TrimSpace(line)

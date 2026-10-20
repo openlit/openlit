@@ -571,3 +571,99 @@ func TestCodexApplyPatchCommandPayloadEditDecisions(t *testing.T) {
 		t.Errorf("edit decision tool: got %q, want apply_patch", d.Tool)
 	}
 }
+
+// TestCodexBashFailedCommandIsErrorNoArtifacts pins the precedence a
+// review flagged: a PostToolUse payload whose top-level status says
+// "completed" but whose tool_response carries a nonzero exit_code is a
+// FAILED command. Before the fix the status label won, so a `git
+// commit` that exited nonzero still counted toward the commit rollup.
+func TestCodexBashFailedCommandIsErrorNoArtifacts(t *testing.T) {
+	withIsolatedCache(t)
+
+	em := &recordingEmitter{}
+	body, err := json.Marshal(map[string]any{
+		"hook_event_name":  "PostToolUse",
+		"session_id":       "cdx-session-bash-fail",
+		"turn_id":          "turn-1",
+		"tool_name":        "Bash",
+		"tool_use_id":      "call_bash_fail",
+		"tool_input":       json.RawMessage(`{"command":"git commit -m \"nope\""}`),
+		"tool_response":    json.RawMessage(`{"stdout":"nothing to commit, working tree clean","exit_code":1}`),
+		"tool_duration_ms": 25.0,
+		"status":           "completed",
+		"timestamp":        time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		t.Fatalf("payload marshal: %v", err)
+	}
+	if err := handle(context.Background(), normalize.Input{
+		Vendor:         "codex",
+		Event:          "PostToolUse",
+		Payload:        body,
+		ContentCapture: "full",
+		Emit:           em,
+	}); err != nil {
+		t.Fatalf("PostToolUse: %v", err)
+	}
+	if len(em.toolCalls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(em.toolCalls))
+	}
+	if !em.toolCalls[0].Errored {
+		t.Errorf("failed command: tool call not marked errored; a nonzero exit_code must beat the completed label")
+	}
+	if em.toolCalls[0].Command != `git commit -m "nope"` {
+		t.Errorf("bash tool command: got %q, want the git commit line", em.toolCalls[0].Command)
+	}
+	if len(em.gitCommits) != 0 {
+		t.Errorf("failed git commit must not emit a commit artifact, got %d", len(em.gitCommits))
+	}
+	if len(em.gitPRs) != 0 {
+		t.Errorf("failed command must not emit PR artifacts, got %d", len(em.gitPRs))
+	}
+}
+
+// TestCodexApplyPatchDiffOnlyPayload covers the diff-only shape the
+// same review flagged: when the patch rides in `tool_input.diff` —
+// one of the older rollout field names applyPatchBody already reads —
+// the command label must still surface, not only for the
+// `command`/`input`/`patch` spellings.
+func TestCodexApplyPatchDiffOnlyPayload(t *testing.T) {
+	withIsolatedCache(t)
+
+	em := &recordingEmitter{}
+	body, err := json.Marshal(map[string]any{
+		"hook_event_name": "PostToolUse",
+		"session_id":      "cdx-session-patch-diff",
+		"turn_id":         "turn-1",
+		"tool_name":       "apply_patch",
+		"tool_use_id":     "call_patch_diff",
+		"tool_input":      json.RawMessage(`{"diff":"*** Begin Patch\n*** Update File: cli/main.go\n@@ -1 +1 @@\n-old line\n+new line\n"}`),
+		"tool_response":   json.RawMessage(`{"stdout":"done","exit_code":0}`),
+		"status":          "completed",
+		"timestamp":       time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		t.Fatalf("payload marshal: %v", err)
+	}
+	if err := handle(context.Background(), normalize.Input{
+		Vendor:         "codex",
+		Event:          "PostToolUse",
+		Payload:        body,
+		ContentCapture: "full",
+		Emit:           em,
+	}); err != nil {
+		t.Fatalf("PostToolUse: %v", err)
+	}
+	if len(em.toolCalls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(em.toolCalls))
+	}
+	if em.toolCalls[0].Command != "*** Begin Patch" {
+		t.Errorf("apply_patch diff-only command: got %q, want the first patch header line", em.toolCalls[0].Command)
+	}
+	if len(em.editDecisions) != 1 {
+		t.Fatalf("expected 1 edit decision from the diff-only payload, got %d", len(em.editDecisions))
+	}
+	if d := em.editDecisions[0]; d.FilePath != "cli/main.go" {
+		t.Errorf("edit decision file: got %q, want cli/main.go", d.FilePath)
+	}
+}
