@@ -263,4 +263,55 @@ describe('Google AI Studio Cross-Language Trace Comparison', () => {
       );
     });
   });
+
+  describe('Streaming Trace Consistency', () => {
+    async function* chunks(parts: any[]) {
+      for (const part of parts) {
+        yield part;
+      }
+    }
+
+    async function drain(stream: AsyncGenerator<unknown, any, unknown>) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _chunk of stream) {
+        // consume
+      }
+    }
+
+    it('should report reasoning and cache tokens from the final chunk like the Python SDK', async () => {
+      const stream = GoogleAIWrapper._generateContentStreamGenerator({
+        args: [{ contents: [{ role: 'user', parts: [{ text: 'What is Gemini?' }] }] }],
+        genAIEndpoint: 'google.generativeai.models.generate_content_stream',
+        response: chunks([
+          {
+            modelVersion: 'gemini-pro',
+            candidates: [{ content: { parts: [{ text: 'Gemini' }], role: 'model' } }],
+          },
+          {
+            modelVersion: 'gemini-pro',
+            candidates: [{ content: { parts: [{ text: ' is a model' }] }, finishReason: 'STOP' }],
+            usageMetadata: {
+              promptTokenCount: 5,
+              candidatesTokenCount: 10,
+              totalTokenCount: 22,
+              thoughtsTokenCount: 7,
+              cachedContentTokenCount: 3,
+            },
+          },
+        ]),
+        span: mockSpan,
+        requestModel: 'gemini-pro',
+      });
+
+      await drain(stream);
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 5);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 10);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, 7);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        3
+      );
+    });
+  });
 });
