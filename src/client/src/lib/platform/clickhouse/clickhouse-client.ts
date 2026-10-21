@@ -3,6 +3,7 @@ import { ClickHouseClient, createClient } from "@clickhouse/client";
 import { DatabaseConfig } from "@prisma/client";
 import { createPool, Pool } from "generic-pool";
 import asaw from "@/utils/asaw";
+import { tenantReadFilterSettings } from "./tenant-read-filter";
 
 interface ClickHouseConnectionInfo {
 	username: string;
@@ -10,6 +11,7 @@ interface ClickHouseConnectionInfo {
 	url: string;
 	database: string;
 	http_headers: Record<string, string>;
+	clickhouse_settings?: Record<string, string>;
 }
 
 const getClickHouseFactoryOptions = (
@@ -38,12 +40,14 @@ const getClickHouseFactoryOptions = (
 export default function createClickhousePool(
 	dbConfig: DatabaseConfig
 ): Pool<ClickHouseClient> {
+	const tenantSettings = tenantReadFilterSettings(dbConfig);
 	const connectionObject: ClickHouseConnectionInfo = {
 		username: dbConfig.username,
 		password: dbConfig.password || "",
 		url: constructURL(dbConfig.host, dbConfig.port),
 		database: dbConfig.database,
 		http_headers: parseQueryStringToObject(dbConfig.query || ""),
+		...(tenantSettings ? { clickhouse_settings: tenantSettings } : {}),
 	};
 
 	return createPool(getClickHouseFactoryOptions(connectionObject), {

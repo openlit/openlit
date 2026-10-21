@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Secrets and the SQLite database live here. Create it so the container also
+# starts without a mounted volume (secrets then last only as long as the
+# container).
+mkdir -p /app/client/data
+chmod 700 /app/client/data
+
 # Generate and persist NextAuth.js secret to ensure session persistence across restarts
 NEXTAUTH_SECRET_FILE="/app/client/data/.nextauth_secret"
 
@@ -35,6 +41,27 @@ else
     echo "✅ Generated and saved new cron job secret to persistent storage"
 fi
 
+# Persist a per-install engine secret. The realtime engine sends it to
+# /api/internal/realtime/* and the UI server sends it to the engine's own API.
+# It is separate from CRON_JOB_SECRET so a leaked cron secret cannot forge
+# findings, and there is no "true" fallback: both sides fail closed without it.
+OPENLIT_ENGINE_SECRET_FILE="/app/client/data/.openlit_engine_secret"
+
+if [ -n "${OPENLIT_ENGINE_SECRET:-}" ]; then
+    echo "$OPENLIT_ENGINE_SECRET" > "$OPENLIT_ENGINE_SECRET_FILE"
+    chmod 600 "$OPENLIT_ENGINE_SECRET_FILE"
+    echo "✅ Using operator-provided engine secret"
+elif [ -f "$OPENLIT_ENGINE_SECRET_FILE" ]; then
+    export OPENLIT_ENGINE_SECRET=$(cat "$OPENLIT_ENGINE_SECRET_FILE")
+    echo "✅ Loaded existing engine secret from persistent storage"
+else
+    export OPENLIT_ENGINE_SECRET=$(openssl rand -base64 32)
+    echo "$OPENLIT_ENGINE_SECRET" > "$OPENLIT_ENGINE_SECRET_FILE"
+    chmod 600 "$OPENLIT_ENGINE_SECRET_FILE"
+    echo "✅ Generated and saved new engine secret to persistent storage"
+fi
+export OPENLIT_ENGINE_SECRET
+
 # Set NextAuth.js environment variables
 # remove any existing NEXTAUTH_SECRET line, then append the current value
 if [ -w /etc/environment ]; then
@@ -42,8 +69,10 @@ if [ -w /etc/environment ]; then
     echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment
     sed -i '/^CRON_JOB_SECRET=/d' /etc/environment
     echo "CRON_JOB_SECRET=$CRON_JOB_SECRET" >> /etc/environment
+    sed -i '/^OPENLIT_ENGINE_SECRET=/d' /etc/environment
+    echo "OPENLIT_ENGINE_SECRET=$OPENLIT_ENGINE_SECRET" >> /etc/environment
 else
-    echo "WARNING: /etc/environment is not writable; NEXTAUTH_SECRET and CRON_JOB_SECRET will not be persisted there." >&2
+    echo "WARNING: /etc/environment is not writable; NEXTAUTH_SECRET, CRON_JOB_SECRET and OPENLIT_ENGINE_SECRET will not be persisted there." >&2
 fi
 
 # Do NOT pin NEXTAUTH_URL to localhost. When it is unset, NextAuth derives the
@@ -80,6 +109,19 @@ service cron start
 
 echo "Starting OTLP receiver..."
 /app/otlp-receiver/otlp-receiver &
+
+# The realtime engine consumes the NATS signal stream and posts findings back
+# to the UI server's internal API, authenticated with OPENLIT_ENGINE_SECRET.
+# The receiver connects to NATS as NATS_RECEIVER_USER and the engine as
+# NATS_ENGINE_USER (see assets/nats.conf); both are read from this environment.
+if [ -n "${NATS_URL:-}" ]; then
+    if [ -z "${NATS_RECEIVER_PASSWORD:-}${NATS_RECEIVER_CREDS:-}${NATS_PASSWORD:-}${NATS_CREDS:-}" ]; then
+        echo "WARNING: NATS_URL is set without NATS credentials; production NATS must require auth." >&2
+    fi
+    echo "Starting realtime engine..."
+    OPENLIT_URL="${OPENLIT_URL:-http://127.0.0.1:${DOCKER_PORT:-3000}}" \
+        /app/engine/openlit-engine &
+fi
 
 # Starting the OpenLIT UI Server
 export PORT=${DOCKER_PORT:-3000}

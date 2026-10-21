@@ -1,3 +1,4 @@
+import { getVerifiedApiKeyDatabaseConfigId } from "@/helpers/server/api-key-binding";
 import { getCurrentUser } from "@/lib/session";
 import getMessage from "@/constants/messages";
 import { getDBConfigByIdForUser } from "@/lib/db-config";
@@ -55,9 +56,7 @@ export function withDbConfigAccess<THandler extends RouteHandler>(
 		const messages = getMessage();
 
 		// API key first: middleware already verified Bearer and set x-database-config-id.
-		const apiKeyDatabaseConfigId = firstString(
-			request.headers?.get?.("x-database-config-id")
-		);
+		const apiKeyDatabaseConfigId = await getVerifiedApiKeyDatabaseConfigId(request);
 		if (apiKeyDatabaseConfigId) {
 			return handler(request, context);
 		}

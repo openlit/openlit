@@ -63,6 +63,40 @@ export default async function BackfillOtelTenantEnvironmentMigration(
 		typeof dbConfig.environment === "string" && dbConfig.environment.trim()
 			? dbConfig.environment.trim()
 			: "production";
+
+	// Unstamped rows in a store shared by several tenants cannot be attributed
+	// to any one of them; stamping them with this config's tenant would hand
+	// another tenant's data to this one.
+	const [, sharingConfigs] = await asaw(
+		prisma.databaseConfig.findMany({
+			where: {
+				host: dbConfig.host,
+				port: dbConfig.port,
+				database: dbConfig.database,
+				NOT: { id: dbConfig.id },
+			},
+			select: { projectId: true, environment: true },
+		})
+	);
+	const sharedAcrossTenants = (sharingConfigs || []).some(
+		(other: { projectId: string | null; environment: string | null }) =>
+			(other.projectId || null) !== (dbConfig.projectId || null) ||
+			(other.environment || "production").trim() !== environment
+	);
+	if (sharedAcrossTenants) {
+		consoleLog(
+			`OTLP tenant environment backfill skipped for ${dbConfig.id}: ClickHouse store is shared with another project or environment`
+		);
+		await asaw(
+			prisma.clickhouseMigrations.create({
+				data: {
+					databaseConfigId: dbConfig.id,
+					clickhouseMigrationId: MIGRATION_ID,
+				},
+			})
+		);
+		return { migrationExist: false, queriesRun: false };
+	}
 	let organisationId = "";
 	if (dbConfig.projectId) {
 		const project = await prisma.project.findUnique({

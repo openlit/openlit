@@ -7,7 +7,8 @@ export type AlertTriggerType =
 	| "fleet_hub_config_update"
 	| "vault_secret_change"
 	| "context_change"
-	| "rule_engine_change";
+	| "rule_engine_change"
+	| "realtime_finding";
 
 export type AlertProviderType =
 	| "slack"
@@ -73,6 +74,8 @@ export type AlertSignalInput = {
 	databaseConfigId?: string | null;
 	sourceId?: string | null;
 	payloadSummary?: Record<string, unknown>;
+	/** Only match alerts that are organisation-wide or bound to `projectId`. */
+	scopeToProject?: boolean;
 };
 
 export type ManagementAlertInput = {

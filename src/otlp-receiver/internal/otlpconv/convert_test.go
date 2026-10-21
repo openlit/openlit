@@ -81,6 +81,57 @@ func TestStampResourceKeepsDeploymentEnvironment(t *testing.T) {
 	}
 }
 
+func TestStampResourceStripsForgedTenantKeys(t *testing.T) {
+	t.Parallel()
+	forged := map[string]string{
+		"service.name":                  "demo",
+		"openlit.organisation.id":       "victim-org",
+		"openlit.project.id":            "victim-proj",
+		"organisation.environment.name": "production",
+	}
+
+	// Unauthenticated / unscoped ingest: the keys are removed, not kept.
+	stamped := StampResource(forged, ResourceTenant{})
+	for _, k := range TenantResourceKeys {
+		if _, ok := stamped[k]; ok {
+			t.Fatalf("forged %s kept: %+v", k, stamped)
+		}
+	}
+	if stamped["service.name"] != "demo" {
+		t.Fatal("lost original attr")
+	}
+
+	// Partially scoped tenant: only its own values survive.
+	stamped = StampResource(forged, ResourceTenant{ProjectID: "proj-1", Environment: "staging"})
+	if stamped["openlit.project.id"] != "proj-1" || stamped["organisation.environment.name"] != "staging" {
+		t.Fatalf("tenant attrs %+v", stamped)
+	}
+	if _, ok := stamped["openlit.organisation.id"]; ok {
+		t.Fatalf("forged organisation kept: %+v", stamped)
+	}
+
+	// The caller's map is never mutated.
+	if forged["openlit.project.id"] != "victim-proj" {
+		t.Fatal("input mutated")
+	}
+
+	rows := []TraceRow{{ResourceAttributes: forged}}
+	StampTraces(rows, ResourceTenant{})
+	if rows[0].ResourceAttributes["openlit.project.id"] != "" {
+		t.Fatal("StampTraces kept forged project")
+	}
+	logs := []LogRow{{ResourceAttributes: forged}}
+	StampLogs(logs, ResourceTenant{})
+	if logs[0].ResourceAttributes["openlit.project.id"] != "" {
+		t.Fatal("StampLogs kept forged project")
+	}
+	metrics := MetricRows{Gauges: []GaugeRow{{ResourceAttributes: forged}}, Sums: []SumRow{{GaugeRow: GaugeRow{ResourceAttributes: forged}}}}
+	StampMetrics(&metrics, ResourceTenant{})
+	if metrics.Gauges[0].ResourceAttributes["openlit.project.id"] != "" || metrics.Sums[0].ResourceAttributes["openlit.project.id"] != "" {
+		t.Fatal("StampMetrics kept forged project")
+	}
+}
+
 func TestAnyValueStructuredJSON(t *testing.T) {
 	t.Parallel()
 	array := AnyValue(&commonpb.AnyValue{Value: &commonpb.AnyValue_ArrayValue{

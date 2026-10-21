@@ -124,3 +124,43 @@ func TestRejectsOversizedBody(t *testing.T) {
 		t.Fatalf("got %d", rr.Code)
 	}
 }
+
+func TestRepeatedBadKeysAreRateLimited(t *testing.T) {
+	svc := &ingest.Service{Tenants: &tenant.Store{RequireKey: true}, Limiter: tenant.NewFailLimiter(2, 1)}
+	h := New(svc)
+	send := func(remote string) int {
+		post := httptest.NewRequest(http.MethodPost, "/v1/traces", bytes.NewReader([]byte(`{"resourceSpans":[]}`)))
+		post.Header.Set("Content-Type", "application/json")
+		post.Header.Set("Authorization", "Bearer openlit-guess")
+		post.RemoteAddr = remote
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, post)
+		return rr.Code
+	}
+	for i := 0; i < 2; i++ {
+		if code := send("203.0.113.7:1000"); code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: %d", i, code)
+		}
+	}
+	if code := send("203.0.113.7:1001"); code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, got %d", code)
+	}
+	if code := send("198.51.100.1:1000"); code != http.StatusUnauthorized {
+		t.Fatalf("other client must not be limited, got %d", code)
+	}
+}
+
+func TestStatsNotOnPublicHandler(t *testing.T) {
+	h := New(&ingest.Service{Tenants: &tenant.Store{RequireKey: true}})
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/stats", nil))
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("public /stats must not exist, got %d", rr.Code)
+	}
+	stats := NewStats(func() any { return map[string]int{"ok": 1} })
+	rr = httptest.NewRecorder()
+	stats.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/stats", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("stats handler %d", rr.Code)
+	}
+}
