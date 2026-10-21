@@ -37,7 +37,6 @@ import { memoryApiKeyField, memoryPageFilters } from "../config-fields";
 import { memoryBaseUrl, memoryRequest } from "../http";
 import type {
 	MemoryCapabilities,
-	MemoryFilterChoice,
 	MemoryFilterOptions,
 	MemoryListFilter,
 	MemoryRecord,
@@ -48,6 +47,7 @@ import type {
 	MemoryWriteInput,
 } from "../types";
 import { emptyMemoryFilters } from "../types";
+import { asRecord, isPlainObject, stringValue, uniqueChoices, writeContent } from "../values";
 
 const DOCS_URL = "https://docs.langchain.com/langsmith/agent-server";
 const URL_PLACEHOLDER = "http://localhost:2024";
@@ -103,22 +103,6 @@ interface StoreItem {
 }
 
 type ContentSource = "nested" | "content" | "fallback";
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function stringValue(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const trimmed = value.trim();
-	return trimmed || undefined;
-}
 
 function isValidLabel(label: string): boolean {
 	return label.length > 0 && !label.includes(".");
@@ -295,16 +279,6 @@ function writableMetadata(
 	return Object.keys(rest).length ? rest : undefined;
 }
 
-function writeContent(input: MemoryWriteInput): string {
-	const content = stringValue(input.content);
-	if (content) return content;
-	return (input.messages || [])
-		.map((message) => stringValue(message.content))
-		.filter((item): item is string => !!item)
-		.join("\n")
-		.trim();
-}
-
 function normalizeItem(raw: unknown): StoreItem | null {
 	const row = asRecord(raw);
 	const key = typeof row.key === "string" ? row.key : "";
@@ -350,17 +324,6 @@ function sortMerged(items: StoreItem[]): StoreItem[] {
 		if (scoreA !== scoreB) return scoreB - scoreA;
 		return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
 	});
-}
-
-function uniqueChoices(choices: MemoryFilterChoice[]): MemoryFilterChoice[] {
-	const seen = new Set<string>();
-	const next: MemoryFilterChoice[] = [];
-	for (const choice of choices) {
-		if (!choice.id || seen.has(choice.id)) continue;
-		seen.add(choice.id);
-		next.push(choice);
-	}
-	return next.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 export class LangGraphAdapter extends BaseMemoryAdapter {
