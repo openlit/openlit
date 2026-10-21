@@ -70,13 +70,34 @@ export function isPrivateAddress(ip: string): boolean {
 		if (lower === "::1" || lower === "::") return true; // loopback / unspecified
 		if (lower.startsWith("fe80:")) return true; // link-local
 		if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // ULA
-		// IPv4-mapped IPv6 (::ffff:a.b.c.d)
-		const mapped = lower.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-		if (mapped) return isPrivateAddress(mapped[1]);
+		const mapped = embeddedIPv4(lower);
+		if (mapped) return isPrivateAddress(mapped);
 		return false;
 	}
 	// Not an IP literal.
 	return false;
+}
+
+/**
+ * IPv4 address embedded in an IPv4-mapped (::ffff:0:0/96), IPv4-translated
+ * (::ffff:0:0:0/96) or NAT64 (64:ff9b::/96) IPv6 literal. WHATWG URL parsing
+ * rewrites [::ffff:169.254.169.254] to the hex form ::ffff:a9fe:a9fe, so both
+ * the dotted and the hex spellings must decode to the same IPv4 address.
+ */
+export function embeddedIPv4(ip: string): string | null {
+	const lower = ip.toLowerCase().replace(/^\[|\]$/g, "");
+	const prefix = lower.match(/^(?:::ffff:|64:ff9b::)(.+)$/);
+	if (!prefix) return null;
+	let rest = prefix[1];
+	if (net.isIP(rest) === 4) return rest;
+	// ::ffff:0:a.b.c.d / ::ffff:0:HHHH:HHHH (IPv4-translated)
+	if (rest.startsWith("0:") && rest.split(":").length === 3) rest = rest.slice(2);
+	if (net.isIP(rest) === 4) return rest;
+	const hex = rest.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+	if (!hex) return null;
+	const hi = parseInt(hex[1], 16);
+	const lo = parseInt(hex[2], 16);
+	return [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff].join(".");
 }
 
 export class SsrfError extends Error {
@@ -213,8 +234,8 @@ export function isCloudMetadataAddress(ip: string): boolean {
 	}
 	if (version === 6) {
 		const lower = ip.toLowerCase().replace(/^\[|\]$/g, "");
-		const mapped = lower.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-		if (mapped) return isCloudMetadataAddress(mapped[1]);
+		const mapped = embeddedIPv4(lower);
+		if (mapped) return isCloudMetadataAddress(mapped);
 		return false;
 	}
 	return false;

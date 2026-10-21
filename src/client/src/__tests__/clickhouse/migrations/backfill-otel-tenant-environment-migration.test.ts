@@ -15,6 +15,9 @@ jest.mock("@/lib/prisma", () => ({
 		project: {
 			findUnique: jest.fn(),
 		},
+		databaseConfig: {
+			findMany: jest.fn(),
+		},
 	},
 }));
 jest.mock("@/utils/asaw", () =>
@@ -49,6 +52,7 @@ describe("BackfillOtelTenantEnvironmentMigration", () => {
 			organisationId: "org-1",
 		});
 		(dataCollector as jest.Mock).mockResolvedValue({ err: null });
+		(prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([]);
 	});
 
 	it("stamps organisation.environment.name and tenant ids without rewriting deployment.environment", async () => {
@@ -82,5 +86,26 @@ describe("BackfillOtelTenantEnvironmentMigration", () => {
 			BackfillOtelTenantEnvironmentMigration("db-1")
 		).resolves.toEqual({ migrationExist: true, queriesRun: false });
 		expect(dataCollector).not.toHaveBeenCalled();
+	});
+
+	it("does not stamp a store shared with another project or environment", async () => {
+		(prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([
+			{ projectId: "proj-2", environment: "staging" },
+		]);
+		await expect(
+			BackfillOtelTenantEnvironmentMigration("db-1")
+		).resolves.toEqual({ migrationExist: false, queriesRun: false });
+		expect(dataCollector).not.toHaveBeenCalled();
+		expect(prisma.clickhouseMigrations.create).toHaveBeenCalled();
+	});
+
+	it("still stamps when the only other config shares the same tenant", async () => {
+		(prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([
+			{ projectId: "proj-1", environment: "staging" },
+		]);
+		await expect(
+			BackfillOtelTenantEnvironmentMigration("db-1")
+		).resolves.toEqual({ migrationExist: false, queriesRun: true });
+		expect(dataCollector).toHaveBeenCalled();
 	});
 });

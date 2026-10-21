@@ -23,6 +23,7 @@ import {
 	SlidersHorizontal,
 	User,
 	ScanSearch,
+	BellRing,
 } from "lucide-react";
 
 export const ICON_CLASSES = "flex-shrink-0 size-4";
@@ -73,6 +74,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						icon: <CircleDollarSign className={ICON_CLASSES} />,
 						text: m.COSTS_TITLE,
 						link: "/costs",
+						type: "action",
+					},
+					{
+						icon: <BellRing className={ICON_CLASSES} />,
+						text: m.ALERTING_TITLE,
+						link: "/alerts",
 						type: "action",
 					},
 				],

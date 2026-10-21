@@ -1,3 +1,4 @@
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { PromptInput, SpecificPromptInput } from "@/constants/prompts";
 import { dataCollector } from "../common";
 import {
@@ -193,7 +194,7 @@ LEFT JOIN
         FROM
             ${OPENLIT_PROMPT_VERSIONS_TABLE_NAME}
         WHERE
-            prompt_id = '${promptId}'
+            prompt_id = '${escapeClickHouseString(String(promptId))}'
 						${
 							params?.version
 								? `AND version='${params.version}' AND status != 'DRAFT'`
@@ -206,7 +207,7 @@ LEFT JOIN
     ) v
 ON p.id = v.prompt_id
 WHERE
-    p.id = '${promptId}'                   -- Filter by specific prompt ID
+    p.id = '${escapeClickHouseString(String(promptId))}'                   -- Filter by specific prompt ID
 ORDER BY
     p.created_at DESC;
 
@@ -228,7 +229,7 @@ FROM
 LEFT JOIN
 		${OPENLIT_PROMPT_VERSION_DOWNLOADS_TABLE_NAME} d ON v.version_id = d.version_id  -- Join with downloads table
 WHERE
-    v.prompt_id = '${promptId}'                 -- Filter by specific prompt ID
+    v.prompt_id = '${escapeClickHouseString(String(promptId))}'                 -- Filter by specific prompt ID
 GROUP BY
 		v.version_id, v.prompt_id, v.prompt, v.version, v.status, v.meta_properties, v.tags, v.updated_by, v.updated_at
 ORDER BY
@@ -260,9 +261,9 @@ export async function deletePrompt(promptIdParam: string) {
 	const promptId = Sanitizer.sanitizeValue(promptIdParam);
 
 	const queries = [
-		`DELETE FROM ${OPENLIT_PROMPTS_TABLE_NAME} WHERE id = '${promptId}';`,
-		`DELETE FROM ${OPENLIT_PROMPT_VERSIONS_TABLE_NAME} WHERE prompt_id = '${promptId}';`,
-		`DELETE FROM ${OPENLIT_PROMPT_VERSION_DOWNLOADS_TABLE_NAME} WHERE prompt_id = '${promptId}';`,
+		`DELETE FROM ${OPENLIT_PROMPTS_TABLE_NAME} WHERE id = '${escapeClickHouseString(String(promptId))}';`,
+		`DELETE FROM ${OPENLIT_PROMPT_VERSIONS_TABLE_NAME} WHERE prompt_id = '${escapeClickHouseString(String(promptId))}';`,
+		`DELETE FROM ${OPENLIT_PROMPT_VERSION_DOWNLOADS_TABLE_NAME} WHERE prompt_id = '${escapeClickHouseString(String(promptId))}';`,
 	];
 
 	const queryResponses = await Promise.all(
