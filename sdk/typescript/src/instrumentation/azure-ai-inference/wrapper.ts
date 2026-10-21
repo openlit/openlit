@@ -467,6 +467,10 @@ class AzureAIInferenceWrapper extends BaseWrapper {
       Number(result.usage?.prompt_tokens_details?.cache_creation_tokens) ||
       Number(result.usage?.prompt_tokens_details?.cache_write_tokens) ||
       0;
+    const reasoningTokens =
+      Number(result.usage?.completion_tokens_details?.reasoning_tokens) ||
+      Number(result.usage?.reasoning_tokens) ||
+      0;
     const cost = OpenLitHelper.getChatModelCost(
       requestModel,
       pricingInfo,
@@ -501,6 +505,12 @@ class AzureAIInferenceWrapper extends BaseWrapper {
       span.setAttribute(
         SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
         cacheCreationTokens
+      );
+    }
+    if (reasoningTokens) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
+        reasoningTokens
       );
     }
 
