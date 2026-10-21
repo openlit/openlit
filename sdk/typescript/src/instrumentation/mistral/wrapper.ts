@@ -393,6 +393,28 @@ class MistralWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
 
+    const inputTokensDetails =
+      result.usage?.inputTokensDetails ??
+      result.usage?.input_tokens_details ??
+      result.usage?.promptTokensDetails ??
+      result.usage?.prompt_tokens_details;
+    const cacheReadTokens =
+      Number(inputTokensDetails?.cachedTokens ?? inputTokensDetails?.cached_tokens) || 0;
+    const cacheCreationTokens =
+      Number(
+        result.usage?.cacheCreationInputTokens ?? result.usage?.cache_creation_input_tokens
+      ) || 0;
+
+    if (cacheReadTokens) {
+      span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, cacheReadTokens);
+    }
+    if (cacheCreationTokens) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+        cacheCreationTokens
+      );
+    }
+
     if (ttft > 0) {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
     }
