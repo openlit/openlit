@@ -117,8 +117,9 @@ def general_wrap(
 
                 # Calculate duration for business intelligence
                 end_time = time.time()
-                duration_ms = (end_time - start_time) * 1000
-                span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+                duration = end_time - start_time
+                duration_ms = duration * 1000
+                span.set_attribute("gen_ai.client.operation.duration", duration)
 
                 # Process response based on operation type
                 if operation_name == "extract":
@@ -180,8 +181,8 @@ def general_wrap(
             except Exception as e:
                 # Calculate duration even for errors
                 end_time = time.time()
-                duration_ms = (end_time - start_time) * 1000
-                span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+                duration = end_time - start_time
+                span.set_attribute("gen_ai.client.operation.duration", duration)
 
                 # Handle and log the exception
                 handle_exception(span, e)

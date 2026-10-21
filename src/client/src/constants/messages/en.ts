@@ -92,6 +92,20 @@ export const EVALUATION_CREATE_NEW = "Create new";
 export const EVALUATION_ENGINE_TITLE = "Evaluations";
 export const EVALUATION_ENGINE_DESCRIPTION =
 	"Choose the evaluation framework. Rule engine context and evaluation types are applied for both manual and auto runs.";
+export const EVALUATION_TYPESAFE_HINT =
+	"TypeSafe Jev returns noul/score with a classification used as the explanation. Pin jev-1.13.0 when calibrating verdict thresholds. Chat playground does not support Jev.";
+export const EVALUATION_ERROR_MISSING_CONFIG =
+	"Missing apiKey, provider, or model";
+export const EVALUATION_ERROR_INVALID_RESPONSE = "Invalid response format";
+export const EVALUATION_ERROR_UNKNOWN_TYPES = "Unknown eval types";
+export const EVALUATION_ERROR_TYPESAFE_REQUEST_FAILED =
+	"TypeSafe System One request failed";
+export const EVALUATION_ERROR_TYPESAFE_STATUS =
+	"TypeSafe System One returned status";
+export const EVALUATION_ERROR_TYPESAFE_INVALID_JSON =
+	"TypeSafe System One returned invalid JSON";
+export const PROVIDER_EVALUATION_ONLY_ERROR =
+	"This provider is evaluation-only and cannot be used here";
 export const EVALUATION_ENGINE_LABEL = "Engine";
 export const EVALUATION_CONFIG_SECTION = "Configuration";
 export const EVALUATION_PROVIDER_LABEL = "Provider";
@@ -233,10 +247,14 @@ export const OBSERVABILITY_EXCEPTIONS = "Exceptions";
 export const OBSERVABILITY_METRICS = "Metrics";
 export const OBSERVABILITY_LOGS = "Logs";
 export const OBSERVABILITY_TRACE_SHORT_LABEL = "Latency, cost, tokens";
+export const OBSERVABILITY_SPAN_SHORT_LABEL = "Individual operations";
 export const OBSERVABILITY_EXCEPTION_SHORT_LABEL = "Failures and error spans";
 export const OBSERVABILITY_METRIC_SHORT_LABEL = "Gauges, sums, histograms";
 export const OBSERVABILITY_LOG_SHORT_LABEL = "Events and correlated context";
 export const OBSERVABILITY_TRACE_SUMMARY = "Span flow";
+export const OBSERVABILITY_SPAN_SUMMARY = "Raw span flow";
+export const OBSERVABILITY_SPAN_COUNT_LABEL = "spans";
+export const OBSERVABILITY_ERROR_COUNT_LABEL = "errors";
 export const OBSERVABILITY_EXCEPTION_SUMMARY = "Failure path";
 export const OBSERVABILITY_METRIC_SUMMARY = "Signal shape";
 export const OBSERVABILITY_LOG_SUMMARY = "Event stream";
@@ -802,6 +820,8 @@ export const AGENTS_TAB_CONTROLLERS = "Controllers";
 export const AGENTS_TAB_CODING = "Coding Agents";
 export const AGENTS_ADD_CONTROLLER = "Add Controller";
 export const AGENTS_ADD_CODING_AGENT = "Add Coding Agent";
+export const AGENTS_CODING_VENDOR_OPENCODE_LABEL = "OpenCode";
+export const AGENTS_CODING_VENDOR_OPENCODE_RESTART = "Restart OpenCode.";
 export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the install snippet. The OpenLit CLI hooks into the agent and ships every session, tool call, and LLM turn to this stack — no SDK or code changes required.";
 
 // Trace-detail content-capture banner. Surfaces a one-liner the user
@@ -872,8 +892,9 @@ export const AGENTS_CODING_COLUMN_ACCEPTANCE = "Acceptance";
 export const AGENTS_CODING_COLUMN_COMMITS = "Commits";
 export const AGENTS_CODING_COLUMN_PRS = "PRs";
 export const AGENTS_CODING_EMPTY_TITLE = "No coding agents yet";
+export const AGENTS_CODING_SETUP_GUIDE = "coding-agents setup guide";
 export const AGENTS_CODING_EMPTY_BODY =
-	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, or Codex session. The first hook event will surface the agent here within a minute.";
+	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, Codex, or OpenCode session. The first hook event will surface the agent here within a minute.";
 export const AGENTS_CODING_TAB_SESSIONS = "Sessions";
 export const AGENTS_CODING_SESSIONS_EMPTY = "No sessions in the selected time range.";
 export const AGENTS_CODING_SESSIONS_SESSION = "Session";
@@ -890,7 +911,7 @@ export const AGENTS_CODING_SESSIONS_OUTCOME = "Outcome";
 export const AGENTS_CODING_SESSIONS_CLASSIFICATION = "Classification";
 export const AGENTS_CODING_SESSIONS_LABEL = "Coding sessions";
 export const AGENTS_CODING_SESSIONS_SHORT_LABEL = "Sessions";
-export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex).";
+export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex, OpenCode).";
 export const AGENTS_CODING_USERS_LABEL = "Coding users";
 export const AGENTS_CODING_USERS_SHORT_LABEL = "Users";
 export const AGENTS_CODING_USERS_SUMMARY = "Per-user roll-up of coding-agent activity.";
@@ -1686,10 +1707,6 @@ export const PERSONAL_ORGANISATION = "Personal";
 // Auth
 export const AUTH_WELCOME = "Welcome to OpenLIT";
 export const AUTH_SUBTITLE = "Open source Agent Harness Engineering platform";
-export const AUTH_PANEL_EYEBROW = "Agent Harness Engineering";
-export const AUTH_PANEL_TITLE = "Trace, evaluate, and operate AI agents";
-export const AUTH_PANEL_BODY =
-	"LLM tracing, evaluations, prompt management, and cost tracking in one open-source platform.";
 export const TALK_TO_FOUNDER = "Talk to founder";
 export const TALK_TO_FOUNDER_HINT = "Schedule a 30-minute call";
 export const AUTH_SIGNING_IN = "Signing in...";
@@ -1717,27 +1734,29 @@ export const AUTH_ERROR_DEFAULT = "Unable to sign in.";
 export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
 export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
 
-// Auth feature highlights
-export const AUTH_FEATURE_TRACING = "LLM tracing";
-export const AUTH_FEATURE_TRACING_DESC = "OpenTelemetry traces for every call, tool, and retrieval";
-export const AUTH_FEATURE_ANALYTICS = "Cost and latency";
-export const AUTH_FEATURE_ANALYTICS_DESC = "Track spend, tokens, and speed for every AI workload";
-export const AUTH_FEATURE_EVALS = "Evaluations";
-export const AUTH_FEATURE_EVALS_DESC = "LLM-as-a-judge, heuristics, and human review";
-export const AUTH_FEATURE_JUDGE = "LLM-as-a-Judge";
-export const AUTH_FEATURE_JUDGE_DESC = "Automated quality scoring with any LLM";
-export const AUTH_FEATURE_OPENGROUND = "OpenGround";
-export const AUTH_FEATURE_OPENGROUND_DESC = "Compare LLMs side-by-side on cost & quality";
-export const AUTH_FEATURE_PROMPT_HUB = "Prompt Hub";
-export const AUTH_FEATURE_PROMPT_HUB_DESC = "Version and deploy prompts without shipping app code";
-export const AUTH_FEATURE_RULE_ENGINE = "Rule Engine";
-export const AUTH_FEATURE_RULE_ENGINE_DESC = "Conditional context and prompt retrieval";
-export const AUTH_FEATURE_VAULT = "Vault";
-export const AUTH_FEATURE_VAULT_DESC = "Store and rotate LLM API keys outside application code";
-export const AUTH_FEATURE_AGENTS = "Agent monitoring";
-export const AUTH_FEATURE_AGENTS_DESC = "See tools, cost, and outcomes for coding agents";
-export const AUTH_FEATURE_OTEL = "OpenTelemetry Native";
-export const AUTH_FEATURE_OTEL_DESC = "Built on open standards, no vendor lock-in";
+// Founder call sidebar card
+export const FOUNDER_CARD_BADGE = "From the founder";
+export const FOUNDER_CARD_TITLE = "Want more features?";
+export const FOUNDER_CARD_BODY =
+	"Tell us what your agents are missing. Grab 30 minutes and we'll figure it out together.";
+export const FOUNDER_CARD_CTA = "Schedule a call";
+export const FOUNDER_CARD_DISMISS = "Dismiss founder call card";
+
+// Error pages
+export const ERROR_PAGE_NOT_FOUND_CODE = "404";
+export const ERROR_PAGE_NOT_FOUND_LABEL = "Page not found";
+export const ERROR_PAGE_NOT_FOUND_TITLE = "Bug or feature?";
+export const ERROR_PAGE_NOT_FOUND_DESCRIPTION =
+	"This page drifted outside our observability zone. Let's head back to reality.";
+export const ERROR_PAGE_SERVER_ERROR_CODE = "500";
+export const ERROR_PAGE_SERVER_ERROR_LABEL = "Something went wrong";
+export const ERROR_PAGE_SERVER_ERROR_TITLE = "Something went wrong";
+export const ERROR_PAGE_SERVER_ERROR_DESCRIPTION =
+	"An unexpected error interrupted this page. Try again, or head back and pick up where you left off.";
+export const ERROR_PAGE_REFERENCE = "Reference";
+export const ERROR_PAGE_TRY_AGAIN = "Try again";
+export const ERROR_PAGE_GO_TO_DASHBOARD = "Return to dashboard";
+export const ERROR_PAGE_GO_TO_SIGN_IN = "Go to sign in";
 
 // Context UI
 export const CONTEXT_TITLE = "Context";
@@ -2735,6 +2754,8 @@ export const MEMORY_CONNECTOR_CLAUDE_DESCRIPTION =
 	"Browse and edit memories in Anthropic Claude memory stores.";
 export const MEMORY_CONNECTOR_MEM0_DESCRIPTION =
 	"Store and search long-term agent memories with Mem0.";
+export const MEMORY_CONNECTOR_MEMCODE_DESCRIPTION =
+	"Store and search long-term agent memories with MemCode.";
 export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =
 	"Store and search session memory and a knowledge graph with Zep.";
 export const MEMORY_CONNECTOR_FIELD_ORG_ID = "Mem0 organization ID";
@@ -2744,6 +2765,18 @@ export const MEMORY_CONNECTOR_AUTH_HELP_CLAUDE =
 	"Use an Anthropic API key. Memory store calls send x-api-key with the agent-memory beta header.";
 export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
 	"Use a Mem0 Platform API key. Self-hosted Mem0 can use a custom endpoint with the same Token authentication.";
+export const MEMORY_CONNECTOR_MEMCODE_NO_TEST_ROUTE =
+	"This MemCode deployment has no GET /v2/test route. Update the Memory API to verify connections.";
+export const MEMORY_CONNECTOR_MEMCODE_NOT_FOUND =
+	"No MemCode Memory API answered at this URL. Check the connector URL.";
+export const MEMORY_CONNECTOR_MEMCODE_NOT_READY =
+	"The MemCode Memory API is reachable but still starting up. Try again shortly.";
+export const MEMORY_CONNECTOR_MEMCODE_KEY_REJECTED =
+	"The MemCode Memory API rejected this key. Check the key and try again.";
+export const MEMORY_CONNECTOR_MEMCODE_PAYMENT_REQUIRED =
+	"This MemCode key is valid but the account is out of credit.";
+export const MEMORY_CONNECTOR_AUTH_HELP_MEMCODE =
+	"Use a MemCode API key from memory.memcode.in. Calls send Authorization: Bearer.";
 export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
 	"Use a Zep Cloud API key. Self-hosted Zep can use a custom endpoint with the same Api-Key authentication.";
 export const MEMORY_CONNECTOR_LANGGRAPH_DESCRIPTION =
@@ -2774,6 +2807,8 @@ export const MEMORY_CONNECTOR_SETUP_CLAUDE_SUMMARY =
 	"Claude memory stores keep agent notes across Managed Agents sessions.";
 export const MEMORY_CONNECTOR_SETUP_MEM0_SUMMARY =
 	"Mem0 stores long-term memories scoped by user, run, or agent.";
+export const MEMORY_CONNECTOR_SETUP_MEMCODE_SUMMARY =
+	"MemCode stores long-term memories that agents can search later.";
 export const MEMORY_CONNECTOR_SETUP_ZEP_SUMMARY =
 	"Zep stores session memory and a knowledge graph for agents.";
 export const MEMORY_PAGE_DESCRIPTION =
@@ -2812,6 +2847,11 @@ export const MEMORY_PAGE_OF = (current: number, total: number) =>
 	`${current} of ${total}`;
 export const MEMORY_PAGE_PREVIOUS = "Previous page";
 export const MEMORY_PAGE_NEXT = "Next page";
+export const MEMORY_LIST_SHOWING = (loaded: number, total: number) =>
+	`${loaded} of ${total} loaded`;
+export const MEMORY_LIST_LOAD_MORE = "Load more";
+export const MEMORY_LIST_LOADING_MORE = "Loading…";
+export const MEMORY_LIST_LOAD_MORE_FAILED = "Failed to load more memories.";
 export const MEMORY_CONNECTOR_LABEL = "Memory connector";
 export const MEMORY_USER_FILTER = "User";
 export const MEMORY_SESSION_FILTER = "Session";
@@ -2849,6 +2889,26 @@ export const MEMORY_GRAPH_TYPE_ALL = "All";
 export const MEMORY_GRAPH_ZOOM_IN = "Zoom in";
 export const MEMORY_GRAPH_ZOOM_OUT = "Zoom out";
 export const MEMORY_GRAPH_TYPE_FILTER = "Entity type";
+export const MEMORY_GRAPH_STRENGTH_FILTER = "Connection strength";
+export const MEMORY_GRAPH_STRENGTH_ALL = "All connections";
+export const MEMORY_GRAPH_STRENGTH_FAINT = "Faint and above";
+export const MEMORY_GRAPH_STRENGTH_WEAK = "Weak and above";
+export const MEMORY_GRAPH_STRENGTH_MEDIUM = "Medium and above";
+export const MEMORY_GRAPH_STRENGTH_STRONG = "Strong only";
+export const MEMORY_GRAPH_TIER_STRONG = "Strong";
+export const MEMORY_GRAPH_TIER_MEDIUM = "Medium";
+export const MEMORY_GRAPH_TIER_WEAK = "Weak";
+export const MEMORY_GRAPH_TIER_FAINT = "Faint";
+export const MEMORY_GRAPH_CONNECTIONS_LEGEND = "Connections";
+export const MEMORY_GRAPH_EDGE_TOOLTIP = (
+	label: string,
+	weight: string,
+	tier: string
+) => `${label} · ${weight} (${tier})`;
+export const MEMORY_GRAPH_TRUNCATED = (shown: number) =>
+	`Showing the first ${shown} memories of this graph.`;
+export const MEMORY_GRAPH_COUNTS = (nodes: number, edges: number) =>
+	`${nodes} memories · ${edges} connections`;
 export const MEMORY_ENTITY = "Entity";
 export const MEMORY_EVENT = "Event";
 export const MEMORY_LOCATION = "Location";
@@ -2857,7 +2917,8 @@ export const MEMORY_PREFERENCE = "Preference";
 export const MEMORY_TOPIC = "Topic";
 export const MEMORY_USER = "User";
 export const MEMORY_INVALID_FILTER = "A memory filter value is invalid.";
-export const MEMORY_INVALID_LIMIT = "Limit must be a number between 1 and 100.";
+export const MEMORY_INVALID_LIMIT = "Limit must be a number between 1 and 500.";
+export const MEMORY_INVALID_OFFSET = "Offset must be a number between 0 and 1000000.";
 export const MEMORY_INVALID_JSON = "Request body must be valid JSON.";
 export const MEMORY_FEEDBACK_INVALID =
 	"Feedback must be positive, negative, very negative, or empty to clear.";
@@ -3028,6 +3089,11 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		steps: ["Create a Mem0 Platform API key, or point the endpoint at a self-hosted Mem0 service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Optionally set organization and project IDs for a Mem0 Platform workspace, then test the connection."],
 		docsUrl: "https://docs.mem0.ai/api-reference",
 	},
+	memcode: {
+		summary: "Connect OpenLIT to MemCode for long-term agent memory.",
+		steps: ["Create a MemCode API key. The key identifies the MemCode account, so no user ID is needed.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from the Memory page."],
+		docsUrl: "https://memcode.in/docs",
+	},
 	zep: {
 		summary: "Connect OpenLIT to Zep for session memory and graph search.",
 		steps: ["Create a Zep Cloud API key, or point the endpoint at a self-hosted Zep service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from agents."],
@@ -3120,3 +3186,13 @@ export const DATA_SOURCE_BINDING_FAILED = "Failed to update signal routing.";
 export const DATA_SOURCE_LOAD_FAILED = "Failed to load data sources.";
 export const DATA_SOURCE_RETRY = "Try again";
 
+export const API_KEY_FULL_ACCESS = "Full access";
+export const API_KEY_ACCESS_SELECT_FEATURE = "Select at least one feature.";
+export const API_KEY_FEATURE_ACCESS_DENIED =
+	"This API key does not have access to this feature";
+export const API_KEY_ACCESS_CONTROL_UNAVAILABLE =
+	"API key access control is not available in this edition.";
+export const API_KEY_FULL_ACCESS_DESCRIPTION =
+	"Can use every feature that accepts API keys.";
+export const API_KEY_DELETE = "Delete API key";
+export const API_KEY_INVALID_JSON = "Request body must be valid JSON.";
