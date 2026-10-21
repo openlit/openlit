@@ -31,6 +31,15 @@ jest.mock("@openplait/adapter-clickhouse", () => {
 	};
 });
 
+const mockCreateClient = jest.fn();
+const mockClientClose = jest.fn();
+jest.mock("@clickhouse/client", () => ({
+	createClient: (config: unknown) => {
+		mockCreateClient(config);
+		return { close: mockClientClose };
+	},
+}));
+
 jest.mock("@openplait/runtime", () => {
 	class MockDatasourceRegistry {
 		register(config: unknown) {
@@ -578,5 +587,35 @@ describe("connectionConfig env var parsing (positiveInteger)", () => {
 		const adapterConfig = mockAdapterCtor.mock.calls[0][0];
 		expect(adapterConfig.httpHeaders).toEqual({ raw: "foo=bar" });
 		expect(adapterConfig.password).toBe("");
+	});
+});
+
+describe("tenant read enforcement", () => {
+	it("binds project/environment additional_table_filters to the runtime client", async () => {
+		mockRuntimeExecute.mockResolvedValue({ result: { frames: [] } });
+		await executeOpenPlaitRead({
+			query: "SELECT * FROM otel_traces",
+			dbConfig: buildDbConfig({ id: "db-tenant", projectId: "proj1", environment: "staging" }),
+		});
+		expect(mockCreateClient).toHaveBeenCalledTimes(1);
+		const filters = mockCreateClient.mock.calls[0][0].clickhouse_settings?.additional_table_filters;
+		expect(filters).toContain("'otel_traces':");
+		expect(filters).toContain("\\'proj1\\'");
+		expect(filters).toContain("\\'staging\\'");
+	});
+
+	it("rebuilds the runtime when the config moves to another environment", async () => {
+		mockRuntimeExecute.mockResolvedValue({ result: { frames: [] } });
+		const base = { id: "db-move", projectId: "proj1" };
+		await executeOpenPlaitRead({ query: "SELECT 1", dbConfig: buildDbConfig({ ...base, environment: "staging" }) });
+		await executeOpenPlaitRead({ query: "SELECT 1", dbConfig: buildDbConfig({ ...base, environment: "production" }) });
+		expect(mockCreateClient).toHaveBeenCalledTimes(2);
+		expect(mockClientClose).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not add tenant settings to project-less legacy configs", async () => {
+		mockRuntimeExecute.mockResolvedValue({ result: { frames: [] } });
+		await executeOpenPlaitRead({ query: "SELECT 1", dbConfig: buildDbConfig({ id: "db-legacy", projectId: null }) });
+		expect(mockCreateClient.mock.calls[0][0].clickhouse_settings).toBeUndefined();
 	});
 });

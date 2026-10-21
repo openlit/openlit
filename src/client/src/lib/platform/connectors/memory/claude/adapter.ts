@@ -25,6 +25,7 @@ import type {
 	MemoryWriteInput,
 } from "../types";
 import { emptyMemoryFilters } from "../types";
+import { asRecord, stringValue, writeContent } from "../values";
 
 const DEFAULT_URL = "https://api.anthropic.com";
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -47,18 +48,6 @@ const HISTORY_EVENTS: Record<string, string> = {
 	modified: "UPDATE",
 	deleted: "DELETE",
 };
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
-
-function stringValue(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const trimmed = value.trim();
-	return trimmed || undefined;
-}
 
 function objectValue(value: unknown): Record<string, unknown> | undefined {
 	const record = asRecord(value);
@@ -115,17 +104,6 @@ function actorId(raw: unknown): string | undefined {
 		stringValue(actor.api_key_id) ||
 		stringValue(actor.user_id)
 	);
-}
-
-function writeContent(input: MemoryWriteInput): string {
-	const content = stringValue(input.content);
-	if (content) return content;
-	const joined = (input.messages || [])
-		.map((message) => stringValue(message.content))
-		.filter((item): item is string => !!item)
-		.join("\n")
-		.trim();
-	return joined;
 }
 
 function writePath(input: MemoryWriteInput, content: string): string {

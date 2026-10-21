@@ -9,6 +9,7 @@ const CONNECTOR_ICONS: Record<string, string> = {
 	mem0: "/images/connectors/mem0.svg",
 	memcode: "/images/connectors/memcode.png",
 	zep: "/images/connectors/zep.svg",
+	langgraph: "/images/connectors/langgraph.svg",
 	trustabl: "/images/connectors/trustabl.svg",
 };
 

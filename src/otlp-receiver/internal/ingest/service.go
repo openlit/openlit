@@ -16,23 +16,49 @@ import (
 	"github.com/openlit/openlit/otlp-receiver/internal/tenant"
 )
 
+// TraceFanout receives rows only after they are durably written to ClickHouse.
+type TraceFanout interface {
+	PublishTraces(t tenant.Tenant, rows []otlpconv.TraceRow)
+}
+
 type Service struct {
 	Tenants *tenant.Store
 	Writer  *chwrite.Writer
+	Fanout  TraceFanout
+	// Limiter slows clients that keep sending rejected API keys. Nil disables it.
+	Limiter *tenant.FailLimiter
 }
 
-func (s *Service) Traces(ctx context.Context, authorization string, req *colltrace.ExportTraceServiceRequest) error {
+// resolve authenticates the request, charging clientIP for rejected keys.
+func (s *Service) resolve(ctx context.Context, clientIP, authorization string) (tenant.Tenant, error) {
+	if !s.Limiter.Allow(clientIP) {
+		return tenant.Tenant{}, tenant.ErrRateLimited
+	}
 	resolved, err := s.Tenants.Resolve(ctx, authorization)
+	if errors.Is(err, tenant.ErrUnauthorized) && tenant.BearerToken(authorization) != "" {
+		s.Limiter.Fail(clientIP)
+	}
+	return resolved, err
+}
+
+func (s *Service) Traces(ctx context.Context, clientIP, authorization string, req *colltrace.ExportTraceServiceRequest) error {
+	resolved, err := s.resolve(ctx, clientIP, authorization)
 	if err != nil {
 		return err
 	}
 	rows := otlpconv.Traces(&tracepb.TracesData{ResourceSpans: req.GetResourceSpans()})
 	otlpconv.StampTraces(rows, resolved.Resource())
-	return s.Writer.InsertTraces(ctx, resolved.ClickHouse, rows)
+	if err := s.Writer.InsertTraces(ctx, resolved.ClickHouse, rows); err != nil {
+		return err
+	}
+	if s.Fanout != nil {
+		s.Fanout.PublishTraces(resolved, rows)
+	}
+	return nil
 }
 
-func (s *Service) Logs(ctx context.Context, authorization string, req *colllog.ExportLogsServiceRequest) error {
-	resolved, err := s.Tenants.Resolve(ctx, authorization)
+func (s *Service) Logs(ctx context.Context, clientIP, authorization string, req *colllog.ExportLogsServiceRequest) error {
+	resolved, err := s.resolve(ctx, clientIP, authorization)
 	if err != nil {
 		return err
 	}
@@ -41,8 +67,8 @@ func (s *Service) Logs(ctx context.Context, authorization string, req *colllog.E
 	return s.Writer.InsertLogs(ctx, resolved.ClickHouse, rows)
 }
 
-func (s *Service) Metrics(ctx context.Context, authorization string, req *collmetric.ExportMetricsServiceRequest) error {
-	resolved, err := s.Tenants.Resolve(ctx, authorization)
+func (s *Service) Metrics(ctx context.Context, clientIP, authorization string, req *collmetric.ExportMetricsServiceRequest) error {
+	resolved, err := s.resolve(ctx, clientIP, authorization)
 	if err != nil {
 		return err
 	}
@@ -69,6 +95,9 @@ func HTTPStatus(err error) int {
 	}
 	if errors.Is(err, tenant.ErrUnauthorized) || errors.Is(err, tenant.ErrNoTenant) {
 		return 401
+	}
+	if errors.Is(err, tenant.ErrRateLimited) {
+		return 429
 	}
 	return 503
 }

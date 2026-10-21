@@ -2,11 +2,13 @@ package grpcserver
 
 import (
 	"context"
+	"log"
 	"net"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	colllog "go.opentelemetry.io/proto/otlp/collector/logs/v1"
@@ -53,7 +55,18 @@ func authorization(ctx context.Context) string {
 	if !ok {
 		return ""
 	}
-	values := md.Get("authorization")
+	return tenant.Credential(first(md.Get("authorization")), first(md.Get("x-openlit-api-key")))
+}
+
+func clientIP(ctx context.Context) string {
+	p, ok := peer.FromContext(ctx)
+	if !ok || p.Addr == nil {
+		return ""
+	}
+	return tenant.ClientIP(p.Addr.String())
+}
+
+func first(values []string) string {
 	if len(values) == 0 {
 		return ""
 	}
@@ -67,25 +80,29 @@ func mapErr(err error) error {
 	if err == tenant.ErrUnauthorized || err == tenant.ErrNoTenant {
 		return status.Error(codes.Unauthenticated, "unauthorized")
 	}
+	if err == tenant.ErrRateLimited {
+		return status.Error(codes.ResourceExhausted, "too many failed authentication attempts")
+	}
+	log.Printf("otlp/grpc: ingest failed: %v", err)
 	return status.Error(codes.Unavailable, "ingest failed")
 }
 
 func (s *tracesServer) Export(ctx context.Context, req *colltrace.ExportTraceServiceRequest) (*colltrace.ExportTraceServiceResponse, error) {
-	if err := s.svc.Traces(ctx, authorization(ctx), req); err != nil {
+	if err := s.svc.Traces(ctx, clientIP(ctx), authorization(ctx), req); err != nil {
 		return nil, mapErr(err)
 	}
 	return &colltrace.ExportTraceServiceResponse{}, nil
 }
 
 func (s *logsServer) Export(ctx context.Context, req *colllog.ExportLogsServiceRequest) (*colllog.ExportLogsServiceResponse, error) {
-	if err := s.svc.Logs(ctx, authorization(ctx), req); err != nil {
+	if err := s.svc.Logs(ctx, clientIP(ctx), authorization(ctx), req); err != nil {
 		return nil, mapErr(err)
 	}
 	return &colllog.ExportLogsServiceResponse{}, nil
 }
 
 func (s *metricsServer) Export(ctx context.Context, req *collmetric.ExportMetricsServiceRequest) (*collmetric.ExportMetricsServiceResponse, error) {
-	if err := s.svc.Metrics(ctx, authorization(ctx), req); err != nil {
+	if err := s.svc.Metrics(ctx, clientIP(ctx), authorization(ctx), req); err != nil {
 		return nil, mapErr(err)
 	}
 	return &collmetric.ExportMetricsServiceResponse{}, nil

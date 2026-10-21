@@ -1,0 +1,157 @@
+---
+title: 'Local development'
+sidebarTitle: 'Local development'
+description: 'Run the OpenLIT UI, OTLP receiver, realtime engine, and NATS from source with one command'
+icon: 'laptop-code'
+---
+
+Use this page to run OpenLIT from a clone of the repository while you work on it. One script starts every service with hot reload for the UI. To run OpenLIT without changing it, use [Docker Compose](/latest/openlit/installation#docker) instead.
+
+`scripts/dev-realtime.sh` starts and supervises:
+
+| Service | Runs as | Default address |
+| --- | --- | --- |
+| OpenLIT UI | `npm run dev` in `src/client` | `http://localhost:3000` |
+| OTLP receiver | `go run` in `src/otlp-receiver` | `127.0.0.1:4318` (HTTP), `127.0.0.1:4317` (gRPC) |
+| Realtime engine | `go run` in `src/engine` | `127.0.0.1:4330` (health and stats) |
+| NATS JetStream | Local `nats-server`, or Docker | `127.0.0.1:4222` |
+| ClickHouse | Docker (`src/dev-docker-compose.yml`), unless one already answers on `127.0.0.1:8123` | `127.0.0.1:8123` |
+
+Logs from every service share one terminal, prefixed with the service name. `Ctrl+C` stops everything, and if any service exits, the rest stop too.
+
+## Prerequisites
+
+- Node.js 20 or later
+- Go 1.25 or later
+- Docker with Docker Compose v2.24 or later, for ClickHouse and NATS
+- `curl`, `openssl`, and `lsof` (preinstalled on macOS and most Linux distributions; on Windows, use WSL)
+- Python 3, only to send sample spans
+
+## Start OpenLIT
+
+<Steps>
+  <Step title="Clone the repository and install the UI dependencies">
+    ```bash
+    git clone https://github.com/openlit/openlit.git
+    cd openlit/src/client
+    npm install
+    ```
+  </Step>
+  <Step title="Create src/client/.env">
+    ```bash
+    cp .env.example .env
+    ```
+
+    Set at least these values:
+
+    ```bash
+    NEXTAUTH_SECRET=<output of: openssl rand -base64 32>
+    NEXTAUTH_URL=http://localhost:3000/
+    SQLITE_DATABASE_URL=file:./data.db
+    ```
+
+    `file:./data.db` is relative to `src/client/prisma`, and `.db` files are ignored by git. The script reads the UI port from `NEXTAUTH_URL`.
+  </Step>
+  <Step title="Run the script from the repository root">
+    The first time, add `SEED=1` to create the default user, organisation, project, and database configuration:
+
+    ```bash
+    cd ../..
+    SEED=1 scripts/dev-realtime.sh
+    ```
+
+    After that, start it without `SEED`:
+
+    ```bash
+    scripts/dev-realtime.sh
+    ```
+
+    The script applies Prisma migrations, starts ClickHouse if needed, then starts NATS, the UI, the receiver, and the engine. It prints the address of each service when they are up.
+  </Step>
+  <Step title="Sign in">
+    Open `http://localhost:3000` and sign in with `user@openlit.io` and `openlituser`.
+  </Step>
+</Steps>
+
+## Send sample spans
+
+Threshold [alerts](/latest/openlit/alerts) only see spans sent with an API key.
+
+1. In OpenLIT, open **Settings → API Keys** and create a key.
+2. Send spans to the local receiver:
+
+   ```bash
+   OPENLIT_API_KEY=<your key> scripts/dev-realtime-send-spans.py --count 20 --error-rate 1
+   ```
+
+   Useful flags include `--service`, `--model`, `--latency-ms`, `--cost`, and `--http-status`. Run the script with `--help` for the full list. If the dev script reported that port 4318 was busy and used 14318, pass `--endpoint http://127.0.0.1:14318`.
+
+3. Open **Alerts**, create an alert from the **Error rate spike** template, and send the spans again. The alert fires within a few seconds.
+
+To point your own app at the local stack, use `openlit.init(otlp_endpoint="http://127.0.0.1:4318", otlp_headers={"Authorization": "Bearer <your key>"})`.
+
+## Options
+
+Set any of these before the script, for example `UI_PORT=3001 scripts/dev-realtime.sh`.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `UI_PORT` | Port of `NEXTAUTH_URL`, else `3000` | Next.js port |
+| `OTLP_HTTP_PORT` / `OTLP_GRPC_PORT` | `4318` / `4317` | Receiver ports. If the default is busy, the script falls back to `14318` / `14317` |
+| `NATS_PORT` / `NATS_MONITOR_PORT` | `4222` / `8222` | NATS ports |
+| `ENGINE_HTTP_ADDR` | `127.0.0.1:4330` | Engine health and stats address |
+| `INIT_DB_HOST`, `INIT_DB_PORT`, `INIT_DB_USERNAME`, `INIT_DB_PASSWORD`, `INIT_DB_DATABASE` | `127.0.0.1`, `8123`, `default`, `OPENLIT`, `openlit` | ClickHouse connection. Point these at your own ClickHouse to skip the Docker one |
+| `SEED=1` | Off | Seed the default user, organisation, project, and database configuration |
+| `SKIP_MIGRATE=1` | Off | Skip `prisma migrate deploy` |
+| `NATS_USE_DOCKER=1` | Off | Use Docker for NATS even when `nats-server` is installed |
+| `KEEP_NATS=1` | Off | Leave the NATS container running after the script exits |
+| `OPENLIT_SIGNAL_ATTRIBUTES` | Empty | Personal span attributes that alerts may match. See [Configuration](/latest/openlit/configuration#realtime-variables) |
+
+NATS uses `assets/nats.conf`, so local development has the same permissions as production. Its passwords, the engine secret, and the cron secret are random for each run. To skip Docker for NATS, install the server once:
+
+```bash
+go install github.com/nats-io/nats-server/v2@v2.12.15
+```
+
+## Work on the UI only
+
+If you are not working on alerts or the realtime pipeline, you can run the UI on its own against ClickHouse:
+
+```bash
+docker compose -f src/dev-docker-compose.yml up -d clickhouse
+export INIT_DB_HOST=127.0.0.1 INIT_DB_PORT=8123 INIT_DB_USERNAME=default INIT_DB_PASSWORD=OPENLIT INIT_DB_DATABASE=openlit
+cd src/client
+npx prisma migrate deploy && npx prisma generate
+npx prisma db seed   # first run only
+npm run dev
+```
+
+Threshold alerts stay idle without the receiver, engine, and NATS. The rest of the UI works as usual.
+
+## Run the checks
+
+Before you open a pull request, run the checks for what you changed:
+
+```bash
+# UI
+cd src/client
+npm run lint
+npx tsc --noEmit
+npm test
+
+# OTLP receiver or engine
+cd src/otlp-receiver   # or src/engine
+gofmt -l .
+go vet ./...
+go test ./...
+```
+
+See [CONTRIBUTING.md](https://github.com/openlit/openlit/blob/main/CONTRIBUTING.md) for the pull request process.
+
+## Troubleshooting
+
+- **`UI port 3000 is already in use`**: stop the other process or set `UI_PORT`, and update `NEXTAUTH_URL` to match.
+- **`prisma migrate deploy failed`**: the SQLite file was created by a different branch. Point `SQLITE_DATABASE_URL` at a new file, or rerun with `SKIP_MIGRATE=1`.
+- **Alerts never fire**: spans must be sent with an API key from the same project, and the alert must be in the environment you send to (default `production`).
+- **`Docker Compose ... is too old`**: `src/dev-docker-compose.yml` needs Compose v2.24 or later. Upgrade Docker, or run your own ClickHouse and set `INIT_DB_HOST` and `INIT_DB_PORT`.
+- **`timed out waiting for NATS JetStream`**: the script prints the NATS container logs above this message. Rerun it, or install `nats-server` locally (see [Options](#options)) so NATS runs without Docker.

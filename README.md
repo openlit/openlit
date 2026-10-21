@@ -615,7 +615,7 @@ You can contribute by:
 * reporting issues
 * sharing OpenLIT with other developers
 
-Check the repository's issues for opportunities to contribute.
+Check the repository's issues for opportunities to contribute. To run OpenLIT from source, see [Run OpenLIT locally](CONTRIBUTING.md#run-openlit-locally): one script, `scripts/dev-realtime.sh`, starts the UI, OTLP receiver, realtime engine, and NATS.
 
 ---
 

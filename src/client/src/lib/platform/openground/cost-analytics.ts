@@ -1,3 +1,4 @@
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { dataCollector, MetricParams } from "@/lib/platform/common";
 import {
 	OPENLIT_OPENGROUND_TABLE_NAME,
@@ -10,8 +11,8 @@ import { getFilterPreviousParams } from "@/helpers/server/platform";
 
 function timeWhere(params: MetricParams, alias = "o") {
 	return `
-		${alias}.created_at >= parseDateTimeBestEffort('${params.timeLimit.start}')
-		AND ${alias}.created_at <= parseDateTimeBestEffort('${params.timeLimit.end}')
+		${alias}.created_at >= parseDateTimeBestEffort('${escapeClickHouseString(String(params.timeLimit.start))}')
+		AND ${alias}.created_at <= parseDateTimeBestEffort('${escapeClickHouseString(String(params.timeLimit.end))}')
 	`;
 }
 

@@ -21,6 +21,11 @@ function escapeClickHouseString(value: string) {
 	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+/** Quote a request-supplied value as a ClickHouse string literal. */
+function sqlString(value: unknown) {
+	return `'${escapeClickHouseString(String(value))}'`;
+}
+
 /**
  * Exclude coding-agent / openlit-cli hook telemetry from LLM / request
  * dashboards. Those spans belong on the Coding Agents dashboard only.
@@ -97,10 +102,57 @@ export const validateMetricsRequestType = {
 	AGENT_LOOP: "AGENT_LOOP",
 };
 
+// Accepts the shapes the UI and API send (ISO 8601, "YYYY-MM-DD HH:mm:ss",
+// date only) and nothing that could close a SQL string literal.
+const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
+
+export function isSafeTimestamp(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		TIMESTAMP_PATTERN.test(value.trim()) &&
+		!Number.isNaN(Date.parse(value.trim().replace(" ", "T")))
+	);
+}
+
+function boundedInteger(value: unknown, fallback: number, max: number): number {
+	const n = Math.floor(Number(value));
+	return Number.isFinite(n) && n >= 0 ? Math.min(n, max) : fallback;
+}
+
+/**
+ * Normalise request values that query builders interpolate into SQL. Query
+ * builders still escape, but every metrics route goes through this
+ * validator, so a malformed value is rejected before any SQL is built.
+ */
+export function sanitizeMetricsParams(params: Record<string, any>): string | null {
+	if (params.timeLimit !== undefined && params.timeLimit !== null) {
+		if (typeof params.timeLimit !== "object") return "Invalid time range!";
+		const normalise = (value: unknown): string | undefined | null => {
+			if (value === undefined || value === null || value === "") return undefined;
+			if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
+			return isSafeTimestamp(value) ? value.trim() : null;
+		};
+		const start = normalise(params.timeLimit.start);
+		const end = normalise(params.timeLimit.end);
+		if (start === null || end === null) return "Invalid time range!";
+		params.timeLimit = {
+			...params.timeLimit,
+			...(start ? { start } : {}),
+			...(end ? { end } : {}),
+		};
+	}
+	if ("limit" in params && params.limit !== undefined) params.limit = boundedInteger(params.limit, 10, 10_000);
+	if ("offset" in params && params.offset !== undefined) params.offset = boundedInteger(params.offset, 0, 10_000_000);
+	if ("top" in params && params.top !== undefined) params.top = boundedInteger(params.top, 5, 1_000);
+	return null;
+}
+
 export const validateMetricsRequest = (
 	params: Record<string, any>,
 	type: ValueOf<typeof validateMetricsRequestType>
 ): { success: boolean; err?: string } => {
+	const invalid = sanitizeMetricsParams(params);
+	if (invalid) return { success: false, err: invalid };
 	switch (type) {
 		// Request
 		case validateMetricsRequestType.REQUEST_PER_TIME:
@@ -217,7 +269,7 @@ export function getTimeRangeWhereCondition(filter: {
 }): string {
 	const { start, end } = filter.timeLimit || {};
 	if (start && end) {
-		return `Timestamp >= parseDateTimeBestEffort('${start}') AND Timestamp <= parseDateTimeBestEffort('${end}')`;
+		return `Timestamp >= parseDateTimeBestEffort(${sqlString(start)}) AND Timestamp <= parseDateTimeBestEffort(${sqlString(end)})`;
 	}
 	return "";
 }
@@ -237,7 +289,7 @@ export const getFilterWhereCondition = (
 					`SpanAttributes['${getTraceMappingKeyFullPath(
 						"model"
 					)}'] IN (${filter.selectedConfig.models
-						.map((model) => `'${model}'`)
+						.map(sqlString)
 						.join(", ")})`
 				);
 			}
@@ -251,7 +303,7 @@ export const getFilterWhereCondition = (
 				// otherwise unticking e.g. "cursor" would have no
 				// effect on the rendered rows.
 				const providerList = filter.selectedConfig.providers
-					.map((provider) => `'${provider}'`)
+					.map(sqlString)
 					.join(", ");
 				const providerClauses = [
 					...(getTraceMappingKeyFullPaths("provider") as string[]),
@@ -268,16 +320,19 @@ export const getFilterWhereCondition = (
 					`SpanAttributes['${getTraceMappingKeyFullPath(
 						"type"
 					)}'] IN (${filter.selectedConfig.traceTypes
-						.map((type) => `'${type}'`)
+						.map(sqlString)
 						.join(", ")})`
 				);
 			}
 
-			if (filter.selectedConfig.maxCost) {
+			if (
+				filter.selectedConfig.maxCost &&
+				Number.isFinite(Number(filter.selectedConfig.maxCost))
+			) {
 				whereArray.push(
 					`toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
 						"cost"
-					)}']) BETWEEN 0 AND ${filter.selectedConfig.maxCost.toFixed(10)}`
+					)}']) BETWEEN 0 AND ${Number(filter.selectedConfig.maxCost).toFixed(10)}`
 				);
 			}
 
@@ -286,7 +341,7 @@ export const getFilterWhereCondition = (
 					`ResourceAttributes['${getTraceMappingKeyFullPath(
 						"applicationName"
 					)}'] IN (${filter.selectedConfig.applicationNames
-						.map((applicationName) => `'${applicationName}'`)
+						.map(sqlString)
 						.join(", ")})`
 				);
 			}
@@ -317,7 +372,7 @@ export const getFilterWhereCondition = (
 			if (filter.selectedConfig.spanNames?.length) {
 				whereArray.push(
 					`SpanName IN (${filter.selectedConfig.spanNames
-						.map((spanName) => `'${spanName}'`)
+						.map((spanName) => `'${escapeClickHouseString(String(spanName))}'`)
 						.join(", ")})`
 				);
 			}
@@ -413,7 +468,7 @@ export const getFilterWhereCondition = (
 			statusCode = ["STATUS_CODE_OK", "STATUS_CODE_UNSET", "Ok", "Unset"],
 		} = filter;
 		whereArray.push(
-			`StatusCode IN (${statusCode.map((type) => `'${type}'`).join(", ")})`
+			`StatusCode IN (${statusCode.map(sqlString).join(", ")})`
 		);
 
 		if (filter.operationType) {
@@ -497,7 +552,7 @@ export const getFilterWhereConditionForGPU = (
 		const { start, end } = filter.timeLimit || {};
 		if (start && end) {
 			whereArray.push(
-				`TimeUnix >= parseDateTimeBestEffort('${start}') AND TimeUnix <= parseDateTimeBestEffort('${end}')`
+				`TimeUnix >= parseDateTimeBestEffort(${sqlString(start)}) AND TimeUnix <= parseDateTimeBestEffort(${sqlString(end)})`
 			);
 		}
 	} catch {}
