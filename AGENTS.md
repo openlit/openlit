@@ -56,3 +56,13 @@ rg -n '"[a-z_]+:[a-z_]+"' src/client/src
 ```
 
 The second scan may find non-RBAC strings such as CSS variants, cache keys, or encrypted-value prefixes. Review every match and keep RBAC permission literals out of CE.
+
+## Cursor Cloud specific instructions
+
+The Cloud Agent environment boots ClickHouse 24.4.1, cron, the OTLP receiver, and `next dev` for `src/client`. This VM does not run systemd. Do not start the product with `systemctl` or `docker compose`.
+
+- UI: http://127.0.0.1:3000. Seeded login is `user@openlit.io` / `openlituser` (see `src/client/README.md`).
+- ClickHouse: `127.0.0.1:8123`, database `openlit`, user `default`, password `OPENLIT` (the `docker-compose.yml` default).
+- SQLite and NextAuth material live under `/var/lib/openlit`. `src/client/.env` is generated on boot and is gitignored.
+- OTLP HTTP is `4318` and gRPC is `4317`.
+- Client checks, from `src/client`: `npm run lint`, `npm run typecheck`, and `npm test -- --ci --forceExit`.
