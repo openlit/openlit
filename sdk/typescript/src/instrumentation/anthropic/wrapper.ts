@@ -192,7 +192,13 @@ export default class AnthropicWrapper extends BaseWrapper {
 
           case 'message_delta':
             result.stop_reason = chunk.delta?.stop_reason || result.stop_reason;
-            result.usage.output_tokens += Number(chunk.usage?.output_tokens) || 0;
+            // message_delta carries the cumulative output_tokens for the whole
+            // message, so it replaces the initial message_start count rather
+            // than adding to it. Presence is checked the way the cache counters
+            // below are, so a reported zero is kept rather than read as absent.
+            if (chunk.usage?.output_tokens != null) {
+              result.usage.output_tokens = Number(chunk.usage.output_tokens) || 0;
+            }
             if (chunk.usage?.cache_creation_input_tokens != null) {
               result.usage.cache_creation_input_tokens =
                 Number(chunk.usage.cache_creation_input_tokens) || 0;
