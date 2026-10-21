@@ -14,7 +14,8 @@
  *
  * Item values are arbitrary JSON. Content is read from the LangMem shapes
  * (`{kind, content: {content}}` or `{content}`) and otherwise falls back to the
- * JSON of the whole value; the original value is always kept in metadata.
+ * JSON of the whole value, including arrays and primitives. The original value
+ * is always kept in metadata.
  *
  * Search is semantic only when the server has a store index configured.
  * Without one LangGraph ignores the query, returns items in listing order, and
@@ -91,8 +92,11 @@ interface NamespaceScope {
 interface StoreItem {
 	namespace: string[];
 	key: string;
-	/** The Store contract types values as objects (`dict[str, Any]`); PUT rejects anything else. */
-	value: Record<string, unknown>;
+	/**
+	 * Arbitrary JSON. Writes send objects because Store PUT rejects anything
+	 * else, but reads keep arrays, primitives, and null so they are not lost.
+	 */
+	value: unknown;
 	createdAt?: string;
 	updatedAt?: string;
 	score?: number;
@@ -237,7 +241,17 @@ function filterValue(
  * 2. LangMem memory tools shape: string `value.content`
  * 3. fallback: JSON of the whole value
  */
-function contentSource(value: Record<string, unknown>): ContentSource {
+function jsonFallback(value: unknown): string {
+	if (value === undefined) return "{}";
+	try {
+		return JSON.stringify(value) ?? "";
+	} catch {
+		return "";
+	}
+}
+
+function contentSource(value: unknown): ContentSource {
+	if (!isPlainObject(value)) return "fallback";
 	if (isPlainObject(value.content) && typeof value.content.content === "string") {
 		return "nested";
 	}
@@ -245,11 +259,12 @@ function contentSource(value: Record<string, unknown>): ContentSource {
 	return "fallback";
 }
 
-function readContent(value: Record<string, unknown>): string {
+function readContent(value: unknown): string {
+	if (!isPlainObject(value)) return jsonFallback(value);
 	const source = contentSource(value);
 	if (source === "nested") return asRecord(value.content).content as string;
 	if (source === "content") return value.content as string;
-	return JSON.stringify(value);
+	return jsonFallback(value);
 }
 
 /**
@@ -300,7 +315,7 @@ function normalizeItem(raw: unknown): StoreItem | null {
 	return {
 		namespace,
 		key,
-		value: asRecord(row.value),
+		value: Object.prototype.hasOwnProperty.call(row, "value") ? row.value : {},
 		createdAt: stringValue(row.created_at),
 		updatedAt: stringValue(row.updated_at),
 		score:
@@ -457,6 +472,9 @@ export class LangGraphAdapter extends BaseMemoryAdapter {
 		const existing = await this.fetchItem(ref.namespace, ref.key);
 		if (!existing) throw new Error(messages.MEMORY_DETAIL_NOT_FOUND);
 
+		if (!isPlainObject(existing.value)) {
+			throw new Error(messages.MEMORY_CONNECTOR_LANGGRAPH_UPDATE_CONFLICT);
+		}
 		let value = replaceContent(existing.value, input.content);
 		const metadata = writableMetadata(input.metadata);
 		if (metadata) {
@@ -713,7 +731,10 @@ export class LangGraphAdapter extends BaseMemoryAdapter {
 			scope.mapped && scope.template
 				? matchTemplate(scope.template, item.namespace) || {}
 				: { sessionId: namespaceId(item.namespace) };
-		const ownMetadata = isPlainObject(item.value.metadata) ? item.value.metadata : {};
+		const ownMetadata =
+			isPlainObject(item.value) && isPlainObject(item.value.metadata)
+				? item.value.metadata
+				: {};
 		return {
 			id: encodeMemoryRef(item.namespace, item.key),
 			content: readContent(item.value),

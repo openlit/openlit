@@ -3516,6 +3516,35 @@ describe("LangGraph adapter", () => {
 		});
 	});
 
+	it("keeps array and primitive Store values instead of coercing them to an empty object", async () => {
+		const values = [["tea", "coffee"], "likes tea", 3, false, null];
+		mockSafeFetch.mockResolvedValue({
+			items: values.map((value, index) => item(["memories", "u1"], `k${index}`, value)),
+		});
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		const records = await adapter.list({});
+		expect(records.map((record) => record.content)).toEqual(values.map((value) => JSON.stringify(value)));
+		expect(
+			records.map((record) => (record.metadata?.langgraph as { value: unknown }).value)
+		).toEqual(values);
+
+		mockSafeFetch.mockClear();
+		mockSafeFetch.mockResolvedValue(item(["profiles", "u1"], "k1", "raw note"));
+		const record = await adapter.get("profiles.u1:k1");
+		expect(record?.content).toBe(JSON.stringify("raw note"));
+		expect(record?.metadata).toEqual({
+			langgraph: { namespace: ["profiles", "u1"], key: "k1", value: "raw note" },
+		});
+	});
+
+	it("refuses to update a non-object Store value", async () => {
+		const adapter = new LangGraphAdapter(lgDescriptor());
+		mockSafeFetch.mockResolvedValueOnce(item(["memories", "u1"], "k1", ["tea"]));
+		await expect(adapter.update("memories.u1:k1", { content: "new" })).rejects.toThrow(/cannot edit/);
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		expect(call(0).method).toBe("GET");
+	});
+
 	describe("namespace scope for direct ids", () => {
 		it("does not get items outside a fixed namespace prefix", async () => {
 			const adapter = new LangGraphAdapter(lgDescriptor({ namespaceTemplate: "memories" }));

@@ -135,7 +135,7 @@ LangGraph Store items live in a namespace (an ordered list of labels) under a ke
 
 Fixed template segments must match exactly; placeholders are `{user_id}`, `{thread_id}`, and `{assistant_id}`. Labels cannot be empty or contain `.`. Items deeper than the template still match; items that do not fit it are hidden.
 
-Memory content is read from the LangMem shapes `{"kind": ..., "content": {"content": "..."}}` and `{"content": "..."}`, falling back to the JSON of the whole value. The original value is always shown in metadata under `langgraph`. New memories are written as `{"content": "..."}`. Updates change only the field the content was read from and keep every other field; because LangGraph has no compare-and-swap, an update can overwrite a concurrent change made between OpenLIT's read and write.
+Memory content is read from the LangMem shapes `{"kind": ..., "content": {"content": "..."}}` and `{"content": "..."}`, falling back to the JSON of the whole value, including arrays and primitives. The original value is always shown in metadata under `langgraph`. New memories are written as `{"content": "..."}`. Updates change only the field the content was read from and keep every other field. OpenLIT refuses to edit a value that is not an object, or a non-text `content` or `metadata` field, because that would overwrite data. Because LangGraph has no compare-and-swap, an update can overwrite a concurrent change made between OpenLIT's read and write.
 
 ## Copy between connectors
 
