@@ -2,6 +2,7 @@ package grpcserver
 
 import (
 	"context"
+	"log"
 	"net"
 
 	"google.golang.org/grpc"
@@ -82,6 +83,7 @@ func mapErr(err error) error {
 	if err == tenant.ErrRateLimited {
 		return status.Error(codes.ResourceExhausted, "too many failed authentication attempts")
 	}
+	log.Printf("otlp/grpc: ingest failed: %v", err)
 	return status.Error(codes.Unavailable, "ingest failed")
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -114,6 +115,9 @@ func handle(w http.ResponseWriter, r *http.Request, fn func([]byte, string) erro
 			http.Error(w, "too many failed authentication attempts", http.StatusTooManyRequests)
 			return
 		}
+		// Server-side failures (database, ClickHouse) are invisible to the
+		// client, so log them. Errors never include the API key.
+		log.Printf("otlp/http: ingest failed (%d): %v", status, err)
 		http.Error(w, "ingest failed", status)
 		return
 	}

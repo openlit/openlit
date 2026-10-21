@@ -38,6 +38,8 @@ need docker
 need go
 need npm
 need curl
+need openssl
+need lsof
 
 dotenv_value() {
 	local file="$CLIENT_DIR/.env"
@@ -72,6 +74,16 @@ wait_for() {
 
 export SQLITE_DATABASE_URL="${SQLITE_DATABASE_URL:-$(dotenv_value SQLITE_DATABASE_URL)}"
 [ -n "$SQLITE_DATABASE_URL" ] || die "SQLITE_DATABASE_URL is not set (env or src/client/.env)"
+# Prisma resolves a relative file: URL against src/client/prisma, but the
+# receiver and engine run from their own directories. Make it absolute so
+# every service opens the same database.
+case "$SQLITE_DATABASE_URL" in
+	file:/*) ;;
+	file:*)
+		sqlite_rel="${SQLITE_DATABASE_URL#file:}"
+		export SQLITE_DATABASE_URL="file:$CLIENT_DIR/prisma/${sqlite_rel#./}"
+		;;
+esac
 
 if [ -z "${UI_PORT:-}" ]; then
 	nextauth_url="$(dotenv_value NEXTAUTH_URL)"
@@ -140,6 +152,12 @@ run() {
 
 if ! curl -fsS -o /dev/null "http://${INIT_DB_HOST}:${INIT_DB_PORT}/ping" 2>/dev/null; then
 	log "ClickHouse not reachable on ${INIT_DB_HOST}:${INIT_DB_PORT}, starting it with docker compose"
+	# dev-docker-compose.yml uses `env_file: [{path, required}]`, added in Compose v2.24.
+	compose_version="$(docker compose version --short 2>/dev/null | sed 's/^v//')"
+	if [ -n "$compose_version" ] && [ "$(printf '%s\n' 2.24.0 "$compose_version" | sort -V | head -n 1)" != 2.24.0 ]; then
+		die "Docker Compose $compose_version is too old for src/dev-docker-compose.yml (needs v2.24+).
+      Upgrade Docker Compose, or start ClickHouse yourself and set INIT_DB_HOST/INIT_DB_PORT."
+	fi
 	OPENLIT_DB_USER="$INIT_DB_USERNAME" OPENLIT_DB_PASSWORD="$INIT_DB_PASSWORD" OPENLIT_DB_NAME="$INIT_DB_DATABASE" \
 		docker compose -f "$ROOT/src/dev-docker-compose.yml" up -d clickhouse
 	wait_for ClickHouse "http://${INIT_DB_HOST}:${INIT_DB_PORT}/ping" 180
@@ -173,8 +191,11 @@ else
 		docker exec "$NATS_CONTAINER" wget -qO- "http://127.0.0.1:8222/healthz?js-enabled-only=true" >/dev/null 2>&1 && break
 		sleep 1
 	done
-	docker exec "$NATS_CONTAINER" wget -qO- "http://127.0.0.1:8222/healthz?js-enabled-only=true" >/dev/null 2>&1 ||
-		die "timed out waiting for NATS JetStream (docker logs $NATS_CONTAINER)"
+	if ! docker exec "$NATS_CONTAINER" wget -qO- "http://127.0.0.1:8222/healthz?js-enabled-only=true" >/dev/null 2>&1; then
+		# The container is removed on exit, so show its logs now.
+		docker logs --tail 30 "$NATS_CONTAINER" >&2 || true
+		die "timed out waiting for NATS JetStream; rerun, or install nats-server locally to skip docker"
+	fi
 fi
 log "NATS ready on $NATS_URL"
 

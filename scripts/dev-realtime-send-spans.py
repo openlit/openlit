@@ -72,7 +72,7 @@ def build(args):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--endpoint", default=os.environ.get("OTLP_ENDPOINT", "http://127.0.0.1:14318"))
+    p.add_argument("--endpoint", default=os.environ.get("OTLP_ENDPOINT", "http://127.0.0.1:4318"))
     p.add_argument("--api-key", default=os.environ.get("OPENLIT_API_KEY", ""))
     p.add_argument("--count", type=int, default=20)
     p.add_argument("--error-rate", type=float, default=0.0)
