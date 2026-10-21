@@ -3261,6 +3261,11 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		steps: ["Open the ClickHouse service's Connect menu and copy the HTTPS host, database, username, and password.", "Keep TLS enabled for hosted ClickHouse services.", "Save the connection in the project's database configuration, then test the connection."],
 		docsUrl: "https://clickhouse.com/integrations/clickhouse_client",
 	},
+	signoz: {
+		summary: "OpenLIT reads traces and logs from the SigNoz query API (v5).",
+		steps: ["Enter the SigNoz server root URL, commonly port 8080 for self-hosted installs, with no trailing /api path.", "In SigNoz, create a service account with the viewer role and generate an API key.", "Paste the API key into the credentials field, then test the connection."],
+		docsUrl: "https://signoz.io/docs/userguide/query-builder-v5/",
+	},
 	tempo: {
 		summary: "Grafana Cloud Tempo uses the stack endpoint with Basic authentication.",
 		steps: ["Copy the Tempo query URL from your Grafana Cloud stack, usually ending in /tempo.", "Use the Tempo instance ID as Username.", "Create a Grafana Cloud Access Policy token with traces:read and enter it as Password."],
@@ -3354,6 +3359,8 @@ export const DATA_SOURCE_AUTH_HELP_HTTP =
 	"Grafana Cloud query APIs use Basic auth (Instance ID + access policy token). Self-hosted LGTM often needs no auth, or Basic/Bearer via your reverse proxy. Fill Basic fields for Cloud; use Bearer only when your backend expects it.";
 export const DATA_SOURCE_AUTH_HELP_DATADOG =
 	"Datadog requires an API key and Application key for Spans, Logs, and Metrics APIs.";
+export const DATA_SOURCE_AUTH_HELP_SIGNOZ =
+	"SigNoz requires an API key with viewer (or higher) access. Create one in SigNoz under Settings > API Keys; it is sent as the SIGNOZ-API-KEY header.";
 export const DATA_SOURCE_AUTH_HELP_NEWRELIC =
 	"New Relic uses a user or ingest API key with NerdGraph / NRQL access for the account.";
 export const DATA_SOURCE_CREDENTIALS_SET = "Credentials are set.";
