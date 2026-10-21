@@ -7,8 +7,10 @@ icon: 'circle-down'
 
 OpenLIT is open source and is lightweight to self-host. You need two components:
 
-1. **OpenLIT** — dashboard, APIs, and the first-party [OTLP receiver](/latest/openlit/otlp-receiver) (`:4317` gRPC, `:4318` HTTP)
+1. **OpenLIT** — dashboard, APIs, the first-party [OTLP receiver](/latest/openlit/otlp-receiver) (`:4317` gRPC, `:4318` HTTP), and the realtime engine
 2. **ClickHouse** — storage for traces, metrics, and logs (`otel_*` tables)
+
+[Threshold alerts](/latest/openlit/alerts) also need **NATS JetStream**, which carries live span signals from the receiver to the realtime engine. Docker Compose runs it for you; elsewhere, point `NATS_URL` at your own NATS server.
 
 <Info>
 **Already have ClickHouse?**
@@ -59,7 +61,7 @@ Deploy OpenLIT on your Kubernetes cluster using the [OpenLIT Helm chart](https:/
 Send OTLP to the OpenLIT service on `4317` (gRPC) or `4318` (HTTP). See [OTLP receiver](/latest/openlit/otlp-receiver).
 
 ## Docker
-For a quick setup, Docker Compose deploys OpenLIT and ClickHouse. The OpenLIT container listens on `3000` (UI), `4317` (OTLP/gRPC), and `4318` (OTLP/HTTP). There is no separate `otel-collector` service.
+For a quick setup, Docker Compose (v2.24 or later) deploys OpenLIT, ClickHouse, and NATS. The OpenLIT container listens on `3000` (UI), `4317` (OTLP/gRPC), and `4318` (OTLP/HTTP). NATS publishes no ports and is only reachable from the Compose network. There is no separate `otel-collector` service.
 
 <Steps>
   <Step title="Git Clone OpenLIT Repository">
@@ -76,6 +78,10 @@ For a quick setup, Docker Compose deploys OpenLIT and ClickHouse. The OpenLIT co
 </Steps>
 
 <Warning>
+Compose ships placeholder NATS passwords. Before anyone else can reach your deployment, set `NATS_RECEIVER_PASSWORD` and `NATS_ENGINE_PASSWORD` (for example in a `.env` file next to `docker-compose.yml`). See the [realtime production checklist](/latest/openlit/configuration#realtime-production-checklist).
+</Warning>
+
+<Warning>
 If you previously ran the old stack, restart Compose with `--remove-orphans`. The standalone `otel-collector` container is no longer used and will conflict on ports 4317 and 4318 if it is left running.
 </Warning>
 
@@ -89,7 +95,7 @@ If you previously ran the old stack, restart Compose with `--remove-orphans`. Th
     Yes for ClickHouse — see [Connect Multiple Databases](/latest/openlit/developer-resources/multiple-db). You do not need OpenLIT to run `otelcol`. If you already operate a Collector, [forward OTLP to OpenLIT](/latest/openlit/otlp-receiver#optional-sidecar-collector).
   </Accordion>
   <Accordion title="Is OpenLIT free to self-host?">
-    Yes. OpenLIT is licensed under Apache-2.0 and the community edition is free to self-host, with no license key or usage limits. A few organisation-wide governance features, such as custom roles, audit logs, and alerts, are part of [OpenLIT Enterprise](/latest/openlit/enterprise) and are marked with an **Enterprise** tag in these docs.
+    Yes. OpenLIT is licensed under Apache-2.0 and the community edition is free to self-host, with no license key or usage limits. A few organisation-wide governance features, such as custom roles, audit logs, event alerts, and notification destinations for alerts, are part of [OpenLIT Enterprise](/latest/openlit/enterprise) and are marked with an **Enterprise** tag in these docs.
   </Accordion>
 </AccordionGroup>
 

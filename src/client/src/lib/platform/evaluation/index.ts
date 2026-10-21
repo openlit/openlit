@@ -1,3 +1,4 @@
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import getMessage from "@/constants/messages";
 import { getCurrentUser } from "@/lib/session";
 import { throwIfError } from "@/utils/error";
@@ -1015,14 +1016,14 @@ export async function getEvaluationDetectedByType(
 	const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			COUNT(DISTINCT span_id) AS total_evaluation_detected,
-			'${params.timeLimit.start}' as start_date
+			'${escapeClickHouseString(String(params.timeLimit.start))}' as start_date
 		FROM ${OPENLIT_EVALUATION_TABLE_NAME} 
 		ARRAY JOIN evaluationData
 		WHERE 
 			evaluationData.evaluation = '${evalType}'
 			AND evaluationData.verdict = 'yes'
-			AND parseDateTimeBestEffort(meta['traceTimeStamp']) >= parseDateTimeBestEffort('${parameters.timeLimit.start}') 
-			AND parseDateTimeBestEffort(meta['traceTimeStamp']) <= parseDateTimeBestEffort('${parameters.timeLimit.end}')
+			AND parseDateTimeBestEffort(meta['traceTimeStamp']) >= parseDateTimeBestEffort('${escapeClickHouseString(String(parameters.timeLimit.start))}') 
+			AND parseDateTimeBestEffort(meta['traceTimeStamp']) <= parseDateTimeBestEffort('${escapeClickHouseString(String(parameters.timeLimit.end))}')
 			${serviceScopeSql}
 	`;
 

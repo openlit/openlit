@@ -30,6 +30,11 @@ WORKDIR /app/otlp-receiver
 COPY ./otlp-receiver/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o otlp-receiver ./cmd/otlp-receiver
 
+# Realtime engine (NATS JetStream consumer); started only when NATS_URL is set
+WORKDIR /app/engine
+COPY ./engine/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o openlit-engine ./cmd/openlit-engine
+
 
 # Final runtime image - Node 20 on Debian bookworm (bullseye-security
 # package indexes now 404 openssl 1.1.1w updates required by bullseye-slim)
@@ -67,8 +72,9 @@ COPY --from=builder /app/client/node_modules/.bin ./node_modules/.bin
 COPY --from=builder /app/client/node_modules/prisma ./node_modules/prisma
 
 COPY --from=go-builder /app/otlp-receiver/otlp-receiver /app/otlp-receiver/otlp-receiver
+COPY --from=go-builder /app/engine/openlit-engine /app/engine/openlit-engine
 
-RUN chmod +x ./scripts/entrypoint.sh /app/otlp-receiver/otlp-receiver
+RUN chmod +x ./scripts/entrypoint.sh /app/otlp-receiver/otlp-receiver /app/engine/openlit-engine
 
 # Next.js UI + OTLP HTTP/gRPC
 EXPOSE ${DOCKER_PORT:-3000}

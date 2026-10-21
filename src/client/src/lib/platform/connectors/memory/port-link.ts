@@ -3,6 +3,7 @@
  */
 
 import type { MemoryPortLink, MemoryRecord } from "./types";
+import { asRecord, stringValue } from "./values";
 
 export function memoryContentFingerprint(
 	content: string,
@@ -14,18 +15,6 @@ export function memoryContentFingerprint(
 		hash = (hash * 31 + key.charCodeAt(i)) | 0;
 	}
 	return Math.abs(hash).toString(16);
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
-
-function stringValue(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const trimmed = value.trim();
-	return trimmed || undefined;
 }
 
 export function parseMemoryPortLink(
