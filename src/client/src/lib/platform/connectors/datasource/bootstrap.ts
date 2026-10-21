@@ -10,6 +10,7 @@ import { tempoAdapterFactory } from "./grafana/tempo";
 import { lokiAdapterFactory } from "./grafana/loki";
 import { prometheusAdapterFactory } from "./prometheus/adapter";
 import { jaegerAdapterFactory } from "./jaeger/adapter";
+import { signozAdapterFactory } from "./signoz/adapter";
 import { getExternalDataSourceAdapters } from "@/lib/platform/connectors/datasource/enterprise";
 import { registerDatasourceConnectorTypes } from "@/lib/platform/connectors/datasource";
 
@@ -18,6 +19,7 @@ const VENDOR_FACTORIES = [
 	lokiAdapterFactory,
 	prometheusAdapterFactory,
 	jaegerAdapterFactory,
+	signozAdapterFactory,
 ];
 
 let registered = false;
