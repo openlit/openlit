@@ -23,24 +23,44 @@ ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x,linux-musl-arm64-openssl-
 RUN npm install && npx prisma generate && npm run build
 
 
-# OTLP receiver build from source - pinned with digest
-FROM golang:1.25-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa AS go-builder
+# OTLP receiver build from source - pinned with digest.
+# Cross-compile for the image platform. Do not default TARGETARCH: openlit
+# 1.24.0–2.1.0 arm64 images shipped amd64 otelcontribcol/opampsupervisor
+# (https://github.com/openlit/openlit/issues/1747), so 4317/4318 never opened.
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine@sha256:8e02eb337d9e0ea459e041f1ee5eece41cbb61f1d83e7d883a3e2fb4862063fa AS go-builder
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /app/otlp-receiver
 COPY ./otlp-receiver/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o otlp-receiver ./cmd/otlp-receiver
+RUN set -eu; \
+    if [ -z "${TARGETOS}" ] || [ -z "${TARGETARCH}" ]; then \
+      echo "TARGETOS and TARGETARCH are required; refusing to build for the builder CPU." >&2; \
+      exit 1; \
+    fi; \
+    echo "Building otlp-receiver for ${TARGETOS}/${TARGETARCH}"; \
+    CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" go build -trimpath -o otlp-receiver ./cmd/otlp-receiver
 
 # Realtime engine (NATS JetStream consumer); started only when NATS_URL is set
 WORKDIR /app/engine
 COPY ./engine/ ./
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o openlit-engine ./cmd/openlit-engine
+RUN set -eu; \
+    if [ -z "${TARGETOS}" ] || [ -z "${TARGETARCH}" ]; then \
+      echo "TARGETOS and TARGETARCH are required; refusing to build for the builder CPU." >&2; \
+      exit 1; \
+    fi; \
+    echo "Building openlit-engine for ${TARGETOS}/${TARGETARCH}"; \
+    CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" go build -trimpath -o openlit-engine ./cmd/openlit-engine
 
 
 # Final runtime image - Node 20 on Debian bookworm (bullseye-security
 # package indexes now 404 openssl 1.1.1w updates required by bullseye-slim)
 FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
 
-ARG TARGETARCH=amd64
+# No default. ARG TARGETARCH=amd64 made arm64 images record amd64
+# (https://github.com/openlit/openlit/issues/1747).
+ARG TARGETARCH
 ARG TARGETPLATFORM
 
 ENV TARGETARCH=${TARGETARCH}
@@ -75,6 +95,12 @@ COPY --from=go-builder /app/otlp-receiver/otlp-receiver /app/otlp-receiver/otlp-
 COPY --from=go-builder /app/engine/openlit-engine /app/engine/openlit-engine
 
 RUN chmod +x ./scripts/entrypoint.sh /app/otlp-receiver/otlp-receiver /app/engine/openlit-engine
+
+# The published arm64 image used to contain x86-64 ingest binaries and the
+# UI still came up. Refuse that image here.
+COPY ./scripts/check-elf-arch.mjs /tmp/check-elf-arch.mjs
+RUN node /tmp/check-elf-arch.mjs /app/otlp-receiver/otlp-receiver /app/engine/openlit-engine \
+    && rm /tmp/check-elf-arch.mjs
 
 # Next.js UI + OTLP HTTP/gRPC
 EXPOSE ${DOCKER_PORT:-3000}

@@ -42,7 +42,7 @@ services:
     volumes:
       - openlit-data:/app/client/data
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "Promise.all([fetch('http://127.0.0.1:'+(process.env.PORT||3000)),fetch('http://127.0.0.1:4318/health')]).then(rs=>process.exit(rs.every(r=>r.ok)?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 5s
       retries: 10
