@@ -344,21 +344,20 @@ def process_chunk(scope, chunk):
                     scope._tools.extend([{}] * (idx + 1 - len(scope._tools)))
 
                     if tool.get("id"):  # New tool (id exists)
-                        func = tool.get("function", {})
+                        func = tool.get("function") or {}
                         scope._tools[idx] = {
                             "id": tool["id"],
                             "function": {
-                                "name": func.get("name", ""),
-                                "arguments": func.get("arguments", ""),
+                                "name": func.get("name") or "",
+                                "arguments": func.get("arguments") or "",
                             },
                             "type": tool.get("type", "function"),
                         }
                     elif (
                         scope._tools[idx] and "function" in tool
                     ):  # Append args (id is None)
-                        scope._tools[idx]["function"]["arguments"] += tool[
-                            "function"
-                        ].get("arguments", "")
+                        new_args = (tool["function"] or {}).get("arguments") or ""
+                        scope._tools[idx]["function"]["arguments"] += new_args
 
         # Handle usage information (typically only in final chunk)
         if data.get("usage"):
