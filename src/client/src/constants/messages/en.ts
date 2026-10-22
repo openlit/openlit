@@ -3271,6 +3271,12 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		steps: ["Enter the Jaeger Query Service URL, commonly port 16686.", "Use the configured Basic/Bearer credentials if the query service is protected.", "Ensure the OpenLIT server can reach the query service over the network."],
 		docsUrl: "https://www.jaegertracing.io/docs/1.24/apis/",
 	},
+	"otlp-http": {
+		summary: "OpenLIT reads traces from any backend exposing OTLP JSON over HTTP.",
+		steps: ["Enter the base URL of the OTLP HTTP endpoint (collector, gateway, or compatible backend).", "Pick the auth style the endpoint expects; for API-key auth, paste the key and adjust the header name if needed.", "Confirm the traces query path matches the backend, then test the connection."],
+		docsUrl: "https://opentelemetry.io/docs/specs/otlp/#otlphttp",
+	},
+
 	claude: {
 		summary: "Connect OpenLIT to Claude memory stores.",
 		steps: ["Create an Anthropic API key with access to Memory Stores.", "Paste the API key into the credentials field.", "Save the connector, then pick a memory store when browsing or adding memories."],
