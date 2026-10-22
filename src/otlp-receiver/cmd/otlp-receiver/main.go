@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +15,7 @@ import (
 	"github.com/openlit/openlit/otlp-receiver/internal/grpcserver"
 	"github.com/openlit/openlit/otlp-receiver/internal/httpserver"
 	"github.com/openlit/openlit/otlp-receiver/internal/ingest"
+	"github.com/openlit/openlit/otlp-receiver/internal/listen"
 	"github.com/openlit/openlit/otlp-receiver/internal/natsx"
 	"github.com/openlit/openlit/otlp-receiver/internal/realtime"
 	sigpkg "github.com/openlit/openlit/otlp-receiver/internal/signal"
@@ -99,12 +101,18 @@ func main() {
 		}()
 	}
 
-	go func() {
-		log.Printf("OTLP HTTP listening on %s", cfg.HTTPAddr)
-		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("otlp http: %v", err)
-		}
-	}()
+	httpLns, err := listen.TCP(cfg.HTTPAddr)
+	if err != nil {
+		log.Fatalf("otlp http: %v", err)
+	}
+	log.Printf("OTLP HTTP listening on %s", cfg.HTTPAddr)
+	for _, ln := range httpLns {
+		go func(ln net.Listener) {
+			if err := httpSrv.Serve(ln); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("otlp http: %v", err)
+			}
+		}(ln)
+	}
 	go func() {
 		log.Printf("OTLP gRPC listening on %s", cfg.GRPCAddr)
 		if err := grpcserver.Listen(cfg.GRPCAddr, grpcSrv); err != nil {

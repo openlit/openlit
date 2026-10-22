@@ -54,6 +54,8 @@ type ClickHouseConfig struct {
 
 func Load() Config {
 	return Config{
+		// Wildcard addresses are opened on IPv4 and IPv6. 0.0.0.0 alone leaves
+		// ::1 closed, so localhost fails on machines that prefer IPv6.
 		HTTPAddr:          env("OTLP_HTTP_ADDR", "0.0.0.0:4318"),
 		GRPCAddr:          env("OTLP_GRPC_ADDR", "0.0.0.0:4317"),
 		SQLitePath:        sqlitePath(os.Getenv("SQLITE_DATABASE_URL")),

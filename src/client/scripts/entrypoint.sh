@@ -62,18 +62,32 @@ else
 fi
 export OPENLIT_ENGINE_SECRET
 
-# Set NextAuth.js environment variables
-# remove any existing NEXTAUTH_SECRET line, then append the current value
-if [ -w /etc/environment ]; then
-    sed -i '/^NEXTAUTH_SECRET=/d' /etc/environment
-    echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment
-    sed -i '/^CRON_JOB_SECRET=/d' /etc/environment
-    echo "CRON_JOB_SECRET=$CRON_JOB_SECRET" >> /etc/environment
-    sed -i '/^OPENLIT_ENGINE_SECRET=/d' /etc/environment
-    echo "OPENLIT_ENGINE_SECRET=$OPENLIT_ENGINE_SECRET" >> /etc/environment
-else
-    echo "WARNING: /etc/environment is not writable; NEXTAUTH_SECRET, CRON_JOB_SECRET and OPENLIT_ENGINE_SECRET will not be persisted there." >&2
-fi
+# Write a shell-safe line and export it. Sourcing /etc/environment does not
+# export new names, and an unquoted password containing $, spaces, or # is
+# expanded or truncated. The OTLP receiver only sees variables that are
+# exported in this process.
+persist_warned=
+persist_env() {
+    local key="$1"
+    local value="$2"
+    export "${key}=${value}"
+    if [ ! -w /etc/environment ]; then
+        if [ -z "${persist_warned}" ]; then
+            echo "WARNING: /etc/environment is not writable; secrets will not be persisted there." >&2
+            persist_warned=1
+        fi
+        return 0
+    fi
+    # The value is already exported. A read-only mount can still pass -w and
+    # then fail the write; that must not skip opening the OTLP ports.
+    if ! sed -i "/^${key}=/d" /etc/environment || ! printf '%s=%q\n' "$key" "$value" >> /etc/environment; then
+        echo "WARNING: could not persist ${key} to /etc/environment; the process environment is still set." >&2
+    fi
+}
+
+persist_env NEXTAUTH_SECRET "${NEXTAUTH_SECRET}"
+persist_env CRON_JOB_SECRET "${CRON_JOB_SECRET}"
+persist_env OPENLIT_ENGINE_SECRET "${OPENLIT_ENGINE_SECRET}"
 
 # Do NOT pin NEXTAUTH_URL to localhost. When it is unset, NextAuth derives the
 # origin from the incoming request host (and X-Forwarded-* behind a proxy), so
@@ -81,20 +95,27 @@ fi
 # Only export it when the operator explicitly set it, which is required for
 # OAuth providers whose redirect URIs must match a fixed public URL.
 if [ -n "${NEXTAUTH_URL}" ]; then
-    echo "NEXTAUTH_URL=${NEXTAUTH_URL}" >> /etc/environment
+    persist_env NEXTAUTH_URL "${NEXTAUTH_URL}"
 fi
-echo "SQLITE_DATABASE_URL=${SQLITE_DATABASE_URL:-file:../data/data.db}" >> /etc/environment
-echo "PATH=./node_modules/.bin:$PATH" >> /etc/environment
+persist_env SQLITE_DATABASE_URL "${SQLITE_DATABASE_URL:-file:../data/data.db}"
+persist_env PATH "./node_modules/.bin:${PATH}"
 
 # Environment variables for DB config
-echo "INIT_DB_USERNAME=${INIT_DB_USERNAME}" >> /etc/environment
-echo "INIT_DB_PASSWORD=${INIT_DB_PASSWORD}" >> /etc/environment
-echo "INIT_DB_HOST=${INIT_DB_HOST}" >> /etc/environment
-echo "INIT_DB_PORT=${INIT_DB_PORT}" >> /etc/environment
-echo "INIT_DB_DATABASE=${INIT_DB_DATABASE}" >> /etc/environment
+persist_env INIT_DB_USERNAME "${INIT_DB_USERNAME:-}"
+persist_env INIT_DB_PASSWORD "${INIT_DB_PASSWORD:-}"
+persist_env INIT_DB_HOST "${INIT_DB_HOST:-}"
+persist_env INIT_DB_PORT "${INIT_DB_PORT:-}"
+persist_env INIT_DB_DATABASE "${INIT_DB_DATABASE:-}"
 
-# Load the environment variables
-. /etc/environment
+# Re-export the file only after it was rewritten. Sourcing a read-only copy
+# would replace the secrets just computed above, and a bad line must not
+# stop ingest: Docker already injected the process environment.
+if [ -r /etc/environment ] && [ -w /etc/environment ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . /etc/environment || echo "WARNING: could not read /etc/environment; continuing with the process environment." >&2
+    set +a
+fi
 # Receiver reads SQLITE_DATABASE_URL / INIT_DB_* from the process environment.
 
 # Run Prisma migrations and generate prisma client
@@ -104,11 +125,42 @@ prisma generate
 # Run the seed 
 prisma db seed
 
-# Run crond in the background
-service cron start
+# Cron is optional. A failure here (non-root, read-only root) must not stop
+# the OTLP receiver from opening :4317 and :4318.
+if ! service cron start; then
+    echo "WARNING: cron did not start; scheduled jobs will not run. OTLP ingest will still start." >&2
+fi
+
+# Stay PID 1 so we can reap children. 2.1.0 exec'd the UI and left a dead
+# collector behind: Docker still published :4317, accepted TCP, and closed it.
+# gRPC exporters then logged "End of TCP stream" while the dashboard looked healthy.
+receiver_pid=
+engine_pid=
+node_pid=
+
+stop_children() {
+    if [ -n "${node_pid}" ]; then
+        kill -TERM "${node_pid}" 2>/dev/null || true
+    fi
+    if [ -n "${engine_pid}" ]; then
+        kill -TERM "${engine_pid}" 2>/dev/null || true
+    fi
+    if [ -n "${receiver_pid}" ]; then
+        kill -TERM "${receiver_pid}" 2>/dev/null || true
+    fi
+}
+
+on_stop() {
+    echo "Stopping OpenLIT..."
+    stop_children
+    wait ${node_pid:+"$node_pid"} ${engine_pid:+"$engine_pid"} ${receiver_pid:+"$receiver_pid"} 2>/dev/null || true
+    exit 0
+}
+trap on_stop TERM INT
 
 echo "Starting OTLP receiver..."
 /app/otlp-receiver/otlp-receiver &
+receiver_pid=$!
 
 # The realtime engine consumes the NATS signal stream and posts findings back
 # to the UI server's internal API, authenticated with OPENLIT_ENGINE_SECRET.
@@ -121,6 +173,7 @@ if [ -n "${NATS_URL:-}" ]; then
     echo "Starting realtime engine..."
     OPENLIT_URL="${OPENLIT_URL:-http://127.0.0.1:${DOCKER_PORT:-3000}}" \
         /app/engine/openlit-engine &
+    engine_pid=$!
 fi
 
 # Starting the OpenLIT UI Server
@@ -132,4 +185,27 @@ export HOSTNAME="${HOSTNAME:-0.0.0.0}"
 if echo "$HOSTNAME" | grep -qvE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$|^::$|^localhost$'; then
   export HOSTNAME="0.0.0.0"
 fi
-exec node --max_old_space_size=512 /app/client/server.js
+node --max_old_space_size=512 /app/client/server.js &
+node_pid=$!
+
+# set -e would exit on the first child failure before we can tell which one.
+set +e
+while true; do
+    wait -n
+    status=$?
+    if ! kill -0 "${receiver_pid}" 2>/dev/null; then
+        echo "OTLP receiver exited; stopping the container so :4317 and :4318 are not left closed." >&2
+        stop_children
+        wait ${node_pid:+"$node_pid"} ${engine_pid:+"$engine_pid"} 2>/dev/null
+        exit 1
+    fi
+    if ! kill -0 "${node_pid}" 2>/dev/null; then
+        stop_children
+        wait ${receiver_pid:+"$receiver_pid"} ${engine_pid:+"$engine_pid"} 2>/dev/null
+        exit "${status}"
+    fi
+    if [ -n "${engine_pid}" ] && ! kill -0 "${engine_pid}" 2>/dev/null; then
+        echo "Realtime engine exited; trace ingest continues." >&2
+        engine_pid=
+    fi
+done
