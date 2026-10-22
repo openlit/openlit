@@ -3,6 +3,7 @@ Utility functions for Firecrawl instrumentation
 """
 
 import logging
+import time
 from typing import Dict, Any, Optional
 
 from opentelemetry.trace import Status, StatusCode
@@ -35,9 +36,21 @@ FIRECRAWL_OPERATION_MAP = {
     # === SEARCH OPERATIONS ===
     "firecrawl.search": "search",
     "firecrawl.async_search": "search",
+    # === CORE OPERATIONS ON THE v2 CLIENTS ===
+    "firecrawl.scrape": "scrape",
+    "firecrawl.crawl": "crawl",
+    "firecrawl.map": "map",
     # === BATCH OPERATIONS ===
     "firecrawl.batch_scrape_urls": "scrape",
     "firecrawl.async_batch_scrape_urls": "scrape",
+    "firecrawl.batch_scrape": "scrape",
+    "firecrawl.start_batch_scrape": "scrape",
+    # === FIRE-AND-FORGET CRAWL STARTERS ===
+    "firecrawl.start_crawl": "crawl",
+    # === EXTRACT OPERATIONS ===
+    "firecrawl.extract": "extract",
+    # === STATUS POLLS ON THE v1 / v2 CLIENTS ===
+    "firecrawl.check_crawl_status": "crawl_status",
     # === CANCEL OPERATIONS ===
     "firecrawl.cancel_crawl": "crawl",
     "firecrawl.async_cancel_crawl": "crawl",
@@ -58,6 +71,7 @@ class FirecrawlInstrumentationContext:
         "_urls",
         "_formats",
         "_api_key_masked",
+        "request_start",
     )
 
     def __init__(self, instance, args, kwargs, version, environment, application_name):
@@ -67,6 +81,7 @@ class FirecrawlInstrumentationContext:
         self.version = version
         self.environment = environment
         self.application_name = application_name
+        self.request_start = time.time()
 
         # Cache expensive operations with lazy loading
         self._url = None
@@ -165,8 +180,12 @@ def set_span_attributes(
         # Set framework attributes using common_framework_span_attributes
         scope = type("GenericScope", (), {})()
         scope._span = span
-        scope._start_time = getattr(span, "start_time", None)
-        scope._end_time = getattr(span, "end_time", None)
+        # Wall-clock values like the other instrumentors pass: the span is
+        # still open here, so its end_time attribute is None and
+        # common_framework_span_attributes would raise TypeError computing
+        # the duration, silently discarding every attribute set below.
+        scope._start_time = time.time()
+        scope._end_time = time.time()
 
         # Set common framework attributes
         common_framework_span_attributes(
@@ -186,6 +205,7 @@ def set_span_attributes(
             "crawl": SemanticConvention.GEN_AI_OPERATION_TYPE_CRAWL,
             "search": SemanticConvention.GEN_AI_OPERATION_TYPE_SEARCH,
             "map": SemanticConvention.GEN_AI_OPERATION_TYPE_MAP,
+            "extract": SemanticConvention.GEN_AI_OPERATION_TYPE_EXTRACT,
             "crawl_status": SemanticConvention.GEN_AI_OPERATION_TYPE_CRAWL_STATUS,
             "scrape_status": SemanticConvention.GEN_AI_OPERATION_TYPE_SCRAPE_STATUS,
         }
@@ -300,6 +320,16 @@ def process_response(
     except Exception as e:
         logger.debug("Error processing response: %s", e)
         span.set_status(Status(StatusCode.ERROR, str(e)))
+
+    # Overwrite the placeholder duration set in set_span_attributes with
+    # the true request duration, now that the wrapped call has returned.
+    try:
+        span.set_attribute(
+            SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
+            time.time() - ctx.request_start,
+        )
+    except Exception as e:
+        logger.debug("Failed to set duration attribute: %s", e)
 
 
 def _process_single_response(
