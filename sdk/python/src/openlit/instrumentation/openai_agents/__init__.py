@@ -4,6 +4,7 @@ OpenLIT OpenAI Agents Instrumentation
 
 import json
 import threading
+from importlib import import_module, util
 from typing import Collection
 import importlib.metadata
 
@@ -22,6 +23,33 @@ from openlit.semcov import SemanticConvention
 from openlit.instrumentation.openai_agents.processor import OpenLITTracingProcessor
 
 _instruments = ("openai-agents >= 0.0.3",)
+
+
+def _trace_include_sensitive_data_enabled() -> bool:
+    """Return the SDK default available while an Agent is being constructed."""
+    try:
+        if util.find_spec("agents.run_config") is None:
+            return True
+        run_config = import_module("agents.run_config")
+    except ImportError:
+        return False
+    except Exception:
+        return False
+
+    missing = object()
+    default_setting = vars(run_config).get(
+        "_default_trace_include_sensitive_data", missing
+    )
+    if default_setting is missing:
+        return True
+
+    if not callable(default_setting):
+        return False
+
+    try:
+        return bool(default_setting())
+    except Exception:
+        return False
 
 
 class _AgentCreationRegistry:
@@ -80,7 +108,11 @@ def _wrap_agent_init(
                     )
 
                 instructions = getattr(instance, "instructions", None)
-                if instructions and capture_message_content:
+                if (
+                    instructions
+                    and capture_message_content
+                    and _trace_include_sensitive_data_enabled()
+                ):
                     formatted = format_system_instructions(instructions)
                     if formatted:
                         span.set_attribute(
