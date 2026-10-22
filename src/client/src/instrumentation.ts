@@ -32,8 +32,9 @@ export async function register() {
 				"@/lib/platform/evaluation/config"
 			);
 			console.log("🔄 Restoring evaluation cron jobs...");
-			await restoreEvaluationCronJobs(apiURL);
-			console.log("✅ Evaluation cron jobs restored");
+			if (await restoreEvaluationCronJobs(apiURL)) {
+				console.log("✅ Evaluation cron jobs restored");
+			}
 		} catch (error) {
 			console.error("❌ Error restoring evaluation cron jobs:", error);
 			// Don't throw - allow server to start even if cron restore fails
@@ -45,8 +46,9 @@ export async function register() {
 				"@/lib/platform/pricing/config"
 			);
 			console.log("🔄 Restoring pricing cron jobs...");
-			await restorePricingCronJobs(apiURL);
-			console.log("✅ Pricing cron jobs restored");
+			if (await restorePricingCronJobs(apiURL)) {
+				console.log("✅ Pricing cron jobs restored");
+			}
 		} catch (error) {
 			console.error("❌ Error restoring pricing cron jobs:", error);
 			// Don't throw - allow server to start even if cron restore fails
@@ -59,8 +61,9 @@ export async function register() {
 				"@/lib/platform/agents/config"
 			);
 			console.log("🔄 Installing agents materialize cron...");
-			await restoreAgentsMaterializeCron(apiURL);
-			console.log("✅ Agents materialize cron installed");
+			if (await restoreAgentsMaterializeCron(apiURL)) {
+				console.log("✅ Agents materialize cron installed");
+			}
 		} catch (error) {
 			console.error("❌ Error installing agents materialize cron:", error);
 		}
@@ -72,8 +75,9 @@ export async function register() {
 				"@/lib/platform/telemetry-snapshot/config"
 			);
 			console.log("🔄 Installing telemetry snapshot cron...");
-			await restoreTelemetrySnapshotCron(apiURL);
-			console.log("✅ Telemetry snapshot cron installed");
+			if (await restoreTelemetrySnapshotCron(apiURL)) {
+				console.log("✅ Telemetry snapshot cron installed");
+			}
 		} catch (error) {
 			console.error("❌ Error installing telemetry snapshot cron:", error);
 		}
