@@ -107,6 +107,8 @@ def _make_traced_stream(chunk_processor, final_processor):
             self._end_time = None
             self._finalized = False
             self._iter = None
+            self._stream_error = None
+            self._gen_ai_error = None
 
         def __enter__(self):
             if hasattr(self.__wrapped__, "__enter__"):
@@ -116,13 +118,29 @@ def _make_traced_stream(chunk_processor, final_processor):
         def __exit__(self, exc_type, exc_value, traceback):
             if hasattr(self.__wrapped__, "__exit__"):
                 self.__wrapped__.__exit__(exc_type, exc_value, traceback)
-            self._finalize()
+            self._finalize(ended_cleanly=False)
 
         def __iter__(self):
             return self
 
         def __getattr__(self, name):
             return getattr(self.__wrapped__, name)
+
+        def close(self):
+            """Close the wrapped stream and finalize the span if it has not ended yet."""
+            try:
+                close = getattr(self.__wrapped__, "close", None)
+                if callable(close):
+                    close()
+            finally:
+                self._finalize(ended_cleanly=False)
+
+        def __del__(self):
+            """Finalize a span abandoned by a bare ``for`` loop or a released wrapper."""
+            try:
+                self._finalize(ended_cleanly=False)
+            except Exception:
+                pass
 
         def _ensure_iter(self):
             if self._iter is None:
@@ -138,18 +156,37 @@ def _make_traced_stream(chunk_processor, final_processor):
                 chunk_processor(self, chunk)
                 return chunk
             except StopIteration:
-                self._finalize()
+                self._finalize(ended_cleanly=True)
+                raise
+            except Exception as exc:
+                self._stream_error = exc
                 raise
 
-        def _finalize(self):
+        def _finalize(self, ended_cleanly=False):
+            """End the span once.
+
+            ``ended_cleanly`` is True only for StopIteration. A stream that was
+            closed, dropped, or failed mid-way gets a finish reason that says
+            so instead of the "stop" the finalizer writes by default, and a
+            wrapped-stream error is recorded after the partial output is set.
+            """
             if self._finalized:
                 return
             self._finalized = True
+            if self._stream_error is not None:
+                self._finish_reason = "error"
+                self._gen_ai_error = self._stream_error
+            elif not ended_cleanly:
+                self._finish_reason = "incomplete"
             try:
                 with trace_api.use_span(  # pylint: disable=not-context-manager
                     self._span, end_on_exit=True
                 ):
-                    final_processor(self, **self._finalize_kwargs)
+                    try:
+                        final_processor(self, **self._finalize_kwargs)
+                    finally:
+                        if self._stream_error is not None:
+                            handle_exception(self._span, self._stream_error)
             except Exception as exc:
                 handle_exception(self._span, exc)
 
