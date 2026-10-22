@@ -42,7 +42,7 @@ services:
     volumes:
       - openlit-data:/app/client/data
     healthcheck:
-      test: ["CMD", "node", "-e", "Promise.all([fetch('http://127.0.0.1:'+(process.env.PORT||3000)),fetch('http://127.0.0.1:4318/health')]).then(rs=>process.exit(rs.every(r=>r.ok)?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "const ui=process.env.DOCKER_PORT||process.env.PORT||3000;let raw=process.env.OTLP_HTTP_ADDR||'0.0.0.0:4318',host='127.0.0.1',port='4318';if(raw.startsWith('[')){const end=raw.indexOf(']');if(end>1&&raw[end+1]===':'){host=raw.slice(1,end);port=raw.slice(end+2)}}else{const i=raw.lastIndexOf(':');if(i>=0){host=raw.slice(0,i);port=raw.slice(i+1)}}if(host===''||host==='0.0.0.0'||host==='::')host='127.0.0.1';const h=host.includes(':')?'['+host+']':host;Promise.all([fetch('http://127.0.0.1:'+ui),fetch('http://'+h+':'+port+'/health')]).then(rs=>process.exit(rs.every(r=>r.ok)?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 5s
       retries: 10

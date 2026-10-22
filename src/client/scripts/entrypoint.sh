@@ -78,8 +78,11 @@ persist_env() {
         fi
         return 0
     fi
-    sed -i "/^${key}=/d" /etc/environment
-    printf '%s=%q\n' "$key" "$value" >> /etc/environment
+    # The value is already exported. A read-only mount can still pass -w and
+    # then fail the write; that must not skip opening the OTLP ports.
+    if ! sed -i "/^${key}=/d" /etc/environment || ! printf '%s=%q\n' "$key" "$value" >> /etc/environment; then
+        echo "WARNING: could not persist ${key} to /etc/environment; the process environment is still set." >&2
+    fi
 }
 
 persist_env NEXTAUTH_SECRET "${NEXTAUTH_SECRET}"

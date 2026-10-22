@@ -20,20 +20,38 @@ import (
 // HTTP/2 preface. That is the failure Python exporters report as
 // StatusCode.UNAVAILABLE / "End of TCP stream" against :4317.
 func TestExportSpeaksGRPC(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+	addr := probe.Addr().String()
+	if err := probe.Close(); err != nil {
+		t.Fatal(err)
+	}
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	srv := New(&ingest.Service{
 		Tenants: &tenant.Store{RequireKey: true},
 		Limiter: tenant.NewFailLimiter(20, 60),
 	})
+	errc := make(chan error, 1)
 	go func() {
-		_ = srv.Serve(ln)
+		errc <- Listen("0.0.0.0:"+port, srv)
 	}()
-	t.Cleanup(srv.Stop)
+	t.Cleanup(func() {
+		srv.Stop()
+		select {
+		case <-errc:
+		case <-time.After(2 * time.Second):
+			t.Errorf("Listen did not return")
+		}
+	})
+	waitForAccept(t, "127.0.0.1:"+port)
 
-	conn, err := grpc.NewClient(ln.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("127.0.0.1:"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,4 +71,20 @@ func TestExportSpeaksGRPC(t *testing.T) {
 	if st.Code() != codes.Unauthenticated {
 		t.Fatalf("code %s: %s", st.Code(), st.Message())
 	}
+}
+
+func waitForAccept(t *testing.T, addr string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	var last error
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return
+		}
+		last = err
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("Listen did not accept on %s: %v", addr, last)
 }

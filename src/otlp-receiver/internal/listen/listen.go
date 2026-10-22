@@ -40,13 +40,48 @@ func TCP(addr string) ([]net.Listener, error) {
 	}
 	v4, v4err := net.Listen("tcp4", net.JoinHostPort("0.0.0.0", gotPort))
 	if v4err != nil {
-		if errors.Is(v4err, syscall.EADDRINUSE) {
-			return []net.Listener{v6}, nil
-		}
-		v6.Close()
-		return nil, v4err
+		return afterIPv4Failure(v6, v4err)
 	}
 	return []net.Listener{v6, v4}, nil
+}
+
+// afterIPv4Failure decides what an IPv4 wildcard failure means.
+// EADDRINUSE is the dual-stack socket already covering IPv4 only when that
+// socket is not IPv6-only. An unrelated listener on the same port must fail
+// the bind. A machine with no IPv4 stack keeps the IPv6 listener.
+func afterIPv4Failure(v6 net.Listener, v4err error) ([]net.Listener, error) {
+	if errors.Is(v4err, syscall.EADDRINUSE) && dualStack(v6) {
+		return []net.Listener{v6}, nil
+	}
+	if ipv4Unavailable(v4err) {
+		return []net.Listener{v6}, nil
+	}
+	v6.Close()
+	return nil, v4err
+}
+
+func dualStack(ln net.Listener) bool {
+	tcp, ok := ln.(*net.TCPListener)
+	if !ok {
+		return false
+	}
+	if addr, ok := tcp.Addr().(*net.TCPAddr); !ok || (addr.IP != nil && !addr.IP.IsUnspecified()) {
+		return false
+	}
+	raw, err := tcp.SyscallConn()
+	if err != nil {
+		return false
+	}
+	var v6only int
+	var getErr error
+	err = raw.Control(func(fd uintptr) {
+		v6only, getErr = syscall.GetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_V6ONLY)
+	})
+	return err == nil && getErr == nil && v6only == 0
+}
+
+func ipv4Unavailable(err error) bool {
+	return errors.Is(err, syscall.EAFNOSUPPORT) || errors.Is(err, syscall.EPROTONOSUPPORT)
 }
 
 func wildcard(host string) bool {
