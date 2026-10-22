@@ -11,6 +11,7 @@ from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind
 from wrapt import wrap_function_wrapper
+from opentelemetry.instrumentation.utils import unwrap
 
 from openlit.__helpers import (
     handle_exception,
@@ -135,6 +136,8 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
+    _processor = None
+
     def _instrument(self, **kwargs):
         version = importlib.metadata.version("openai-agents")
         environment = kwargs.get("environment", "default")
@@ -182,18 +185,35 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
             from agents import set_trace_processors
 
             set_trace_processors([processor])
+            self._processor = processor
         except ImportError:
             try:
                 from agents import add_trace_processor
 
                 add_trace_processor(processor)
+                self._processor = processor
             except ImportError:
                 pass
 
     def _uninstrument(self, **kwargs):
         try:
-            from agents import set_trace_processors
-
-            set_trace_processors([])
-        except ImportError:
+            unwrap("agents.Agent", "__init__")
+        except Exception:
             pass
+
+        processor, self._processor = self._processor, None
+        if processor is None:
+            return
+
+        try:
+            from agents.tracing import get_trace_provider, set_trace_processors
+
+            # The Agents SDK has no public getter, so keep the processors the
+            # application registered by reading the provider's current tuple.
+            current = get_trace_provider()._multi_processor._processors
+            set_trace_processors([p for p in current if p is not processor])
+        except Exception:
+            pass
+
+        # End the spans of any run still in flight
+        processor.shutdown()
