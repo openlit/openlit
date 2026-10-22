@@ -17,7 +17,7 @@ export async function llmResponseAnthropic({
     );
   }
   const client = new Anthropic({ apiKey });
-  const usedModel = model || 'claude-3-opus-20240229';
+  const usedModel = model || 'claude-sonnet-4-6';
   const response = await client.messages.create({
     model: usedModel,
     max_tokens: 2000,
