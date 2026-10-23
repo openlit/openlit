@@ -6,6 +6,7 @@ deduplication flags set by the sync wrapper to prevent double-spanning.
 Handles streaming via async generator wrappers.
 """
 
+import inspect
 import logging
 import time
 from opentelemetry import context as context_api
@@ -388,84 +389,75 @@ def async_workflow_wrap(
     metrics,
     disable_metrics,
 ):
-    """Wrapper for Workflow.arun which may return an async iterator."""
+    """Wrapper for Workflow.arun.
 
-    async def wrapper(wrapped, instance, args, kwargs):
+    Workflow.arun is a plain function that returns a coroutine when
+    stream=False and an async iterator when stream=True. The wrapper returns
+    the same kind of object, so both ``await workflow.arun(...)`` and
+    ``async for event in workflow.arun(..., stream=True)`` keep working.
+    """
+
+    def _process(response, span, instance, args, kwargs, start_time):
+        process_agno_response(
+            response,
+            gen_ai_endpoint,
+            span,
+            instance,
+            args,
+            kwargs,
+            start_time,
+            environment,
+            application_name,
+            metrics,
+            capture_message_content,
+            disable_metrics,
+            version,
+        )
+
+    async def _traced_stream(result, span_name, span_kind, instance, args, kwargs):
+        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+            start_time = time.time()
+            final_response = None
+            try:
+                async for event in result:
+                    final_response = event
+                    yield event
+            except Exception as e:
+                handle_exception(span, e)
+                raise
+            finally:
+                try:
+                    _process(final_response, span, instance, args, kwargs, start_time)
+                except Exception as e:
+                    handle_exception(span, e)
+
+    async def _traced_await(result, span_name, span_kind, instance, args, kwargs):
+        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
+            start_time = time.time()
+            try:
+                response = await result
+                _process(response, span, instance, args, kwargs, start_time)
+                return response
+            except Exception as e:
+                handle_exception(span, e)
+                raise
+
+    def wrapper(wrapped, instance, args, kwargs):
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            result = wrapped(*args, **kwargs)
-            if hasattr(result, "__aiter__"):
-                async for item in result:
-                    yield item
-                return
-            yield await result
-            return
+            return wrapped(*args, **kwargs)
 
         if _agno_workflow_active.get():
-            result = wrapped(*args, **kwargs)
-            if hasattr(result, "__aiter__"):
-                async for item in result:
-                    yield item
-                return
-            yield await result
-            return
+            return wrapped(*args, **kwargs)
 
         operation_type = OPERATION_MAP.get(gen_ai_endpoint, "invoke_workflow")
         span_kind = get_span_kind(operation_type)
         span_name = generate_span_name(gen_ai_endpoint, instance, args, kwargs)
 
-        with tracer.start_as_current_span(span_name, kind=span_kind) as span:
-            start_time = time.time()
-            result = wrapped(*args, **kwargs)
-
-            if hasattr(result, "__aiter__"):
-                final_response = None
-                try:
-                    async for event in result:
-                        final_response = event
-                        yield event
-                except Exception as e:
-                    handle_exception(span, e)
-                    raise
-                finally:
-                    try:
-                        process_agno_response(
-                            final_response,
-                            gen_ai_endpoint,
-                            span,
-                            instance,
-                            args,
-                            kwargs,
-                            start_time,
-                            environment,
-                            application_name,
-                            metrics,
-                            capture_message_content,
-                            disable_metrics,
-                            version,
-                        )
-                    except Exception as e:
-                        handle_exception(span, e)
-            else:
-                try:
-                    response = await result
-                    process_agno_response(
-                        response,
-                        gen_ai_endpoint,
-                        span,
-                        instance,
-                        args,
-                        kwargs,
-                        start_time,
-                        environment,
-                        application_name,
-                        metrics,
-                        capture_message_content,
-                        disable_metrics,
-                        version,
-                    )
-                    yield response
-                except Exception as e:
-                    handle_exception(span, e)
-                    raise
+        result = wrapped(*args, **kwargs)
+        if hasattr(result, "__aiter__"):
+            return _traced_stream(result, span_name, span_kind, instance, args, kwargs)
+        if inspect.isawaitable(result):
+            return _traced_await(result, span_name, span_kind, instance, args, kwargs)
+        return result
 
     return wrapper
