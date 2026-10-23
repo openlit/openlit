@@ -286,7 +286,26 @@ def _handle_stream(
             try:
                 stream_gen = wrapped(*args, **kwargs)
 
-                for chunk in stream_gen:
+                # The graph runs while the CONSUMER pulls chunks, outside the
+                # suppression window a plain wrapped() call would have. Hold
+                # the suppression key and the wrapper flag around each pull so
+                # nested wrappers and the LangChain handler stay quiet for the
+                # whole stream, exactly as for invoke() (#1766). The flags are
+                # reset before yielding, so consumer code between chunks is
+                # not suppressed.
+                while True:
+                    suppress_token = context_api.attach(
+                        context_api.set_value(_LANGGRAPH_SUPPRESS_KEY, True)
+                    )
+                    lg_token = set_langgraph_wrapper_active()
+                    try:
+                        chunk = next(stream_gen)
+                    except StopIteration:
+                        break
+                    finally:
+                        reset_langgraph_wrapper_active(lg_token)
+                        context_api.detach(suppress_token)
+
                     execution_state["chunk_count"] += 1
 
                     if isinstance(chunk, dict):
