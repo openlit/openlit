@@ -357,11 +357,33 @@ def process_chunk(scope, chunk):
         message_start = chunked.get("messageStart", {})
         scope._response_role = message_start.get("role", "assistant")
 
+    if "contentBlockStart" in chunked:
+        content_start = chunked.get("contentBlockStart", {})
+        block_index = content_start.get("start", {})
+        tool_use = block_index.get("toolUse") if isinstance(block_index, dict) else None
+        if tool_use:
+            idx = content_start.get("contentBlockIndex", 0)
+            if not hasattr(scope, "_tool_calls_by_index"):
+                scope._tool_calls_by_index = {}
+            scope._tool_calls_by_index[idx] = {
+                "id": tool_use.get("toolUseId", ""),
+                "name": tool_use.get("name", ""),
+                "arguments": "",
+            }
+
     if "contentBlockDelta" in chunked:
         content_delta = chunked.get("contentBlockDelta", {})
         delta = content_delta.get("delta", {})
         if "text" in delta:
             scope._llmresponse += delta.get("text", "")
+        elif "toolUse" in delta:
+            idx = content_delta.get("contentBlockIndex", 0)
+            if not hasattr(scope, "_tool_calls_by_index"):
+                scope._tool_calls_by_index = {}
+            if idx in scope._tool_calls_by_index:
+                scope._tool_calls_by_index[idx]["arguments"] += delta["toolUse"].get(
+                    "input", ""
+                )
 
     if "messageStop" in chunked:
         message_stop = chunked.get("messageStop", {})
@@ -547,10 +569,33 @@ def common_chat_logic(
     # Build messages regardless of capture so the inference event below can
     # still emit metadata.
     input_msgs = build_input_messages(scope._kwargs.get("messages", []))
+
+    # Resolve tool calls: streaming accumulates in _tool_calls_by_index; non-streaming
+    # uses _tool_calls directly.
+    tool_calls = getattr(scope, "_tool_calls", None)
+    if tool_calls is None:
+        tool_calls_by_index = getattr(scope, "_tool_calls_by_index", {})
+        if tool_calls_by_index:
+            resolved = []
+            for entry in tool_calls_by_index.values():
+                raw_args = entry.get("arguments", "")
+                try:
+                    arguments = json.loads(raw_args) if raw_args else {}
+                except (json.JSONDecodeError, TypeError):
+                    arguments = raw_args
+                resolved.append(
+                    {
+                        "id": entry.get("id", ""),
+                        "name": entry.get("name", ""),
+                        "arguments": arguments,
+                    }
+                )
+            tool_calls = resolved or None
+
     output_msgs = build_output_messages(
         scope._llmresponse,
         scope._finish_reason,
-        tool_calls=None,
+        tool_calls=tool_calls,
     )
 
     # Span Attributes for Content (OTel: array structure for gen_ai.input.messages / gen_ai.output.messages)
@@ -704,12 +749,21 @@ def process_chat_response(
         scope._start_time = start_time
         scope._end_time = time.time()
         scope._span = span
-        scope._llmresponse = (
-            response_dict.get("output", {})
-            .get("message", {})
-            .get("content", [{}])[0]
-            .get("text", "")
+        content_blocks = (
+            response_dict.get("output", {}).get("message", {}).get("content", [])
         )
+        scope._llmresponse = " ".join(
+            b.get("text", "") for b in content_blocks if "text" in b
+        )
+        scope._tool_calls = [
+            {
+                "id": b["toolUse"].get("toolUseId", ""),
+                "name": b["toolUse"].get("name", ""),
+                "arguments": b["toolUse"].get("input", {}),
+            }
+            for b in content_blocks
+            if "toolUse" in b
+        ] or None
         scope._response_role = (
             response_dict.get("output", {}).get("message", {}).get("role", "assistant")
         )
