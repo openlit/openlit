@@ -59,6 +59,24 @@ def format_content(messages):
     return "\n".join(formatted_messages)
 
 
+def normalize_system_blocks(kwargs):
+    """Materialize a one-shot ``system`` iterable before the SDK consumes it.
+
+    The Anthropic SDK accepts ``system`` as a string or any iterable of text
+    blocks. A generator is consumed by the SDK while sending the request, so
+    by the time the response is processed the exhausted generator is no
+    longer serializable and the span is wrongly marked failed (#1764).
+    Replacing a non-reiterable value with a list keeps the request payload
+    identical and leaves telemetry a serializable value.
+    """
+    system = kwargs.get("system")
+    if system is not None and not isinstance(system, (str, list, tuple)):
+        try:
+            kwargs["system"] = list(system)
+        except Exception:  # pylint: disable=broad-except
+            logger.debug("Could not materialize system blocks", exc_info=True)
+
+
 def build_input_messages(messages, system=None):
     """
     Convert Anthropic request messages to OTel input message structure.
