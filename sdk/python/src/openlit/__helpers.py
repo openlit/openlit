@@ -89,8 +89,18 @@ def set_framework_llm_active():
 
 
 def reset_framework_llm_active(token):
-    """Reset the framework LLM flag using the token from set_framework_llm_active."""
-    _framework_llm_span_active.reset(token)
+    """Reset the framework LLM flag using the token from set_framework_llm_active.
+
+    Tolerates tokens created in a different ``Context``: async framework
+    callbacks (e.g. LangChain's ``@shielded``) run in a task with a copied
+    context, where ``ContextVar.reset()`` raises ``ValueError``. Clearing the
+    flag in the current context instead keeps cleanup from aborting span
+    teardown (issue #1762).
+    """
+    try:
+        _framework_llm_span_active.reset(token)
+    except ValueError:
+        _framework_llm_span_active.set(False)
 
 
 def is_framework_llm_active() -> bool:
