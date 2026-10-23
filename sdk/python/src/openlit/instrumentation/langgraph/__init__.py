@@ -111,6 +111,12 @@ class LangGraphInstrumentor(BaseInstrumentor):
     - LLM info extraction from node results
     """
 
+    def __init__(self):
+        super().__init__()
+        # (owner class, attribute) pairs already wrapped, so alternate
+        # module paths naming the same class are not double-wrapped (#1766).
+        self._wrapped_execution_targets = set()
+
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
@@ -193,6 +199,22 @@ class LangGraphInstrumentor(BaseInstrumentor):
     ):
         """Wrap graph execution operations."""
         for module, method, operation_type, sync_type in operations:
+            # langgraph.pregel and langgraph.pregel.main can name the SAME
+            # class; wrapping both paths would double-wrap every method
+            # (#1766). Resolve the owner and wrap each method once.
+            try:
+                owner_path, _, attr = method.rpartition(".")
+                owner = importlib.import_module(module)
+                for part in owner_path.split("."):
+                    owner = getattr(owner, part)
+                dedup_key = (owner, attr)
+            except Exception:
+                # Graceful degradation if module/method doesn't exist
+                continue
+
+            if dedup_key in self._wrapped_execution_targets:
+                continue
+
             try:
                 if sync_type == "async":
                     wrapper = async_general_wrap(
@@ -220,6 +242,7 @@ class LangGraphInstrumentor(BaseInstrumentor):
                     )
 
                 wrap_function_wrapper(module, method, wrapper)
+                self._wrapped_execution_targets.add(dedup_key)
             except Exception:
                 # Graceful degradation if module/method doesn't exist
                 pass
