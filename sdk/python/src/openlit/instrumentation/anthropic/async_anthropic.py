@@ -92,6 +92,11 @@ def async_messages(
         def __aiter__(self):
             return self
 
+        @property
+        def __class__(self):
+            """Report the wrapped SDK stream class to keep isinstance() checks working (#1704)."""
+            return type(self.__wrapped__)
+
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
@@ -288,6 +293,11 @@ def async_messages_stream(
         def __aiter__(self):
             return self
 
+        @property
+        def __class__(self):
+            """Report the wrapped SDK stream class to keep isinstance() checks working (#1704)."""
+            return type(self.__wrapped__)
+
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped stream object."""
             if name == "text_stream":
@@ -435,6 +445,11 @@ def async_messages_stream(
                     self._traced_stream._finalize_streaming_span()
 
             return await self._original_manager.__aexit__(exc_type, exc_val, exc_tb)
+
+        @property
+        def __class__(self):
+            """Report the wrapped manager class to keep isinstance() checks working (#1704)."""
+            return type(self._original_manager)
 
         def __getattr__(self, name):
             """Delegate attribute access to the original manager."""
