@@ -1169,7 +1169,8 @@ def common_response_logic(
         except Exception as e:
             logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
-    scope._span.set_status(Status(StatusCode.OK))
+    if not getattr(scope, "_streaming_failed", False):
+        scope._span.set_status(Status(StatusCode.OK))
 
     # Record metrics
     if not disable_metrics:
@@ -1699,7 +1700,8 @@ def common_chat_logic(
         except Exception as e:
             logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
-    scope._span.set_status(Status(StatusCode.OK))
+    if not getattr(scope, "_streaming_failed", False):
+        scope._span.set_status(Status(StatusCode.OK))
 
     # Record metrics
     if not disable_metrics:
