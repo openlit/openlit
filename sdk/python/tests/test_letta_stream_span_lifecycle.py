@@ -171,7 +171,7 @@ def test_sync_stream_ends_span_on_exhaustion():
 
 def test_sync_stream_early_close_ends_span():
     """close() before exhaustion must finalize and end the span on its own."""
-    tracer, exporter, collector = _tracer_with_exporter()
+    tracer, exporter, _ = _tracer_with_exporter()
     recorder = _make_wrapped(FakeLettaStream)
     wrapper = _factory(tracer)
 
@@ -185,7 +185,7 @@ def test_sync_stream_early_close_ends_span():
 
 
 def test_sync_stream_early_break_inside_with_ends_span():
-    tracer, exporter, collector = _tracer_with_exporter()
+    tracer, exporter, _ = _tracer_with_exporter()
     recorder = _make_wrapped(FakeLettaStream)
     wrapper = _factory(tracer)
 
@@ -198,7 +198,7 @@ def test_sync_stream_early_break_inside_with_ends_span():
 
 
 def test_sync_stream_error_ends_error_span():
-    tracer, exporter, collector = _tracer_with_exporter()
+    tracer, exporter, _ = _tracer_with_exporter()
     recorder = _make_wrapped(FakeLettaErrorStream)
     wrapper = _factory(tracer)
 
@@ -217,7 +217,7 @@ def test_sync_stream_error_ends_error_span():
 
 def test_sync_chat_non_stream_response_returns_result():
     """A chat response that is not an iterator is returned as-is."""
-    tracer, exporter, collector = _tracer_with_exporter()
+    tracer, exporter, _ = _tracer_with_exporter()
     response = SimpleNamespace(
         id="msg-response", messages=[{"role": "assistant", "content": "done"}]
     )
