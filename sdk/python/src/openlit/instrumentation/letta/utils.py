@@ -4,7 +4,7 @@ Letta OpenTelemetry instrumentation utility functions following framework guide 
 
 import json
 import time
-from opentelemetry.trace import Status, StatusCode, SpanKind
+from opentelemetry.trace import Status, StatusCode
 from openlit.__helpers import (
     common_framework_span_attributes,
     handle_exception,
