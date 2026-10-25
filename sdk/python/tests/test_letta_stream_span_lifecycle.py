@@ -37,19 +37,15 @@ REQUEST_KWARGS = {
 }
 
 
-class FakeLettaMessage(SimpleNamespace):
-    """A chunk shaped like letta's LettaMessage."""
-
-
 def _chunks():
     return [
-        FakeLettaMessage(
+        SimpleNamespace(
             id="msg-1", message_type="assistant_message", content="partial"
         ),
-        FakeLettaMessage(
+        SimpleNamespace(
             id="msg-2", message_type="assistant_message", content=" answer"
         ),
-        FakeLettaMessage(
+        SimpleNamespace(
             id="msg-3",
             message_type="usage_statistics",
             prompt_tokens=10,
