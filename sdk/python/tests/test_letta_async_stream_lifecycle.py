@@ -169,7 +169,7 @@ def _assert_calls(recorder, expected=1):
 
 @pytest.mark.asyncio
 async def test_async_stream_executes_wrapped_once_and_ends_span():
-    tracer, exporter, collector = _tracer_with_exporter()
+    tracer, exporter, _ = _tracer_with_exporter()
     recorder = _make_wrapped(FakeLettaStream)
     wrapper = _factory(tracer)
 
@@ -207,7 +207,7 @@ async def test_async_stream_starts_one_span_and_ends_it():
 @pytest.mark.asyncio
 async def test_async_stream_early_close_ends_span():
     """aclose() before exhaustion must finalize the span on its own."""
-    tracer, exporter, collector = _tracer_with_exporter()
+    tracer, exporter, _ = _tracer_with_exporter()
     recorder = _make_wrapped(FakeLettaStream)
     wrapper = _factory(tracer)
 
@@ -221,7 +221,7 @@ async def test_async_stream_early_close_ends_span():
 
 @pytest.mark.asyncio
 async def test_async_stream_early_break_inside_async_with_ends_span():
-    tracer, exporter, collector = _tracer_with_exporter()
+    tracer, exporter, _ = _tracer_with_exporter()
     recorder = _make_wrapped(FakeLettaStream)
     wrapper = _factory(tracer)
 
@@ -235,7 +235,7 @@ async def test_async_stream_early_break_inside_async_with_ends_span():
 
 @pytest.mark.asyncio
 async def test_async_stream_error_ends_error_span_and_calls_once():
-    tracer, exporter, collector = _tracer_with_exporter()
+    tracer, exporter, _ = _tracer_with_exporter()
     recorder = _make_wrapped(FakeLettaErrorStream)
     wrapper = _factory(tracer)
 
@@ -256,7 +256,7 @@ async def test_async_stream_error_ends_error_span_and_calls_once():
 @pytest.mark.asyncio
 async def test_async_chat_non_stream_response_calls_once():
     """A chat response that is not an async iterator is also executed once."""
-    tracer, exporter, collector = _tracer_with_exporter()
+    tracer, exporter, _ = _tracer_with_exporter()
     response = SimpleNamespace(
         id="msg-response", messages=[{"role": "assistant", "content": "done"}]
     )
