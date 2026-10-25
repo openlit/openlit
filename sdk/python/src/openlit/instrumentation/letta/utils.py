@@ -525,6 +525,7 @@ class TracedLettaStream:
         self._response_messages = []
         self._chunk_count = 0
         self._ttft = 0
+        self._stream_error = None
         self._finalized = False
 
     def __iter__(self):
@@ -536,18 +537,11 @@ class TracedLettaStream:
             self._process_chunk(chunk)
             return chunk
         except StopIteration:
-            try:
-                # Following LiteLLM pattern: create new span context for finalization
-                with self._tracer.start_as_current_span(
-                    self._span_name, kind=SpanKind.CLIENT
-                ) as finalization_span:
-                    # Process the streaming response with all collected data
-                    self._process_streaming_response(finalization_span)
-            except Exception as e:
-                handle_exception(self._span, e)
+            self._finalize_span()
             raise
         except Exception as e:
-            handle_exception(self._span, e)
+            self._stream_error = e
+            self._finalize_span()
             raise
 
     def _process_chunk(self, chunk):
@@ -578,8 +572,16 @@ class TracedLettaStream:
                 )
 
     def _process_streaming_response(self, span):
-        """Process the complete streaming response (following LiteLLM pattern)"""
+        """Process the complete streaming response on the original span"""
         try:
+            if self._stream_error is not None:
+                # A failed stream follows the letta error convention
+                # (handle_exception only): process_letta_response would set the
+                # OK status, and Span.set_status ignores updates once OK is set,
+                # losing the ERROR status.
+                handle_exception(span, self._stream_error)
+                return
+
             # Create a synthetic response object from collected messages for processing
             # This allows us to reuse the same processing logic
             synthetic_response = type("StreamResponse", (), {})()
@@ -637,49 +639,25 @@ class TracedLettaStream:
             pass
 
     def _finalize_span(self):
-        """Finalize span with streaming metrics"""
+        """End the original span exactly once with the collected data.
+
+        ``Span.set_status`` ignores updates once the status is OK, so a failure
+        raised by the wrapped stream is recorded instead of the OK that
+        ``process_letta_response`` would write.
+        """
         if self._finalized:
-            return  # Already finalized
+            return
 
         self._finalized = True
-
         try:
-            # Check if span is still recording before setting attributes
-            if self._span.is_recording():
-                # Set streaming-specific attributes using semantic conventions
-                self._span.set_attribute(
-                    SemanticConvention.GEN_AI_SERVER_TTFT, self._ttft
-                )
-                self._span.set_attribute(
-                    SemanticConvention.GEN_AI_STREAMING_CHUNK_COUNT, self._chunk_count
-                )
-                self._span.set_attribute(
-                    SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True
-                )
-
-                # Set content if enabled
-                if self._capture_content and self._response_content:
-                    self._span.set_attribute(
-                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                        self._response_content,
-                    )
-                elif self._capture_content and self._response_messages:
-                    # Fallback: Use response messages if no direct content
-                    completion_content = str(self._response_messages)
-                    self._span.set_attribute(
-                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completion_content
-                    )
-
-                # Set response messages if available
-                if self._response_messages:
-                    self._span.set_attribute(
-                        SemanticConvention.GEN_AI_STREAMING_RESPONSE_COUNT,
-                        len(self._response_messages),
-                    )
-
-                self._span.set_status(Status(StatusCode.OK))
+            with self._span:
+                try:
+                    if self._span.is_recording():
+                        self._process_streaming_response(self._span)
+                except Exception as e:
+                    handle_exception(self._span, e)
         except Exception:
-            # Ignore any errors during finalization
+            # Never raise from finalization
             pass
 
     def close(self):
@@ -698,7 +676,7 @@ class TracedLettaStream:
             except Exception:
                 pass  # Ignore cleanup errors
             finally:
-                self._finalized = True
+                self._finalize_span()
 
     def __enter__(self):
         """Context manager entry"""
