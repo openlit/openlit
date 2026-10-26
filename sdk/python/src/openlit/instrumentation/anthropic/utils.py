@@ -543,13 +543,12 @@ def process_chunk(scope, chunk):
         delta = chunked.get("delta") or {}
         scope._output_tokens = usage.get("output_tokens", 0) or 0
         scope._finish_reason = delta.get("stop_reason") or scope._finish_reason
-        # message_delta carries final usage; update cache token counts when
-        # present. The comment always said "when present" and the code did not:
-        # a message_delta carrying only output_tokens reset both counters to
-        # zero, losing what message_start reported. `is not None` keeps a delta
-        # that does report a cache field authoritative while leaving the
-        # message_start values alone when it does not, which is what the Go SDK
-        # in this repository already does (sdk/go/.../anthropic/streaming.go).
+        # message_delta carries final usage; update input tokens and cache token counts when
+        # present. Anthropic sends updated cumulative input_tokens on message_delta when
+        # server tools are invoked.
+        input_tokens = usage.get("input_tokens")
+        if input_tokens is not None:
+            scope._input_tokens = input_tokens or 0
         cache_creation = usage.get("cache_creation_input_tokens")
         if cache_creation is not None:
             scope._cache_creation_input_tokens = cache_creation or 0
