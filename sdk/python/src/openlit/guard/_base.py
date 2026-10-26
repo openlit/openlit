@@ -153,7 +153,11 @@ class Guard(ABC):
         return phase in self.phases
 
     def run(self, text: str, phase: GuardPhase) -> GuardResult:
-        """Execute the guard with timing, text-length capping, and phase filtering."""
+        """Execute the guard with timing, optional capping, and phase filtering.
+
+        Redaction always scans the full input so transformed text covers the
+        whole document; the cap only bounds detection-only actions (deny/warn).
+        """
         if not self.supports_phase(phase):
             return GuardResult(guard_name=self.name)
 

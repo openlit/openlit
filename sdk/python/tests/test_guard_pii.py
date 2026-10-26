@@ -161,6 +161,8 @@ class TestPIIRedaction:
         assert result.transformed_text.endswith("Contact [REDACTED:email]. END")
         assert "bob@example.com" not in result.transformed_text
         assert len(result.transformed_text) == len(text) - len("bob@example.com") + len("[REDACTED:email]")
+        # Only the email is replaced; the long filler prefix is otherwise unchanged.
+        assert result.transformed_text == text.replace("bob@example.com", "[REDACTED:email]")
 
     def test_deny_still_caps_the_scan(self):
         """Detection-only actions keep the max_scan_length cost cap."""
