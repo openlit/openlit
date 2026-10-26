@@ -13,8 +13,11 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from openlit._config import OpenlitConfig
-from openlit.instrumentation.openai.async_openai import async_chat_completions
-from openlit.instrumentation.openai.openai import chat_completions
+from openlit.instrumentation.openai.async_openai import (
+    async_chat_completions,
+    async_responses,
+)
+from openlit.instrumentation.openai.openai import chat_completions, responses
 
 CHUNK = {
     "id": "c",
@@ -124,6 +127,106 @@ def test_closing_the_stream_still_exports_one_span():
 async def test_an_abandoned_async_stream_exports_its_span():
     tracer, exporter = _tracer_and_exporter()
     stream = await _async_wrapper(tracer)(_raw_async, object(), [], KWARGS)
+
+    async for _chunk in stream:
+        break
+    del stream
+    gc.collect()
+
+    assert len(exporter.get_finished_spans()) == 1
+
+RESPONSES_CHUNK = {"type": "response.output_text.delta", "delta": "hi"}
+RESPONSES_KWARGS = {
+    "model": "gpt-4o",
+    "stream": True,
+    "input": "hi",
+}
+
+
+def _responses_wrapper(tracer):
+    return responses(
+        version="t",
+        environment="t",
+        application_name="t",
+        tracer=tracer,
+        pricing_info={},
+        capture_message_content=False,
+        metrics=None,
+        disable_metrics=True,
+    )
+
+
+def _async_responses_wrapper(tracer):
+    return async_responses(
+        version="t",
+        environment="t",
+        application_name="t",
+        tracer=tracer,
+        pricing_info={},
+        capture_message_content=False,
+        metrics=None,
+        disable_metrics=True,
+    )
+
+
+class _RawResponsesStream:
+    def __init__(self):
+        self.left = 2
+
+    def close(self):
+        pass
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if not self.left:
+            raise StopIteration
+        self.left -= 1
+        return RESPONSES_CHUNK
+
+
+async def _raw_async_responses(*args, **kwargs):
+    return _RawAsyncResponsesStream()
+
+
+class _RawAsyncResponsesStream:
+    def __init__(self):
+        self.left = 2
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if not self.left:
+            raise StopAsyncIteration
+        self.left -= 1
+        return RESPONSES_CHUNK
+
+    async def close(self):
+        pass
+
+
+def test_an_abandoned_responses_stream_exports_its_span():
+    tracer, exporter = _tracer_and_exporter()
+    stream = _responses_wrapper(tracer)(
+        lambda *a, **k: _RawResponsesStream(), object(), [], RESPONSES_KWARGS
+    )
+
+    for _chunk in stream:
+        break
+    del stream
+    gc.collect()
+
+    assert len(exporter.get_finished_spans()) == 1
+
+
+@pytest.mark.asyncio
+async def test_an_abandoned_async_responses_stream_exports_its_span():
+    tracer, exporter = _tracer_and_exporter()
+    stream = await _async_responses_wrapper(tracer)(
+        _raw_async_responses, object(), [], RESPONSES_KWARGS
+    )
 
     async for _chunk in stream:
         break
