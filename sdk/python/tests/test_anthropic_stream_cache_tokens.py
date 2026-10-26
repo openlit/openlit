@@ -203,4 +203,3 @@ def test_message_delta_without_input_tokens_retains_message_start_value():
 
     assert scope._input_tokens == 50
     assert scope._output_tokens == 30
-
