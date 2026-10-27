@@ -2,11 +2,13 @@ package grpcserver
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	_ "google.golang.org/grpc/encoding/gzip" // OTLP clients send grpc-encoding=gzip
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -16,6 +18,7 @@ import (
 	colltrace "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 
 	"github.com/openlit/openlit/otlp-receiver/internal/ingest"
+	"github.com/openlit/openlit/otlp-receiver/internal/listen"
 	"github.com/openlit/openlit/otlp-receiver/internal/tenant"
 )
 
@@ -34,8 +37,15 @@ type metricsServer struct {
 	svc *ingest.Service
 }
 
+// maxMessageBytes matches the HTTP receiver. The gRPC default of 4MiB
+// rejects larger OTLP batches that the HTTP path accepts.
+const maxMessageBytes = 32 << 20
+
 func New(svc *ingest.Service) *grpc.Server {
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.MaxRecvMsgSize(maxMessageBytes),
+		grpc.MaxSendMsgSize(maxMessageBytes),
+	)
 	colltrace.RegisterTraceServiceServer(s, &tracesServer{svc: svc})
 	colllog.RegisterLogsServiceServer(s, &logsServer{svc: svc})
 	collmetric.RegisterMetricsServiceServer(s, &metricsServer{svc: svc})
@@ -43,11 +53,34 @@ func New(svc *ingest.Service) *grpc.Server {
 }
 
 func Listen(addr string, srv *grpc.Server) error {
-	ln, err := net.Listen("tcp", addr)
+	lns, err := listen.TCP(addr)
 	if err != nil {
 		return err
 	}
-	return srv.Serve(ln)
+	if len(lns) == 1 {
+		return ignoreStopped(srv.Serve(lns[0]))
+	}
+	errc := make(chan error, len(lns))
+	for _, ln := range lns {
+		go func(ln net.Listener) {
+			errc <- srv.Serve(ln)
+		}(ln)
+	}
+	first := <-errc
+	for _, ln := range lns {
+		_ = ln.Close()
+	}
+	for i := 1; i < len(lns); i++ {
+		<-errc
+	}
+	return ignoreStopped(first)
+}
+
+func ignoreStopped(err error) error {
+	if errors.Is(err, grpc.ErrServerStopped) {
+		return nil
+	}
+	return err
 }
 
 func authorization(ctx context.Context) string {
