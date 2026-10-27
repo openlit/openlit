@@ -28,7 +28,7 @@ CLIENT_DIR="$ROOT/src/client"
 RECEIVER_DIR="$ROOT/src/otlp-receiver"
 ENGINE_DIR="$ROOT/src/engine"
 NATS_CONTAINER="${NATS_CONTAINER:-openlit-dev-nats}"
-NATS_IMAGE="${NATS_IMAGE:-nats:2.10-alpine}"
+NATS_IMAGE="${NATS_IMAGE:-nats:2.15-alpine}"
 
 log() { printf '\033[1;36m[dev]\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31m[dev]\033[0m %s\n' "$*" >&2; exit 1; }
