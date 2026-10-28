@@ -6,6 +6,10 @@ HTTP request only runs while the caller iterates the result. These drive the
 real wrapper factories with that shape and check that the result can still be
 iterated (``async for`` included), that the span stays open while the request
 runs, and that a failure raised during iteration reaches the span.
+
+Closing the stream early (GeneratorExit) records the request as OK. Anything
+else that interrupts it, CancelledError and KeyboardInterrupt included, marks
+the span ERROR.
 """
 
 import asyncio
@@ -22,6 +26,7 @@ from opentelemetry.trace import StatusCode
 from openlit._config import OpenlitConfig
 from openlit.instrumentation.elevenlabs.async_elevenlabs import async_generate
 from openlit.instrumentation.elevenlabs.elevenlabs import generate
+from openlit.semcov import SemanticConvention
 
 CHUNKS = [b"AUDIO", b"BYTES"]
 KWARGS = {
@@ -66,15 +71,15 @@ def _factory_args(tracer):
     )
 
 
-def _sync_convert(exporter, box, fail=False):
+def _sync_convert(exporter, box, error=None):
     """Same shape as TextToSpeechClient.convert: the request runs on iteration."""
 
     def convert(**_kwargs):
         try:
             time.sleep(REQUEST_SECONDS)
             box["finished_during_request"] = len(exporter.get_finished_spans())
-            if fail:
-                raise ApiError("status_code: 401, body: invalid api key")
+            if error is not None:
+                raise error
             yield from CHUNKS
         finally:
             box["closed"] = True
@@ -82,15 +87,19 @@ def _sync_convert(exporter, box, fail=False):
     return convert
 
 
-def _async_convert(exporter, box, fail=False):
+def _async_convert(exporter, box, error=None, started=None):
     """Same shape as AsyncTextToSpeechClient.convert."""
 
     async def convert(**_kwargs):
         try:
+            if started is not None:
+                # Park in the request until the test cancels the consumer.
+                started.set()
+                await asyncio.sleep(60)
             await asyncio.sleep(REQUEST_SECONDS)
             box["finished_during_request"] = len(exporter.get_finished_spans())
-            if fail:
-                raise ApiError("status_code: 401, body: invalid api key")
+            if error is not None:
+                raise error
             for chunk in CHUNKS:
                 yield chunk
         finally:
@@ -101,6 +110,26 @@ def _async_convert(exporter, box, fail=False):
 
 def _duration(span):
     return (span.end_time - span.start_time) / 1e9
+
+
+def _api_error():
+    return ApiError("status_code: 401, body: invalid api key")
+
+
+def _assert_error_span(exporter, error_type):
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.attributes["error.type"] == error_type
+    assert [event.name for event in span.events] == ["exception"]
+    # A failed request is not priced.
+    assert SemanticConvention.GEN_AI_USAGE_COST not in span.attributes
+
+
+def _assert_ok_span(exporter):
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code == StatusCode.OK
+    assert SemanticConvention.GEN_AI_USAGE_COST in span.attributes
+    return span
 
 
 def test_sync_span_covers_the_request():
@@ -114,8 +143,7 @@ def test_sync_span_covers_the_request():
 
     assert list(audio) == CHUNKS
     assert box["finished_during_request"] == 0
-    (span,) = exporter.get_finished_spans()
-    assert span.status.status_code == StatusCode.OK
+    span = _assert_ok_span(exporter)
     assert _duration(span) >= REQUEST_SECONDS
     assert span.attributes["gen_ai.request.model"] == "eleven_multilingual_v2"
 
@@ -126,18 +154,47 @@ def test_sync_api_error_reaches_the_span():
     box = {}
     wrapper = generate(*_factory_args(tracer))
 
-    audio = wrapper(_sync_convert(exporter, box, fail=True), None, (), dict(KWARGS))
+    audio = wrapper(
+        _sync_convert(exporter, box, error=_api_error()), None, (), dict(KWARGS)
+    )
     with pytest.raises(ApiError):
         b"".join(audio)
 
-    (span,) = exporter.get_finished_spans()
-    assert span.status.status_code == StatusCode.ERROR
-    assert span.attributes["error.type"] == "ApiError"
-    assert [event.name for event in span.events] == ["exception"]
+    _assert_error_span(exporter, "ApiError")
 
 
-def test_sync_early_close_ends_the_span():
-    """close() reaches the wrapped stream and ends the span, without an error."""
+def test_sync_base_exception_from_the_stream_marks_the_span_error():
+    """A BaseException such as KeyboardInterrupt is a failure, not a success."""
+    tracer, exporter = _tracer_and_exporter()
+    box = {}
+    wrapper = generate(*_factory_args(tracer))
+
+    audio = wrapper(
+        _sync_convert(exporter, box, error=KeyboardInterrupt()), None, (), dict(KWARGS)
+    )
+    with pytest.raises(KeyboardInterrupt):
+        list(audio)
+
+    _assert_error_span(exporter, "KeyboardInterrupt")
+
+
+def test_sync_base_exception_thrown_in_marks_the_span_error():
+    """A BaseException thrown in mid-stream closes the wrapped stream and fails."""
+    tracer, exporter = _tracer_and_exporter()
+    box = {}
+    wrapper = generate(*_factory_args(tracer))
+
+    audio = wrapper(_sync_convert(exporter, box), None, (), dict(KWARGS))
+    assert next(audio) == CHUNKS[0]
+    with pytest.raises(KeyboardInterrupt):
+        audio.throw(KeyboardInterrupt())
+
+    assert box["closed"]
+    _assert_error_span(exporter, "KeyboardInterrupt")
+
+
+def test_sync_early_close_records_the_request():
+    """close() reaches the wrapped stream and the request is recorded as OK."""
     tracer, exporter = _tracer_and_exporter()
     box = {}
     wrapper = generate(*_factory_args(tracer))
@@ -147,8 +204,7 @@ def test_sync_early_close_ends_the_span():
     audio.close()
 
     assert box["closed"]
-    (span,) = exporter.get_finished_spans()
-    assert span.status.status_code != StatusCode.ERROR
+    _assert_ok_span(exporter)
 
 
 @pytest.mark.asyncio
@@ -163,8 +219,7 @@ async def test_async_convert_supports_async_for():
 
     assert chunks == CHUNKS
     assert box["finished_during_request"] == 0
-    (span,) = exporter.get_finished_spans()
-    assert span.status.status_code == StatusCode.OK
+    span = _assert_ok_span(exporter)
     assert _duration(span) >= REQUEST_SECONDS
 
 
@@ -175,19 +230,61 @@ async def test_async_api_error_reaches_the_span():
     box = {}
     wrapper = async_generate(*_factory_args(tracer))
 
-    audio = wrapper(_async_convert(exporter, box, fail=True), None, (), dict(KWARGS))
+    audio = wrapper(
+        _async_convert(exporter, box, error=_api_error()), None, (), dict(KWARGS)
+    )
     with pytest.raises(ApiError):
         async for _ in audio:
             pass
 
-    (span,) = exporter.get_finished_spans()
-    assert span.status.status_code == StatusCode.ERROR
-    assert span.attributes["error.type"] == "ApiError"
+    _assert_error_span(exporter, "ApiError")
 
 
 @pytest.mark.asyncio
-async def test_async_early_close_ends_the_span():
-    """aclose() reaches the wrapped stream and ends the span, without an error."""
+async def test_async_cancelled_consumer_marks_the_span_error():
+    """Cancelling the task that iterates the stream fails the span."""
+    tracer, exporter = _tracer_and_exporter()
+    box = {}
+    started = asyncio.Event()
+    wrapper = async_generate(*_factory_args(tracer))
+
+    audio = wrapper(
+        _async_convert(exporter, box, started=started), None, (), dict(KWARGS)
+    )
+
+    async def consume():
+        async for _ in audio:
+            pass
+
+    task = asyncio.create_task(consume())
+    await started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert box["closed"]
+    _assert_error_span(exporter, "CancelledError")
+
+
+@pytest.mark.asyncio
+async def test_async_cancelled_error_thrown_in_marks_the_span_error():
+    """CancelledError thrown in mid-stream closes the wrapped stream and fails."""
+    tracer, exporter = _tracer_and_exporter()
+    box = {}
+    wrapper = async_generate(*_factory_args(tracer))
+
+    audio = wrapper(_async_convert(exporter, box), None, (), dict(KWARGS))
+    assert await anext(audio) == CHUNKS[0]
+    with pytest.raises(asyncio.CancelledError):
+        await audio.athrow(asyncio.CancelledError())
+
+    assert box["closed"]
+    _assert_error_span(exporter, "CancelledError")
+
+
+@pytest.mark.asyncio
+async def test_async_early_close_records_the_request():
+    """aclose() reaches the wrapped stream and the request is recorded as OK."""
     tracer, exporter = _tracer_and_exporter()
     box = {}
     wrapper = async_generate(*_factory_args(tracer))
@@ -197,5 +294,4 @@ async def test_async_early_close_ends_the_span():
     await audio.aclose()
 
     assert box["closed"]
-    (span,) = exporter.get_finished_spans()
-    assert span.status.status_code != StatusCode.ERROR
+    _assert_ok_span(exporter)
