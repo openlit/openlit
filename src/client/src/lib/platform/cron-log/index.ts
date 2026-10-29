@@ -123,7 +123,7 @@ export async function getLastRunCronLogByCronId(
 	databaseConfigId?: string
 ) {
 	const query = `
-		SELECT * FROM ${OPENLIT_CRON_LOG_TABLE_NAME} WHERE cron_id = '${cronId}' AND run_status = '${CronRunStatus.SUCCESS}'
+		SELECT started_at AS startedAt FROM ${OPENLIT_CRON_LOG_TABLE_NAME} WHERE cron_id = '${cronId}' AND run_status = '${CronRunStatus.SUCCESS}'
 		ORDER BY started_at DESC
 		LIMIT 1
 	`;
@@ -134,7 +134,7 @@ export async function getLastRunCronLogByCronId(
 		databaseConfigId
 	);
 
-	if (err || !data) {
+	if (err || !(data as CronLogData[] | undefined)?.length) {
 		return null;
 	}
 
