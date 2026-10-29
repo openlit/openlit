@@ -1,7 +1,7 @@
 """Tests for the PII guard."""
 
 from openlit.guard.pii import PII
-from openlit.guard._base import GuardAction
+from openlit.guard._base import GuardAction, GuardPhase
 
 
 class TestPIIDetection:
@@ -149,6 +149,28 @@ class TestPIIRedaction:
             result.transformed_text
             == "[REDACTED:twilio-api-key][REDACTED:github-fine-grained]"
         )
+
+    def test_redact_scans_past_max_scan_length(self):
+        """Redaction covers the whole text, not just the first max_scan_length chars."""
+        guard = PII(action="redact")
+        filler = "lorem ipsum " * 12_000  # 144,000 chars > default cap of 102,400
+        text = filler + "Contact bob@example.com. END"
+        result = guard.run(text, GuardPhase.PREFLIGHT)
+        assert result.action == GuardAction.REDACT
+        assert result.transformed_text is not None
+        assert result.transformed_text.endswith("Contact [REDACTED:email]. END")
+        assert "bob@example.com" not in result.transformed_text
+        assert len(result.transformed_text) == len(text) - len("bob@example.com") + len("[REDACTED:email]")
+        # Only the email is replaced; the long filler prefix is otherwise unchanged.
+        assert result.transformed_text == text.replace("bob@example.com", "[REDACTED:email]")
+
+    def test_deny_still_caps_the_scan(self):
+        """Detection-only actions keep the max_scan_length cost cap."""
+        guard = PII(action="deny")
+        filler = "lorem ipsum " * 12_000
+        text = filler + "Contact bob@example.com. END"
+        result = guard.run(text, GuardPhase.PREFLIGHT)
+        assert result.action == GuardAction.ALLOW  # the email past the cap is not scanned
 
 
 class TestPIIWarn:  # pylint: disable=too-few-public-methods

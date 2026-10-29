@@ -153,14 +153,28 @@ class Guard(ABC):
         return phase in self.phases
 
     def run(self, text: str, phase: GuardPhase) -> GuardResult:
-        """Execute the guard with timing, text-length capping, and phase filtering."""
+        """Execute the guard with timing, optional capping, and phase filtering.
+
+        Redaction always scans the full input so transformed text covers the
+        whole document; the cap only bounds detection-only actions (deny/warn).
+        """
         if not self.supports_phase(phase):
             return GuardResult(guard_name=self.name)
 
-        capped = text[: self._max_scan_length] if self._max_scan_length else text
+        # Redaction must cover the full text.  Capping the scan before
+        # `evaluate` would leave sensitive content past the cap untouched
+        # and return a `transformed_text` that cuts the document mid-way,
+        # so the outgoing request would still contain PII.  Detection-only
+        # actions (deny/warn) keep the cap as a cost limit.
+        if self._action == GuardAction.REDACT:
+            scan_text = text
+        elif self._max_scan_length:
+            scan_text = text[: self._max_scan_length]
+        else:
+            scan_text = text
 
         start = time.perf_counter()
-        result = self.evaluate(capped)
+        result = self.evaluate(scan_text)
         elapsed_ms = (time.perf_counter() - start) * 1000
 
         return GuardResult(
