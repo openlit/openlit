@@ -1,4 +1,4 @@
-"""
+﻿"""
 Offline evaluation client for the OpenLIT server-side evaluation engine.
 
 All evaluations run on the OpenLIT server (same engine as online/auto evals).
@@ -10,6 +10,7 @@ import logging
 import os
 import sys
 import uuid
+from urllib.parse import unquote
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
@@ -70,7 +71,7 @@ def _resolve_attributes(
             pair = pair.strip()
             if "=" in pair:
                 k, v = pair.split("=", 1)
-                attrs[k.strip()] = v.strip()
+                attrs[unquote(k.strip())] = unquote(v.strip())
 
     otel_svc = os.getenv("OTEL_SERVICE_NAME")
     if otel_svc:
@@ -364,3 +365,4 @@ def fetch_eval_types(
         ) from exc
     except requests.RequestException as exc:
         raise RuntimeError(f"Failed to fetch eval types: {exc}") from exc
+
