@@ -131,7 +131,7 @@ To configure OpenLIT Client, you can pass the following environment values, each
 | `INIT_DB_PASSWORD`   | Password for authenticating with ClickHouse.                                |          | `default`                             |
 | `SQLITE_DATABASE_URL`| Location of the SQLITE database for OpenLIT Client data storage.               |    ✓     | `file:/app/client/data/data.db`       |
 
-For more detailed information on configuration options and additional settings, please visit the OpenLIT documentation page: [OpenLIT Configuration Details](https://docs.openlit.io/latest/configuration).
+For more detailed information on configuration options and additional settings, please visit the OpenLIT documentation page: [OpenLIT Configuration Details](https://docs.openlit.io/latest/openlit/configuration).
 
 ## 🛣️ Roadmap
 
@@ -142,10 +142,10 @@ We are dedicated to continuously improving OpenLIT. Here's a look at what's been
 | [OpenTelemetry-native Observability SDK for Tracing and Metrics](https://github.com/openlit/openlit/tree/main/sdk/python) | ✅ Completed  |
 | [OpenTelemetry-native GPU Monitoring](https://docs.openlit.io/latest/features/gpu)           | ✅ Completed  |
 | [Exceptions and Error Monitoring]()                                                          | ✅ Completed  |
-| [Prompt Hub for Managing and Versioning Prompts](https://docs.openlit.io/latest/features/prompt-hub) | ✅ Completed  |
+| [Prompt Hub for Managing and Versioning Prompts](https://docs.openlit.io/latest/openlit/prompts-experiments/prompt-hub/overview) | ✅ Completed  |
 | [OpenGround for Testing and Comparing LLMs]()                                                | ✅ Completed  |
-| [Vault for Central Management of LLM API Keys and Secrets](https://docs.openlit.io/latest/features/vault) | ✅ Completed  |
-| [Cost Tracking for Custom Models](https://docs.openlit.io/latest/features/pricing)           | ✅ Completed  |
+| [Vault for Central Management of LLM API Keys and Secrets](https://docs.openlit.io/latest/openlit/developer-resources/vault/overview) | ✅ Completed  |
+| [Cost Tracking for Custom Models](https://docs.openlit.io/latest/openlit/costs/manage-models/overview)           | ✅ Completed  |
 | [Auto-Evaluation with 11 Built-in Types (LLM-as-a-Judge)](https://docs.openlit.io/latest/openlit/evaluations/overview) | ✅ Completed  |
 | [Rule Engine with SDK Support (Python, TypeScript, Go)](https://docs.openlit.io/latest/openlit/prompts-experiments/rule-engine) | ✅ Completed  |
 | [Human Feedback for LLM Events](https://github.com/openlit/openlit/issues/471)              | ✅ Completed  |
