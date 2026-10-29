@@ -561,3 +561,29 @@ def test_fetch_eval_types_connection_error():
                 openlit_api_key="key",
                 openlit_url="http://localhost:3000",
             )
+
+
+def test_resolve_attributes_percent_decoding():
+    """Percent-escapes in OTEL_RESOURCE_ATTRIBUTES are decoded like OTel."""
+    from openlit.evals.offline import _resolve_attributes
+
+    with patch.dict(
+        os.environ,
+        {"OTEL_RESOURCE_ATTRIBUTES": "service.name=worker%2Cblue,team=eval%3Dblue"},
+    ):
+        attrs = _resolve_attributes(None)
+    assert attrs["service.name"] == "worker,blue"
+    assert attrs["team"] == "eval=blue"
+
+
+def test_resolve_attributes_malformed_percent_untouched():
+    """Malformed percent-escapes are left as-is (matches unquote behavior)."""
+    from openlit.evals.offline import _resolve_attributes
+
+    with patch.dict(
+        os.environ,
+        {"OTEL_RESOURCE_ATTRIBUTES": "bad.key=value%ZZ,normal=ok%20space"},
+    ):
+        attrs = _resolve_attributes(None)
+    assert attrs["bad.key"] == "value%ZZ"
+    assert attrs["normal"] == "ok space"
