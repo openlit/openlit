@@ -718,21 +718,21 @@ async function discoverCodingAgents(
 				-- both Codex (no SessionEnd) and in-flight CC / Cursor
 				-- sessions.
 				greatest(
-					toInt64OrZero(any(SpanAttributes['coding_agent.session.lines.added'])),
+					max(toInt64OrZero(SpanAttributes['coding_agent.session.lines.added'])),
 					toInt64(sumIf(
 						toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),
 						SpanName = 'coding_agent.edit.decision'
 					))
 				) AS chat_lines_added,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['coding_agent.session.lines.removed'])),
+					max(toInt64OrZero(SpanAttributes['coding_agent.session.lines.removed'])),
 					toInt64(sumIf(
 						toInt64OrZero(SpanAttributes['coding_agent.edit.lines.removed']),
 						SpanName = 'coding_agent.edit.decision'
 					))
 				) AS chat_lines_removed,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['coding_agent.session.lines.accepted'])),
+					max(toInt64OrZero(SpanAttributes['coding_agent.session.lines.accepted'])),
 					toInt64(sumIf(
 						toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),
 						SpanName = 'coding_agent.edit.decision'
@@ -740,7 +740,7 @@ async function discoverCodingAgents(
 					))
 				) AS chat_lines_accepted,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['coding_agent.session.lines.rejected'])),
+					max(toInt64OrZero(SpanAttributes['coding_agent.session.lines.rejected'])),
 					toInt64(sumIf(
 						toInt64OrZero(SpanAttributes['coding_agent.edit.lines.added']),
 						SpanName = 'coding_agent.edit.decision'
@@ -748,25 +748,25 @@ async function discoverCodingAgents(
 					))
 				) AS chat_lines_rejected,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['coding_agent.session.edit.accept_count'])),
+					max(toInt64OrZero(SpanAttributes['coding_agent.session.edit.accept_count'])),
 					toInt64(countIf(
 						SpanName = 'coding_agent.edit.decision'
 							AND SpanAttributes['coding_agent.edit.decision'] IN ('accept', 'auto_accepted')
 					))
 				) AS chat_edit_accept,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['coding_agent.session.edit.reject_count'])),
+					max(toInt64OrZero(SpanAttributes['coding_agent.session.edit.reject_count'])),
 					toInt64(countIf(
 						SpanName = 'coding_agent.edit.decision'
 							AND SpanAttributes['coding_agent.edit.decision'] = 'reject'
 					))
 				) AS chat_edit_reject,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['coding_agent.session.commit_count'])),
+					max(toInt64OrZero(SpanAttributes['coding_agent.session.commit_count'])),
 					toInt64(countIf(SpanName = 'coding_agent.git.commit'))
 				) AS chat_commit_count,
 				greatest(
-					toInt64OrZero(any(SpanAttributes['coding_agent.session.pr_count'])),
+					max(toInt64OrZero(SpanAttributes['coding_agent.session.pr_count'])),
 					toInt64(countIf(SpanName = 'coding_agent.git.pull_request'))
 				) AS chat_pr_count,
 				coalesce(
