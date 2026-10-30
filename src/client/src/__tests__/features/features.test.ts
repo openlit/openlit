@@ -73,6 +73,7 @@ describe("CE feature fallbacks", () => {
 	it("keeps enterprise sidebar and organisation hooks as CE no-ops", async () => {
 		expect(getEnterpriseSidebarItems("monitoring", "icon")).toEqual([]);
 		expect(getEnterpriseSidebarItems("configuration", "icon")).toEqual([]);
+		expect(getEnterpriseSidebarItems("settings", "icon")).toEqual([]);
 		await expect(onOrganisationChanged("org-1")).resolves.toBeUndefined();
 		await expect(
 			canManageOrganisation({

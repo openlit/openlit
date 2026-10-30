@@ -1,9 +1,14 @@
 import NextAuth, { AuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import GithubProvider from "next-auth/providers/github";
+import type { NextRequest } from "next/server";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
+import {
+	buildOAuthProviders,
+	emailFromProfile,
+	OAUTH_LINK_PROVIDERS,
+	oauthProfilePatch,
+} from "@/lib/auth/oauth-providers";
 import asaw from "@/utils/asaw";
 import {
 	createNewUser,
@@ -115,11 +120,15 @@ export const authOptions = {
 		},
 		signIn: async ({ user, account, profile }) => {
 			if (!user.email) {
+				const candidate = emailFromProfile(profile);
+				if (candidate) user.email = candidate;
+			}
+
+			if (!user.email) {
 				return false;
 			}
 
-			// For Google provider, handle account linking
-			if (account?.provider === "google" || account?.provider === "github") {
+			if (account?.provider && OAUTH_LINK_PROVIDERS.has(account.provider)) {
 				const [, existingUser] = await asaw(
 					getUserByEmail({ email: user.email })
 				);
@@ -155,19 +164,10 @@ export const authOptions = {
 
 						// Update user info if name/image is missing
 						if (!existingUser.name || !existingUser.image) {
+							const patch = oauthProfilePatch(account.provider, profile);
 							const updateData: { name?: string; image?: string } = {};
-							
-							// Handle different profile structures for different providers
-							if (account.provider === "google") {
-								updateData.name = profile?.name || existingUser.name;
-								// @ts-ignore - this is a bug in the types, `picture` is a valid on the `Profile` type
-								updateData.image = profile?.picture || existingUser.image;
-							} else if (account.provider === "github") {
-								// @ts-ignore - this is a bug in the types, `login` is a valid on the `Profile` type
-								updateData.name = profile?.name || profile?.login || existingUser.name;
-								// @ts-ignore - this is a bug in the types, `avatar_url` is a valid on the `Profile` type
-								updateData.image = profile?.avatar_url || existingUser.image;
-							}
+							if (!existingUser.name && patch.name) updateData.name = patch.name;
+							if (!existingUser.image && patch.image) updateData.image = patch.image;
 
 							if (Object.keys(updateData).length > 0) {
 								await asaw(
@@ -221,22 +221,6 @@ export const authOptions = {
 		}
 	},
 	providers: [
-		...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-			? [
-				GoogleProvider({
-					clientId: process.env.GOOGLE_CLIENT_ID,
-					clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-				}),
-			]
-			: []),
-		...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
-			? [
-				GithubProvider({
-					clientId: process.env.GITHUB_CLIENT_ID,
-					clientSecret: process.env.GITHUB_CLIENT_SECRET,
-				}),
-			]
-			: []),
 		CredentialsProvider({
 			id: "login",
 			name: "Credentials Login",
@@ -296,6 +280,19 @@ export const authOptions = {
 	session: { strategy: "jwt" },
 } as AuthOptions;
 
-const handler = NextAuth(authOptions);
+async function buildAuthOptions(): Promise<AuthOptions> {
+	const oauthProviders = await buildOAuthProviders();
+	return {
+		...authOptions,
+		providers: [...oauthProviders, ...authOptions.providers],
+	};
+}
+
+async function handler(
+	req: NextRequest,
+	context: { params: { nextauth: string[] } }
+) {
+	return NextAuth(req, context, await buildAuthOptions());
+}
 
 export { handler as GET, handler as POST };

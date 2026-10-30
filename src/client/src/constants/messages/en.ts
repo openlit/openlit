@@ -1675,6 +1675,11 @@ export const DANGER_ZONE = "Danger Zone";
 export const DANGER_ZONE_DESCRIPTION = "Irreversible actions for this organisation";
 export const GENERAL = "General";
 export const DETAILS = "Details";
+export const ORGANISATION_OVERVIEW = "Overview";
+export const ORGANISATION_OVERVIEW_LICENSE_TITLE =
+	"Organisation overview is an enterprise feature";
+export const ORGANISATION_OVERVIEW_LICENSE_DESCRIPTION =
+	"See requests, cost, latency, errors, and tokens across every project in this organisation. Apply an enterprise license to open it.";
 export const PENDING = "Pending";
 export const NAME = "Name";
 export const EMAIL = "Email";
@@ -1904,6 +1909,8 @@ export const TALK_TO_FOUNDER_HINT = "Schedule a 30-minute call";
 export const AUTH_SIGNING_IN = "Signing in...";
 export const AUTH_CONTINUE_WITH_GOOGLE = "Continue with Google";
 export const AUTH_CONTINUE_WITH_GITHUB = "Continue with Github";
+export const AUTH_CONTINUE_WITH_MICROSOFT = "Continue with Microsoft";
+export const AUTH_CONTINUE_WITH_OKTA = "Continue with Okta";
 export const AUTH_OR = "Or";
 export const AUTH_EMAIL = "Email";
 export const AUTH_EMAIL_PLACEHOLDER = "user@openlit.io";
@@ -1925,6 +1932,8 @@ export const AUTH_ERROR_CONFIGURATION = "There is a problem with the server conf
 export const AUTH_ERROR_DEFAULT = "Unable to sign in.";
 export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
 export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
+export const AUTH_ERROR_MICROSOFT = "Failed to sign in with Microsoft";
+export const AUTH_ERROR_OKTA = "Failed to sign in with Okta";
 
 // Founder call sidebar card
 export const FOUNDER_CARD_BADGE = "From the founder";

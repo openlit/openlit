@@ -51,6 +51,7 @@ import {
 	FolderKanban,
 	Database,
 	Plus,
+	LayoutDashboard,
 } from "lucide-react";
 import { useRootStore } from "@/store";
 import {
@@ -96,6 +97,7 @@ import { cn } from "@/lib/utils";
 import getMessage from "@/constants/messages";
 import { escapeEmailForDisplay } from "@/utils/string";
 import { toast } from "sonner";
+import OrganisationOverviewLicenseCard from "@/components/(playground)/organisation/organisation-overview-license-card";
 
 interface Member {
 	id: string;
@@ -152,13 +154,13 @@ export default function OrganisationSettingsPage() {
 	const isProjectsRoute = pathname === "/organisation/projects";
 	const requestedTab = isProjectsRoute
 		? "projects"
-		: searchParams.get("tab") || "details";
+		: searchParams.get("tab") || "overview";
 	const availableTabs = orgPendingInvites.length > 0
-		? ["details", "projects", "members", "pending"]
-		: ["details", "projects", "members"];
+		? ["overview", "details", "projects", "members", "pending"]
+		: ["overview", "details", "projects", "members"];
 	const selectedTab = availableTabs.includes(requestedTab)
 		? requestedTab
-		: "details";
+		: "overview";
 	const handleTabChange = (tab: string) => {
 		if (tab === "projects") {
 			router.replace("/organisation/projects", { scroll: false });
@@ -167,7 +169,7 @@ export default function OrganisationSettingsPage() {
 
 		const params = new URLSearchParams(searchParams.toString());
 		params.delete("tab");
-		if (tab !== "details") {
+		if (tab !== "overview") {
 			params.set("tab", tab);
 		}
 		const query = params.toString();
@@ -381,6 +383,11 @@ export default function OrganisationSettingsPage() {
 						{currentOrg ? (
 							<div className="flex flex-wrap items-center gap-2">
 								{[
+									{
+										key: "overview",
+										label: messages.ORGANISATION_OVERVIEW,
+										icon: LayoutDashboard,
+									},
 									{ key: "details", label: messages.DETAILS, icon: Settings },
 									{
 										key: "projects",
@@ -479,6 +486,9 @@ export default function OrganisationSettingsPage() {
 
 			{currentOrg && (
 				<Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full mt-4">
+					<TabsContent value="overview" className="mt-0">
+						<OrganisationOverviewLicenseCard />
+					</TabsContent>
 
 					<TabsContent value="details" className="space-y-4 mt-0">
 						{hasAdminPermissions ? (

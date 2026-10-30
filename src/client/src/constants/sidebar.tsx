@@ -181,6 +181,7 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 				link: "/openapi-spec",
 				type: "action",
 			},
+			...getEnterpriseSidebarItems("settings", ICON_CLASSES),
 		],
 	},
 	{

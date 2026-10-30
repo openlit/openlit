@@ -50,6 +50,7 @@ const RATE_LIMITED_API_PREFIXES = [
 	"/api/agents",
 	"/api/alerts",
 	"/api/vault",
+	"/api/instance",
 	"/api/context",
 	"/api/manage-dashboard",
 ];
