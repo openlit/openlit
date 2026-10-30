@@ -5,7 +5,10 @@ pydo streams come from the SDK's ``SSEStream`` wrapper. The traced wrapper final
 stream, and a released wrapper or a mid-stream failure left the span unended.
 """
 
+import asyncio
 import gc
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
@@ -173,7 +176,9 @@ def test_sync_bare_for_break_exports_span_when_released():
 
     def run():
         raw = FakeSyncStream([_chunk("hi"), _chunk(" there")])
-        traced = _sync_wrapper(tracer)(lambda *a, **k: raw, object(), [], _stream_kwargs())
+        traced = _sync_wrapper(tracer)(
+            lambda *a, **k: raw, object(), [], _stream_kwargs()
+        )
         for _item in traced:
             break
 
@@ -193,7 +198,6 @@ def test_sync_stream_error_exports_error_status():
     assert next(traced) == _chunk("hi")
     with pytest.raises(RuntimeError, match="stream failed"):
         next(traced)
-    traced.close()
 
     (span,) = exporter.get_finished_spans()
     assert span.status.status_code == StatusCode.ERROR
@@ -236,3 +240,160 @@ async def test_async_stream_full_consumption_keeps_stop():
 
     (span,) = exporter.get_finished_spans()
     assert span.attributes[FINISH] == ("stop",)
+
+
+@pytest.mark.parametrize("method", ["close", "context_exit"])
+def test_sync_cleanup_error_exports_before_wrapper_is_released(method):
+    """A sync cleanup error is exported while the wrapper is still retained."""
+    tracer, exporter = _tracer_and_exporter()
+    raw = FakeSyncStream([_chunk("hi")], raise_on_close=True)
+    traced = _sync_wrapper(tracer)(lambda *a, **k: raw, object(), [], _stream_kwargs())
+    assert next(traced) == _chunk("hi")
+
+    with pytest.raises(RuntimeError, match="wrapped close failed"):
+        if method == "close":
+            traced.close()
+        else:
+            with traced:
+                pass
+
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.attributes[FINISH] == ("error",)
+    assert span.attributes["error.type"] == "RuntimeError"
+    assert '"hi"' in span.attributes["gen_ai.output.messages"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["close", "context_exit"])
+async def test_async_cleanup_error_exports_before_wrapper_is_released(method):
+    """An async cleanup error is exported while the wrapper is still retained."""
+
+    class FailingCleanupStream(
+        FakeAsyncStream
+    ):  # pylint: disable=too-few-public-methods
+        """A stream whose transport cleanup fails."""
+
+        async def close(self):
+            self.closed = True
+            raise RuntimeError("wrapped close failed")
+
+    tracer, exporter = _tracer_and_exporter()
+    raw = FailingCleanupStream([_chunk("hi")])
+
+    async def create(*_args, **_kwargs):
+        return raw
+
+    traced = await _async_wrapper(tracer)(create, object(), [], _stream_kwargs())
+    assert await anext(traced) == _chunk("hi")
+    with pytest.raises(RuntimeError, match="wrapped close failed"):
+        if method == "close":
+            await traced.close()
+        else:
+            async with traced:
+                pass
+
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.attributes[FINISH] == ("error",)
+    assert span.attributes["error.type"] == "RuntimeError"
+    assert '"hi"' in span.attributes["gen_ai.output.messages"]
+
+
+@pytest.mark.asyncio
+async def test_async_stream_error_exports_before_close():
+    """A read failure must export immediately without an explicit close."""
+    tracer, exporter = _tracer_and_exporter()
+    raw = FakeAsyncStream([_chunk("hi")], raise_after=1)
+
+    async def create(*_args, **_kwargs):
+        return raw
+
+    traced = await _async_wrapper(tracer)(create, object(), [], _stream_kwargs())
+    assert await anext(traced) == _chunk("hi")
+    with pytest.raises(RuntimeError, match="stream failed"):
+        await anext(traced)
+
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.attributes[FINISH] == ("error",)
+    await traced.close()
+    assert len(exporter.get_finished_spans()) == 1
+
+
+def test_concurrent_close_waits_for_sync_read_error():
+    """A racing close must include the error from an in-flight sync read."""
+    entered = threading.Event()
+    release = threading.Event()
+
+    class BlockingStream(FakeSyncStream):
+        """Hold the second read until cleanup has run."""
+
+        def __next__(self):
+            if self._index == 1:
+                entered.set()
+                assert release.wait(timeout=3)
+                raise RuntimeError("in-flight read failed")
+            return super().__next__()
+
+    tracer, exporter = _tracer_and_exporter()
+    raw = BlockingStream([_chunk("hi")])
+    traced = _sync_wrapper(tracer)(lambda *a, **k: raw, object(), [], _stream_kwargs())
+    assert next(traced) == _chunk("hi")
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        read = executor.submit(next, traced)
+        try:
+            assert entered.wait(timeout=3)
+            traced.close()
+            assert not exporter.get_finished_spans()
+        finally:
+            release.set()
+        with pytest.raises(RuntimeError, match="in-flight read failed"):
+            read.result(timeout=3)
+
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.attributes[FINISH] == ("error",)
+    traced.close()
+    assert len(exporter.get_finished_spans()) == 1
+
+
+@pytest.mark.asyncio
+async def test_concurrent_close_waits_for_async_read_error():
+    """A racing close must include the error from an in-flight async read."""
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    class BlockingStream(FakeAsyncStream):
+        """Hold the second read until cleanup has run."""
+
+        async def __anext__(self):
+            if self._index == 1:
+                entered.set()
+                await release.wait()
+                raise RuntimeError("in-flight read failed")
+            return await super().__anext__()
+
+    tracer, exporter = _tracer_and_exporter()
+    raw = BlockingStream([_chunk("hi")])
+
+    async def create(*_args, **_kwargs):
+        return raw
+
+    traced = await _async_wrapper(tracer)(create, object(), [], _stream_kwargs())
+    assert await anext(traced) == _chunk("hi")
+    read = asyncio.create_task(anext(traced))
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=3)
+        await traced.close()
+        assert not exporter.get_finished_spans()
+    finally:
+        release.set()
+        result = await asyncio.gather(read, return_exceptions=True)
+    assert isinstance(result[0], RuntimeError)
+    assert str(result[0]) == "in-flight read failed"
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.attributes[FINISH] == ("error",)
+    await traced.close()
+    assert len(exporter.get_finished_spans()) == 1
