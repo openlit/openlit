@@ -3,6 +3,7 @@ Synchronous wrappers for DigitalOcean Gradient SDK resources.
 """
 
 import time
+import threading
 
 from opentelemetry import context as context_api, trace as trace_api
 from opentelemetry.trace import SpanKind
@@ -25,7 +26,6 @@ from openlit.instrumentation.gradient.utils import (
     process_streaming_chat_response,
 )
 from openlit.semcov import SemanticConvention
-
 
 _DEFAULT_INFERENCE_HOST = "inference.do-ai.run"
 _DEFAULT_AGENT_HOST = "agents.do-ai.run"
@@ -79,7 +79,7 @@ def _resolve_endpoint(instance, kind, default_host):
 
 
 def _make_traced_stream(chunk_processor, final_processor):
-    class TracedSyncStream:
+    class TracedSyncStream:  # pylint: disable=too-many-instance-attributes
         """Wraps a Gradient sync Stream so chunks are observed and the span closes on completion."""
 
         def __init__(
@@ -106,6 +106,9 @@ def _make_traced_stream(chunk_processor, final_processor):
             self._start_time = time.time()
             self._end_time = None
             self._finalized = False
+            self._state_lock = threading.RLock()
+            self._active_reads = 0
+            self._pending_finalization = None
             self._iter = None
             self._stream_error = None
             self._gen_ai_error = None
@@ -116,9 +119,17 @@ def _make_traced_stream(chunk_processor, final_processor):
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
-            if hasattr(self.__wrapped__, "__exit__"):
-                self.__wrapped__.__exit__(exc_type, exc_value, traceback)
-            self._finalize(ended_cleanly=False)
+            if exc_value is not None:
+                self._stream_error = exc_value
+            try:
+                if hasattr(self.__wrapped__, "__exit__"):
+                    return self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+                return None
+            except Exception as exc:
+                self._stream_error = exc
+                raise
+            finally:
+                self._finalize(ended_cleanly=False)
 
         def __iter__(self):
             return self
@@ -132,6 +143,9 @@ def _make_traced_stream(chunk_processor, final_processor):
                 close = getattr(self.__wrapped__, "close", None)
                 if callable(close):
                     close()
+            except Exception as exc:
+                self._stream_error = exc
+                raise
             finally:
                 self._finalize(ended_cleanly=False)
 
@@ -151,6 +165,8 @@ def _make_traced_stream(chunk_processor, final_processor):
             return self._iter
 
         def __next__(self):
+            with self._state_lock:
+                self._active_reads += 1
             try:
                 chunk = next(self._ensure_iter())
                 chunk_processor(self, chunk)
@@ -160,7 +176,13 @@ def _make_traced_stream(chunk_processor, final_processor):
                 raise
             except Exception as exc:
                 self._stream_error = exc
+                self._finalize(ended_cleanly=False)
                 raise
+            finally:
+                with self._state_lock:
+                    self._active_reads -= 1
+                    if self._pending_finalization is not None:
+                        self._finalize(ended_cleanly=self._pending_finalization)
 
         def _finalize(self, ended_cleanly=False):
             """End the span once.
@@ -170,25 +192,34 @@ def _make_traced_stream(chunk_processor, final_processor):
             so instead of the "stop" the finalizer writes by default, and a
             wrapped-stream error is recorded after the partial output is set.
             """
-            if self._finalized:
-                return
-            self._finalized = True
-            if self._stream_error is not None:
-                self._finish_reason = "error"
-                self._gen_ai_error = self._stream_error
-            elif not ended_cleanly:
-                self._finish_reason = "incomplete"
-            try:
-                with trace_api.use_span(  # pylint: disable=not-context-manager
-                    self._span, end_on_exit=True
-                ):
-                    try:
-                        final_processor(self, **self._finalize_kwargs)
-                    finally:
-                        if self._stream_error is not None:
-                            handle_exception(self._span, self._stream_error)
-            except Exception as exc:
-                handle_exception(self._span, exc)
+            with self._state_lock:
+                if self._finalized:
+                    return
+                if self._pending_finalization is None:
+                    self._pending_finalization = ended_cleanly
+                else:
+                    self._pending_finalization &= ended_cleanly
+                # Closing must not export before an in-flight read reports its error.
+                if self._active_reads:
+                    return
+                ended_cleanly = self._pending_finalization
+                self._finalized = True
+                if self._stream_error is not None:
+                    self._finish_reason = "error"
+                    self._gen_ai_error = self._stream_error
+                elif not ended_cleanly:
+                    self._finish_reason = "incomplete"
+                try:
+                    with trace_api.use_span(  # pylint: disable=not-context-manager
+                        self._span, end_on_exit=True
+                    ):
+                        try:
+                            final_processor(self, **self._finalize_kwargs)
+                        finally:
+                            if self._stream_error is not None:
+                                handle_exception(self._span, self._stream_error)
+                except Exception as exc:
+                    handle_exception(self._span, exc)
 
     return TracedSyncStream
 
