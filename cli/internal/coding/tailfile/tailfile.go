@@ -92,3 +92,30 @@ func Tail(path string, cap int64) [][]byte {
 	}
 	return out
 }
+
+// EachLineContaining streams every line of path that contains needle to fn,
+// with no size cap and without holding the file in memory. Unlike Tail's
+// scanner it also handles lines longer than LineCap. Used by end-of-session
+// rollups that must see the whole transcript: tool results make transcripts
+// grow past DefaultCap within minutes, so a tail read undercounts usage.
+func EachLineContaining(path string, needle []byte, fn func(line []byte)) {
+	if path == "" {
+		return
+	}
+	f, err := os.Open(path) //nolint:gosec // path comes from the agent's own payload
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	r := bufio.NewReaderSize(f, 256*1024)
+	for {
+		line, err := r.ReadBytes('\n')
+		if len(line) > 0 && bytes.Contains(line, needle) {
+			fn(bytes.TrimSpace(line))
+		}
+		if err != nil {
+			return
+		}
+	}
+}

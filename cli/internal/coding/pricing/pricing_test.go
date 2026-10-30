@@ -29,6 +29,9 @@ func TestLookupAnthropic(t *testing.T) {
 		// Claude Fable 5 / Sonnet 5 / Sonnet 1M from Cursor pricing table.
 		{"claude-fable-5", Rate{InputPer1M: 10.00, OutputPer1M: 50.00, CachedReadPer1M: 1.00, CacheCreationPer1M: 12.50}},
 		{"claude-sonnet-5", Rate{InputPer1M: 3.00, OutputPer1M: 15.00, CachedReadPer1M: 0.30, CacheCreationPer1M: 3.75}},
+		// Opus 5.5 / Sonnet 5.5; sonnet-5-5 must not fall into the Sonnet 5 bucket.
+		{"claude-opus-5-5", Rate{InputPer1M: 4.00, OutputPer1M: 20.00, CachedReadPer1M: 0.20, CacheCreationPer1M: 5.00}},
+		{"claude-sonnet-5-5", Rate{InputPer1M: 2.00, OutputPer1M: 10.00, CachedReadPer1M: 0.20, CacheCreationPer1M: 2.50}},
 		{"claude-4-sonnet-1m", Rate{InputPer1M: 6.00, OutputPer1M: 22.50, CachedReadPer1M: 0.60, CacheCreationPer1M: 7.50}},
 		// Legacy Opus 4.0 / 4.1 are still on the original $15/$75 list.
 		{"claude-opus-4-0", Rate{InputPer1M: 15.00, OutputPer1M: 75.00, CachedReadPer1M: 1.50, CacheCreationPer1M: 18.75}},
