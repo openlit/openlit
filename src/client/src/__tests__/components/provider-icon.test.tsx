@@ -20,6 +20,17 @@ describe("ProviderIcon", () => {
 		).toBe(true);
 	});
 
+	it("renders the Runcrate mark for the runcrate provider", () => {
+		const { container } = render(<ProviderIcon provider="runcrate" className="w-5 h-5" />);
+		expect(container.querySelector("svg")?.getAttribute("aria-label")).toBe("Runcrate");
+		expect(container.querySelector("image")?.getAttribute("href")).toBe(
+			"/images/provider/runcrate.png"
+		);
+		expect(
+			existsSync(join(__dirname, "../../../public/images/provider/runcrate.png"))
+		).toBe(true);
+	});
+
 	it("still renders nothing for unknown providers", () => {
 		const { container } = render(<ProviderIcon provider="not-a-provider" />);
 		expect(container.firstChild).toBeNull();

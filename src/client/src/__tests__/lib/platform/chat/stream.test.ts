@@ -133,6 +133,15 @@ describe('getModelInstance', () => {
     );
   });
 
+  it('supports Runcrate via the OpenAI-compatible endpoint', () => {
+    const instance = getModelInstance('runcrate', 'rc_live_test', 'openai/gpt-oss-120b');
+    expect(instance).toBeDefined();
+    expect(createOpenAI).toHaveBeenCalledWith({
+      baseURL: 'https://api.runcrate.ai/v1',
+      apiKey: 'rc_live_test',
+    });
+  });
+
   it('does not support TypeSafe Jev as a chat provider', () => {
     expect(() => getModelInstance('typesafe', 'key', 'jev-latest')).toThrow(
       'Provider typesafe not supported'

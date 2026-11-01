@@ -3,7 +3,7 @@
 
 /* Provider IDs are assigned and interpreted on the Go side (see
  * internal/scanner/types.go); these defines are informational. Built-in SaaS
- * providers use 1-12 and 14 (+ Bedrock regions 20-26); all user-configured
+ * providers use 1-12 and 14-15 (+ Bedrock regions 20-26); all user-configured
  * custom gateways collapse to a single PROVIDER_CUSTOM. */
 #define PROVIDER_OPENAI     1
 #define PROVIDER_ANTHROPIC  2
@@ -16,6 +16,7 @@
 #define PROVIDER_FIREWORKS  9
 #define PROVIDER_CUSTOM     13
 #define PROVIDER_ORCAROUTER 14
+#define PROVIDER_RUNCRATE   15
 
 /* Key for the llm_endpoints map: destination IPv4 (network byte order) plus
  * destination port (host byte order). Keying on IP+port lets us match

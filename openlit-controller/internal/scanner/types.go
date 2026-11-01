@@ -21,6 +21,7 @@ var providerNames = map[uint8]string{
 	12: "azure_inference",
 	13: "custom",
 	14: "orcarouter",
+	15: "runcrate",
 	// IDs 20-26 are Bedrock regions (assigned dynamically in hosts.go init)
 	20: "bedrock",
 	21: "bedrock",
