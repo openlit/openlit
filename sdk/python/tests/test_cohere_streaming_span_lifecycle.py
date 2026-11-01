@@ -2,6 +2,7 @@
 
 import asyncio
 import gc
+import time
 
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
@@ -13,6 +14,7 @@ from opentelemetry.trace import StatusCode
 
 from openlit.instrumentation.cohere.async_cohere import async_chat_stream
 from openlit.instrumentation.cohere.cohere import chat_stream
+from openlit.instrumentation.cohere.utils import process_chat_response
 from openlit._config import OpenlitConfig
 
 
@@ -623,3 +625,57 @@ async def test_async_caller_exception_inside_with_stays_ok():
     assert spans[0].status.status_code == StatusCode.OK
     assert _finish_reasons(spans[0]) == ("incomplete",)
     assert "hi" in spans[0].attributes["gen_ai.output.messages"]
+
+
+def test_sync_stream_message_end_with_null_usage_does_not_crash():
+    """A provider may send ``usage: null`` in message-end; the span must still finish."""
+    tracer, exporter = _tracer_and_exporter()
+    wrapper = _sync_wrapper(tracer)
+    chunks = [
+        _chunk("hi"),
+        {
+            "type": "message-end",
+            "delta": {"finish_reason": "COMPLETE", "usage": None},
+        },
+    ]
+    traced_stream = wrapper(
+        lambda *_args, **_kwargs: FakeRawSyncStream(chunks),
+        object(),
+        [],
+        _chat_kwargs(),
+    )
+
+    assert list(traced_stream)
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].status.status_code == StatusCode.OK
+
+
+def test_non_stream_chat_response_with_null_usage_does_not_crash():
+    tracer, exporter = _tracer_and_exporter()
+    span = tracer.start_span("cohere-chat")
+    process_chat_response(
+        {
+            "id": "c1",
+            "model": "command-r-plus-08-2024",
+            "message": {"content": [{"text": "hi"}]},
+            "finish_reason": "COMPLETE",
+            "usage": None,
+        },
+        "command-r-plus-08-2024",
+        {},
+        443,
+        "api.cohere.com",
+        "test-env",
+        "test-app",
+        None,
+        time.time(),
+        span,
+        disable_metrics=True,
+    )
+    span.end()
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].status.status_code == StatusCode.OK
