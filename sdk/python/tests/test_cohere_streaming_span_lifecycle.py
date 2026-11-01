@@ -653,6 +653,7 @@ def test_sync_stream_message_end_with_null_usage_does_not_crash():
 
 
 def test_non_stream_chat_response_with_null_usage_does_not_crash():
+    """A null usage in a non-stream response must not abort span finalization."""
     tracer, exporter = _tracer_and_exporter()
     span = tracer.start_span("cohere-chat")
     process_chat_response(
