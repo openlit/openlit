@@ -88,6 +88,24 @@ describe('checkAuth', () => {
       expect(nextHandler).not.toHaveBeenCalled();
     });
 
+    it('rejects a Bearer token on API key management routes', async () => {
+      for (const [method, path] of [
+        ['GET', '/api/api-key'],
+        ['POST', '/api/api-key'],
+        ['PATCH', '/api/api-key/key-1'],
+        ['DELETE', '/api/api-key/key-1'],
+      ]) {
+        (NextResponse.json as jest.Mock).mockClear();
+        const req = makeRequest(method, path, '', { Authorization: 'Bearer abc123' });
+        await middleware(req as any, makeFetchEvent());
+        expect(NextResponse.json).toHaveBeenCalledWith(
+          { error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+      expect(nextHandler).not.toHaveBeenCalled();
+    });
+
     it('rejects an empty API key', async () => {
       const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer   ' });
       await middleware(req as any, makeFetchEvent());
@@ -132,14 +150,44 @@ describe('checkAuth', () => {
           environment: 'staging',
         }),
       });
+      const req = {
+        ...makeRequest('GET', '/api/vault/get-secrets'),
+        headers: new Headers({
+          Authorization: 'Bearer key-1',
+          cookie: 'next-auth.session-token=member-session',
+          'x-database-config-id': 'forged',
+        }),
+      };
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      const init = (NextResponse.next as jest.Mock).mock.calls.at(-1)?.[0];
+      // Rewritten headers go to the route as *request* headers, never echoed
+      // back as response headers.
+      expect(init.request).toBeDefined();
+      const forwarded = init.request.headers as Headers;
+      expect(forwarded.get('x-database-config-id')).toBe('db-config-1');
+      expect(forwarded.get('x-openlit-organisation-id')).toBe('org-1');
+      expect(forwarded.get('x-openlit-project-id')).toBe('proj-1');
+      expect(forwarded.get('x-openlit-environment')).toBe('staging');
+      expect(forwarded.get('authorization')).toBe('Bearer key-1');
+      expect(forwarded.get('cookie')).toBeNull();
+      expect(nextHandler).not.toHaveBeenCalled();
+    });
+
+    const mockVerifiedKey = (scopes: string[] | null) => {
+      (global as any).fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ valid: true, databaseConfigId: 'db-config-1', scopes }),
+      });
+    };
+
+    it('ignores API key scopes in the community edition', async () => {
+      mockVerifiedKey(['prompts']);
       const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });
       await middleware(req as any, makeFetchEvent());
-      expect(nextHandler).toHaveBeenCalled();
-      const forwardedRequest = nextHandler.mock.calls[0][0] as { headers: Headers };
-      expect(forwardedRequest.headers.get('x-database-config-id')).toBe('db-config-1');
-      expect(forwardedRequest.headers.get('x-openlit-organisation-id')).toBe('org-1');
-      expect(forwardedRequest.headers.get('x-openlit-project-id')).toBe('proj-1');
-      expect(forwardedRequest.headers.get('x-openlit-environment')).toBe('staging');
+      expect(NextResponse.next).toHaveBeenCalled();
+      const init = (NextResponse.next as jest.Mock).mock.calls.at(-1)?.[0];
+      expect(init.request.headers.get('x-database-config-id')).toBe('db-config-1');
     });
 
     it('strips a client-supplied x-database-config-id on session API requests', async () => {

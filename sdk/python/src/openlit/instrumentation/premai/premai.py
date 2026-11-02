@@ -71,26 +71,104 @@ def chat(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._streaming_response_processed = False
+            self._stream_error = None
+            # premai 0.3 ChatCompletionResponseStreamContainer defines __iter__
+            # only and returns a new generator each call. Cache the first one.
+            self._iterator = None
 
         def __enter__(self):
+            # The 0.3 container is not a context manager. Callers that use
+            # ``with`` are using this wrapper.
+            enter = getattr(self.__wrapped__, "__enter__", None)
+            if enter is not None:
+                enter()
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
-            pass
+            # Return what the wrapped stream returns: a context manager that
+            # suppresses an exception says so with a truthy __exit__, and
+            # swallowing that value would force the exception to re-raise.
+            # The 0.3 container has no __exit__; skip the forward in that case.
+            suppress = False
+            exit_fn = getattr(self.__wrapped__, "__exit__", None)
+            try:
+                if exit_fn is not None:
+                    suppress = exit_fn(exc_type, exc_value, traceback)
+            finally:
+                # A raise from user code is not a Prem failure. The generator
+                # already stored its own error on _stream_error in __next__.
+                self.close()
+            return suppress
 
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
         def __iter__(self):
+            return self
+
+        def _ensure_iterator(self):
+            """Open the wrapped iterable once.
+
+            ``iter()`` covers both a real iterator and the 0.3 container, whose
+            ``__iter__`` returns a generator and which has no ``__next__``.
+            A second ``iter()`` on that container opens another generator over
+            the same httpx body.
+            """
+            if self._iterator is None:
+                self._iterator = iter(self.__wrapped__)
+            return self._iterator
+
+        def __next__(self):
             try:
-                chunk = self.__wrapped__.__next__()
+                chunk = next(self._ensure_iterator())
                 process_chunk(self, chunk)
                 return chunk
+            except StopIteration:
+                self._finalize_streaming_span(ended_cleanly=True)
+                raise
+            except Exception as exc:
+                self._stream_error = exc
+                raise
 
-            finally:
-                try:
-                    with self._span:
+        def _close_iterator(self):
+            """Close the generator this wrapper opened.
+
+            The 0.3 container has no ``close``. Closing the generator raises
+            ``GeneratorExit`` inside its ``with self._stream`` block, which is
+            what releases the httpx response. ``_iterator`` stays None until
+            the first read, so ``close()`` before iteration does not enter
+            that body.
+            """
+            iterator = self._iterator
+            closer = getattr(iterator, "close", None) if iterator is not None else None
+            if closer is None:
+                return
+            try:
+                closer()
+            except Exception:
+                pass
+
+        def _finalize_streaming_span(self, ended_cleanly):
+            """End the span once.
+
+            ``ended_cleanly`` is True only for StopIteration. An empty finish
+            reason is otherwise a cancel. A failure raised by the stream is
+            recorded after attributes are set, so partial text stays on the
+            span and the status is ERROR rather than the OK that
+            ``process_streaming_chat_response`` writes when nothing failed.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            if self._stream_error is not None and not self._finish_reason:
+                self._finish_reason = "error"
+            elif not ended_cleanly and not self._finish_reason:
+                self._finish_reason = "incomplete"
+            try:
+                with self._span:
+                    try:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -102,9 +180,29 @@ def chat(
                             version=version,
                             event_provider=event_provider,
                         )
+                    finally:
+                        if self._stream_error is not None:
+                            handle_exception(self._span, self._stream_error)
+            except Exception as e:
+                handle_exception(self._span, e)
 
-                except Exception as e:
-                    handle_exception(self._span, e)
+        def close(self):
+            """Close the cached generator and finalize the span if not ended."""
+            try:
+                self._close_iterator()
+            finally:
+                self._finalize_streaming_span(ended_cleanly=False)
+
+        def __del__(self):
+            """Finalize a span abandoned by a bare ``for`` loop.
+
+            The wrapper is the iterator, so ``break`` never calls ``close()``.
+            Prem's documented call is that bare loop, not a context manager.
+            """
+            try:
+                self.close()
+            except Exception:
+                pass
 
     def wrapper(wrapped, instance, args, kwargs):
         """

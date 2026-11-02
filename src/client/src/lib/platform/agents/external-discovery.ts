@@ -50,6 +50,14 @@ export interface CodingDiscoveryRow {
 	pr_count_24h: number;
 }
 
+const CODING_AGENT_SERVICES = new Set([
+	"cursor",
+	"claude-code",
+	"codex",
+	"opencode",
+	"windsurf",
+]);
+
 function windowHours(hours: number): QueryTimeRange {
 	const end = new Date();
 	const start = new Date(end.getTime() - hours * 60 * 60 * 1000);
@@ -60,7 +68,7 @@ function isCodingService(svc: DiscoveredService): boolean {
 	const sdk = (svc.sdkName || "").toLowerCase();
 	const name = (svc.serviceName || "").toLowerCase();
 	if (sdk === "openlit-cli") return true;
-	if (["cursor", "claude-code", "codex", "windsurf"].includes(name)) return true;
+	if (CODING_AGENT_SERVICES.has(name)) return true;
 	return false;
 }
 
@@ -185,9 +193,8 @@ export async function discoverCodingRowsFromAdapter(
 		if (span.timestamp > acc.last_seen) acc.last_seen = span.timestamp;
 	}
 
-	const allowed = new Set(["cursor", "claude-code", "codex", "windsurf"]);
 	return Array.from(byVendor.values())
-		.filter((a) => allowed.has(a.vendor))
+		.filter((a) => CODING_AGENT_SERVICES.has(a.vendor))
 		.map((a) => ({
 			vendor: a.vendor as CodingAgentVendor,
 			client_version: a.client_version,

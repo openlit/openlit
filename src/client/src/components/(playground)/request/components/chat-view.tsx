@@ -292,9 +292,9 @@ function extractItemsFromSpan(
 
 	// Coding-agent llm.turn carries a `kind` attribute that disambiguates
 	// what the span represents:
-	//   - "user_prompt"     → user message body lives in input.messages
-	//   - "assistant_only"  → assistant body lives in output.messages
-	//   - empty + thought   → thinking-only turn (no user-visible message)
+	//   - "prompt"   → user message body lives in input.messages
+	//   - "response" → assistant body lives in output.messages
+	//   - "thought"  → thinking-only turn (no user-visible message)
 	const codingTurnKind = attrs["coding_agent.llm.turn.kind"] as string | undefined;
 
 	if (!skipMessages) {

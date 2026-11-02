@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { DEFAULT_MODELS_BY_PROVIDER, DEFAULT_PROVIDERS } from '@/lib/platform/providers/default-models';
 
 describe('default-models', () => {
@@ -11,7 +13,7 @@ describe('default-models', () => {
     const expectedProviders = [
       'openai', 'anthropic', 'google', 'mistral', 'groq',
       'perplexity', 'azure', 'cohere', 'together', 'fireworks',
-      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax', 'orcarouter',
+      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax', 'orcarouter', 'typesafe',
     ];
     for (const provider of expectedProviders) {
       expect(DEFAULT_MODELS_BY_PROVIDER).toHaveProperty(provider);
@@ -127,5 +129,49 @@ describe('default-models', () => {
       inputPricePerMToken: 0.3,
       outputPricePerMToken: 2.5,
     });
+  });
+
+  it('seeds TypeSafe Jev evaluation models', () => {
+    const typesafeProvider = DEFAULT_PROVIDERS.find((p) => p.providerId === 'typesafe');
+    expect(typesafeProvider).toEqual(
+      expect.objectContaining({
+        displayName: 'TypeSafe',
+        requiresVault: true,
+      })
+    );
+
+    const models = DEFAULT_MODELS_BY_PROVIDER.typesafe;
+    expect(models.map((m) => m.id)).toEqual(['jev-latest', 'jev-1.13.0', 'jev-preview']);
+    for (const model of models) {
+      expect(model).toMatchObject({
+        modelType: 'chat',
+        contextWindow: 64000,
+        inputPricePerMToken: 0.042,
+        outputPricePerMToken: 0,
+      });
+    }
+  });
+
+  it('keeps TypeSafe prices in sync with the SDK assets/pricing.json (per 1K tokens)', () => {
+    const pricing = JSON.parse(
+      readFileSync(join(__dirname, '../../../../../../../assets/pricing.json'), 'utf8')
+    ).chat as Record<string, { promptPrice: number; completionPrice: number }>;
+
+    for (const model of DEFAULT_MODELS_BY_PROVIDER.typesafe) {
+      const sdk = pricing[model.id];
+      expect(sdk).toBeDefined();
+      expect(sdk.promptPrice).toBeCloseTo(model.inputPricePerMToken / 1000, 10);
+      expect(sdk.completionPrice).toBeCloseTo(model.outputPricePerMToken / 1000, 10);
+    }
+  });
+
+  it('only uses model types the editor and pricing export understand', () => {
+    // Anything else is silently dropped from the exported SDK pricing JSON.
+    const exportable = new Set(['chat', 'embeddings', 'images', 'audio']);
+    for (const models of Object.values(DEFAULT_MODELS_BY_PROVIDER)) {
+      for (const model of models) {
+        expect(exportable.has(model.modelType || 'chat')).toBe(true);
+      }
+    }
   });
 });

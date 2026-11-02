@@ -11,6 +11,7 @@ jest.mock("@/constants/messages", () => ({
 	__esModule: true,
 	default: jest.fn(() => ({
 		NO_API_KEY: "No API key",
+		SDK_PROJECT_SCOPE_MISMATCH: "Project mismatch",
 	})),
 }));
 
@@ -292,5 +293,23 @@ describe("resolveSdkIntelligenceDatabaseConfig", () => {
 			"The selected database configuration is not available for this API key.",
 			null,
 		]);
+	});
+
+	it("rejects a project header that differs from the API key's database config project", async () => {
+		(getDBConfigByIdInternal as jest.Mock).mockResolvedValue({
+			id: "db-key",
+			projectId: "proj-1",
+		});
+
+		await expect(
+			resolveSdkIntelligenceDatabaseConfig(
+				makeRequest({
+					[OPENLIT_CONTEXT_HEADERS.environment]: "production",
+					[OPENLIT_CONTEXT_HEADERS.projectId]: "proj-other",
+				}),
+				"openlit-test"
+			)
+		).resolves.toEqual(["Project mismatch", null]);
+		expect(resolveSignalSource).not.toHaveBeenCalled();
 	});
 });

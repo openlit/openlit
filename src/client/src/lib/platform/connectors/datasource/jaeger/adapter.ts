@@ -38,6 +38,7 @@ import {
 	SourceResponseError,
 } from "../http/safe-fetch";
 import { cacheKey, cachedQuery } from "../http/cache";
+import { summarizeTraceSpans } from "../graph/sample-fetch";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
 import { spanMatchesAISelector, traceMatchesAISelector } from "../selector-match";
 import {
@@ -575,7 +576,7 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				: offset + pageSize;
 		const traces = await this.collectTraces(query, budget);
 		const rows = traces
-			.map((trace) => {
+			.map((trace): NormalizedSpan | undefined => {
 				const spans = flattenJaegerTraces([trace]).map(toNormalizedSpan);
 				let listed: NormalizedSpan | undefined;
 				if (query.agentLoop) {
@@ -590,7 +591,11 @@ export class JaegerAdapter extends BaseExternalAdapter {
 				if (!listed) listed = pickRootSpan(spans);
 				if (!listed) return undefined;
 				const hit = loopHitsByTraceId(spans).get(listed.traceId);
-				return hit ? { ...listed, agentLoop: hit } : listed;
+				return {
+					...listed,
+					traceSummary: summarizeTraceSpans(spans),
+					...(hit ? { agentLoop: hit } : {}),
+				};
 			})
 			.filter((span): span is NormalizedSpan => !!span);
 		rememberSpans(this.descriptor.id, this.spansFromTraces(traces));
