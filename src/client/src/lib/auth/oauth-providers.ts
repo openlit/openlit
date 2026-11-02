@@ -14,6 +14,36 @@ import {
 
 export const OAUTH_LINK_PROVIDERS = new Set(["google", "github", "azure-ad", "okta"]);
 
+const MULTI_TENANT_AZURE = new Set(["common", "organizations", "consumers"]);
+
+/**
+ * Whether the provider vouches for the email on this sign-in. Only a vouched
+ * email may be linked to an existing account; otherwise anyone able to set an
+ * email claim (for example an admin of any Microsoft Entra tenant when the app
+ * accepts all tenants) could sign in as that account.
+ */
+export function isEmailVouched(provider: string, profile: unknown, user?: unknown): boolean {
+	const record = profile && typeof profile === "object" ? (profile as Record<string, unknown>) : {};
+	switch (provider) {
+		case "google":
+		case "okta":
+			return record.email_verified === true || record.email_verified === "true";
+		case "github":
+			// GitHub only returns the account's own primary email.
+			return true;
+		case "azure-ad":
+			return Boolean(user && typeof user === "object" && (user as { emailTrusted?: unknown }).emailTrusted === true);
+		default:
+			return false;
+	}
+}
+
+/** True when the provider explicitly reports the email as unverified. */
+export function isEmailExplicitlyUnverified(profile: unknown): boolean {
+	const record = profile && typeof profile === "object" ? (profile as Record<string, unknown>) : {};
+	return record.email_verified === false || record.email_verified === "false";
+}
+
 export function emailFromProfile(profile: unknown): string | null {
 	if (!profile || typeof profile !== "object") return null;
 	const record = profile as Record<string, unknown>;
@@ -55,7 +85,7 @@ function configuredValue(
 	return normalize(fromEnv);
 }
 
-function azureProfile(profile: Record<string, unknown>) {
+function azureProfile(profile: Record<string, unknown>, emailTrusted: boolean) {
 	const email = emailFromProfile(profile);
 	const name = typeof profile.name === "string" ? profile.name : null;
 	const id = typeof profile.sub === "string" ? profile.sub : email || "azure-ad";
@@ -64,6 +94,8 @@ function azureProfile(profile: Record<string, unknown>) {
 		name,
 		email: email || "",
 		image: null,
+		// Only a single configured directory controls who can hold an email.
+		emailTrusted,
 	};
 }
 
@@ -105,7 +137,7 @@ export async function buildOAuthProviders(
 				clientSecret: azureSecret,
 				tenantId: tenant,
 				profile(profile) {
-					return azureProfile(profile as Record<string, unknown>);
+					return azureProfile(profile as Record<string, unknown>, !MULTI_TENANT_AZURE.has(tenant));
 				},
 			})
 		);

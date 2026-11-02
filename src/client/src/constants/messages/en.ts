@@ -3397,3 +3397,14 @@ export const API_KEY_FULL_ACCESS_DESCRIPTION =
 	"Can use every feature that accepts API keys.";
 export const API_KEY_DELETE = "Delete API key";
 export const API_KEY_INVALID_JSON = "Request body must be valid JSON.";
+
+// Instance admin
+export const INSTANCE_ADMIN_TITLE = "Instance admin";
+export const INSTANCE_ADMIN_REQUIRED =
+	"Only the instance admin can manage instance settings.";
+export const INSTANCE_ADMIN_BACK_TO_APP = "Back to app";
+export const INSTANCE_ADMIN_SIGNED_IN_AS = "Signed in as";
+export const INSTANCE_ADMIN_NAVIGATION = "Instance settings";
+export const INSTANCE_ADMIN_EMPTY_TITLE = "No instance settings yet";
+export const INSTANCE_ADMIN_EMPTY_DESCRIPTION =
+	"Instance settings are not available in this edition.";

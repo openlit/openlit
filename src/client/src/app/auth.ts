@@ -6,6 +6,8 @@ import { PrismaClient } from "@prisma/client";
 import {
 	buildOAuthProviders,
 	emailFromProfile,
+	isEmailExplicitlyUnverified,
+	isEmailVouched,
 	OAUTH_LINK_PROVIDERS,
 	oauthProfilePatch,
 } from "@/lib/auth/oauth-providers";
@@ -17,6 +19,7 @@ import {
 	doesPasswordMatches,
 	getUserById,
 } from "@/lib/user";
+import { isInstanceAdminUser } from "@/lib/instance-admin";
 
 const prisma = new PrismaClient();
 
@@ -66,6 +69,7 @@ export const authOptions = {
 
 					// Update hasCompletedOnboarding status from database
 					token.hasCompletedOnboarding = existingUser.hasCompletedOnboarding;
+					token.isInstanceAdmin = await isInstanceAdminUser(existingUser.id);
 				} catch (error) {
 					console.error("Database error during JWT update:", error);
 				}
@@ -86,6 +90,7 @@ export const authOptions = {
 
 				// Update hasCompletedOnboarding status on every token refresh
 				token.hasCompletedOnboarding = existingUser.hasCompletedOnboarding;
+				token.isInstanceAdmin = await isInstanceAdminUser(existingUser.id);
 			} catch (error) {
 				// If there's a database connection error during startup,
 				// allow the token to pass through to avoid blocking the app
@@ -105,6 +110,7 @@ export const authOptions = {
 				if (existingUser) {
 					// Use the value from database (handles OAuth logins correctly)
 					token.hasCompletedOnboarding = existingUser.hasCompletedOnboarding;
+					token.isInstanceAdmin = await isInstanceAdminUser(existingUser.id);
 				} else {
 					// Fallback for brand new users (credentials provider during registration)
 					token.hasCompletedOnboarding = (user as any).hasCompletedOnboarding ?? false;
@@ -129,12 +135,32 @@ export const authOptions = {
 			}
 
 			if (account?.provider && OAUTH_LINK_PROVIDERS.has(account.provider)) {
+				// A provider that says the email is unverified cannot claim it.
+				if (isEmailExplicitlyUnverified(profile)) {
+					return "/login?error=AccessDenied";
+				}
+
 				const [, existingUser] = await asaw(
 					getUserByEmail({ email: user.email })
 				);
 
-				// If user exists but doesn't have Google account linked
+				// If user exists but doesn't have this provider linked yet
 				if (existingUser) {
+					const linkedAccount = await prisma.account.findFirst({
+						where: {
+							provider: account.provider,
+							providerAccountId: account.providerAccountId,
+						},
+						select: { userId: true },
+					});
+					// Linking by email needs a provider-verified email. An identity that
+					// is already linked to this user can always sign in.
+					if (
+						linkedAccount?.userId !== existingUser.id &&
+						!isEmailVouched(account.provider, profile, user)
+					) {
+						return "/login?error=OAuthAccountNotLinked";
+					}
 					try {
 						// Check if Provider's account is already linked
 						const existingAccount = await prisma.account.findFirst({
@@ -195,6 +221,7 @@ export const authOptions = {
 		async session({ session, token }: { session: any; token: any }) {
 			try {
 				session.user.id = token.id;
+				session.user.isInstanceAdmin = token.isInstanceAdmin === true;
 			} catch (e) {
 				console.log(e);
 			}

@@ -1,4 +1,10 @@
-import { buildOAuthProviders, emailFromProfile, oauthProfilePatch } from "@/lib/auth/oauth-providers";
+import {
+	buildOAuthProviders,
+	emailFromProfile,
+	isEmailExplicitlyUnverified,
+	isEmailVouched,
+	oauthProfilePatch,
+} from "@/lib/auth/oauth-providers";
 
 function providerById(providers: Awaited<ReturnType<typeof buildOAuthProviders>>, id: string) {
 	return providers.find((provider) => provider.id === id);
@@ -90,5 +96,37 @@ describe("oauth providers", () => {
 			name: "Ada Lovelace",
 			image: "https://example.com/ada.png",
 		});
+	});
+
+	it("only vouches for emails the provider has verified", () => {
+		expect(isEmailVouched("google", { email_verified: true })).toBe(true);
+		expect(isEmailVouched("google", { email_verified: false })).toBe(false);
+		expect(isEmailVouched("google", {})).toBe(false);
+		expect(isEmailVouched("okta", { email_verified: "true" })).toBe(true);
+		expect(isEmailVouched("okta", {})).toBe(false);
+		expect(isEmailVouched("github", {})).toBe(true);
+		expect(isEmailVouched("azure-ad", { email: "a@b.com" }, { emailTrusted: false })).toBe(false);
+		expect(isEmailVouched("azure-ad", { email: "a@b.com" }, { emailTrusted: true })).toBe(true);
+		expect(isEmailVouched("unknown", { email_verified: true })).toBe(false);
+		expect(isEmailExplicitlyUnverified({ email_verified: false })).toBe(true);
+		expect(isEmailExplicitlyUnverified({})).toBe(false);
+	});
+
+	it("never trusts Microsoft emails when any tenant may sign in", async () => {
+		process.env.AZURE_AD_CLIENT_ID = "azure-client";
+		process.env.AZURE_AD_CLIENT_SECRET = "azure-secret";
+		const claims = { sub: "s", email: "user@openlit.io", name: "Attacker" };
+
+		for (const tenant of [undefined, "common", "organizations", "consumers"]) {
+			if (tenant) process.env.AZURE_AD_TENANT_ID = tenant;
+			else delete process.env.AZURE_AD_TENANT_ID;
+			const azure = providerById(await buildOAuthProviders({}), "azure-ad") as any;
+			const user = await azure.options.profile(claims, {});
+			expect(user.emailTrusted).toBe(false);
+		}
+
+		process.env.AZURE_AD_TENANT_ID = "contoso.onmicrosoft.com";
+		const single = providerById(await buildOAuthProviders({}), "azure-ad") as any;
+		expect(await single.options.profile(claims, {})).toMatchObject({ emailTrusted: true });
 	});
 });

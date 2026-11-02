@@ -10,7 +10,7 @@ const BLOCKED_HOSTS = new Set([
 	"169.254.169.254",
 ]);
 
-function isPrivateIp(ip: string) {
+export function isPrivateIp(ip: string) {
 	const version = net.isIP(ip);
 	if (version === 4) {
 		const parts = ip.split(".").map(Number);

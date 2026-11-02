@@ -17,6 +17,8 @@ import {
 	ONBOARDING_WHITELIST_ROUTES,
 	ONBOARDING_WHITELIST_ROUTE_PREFIXES,
 	ONBOARDING_WHITELIST_API_ROUTES,
+	INSTANCE_ADMIN_ROUTE_PREFIX,
+	INSTANCE_ADMIN_API_ROUTE_PREFIX,
 } from "@/constants/route";
 import { isValidCronJobRequest } from "@/helpers/server/cron-auth";
 import { isApiKeyPathAllowed } from "@/lib/platform/api-key-access/scopes";
@@ -50,11 +52,15 @@ const RATE_LIMITED_API_PREFIXES = [
 	"/api/agents",
 	"/api/alerts",
 	"/api/vault",
-	"/api/instance",
+	"/api/admin",
 	"/api/context",
 	"/api/manage-dashboard",
 ];
 let nextRateLimitCleanupAt = 0;
+
+function isWithinPrefix(pathname: string, prefix: string) {
+	return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 function shouldRateLimitApi(pathname: string) {
 	return RATE_LIMITED_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
@@ -214,6 +220,8 @@ export default function checkAuth(next: NextMiddleware) {
 					pathname.startsWith("/login") || pathname.startsWith("/register");
 				const isApiPage = pathname.startsWith("/api");
 				const isRateLimitedApi = shouldRateLimitApi(pathname);
+				const isInstanceAdminPage = isWithinPrefix(pathname, INSTANCE_ADMIN_ROUTE_PREFIX);
+				const isInstanceAdminApi = isWithinPrefix(pathname, INSTANCE_ADMIN_API_ROUTE_PREFIX);
 				const method = request.method.toUpperCase();
 				const isOnboardingWhitelistedPage = ONBOARDING_WHITELIST_ROUTES.includes(
 					pathname
@@ -267,6 +275,20 @@ export default function checkAuth(next: NextMiddleware) {
 							{ error: "Too many requests" },
 							{ status: 429 }
 						);
+					}
+
+					// Instance admin APIs need a session whose user is the instance
+					// admin. Route handlers repeat the check against the database.
+					if (isInstanceAdminApi) {
+						if (!isAuth) {
+							return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+						}
+						if (token.isInstanceAdmin !== true) {
+							return NextResponse.json(
+								{ error: getMessage().INSTANCE_ADMIN_REQUIRED },
+								{ status: 403 }
+							);
+						}
 					}
 
 					if (isEngineRoute) {
@@ -328,6 +350,12 @@ export default function checkAuth(next: NextMiddleware) {
 				) {
 					return NextResponse.redirect(
 						new URL("/onboarding", request.url)
+					);
+				}
+
+				if (isInstanceAdminPage && token.isInstanceAdmin !== true) {
+					return NextResponse.redirect(
+						new URL(DEFAULT_LOGGED_IN_ROUTE, request.url)
 					);
 				}
 
