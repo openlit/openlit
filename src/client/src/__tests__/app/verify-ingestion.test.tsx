@@ -22,6 +22,23 @@ it("builds a fixed-ID OTLP sample with the selected environment and no key value
 	expect(command).not.toContain("Bearer test-secret");
 });
 
+it("defaults the command endpoint to the receiver shown on the page", () => {
+	expect(sampleTraceCommand("01010101010101010101010101010101", "evaluation")).toContain(
+		'os.environ.get("OPENLIT_OTLP_HTTP_ENDPOINT", "http://127.0.0.1:4318")'
+	);
+	expect(sampleTraceCommand("01010101010101010101010101010101", "evaluation", "http://onboarding.example:4318")).toContain(
+		'os.environ.get("OPENLIT_OTLP_HTTP_ENDPOINT", "http://onboarding.example:4318")'
+	);
+});
+
+it("renders the sample command against the host serving the onboarding page", async () => {
+	render(<VerifyIngestion />);
+	await waitFor(() => expect(screen.getByText(/OPENLIT_OTLP_HTTP_ENDPOINT/)).toBeInTheDocument());
+	expect(screen.getByText(/OPENLIT_OTLP_HTTP_ENDPOINT/).textContent).toContain(
+		`os.environ.get("OPENLIT_OTLP_HTTP_ENDPOINT", "${window.location.protocol}//${window.location.hostname}:4318")`
+	);
+});
+
 it("only calls a trace stored when the lookup returns its exact ID, and links to its span", async () => {
 	(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({ record: undefined }) });
 	(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({ record: { TraceId: "01010101010101010101010101010101", SpanId: "0102030405060708", Timestamp: "2026-09-26T00:00:00Z" } }) });

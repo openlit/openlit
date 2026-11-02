@@ -12,8 +12,9 @@ import { getRequestHeaders } from "@/utils/api";
 
 const messages = getMessage();
 
-export function sampleTraceCommand(traceId: string, environment: string): string {
+export function sampleTraceCommand(traceId: string, environment: string, defaultOtlpHttpEndpoint = "http://127.0.0.1:4318"): string {
 	const safeEnvironment = JSON.stringify(environment);
+	const safeEndpoint = JSON.stringify(defaultOtlpHttpEndpoint);
 	return `# Set OPENLIT_API_KEY in your shell if your receiver requires authentication.
 # Change the endpoint if your OTLP receiver is not on this host.
 import base64, json, os, time, urllib.request, urllib.error
@@ -25,7 +26,7 @@ body = {"resourceSpans": [{"resource": {"attributes": [
 ]}, "scopeSpans": [{"spans": [{"traceId": base64.b64encode(bytes.fromhex(trace_id)).decode(),
     "spanId": base64.b64encode(bytes.fromhex("0102030405060708")).decode(), "name": "openlit.onboarding.check",
     "startTimeUnixNano": now, "endTimeUnixNano": str(int(now) + 1000000)}]}]}]}
-endpoint = os.environ.get("OPENLIT_OTLP_HTTP_ENDPOINT", "http://127.0.0.1:4318")
+endpoint = os.environ.get("OPENLIT_OTLP_HTTP_ENDPOINT", ${safeEndpoint})
 headers = {"Content-Type": "application/json"}
 if os.environ.get("OPENLIT_API_KEY"):
     headers["Authorization"] = "Bearer " + os.environ["OPENLIT_API_KEY"]
@@ -80,7 +81,7 @@ export default function VerifyIngestion() {
 			<label className="mt-3 block" htmlFor="verification-environment">{messages.INGESTION_VERIFY_ENVIRONMENT}</label>
 			<input id="verification-environment" value={environment} maxLength={80} onChange={(event) => setEnvironment(event.target.value)} className="mt-1 rounded border p-2 text-stone-900 dark:bg-stone-950 dark:text-stone-100" />
 			<p className="mt-3">{messages.INGESTION_VERIFY_COMMAND}</p>
-			{traceId && <CodeBlock language="python" code={sampleTraceCommand(traceId, environment)} className="text-xs" />}
+			{traceId && <CodeBlock language="python" code={sampleTraceCommand(traceId, environment, `${window.location.protocol}//${window.location.hostname}:4318`)} className="text-xs" />}
 			<p className="mt-2">{messages.INGESTION_VERIFY_RECEIVER_NOTE}</p>
 			<Button className="mt-3" type="button" onClick={verify} disabled={!traceId || result.state === "checking"}>{messages.INGESTION_VERIFY_BUTTON}</Button>
 			<div role="status" className="mt-2">
