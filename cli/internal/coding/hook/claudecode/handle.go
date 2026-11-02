@@ -948,20 +948,43 @@ func tailTranscript(path string) (model string, cost float64, inTokens, outToken
 		CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
 	}
 	type turn struct {
-		Type    string `json:"type"`
-		Message struct {
+		Type      string `json:"type"`
+		RequestID string `json:"requestId"`
+		Message   struct {
+			ID    string `json:"id"`
 			Model string `json:"model"`
 			Usage usage  `json:"usage"`
 		} `json:"message"`
 	}
 
-	var ti, to, cacheRead, cacheCreation int64
-	var lastModel string
+	// Claude Code writes one line per content block (thinking / text /
+	// tool_use) of an API response, each repeating the response's usage.
+	// Count every response once — the last line of a message wins, as
+	// in coalesceAssistants.
+	byMessage := map[string]int{}
+	var turns []turn
 	for _, line := range lines {
 		var t turn
 		if err := json.Unmarshal(line, &t); err != nil {
 			continue
 		}
+		key := t.Message.ID
+		if key == "" {
+			key = t.RequestID
+		}
+		if key != "" {
+			if i, seen := byMessage[key]; seen {
+				turns[i] = t
+				continue
+			}
+			byMessage[key] = len(turns)
+		}
+		turns = append(turns, t)
+	}
+
+	var ti, to, cacheRead, cacheCreation int64
+	var lastModel string
+	for _, t := range turns {
 		// Anthropic transcript reports cache creation + cache read as
 		// separate counters; "fresh" input is the standard input_tokens.
 		// The OTel field gen_ai.usage.input_tokens should equal total
