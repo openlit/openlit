@@ -1,0 +1,79 @@
+{
+  "$schema": "https://fundingjson.org/schema/v1.1.0.json",
+  "version": "v1.1.0",
+  "entity": {
+    "type": "organisation",
+    "role": "owner",
+    "name": "OpenLIT",
+    "email": "contact@openlit.io",
+    "description": "OpenLIT builds open-source, OpenTelemetry-native tooling for engineering AI agents and LLM applications in production: tracing, metrics, evaluations, guardrails, prompt management, secrets management and GPU monitoring. Everything is self-hostable and released under the Apache 2.0 license.",
+    "webpageUrl": {
+      "url": "https://openlit.io"
+    }
+  },
+  "projects": [
+    {
+      "guid": "openlit",
+      "name": "OpenLIT",
+      "description": "OpenLIT is an open-source, OpenTelemetry-native platform for AI engineering. It provides one-line auto-instrumentation SDKs for 50+ LLM providers, vector databases and agent frameworks, plus a self-hosted platform for traces, metrics, cost tracking, evaluations, guardrails, prompt and secrets management, an LLM playground, and GPU monitoring. Funding supports maintainer time, new integrations, security fixes, documentation and community support.",
+      "webpageUrl": {
+        "url": "https://openlit.io"
+      },
+      "repositoryUrl": {
+        "url": "https://github.com/openlit/openlit",
+        "wellKnown": "https://github.com/openlit/openlit/blob/main/.well-known/funding-manifest-urls"
+      },
+      "licenses": [
+        "spdx:Apache-2.0"
+      ],
+      "tags": [
+        "observability",
+        "opentelemetry",
+        "llm",
+        "ai-agents",
+        "genai",
+        "monitoring",
+        "tracing",
+        "evaluations",
+        "gpu-monitoring",
+        "developer-tools"
+      ]
+    }
+  ],
+  "funding": {
+    "channels": [
+      {
+        "guid": "opencollective",
+        "type": "payment-provider",
+        "address": "https://opencollective.com/openlit",
+        "description": "Contributions via OpenLIT's Open Collective, fiscally hosted by Open Source Collective. Accepts card and other payment methods for one-time or recurring support."
+      }
+    ],
+    "plans": [
+      {
+        "guid": "recurring-support",
+        "status": "active",
+        "name": "Recurring support",
+        "description": "Contribute any amount monthly to sustain OpenLIT's maintenance, integrations and security fixes.",
+        "amount": 0,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": [
+          "opencollective"
+        ]
+      },
+      {
+        "guid": "one-time-support",
+        "status": "active",
+        "name": "One-time contribution",
+        "description": "Contribute any amount once to support OpenLIT's development.",
+        "amount": 0,
+        "currency": "USD",
+        "frequency": "one-time",
+        "channels": [
+          "opencollective"
+        ]
+      }
+    ]
+  }
+}
