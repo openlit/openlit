@@ -8,6 +8,198 @@ export const OPERATION_FAILED = "Operation failed!";
 
 // API Keys
 export const NO_API_KEY = "No such apiKey exists!";
+export const SDK_PROJECT_SCOPE_MISMATCH =
+	"The requested project is not available for this API key.";
+
+// Realtime findings
+export const REALTIME_RULE_ERROR_RATE = "Error rate spike";
+export const REALTIME_RULE_P95_LATENCY = "P95 latency breach";
+export const REALTIME_RULE_TOKEN_SPIKE = "Token usage spike";
+// Alerts (threshold alerts on the realtime signal stream)
+export const ALERTING_TITLE = "Alerts";
+export const ALERTING_OVERVIEW = "Overview";
+export const ALERTING_ALERTS = "Alerts";
+export const ALERTING_NEW = "New alert";
+export const ALERTING_NEW_THRESHOLD = "Threshold alert";
+export const ALERTING_NEW_MORE = "More ways to create an alert";
+export const ALERTING_FIELD_SEARCH = "Search fields or type an attribute key";
+export const ALERTING_FIELD_USE_CUSTOM = "Use attribute";
+export const ALERTING_FIELD_GROUP_SPAN = "Span fields";
+export const ALERTING_FIELD_GROUP_ATTRIBUTES = "Span attributes";
+export const ALERTING_FIELD_NONE = "No matching fields.";
+export const ALERTING_FIELD_INVALID_HINT = "Attribute keys start with a letter and use letters, digits, dots, dashes, or underscores.";
+export const ALERTING_FIELD_PERSONAL_HINT = "Personal attributes (user, session, email, IP, path, address) need to be listed in OPENLIT_SIGNAL_ATTRIBUTES first.";
+export const ALERTING_NEW_TITLE = "New alert";
+export const ALERTING_EDIT_TITLE = "Edit alert";
+export const ALERTING_DETAIL_TITLE = "Alert";
+export const ALERTING_BACK = "Back";
+export const ALERTING_REFRESH = "Refresh";
+export const ALERTING_OVERVIEW_HINT =
+	"Threshold alerts watch live GenAI spans for this project and environment and fire within seconds of a breach.";
+export const ALERTING_LIST_HINT =
+	"Every alert in this project environment. Click an alert to see what it is firing on and the spans it evaluates.";
+export const ALERTING_EMPTY_TITLE = "No alerts yet";
+export const ALERTING_EMPTY_DESCRIPTION =
+	"Create an alert from a template such as error rate or cost spike, or define your own threshold on any metric.";
+export const ALERTING_TILE_FIRING_ALERTS = "Alerts firing";
+export const ALERTING_TILE_FIRING_FINDINGS = "Firing groups";
+export const ALERTING_TILE_RESOLVED_24H = "Resolved (24h)";
+export const ALERTING_TILE_ENABLED = "Enabled";
+export const ALERTING_TILE_TOTAL = "Total alerts";
+export const ALERTING_FIRING_BY_SEVERITY = "Firing by severity";
+export const ALERTING_N_FIRING = (count: number) => `${count} firing`;
+export const ALERTING_NOTHING_FIRING = "Nothing firing";
+export const ALERTING_RECENT_ACTIVITY = "Recent activity";
+export const ALERTING_NOISIEST = "Most triggered";
+export const ALERTING_VIEW_ALL = "View all";
+export const ALERTING_NO_ACTIVITY = "No activity yet.";
+export const ALERTING_TIMES = (count: number) => `${count}×`;
+export const ALERTING_COLUMN_STATUS = "Status";
+export const ALERTING_COLUMN_ALERT = "Alert";
+export const ALERTING_COLUMN_CONDITION = "Condition";
+export const ALERTING_COLUMN_SEVERITY = "Severity";
+export const ALERTING_COLUMN_LAST_TRIGGERED = "Last triggered";
+export const ALERTING_COLUMN_ENABLED = "Enabled";
+export const ALERTING_COLUMN_FIRST_SEEN = "First seen";
+export const ALERTING_COLUMN_RESOLVED = "Resolved";
+export const ALERTING_COLUMN_OCCURRENCES = "Times fired";
+export const ALERTING_STATUS_FIRING = "Firing";
+export const ALERTING_STATUS_FIRING_N = (count: number) => `Firing · ${count}`;
+export const ALERTING_STATUS_OK = "OK";
+export const ALERTING_STATUS_DISABLED = "Disabled";
+export const ALERTING_TYPE_THRESHOLD = "Threshold";
+export const ALERTING_IN_APP = "In-app";
+export const ALERTING_EDIT = "Edit";
+export const ALERTING_DELETE = "Delete";
+export const ALERTING_DELETE_TITLE = "Delete this alert?";
+export const ALERTING_DELETE_DESCRIPTION = "The alert stops evaluating and its history is removed.";
+export const ALERTING_DELETED = "Alert deleted.";
+export const ALERTING_CREATED = "Alert created.";
+export const ALERTING_SAVED = "Alert saved.";
+export const ALERTING_CREATE = "Create alert";
+export const ALERTING_SAVE = "Save alert";
+export const ALERTING_START_FROM = "Start from";
+export const ALERTING_START_FROM_HINT = "Pick a template to prefill the condition, then adjust anything below.";
+export const ALERTING_TEMPLATE_BLANK = "Blank";
+export const ALERTING_TEMPLATE_BLANK_HINT = "Choose the metric and threshold yourself.";
+export const ALERTING_SECTION_DETAILS = "Details";
+export const ALERTING_SECTION_CONDITION = "Condition";
+export const ALERTING_SECTION_CONDITION_HINT =
+	"Fire when the metric crosses the threshold over the window. Each group-by value is tracked and alerted on separately.";
+export const ALERTING_SECTION_FILTERS = "Span filters";
+export const ALERTING_SECTION_FILTERS_HINT =
+	"Only evaluate spans that match all of these. Leave empty to evaluate every GenAI span in this environment.";
+export const ALERTING_SECTION_DELIVERY = "Notify";
+export const ALERTING_DELIVERY_IN_APP =
+	"Notifications appear in OpenLIT: on the Alerts pages and in the bell in the header.";
+export const ALERTING_FIELD_NAME = "Name";
+export const ALERTING_FIELD_NAME_PLACEHOLDER = "e.g. gpt-4o cost above budget";
+export const ALERTING_FIELD_DESCRIPTION = "Description";
+export const ALERTING_FIELD_SEVERITY = "Severity";
+export const ALERTING_FIELD_METRIC = "Metric";
+export const ALERTING_FIELD_OPERATOR = "Operator";
+export const ALERTING_FIELD_THRESHOLD = "Threshold";
+export const ALERTING_FIELD_WINDOW = "Window";
+export const ALERTING_FIELD_GROUP_BY = "Group by";
+export const ALERTING_FIELD_GROUP_BY_HINT = "Up to three fields, such as model or service.";
+export const ALERTING_FIELD_MIN_SAMPLES = "Minimum spans";
+export const ALERTING_FIELD_MIN_SAMPLES_HINT = "Spans needed in the window before it can fire.";
+export const ALERTING_FIELD_COOLDOWN = "Cooldown (seconds)";
+export const ALERTING_FIELD_COOLDOWN_HINT = "Minimum time between two firings of the same group.";
+export const ALERTING_ADD_GROUP = "Add field";
+export const ALERTING_ADD_FILTER = "Add filter";
+export const ALERTING_REMOVE = "Remove";
+export const ALERTING_FILTER_VALUE_PLACEHOLDER = "value, or comma-separated values";
+export const ALERTING_PREVIEW = (condition: string, filters: string) => `Fires when ${condition}, for ${filters}.`;
+export const ALERTING_OVER = "over";
+export const ALERTING_PER = "per";
+export const ALERTING_ALL_SPANS = "all GenAI spans";
+export const ALERTING_METRIC_ERROR_RATE = "Error rate";
+export const ALERTING_METRIC_ERROR_COUNT = "Error count";
+export const ALERTING_METRIC_COUNT = "Span count";
+export const ALERTING_METRIC_P95_LATENCY = "P95 latency";
+export const ALERTING_METRIC_AVG_LATENCY = "Average latency";
+export const ALERTING_METRIC_TOTAL_TOKENS = "Total tokens";
+export const ALERTING_METRIC_COST = "Cost";
+export const ALERTING_FIRING_NOW = "Firing groups";
+export const ALERTING_TOTAL_OCCURRENCES = "Times fired";
+export const ALERTING_TAB_ACTIVITY = "Activity";
+export const ALERTING_TAB_SPANS = "Live spans";
+export const ALERTING_TAB_CONFIGURATION = "Configuration";
+export const ALERTING_ACTIVITY_HINT = "Each row is one group (for example one model) this alert fired for.";
+export const ALERTING_FIRING_GROUPS = (count: number) => `${count} group${count === 1 ? "" : "s"} firing now.`;
+export const ALERTING_NO_FINDINGS = "This alert has not fired yet.";
+export const ALERTING_SPANS_HINT =
+	"The latest spans the realtime engine received that match this alert's span filters. Click a row for its details.";
+export const ALERTING_ENGINE_RULE_ID = "Engine rule";
+export const ALERTING_CREATED_AT = "Created";
+export const ALERTING_UPDATED_AT = "Updated";
+export const ALERTING_JUST_NOW = "just now";
+export const ALERTING_MINUTES_AGO = (minutes: number) => `${minutes}m ago`;
+export const ALERTING_HOURS_AGO = (hours: number) => `${hours}h ago`;
+export const REALTIME_RULE_COST_SPIKE = "Cost spike";
+export const REALTIME_RULE_INVALID =
+	"Invalid alert. Check the fields, metric, operator, window, and limits.";
+export const REALTIME_RULE_NOT_FOUND = "Alert not found in this project environment.";
+export const REALTIME_RULE_ENVIRONMENT_UNKNOWN = "The environment does not exist in the current project.";
+export const REALTIME_RULE_LIMIT = "This project has reached the threshold alert limit.";
+export const ALERT_THRESHOLD_FAILED = "Failed to update the alert.";
+export const ALERT_THRESHOLD_INVALID_JSON = "Alert body must be valid JSON.";
+export const ALERT_TEMPLATE_ERROR_RATE = "Share of failing GenAI spans per service over the window.";
+export const ALERT_TEMPLATE_P95_LATENCY = "95th percentile latency per model over the window.";
+export const ALERT_TEMPLATE_TOKEN_SPIKE = "Total tokens per model over the window.";
+export const ALERT_TEMPLATE_COST_SPIKE = "Total spend per model over the window.";
+export const REALTIME_FINDING_INVALID = "Invalid realtime finding payload.";
+export const REALTIME_FINDING_INVALID_JSON = "Realtime finding body must be valid JSON.";
+export const REALTIME_FINDING_RULE_UNKNOWN = "The realtime rule is not active for this tenant.";
+export const REALTIME_FINDING_TENANT_UNKNOWN = "The organisation, project, or environment does not exist.";
+export const REALTIME_FINDING_TENANT_CONFLICT = "The finding belongs to a different tenant.";
+export const REALTIME_FINDING_NO_PROJECT = "Select a project to view signals.";
+export const REALTIME_FINDINGS_FETCH_FAILED = "Failed to load findings.";
+export const REALTIME_SIGNALS_FETCH_FAILED = "Failed to load live signals.";
+export const REALTIME_FILTER_FIRING = "Firing";
+export const REALTIME_FILTER_RESOLVED = "Resolved";
+export const REALTIME_FILTER_ALL = "All";
+export const REALTIME_SIGNALS_EMPTY_TITLE = "No live signals";
+export const REALTIME_SIGNALS_EMPTY_DESCRIPTION =
+	"Signals appear here as GenAI spans are ingested for this project and environment. The OpenLIT engine keeps the most recent ones in memory.";
+export const REALTIME_SIGNALS_UNAVAILABLE =
+	"The OpenLIT engine is not reachable, so live signals cannot be shown.";
+export const REALTIME_SIGNALS_COLUMN_TIME = "Time";
+export const REALTIME_SIGNALS_COLUMN_SERVICE = "Service";
+export const REALTIME_SIGNALS_COLUMN_MODEL = "Model";
+export const REALTIME_SIGNALS_COLUMN_STATUS = "Status";
+export const REALTIME_SIGNALS_COLUMN_LATENCY = "Latency";
+export const REALTIME_SIGNALS_COLUMN_TOKENS = "Tokens";
+export const REALTIME_SIGNALS_COLUMN_COST = "Cost";
+export const REALTIME_SIGNALS_COLUMN_ATTRIBUTES = "Attributes";
+export const REALTIME_ALERTS_LABEL = "Signal alerts";
+export const REALTIME_ALERTS_EMPTY = "No firing alerts";
+export const REALTIME_ALERTS_VIEW = "View findings";
+export const REALTIME_COLUMN_SCOPE = "Scope";
+export const REALTIME_COLUMN_VALUE = "Value / threshold";
+export const REALTIME_COLUMN_STATE = "State";
+export const REALTIME_COLUMN_LAST_SEEN = "Last seen";
+export const REALTIME_STATE_FIRING = "Firing";
+export const REALTIME_STATE_RESOLVED = "Resolved";
+export const REALTIME_SIGNAL_STATUS_OK = "ok";
+export const REALTIME_SIGNAL_STATUS_ERROR = "error";
+export const REALTIME_FILTER_FIRING_HINT =
+	"Firing: the rule is breached right now. The finding stays firing until a full window passes without a breach.";
+export const REALTIME_FILTER_RESOLVED_HINT =
+	"Resolved: the condition cleared on its own. The finding reopens if the rule breaches again, and is deleted after the retention period.";
+export const REALTIME_FILTER_ALL_HINT = "All: firing and resolved findings together.";
+export const REALTIME_SORT_NEWEST = "Newest first";
+export const REALTIME_SORT_OLDEST = "Oldest first";
+export const REALTIME_SIGNAL_FIELD_TIMESTAMP = "Timestamp";
+export const REALTIME_SIGNAL_FIELD_SPAN_NAME = "Span name";
+export const REALTIME_SIGNAL_FIELD_OPERATION = "Operation";
+export const REALTIME_SIGNAL_FIELD_PROVIDER = "Provider";
+export const REALTIME_SIGNAL_FIELD_HTTP_STATUS = "HTTP status";
+export const REALTIME_SIGNAL_FIELD_INPUT_TOKENS = "Input tokens";
+export const REALTIME_SIGNAL_FIELD_OUTPUT_TOKENS = "Output tokens";
+export const REALTIME_SIGNAL_FIELD_TRACE_ID = "Trace ID";
+export const REALTIME_SIGNAL_FIELD_SPAN_ID = "Span ID";
 export const MANAGE_API_KEYS = "Manage API Keys";
 export const OPENAI_SPEC = "OpenAPI Specification";
 export const GENERATE_NEW_API_KEY = "Generate New API Key";
@@ -92,6 +284,20 @@ export const EVALUATION_CREATE_NEW = "Create new";
 export const EVALUATION_ENGINE_TITLE = "Evaluations";
 export const EVALUATION_ENGINE_DESCRIPTION =
 	"Choose the evaluation framework. Rule engine context and evaluation types are applied for both manual and auto runs.";
+export const EVALUATION_TYPESAFE_HINT =
+	"TypeSafe Jev returns noul/score with a classification used as the explanation. Pin jev-1.13.0 when calibrating verdict thresholds. Chat playground does not support Jev.";
+export const EVALUATION_ERROR_MISSING_CONFIG =
+	"Missing apiKey, provider, or model";
+export const EVALUATION_ERROR_INVALID_RESPONSE = "Invalid response format";
+export const EVALUATION_ERROR_UNKNOWN_TYPES = "Unknown eval types";
+export const EVALUATION_ERROR_TYPESAFE_REQUEST_FAILED =
+	"TypeSafe System One request failed";
+export const EVALUATION_ERROR_TYPESAFE_STATUS =
+	"TypeSafe System One returned status";
+export const EVALUATION_ERROR_TYPESAFE_INVALID_JSON =
+	"TypeSafe System One returned invalid JSON";
+export const PROVIDER_EVALUATION_ONLY_ERROR =
+	"This provider is evaluation-only and cannot be used here";
 export const EVALUATION_ENGINE_LABEL = "Engine";
 export const EVALUATION_CONFIG_SECTION = "Configuration";
 export const EVALUATION_PROVIDER_LABEL = "Provider";
@@ -233,10 +439,14 @@ export const OBSERVABILITY_EXCEPTIONS = "Exceptions";
 export const OBSERVABILITY_METRICS = "Metrics";
 export const OBSERVABILITY_LOGS = "Logs";
 export const OBSERVABILITY_TRACE_SHORT_LABEL = "Latency, cost, tokens";
+export const OBSERVABILITY_SPAN_SHORT_LABEL = "Individual operations";
 export const OBSERVABILITY_EXCEPTION_SHORT_LABEL = "Failures and error spans";
 export const OBSERVABILITY_METRIC_SHORT_LABEL = "Gauges, sums, histograms";
 export const OBSERVABILITY_LOG_SHORT_LABEL = "Events and correlated context";
 export const OBSERVABILITY_TRACE_SUMMARY = "Span flow";
+export const OBSERVABILITY_SPAN_SUMMARY = "Raw span flow";
+export const OBSERVABILITY_SPAN_COUNT_LABEL = "spans";
+export const OBSERVABILITY_ERROR_COUNT_LABEL = "errors";
 export const OBSERVABILITY_EXCEPTION_SUMMARY = "Failure path";
 export const OBSERVABILITY_METRIC_SUMMARY = "Signal shape";
 export const OBSERVABILITY_LOG_SUMMARY = "Event stream";
@@ -802,6 +1012,8 @@ export const AGENTS_TAB_CONTROLLERS = "Controllers";
 export const AGENTS_TAB_CODING = "Coding Agents";
 export const AGENTS_ADD_CONTROLLER = "Add Controller";
 export const AGENTS_ADD_CODING_AGENT = "Add Coding Agent";
+export const AGENTS_CODING_VENDOR_OPENCODE_LABEL = "OpenCode";
+export const AGENTS_CODING_VENDOR_OPENCODE_RESTART = "Restart OpenCode.";
 export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the install snippet. The OpenLit CLI hooks into the agent and ships every session, tool call, and LLM turn to this stack — no SDK or code changes required.";
 
 // Trace-detail content-capture banner. Surfaces a one-liner the user
@@ -872,8 +1084,9 @@ export const AGENTS_CODING_COLUMN_ACCEPTANCE = "Acceptance";
 export const AGENTS_CODING_COLUMN_COMMITS = "Commits";
 export const AGENTS_CODING_COLUMN_PRS = "PRs";
 export const AGENTS_CODING_EMPTY_TITLE = "No coding agents yet";
+export const AGENTS_CODING_SETUP_GUIDE = "coding-agents setup guide";
 export const AGENTS_CODING_EMPTY_BODY =
-	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, or Codex session. The first hook event will surface the agent here within a minute.";
+	"Install the openlit CLI on a teammate's machine and run a Claude Code, Cursor, Codex, or OpenCode session. The first hook event will surface the agent here within a minute.";
 export const AGENTS_CODING_TAB_SESSIONS = "Sessions";
 export const AGENTS_CODING_SESSIONS_EMPTY = "No sessions in the selected time range.";
 export const AGENTS_CODING_SESSIONS_SESSION = "Session";
@@ -890,7 +1103,7 @@ export const AGENTS_CODING_SESSIONS_OUTCOME = "Outcome";
 export const AGENTS_CODING_SESSIONS_CLASSIFICATION = "Classification";
 export const AGENTS_CODING_SESSIONS_LABEL = "Coding sessions";
 export const AGENTS_CODING_SESSIONS_SHORT_LABEL = "Sessions";
-export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex).";
+export const AGENTS_CODING_SESSIONS_SUMMARY = "Per-session timeline of coding-agent runs (Cursor, Claude Code, Codex, OpenCode).";
 export const AGENTS_CODING_USERS_LABEL = "Coding users";
 export const AGENTS_CODING_USERS_SHORT_LABEL = "Users";
 export const AGENTS_CODING_USERS_SUMMARY = "Per-user roll-up of coding-agent activity.";
@@ -1686,10 +1899,6 @@ export const PERSONAL_ORGANISATION = "Personal";
 // Auth
 export const AUTH_WELCOME = "Welcome to OpenLIT";
 export const AUTH_SUBTITLE = "Open source Agent Harness Engineering platform";
-export const AUTH_PANEL_EYEBROW = "Agent Harness Engineering";
-export const AUTH_PANEL_TITLE = "Trace, evaluate, and operate AI agents";
-export const AUTH_PANEL_BODY =
-	"LLM tracing, evaluations, prompt management, and cost tracking in one open-source platform.";
 export const TALK_TO_FOUNDER = "Talk to founder";
 export const TALK_TO_FOUNDER_HINT = "Schedule a 30-minute call";
 export const AUTH_SIGNING_IN = "Signing in...";
@@ -1717,27 +1926,29 @@ export const AUTH_ERROR_DEFAULT = "Unable to sign in.";
 export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
 export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
 
-// Auth feature highlights
-export const AUTH_FEATURE_TRACING = "LLM tracing";
-export const AUTH_FEATURE_TRACING_DESC = "OpenTelemetry traces for every call, tool, and retrieval";
-export const AUTH_FEATURE_ANALYTICS = "Cost and latency";
-export const AUTH_FEATURE_ANALYTICS_DESC = "Track spend, tokens, and speed for every AI workload";
-export const AUTH_FEATURE_EVALS = "Evaluations";
-export const AUTH_FEATURE_EVALS_DESC = "LLM-as-a-judge, heuristics, and human review";
-export const AUTH_FEATURE_JUDGE = "LLM-as-a-Judge";
-export const AUTH_FEATURE_JUDGE_DESC = "Automated quality scoring with any LLM";
-export const AUTH_FEATURE_OPENGROUND = "OpenGround";
-export const AUTH_FEATURE_OPENGROUND_DESC = "Compare LLMs side-by-side on cost & quality";
-export const AUTH_FEATURE_PROMPT_HUB = "Prompt Hub";
-export const AUTH_FEATURE_PROMPT_HUB_DESC = "Version and deploy prompts without shipping app code";
-export const AUTH_FEATURE_RULE_ENGINE = "Rule Engine";
-export const AUTH_FEATURE_RULE_ENGINE_DESC = "Conditional context and prompt retrieval";
-export const AUTH_FEATURE_VAULT = "Vault";
-export const AUTH_FEATURE_VAULT_DESC = "Store and rotate LLM API keys outside application code";
-export const AUTH_FEATURE_AGENTS = "Agent monitoring";
-export const AUTH_FEATURE_AGENTS_DESC = "See tools, cost, and outcomes for coding agents";
-export const AUTH_FEATURE_OTEL = "OpenTelemetry Native";
-export const AUTH_FEATURE_OTEL_DESC = "Built on open standards, no vendor lock-in";
+// Founder call sidebar card
+export const FOUNDER_CARD_BADGE = "From the founder";
+export const FOUNDER_CARD_TITLE = "Want more features?";
+export const FOUNDER_CARD_BODY =
+	"Tell us what your agents are missing. Grab 30 minutes and we'll figure it out together.";
+export const FOUNDER_CARD_CTA = "Schedule a call";
+export const FOUNDER_CARD_DISMISS = "Dismiss founder call card";
+
+// Error pages
+export const ERROR_PAGE_NOT_FOUND_CODE = "404";
+export const ERROR_PAGE_NOT_FOUND_LABEL = "Page not found";
+export const ERROR_PAGE_NOT_FOUND_TITLE = "Bug or feature?";
+export const ERROR_PAGE_NOT_FOUND_DESCRIPTION =
+	"This page drifted outside our observability zone. Let's head back to reality.";
+export const ERROR_PAGE_SERVER_ERROR_CODE = "500";
+export const ERROR_PAGE_SERVER_ERROR_LABEL = "Something went wrong";
+export const ERROR_PAGE_SERVER_ERROR_TITLE = "Something went wrong";
+export const ERROR_PAGE_SERVER_ERROR_DESCRIPTION =
+	"An unexpected error interrupted this page. Try again, or head back and pick up where you left off.";
+export const ERROR_PAGE_REFERENCE = "Reference";
+export const ERROR_PAGE_TRY_AGAIN = "Try again";
+export const ERROR_PAGE_GO_TO_DASHBOARD = "Return to dashboard";
+export const ERROR_PAGE_GO_TO_SIGN_IN = "Go to sign in";
 
 // Context UI
 export const CONTEXT_TITLE = "Context";
@@ -2735,6 +2946,8 @@ export const MEMORY_CONNECTOR_CLAUDE_DESCRIPTION =
 	"Browse and edit memories in Anthropic Claude memory stores.";
 export const MEMORY_CONNECTOR_MEM0_DESCRIPTION =
 	"Store and search long-term agent memories with Mem0.";
+export const MEMORY_CONNECTOR_MEMCODE_DESCRIPTION =
+	"Store and search long-term agent memories with MemCode.";
 export const MEMORY_CONNECTOR_ZEP_DESCRIPTION =
 	"Store and search session memory and a knowledge graph with Zep.";
 export const MEMORY_CONNECTOR_FIELD_ORG_ID = "Mem0 organization ID";
@@ -2744,12 +2957,50 @@ export const MEMORY_CONNECTOR_AUTH_HELP_CLAUDE =
 	"Use an Anthropic API key. Memory store calls send x-api-key with the agent-memory beta header.";
 export const MEMORY_CONNECTOR_AUTH_HELP_MEM0 =
 	"Use a Mem0 Platform API key. Self-hosted Mem0 can use a custom endpoint with the same Token authentication.";
+export const MEMORY_CONNECTOR_MEMCODE_NO_TEST_ROUTE =
+	"This MemCode deployment has no GET /v2/test route. Update the Memory API to verify connections.";
+export const MEMORY_CONNECTOR_MEMCODE_NOT_FOUND =
+	"No MemCode Memory API answered at this URL. Check the connector URL.";
+export const MEMORY_CONNECTOR_MEMCODE_NOT_READY =
+	"The MemCode Memory API is reachable but still starting up. Try again shortly.";
+export const MEMORY_CONNECTOR_MEMCODE_KEY_REJECTED =
+	"The MemCode Memory API rejected this key. Check the key and try again.";
+export const MEMORY_CONNECTOR_MEMCODE_PAYMENT_REQUIRED =
+	"This MemCode key is valid but the account is out of credit.";
+export const MEMORY_CONNECTOR_AUTH_HELP_MEMCODE =
+	"Use a MemCode API key from memory.memcode.in. Calls send Authorization: Bearer.";
 export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
 	"Use a Zep Cloud API key. Self-hosted Zep can use a custom endpoint with the same Api-Key authentication.";
+export const MEMORY_CONNECTOR_LANGGRAPH_DESCRIPTION =
+	"Browse and edit long-term memories in a LangGraph Store.";
+export const MEMORY_CONNECTOR_AUTH_HELP_LANGGRAPH =
+	"Leave the API key empty for self-hosted LangGraph servers without authentication. For LangGraph Platform deployments, use a LangSmith API key; it is sent as x-api-key. Bearer tokens and custom auth handlers are not supported.";
+export const MEMORY_CONNECTOR_LANGGRAPH_API_KEY_HELP =
+	"Optional. Sent as x-api-key when set.";
+export const MEMORY_CONNECTOR_FIELD_NAMESPACE_TEMPLATE = "Namespace template";
+export const MEMORY_CONNECTOR_FIELD_NAMESPACE_TEMPLATE_HELP =
+	"Optional. Segments separated by /, for example memories/{user_id}/{thread_id}. {user_id}, {thread_id}, and {assistant_id} map to the user, session, and agent filters; other segments must match exactly. Without placeholders, each namespace is a session filter.";
+export const MEMORY_CONNECTOR_FIELD_NAMESPACE_OR_THREAD = "Namespace or thread";
+export const MEMORY_CONNECTOR_LANGGRAPH_URL_REQUIRED =
+	"A LangGraph server URL is required.";
+export const MEMORY_CONNECTOR_LANGGRAPH_INVALID_NAMESPACE =
+	"LangGraph namespace labels must be non-empty, cannot contain \".\", and must stay within the configured namespace template.";
+export const MEMORY_CONNECTOR_LANGGRAPH_INVALID_TEMPLATE =
+	"The namespace template is invalid. Use / between segments, only {user_id}, {thread_id}, or {assistant_id} placeholders (each at most once), and no \".\" in fixed segments.";
+export const MEMORY_CONNECTOR_LANGGRAPH_TEMPLATE_VALUES_REQUIRED = (names: string) =>
+	`This connector's namespace template needs ${names} to write a memory.`;
+export const MEMORY_CONNECTOR_LANGGRAPH_UPDATE_CONFLICT =
+	"This LangGraph item has a content or metadata field OpenLIT cannot edit without overwriting data. Update it from LangGraph instead.";
+export const MEMORY_CONNECTOR_LANGGRAPH_AUTH_FAILED =
+	"LangGraph rejected the credentials. Check the API key, or clear it for servers without authentication.";
+export const MEMORY_CONNECTOR_LANGGRAPH_STORE_NOT_FOUND =
+	"The LangGraph Store API was not found at this URL. Check the server URL and that the store routes are enabled.";
 export const MEMORY_CONNECTOR_SETUP_CLAUDE_SUMMARY =
 	"Claude memory stores keep agent notes across Managed Agents sessions.";
 export const MEMORY_CONNECTOR_SETUP_MEM0_SUMMARY =
 	"Mem0 stores long-term memories scoped by user, run, or agent.";
+export const MEMORY_CONNECTOR_SETUP_MEMCODE_SUMMARY =
+	"MemCode stores long-term memories that agents can search later.";
 export const MEMORY_CONNECTOR_SETUP_ZEP_SUMMARY =
 	"Zep stores session memory and a knowledge graph for agents.";
 export const MEMORY_PAGE_DESCRIPTION =
@@ -2788,6 +3039,11 @@ export const MEMORY_PAGE_OF = (current: number, total: number) =>
 	`${current} of ${total}`;
 export const MEMORY_PAGE_PREVIOUS = "Previous page";
 export const MEMORY_PAGE_NEXT = "Next page";
+export const MEMORY_LIST_SHOWING = (loaded: number, total: number) =>
+	`${loaded} of ${total} loaded`;
+export const MEMORY_LIST_LOAD_MORE = "Load more";
+export const MEMORY_LIST_LOADING_MORE = "Loading…";
+export const MEMORY_LIST_LOAD_MORE_FAILED = "Failed to load more memories.";
 export const MEMORY_CONNECTOR_LABEL = "Memory connector";
 export const MEMORY_USER_FILTER = "User";
 export const MEMORY_SESSION_FILTER = "Session";
@@ -2825,6 +3081,26 @@ export const MEMORY_GRAPH_TYPE_ALL = "All";
 export const MEMORY_GRAPH_ZOOM_IN = "Zoom in";
 export const MEMORY_GRAPH_ZOOM_OUT = "Zoom out";
 export const MEMORY_GRAPH_TYPE_FILTER = "Entity type";
+export const MEMORY_GRAPH_STRENGTH_FILTER = "Connection strength";
+export const MEMORY_GRAPH_STRENGTH_ALL = "All connections";
+export const MEMORY_GRAPH_STRENGTH_FAINT = "Faint and above";
+export const MEMORY_GRAPH_STRENGTH_WEAK = "Weak and above";
+export const MEMORY_GRAPH_STRENGTH_MEDIUM = "Medium and above";
+export const MEMORY_GRAPH_STRENGTH_STRONG = "Strong only";
+export const MEMORY_GRAPH_TIER_STRONG = "Strong";
+export const MEMORY_GRAPH_TIER_MEDIUM = "Medium";
+export const MEMORY_GRAPH_TIER_WEAK = "Weak";
+export const MEMORY_GRAPH_TIER_FAINT = "Faint";
+export const MEMORY_GRAPH_CONNECTIONS_LEGEND = "Connections";
+export const MEMORY_GRAPH_EDGE_TOOLTIP = (
+	label: string,
+	weight: string,
+	tier: string
+) => `${label} · ${weight} (${tier})`;
+export const MEMORY_GRAPH_TRUNCATED = (shown: number) =>
+	`Showing the first ${shown} memories of this graph.`;
+export const MEMORY_GRAPH_COUNTS = (nodes: number, edges: number) =>
+	`${nodes} memories · ${edges} connections`;
 export const MEMORY_ENTITY = "Entity";
 export const MEMORY_EVENT = "Event";
 export const MEMORY_LOCATION = "Location";
@@ -2833,7 +3109,8 @@ export const MEMORY_PREFERENCE = "Preference";
 export const MEMORY_TOPIC = "Topic";
 export const MEMORY_USER = "User";
 export const MEMORY_INVALID_FILTER = "A memory filter value is invalid.";
-export const MEMORY_INVALID_LIMIT = "Limit must be a number between 1 and 100.";
+export const MEMORY_INVALID_LIMIT = "Limit must be a number between 1 and 500.";
+export const MEMORY_INVALID_OFFSET = "Offset must be a number between 0 and 1000000.";
 export const MEMORY_INVALID_JSON = "Request body must be valid JSON.";
 export const MEMORY_FEEDBACK_INVALID =
 	"Feedback must be positive, negative, very negative, or empty to clear.";
@@ -3004,10 +3281,20 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		steps: ["Create a Mem0 Platform API key, or point the endpoint at a self-hosted Mem0 service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Optionally set organization and project IDs for a Mem0 Platform workspace, then test the connection."],
 		docsUrl: "https://docs.mem0.ai/api-reference",
 	},
+	memcode: {
+		summary: "Connect OpenLIT to MemCode for long-term agent memory.",
+		steps: ["Create a MemCode API key. The key identifies the MemCode account, so no user ID is needed.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from the Memory page."],
+		docsUrl: "https://memcode.in/docs",
+	},
 	zep: {
 		summary: "Connect OpenLIT to Zep for session memory and graph search.",
 		steps: ["Create a Zep Cloud API key, or point the endpoint at a self-hosted Zep service.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then test the connection before using it from agents."],
 		docsUrl: "https://help.getzep.com/sdk-reference",
+	},
+	langgraph: {
+		summary: "Connect OpenLIT to the Store API of a LangGraph server.",
+		steps: ["Enter the LangGraph server URL, for example a LangGraph Platform deployment or a self-hosted server such as http://localhost:2024.", "For LangGraph Platform, paste a LangSmith API key. Leave it empty for self-hosted servers without authentication.", "Optionally set a namespace template such as memories/{user_id}, then test the connection."],
+		docsUrl: "https://docs.langchain.com/langsmith/agent-server",
 	},
 	trustabl: {
 		summary: "Connect OpenLIT to Trustabl for agent reliability scans.",
@@ -3096,3 +3383,13 @@ export const GETTING_STARTED_CONTENT_CAPTURE_WARNING =
 	"The Python SDK captures full prompts and responses by default (capture_message_content=True). If this application sends sensitive content, switch capture off before running it.";
 export const GETTING_STARTED_CONTENT_CAPTURE_OPTIONS =
 	"For shorter captured content, set max_content_length. The PII guard can redact prompts before export, but it does not guarantee response content is redacted in stored traces.";
+export const API_KEY_FULL_ACCESS = "Full access";
+export const API_KEY_ACCESS_SELECT_FEATURE = "Select at least one feature.";
+export const API_KEY_FEATURE_ACCESS_DENIED =
+	"This API key does not have access to this feature";
+export const API_KEY_ACCESS_CONTROL_UNAVAILABLE =
+	"API key access control is not available in this edition.";
+export const API_KEY_FULL_ACCESS_DESCRIPTION =
+	"Can use every feature that accepts API keys.";
+export const API_KEY_DELETE = "Delete API key";
+export const API_KEY_INVALID_JSON = "Request body must be valid JSON.";

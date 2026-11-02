@@ -7,6 +7,7 @@ import { throwIfError } from "@/utils/error";
 import getMessage from "@/constants/messages";
 import { recordOrganisationUsageEvent } from "@/lib/billing/usage-recorder";
 import { getCurrentOrganisation } from "@/lib/organisation";
+import { getApiKeyScopesByIds } from "@/lib/platform/api-key-access/server";
 
 const APIKEY_PREFIX = "openlit-";
 
@@ -58,7 +59,12 @@ function createAPIKey() {
 	return `${APIKEY_PREFIX}${key.toString("base64")}`;
 }
 
-export async function generateAPIKey(name: string) {
+// `extraData` carries edition-specific columns (e.g. enterprise access scopes)
+// so they are written atomically with the key.
+export async function generateAPIKey(
+	name: string,
+	extraData: Record<string, unknown> = {}
+) {
 	const user = await getCurrentUser();
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
@@ -83,8 +89,9 @@ export async function generateAPIKey(name: string) {
 			? dbConfig.environment.trim()
 			: "production";
 
-	await prisma.aPIKeys.create({
+	const created = await prisma.aPIKeys.create({
 		data: {
+			...extraData,
 			apiKey,
 			name,
 			databaseConfigId: dbConfig.id,
@@ -114,6 +121,7 @@ export async function generateAPIKey(name: string) {
 	}
 
 	return {
+		id: created.id,
 		apiKey,
 		databaseConfigId: dbConfig.id,
 		organisationId,
@@ -196,9 +204,12 @@ export async function getAllAPIKeys(databaseConfigId?: string) {
 		return data;
 	}
 
+	const scopesById = await getApiKeyScopesByIds(data.map((row) => row.id));
+
 	return data.map(({ apiKey, ...rest }) => ({
 		...rest,
 		apiKeyPreview: previewApiKey(apiKey),
+		scopes: scopesById[rest.id] ?? null,
 	}));
 }
 

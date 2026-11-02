@@ -23,10 +23,10 @@ const SIGNAL_ACCESS: Record<string, RouteAccessKey> = {
 };
 
 /** Route each signal's summary through its per-signal read facade. */
-function summaryForSignal(signal: string, params: MetricParams) {
+function summaryForSignal(signal: string, params: MetricParams, aggregateTraces = false) {
 	if (signal === "logs") return getLogsSummary(params);
 	if (signal === "metrics") return getMetricsSummary(params);
-	return getTraceSummary(params, signal as "traces" | "exceptions");
+	return getTraceSummary(params, signal as "traces" | "exceptions", aggregateTraces);
 }
 
 async function POSTHandler(
@@ -44,6 +44,7 @@ async function POSTHandler(
 	}
 
 	const formData = await request.json();
+	const { searchParams } = new URL(request.url);
 	const metricParams: MetricParams = {
 		timeLimit: formData.timeLimit as TimeLimit,
 		selectedConfig: formData.selectedConfig || {},
@@ -61,7 +62,7 @@ async function POSTHandler(
 	if (!validation.success) return Response.json(validation.err, { status: 400 });
 
 	try {
-		return Response.json(await summaryForSignal(params.signal, metricParams));
+		return Response.json(await summaryForSignal(params.signal, metricParams, searchParams.get("view") === "traces"));
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		return Response.json(

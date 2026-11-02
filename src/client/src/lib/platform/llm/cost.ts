@@ -1,3 +1,4 @@
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import {
 	dateTruncGroupingLogic,
 	getFilterPreviousParams,
@@ -39,7 +40,7 @@ export async function getTotalCost(params: MetricParams) {
 	const commonQuery = (parameters: any) => `
 		SELECT
 			sum(toFloat64OrZero(${keyPath})) AS total_usage_cost,
-			'${params.timeLimit.start}' as start_date
+			'${escapeClickHouseString(String(params.timeLimit.start))}' as start_date
 		FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE ${getFilterWhereCondition({ ...parameters, operationType: "llm" }, true)}
 	`;
@@ -75,7 +76,7 @@ export async function getAverageCost(params: MetricParams) {
 	const commonQuery = (parameters: any) => `
 		SELECT
 			avg(toFloat64OrZero(${keyPath})) AS average_usage_cost,
-			'${params.timeLimit.start}' as start_date
+			'${escapeClickHouseString(String(params.timeLimit.start))}' as start_date
 		FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE ${getFilterWhereCondition({ ...parameters, operationType: "llm" }, true)}
 	`;

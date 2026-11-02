@@ -33,6 +33,7 @@ jest.mock('@/constants/messages', () => ({
     EVALUATION_VAULT_SECRET_NOT_FOUND: 'Vault secret not found',
     DATABASE_CONFIG_NOT_FOUND: 'DB config not found',
     TRACE_FETCHING_ERROR: 'Trace fetch error',
+    EVALUATION_ERROR_UNKNOWN_TYPES: 'Unknown eval types',
   })),
 }));
 jest.mock('@/lib/platform/evaluation/config', () => ({

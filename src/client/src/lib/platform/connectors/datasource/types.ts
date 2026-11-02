@@ -44,6 +44,21 @@ export interface NormalizedSpan {
 	events?: NormalizedSpanEvent[];
 	/** Optional pre-resolved cost (USD) applied by cost overlay / vendor. */
 	cost?: number;
+	/**
+	 * Trace-level stats already known to the lister (Jaeger has the tree in
+	 * hand). Absent on search summaries such as Tempo, which do not download
+	 * child spans for the list.
+	 */
+	traceSummary?: {
+		spanCount: number;
+		errorCount: number;
+		/** End-to-end nanoseconds from the earliest start to the latest end. */
+		durationNs?: number;
+		/** ISO start of the earliest span. */
+		start?: string;
+		/** Set when any span in the tree is an error. */
+		statusCode?: string;
+	};
 	/** Stuck-tool loop on this trace/session, attached by the traces facade. */
 	agentLoop?: {
 		toolName: string;

@@ -345,11 +345,11 @@ const SESSION_BASE_COLUMNS = `
 	formatDateTime(min(Timestamp), '%Y-%m-%dT%H:%i:%SZ', 'UTC')        AS started_at,
 	formatDateTime(max(Timestamp), '%Y-%m-%dT%H:%i:%SZ', 'UTC')        AS ended_at,
 	greatest(
-		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionDurationMs}'])),
+		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionDurationMs}'])),
 		toInt64(toUnixTimestamp64Milli(max(Timestamp)) - toUnixTimestamp64Milli(min(Timestamp)))
 	) AS duration_ms,
 	greatest(
-		toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
+		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
 		toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'))
 	) AS tool_call_count,
 	-- Cost rollup. Two source paths exist:
@@ -452,8 +452,11 @@ const SESSION_BASE_COLUMNS = `
 		)), 0),
 		sumOrNull(if(
 			SpanName != '${CODING_AGENT_SPAN_SESSION}',
-			toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
-				toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']),
+			coalesce(
+				nullIf(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}']), 0),
+				toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
+					toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}'])
+			),
 			0
 		))
 	))                                                                 AS total_tokens,
@@ -1076,8 +1079,11 @@ export async function getCodingSessionDigest(
 				)), 0),
 				sumOrNull(if(
 					SpanName != '${CODING_AGENT_SPAN_SESSION}',
-					toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
-						toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']),
+					coalesce(
+						nullIf(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}']), 0),
+						toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
+							toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}'])
+					),
 					0
 				))
 			)) AS total_tokens,
@@ -1087,7 +1093,7 @@ export async function getCodingSessionDigest(
 			-- sessions where SessionEnd hasn't fired yet. No
 			-- double-count risk here (any() + max-min, not a sum).
 			greatest(
-				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionDurationMs}'])),
+				max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionDurationMs}'])),
 				toInt64(toUnixTimestamp64Milli(max(Timestamp)) - toUnixTimestamp64Milli(min(Timestamp)))
 			) AS duration_ms,
 			-- Predominant model: the latest non-empty
@@ -1351,7 +1357,10 @@ export async function getCodingUserDigest(
 				${USER_EXPR} AS user,
 				min(Timestamp) AS first_seen,
 				max(Timestamp) AS last_seen,
-				countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}') AS tool_calls,
+				greatest(
+					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
+					toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'))
+				) AS tool_calls,
 				-- Canonical per-session cost. Mirrors the dedupe in
 				-- SESSION_BASE_COLUMNS: prefer the authoritative
 				-- root rollup; only sum **child** turn spans
@@ -1676,7 +1685,10 @@ export async function listCodingUsers(
 						${USER_EXPR} AS user,
 						${VENDOR_EXPR} AS vendor,
 						max(Timestamp) AS session_last_ts,
-						countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}') AS tool_calls,
+						greatest(
+							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
+							toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'))
+						) AS tool_calls,
 						-- Canonical per-session cost: same dedupe as
 						-- listSessions / getCodingUserDigest. Without
 						-- this the Users tab would silently lag
@@ -1705,8 +1717,11 @@ export async function listCodingUsers(
 							)), 0),
 							sumOrNull(if(
 								SpanName != '${CODING_AGENT_SPAN_SESSION}',
-								toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
-									toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']),
+								coalesce(
+									nullIf(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}']), 0),
+									toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
+										toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}'])
+								),
 								0
 							))
 						) AS tokens,

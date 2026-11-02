@@ -46,6 +46,7 @@ import {
 	worstLoop,
 } from "@/lib/platform/agent-loop/classify";
 import { mapPool } from "@/lib/platform/connectors/datasource/graph/map-pool";
+import { getTraceSummaries, getTraceSummarySeries } from "@/lib/platform/request";
 
 async function resolveTracesAdapter(sourceId?: string, environment?: string) {
 	const { adapter, descriptor } = await resolveSignalReadContext("traces", {
@@ -397,8 +398,17 @@ function asErrorMessage(err: unknown): string {
 	return typeof err === "string" ? err : getMessage().WIDGET_RUN_FAILED;
 }
 
-/** List spans for the Telemetry table (same shape as `getRequests`). */
-export async function listTraceRecords(params: MetricParams) {
+/**
+ * List spans for the Telemetry table (same shape as `getRequests`).
+ *
+ * `hydrateTrees` downloads a Tempo search hit's full trace so loop badges can
+ * be attached. The trace-level list turns that off: Tempo summaries are
+ * already one row per trace, and a second download belongs on detail open.
+ */
+export async function listTraceRecords(
+	params: MetricParams,
+	opts?: { hydrateTrees?: boolean }
+) {
 	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 
 	try {
@@ -430,7 +440,7 @@ export async function listTraceRecords(params: MetricParams) {
 				},
 				records
 			);
-		} else if (spans.some(isTraceSummaryRow)) {
+		} else if (opts?.hydrateTrees !== false && spans.some(isTraceSummaryRow)) {
 			const trees = await treesForListedTraces(adapter, spans);
 			records = withLoopHits(records, trees);
 		} else {
@@ -466,6 +476,47 @@ export async function listTraceRecords(params: MetricParams) {
 		rethrowIfSourceFailure(err);
 		return { err: asErrorMessage(err) };
 	}
+}
+
+function applyListedTraceSummary(row: Record<string, unknown>) {
+	const next = { ...row };
+	if (row.TraceStart) next.Timestamp = row.TraceStart;
+	if (row.TraceDurationNs != null) next.Duration = String(row.TraceDurationNs);
+	if (row.TraceStatusCode) next.StatusCode = row.TraceStatusCode;
+	return next;
+}
+
+/**
+ * One row per trace, with a representative span for the existing detail route.
+ *
+ * ClickHouse pages trace ids in SQL. Other sources already list one row per
+ * trace (Tempo search summaries, Jaeger roots). Jaeger stamps `traceSummary`
+ * from the tree it loaded to pick that root. This does not call
+ * `getTraceSpans`: a span-oriented page cannot be re-paginated into traces,
+ * and Tempo keeps full trees for the detail open.
+ */
+export async function listTraceSummaries(params: MetricParams) {
+	const { descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
+	if (usesSqlIssueFilters(descriptor)) {
+		return getTraceSummaries({
+			...params,
+			databaseConfigId: params.databaseConfigId || descriptor.dbConfigId,
+		});
+	}
+
+	const listed = await listTraceRecords(params, { hydrateTrees: false });
+	if (listed.err || !listed.records) return listed;
+	const seen = new Set<string>();
+	const records: Record<string, unknown>[] = [];
+	for (const row of listed.records) {
+		const traceId = String(row.TraceId || "");
+		if (traceId) {
+			if (seen.has(traceId)) continue;
+			seen.add(traceId);
+		}
+		records.push(applyListedTraceSummary(row));
+	}
+	return { ...listed, records };
 }
 
 /**
@@ -844,14 +895,27 @@ export async function getTraceGrouped(params: MetricParams, groupBy: string) {
  */
 export async function getTraceSummary(
 	params: MetricParams,
-	signal: "traces" | "exceptions" = "traces"
+	signal: "traces" | "exceptions" = "traces",
+	/**
+	 * `true` counts unique traces (the Traces tab). `false` counts spans (the
+	 * Spans tab). Omitted keeps the previous external default — Tempo and
+	 * Jaeger trace series — and leaves ClickHouse on span counts so the
+	 * deprecated observability summary route does not change meaning.
+	 */
+	aggregateTraces?: boolean
 ) {
-	const { adapter } = await resolveTracesAdapter(params.sourceId, params.environment);
+	const { adapter, descriptor } = await resolveTracesAdapter(params.sourceId, params.environment);
 
 	const bucket = getSummaryBucket(params);
 	const empty = { err: null, bucket, buckets: [], total: 0, peak: 0 };
 
 	try {
+		if (signal === "traces" && aggregateTraces === true && usesSqlIssueFilters(descriptor)) {
+			return await getTraceSummarySeries({
+				...params,
+				databaseConfigId: params.databaseConfigId || descriptor.dbConfigId,
+			});
+		}
 		const base = externalTraceQuery(params, { aiSelector: false });
 		const query: OpenLITQuery = {
 			...base,
@@ -876,7 +940,7 @@ export async function getTraceSummary(
 		// Trace backends such as Tempo can return lightweight trace summaries
 		// without downloading every span. Prefer that trace-level series when
 		// available so a 200-trace L1 sample is never presented as the volume.
-		const frame = adapter.traceTimeSeries
+		const frame = aggregateTraces !== false && adapter.traceTimeSeries
 			? await adapter.traceTimeSeries(query)
 			: await planAndSpanTimeSeries(adapter, query);
 		const buckets = (frame.rows as Record<string, unknown>[]).map((row) => ({

@@ -67,7 +67,7 @@ Three modes, controlled per-deployment via `OPENLIT_CODING_CONTENT_CAPTURE`:
 
 | Mode            | What lands on spans                                        |
 | --------------- | ---------------------------------------------------------- |
-| `minimal`       | Counters and identifiers only. No bodies. Single session-root span per session. Per-event spans suppressed. |
+| `minimal`       | Counters and identifiers only. No bodies. Session root on a true end signal; vendors without one may emit the registered non-terminal session snapshots described below. Other per-event spans are suppressed. |
 | `metadata_only` | Adds tool names, file paths (sanitised), classification labels. Still no message bodies, no file diffs, no shell commands. |
 | `full`          | Everything `metadata_only` has, plus prompt/completion bodies, tool results, edit diffs. Both redaction tiers active. |
 
@@ -76,6 +76,8 @@ Centralised in `cli/internal/otlp/attrs.go`:
 - `setStr(span, key, val, scrub)` — runs every string through `redact.ForCapture(mode)` before stamping.
 - `perEventSpansAllowed(mode)` — gates per-event span emission for `minimal` mode.
 - Adapters must use these helpers; never call `span.SetAttributes` directly with a value that might contain a body.
+
+OpenCode has no terminal session hook, and its `session.idle` event is only a turn boundary. In `minimal`, it may therefore emit exactly two registered non-terminal span names: `coding_agent.session.snapshot.start` and `coding_agent.session.snapshot`. Snapshot token/cost attributes are deltas so downstream sums remain correct; duration and tool-call count are cumulative so readers must take the numeric maximum. Snapshots never carry `coding_agent.session.outcome` and must not be treated as session roots.
 
 When adding a new attribute, decide which capture mode tier it belongs to and gate accordingly. Don't add a body-bearing attribute that lands in `metadata_only`.
 

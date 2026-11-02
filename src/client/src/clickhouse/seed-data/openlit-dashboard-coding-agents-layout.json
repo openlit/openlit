@@ -1,7 +1,7 @@
 {
   "id": "8f4d7b2e-6a91-4c52-9b3a-1e6c8f3d4a5b",
   "title": "Coding Agents",
-  "description": "Coding-agent observability across vendors (Claude Code, Cursor, Codex). Sessions, cost, tools, users, classification, and governance \u2014 sourced live from otel_traces emitted by the openlit CLI hook.",
+  "description": "Coding-agent observability across vendors (Claude Code, Cursor, Codex, OpenCode). Sessions, cost, tools, users, classification, and governance \u2014 sourced live from otel_traces emitted by the openlit CLI hook.",
   "parentId": null,
   "isMainDashboard": false,
   "isPinned": true,

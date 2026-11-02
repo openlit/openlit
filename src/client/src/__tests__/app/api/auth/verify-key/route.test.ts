@@ -11,8 +11,13 @@ jest.mock("@/lib/platform/api-keys", () => ({
 	getAPIKeyInfo: jest.fn(),
 }));
 
+jest.mock("@/lib/platform/api-key-access/server", () => ({
+	getApiKeyScopes: jest.fn(async () => null),
+}));
+
 import { GET } from "@/app/api/auth/verify-key/route";
 import { getAPIKeyInfo } from "@/lib/platform/api-keys";
+import { getApiKeyScopes } from "@/lib/platform/api-key-access/server";
 
 function makeRequest(headers: Record<string, string> = {}) {
 	return {
@@ -54,6 +59,24 @@ describe("GET /api/auth/verify-key", () => {
 			organisationId: "org-1",
 			projectId: "proj-1",
 			environment: "staging",
+			scopes: null,
+		});
+	});
+
+	it("returns the key's feature scopes when it is restricted", async () => {
+		(getAPIKeyInfo as jest.Mock).mockResolvedValue([
+			null,
+			{ id: "key-1", databaseConfigId: "db-1" },
+		]);
+		(getApiKeyScopes as jest.Mock).mockResolvedValueOnce(["prompts"]);
+
+		const res = await GET(
+			makeRequest({ Authorization: "Bearer openlit-test" })
+		);
+		expect(getApiKeyScopes).toHaveBeenCalledWith("key-1");
+		await expect(res.json()).resolves.toMatchObject({
+			valid: true,
+			scopes: ["prompts"],
 		});
 	});
 
