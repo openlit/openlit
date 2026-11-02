@@ -283,6 +283,7 @@
                   "latest/openlit/developer-resources/vault/security"
                 ]
               },
+              "latest/openlit/developer-resources/local-development",
               "latest/openlit/developer-resources/multiple-db",
               "latest/openlit/developer-resources/anonymous-telemetry",
               {

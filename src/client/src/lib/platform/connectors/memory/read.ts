@@ -38,6 +38,7 @@ import {
 } from "./types";
 import { getMemoryTypeDescriptor } from "./registry";
 import { attachMemoryPorts } from "./port-link";
+import { uniqueChoices } from "./values";
 import {
 	DATA_SOURCE_SECRET_DECRYPT_FAILED,
 	DATA_SOURCE_SECRET_NOT_FOUND,
@@ -142,17 +143,6 @@ function resolveFilterFields(type: string): MemoryFilterField[] {
 		return described.filterFields;
 	}
 	return fallbackFilterFields();
-}
-
-function uniqueChoices(choices: MemoryFilterChoice[]): MemoryFilterChoice[] {
-	const seen = new Set<string>();
-	const next: MemoryFilterChoice[] = [];
-	for (const choice of choices) {
-		if (!choice.id || seen.has(choice.id)) continue;
-		seen.add(choice.id);
-		next.push(choice);
-	}
-	return next.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function mergeFilters(

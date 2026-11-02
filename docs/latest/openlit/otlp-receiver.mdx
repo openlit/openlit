@@ -61,6 +61,29 @@ On first ingest, and again if an insert fails because `otel_*` tables were dropp
 
 The ClickHouse user needs `CREATE TABLE` (or the tables must already exist). If create is denied and the tables are missing, ingest fails with an explicit error.
 
+## Realtime signals
+
+When `NATS_URL` is set (Docker Compose sets it by default), the receiver also publishes a compact **signal** for each GenAI span to NATS JetStream. The bundled `openlit-engine` evaluates [threshold alerts](/latest/openlit/alerts#how-threshold-alerts-work) on these signals within seconds, without querying ClickHouse.
+
+```mermaid
+flowchart LR
+    App[AI app / SDK] -->|OTLP + API key| Rec[OTLP receiver]
+    Rec --> CH[(ClickHouse otel_* tables)]
+    Rec -->|"openlit.signal.&lt;org&gt;.&lt;project&gt;.&lt;env&gt;"| NATS[(NATS JetStream)]
+    NATS --> Eng[openlit-engine]
+    Eng -->|findings| UI[OpenLIT UI]
+```
+
+- Signals are published after the ClickHouse insert succeeds. Publishing never blocks ingest: if the publish buffer is full, signals are dropped and counted.
+- Only GenAI spans (with a `gen_ai.*` attribute) sent with a project-scoped API key are published. Spans without a key are stored but not evaluated.
+- The environment is lowercased, and spans whose environment is not a valid OpenLIT environment name are not published.
+- The subject is `openlit.signal.<organisation>.<project>.<environment>`, and each message is deduplicated by trace and span ID for 2 minutes.
+- A signal carries the service, model, provider, operation, status, error type, latency, token counts, cost, and up to 64 span or resource attributes. Every value is truncated to 256 bytes and credential-like values are redacted.
+- Prompt, completion, message, and secret attributes are never published. Personal attributes (user, session, and conversation IDs, email, phone, IP, URL paths, server addresses) are only published when listed in [`OPENLIT_SIGNAL_ATTRIBUTES`](/latest/openlit/configuration#realtime-variables).
+- The stream is file-backed and bounded by age (default 10 minutes) and size (default 256 MiB).
+
+See [Realtime variables](/latest/openlit/configuration#realtime-variables) for NATS credentials, TLS, and limits.
+
 ## Optional sidecar Collector
 
 Keep using your own OpenTelemetry Collector for fan-out, sampling, or processors. Forward OTLP to OpenLIT instead of writing ClickHouse from `otelcol`. A starter config is in [`assets/otel-collector-config.yaml`](https://github.com/openlit/openlit/blob/main/assets/otel-collector-config.yaml).
