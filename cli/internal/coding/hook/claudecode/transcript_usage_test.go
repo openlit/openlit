@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/openlit/openlit/cli/internal/coding/pricing"
+	"github.com/openlit/openlit/cli/internal/coding/tailfile"
 )
 
 // TestTailTranscriptCountsEachMessageOnce covers the SessionEnd token
@@ -59,5 +60,57 @@ func TestTailTranscriptCountsEachMessageOnce(t *testing.T) {
 	}
 	if want := pricing.Lookup(model).Cost(1210, 50, 1000, 200); cost != want {
 		t.Errorf("tailTranscript cost = %.8f, want %.8f", cost, want)
+	}
+}
+
+// Tool results make transcripts exceed tailfile.DefaultCap quickly; usage
+// before the last DefaultCap bytes (and around oversized lines) must count.
+func TestTailTranscriptReadsPastTailCap(t *testing.T) {
+	first := `{"type":"assistant","requestId":"req_1","message":{"id":"msg_1","model":"claude-opus-5-5","usage":{"input_tokens":100,"output_tokens":10}}}`
+	filler := `{"type":"user","message":{"content":"` + strings.Repeat("x", int(tailfile.DefaultCap)+1024) + `"}}`
+	last := `{"type":"assistant","requestId":"req_2","message":{"id":"msg_2","model":"claude-opus-5-5","usage":{"input_tokens":200,"output_tokens":20}}}`
+	path := filepath.Join(t.TempDir(), "session.jsonl")
+	if err := os.WriteFile(path, []byte(first+"\n"+filler+"\n"+last+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, in, out, _ := tailTranscript(path); in != 300 || out != 30 {
+		t.Fatalf("in=%d out=%d, want 300/30", in, out)
+	}
+}
+
+// Claude Code's 1-hour prompt-cache writes bill at 2x base input, not the
+// 5-minute write rate.
+func TestTailTranscriptPricesOneHourCacheWrites(t *testing.T) {
+	line := `{"type":"assistant","requestId":"req_1","message":{"id":"msg_1","model":"claude-opus-5-5","usage":{"input_tokens":0,"cache_creation_input_tokens":1000000,"cache_read_input_tokens":0,"output_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":1000000}}}}`
+	path := filepath.Join(t.TempDir(), "session.jsonl")
+	if err := os.WriteFile(path, []byte(line+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, cost, _, _, _ := tailTranscript(path); cost < 7.999 || cost > 8.001 {
+		t.Fatalf("cost = %v, want 8.00 (1M 1h cache-write tokens at 2x $4 input)", cost)
+	}
+}
+
+// A transcript that can't be read completely must not produce a session
+// total; zeros make the session span fall back to the per-turn counters.
+func TestTailTranscriptPublishesNothingOnReadError(t *testing.T) {
+	dir := t.TempDir() // opening a directory succeeds, reading it fails
+	if model, cost, in, out, total := tailTranscript(dir); model != "" || cost != 0 || in != 0 || out != 0 || total != 0 {
+		t.Fatalf("got model=%q cost=%v in=%d out=%d total=%d, want zeros", model, cost, in, out, total)
+	}
+}
+
+// A usage-bearing line larger than any line buffer (a big Write tool input)
+// still counts, rather than making the rollup fall back.
+func TestTailTranscriptCountsHugeUsageLines(t *testing.T) {
+	huge := `{"type":"assistant","requestId":"req_1","message":{"id":"msg_1","model":"claude-opus-5-5","content":[{"type":"tool_use","input":{"content":"` +
+		strings.Repeat("x", 20*1024*1024) + `"}}],"usage":{"input_tokens":100,"output_tokens":10}}}`
+	small := `{"type":"assistant","requestId":"req_2","message":{"id":"msg_2","model":"claude-opus-5-5","usage":{"input_tokens":200,"output_tokens":20}}}`
+	path := filepath.Join(t.TempDir(), "session.jsonl")
+	if err := os.WriteFile(path, []byte(huge+"\n"+small+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, in, out, _ := tailTranscript(path); in != 300 || out != 30 {
+		t.Fatalf("in=%d out=%d, want 300/30", in, out)
 	}
 }

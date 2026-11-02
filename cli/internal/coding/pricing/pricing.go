@@ -187,6 +187,17 @@ var table = []entry{
 		rate:  Rate{InputPer1M: 30.00, OutputPer1M: 150.00, CachedReadPer1M: 3.00, CacheCreationPer1M: 37.50},
 	},
 	{
+		// Claude Opus 5.5: $4/$20, cache read $0.20.
+		match: []string{"claude-opus-5-5", "claude-opus-5.5"},
+		rate:  Rate{InputPer1M: 4.00, OutputPer1M: 20.00, CachedReadPer1M: 0.20, CacheCreationPer1M: 5.00},
+	},
+	{
+		// Claude Sonnet 5.5: $2/$10, cache read $0.20. Must precede the
+		// "claude-sonnet-5" substring entry, which would otherwise match.
+		match: []string{"claude-sonnet-5-5", "claude-sonnet-5.5"},
+		rate:  Rate{InputPer1M: 2.00, OutputPer1M: 10.00, CachedReadPer1M: 0.20, CacheCreationPer1M: 2.50},
+	},
+	{
 		// Claude Fable 5 (~2x Opus 4.8).
 		match: []string{"claude-fable-5", "claude-fable", "fable-5"},
 		rate:  Rate{InputPer1M: 10.00, OutputPer1M: 50.00, CachedReadPer1M: 1.00, CacheCreationPer1M: 12.50},
