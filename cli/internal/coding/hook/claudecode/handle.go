@@ -956,50 +956,57 @@ func tailTranscript(path string) (model string, cost float64, inTokens, outToken
 	// Claude Code writes one line per content block (thinking / text /
 	// tool_use) of an API response, each repeating the response's usage.
 	// Count every response once — the last line of a message wins, as
-	// in coalesceAssistants.
-	byMessage := map[string]int{}
-	var turns []turn
-	tailfile.EachLineContaining(path, []byte(`"usage"`), func(line []byte) {
+	// in coalesceAssistants. Keep running totals plus a small usage record
+	// per response (to swap in a later line), not every decoded response.
+	type tally struct{ in, out, read, creation, creation1h int64 }
+	add := func(a, b tally, sign int64) tally {
+		return tally{a.in + sign*b.in, a.out + sign*b.out, a.read + sign*b.read,
+			a.creation + sign*b.creation, a.creation1h + sign*b.creation1h}
+	}
+	byMessage := map[string]tally{}
+	var sum tally
+	var lastModel string
+	var seen bool
+	err := tailfile.EachLineContaining(path, []byte(`"usage"`), func(line []byte) {
 		var t turn
 		if err := json.Unmarshal(line, &t); err != nil {
 			return
+		}
+		u := t.Message.Usage
+		// Anthropic transcript reports cache creation + cache read as
+		// separate counters; "fresh" input is the standard input_tokens.
+		// The OTel field gen_ai.usage.input_tokens should equal total
+		// distinct input the model saw, so we sum them.
+		r := tally{
+			in:         u.InputTokens + u.CacheCreationInputTokens + u.CacheReadInputTokens,
+			out:        u.OutputTokens,
+			read:       u.CacheReadInputTokens,
+			creation:   u.CacheCreationInputTokens,
+			creation1h: u.CacheCreation.Ephemeral1hInputTokens,
 		}
 		key := t.Message.ID
 		if key == "" {
 			key = t.RequestID
 		}
 		if key != "" {
-			if i, seen := byMessage[key]; seen {
-				turns[i] = t
-				return
+			if prev, ok := byMessage[key]; ok {
+				sum = add(sum, prev, -1)
 			}
-			byMessage[key] = len(turns)
+			byMessage[key] = r
 		}
-		turns = append(turns, t)
-	})
-	if len(turns) == 0 {
-		return "", 0, 0, 0, 0
-	}
-
-	var ti, to, cacheRead, cacheCreation, cacheCreation1h int64
-	var lastModel string
-	for _, t := range turns {
-		// Anthropic transcript reports cache creation + cache read as
-		// separate counters; "fresh" input is the standard input_tokens.
-		// The OTel field gen_ai.usage.input_tokens should equal total
-		// distinct input the model saw, so we sum them.
-		fresh := t.Message.Usage.InputTokens
-		creation := t.Message.Usage.CacheCreationInputTokens
-		read := t.Message.Usage.CacheReadInputTokens
-		ti += fresh + creation + read
-		cacheRead += read
-		cacheCreation += creation
-		cacheCreation1h += t.Message.Usage.CacheCreation.Ephemeral1hInputTokens
-		to += t.Message.Usage.OutputTokens
+		sum = add(sum, r, 1)
 		if t.Message.Model != "" {
 			lastModel = t.Message.Model
 		}
+		seen = true
+	})
+	// A partial read (I/O error, or a usage line too long to buffer) must not
+	// be published as the authoritative session total. Returning zeros lets
+	// the session span fall back to the per-turn counters.
+	if err != nil || !seen {
+		return "", 0, 0, 0, 0
 	}
+	ti, to, cacheRead, cacheCreation, cacheCreation1h := sum.in, sum.out, sum.read, sum.creation, sum.creation1h
 	rate := pricing.Lookup(lastModel)
 	cost = rate.Cost(ti, to, cacheRead, cacheCreation)
 	if cacheCreation1h > 0 && rate.CacheCreationPer1M > 0 {

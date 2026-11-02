@@ -90,3 +90,12 @@ func TestTailTranscriptPricesOneHourCacheWrites(t *testing.T) {
 		t.Fatalf("cost = %v, want 8.00 (1M 1h cache-write tokens at 2x $4 input)", cost)
 	}
 }
+
+// A transcript that can't be read completely must not produce a session
+// total; zeros make the session span fall back to the per-turn counters.
+func TestTailTranscriptPublishesNothingOnReadError(t *testing.T) {
+	dir := t.TempDir() // opening a directory succeeds, reading it fails
+	if model, cost, in, out, total := tailTranscript(dir); model != "" || cost != 0 || in != 0 || out != 0 || total != 0 {
+		t.Fatalf("got model=%q cost=%v in=%d out=%d total=%d, want zeros", model, cost, in, out, total)
+	}
+}

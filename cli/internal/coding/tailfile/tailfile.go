@@ -16,6 +16,7 @@ package tailfile
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"os"
 )
@@ -93,29 +94,89 @@ func Tail(path string, cap int64) [][]byte {
 	return out
 }
 
+// MaxMatchLine bounds the memory EachLineContaining spends on a single
+// line. Claude Code assistant lines can carry large tool_use inputs (a whole
+// file for Write), so this sits far above LineCap; a longer line is streamed
+// through and checked for the needle without being buffered.
+const MaxMatchLine = 16 * 1024 * 1024
+
+// ErrLineTooLong reports that a line containing the needle exceeded
+// MaxMatchLine and was skipped, so a rollup built from fn is incomplete.
+var ErrLineTooLong = errors.New("tailfile: line containing needle exceeds MaxMatchLine")
+
 // EachLineContaining streams every line of path that contains needle to fn,
-// with no size cap and without holding the file in memory. Unlike Tail's
-// scanner it also handles lines longer than LineCap. Used by end-of-session
-// rollups that must see the whole transcript: tool results make transcripts
-// grow past DefaultCap within minutes, so a tail read undercounts usage.
-func EachLineContaining(path string, needle []byte, fn func(line []byte)) {
-	if path == "" {
-		return
-	}
+// with no file-size cap and at most MaxMatchLine bytes of one line in memory.
+// Used by end-of-session rollups that must see the whole transcript: tool
+// results make transcripts grow past DefaultCap within minutes, so a tail
+// read undercounts usage.
+//
+// It returns any non-EOF read error, and ErrLineTooLong if a matching line
+// had to be skipped; in both cases the caller must not treat what fn saw as
+// complete. fn's slice is only valid during the call.
+func EachLineContaining(path string, needle []byte, fn func(line []byte)) error {
 	f, err := os.Open(path) //nolint:gosec // path comes from the agent's own payload
 	if err != nil {
-		return
+		return err
 	}
 	defer f.Close()
+	return eachLineContaining(f, needle, MaxMatchLine, fn)
+}
 
-	r := bufio.NewReaderSize(f, 256*1024)
-	for {
-		line, err := r.ReadBytes('\n')
-		if len(line) > 0 && bytes.Contains(line, needle) {
-			fn(bytes.TrimSpace(line))
+func eachLineContaining(src io.Reader, needle []byte, maxLine int, fn func(line []byte)) error {
+	r := bufio.NewReaderSize(src, 64*1024)
+	var (
+		line      []byte // current line, while it fits in maxLine
+		oversized bool   // current line outgrew maxLine; only scanning it now
+		hit       bool   // the oversized line contains needle
+		tail      []byte // last len(needle)-1 bytes seen, so a needle split across chunks is found
+		skipped   bool
+	)
+	// scan checks an oversized line's chunk for the needle, including across the chunk boundary.
+	scan := func(chunk []byte) {
+		joined := append(tail, chunk...)
+		if bytes.Contains(joined, needle) {
+			hit = true
 		}
-		if err != nil {
-			return
+		if keep := len(needle) - 1; keep > 0 && len(joined) > keep {
+			tail = append(tail[:0], joined[len(joined)-keep:]...)
+		} else {
+			tail = append(tail[:0], joined...)
 		}
 	}
+	for {
+		chunk, err := r.ReadSlice('\n')
+		if len(chunk) > 0 {
+			switch {
+			case oversized:
+				scan(chunk)
+			case len(line)+len(chunk) > maxLine:
+				oversized = true
+				scan(line)
+				scan(chunk)
+				line = nil // release the partial line
+			default:
+				line = append(line, chunk...)
+			}
+		}
+		if err == bufio.ErrBufferFull {
+			continue // the line continues in the next chunk
+		}
+		// End of a line (newline, or EOF after a final unterminated line).
+		if oversized {
+			skipped = skipped || hit
+		} else if len(line) > 0 && bytes.Contains(line, needle) {
+			fn(bytes.TrimSpace(line))
+		}
+		line, oversized, hit, tail = line[:0], false, false, tail[:0]
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if skipped {
+		return ErrLineTooLong
+	}
+	return nil
 }
