@@ -380,7 +380,15 @@ def set_crawl_attributes(
 def process_crawl_response(
     span, response, ctx: Crawl4AIInstrumentationContext, **kwargs
 ):
-    """Process Crawl4AI response and extract business intelligence."""
+    """Process Crawl4AI response and extract business intelligence.
+
+    ``mark_ok`` defaults to true, which is what every existing caller wants.
+    A streaming failure passes false. This SDK ignores a later ERROR once the
+    status is OK, and OK overwrites ERROR, so the caller stamps the error
+    status itself after the attributes are on the span.
+    """
+
+    mark_ok = kwargs.get("mark_ok", True)
 
     try:
         if response is None:
@@ -484,8 +492,10 @@ def process_crawl_response(
                     response.redirected_url,
                 )
 
-        # Set success status
-        span.set_status(Status(StatusCode.OK))
+        # Set success status. Skipped when the caller still has to record an
+        # error: OK would stick and the failure would export as success.
+        if mark_ok:
+            span.set_status(Status(StatusCode.OK))
 
     except Exception as e:
         handle_exception(span, e)

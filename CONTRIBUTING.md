@@ -13,6 +13,35 @@ reports, and integration feedback are all welcome.
   request.
 - Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## Run OpenLIT locally
+
+One script runs the UI (`next dev`), the OTLP receiver, the realtime engine,
+and NATS JetStream together, and starts ClickHouse in Docker if none is
+running. You need Node.js 20+, Go 1.25+, Docker with Compose v2.24+, `curl`,
+`openssl`, and `lsof`.
+
+```bash
+cd src/client
+npm install
+cp .env.example .env   # set NEXTAUTH_SECRET, NEXTAUTH_URL, SQLITE_DATABASE_URL=file:./data.db
+cd ../..
+
+SEED=1 scripts/dev-realtime.sh   # first run: also creates the default user
+scripts/dev-realtime.sh          # later runs
+```
+
+Open http://localhost:3000 and sign in with `user@openlit.io` /
+`openlituser`. `Ctrl+C` stops every service. To exercise alerts, create an API
+key under **Settings → API Keys** and send sample spans:
+
+```bash
+OPENLIT_API_KEY=<your key> scripts/dev-realtime-send-spans.py --count 20 --error-rate 1
+```
+
+See [Local development](https://docs.openlit.io/latest/openlit/developer-resources/local-development)
+for options, running the UI on its own, and troubleshooting, and
+[src/README.md](src/README.md) for the Docker Compose development stack.
+
 ## Development workflow
 
 1. Fork the repository and clone your fork.
@@ -37,6 +66,15 @@ reports, and integration feedback are all welcome.
    ```bash
    cd src/client
    npm run lint
+   npx tsc --noEmit
+   npm test
+   ```
+
+   For the OTLP receiver or the realtime engine (`src/otlp-receiver`,
+   `src/engine`):
+
+   ```bash
+   gofmt -l . && go vet ./... && go test ./...
    ```
 
    The relevant README, package scripts, and CI workflow describe additional

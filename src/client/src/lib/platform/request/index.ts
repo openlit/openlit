@@ -96,7 +96,7 @@ export async function getTotalRequests(params: MetricParams) {
 	const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			COUNT(*) AS total_requests,
-			'${params.timeLimit.start}' as start_date
+			'${escapeClickHouseString(String(params.timeLimit.start))}' as start_date
 		FROM ${table}
 		WHERE ${getFilterWhereCondition(parameters, true)}	
 	`;
@@ -128,7 +128,7 @@ export async function getAverageRequestDuration(params: MetricParams) {
 	const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			AVG(${keyPath}) AS average_duration,
-			'${params.timeLimit.start}' as start_date
+			'${escapeClickHouseString(String(params.timeLimit.start))}' as start_date
 		FROM ${table}
 		WHERE ${getFilterWhereCondition(parameters, true)} AND isFinite(${keyPath})
 	`;

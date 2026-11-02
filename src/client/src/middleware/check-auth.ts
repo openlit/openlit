@@ -13,6 +13,7 @@ import {
 	ALLOWED_OPENLIT_ROUTES_WITH_TOKEN,
 	ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN,
 	CRON_JOB_ROUTES,
+	ENGINE_INTERNAL_ROUTES,
 	ONBOARDING_WHITELIST_ROUTES,
 	ONBOARDING_WHITELIST_ROUTE_PREFIXES,
 	ONBOARDING_WHITELIST_API_ROUTES,
@@ -180,12 +181,15 @@ export default function checkAuth(next: NextMiddleware) {
 								requestHeaders.delete("x-openlit-environment");
 							}
 							requestHeaders.delete("x-openlit-database-config-id");
-							return next(
-								new NextRequest(request, {
-									headers: requestHeaders,
-								}),
-								_next
-							);
+							// An API-key request acts as the key, never as whoever is
+							// also logged in: route wrappers skip RBAC for verified keys,
+							// so a session cookie must not ride along.
+							requestHeaders.delete("cookie");
+							// Forward the rewritten request headers. Passing a NextRequest
+							// to NextResponse.next() would use it as the *response* init,
+							// echoing every request header (Authorization, cookies) back
+							// to the client and dropping the deletions above.
+							return continueWithoutClientTenant();
 						}
 					}
 				} catch (e) {
@@ -204,6 +208,7 @@ export default function checkAuth(next: NextMiddleware) {
 						pathname.startsWith(prefix)
 					);
 				const isCronJobRoute = CRON_JOB_ROUTES.includes(pathname);
+				const isEngineRoute = ENGINE_INTERNAL_ROUTES.includes(pathname);
 				const isAuthPage =
 					pathname.startsWith("/login") || pathname.startsWith("/register");
 				const isApiPage = pathname.startsWith("/api");
@@ -251,11 +256,25 @@ export default function checkAuth(next: NextMiddleware) {
 				}
 
 				if (isApiPage) {
-					if (isRateLimitedApi && !isCronJobRoute && isRateLimited(request)) {
+					if (
+						isRateLimitedApi &&
+						!isCronJobRoute &&
+						!isEngineRoute &&
+						isRateLimited(request)
+					) {
 						return NextResponse.json(
 							{ error: "Too many requests" },
 							{ status: 429 }
 						);
+					}
+
+					if (isEngineRoute) {
+						// Edge middleware cannot use Node crypto; the route handler
+						// does the constant-time secret check.
+						if (request.headers.get("x-openlit-engine-secret")) {
+							return continueWithoutClientTenant();
+						}
+						return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 					}
 
 					if (isAuth || isAllowedRequestWithoutToken || isCronJobRoute) {
