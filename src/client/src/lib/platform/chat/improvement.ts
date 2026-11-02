@@ -4,6 +4,7 @@ import { getChatConfigWithApiKey } from "./config";
 import { OPENLIT_TRACE_ANALYSIS_TABLE } from "./table-details";
 import { intelligenceDataCollector } from "../common";
 import { getModelInstance } from "./stream";
+import { recoverTruncatedJson } from "./json-recovery";
 import { getTraceHierarchy } from "../traces/read";
 import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
 import { TraceHeirarchySpan, TraceRow } from "@/types/trace";
@@ -104,6 +105,11 @@ type TraceAnalysisMetrics = {
 	duplicateRetrievalInputs: Array<{ key: string; count: number; spanIds: string[] }>;
 	potentialRetrySequences: Array<{ reason: string; spanIds: string[] }>;
 };
+
+// Long agent sessions produce many findings; low caps cut the JSON off
+// mid-string and lose the whole dimension.
+const DIMENSION_MAX_OUTPUT_TOKENS = 4000;
+const GRADER_MAX_OUTPUT_TOKENS = 4000;
 
 const TRACE_ANALYSIS_SCHEMA = `type FixPatch = {
   field: 'prompt' | 'response' | 'system'; // which span attribute contains the text to edit
@@ -1218,7 +1224,18 @@ function parseDimensionAnalysis(
 		.replace(/```$/i, "")
 		.trim();
 	try {
-		const parsed = JSON.parse(jsonText);
+		let parsed: any;
+		try {
+			parsed = JSON.parse(jsonText);
+		} catch (error) {
+			parsed = recoverTruncatedJson(jsonText);
+			if (parsed === null) throw error;
+			logTraceAnalysis("dimension_parse_recovered", {
+				dimension,
+				rootSpanId: root.SpanId,
+				rawChars: rawText.length,
+			});
+		}
 		const findingsSource = Array.isArray(parsed)
 			? parsed
 			: Array.isArray(parsed?.findings)
@@ -1583,7 +1600,7 @@ export async function streamTraceImprovementAnalysis(
 							metrics,
 							ruleContext,
 						}),
-						maxOutputTokens: 900,
+						maxOutputTokens: DIMENSION_MAX_OUTPUT_TOKENS,
 						model: modelInstance,
 						onUsage: (stats) => {
 							dimensionStats = stats;
@@ -1643,7 +1660,7 @@ export async function streamTraceImprovementAnalysis(
 								ruleContext,
 								firstPass: dimensionAnalysis,
 							}),
-							maxOutputTokens: 1000,
+							maxOutputTokens: GRADER_MAX_OUTPUT_TOKENS,
 							onUsage: (stats) => {
 								graderStats = stats;
 								addFinishStats(stats);
