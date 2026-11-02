@@ -16,9 +16,11 @@ package tailfile
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
+	"strings"
 )
 
 // DefaultCap is the byte budget for a tail-read. 4 MiB lets a
@@ -94,89 +96,331 @@ func Tail(path string, cap int64) [][]byte {
 	return out
 }
 
-// MaxMatchLine bounds the memory EachLineContaining spends on a single
-// line. Claude Code assistant lines can carry large tool_use inputs (a whole
-// file for Write), so this sits far above LineCap; a longer line is streamed
-// through and checked for the needle without being buffered.
-const MaxMatchLine = 16 * 1024 * 1024
+// MaxFieldValue caps one captured field value in EachJSONLFields. Kept
+// fields are small (ids, model names, usage objects); a larger value means
+// the line isn't what the caller expects and is reported, not truncated.
+const MaxFieldValue = 64 * 1024
 
-// ErrLineTooLong reports that a line containing the needle exceeded
-// MaxMatchLine and was skipped, so a rollup built from fn is incomplete.
-var ErrLineTooLong = errors.New("tailfile: line containing needle exceeds MaxMatchLine")
+const maxKeyLen = 256
 
-// EachLineContaining streams every line of path that contains needle to fn,
-// with no file-size cap and at most MaxMatchLine bytes of one line in memory.
-// Used by end-of-session rollups that must see the whole transcript: tool
-// results make transcripts grow past DefaultCap within minutes, so a tail
-// read undercounts usage.
+// ErrFieldTooLarge reports that a kept field exceeded MaxFieldValue, so a
+// rollup built from fn is incomplete.
+var ErrFieldTooLarge = errors.New("tailfile: kept JSONL field exceeds MaxFieldValue")
+
+// EachJSONLFields streams a JSONL file and, for every line that has at least
+// one of the dotted `keep` paths (e.g. "message.usage"), calls fn with a
+// compact JSON object holding only those fields. Everything else on the line
+// is scanned and discarded, so memory stays bounded however long a line is:
+// a transcript line carrying a multi-megabyte tool input costs no more than
+// a short one. Paths only match object keys ("message.usage"), not array
+// elements; malformed lines are skipped.
 //
-// It returns any non-EOF read error, and ErrLineTooLong if a matching line
-// had to be skipped; in both cases the caller must not treat what fn saw as
-// complete. fn's slice is only valid during the call.
-func EachLineContaining(path string, needle []byte, fn func(line []byte)) error {
+// Used by end-of-session rollups that must see the whole transcript (tool
+// results make transcripts grow past DefaultCap within minutes, so a tail
+// read undercounts). It returns any non-EOF read error, and ErrFieldTooLarge
+// if a kept value had to be dropped; in both cases the caller must not treat
+// what fn saw as complete. fn's slice is only valid during the call.
+func EachJSONLFields(path string, keep []string, fn func(obj []byte)) error {
 	f, err := os.Open(path) //nolint:gosec // path comes from the agent's own payload
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	return eachLineContaining(f, needle, MaxMatchLine, fn)
+	return eachJSONLFields(f, keep, fn)
 }
 
-func eachLineContaining(src io.Reader, needle []byte, maxLine int, fn func(line []byte)) error {
+func eachJSONLFields(src io.Reader, keep []string, fn func(obj []byte)) error {
+	s := newFieldScanner(keep)
 	r := bufio.NewReaderSize(src, 64*1024)
-	var (
-		line      []byte // current line, while it fits in maxLine
-		oversized bool   // current line outgrew maxLine; only scanning it now
-		hit       bool   // the oversized line contains needle
-		tail      []byte // last len(needle)-1 bytes seen, so a needle split across chunks is found
-		skipped   bool
-	)
-	// scan checks an oversized line's chunk for the needle, including across the chunk boundary.
-	scan := func(chunk []byte) {
-		joined := append(tail, chunk...)
-		if bytes.Contains(joined, needle) {
-			hit = true
-		}
-		if keep := len(needle) - 1; keep > 0 && len(joined) > keep {
-			tail = append(tail[:0], joined[len(joined)-keep:]...)
-		} else {
-			tail = append(tail[:0], joined...)
-		}
-	}
+	tooLarge := false
 	for {
 		chunk, err := r.ReadSlice('\n')
-		if len(chunk) > 0 {
-			switch {
-			case oversized:
-				scan(chunk)
-			case len(line)+len(chunk) > maxLine:
-				oversized = true
-				scan(line)
-				scan(chunk)
-				line = nil // release the partial line
-			default:
-				line = append(line, chunk...)
+		for _, c := range chunk {
+			if c == '\n' { // valid JSONL has no raw newline inside a string
+				if obj, ok := s.endLine(); ok {
+					fn(obj)
+				}
+				tooLarge = tooLarge || s.overflow
+				s.reset()
+				continue
 			}
+			s.feed(c)
 		}
 		if err == bufio.ErrBufferFull {
 			continue // the line continues in the next chunk
 		}
-		// End of a line (newline, or EOF after a final unterminated line).
-		if oversized {
-			skipped = skipped || hit
-		} else if len(line) > 0 && bytes.Contains(line, needle) {
-			fn(bytes.TrimSpace(line))
-		}
-		line, oversized, hit, tail = line[:0], false, false, tail[:0]
 		if err == io.EOF {
+			if obj, ok := s.endLine(); ok { // final line without a trailing newline
+				fn(obj)
+			}
+			tooLarge = tooLarge || s.overflow
 			break
 		}
 		if err != nil {
 			return err
 		}
 	}
-	if skipped {
-		return ErrLineTooLong
+	if tooLarge {
+		return ErrFieldTooLarge
 	}
 	return nil
+}
+
+// fieldScanner is a byte-at-a-time JSON scanner for one line. It tracks only
+// container nesting, the current key per object level, and string/escape
+// state, and copies out the raw bytes of values at kept paths.
+type fieldScanner struct {
+	keep     map[string]bool
+	maxDepth int // deepest kept path; values below it are never captured
+
+	stack  []frame
+	inStr  bool
+	esc    bool
+	strKey bool // the current string is an object key
+	bad    bool // line is not a JSON object (or is malformed)
+	opened bool // saw the line's opening '{'
+
+	capturing bool
+	capPath   string
+	capDepth  int  // stack depth at which the captured value started
+	capKind   byte // '"' string, '{' / '[' container, 'l' literal
+	capBuf    []byte
+	overflow  bool
+	found     map[string][]byte
+}
+
+type frame struct {
+	obj       bool
+	key       []byte
+	keyLong   bool
+	expectKey bool
+	valueSeen bool
+}
+
+func newFieldScanner(keep []string) *fieldScanner {
+	s := &fieldScanner{keep: map[string]bool{}, found: map[string][]byte{}}
+	for _, p := range keep {
+		s.keep[p] = true
+		if d := strings.Count(p, ".") + 1; d > s.maxDepth {
+			s.maxDepth = d
+		}
+	}
+	return s
+}
+
+func (s *fieldScanner) reset() {
+	s.stack, s.inStr, s.esc, s.strKey, s.bad, s.opened = s.stack[:0], false, false, false, false, false
+	s.capturing, s.capBuf, s.overflow = false, s.capBuf[:0], false
+	clear(s.found)
+}
+
+// path of the value about to start at the current position ("" if not keepable).
+func (s *fieldScanner) valuePath() string {
+	if len(s.stack) == 0 || len(s.stack) > s.maxDepth {
+		return ""
+	}
+	parts := make([]string, 0, len(s.stack))
+	for _, f := range s.stack {
+		if !f.obj || f.keyLong {
+			return "" // array elements and over-long keys never match
+		}
+		parts = append(parts, string(f.key))
+	}
+	p := strings.Join(parts, ".")
+	if !s.keep[p] {
+		return ""
+	}
+	return p
+}
+
+// startValue is called when a value begins at the top frame.
+func (s *fieldScanner) startValue(c byte, kind byte) {
+	top := &s.stack[len(s.stack)-1]
+	if top.valueSeen {
+		return
+	}
+	top.valueSeen = true
+	if s.capturing {
+		return
+	}
+	if p := s.valuePath(); p != "" {
+		s.capturing, s.capPath, s.capDepth, s.capKind = true, p, len(s.stack), kind
+		s.capBuf = append(s.capBuf[:0], c)
+	}
+}
+
+func (s *fieldScanner) appendCap(c byte) {
+	if len(s.capBuf) >= MaxFieldValue {
+		s.overflow = true
+		return
+	}
+	s.capBuf = append(s.capBuf, c)
+}
+
+func (s *fieldScanner) finishCap() {
+	if !s.overflow {
+		s.found[s.capPath] = append([]byte(nil), s.capBuf...)
+	}
+	s.capturing = false
+}
+
+func (s *fieldScanner) feed(c byte) {
+	if s.bad {
+		return
+	}
+	if s.inStr {
+		if s.capturing {
+			s.appendCap(c)
+		}
+		switch {
+		case s.esc:
+			s.esc = false
+		case c == '\\':
+			s.esc = true
+		case c == '"':
+			s.inStr = false
+			if s.strKey {
+				return
+			}
+			if s.capturing && s.capKind == '"' && len(s.stack) == s.capDepth {
+				s.finishCap()
+			}
+			return
+		}
+		if s.strKey {
+			top := &s.stack[len(s.stack)-1]
+			if len(top.key) < maxKeyLen {
+				top.key = append(top.key, c)
+			} else {
+				top.keyLong = true
+			}
+		}
+		return
+	}
+
+	// A literal (number / true / false / null) ends at the next delimiter.
+	if s.capturing && s.capKind == 'l' && len(s.stack) == s.capDepth {
+		switch c {
+		case ',', '}', ']', ' ', '\t', '\r':
+			s.finishCap()
+		default:
+			s.appendCap(c)
+			return
+		}
+	}
+
+	switch c {
+	case ' ', '\t', '\r':
+		if s.capturing {
+			s.appendCap(c)
+		}
+	case '{', '[':
+		if !s.opened {
+			if c != '{' {
+				s.bad = true
+				return
+			}
+			s.opened = true
+		} else if len(s.stack) == 0 {
+			s.bad = true // content after the top-level object
+			return
+		} else {
+			if s.capturing {
+				s.appendCap(c)
+			}
+			s.startValue(c, c)
+		}
+		s.stack = append(s.stack, frame{obj: c == '{', expectKey: c == '{'})
+	case '}', ']':
+		if len(s.stack) == 0 {
+			s.bad = true
+			return
+		}
+		if s.capturing {
+			s.appendCap(c)
+		}
+		s.stack = s.stack[:len(s.stack)-1]
+		if s.capturing && s.capKind != 'l' && len(s.stack) == s.capDepth {
+			s.finishCap()
+		}
+	case ':':
+		if len(s.stack) == 0 || !s.stack[len(s.stack)-1].obj {
+			s.bad = true
+			return
+		}
+		if s.capturing {
+			s.appendCap(c)
+		}
+		top := &s.stack[len(s.stack)-1]
+		top.expectKey, top.valueSeen = false, false
+	case ',':
+		if len(s.stack) == 0 {
+			s.bad = true
+			return
+		}
+		if s.capturing {
+			s.appendCap(c)
+		}
+		top := &s.stack[len(s.stack)-1]
+		top.valueSeen = false
+		if top.obj {
+			top.expectKey, top.key, top.keyLong = true, top.key[:0], false
+		}
+	case '"':
+		if len(s.stack) == 0 {
+			s.bad = true
+			return
+		}
+		s.inStr = true
+		if s.capturing {
+			s.appendCap(c) // opening quote of a key or a string inside the captured value
+		}
+		top := &s.stack[len(s.stack)-1]
+		if top.obj && top.expectKey {
+			s.strKey = true
+			top.key, top.keyLong = top.key[:0], false
+			return
+		}
+		s.strKey = false
+		s.startValue(c, '"')
+	default: // start (or continuation) of a literal
+		if len(s.stack) == 0 {
+			s.bad = true
+			return
+		}
+		if s.capturing {
+			s.appendCap(c)
+		}
+		s.startValue(c, 'l')
+	}
+}
+
+// endLine returns the kept fields of a well-formed line as one compact JSON
+// object, nested by path ("message.usage" -> {"message":{"usage":...}}).
+func (s *fieldScanner) endLine() ([]byte, bool) {
+	if s.capturing && s.capKind == 'l' && len(s.stack) == s.capDepth {
+		s.finishCap()
+	}
+	if s.bad || !s.opened || len(s.stack) != 0 || s.inStr || len(s.found) == 0 {
+		return nil, false
+	}
+	root := map[string]any{}
+	for p, raw := range s.found {
+		node := root
+		parts := strings.Split(p, ".")
+		for _, k := range parts[:len(parts)-1] {
+			child, ok := node[k].(map[string]any)
+			if !ok {
+				child = map[string]any{}
+				node[k] = child
+			}
+			node = child
+		}
+		node[parts[len(parts)-1]] = json.RawMessage(raw)
+	}
+	obj, err := json.Marshal(root)
+	if err != nil {
+		return nil, false
+	}
+	return obj, true
 }

@@ -931,7 +931,7 @@ func tailTranscript(path string) (model string, cost float64, inTokens, outToken
 			path = filepath.Join(home, strings.TrimPrefix(path, "~/"))
 		}
 	}
-	// Stream the whole transcript, decoding only lines that carry usage.
+	// Stream the whole transcript, decoding only the usage-related fields.
 	// A tail read undercounts: tool results push even short sessions past
 	// tailfile.DefaultCap, and the session total must cover every request.
 	type usage struct {
@@ -949,7 +949,7 @@ func tailTranscript(path string) (model string, cost float64, inTokens, outToken
 		Message   struct {
 			ID    string `json:"id"`
 			Model string `json:"model"`
-			Usage usage  `json:"usage"`
+			Usage *usage `json:"usage"`
 		} `json:"message"`
 	}
 
@@ -967,12 +967,15 @@ func tailTranscript(path string) (model string, cost float64, inTokens, outToken
 	var sum tally
 	var lastModel string
 	var seen bool
-	err := tailfile.EachLineContaining(path, []byte(`"usage"`), func(line []byte) {
+	// Only these fields are kept from each line, so a line carrying a huge
+	// tool input or result costs no extra memory.
+	keep := []string{"type", "requestId", "message.id", "message.model", "message.usage"}
+	err := tailfile.EachJSONLFields(path, keep, func(obj []byte) {
 		var t turn
-		if err := json.Unmarshal(line, &t); err != nil {
+		if err := json.Unmarshal(obj, &t); err != nil || t.Message.Usage == nil {
 			return
 		}
-		u := t.Message.Usage
+		u := *t.Message.Usage
 		// Anthropic transcript reports cache creation + cache read as
 		// separate counters; "fresh" input is the standard input_tokens.
 		// The OTel field gen_ai.usage.input_tokens should equal total
@@ -1000,7 +1003,7 @@ func tailTranscript(path string) (model string, cost float64, inTokens, outToken
 		}
 		seen = true
 	})
-	// A partial read (I/O error, or a usage line too long to buffer) must not
+	// A partial read (I/O error, or a usage field too large to keep) must not
 	// be published as the authoritative session total. Returning zeros lets
 	// the session span fall back to the per-turn counters.
 	if err != nil || !seen {

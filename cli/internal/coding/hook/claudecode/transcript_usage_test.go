@@ -99,3 +99,18 @@ func TestTailTranscriptPublishesNothingOnReadError(t *testing.T) {
 		t.Fatalf("got model=%q cost=%v in=%d out=%d total=%d, want zeros", model, cost, in, out, total)
 	}
 }
+
+// A usage-bearing line larger than any line buffer (a big Write tool input)
+// still counts, rather than making the rollup fall back.
+func TestTailTranscriptCountsHugeUsageLines(t *testing.T) {
+	huge := `{"type":"assistant","requestId":"req_1","message":{"id":"msg_1","model":"claude-opus-5-5","content":[{"type":"tool_use","input":{"content":"` +
+		strings.Repeat("x", 20*1024*1024) + `"}}],"usage":{"input_tokens":100,"output_tokens":10}}}`
+	small := `{"type":"assistant","requestId":"req_2","message":{"id":"msg_2","model":"claude-opus-5-5","usage":{"input_tokens":200,"output_tokens":20}}}`
+	path := filepath.Join(t.TempDir(), "session.jsonl")
+	if err := os.WriteFile(path, []byte(huge+"\n"+small+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, in, out, _ := tailTranscript(path); in != 300 || out != 30 {
+		t.Fatalf("in=%d out=%d, want 300/30", in, out)
+	}
+}
