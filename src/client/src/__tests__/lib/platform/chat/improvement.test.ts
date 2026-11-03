@@ -571,6 +571,41 @@ describe("streamTraceImprovementAnalysis", () => {
 		expect(events.find((event) => event.type === "done")).toBeDefined();
 	});
 
+	it("keeps complete findings from a dimension response truncated mid-JSON", async () => {
+		(getHeirarchyViaSpanId as jest.Mock).mockResolvedValue({
+			record: hierarchy,
+			err: null,
+		});
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({ data: [], err: null })
+			.mockResolvedValueOnce({ err: null });
+		const complete = JSON.stringify({
+			summary: "Long session",
+			findings: [
+				{ severity: "major", summary: "Context grew every turn", detail: "d", span_refs: ["root-span"] },
+				{ severity: "minor", summary: "Second finding that gets cut", detail: "d", span_refs: ["root-span"] },
+			],
+		});
+		const truncated = complete.slice(0, complete.indexOf("Second finding") + 6);
+		(streamText as jest.Mock).mockImplementation(({ onFinish }) => {
+			onFinish({ usage: { inputTokens: 1, outputTokens: 1 } });
+			return {
+				fullStream: (async function* () {
+					yield { type: "text-delta", delta: "```json\n" + truncated };
+				})(),
+			};
+		});
+
+		const result = await streamTraceImprovementAnalysis("root-span", "db-1");
+		const events = await readNdjson(result.response!);
+		const firstDimension = events.find((event) => event.type === "dimension");
+
+		expect(firstDimension.findings.map((finding: { summary: string }) => finding.summary)).toEqual([
+			"Context grew every turn",
+		]);
+		expect(streamText).toHaveBeenCalledWith(expect.objectContaining({ maxOutputTokens: 4000 }));
+	});
+
 	it("returns the default chat-not-configured message when config is empty", async () => {
 		(getChatConfigWithApiKey as jest.Mock).mockResolvedValue({ data: null });
 
