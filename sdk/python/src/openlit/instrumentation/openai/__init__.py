@@ -6,7 +6,8 @@ import importlib.metadata
 from opentelemetry import _logs
 from opentelemetry import trace
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
-from wrapt import wrap_function_wrapper
+from opentelemetry.instrumentation.utils import unwrap
+from wrapt import wrap_function_wrapper as _wrap_function_wrapper
 
 from openlit._config import OpenlitConfig
 from openlit.instrumentation.openai.openai import (
@@ -138,6 +139,16 @@ def _standard_args(
         disable_metrics,
         event_provider,
     )
+
+
+# Targets wrapped by _instrument, so _uninstrument can remove exactly those.
+_wrapped_targets = []
+
+
+def wrap_function_wrapper(module, class_method, wrapper):
+    """Wrap a function and record it for _uninstrument."""
+    _wrap_function_wrapper(module, class_method, wrapper)
+    _wrapped_targets.append((module, class_method))
 
 
 def _safe_wrap(module, class_method, wrapper):
@@ -722,4 +733,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
         )
 
     def _uninstrument(self, **kwargs):
-        pass
+        while _wrapped_targets:
+            module, class_method = _wrapped_targets.pop()
+            class_name, method = class_method.rsplit(".", 1)
+            unwrap(f"{module}.{class_name}", method)
