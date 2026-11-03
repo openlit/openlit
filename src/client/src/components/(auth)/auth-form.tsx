@@ -123,19 +123,11 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 		setError("");
 
 		try {
-			const result = await signIn(provider.id, {
-				callbackUrl,
-				redirect: false,
-			});
-
-			if (result?.error) {
-				console.error("OAuth sign-in error:", provider.id);
-				setError(result.error);
-			}
+			// OAuth providers always send the browser to the provider's sign-in page.
+			await signIn(provider.id, { callbackUrl });
 		} catch {
 			console.error("OAuth sign-in exception:", provider.id);
 			setError(provider.error);
-		} finally {
 			setPendingProvider(null);
 		}
 	}

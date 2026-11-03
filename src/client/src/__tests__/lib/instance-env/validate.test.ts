@@ -31,6 +31,9 @@ describe("instance environment updates", () => {
 		expect(normalizeOktaIssuer("https://localhost/oauth2/default")).toBeNull();
 		expect(normalizeOktaIssuer("https://169.254.169.254/latest")).toBeNull();
 		expect(normalizeOktaIssuer("https://user:pass@acme.okta.com")).toBeNull();
+		expect(normalizeOktaIssuer("https://[::1]/oauth2/default")).toBeNull();
+		expect(normalizeOktaIssuer("https://[fd00::1]")).toBeNull();
+		expect(normalizeOktaIssuer("https://[::ffff:127.0.0.1]")).toBeNull();
 	});
 
 	it("accepts microsoft and okta values and clears blanks without keeping secrets", () => {

@@ -1,3 +1,6 @@
+jest.mock("@/lib/instance-env/public-host", () => ({ resolvesToPublicHost: jest.fn() }));
+
+import { resolvesToPublicHost } from "@/lib/instance-env/public-host";
 import {
 	buildOAuthProviders,
 	emailFromProfile,
@@ -27,6 +30,16 @@ describe("oauth providers", () => {
 
 	beforeEach(() => {
 		for (const key of keys) delete process.env[key];
+		(resolvesToPublicHost as jest.Mock).mockReset().mockResolvedValue(true);
+	});
+
+	it("leaves Okta off when the issuer resolves to a private address", async () => {
+		process.env.OKTA_CLIENT_ID = "okta-client";
+		process.env.OKTA_CLIENT_SECRET = "okta-secret";
+		process.env.OKTA_ISSUER = "https://acme.okta.com/oauth2/default";
+		(resolvesToPublicHost as jest.Mock).mockResolvedValue(false);
+		await expect(buildOAuthProviders({})).resolves.toEqual([]);
+		expect(resolvesToPublicHost).toHaveBeenCalledWith("acme.okta.com");
 	});
 
 	afterAll(() => {

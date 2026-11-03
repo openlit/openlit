@@ -23,17 +23,38 @@ import { isInstanceAdminUser } from "@/lib/instance-admin";
 
 const prisma = new PrismaClient();
 
+// Invitations and shared database configs are addressed by email, so a new
+// account only claims them when its provider vouched for that email.
+async function claimEmailGrants(email: string, userId: string) {
+	try {
+		const { moveSharedDBConfigToDBUser } = await import("@/lib/db-config");
+		await moveSharedDBConfigToDBUser(email, userId);
+
+		const { moveInvitationsToMembership } = await import("@/lib/organisation");
+		await moveInvitationsToMembership(email, userId);
+	} catch (error) {
+		console.error("Error during new user setup:", error);
+	}
+}
+
 // Create a custom adapter that normalizes emails
 function createNormalizedEmailAdapter(p: PrismaClient) {
 	const baseAdapter = PrismaAdapter(p);
 	return {
 		...baseAdapter,
 		async createUser(user: any) {
-			// Normalize email before creating user
-			if (user.email) {
-				user.email = user.email.toLowerCase().trim();
+			// next-auth passes the whole provider profile. Keep only User columns;
+			// provider-specific fields such as emailTrusted are not stored.
+			const created = await baseAdapter.createUser!({
+				name: user.name ?? null,
+				email: typeof user.email === "string" ? user.email.toLowerCase().trim() : user.email,
+				image: user.image ?? null,
+				emailVerified: user.emailVerified ?? null,
+			});
+			if (user.emailVouched === true && created.email && created.id) {
+				await claimEmailGrants(created.email, created.id);
 			}
-			return baseAdapter.createUser!(user);
+			return created;
 		},
 		async getUserByEmail(email: string) {
 			// Normalize email before lookup
@@ -139,6 +160,9 @@ export const authOptions = {
 				if (isEmailExplicitlyUnverified(profile)) {
 					return "/login?error=AccessDenied";
 				}
+				const emailVouched = isEmailVouched(account.provider, profile, user);
+				// Read by the adapter when this sign-in creates a new account.
+				(user as { emailVouched?: boolean }).emailVouched = emailVouched;
 
 				const [, existingUser] = await asaw(
 					getUserByEmail({ email: user.email })
@@ -153,25 +177,17 @@ export const authOptions = {
 						},
 						select: { userId: true },
 					});
-					// Linking by email needs a provider-verified email. An identity that
-					// is already linked to this user can always sign in.
-					if (
-						linkedAccount?.userId !== existingUser.id &&
-						!isEmailVouched(account.provider, profile, user)
-					) {
+					// An identity linked to another account never signs in as this one.
+					if (linkedAccount && linkedAccount.userId !== existingUser.id) {
+						return "/login?error=OAuthAccountNotLinked";
+					}
+					// Linking a new identity by email needs a provider-verified email.
+					// An identity already linked to this account can always sign in.
+					if (!linkedAccount && !emailVouched) {
 						return "/login?error=OAuthAccountNotLinked";
 					}
 					try {
-						// Check if Provider's account is already linked
-						const existingAccount = await prisma.account.findFirst({
-							where: {
-								userId: existingUser.id,
-								provider: account?.provider
-							}
-						});
-
-						// If Provider's account not linked, link it manually
-						if (!existingAccount) {
+						if (!linkedAccount) {
 							await prisma.account.create({
 								data: {
 									userId: existingUser.id,
@@ -227,25 +243,6 @@ export const authOptions = {
 			}
 			return session;
 		},
-	},
-	events: {
-		async createUser({ user }) {
-			// Run custom setup for new users
-			if (user.email && user.id) {
-				try {
-					// Normalize email for consistency
-					const normalizedEmail = user.email.toLowerCase().trim();
-					
-					const { moveSharedDBConfigToDBUser } = await import("@/lib/db-config");
-					await moveSharedDBConfigToDBUser(normalizedEmail, user.id);
-
-					const { moveInvitationsToMembership } = await import("@/lib/organisation");
-					await moveInvitationsToMembership(normalizedEmail, user.id);
-				} catch (error) {
-					console.error("Error during new user setup:", error);
-				}
-			}
-		}
 	},
 	providers: [
 		CredentialsProvider({

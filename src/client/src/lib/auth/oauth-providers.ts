@@ -11,6 +11,7 @@ import {
 	normalizeOktaIssuer,
 	normalizeSecret,
 } from "@/lib/instance-env/values";
+import { resolvesToPublicHost } from "@/lib/instance-env/public-host";
 
 export const OAUTH_LINK_PROVIDERS = new Set(["google", "github", "azure-ad", "okta"]);
 
@@ -146,7 +147,9 @@ export async function buildOAuthProviders(
 	const oktaId = configuredValue(resolved, "OKTA_CLIENT_ID", normalizeClientId);
 	const oktaSecret = configuredValue(resolved, "OKTA_CLIENT_SECRET", normalizeSecret);
 	const issuer = configuredValue(resolved, "OKTA_ISSUER", normalizeOktaIssuer);
-	if (oktaId && oktaSecret && issuer) {
+	// The issuer is fetched server-side during sign-in, so it must resolve to a
+	// public address, not an internal service.
+	if (oktaId && oktaSecret && issuer && (await resolvesToPublicHost(new URL(issuer).hostname))) {
 		providers.push(
 			OktaProvider({
 				clientId: oktaId,

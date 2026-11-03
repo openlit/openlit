@@ -24,6 +24,9 @@ export function isPrivateIp(ip: string) {
 	}
 	if (version === 6) {
 		const lower = ip.toLowerCase();
+		// IPv4-mapped addresses (::ffff:10.0.0.1) carry an IPv4 address.
+		const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(lower);
+		if (mapped) return isPrivateIp(mapped[1]);
 		if (lower === "::1" || lower === "::") return true;
 		if (lower.startsWith("fe80:") || lower.startsWith("fc") || lower.startsWith("fd")) return true;
 		return false;
@@ -70,7 +73,8 @@ export function normalizeOktaIssuer(raw: string): string | null {
 	}
 	if (url.protocol !== "https:") return null;
 	if (url.username || url.password || url.search || url.hash) return null;
-	const host = url.hostname.toLowerCase().replace(/\.$/, "");
+	// URL keeps IPv6 hosts bracketed ("[::1]"); strip them so the IP checks apply.
+	const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
 	if (!host || net.isIP(host)) return null;
 	if (BLOCKED_HOSTS.has(host) || host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".localhost")) {
 		return null;
