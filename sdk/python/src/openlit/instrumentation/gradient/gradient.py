@@ -114,8 +114,18 @@ def _make_traced_stream(chunk_processor, final_processor):
             self._gen_ai_error = None
 
         def __enter__(self):
-            if hasattr(self.__wrapped__, "__enter__"):
-                self.__wrapped__.__enter__()
+            try:
+                if hasattr(self.__wrapped__, "__enter__"):
+                    self.__wrapped__.__enter__()
+            except BaseException as exc:
+                # A failing entry never reaches __exit__, so an error-only
+                # entry failure would otherwise leave the span open.
+                self._stream_error = exc
+                try:
+                    self._finalize(ended_cleanly=False)
+                except Exception:
+                    pass
+                raise
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):

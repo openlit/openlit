@@ -78,8 +78,18 @@ def _make_traced_async_stream(chunk_processor, final_processor):
             self._gen_ai_error = None
 
         async def __aenter__(self):
-            if hasattr(self.__wrapped__, "__aenter__"):
-                await self.__wrapped__.__aenter__()
+            try:
+                if hasattr(self.__wrapped__, "__aenter__"):
+                    await self.__wrapped__.__aenter__()
+            except BaseException as exc:
+                # A failing entry never reaches __aexit__, so an error-only
+                # entry failure would otherwise leave the span open.
+                self._stream_error = exc
+                try:
+                    self._finalize(ended_cleanly=False)
+                except Exception:
+                    pass
+                raise
             return self
 
         async def __aexit__(self, exc_type, exc_value, traceback):

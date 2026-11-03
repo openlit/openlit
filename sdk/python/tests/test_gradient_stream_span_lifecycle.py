@@ -49,11 +49,14 @@ def _done_chunk():
 class FakeSyncStream:
     """Stand-in for the SDK's ``Stream``: context manager, ``close``, iterator."""
 
-    def __init__(self, chunks, raise_after=None, raise_on_close=False):
+    def __init__(
+        self, chunks, raise_after=None, raise_on_close=False, raise_on_enter=None
+    ):
         self._chunks = list(chunks)
         self._index = 0
         self._raise_after = raise_after
         self._raise_on_close = raise_on_close
+        self._raise_on_enter = raise_on_enter
         self.closed = False
 
     def __iter__(self):
@@ -69,6 +72,8 @@ class FakeSyncStream:
         return chunk
 
     def __enter__(self):
+        if self._raise_on_enter is not None:
+            raise self._raise_on_enter
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -85,10 +90,11 @@ class FakeSyncStream:
 class FakeAsyncStream:
     """Async twin, with ``async close`` and ``aclose``."""
 
-    def __init__(self, chunks, raise_after=None):
+    def __init__(self, chunks, raise_after=None, raise_on_enter=None):
         self._chunks = list(chunks)
         self._index = 0
         self._raise_after = raise_after
+        self._raise_on_enter = raise_on_enter
         self.closed = False
 
     def __aiter__(self):
@@ -104,6 +110,8 @@ class FakeAsyncStream:
         return chunk
 
     async def __aenter__(self):
+        if self._raise_on_enter is not None:
+            raise self._raise_on_enter
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
@@ -433,3 +441,40 @@ async def test_async_read_cancellation_exports_span_before_wrapper_is_released()
     assert span.attributes[FINISH] == ("incomplete",)
     await traced.close()
     assert len(exporter.get_finished_spans()) == 1
+
+
+
+def test_sync_stream_entry_failure_exports_error_span():
+    """A retained wrapper whose context entry fails must still end its span."""
+    tracer, exporter = _tracer_and_exporter()
+    raw = FakeSyncStream([_chunk("hi")], raise_on_enter=RuntimeError("entry failed"))
+    traced = _sync_wrapper(tracer)(lambda *a, **k: raw, object(), [], _stream_kwargs())
+
+    with pytest.raises(RuntimeError, match="entry failed"):
+        with traced:
+            pass
+
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.attributes["error.type"] == "RuntimeError"
+    assert span.attributes[FINISH] == ("error",)
+
+
+@pytest.mark.asyncio
+async def test_async_stream_entry_failure_exports_error_span():
+    """Async twin: a failing __aenter__ must finalize the span once."""
+    tracer, exporter = _tracer_and_exporter()
+    raw = FakeAsyncStream([_chunk("hi")], raise_on_enter=RuntimeError("entry failed"))
+
+    async def create(*_args, **_kwargs):
+        return raw
+
+    traced = await _async_wrapper(tracer)(create, object(), [], _stream_kwargs())
+    with pytest.raises(RuntimeError, match="entry failed"):
+        async with traced:
+            pass
+
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.attributes["error.type"] == "RuntimeError"
+    assert span.attributes[FINISH] == ("error",)
