@@ -398,3 +398,38 @@ async def test_concurrent_close_waits_for_async_read_error():
     assert span.attributes[FINISH] == ("error",)
     await traced.close()
     assert len(exporter.get_finished_spans()) == 1
+
+
+@pytest.mark.asyncio
+async def test_async_read_cancellation_exports_span_before_wrapper_is_released():
+    """Cancelling an in-flight read ends the span once and re-raises unchanged."""
+    entered = asyncio.Event()
+
+    class BlockingStream(FakeAsyncStream):
+        """Hold the second read until the caller cancels it."""
+
+        async def __anext__(self):
+            if self._index == 1:
+                entered.set()
+                await asyncio.Event().wait()
+            return await super().__anext__()
+
+    tracer, exporter = _tracer_and_exporter()
+    raw = BlockingStream([_chunk("hi")])
+
+    async def create(*_args, **_kwargs):
+        return raw
+
+    traced = await _async_wrapper(tracer)(create, object(), [], _stream_kwargs())
+    assert await anext(traced) == _chunk("hi")
+    read = asyncio.create_task(anext(traced))
+    await asyncio.wait_for(entered.wait(), timeout=3)
+    read.cancel()
+    result = await asyncio.gather(read, return_exceptions=True)
+
+    assert isinstance(result[0], asyncio.CancelledError)
+    assert read.cancelled()
+    (span,) = exporter.get_finished_spans()
+    assert span.attributes[FINISH] == ("incomplete",)
+    await traced.close()
+    assert len(exporter.get_finished_spans()) == 1

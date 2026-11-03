@@ -2,6 +2,7 @@
 Asynchronous wrappers for DigitalOcean Gradient SDK resources.
 """
 
+import asyncio
 import inspect
 import time
 import threading
@@ -142,6 +143,9 @@ def _make_traced_async_stream(chunk_processor, final_processor):
                 return chunk
             except StopAsyncIteration:
                 self._finalize(ended_cleanly=True)
+                raise
+            except (GeneratorExit, asyncio.CancelledError):
+                self._finalize(ended_cleanly=False)
                 raise
             except Exception as exc:
                 self._stream_error = exc
