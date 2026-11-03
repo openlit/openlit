@@ -524,6 +524,76 @@ describe('checkAuth', () => {
     });
   });
 
+  describe('instance admin area', () => {
+    it('redirects a signed-in user who is not the instance admin away from /admin pages', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true, isInstanceAdmin: false });
+      for (const path of ['/admin', '/admin/auth']) {
+        (NextResponse.redirect as jest.Mock).mockClear();
+        await middleware(makeRequest('GET', path) as any, makeFetchEvent());
+        const redirectCall = (NextResponse.redirect as jest.Mock).mock.calls[0][0];
+        expect(redirectCall.toString()).toBe('http://localhost/home');
+      }
+    });
+
+    it('treats a token without the admin claim as not admin', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      await middleware(makeRequest('GET', '/admin/auth') as any, makeFetchEvent());
+      expect(NextResponse.redirect).toHaveBeenCalled();
+      expect(NextResponse.next).not.toHaveBeenCalled();
+    });
+
+    it('lets the instance admin open /admin pages', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true, isInstanceAdmin: true });
+      await middleware(makeRequest('GET', '/admin/auth') as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.redirect).not.toHaveBeenCalled();
+    });
+
+    it('does not treat lookalike paths as the admin area', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true, isInstanceAdmin: false });
+      await middleware(makeRequest('GET', '/administrators') as any, makeFetchEvent());
+      expect(NextResponse.redirect).not.toHaveBeenCalled();
+    });
+
+    it('sends signed-out visitors to login with the admin page as callback', async () => {
+      (getToken as jest.Mock).mockResolvedValue(null);
+      await middleware(makeRequest('GET', '/admin/auth') as any, makeFetchEvent());
+      const redirectCall = (NextResponse.redirect as jest.Mock).mock.calls[0][0];
+      expect(redirectCall.toString()).toContain(`/login?callbackUrl=${encodeURIComponent('/admin/auth')}`);
+    });
+
+    it('returns 401 for signed-out admin API calls', async () => {
+      (getToken as jest.Mock).mockResolvedValue(null);
+      await middleware(makeRequest('PATCH', '/api/admin/auth') as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Unauthorized' }, { status: 401 });
+    });
+
+    it('returns 403 for admin API calls from a user who is not the instance admin', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true, isInstanceAdmin: false });
+      await middleware(makeRequest('PATCH', '/api/admin/auth') as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: expect.any(String) },
+        { status: 403 }
+      );
+      expect(NextResponse.next).not.toHaveBeenCalled();
+    });
+
+    it('rejects API keys on admin API routes', async () => {
+      await middleware(
+        makeRequest('GET', '/api/admin/auth', '', { Authorization: 'Bearer key-1' }) as any,
+        makeFetchEvent()
+      );
+      expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Forbidden' }, { status: 403 });
+    });
+
+    it('passes admin API calls from the instance admin through to the route', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true, isInstanceAdmin: true });
+      await middleware(makeRequest('GET', '/api/admin/auth') as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+  });
+
   describe('withAuth callbacks.authorized', () => {
     it('is called by withAuth and always returns true', async () => {
       const capturedOpts = (withAuth as jest.Mock).mock.calls[0]?.[1];

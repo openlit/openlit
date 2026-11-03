@@ -141,6 +141,64 @@ For detailed OAuth setup instructions, see the [OAuth Authentication Setup](/lat
   ```
 </ResponseField>
 
+<ResponseField name="AZURE_AD_CLIENT_ID">
+  Application (client) ID of the Microsoft Entra ID app registration used for Microsoft sign-in.
+
+  **Example**:
+  ```yaml
+  export AZURE_AD_CLIENT_ID=your-azure-client-id
+  ```
+</ResponseField>
+
+<ResponseField name="AZURE_AD_CLIENT_SECRET">
+  Client secret of the Microsoft Entra ID app registration used for Microsoft sign-in.
+
+  **Example**:
+  ```yaml
+  export AZURE_AD_CLIENT_SECRET=your-azure-client-secret
+  ```
+</ResponseField>
+
+<ResponseField name="AZURE_AD_TENANT_ID">
+  Optional. The Microsoft Entra directory (tenant) ID or a verified domain, such as `contoso.onmicrosoft.com`. Defaults to `common`, which accepts work, school, and personal Microsoft accounts from any directory. Set a single directory to limit sign-in to your organisation: OpenLIT only links a Microsoft sign-in to an existing account by email when this names one directory. `organizations` and `consumers` are also accepted.
+
+  **Example**:
+  ```yaml
+  export AZURE_AD_TENANT_ID=00000000-0000-0000-0000-000000000000
+  ```
+</ResponseField>
+
+<ResponseField name="OKTA_CLIENT_ID">
+  Client ID of the Okta OIDC web application used for Okta sign-in.
+
+  **Example**:
+  ```yaml
+  export OKTA_CLIENT_ID=your-okta-client-id
+  ```
+</ResponseField>
+
+<ResponseField name="OKTA_CLIENT_SECRET">
+  Client secret of the Okta OIDC web application used for Okta sign-in.
+
+  **Example**:
+  ```yaml
+  export OKTA_CLIENT_SECRET=your-okta-client-secret
+  ```
+</ResponseField>
+
+<ResponseField name="OKTA_ISSUER">
+  Issuer URL of your Okta authorization server. It must be a public `https` URL, such as `https://your-domain.okta.com/oauth2/default`.
+
+  **Example**:
+  ```yaml
+  export OKTA_ISSUER=https://your-domain.okta.com/oauth2/default
+  ```
+</ResponseField>
+
+<Tip>
+In OpenLIT Enterprise, the instance admin can also set these values from **Instance admin → Auth** without redeploying. Values saved there override these variables. See [Instance admin](/latest/openlit/instance-admin#auth).
+</Tip>
+
 ## Server variables
 
 <ResponseField name="PORT">
@@ -482,6 +540,12 @@ GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 GITHUB_CLIENT_ID="your-github-client-id"
 GITHUB_CLIENT_SECRET="your-github-client-secret"
+AZURE_AD_CLIENT_ID="your-azure-client-id"
+AZURE_AD_CLIENT_SECRET="your-azure-client-secret"
+AZURE_AD_TENANT_ID="your-directory-id"   # optional, defaults to common
+OKTA_CLIENT_ID="your-okta-client-id"
+OKTA_CLIENT_SECRET="your-okta-client-secret"
+OKTA_ISSUER="https://your-domain.okta.com/oauth2/default"
 
 # Server Configuration (Optional)
 # PORT is for Docker Compose; use DOCKER_PORT instead for Kubernetes or a raw container run

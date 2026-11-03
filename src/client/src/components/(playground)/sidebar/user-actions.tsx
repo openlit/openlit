@@ -3,13 +3,15 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getUserDetails, resetUser } from "@/selectors/user";
 import { useRootStore } from "@/store";
-import { ChevronsUpDown, Cog, LogOut, Pencil } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { ChevronsUpDown, LogOut, Pencil, ShieldCheck } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import { useEffect } from "react";
 import getMessage from "@/constants/messages";
 import { escapeEmailForDisplay } from "@/utils/string";
+import { INSTANCE_ADMIN_ROUTE_PREFIX } from "@/constants/route";
+import { getAdminSidebarItems } from "@/features/admin-sidebar";
 
 const DROPDOWN_MENU_ITEM_CLASS = "flex w-full text-[13px] gap-2 hover:bg-primary/10 dark:hover:bg-primary/10 px-2 py-1.5";
 const DROPDOWN_MENU_ICON_CLASS = "w-4 h-4";
@@ -19,6 +21,10 @@ export default function UserActions() {
 	const messages = getMessage();
 	const user = useRootStore(getUserDetails);
 	const resetUserFn = useRootStore(resetUser);
+	const { data: session } = useSession();
+	const showInstanceAdmin =
+		(session?.user as { isInstanceAdmin?: boolean } | undefined)?.isInstanceAdmin === true &&
+		getAdminSidebarItems(DROPDOWN_MENU_ICON_CLASS).length > 0;
 	const onClickSignout = () => {
 		posthog?.reset();
 		resetUserFn();
@@ -75,6 +81,14 @@ export default function UserActions() {
 							{messages.EDIT_DETAILS}
 						</Link>
 					</DropdownMenuItem>
+					{showInstanceAdmin ? (
+						<DropdownMenuItem className="p-0">
+							<Link href={INSTANCE_ADMIN_ROUTE_PREFIX} className={DROPDOWN_MENU_ITEM_CLASS}>
+								<ShieldCheck className={DROPDOWN_MENU_ICON_CLASS} />
+								{messages.INSTANCE_ADMIN_TITLE}
+							</Link>
+						</DropdownMenuItem>
+					) : null}
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem className="p-0" onClick={onClickSignout}>
