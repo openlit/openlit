@@ -6,7 +6,7 @@
     "role": "owner",
     "name": "OpenLIT",
     "email": "contact@openlit.io",
-    "description": "OpenLIT builds open-source, OpenTelemetry-native tooling for engineering AI agents and LLM applications in production: tracing, metrics, evaluations, guardrails, prompt management, secrets management and GPU monitoring. Everything is self-hostable and released under the Apache 2.0 license.",
+    "description": "OpenLIT builds the open-source agent harness engineering platform: trace, evaluate, guard, and improve everything around the model in your AI agents, on OpenTelemetry. OpenLIT is free to self-host under Apache 2.0.",
     "webpageUrl": {
       "url": "https://openlit.io"
     }
@@ -15,7 +15,7 @@
     {
       "guid": "openlit",
       "name": "OpenLIT",
-      "description": "OpenLIT is an open-source, OpenTelemetry-native platform for AI engineering. It provides one-line auto-instrumentation SDKs for 50+ LLM providers, vector databases and agent frameworks, plus a self-hosted platform for traces, metrics, cost tracking, evaluations, guardrails, prompt and secrets management, an LLM playground, and GPU monitoring. Funding supports maintainer time, new integrations, security fixes, documentation and community support.",
+      "description": "OpenLIT is the open-source agent harness engineering platform: trace, evaluate, guard, and improve everything around the model in your AI agents, on OTEL.\n\nIt gives teams OpenTelemetry-native tracing, evaluations, guardrails, prompt and context management, and cost and GPU monitoring for the harness around their AI agents and coding agents, so every agent failure can be traced, scored, and turned into a harness fix. OpenLIT works with any model, framework, or harness: Claude Code, Codex, Cursor, OpenAI Agents SDK, LangGraph, CrewAI, and 70+ more integrations.",
       "webpageUrl": {
         "url": "https://openlit.io"
       },
@@ -27,16 +27,16 @@
         "spdx:Apache-2.0"
       ],
       "tags": [
-        "observability",
+        "agent-harness-engineering",
+        "ai-observability",
+        "llm-observability",
         "opentelemetry",
-        "llm",
-        "ai-agents",
+        "observability",
         "genai",
-        "monitoring",
-        "tracing",
-        "evaluations",
+        "ai-engineering",
+        "coding-agents",
         "gpu-monitoring",
-        "developer-tools"
+        "open-source"
       ]
     }
   ],
@@ -51,11 +51,11 @@
     ],
     "plans": [
       {
-        "guid": "recurring-support",
+        "guid": "bronze-sponsor",
         "status": "active",
-        "name": "Recurring support",
-        "description": "Contribute any amount monthly to sustain OpenLIT's maintenance, integrations and security fixes.",
-        "amount": 0,
+        "name": "Bronze Sponsor",
+        "description": "Support the project and help us cover ongoing development, infrastructure, and community costs. Bronze sponsors are recognized as valued supporters of the project.",
+        "amount": 25,
         "currency": "USD",
         "frequency": "monthly",
         "channels": [
@@ -63,16 +63,60 @@
         ]
       },
       {
-        "guid": "one-time-support",
+        "guid": "silver-sponsor",
         "status": "active",
-        "name": "One-time contribution",
-        "description": "Contribute any amount once to support OpenLIT's development.",
+        "name": "Silver Sponsor",
+        "description": "Help us invest more consistently in development, maintenance, documentation, and community initiatives. Includes your logo on the GitHub README and website, recognition in release notes, early access to new features, and priority responses to your issues.",
+        "amount": 50,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": [
+          "opencollective"
+        ]
+      },
+      {
+        "guid": "gold-sponsor",
+        "status": "active",
+        "name": "Gold Sponsor",
+        "description": "Make a meaningful contribution toward the long-term sustainability and growth of the project. Gold sponsors receive prominent recognition across our sponsor listings.",
+        "amount": 100,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": [
+          "opencollective"
+        ]
+      },
+      {
+        "guid": "platinum-sponsor",
+        "status": "active",
+        "name": "Platinum Sponsor",
+        "description": "Become one of our leading supporters and help fund major improvements, infrastructure, and community efforts. Platinum sponsors receive our highest level of sponsor recognition.",
+        "amount": 125,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": [
+          "opencollective"
+        ]
+      },
+      {
+        "guid": "custom-contribution",
+        "status": "active",
+        "name": "Custom contribution",
+        "description": "Contribute any amount, once or on a recurring basis, through Open Collective.",
         "amount": 0,
         "currency": "USD",
         "frequency": "one-time",
         "channels": [
           "opencollective"
         ]
+      }
+    ],
+    "history": [
+      {
+        "year": 2026,
+        "income": 350,
+        "currency": "USD",
+        "description": "Total contributions received through Open Collective to date."
       }
     ]
   }
