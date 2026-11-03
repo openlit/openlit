@@ -43,6 +43,7 @@ Read the relevant canonical guide in `agent-guides/` before changing these areas
 - `coding-agents-hook.md` for hook adapters and `coding-agents-convention.md` for their telemetry schema.
 - `controller-design.md` for controller and agent-discovery work.
 - `js-sdk-genai-instrumentation.md` or `js-sdk-genai-framework-instrumentation.md` for TypeScript SDK instrumentation.
+- `pr-validation.md` for the PR validation workflow. Run it only when someone explicitly asks to validate a PR or run the workflow. When you open or update a PR, or someone says their PR is ready, ask "Your PR looks ready. Should I run the validation workflow?" and start only after a yes.
 
 ## Validation
 
