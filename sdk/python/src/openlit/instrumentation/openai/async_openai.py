@@ -25,6 +25,7 @@ from openlit.instrumentation.openai.utils import (
     process_transcription_response,
     process_moderation_response,
     process_lightweight_response,
+    set_openai_request_params,
     set_openai_request_span_attributes,
     set_span_error_type,
 )
@@ -183,7 +184,9 @@ def async_chat_completions(
             )
 
         else:
-            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            with tracer.start_as_current_span(
+                span_name, kind=SpanKind.CLIENT, record_exception=False
+            ) as span:
                 start_time = time.time()
                 set_openai_request_span_attributes(
                     span,
@@ -200,6 +203,7 @@ def async_chat_completions(
                     response = await wrapped(*args, **kwargs)
                 except Exception as e:
                     err_type = set_span_error_type(span, e)
+                    set_openai_request_params(span, kwargs)
                     if not disable_metrics and metrics:
                         record_completion_metrics(
                             metrics,
@@ -430,7 +434,9 @@ def async_responses(
             )
 
         else:
-            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            with tracer.start_as_current_span(
+                span_name, kind=SpanKind.CLIENT, record_exception=False
+            ) as span:
                 start_time = time.time()
                 set_openai_request_span_attributes(
                     span,
@@ -447,6 +453,7 @@ def async_responses(
                     response = await wrapped(*args, **kwargs)
                 except Exception as e:
                     err_type = set_span_error_type(span, e)
+                    set_openai_request_params(span, kwargs)
                     if not disable_metrics and metrics:
                         record_completion_metrics(
                             metrics,
