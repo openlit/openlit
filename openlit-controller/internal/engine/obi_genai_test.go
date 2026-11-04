@@ -27,7 +27,7 @@ func buildGenAI(t *testing.T, providers ...string) obiGenAI {
 func TestBuildInstrumentConfigOpenAICompatibleCollapse(t *testing.T) {
 	for _, p := range []string{
 		"openai", "cohere", "mistral", "groq", "deepseek", "together",
-		"fireworks", "azure_inference", "azure_openai", "vercel_ai", "vertex_ai",
+		"fireworks", "runcrate", "azure_inference", "azure_openai", "vercel_ai", "vertex_ai",
 	} {
 		g := buildGenAI(t, p)
 		if !g.OpenAI.Enabled {

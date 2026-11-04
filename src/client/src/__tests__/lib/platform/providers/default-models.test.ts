@@ -13,7 +13,7 @@ describe('default-models', () => {
     const expectedProviders = [
       'openai', 'anthropic', 'google', 'mistral', 'groq',
       'perplexity', 'azure', 'cohere', 'together', 'fireworks',
-      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax', 'orcarouter', 'typesafe',
+      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax', 'orcarouter', 'runcrate', 'typesafe',
     ];
     for (const provider of expectedProviders) {
       expect(DEFAULT_MODELS_BY_PROVIDER).toHaveProperty(provider);
@@ -129,6 +129,32 @@ describe('default-models', () => {
       inputPricePerMToken: 0.3,
       outputPricePerMToken: 2.5,
     });
+  });
+
+  it('seeds Runcrate with open-weight chat models', () => {
+    const runcrateProvider = DEFAULT_PROVIDERS.find((p) => p.providerId === 'runcrate');
+    expect(runcrateProvider).toEqual(
+      expect.objectContaining({
+        displayName: 'Runcrate',
+        requiresVault: true,
+      })
+    );
+
+    const runcrateModels = DEFAULT_MODELS_BY_PROVIDER.runcrate;
+    expect(runcrateModels.map((m) => m.id)).toEqual([
+      'openai/gpt-oss-120b',
+      'deepseek-ai/DeepSeek-V3.2',
+      'Qwen/Qwen3-235B-A22B-Instruct-2507',
+      'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    ]);
+    expect(runcrateModels.find((m) => m.id === 'openai/gpt-oss-120b')).toMatchObject({
+      contextWindow: 131072,
+      inputPricePerMToken: 0.03885,
+      outputPricePerMToken: 0.1785,
+    });
+    for (const model of runcrateModels) {
+      expect(model.capabilities).toContain('streaming');
+    }
   });
 
   it('seeds TypeSafe Jev evaluation models', () => {
