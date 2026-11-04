@@ -199,6 +199,33 @@ describe("materializeAgents — connector routing purity", () => {
 	});
 });
 
+describe("coding-agent hub session-root rollups", () => {
+	async function captureCodingQuery(): Promise<string> {
+		const queries: string[] = [];
+		mockedDC.mockImplementation(async (config: any) => {
+			queries.push(String(config?.query || ""));
+			return { data: [] } as any;
+		});
+		await recomputeCodingAgentsForWindow({
+			timeStart: "2026-10-18T00:00:00.000Z",
+			timeEnd: "2026-10-20T00:00:00.000Z",
+		});
+		const query = queries.find((q) => q.includes("chat_cost"));
+		expect(query).toBeDefined();
+		return query!;
+	}
+
+	it("reads session-root-only rollups without a bare any() over every span", async () => {
+		const query = await captureCodingQuery();
+		expect(query).not.toMatch(
+			/\bany\(SpanAttributes\['coding_agent\.session\.(?:lines\.(?:added|removed|accepted|rejected)|edit\.(?:accept|reject)_count|commit_count|pr_count)'\]\)/
+		);
+		expect(query).toContain(
+			"max(toInt64OrZero(SpanAttributes['coding_agent.session.lines.added']))"
+		);
+	});
+});
+
 describe("materializeAgents — workload_key dedup", () => {
 	it("merges an SDK row and a controller row sharing (cluster, workload_key) into a single 'both' row", async () => {
 		// SDK emits as `openai-app` (compose service key); the controller
