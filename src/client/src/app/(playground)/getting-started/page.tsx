@@ -4,6 +4,7 @@ import CodeBlock from "@/components/common/code-block";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
+import VerifyIngestion from "@/components/(playground)/getting-started/verify-ingestion";
 
 export default function GettingStarted() {
 	const posthog = usePostHog();
@@ -302,6 +303,7 @@ openlit.init();`}
 					</TabsContent>
 				))}
 			</Tabs>
+			<VerifyIngestion />
 		</div>
 	);
 }
