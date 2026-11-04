@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/openlit/openlit/cli/internal/coding/normalize"
+	"github.com/openlit/openlit/cli/internal/coding/pricing"
 	"github.com/openlit/openlit/cli/internal/coding/sessionstate"
 )
 
@@ -291,6 +292,150 @@ func TestCodexTokenSnapshotFromRollout(t *testing.T) {
 	if snap.TotalUsage.InputTokens != 1500 {
 		t.Errorf("total cumulative input: got %d want 1500", snap.TotalUsage.InputTokens)
 	}
+}
+
+func TestCodexTokenSnapshotFromForkRollout(t *testing.T) {
+	writeRollout := func(t *testing.T, includeTurnUsage, includeBaseline bool) string {
+		t.Helper()
+		rollout := filepath.Join(t.TempDir(), "rollout-fork.jsonl")
+		lines := []map[string]any{
+			{"type": "session_meta", "payload": map[string]any{
+				"id": "child", "forked_from_id": "parent",
+			}},
+			{"type": "turn_context", "payload": map[string]any{"turn_id": "child-turn"}},
+		}
+		if includeBaseline {
+			lines = append(lines, map[string]any{
+				"type": "event_msg",
+				"payload": map[string]any{
+					"type": "token_count",
+					"info": map[string]any{
+						"total_token_usage": map[string]any{
+							"input_tokens": 100000, "cached_input_tokens": 90000,
+							"output_tokens": 2000, "total_tokens": 102000,
+						},
+					},
+				},
+			})
+		}
+		lines = append(lines, map[string]any{
+			"type": "response_item", "payload": map[string]any{"type": "message", "role": "assistant"},
+		})
+		if includeTurnUsage {
+			lines = append(lines, map[string]any{
+				"type": "token_usage_record",
+				"payload": map[string]any{
+					"turn_id": "child-turn",
+					"turn_token_usage": map[string]any{
+						"input_tokens": 20, "cached_input_tokens": 0,
+						"output_tokens": 1, "reasoning_output_tokens": 0,
+						"total_tokens": 21,
+					},
+				},
+			})
+		}
+		lines = append(lines, map[string]any{
+			"type": "event_msg",
+			"payload": map[string]any{
+				"type": "token_count",
+				"info": map[string]any{
+					"total_token_usage": map[string]any{
+						"input_tokens": 100020, "cached_input_tokens": 90000,
+						"output_tokens": 2001, "reasoning_output_tokens": 0,
+						"total_tokens": 102021,
+					},
+					"last_token_usage": map[string]any{
+						"input_tokens": 20, "cached_input_tokens": 0,
+						"output_tokens": 1, "reasoning_output_tokens": 0,
+						"total_tokens": 21,
+					},
+				},
+			},
+		})
+
+		var buf []byte
+		for _, line := range lines {
+			raw, err := json.Marshal(line)
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			buf = append(buf, raw...)
+			buf = append(buf, '\n')
+		}
+		if err := os.WriteFile(rollout, buf, 0o600); err != nil {
+			t.Fatalf("write rollout: %v", err)
+		}
+		return rollout
+	}
+
+	t.Run("uses per-turn usage instead of inherited cumulative totals", func(t *testing.T) {
+		snap, ok := readTokenUsageForTurn(writeRollout(t, true, false), "child-turn")
+		if !ok {
+			t.Fatalf("expected token snapshot, got none")
+		}
+		want := codexTokenUsage{InputTokens: 20, OutputTokens: 1, TotalTokens: 21}
+		if snap.TurnUsage != want {
+			t.Errorf("turn usage: got %+v want %+v", snap.TurnUsage, want)
+		}
+		if snap.TotalUsage.InputTokens != 100020 {
+			t.Errorf("total cumulative input: got %d want 100020", snap.TotalUsage.InputTokens)
+		}
+	})
+
+	t.Run("does not attribute inherited totals without a per-turn delta", func(t *testing.T) {
+		if _, ok := readTokenUsageForTurn(writeRollout(t, false, false), "child-turn"); ok {
+			t.Fatal("expected no token snapshot instead of attributing inherited parent usage")
+		}
+	})
+
+	t.Run("uses a pre-model baseline when a per-turn record is absent", func(t *testing.T) {
+		snap, ok := readTokenUsageForTurn(writeRollout(t, false, true), "child-turn")
+		if !ok {
+			t.Fatalf("expected token snapshot from the pre-model baseline, got none")
+		}
+		want := codexTokenUsage{InputTokens: 20, OutputTokens: 1, TotalTokens: 21}
+		if snap.TurnUsage != want {
+			t.Errorf("turn usage: got %+v want %+v", snap.TurnUsage, want)
+		}
+	})
+
+	t.Run("Stop hook emits child usage and cost", func(t *testing.T) {
+		withIsolatedCache(t)
+		body, err := json.Marshal(map[string]any{
+			"hook_event_name":        "Stop",
+			"session_id":             "child",
+			"turn_id":                "child-turn",
+			"transcript_path":        writeRollout(t, true, false),
+			"model":                  "gpt-5",
+			"last_assistant_message": "done",
+		})
+		if err != nil {
+			t.Fatalf("marshal Stop payload: %v", err)
+		}
+
+		em := &recordingEmitter{}
+		if err := handle(context.Background(), normalize.Input{
+			Vendor:         "codex",
+			Event:          "Stop",
+			Payload:        body,
+			ContentCapture: "metadata_only",
+			Emit:           em,
+		}); err != nil {
+			t.Fatalf("Stop: %v", err)
+		}
+		if len(em.llmTurns) != 1 {
+			t.Fatalf("expected 1 llm turn, got %d", len(em.llmTurns))
+		}
+
+		turn := em.llmTurns[0]
+		if turn.InputTokens != 20 || turn.OutputTokens != 1 || turn.TotalTokens != 21 {
+			t.Errorf("llm turn usage: input=%d output=%d total=%d; want 20/1/21", turn.InputTokens, turn.OutputTokens, turn.TotalTokens)
+		}
+		wantCost := pricing.Lookup("gpt-5").Cost(20, 1, 0, 0)
+		if turn.CostUSD != wantCost {
+			t.Errorf("llm turn cost: got %f want %f", turn.CostUSD, wantCost)
+		}
+	})
 }
 
 // TestCodexSubagentLinkFromSessionMeta verifies that a `session_meta`
