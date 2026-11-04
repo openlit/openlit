@@ -1,6 +1,6 @@
 services:
   clickhouse:
-    image: clickhouse/clickhouse-server:24.4.1
+    image: clickhouse/clickhouse-server:26.8.36
     container_name: clickhouse
     environment:
       CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
@@ -23,7 +23,7 @@ services:
     restart: always
 
   nats:
-    image: nats:2.10-alpine
+    image: nats:2.15-alpine
     container_name: nats
     # Auth, per-user permissions, and JetStream limits live in nats.conf.
     # No ports are published: only containers on this network reach NATS,
