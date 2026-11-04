@@ -11,8 +11,14 @@ const CRON_ID = "openlit-telemetry-snapshot";
 // Once a day at a fixed minute. Overridable for testing via env.
 const DEFAULT_SCHEDULE = "17 3 * * *";
 
-/** Install (or refresh) the telemetry-snapshot cron entry. */
-export async function restoreTelemetrySnapshotCron(apiURL: string) {
+/**
+ * Install (or refresh) the telemetry-snapshot cron entry. Returns true only
+ * when the entry was installed: false when telemetry is disabled or the
+ * install failed (both are logged here).
+ */
+export async function restoreTelemetrySnapshotCron(
+	apiURL: string
+): Promise<boolean> {
 	// Respect the global opt-out — don't schedule anything when telemetry is off.
 	if (process.env.TELEMETRY_ENABLED === "false") {
 		try {
@@ -21,7 +27,7 @@ export async function restoreTelemetrySnapshotCron(apiURL: string) {
 			// best-effort; nothing to clean up on a fresh install
 		}
 		console.log("Telemetry disabled; skipping telemetry snapshot cron");
-		return;
+		return false;
 	}
 
 	try {
@@ -44,7 +50,9 @@ export async function restoreTelemetrySnapshotCron(apiURL: string) {
 			),
 		});
 		console.log("Installed telemetry snapshot cron");
+		return true;
 	} catch (e) {
 		console.error("Failed to install telemetry snapshot cron:", e);
+		return false;
 	}
 }

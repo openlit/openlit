@@ -139,8 +139,9 @@ export async function setPricingConfig(
 
 /**
  * Restore cron jobs for pricing configs with auto=true on startup.
+ * Returns false if any entry could not be restored (each failure is logged).
  */
-export async function restorePricingCronJobs(apiURL: string) {
+export async function restorePricingCronJobs(apiURL: string): Promise<boolean> {
 	try {
 		const configs = await prisma.pricingConfigs.findMany({
 			where: { auto: true },
@@ -148,10 +149,11 @@ export async function restorePricingCronJobs(apiURL: string) {
 
 		if (!configs?.length) {
 			console.log("No auto-pricing configs to restore");
-			return;
+			return true;
 		}
 
 		const cronObject = new Cron();
+		let failed = 0;
 
 		for (const config of configs) {
 			try {
@@ -171,10 +173,13 @@ export async function restorePricingCronJobs(apiURL: string) {
 				});
 				console.log(`Restored cron job for pricing config ${config.id}`);
 			} catch (e) {
+				failed++;
 				console.error(`Failed to restore cron job for pricing config ${config.id}:`, e);
 			}
 		}
+		return failed === 0;
 	} catch (e) {
 		console.error("Failed to restore pricing cron jobs:", e);
+		return false;
 	}
 }

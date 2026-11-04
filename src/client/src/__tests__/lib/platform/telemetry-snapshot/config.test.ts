@@ -40,7 +40,9 @@ describe("restoreTelemetrySnapshotCron", () => {
 		process.env.TELEMETRY_ENABLED = "false";
 		const logSpy = jest.spyOn(console, "log").mockImplementation();
 
-		await restoreTelemetrySnapshotCron("https://api.example");
+		await expect(
+			restoreTelemetrySnapshotCron("https://api.example")
+		).resolves.toBe(false);
 
 		expect(mockDeleteCronJob).toHaveBeenCalledWith("openlit-telemetry-snapshot");
 		expect(mockUpdateCrontab).not.toHaveBeenCalled();
@@ -59,13 +61,15 @@ describe("restoreTelemetrySnapshotCron", () => {
 
 		await expect(
 			restoreTelemetrySnapshotCron("https://api.example")
-		).resolves.toBeUndefined();
+		).resolves.toBe(false);
 	});
 
 	it("installs the cron with default schedule", async () => {
 		const logSpy = jest.spyOn(console, "log").mockImplementation();
 
-		await restoreTelemetrySnapshotCron("https://api.openlit.local");
+		await expect(
+			restoreTelemetrySnapshotCron("https://api.openlit.local")
+		).resolves.toBe(true);
 
 		expect(mockUpdateCrontab).toHaveBeenCalledWith({
 			cronId: "openlit-telemetry-snapshot",
@@ -100,7 +104,7 @@ describe("restoreTelemetrySnapshotCron", () => {
 
 		await expect(
 			restoreTelemetrySnapshotCron("https://api.example")
-		).resolves.toBeUndefined();
+		).resolves.toBe(false);
 		expect(errSpy).toHaveBeenCalledWith(
 			"Failed to install telemetry snapshot cron:",
 			expect.any(Error)

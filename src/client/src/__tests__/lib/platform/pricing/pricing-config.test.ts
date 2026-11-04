@@ -296,7 +296,9 @@ describe('restorePricingCronJobs', () => {
       },
     ]);
 
-    await restorePricingCronJobs('http://localhost:3000');
+    await expect(
+      restorePricingCronJobs('http://localhost:3000')
+    ).resolves.toBe(true);
 
     const cronInstance = (Cron as jest.Mock).mock.results[0].value;
     expect(cronInstance.updateCrontab).toHaveBeenCalledWith(
@@ -324,7 +326,9 @@ describe('restorePricingCronJobs', () => {
   it('does nothing when no auto configs exist', async () => {
     (prisma.pricingConfigs.findMany as jest.Mock).mockResolvedValue([]);
 
-    await restorePricingCronJobs('http://localhost:3000');
+    await expect(
+      restorePricingCronJobs('http://localhost:3000')
+    ).resolves.toBe(true);
 
     // Cron may or may not be instantiated, but updateCrontab should not run
     const cronInstance = (Cron as jest.Mock).mock.results[0]?.value;
@@ -358,10 +362,10 @@ describe('restorePricingCronJobs', () => {
       deleteCronJob: jest.fn(),
     }));
 
-    // Should not throw — per-config errors are caught
+    // Should not throw — per-config errors are caught and reported
     await expect(
       restorePricingCronJobs('http://localhost:3000')
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
   });
 
   it('catches top-level findMany errors', async () => {
@@ -369,10 +373,10 @@ describe('restorePricingCronJobs', () => {
       new Error('DB down')
     );
 
-    // Should not throw — top-level error is caught
+    // Should not throw — top-level error is caught and reported
     await expect(
       restorePricingCronJobs('http://localhost:3000')
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
   });
 
   it('skips a config with a falsy meta string (defaults to {} then has no cronJobId)', async () => {

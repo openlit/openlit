@@ -272,8 +272,9 @@ export async function setEvaluationConfig(
 /**
  * Restore cron jobs for all evaluation configs that have auto=true.
  * Called on server startup to ensure cron entries survive container restarts / new image deployments.
+ * Returns false if any entry could not be restored (each failure is logged).
  */
-export async function restoreEvaluationCronJobs(apiURL: string) {
+export async function restoreEvaluationCronJobs(apiURL: string): Promise<boolean> {
 	try {
 		const configs = await prisma.evaluationConfigs.findMany({
 			where: { auto: true },
@@ -281,10 +282,11 @@ export async function restoreEvaluationCronJobs(apiURL: string) {
 
 		if (!configs?.length) {
 			console.log("No auto-evaluation configs to restore");
-			return;
+			return true;
 		}
 
 		const cronObject = new Cron();
+		let failed = 0;
 
 		for (const config of configs) {
 			try {
@@ -304,11 +306,14 @@ export async function restoreEvaluationCronJobs(apiURL: string) {
 				});
 				console.log(`Restored cron job for evaluation config ${config.id}`);
 			} catch (e) {
+				failed++;
 				console.error(`Failed to restore cron job for config ${config.id}:`, e);
 			}
 		}
+		return failed === 0;
 	} catch (e) {
 		console.error("Failed to restore evaluation cron jobs:", e);
+		return false;
 	}
 }
 
