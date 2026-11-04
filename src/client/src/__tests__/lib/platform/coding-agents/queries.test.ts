@@ -18,6 +18,7 @@ import {
 	writeAuditLog,
 } from "@/lib/platform/coding-agents/queries";
 import { buildSessionsHaving, escape } from "@/lib/platform/coding-agents/query-builders";
+import { COHORT_K_FLOOR } from "@/lib/platform/coding-agents/table-details";
 import type { CodingAgentAuth } from "@/lib/platform/coding-agents/auth";
 
 jest.mock("@/lib/platform/common", () => {
@@ -393,6 +394,41 @@ describe("coding agent query service", () => {
 		expect(result.rows[0]).toMatchObject({ user: "low_cohort", session_count: 1 });
 		expect(mockDataCollector).toHaveBeenCalledTimes(1);
 		expect(mockDataCollector.mock.calls[0][0].query).toContain("low_cohort");
+	});
+
+	it("masks low-cohort users on the per-user count, not an aggregate in the GROUP BY key", async () => {
+		mockDataCollector.mockResolvedValue({ err: null, data: [] });
+
+		await listCodingUsers(viewerAuth, { limit: 10, withTotal: true });
+
+		expect(mockDataCollector).toHaveBeenCalledTimes(2);
+		for (const [request] of mockDataCollector.mock.calls) {
+			const query = request.query as string;
+			// The mask is the GROUP BY key of the SELECT that defines
+			// `sum(per_user_session_count) AS session_count`; referencing
+			// session_count there is an aggregate in GROUP BY, which
+			// ClickHouse rejects (ILLEGAL_AGGREGATION).
+			expect(query).not.toMatch(/if\(\s*session_count\s*</);
+			expect(query).toContain(
+				`if(per_user_session_count < ${COHORT_K_FLOOR} AND user NOT IN ('unknown', ''), 'low_cohort', user) AS user`
+			);
+		}
+	});
+
+	it("filters the user digest totals on the per-session user, not its own alias", async () => {
+		mockDataCollector.mockResolvedValue({ err: null, data: [] });
+
+		await getCodingUserDigest(auth, "alice@example.com");
+
+		const digestQuery = mockDataCollector.mock.calls
+			.map(([request]) => request.query as string)
+			.find((query) => query.includes("session_count"));
+		expect(digestQuery).toBeDefined();
+		// The totals SELECT projects `'alice@example.com' AS user`, so an
+		// unqualified `WHERE user = ...` matches the alias and is always true.
+		expect(digestQuery).toContain("'alice@example.com' AS user");
+		expect(digestQuery).not.toMatch(/WHERE\s+user\s*=\s*'alice@example\.com'/);
+		expect(digestQuery).toMatch(/WHERE\s+per_session\.user\s*=\s*'alice@example\.com'/);
 	});
 
 	it("throws when listCodingUsers dataCollector fails", async () => {

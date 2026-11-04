@@ -1510,7 +1510,10 @@ export async function getCodingUserDigest(
 				toInt64(sumOrNull(commit_count))                 AS commit_count,
 				toInt64(sumOrNull(pr_count))                     AS pr_count
 			FROM ${sessionsSubquery} AS per_session
-			WHERE user = '${safeUser}'
+			-- Qualified on purpose: this SELECT also projects the requested
+			-- name AS user, and an unqualified user here would resolve to that
+			-- alias, which makes the filter always true.
+			WHERE per_session.user = '${safeUser}'
 		) totals
 	`;
 
@@ -1618,10 +1621,14 @@ export async function listCodingUsers(
 	// land on page 1 then collapse into `low_cohort` after, skewing
 	// totals + pagination. Doing it inside the CTE keeps the page,
 	// total, and sort order consistent for the viewer.
+	// The mask is the GROUP BY key of the layer that sums the per-user
+	// rows, so it must read the per-user column. That layer's own
+	// `sum(...) AS session_count` would put an aggregate in GROUP BY,
+	// which ClickHouse rejects (ILLEGAL_AGGREGATION).
 	const isAdmin = auth.role === "admin";
 	const cohortProjectExpr = isAdmin
 		? "user"
-		: `if(session_count < ${COHORT_K_FLOOR} AND user NOT IN ('unknown', ''), 'low_cohort', user)`;
+		: `if(per_user_session_count < ${COHORT_K_FLOOR} AND user NOT IN ('unknown', ''), 'low_cohort', user)`;
 
 	// Two-stage CTE: compute one row per chat thread with the coalesced
 	// user/vendor identity, then aggregate by user. We bucket by
