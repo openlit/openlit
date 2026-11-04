@@ -26,20 +26,27 @@ Example:
 openlit.init(disable_metrics=True)
 ```
 
-## Using an existing OTel Metrics instance
+## Using an existing OTel MeterProvider
 
-You have the flexibility to integrate your existing OpenTelemetry (OTel) Metrics instance configuration with OpenLIT. 
-If you already have an OTel Metrics instance instantiated in your application, you can pass it directly to `openlit.init(meter=meter)`. 
-This integration ensures that OpenLIT utilizes your custom OTel metrics instance settings, allowing for a unified metrics setup across your application.
+If your application already configures OpenTelemetry, OpenLIT reuses it instead of creating its own.
+Set your SDK `MeterProvider` as the global provider **before** calling `openlit.init()`; OpenLIT detects it and attaches its instrumentation to that provider.
+
+`openlit.init()` does not take a `meter` argument.
+
+When an existing provider is reused, OpenLIT does not add exporters to it, so `otlp_endpoint` / `otlp_headers` have no effect. Configure exporters on your own `MeterProvider`.
 
 Example:
 
 ```python
-# Instantiate an OpenTelemetry Metrics meter
-meter = ...
+import openlit
+from opentelemetry import metrics
+from opentelemetry.sdk.metrics import MeterProvider
 
-# Pass the meter to OpenLIT
-openlit.init(meter=meter)
+provider = MeterProvider(...)  # your existing configuration
+metrics.set_meter_provider(provider)
+
+# OpenLIT detects and reuses the provider above
+openlit.init()
 ```
 
 ## Add custom resource attributes

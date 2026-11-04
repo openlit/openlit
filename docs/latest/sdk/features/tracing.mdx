@@ -16,20 +16,27 @@ This documentation covers tracing settings, understanding semantic conventions, 
   </Card>
 </CardGroup>
 
-## Using an existing OTel Tracer
+## Using an existing OTel TracerProvider
 
-You have the flexibility to integrate your existing OpenTelemetry (OTel) tracer configuration with OpenLIT.
-If you already have an OTel tracer instantiated in your application, you can pass it directly to `openlit.init(tracer=tracer)`.
-This integration ensures that OpenLIT utilizes your custom tracer settings, allowing for a unified tracing setup across your application.
+If your application already configures OpenTelemetry, OpenLIT reuses it instead of creating its own.
+Set your SDK `TracerProvider` as the global provider **before** calling `openlit.init()`; OpenLIT detects it and attaches its instrumentation to that provider.
+
+`openlit.init()` does not take a `tracer` argument.
+
+When an existing provider is reused, OpenLIT does not add exporters to it, so `otlp_endpoint` / `otlp_headers` have no effect. Configure exporters on your own `TracerProvider`.
 
 Example:
 
 ```python
-# Instantiate an OpenTelemetry Tracer
-tracer = ...
+import openlit
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
 
-# Pass the tracer to OpenLIT
-openlit.init(tracer=tracer)
+provider = TracerProvider(...)  # your existing configuration
+trace.set_tracer_provider(provider)
+
+# OpenLIT detects and reuses the provider above
+openlit.init()
 ```
 
 ## Add custom resource attributes
