@@ -10,6 +10,8 @@ import { HeaderScopeSeparator } from "./header-scope-pill";
 import { playgroundTopBarClassName } from "./sidebar-layout-context";
 import { ChatHeaderButton } from "./chat/chat-floating-button";
 import TalkToFounderLink from "@/components/common/talk-to-founder-link";
+import AlertsBell from "./alerts/alerts-bell";
+import FeatureAccess from "@/components/rbac/feature-access";
 
 export function HeaderContextRow() {
 	const { setHeaderRef } = usePortal();
@@ -35,6 +37,9 @@ export function HeaderContextRow() {
 			<HeaderAppTrail />
 			<HeaderPageTrail />
 			<div className="ml-auto flex items-center gap-2">
+				<FeatureAccess access="alerts.read" requireProject hideWhenDenied>
+					<AlertsBell />
+				</FeatureAccess>
 				<TalkToFounderLink />
 				<ChatHeaderButton />
 				<div ref={containerRef} className="flex items-center" />

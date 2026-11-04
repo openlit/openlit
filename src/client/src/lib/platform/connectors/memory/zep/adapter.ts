@@ -27,6 +27,7 @@ import type {
 	MemoryWriteInput,
 } from "../types";
 import { emptyMemoryFilters } from "../types";
+import { asRecord, uniqueChoices } from "../values";
 
 const DEFAULT_URL = "https://api.getzep.com";
 const EDGE_PAGE_SIZE = 50;
@@ -43,12 +44,7 @@ const ZEP_CAPABILITIES: MemoryCapabilities = {
 	feedback: false,
 };
 
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
-
+/** Zep ids arrive as numbers as well as strings. The shared helper only accepts strings. */
 function stringValue(value: unknown): string | undefined {
 	if (typeof value === "number" && Number.isFinite(value)) return String(value);
 	if (typeof value !== "string") return undefined;
@@ -75,17 +71,6 @@ function requireScope(filter: { userId?: string; sessionId?: string }): void {
 	if (!filter.userId?.trim() && !filter.sessionId?.trim()) {
 		throw new Error(getMessage().MEMORY_CONNECTOR_FILTER_REQUIRED);
 	}
-}
-
-function uniqueChoices(choices: MemoryFilterChoice[]): MemoryFilterChoice[] {
-	const seen = new Set<string>();
-	const next: MemoryFilterChoice[] = [];
-	for (const choice of choices) {
-		if (!choice.id || seen.has(choice.id)) continue;
-		seen.add(choice.id);
-		next.push(choice);
-	}
-	return next.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function rowsFrom(raw: unknown, keys: string[]): unknown[] {

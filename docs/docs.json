@@ -87,6 +87,7 @@
                   "latest/openlit/enterprise",
                   "latest/openlit/rbac",
                   "latest/openlit/audit-logs",
+                  "latest/openlit/instance-admin",
                   "latest/openlit/alerts",
                   "latest/openlit/gpus"
                 ]
@@ -283,6 +284,7 @@
                   "latest/openlit/developer-resources/vault/security"
                 ]
               },
+              "latest/openlit/developer-resources/local-development",
               "latest/openlit/developer-resources/multiple-db",
               "latest/openlit/developer-resources/anonymous-telemetry",
               {
