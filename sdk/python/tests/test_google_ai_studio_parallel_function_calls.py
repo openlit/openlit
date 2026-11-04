@@ -145,7 +145,7 @@ def _stream_scope(span):
     )
 
 
-def _run_stream(chunks):
+def _run_stream(chunks, capture_message_content=True):
     tracer, exporter = _tracer_with_exporter()
     with tracer.start_as_current_span("google_ai_studio.chat") as span:
         scope = _stream_scope(span)
@@ -157,14 +157,14 @@ def _run_stream(chunks):
             environment="test",
             application_name="test",
             metrics=None,
-            capture_message_content=True,
+            capture_message_content=capture_message_content,
             disable_metrics=True,
             version="1.0.0",
         )
     return exporter.get_finished_spans()[0]
 
 
-def _run_non_stream(response_dict, text=""):
+def _run_non_stream(response_dict, text="", capture_message_content=True):
     tracer, exporter = _tracer_with_exporter()
     response = _FakeResponse(response_dict)
     response["_text"] = text
@@ -183,7 +183,7 @@ def _run_non_stream(response_dict, text=""):
             span=span,
             args=(),
             kwargs=REQUEST_KWARGS,
-            capture_message_content=True,
+            capture_message_content=capture_message_content,
             disable_metrics=True,
             version="1.0.0",
         )
@@ -332,6 +332,44 @@ def test_non_streaming_single_function_call_attribute_shape():
     assert attrs[SemanticConvention.GEN_AI_TOOL_NAME] == "get_weather"
     assert attrs[SemanticConvention.GEN_AI_TOOL_ARGS] == '{"city": "nyc"}'
     assert attrs[SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS] == '{"city": "nyc"}'
+
+
+def test_streaming_tool_args_not_recorded_when_capture_message_content_false():
+    """With capture off, streamed function-call arguments must not reach the span."""
+    attrs = _run_stream(STREAM_CHUNKS, capture_message_content=False).attributes
+
+    assert SemanticConvention.GEN_AI_TOOL_ARGS not in attrs
+    assert SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS not in attrs
+    # Tool names are not content and must survive.
+    assert attrs[SemanticConvention.GEN_AI_TOOL_NAME] == "get_weather, get_weather"
+
+
+def test_non_streaming_tool_args_not_recorded_when_capture_message_content_false():
+    """With capture off, non-streaming function-call arguments must not reach the span."""
+    response = {
+        **NON_STREAM_RESPONSE_DICT,
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "function_call": {
+                                "name": "get_weather",
+                                "args": {"city": "nyc"},
+                            }
+                        }
+                    ]
+                },
+                "finish_reason": "STOP",
+            }
+        ],
+    }
+    attrs = _run_non_stream(response, capture_message_content=False).attributes
+
+    assert SemanticConvention.GEN_AI_TOOL_ARGS not in attrs
+    assert SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS not in attrs
+    # Tool names are not content and must survive.
+    assert attrs[SemanticConvention.GEN_AI_TOOL_NAME] == "get_weather"
 
 
 def test_build_output_messages_accepts_legacy_single_dict():
