@@ -8,9 +8,14 @@ Phases: postflight only.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, NoReturn, Optional
 
 from openlit.guard._base import Guard, GuardPhase, GuardResult
+
+
+def _reject_json_constant(value: str) -> NoReturn:
+    """Reject Python's non-standard numeric extensions to JSON."""
+    raise ValueError(f"Invalid JSON constant: {value}")
 
 
 def _validate_json_schema(
@@ -63,6 +68,8 @@ class Schema(Guard):
     """
     Validates that model output is valid JSON and optionally matches a schema.
 
+    Unquoted NaN and Infinity constants are rejected; quoted strings are allowed.
+
     Parameters
     ----------
     action : str
@@ -91,7 +98,7 @@ class Schema(Guard):
         stripped = text.strip()
 
         try:
-            parsed = json.loads(stripped)
+            parsed = json.loads(stripped, parse_constant=_reject_json_constant)
         except (json.JSONDecodeError, ValueError) as exc:
             return GuardResult(
                 action=self._action,
