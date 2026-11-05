@@ -33,7 +33,8 @@ def format_content(contents):
 
     if not contents:
         return ""
-    if isinstance(contents, str):
+    # A single string or Content is accepted in place of a list
+    if not isinstance(contents, (list, tuple)):
         contents = [contents]
 
     formatted_messages = []
@@ -74,15 +75,19 @@ def build_input_messages(contents):
     """
     if not contents:
         return []
-    if isinstance(contents, str):
+    # A single string or Content is accepted in place of a list
+    if not isinstance(contents, (list, tuple)):
         contents = [contents]
     otel_messages = []
+    # The SDK sends consecutive strings as the parts of one user message
+    text_parts = []
     for content in contents:
         if isinstance(content, str):
-            otel_messages.append(
-                {"role": "user", "parts": [{"type": "text", "content": content}]}
-            )
+            text_parts.append({"type": "text", "content": content})
             continue
+        if text_parts:
+            otel_messages.append({"role": "user", "parts": text_parts})
+            text_parts = []
         try:
             role = (
                 getattr(content, "role", "user")
@@ -116,6 +121,8 @@ def build_input_messages(contents):
         except Exception as e:
             logger.warning("Failed to process input content: %s", e, exc_info=True)
             continue
+    if text_parts:
+        otel_messages.append({"role": "user", "parts": text_parts})
     return otel_messages
 
 

@@ -75,11 +75,25 @@ def test_format_content_accepts_strings_and_partial_parts():
     assert vertexai_utils.format_content([content]) == (
         "user: text: Why is the sky blue?"
     )
+    assert vertexai_utils.format_content(content) == "user: text: Why is the sky blue?"
 
 
-def test_build_input_messages_accepts_strings():
-    """A string prompt becomes a user text message."""
+def test_build_input_messages_accepts_strings_and_single_contents():
+    """Strings become user text, consecutive ones in one message as the SDK sends them."""
     assert vertexai_utils.build_input_messages("Why is the sky blue?") == [
+        {"role": "user", "parts": [{"type": "text", "content": "Why is the sky blue?"}]}
+    ]
+    assert vertexai_utils.build_input_messages(["Why?", "Because."]) == [
+        {
+            "role": "user",
+            "parts": [
+                {"type": "text", "content": "Why?"},
+                {"type": "text", "content": "Because."},
+            ],
+        }
+    ]
+    content = FakeContent("user", [FakePart("Why is the sky blue?")])
+    assert vertexai_utils.build_input_messages(content) == [
         {"role": "user", "parts": [{"type": "text", "content": "Why is the sky blue?"}]}
     ]
 
