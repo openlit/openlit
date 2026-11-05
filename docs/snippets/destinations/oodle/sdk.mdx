@@ -1,10 +1,13 @@
 ### 3. Instrument your application
 
-Export directly to Oodle using the HTTPS OTLP endpoint shown in your Oodle tile and both authentication headers. Replace `OODLE_ENDPOINT`, `API_KEY`, and `INSTANCE_ID` below with your own values; keep credentials private. Use the base endpoint without `/v1/traces` or `/v1/metrics`: the exporters append the signal paths.
+Export directly to Oodle using the HTTPS OTLP endpoint shown in your Oodle tile. Use the base endpoint without `/v1/traces` or `/v1/metrics`: the exporters append the signal paths.
 
-These examples use OTLP/HTTP with protobuf. Set the protocol before starting your Python application:
+Have your deployment secret manager inject `OODLE_API_KEY` and `OODLE_INSTANCE_ID` into the environment. Do not put keys in application source, shell history, command arguments, or committed environment files.
 
-```shell
+These examples use OTLP/HTTP with protobuf. Set the non-secret endpoint and protocol before starting your Python application:
+
+```bash
+export OODLE_OTLP_ENDPOINT="https://OODLE_ENDPOINT"
 export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
 ```
 
@@ -15,14 +18,20 @@ If you use the optional Collector from step 2, use the Collector examples instea
         **Send directly to Oodle:**
 
         ```python
+        import os
         import openlit
+
+        # Remove per-signal overrides so credentials follow the intended endpoint.
+        for signal in ("TRACES", "METRICS", "LOGS"):
+            for option in ("ENDPOINT", "HEADERS"):
+                os.environ.pop(f"OTEL_EXPORTER_OTLP_{signal}_{option}", None)
 
         openlit.init(
             service_name="my-ai-service",
-            otlp_endpoint="https://OODLE_ENDPOINT",
+            otlp_endpoint=os.environ["OODLE_OTLP_ENDPOINT"],
             otlp_headers={
-                "X-API-KEY": "API_KEY",
-                "X-OODLE-INSTANCE": "INSTANCE_ID",
+                "X-API-KEY": os.environ["OODLE_API_KEY"],
+                "X-OODLE-INSTANCE": os.environ["OODLE_INSTANCE_ID"],
             },
         )
         ```
@@ -72,15 +81,16 @@ If you use the optional Collector from step 2, use the Collector examples instea
       <Tab title="CLI">
         **Send directly to Oodle without changing application code:**
 
-        ```shell
-        openlit-instrument \
-          --service_name "my-ai-service" \
-          --otlp_endpoint "https://OODLE_ENDPOINT" \
-          --otlp_headers '{"X-API-KEY":"API_KEY","X-OODLE-INSTANCE":"INSTANCE_ID"}' \
-          python app.py
+        ```bash
+        # Replace inherited destinations before attaching Oodle credentials.
+        export OTEL_EXPORTER_OTLP_ENDPOINT="${OODLE_OTLP_ENDPOINT:?Set the Oodle HTTPS endpoint}"
+        unset OTEL_EXPORTER_OTLP_TRACES_ENDPOINT OTEL_EXPORTER_OTLP_METRICS_ENDPOINT OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+        unset OTEL_EXPORTER_OTLP_TRACES_HEADERS OTEL_EXPORTER_OTLP_METRICS_HEADERS OTEL_EXPORTER_OTLP_LOGS_HEADERS
+        export OTEL_EXPORTER_OTLP_HEADERS="$(python -c 'import json, os; print(json.dumps({"X-API-KEY": os.environ["OODLE_API_KEY"], "X-OODLE-INSTANCE": os.environ["OODLE_INSTANCE_ID"]}))')"
+        openlit-instrument --service_name "my-ai-service" python app.py
         ```
 
-        `--otlp_headers` takes a JSON object. Existing environment variables take precedence over CLI arguments.
+        `OTEL_EXPORTER_OTLP_HEADERS` is JSON for the OpenLIT CLI bootstrap. The key is read from the environment rather than passed in command arguments. Existing environment variables take precedence over CLI flags, so the example explicitly replaces the generic endpoint and clears per-signal endpoint/header overrides.
 
         **Or send through your OpenTelemetry Collector:**
 
