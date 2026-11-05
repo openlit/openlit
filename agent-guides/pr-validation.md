@@ -31,11 +31,11 @@ The workflow is long and starts apps, databases, and parallel agents, so it runs
 
 ## 1. Run the lanes in parallel
 
-Each lane is independent. Run them in parallel when the agent supports subagents. Otherwise run them in this order. Each lane produces findings in the [report format](#3-report).
+Each lane is independent. Run lanes D to G in parallel when the agent supports subagents. Lanes A, B, and C start the app, and `next dev` writes to the shared `.next` directory, so run those three one at a time, each with its own database and port from [Run the app](#run-the-app). Without subagents, run all the lanes in order. Each lane produces findings in the [report format](#3-report).
 
 ### Lane A: Security
 
-Follow `agent-guides/security-testing.md` and the `security-validation` checklist, then go further.
+Follow `agent-guides/security-testing.md` and the checklist in `.claude/commands/security-validation.md`, then go further.
 
 - **Authorization:** every touched route enforces authentication and authorization on the server. Check the signed-out, wrong-role, wrong-organisation, wrong-project, API-key, and stale-session cases. UI checks don't count.
 - **Input:** malformed JSON returns `400`. Validate identifiers, enforce size limits, reject unknown keys, and block path traversal and header injection.
@@ -69,19 +69,22 @@ Follow `agent-guides/security-testing.md` and the `security-validation` checklis
    ```bash
    cd src/client
    export SQLITE_DATABASE_URL="file:/tmp/openlit-scale.db"
+   rm -f /tmp/openlit-scale.db
    npx prisma migrate deploy --schema prisma/schema.prisma
    node prisma/seed.js
    node scripts/pr-validation/seed-scale-data.js --throwaway
    ```
 
    Tune the volume with `SCALE_USERS`, `SCALE_ORGS`, `SCALE_MEMBERS_PER_ORG`, `SCALE_PROJECTS_PER_ORG`, `SCALE_ENVIRONMENTS_PER_PROJECT`, `SCALE_INVITES_PER_ORG`, and `SCALE_INSTANCE_ADMINS`. Mock users sign in with the password `openlituser`.
-2. Start the app against that database and time every touched route and page, using `curl -w '%{time_total}'` or a browser trace.
+
+   The seeder refuses to run unless the database is a SQLite file in the system temp directory that holds no accounts other than `user@openlit.io` and earlier mock users.
+2. Start the app on the lane C port from [Run the app](#run-the-app), against the database you just seeded, and time every touched route and page, using `curl -w '%{time_total}'` or a browser trace.
 3. Look for:
    - Unbounded queries and missing pagination.
    - N+1 queries and missing indexes (`EXPLAIN QUERY PLAN` in SQLite).
    - Per-request work in middleware or the session callbacks.
    - UI that renders every row.
-4. Report the measured timings next to the volumes used. Never run the seeder against a database with real data.
+4. Report the measured timings next to the volumes used.
 
 ### Lane D: Hard-coded strings
 
@@ -146,7 +149,7 @@ npm run lint
 npx prisma validate --schema prisma/schema.prisma
 ```
 
-Then run the CE/EE leakage scans from `AGENTS.md`.
+Then return to the repository root and run the CE/EE leakage scans from `AGENTS.md`.
 
 ## 3. Report
 
@@ -162,16 +165,26 @@ Lead with a verdict: **Ready to merge**, **Ready after fixes**, or **Not ready**
 
 ## Run the app
 
-Run against throwaway databases only.
+Run against throwaway databases only. Each lane that runs the app has its own database and port:
+
+| Lane | `REVIEW_DB` | `REVIEW_PORT` |
+| --- | --- | --- |
+| A | `/tmp/openlit-review-a.db` | `3005` |
+| B | `/tmp/openlit-review-b.db` | `3006` |
+| C | `/tmp/openlit-scale.db` | `3007` |
 
 - **Enterprise:** `OPENLIT_EDITION=enterprise`, plus `OPENLIT_LICENSE_SERVER_URL` and `OPENLIT_LICENSE_PUBLIC_KEY` when testing licensed features against a local license server.
 - **CE:** the same command without the edition variable.
 
 ```bash
 cd src/client
-export SQLITE_DATABASE_URL="file:/tmp/openlit-review.db" NEXTAUTH_SECRET=review-only NEXTAUTH_URL=http://localhost:3005/
+export REVIEW_DB=/tmp/openlit-review-a.db REVIEW_PORT=3005
+export SQLITE_DATABASE_URL="file:$REVIEW_DB" NEXTAUTH_SECRET=review-only NEXTAUTH_URL="http://localhost:$REVIEW_PORT/"
+rm -f "$REVIEW_DB"
 npx prisma migrate deploy --schema prisma/schema.prisma && node prisma/seed.js
-npx next dev -p 3005
+npx next dev -p "$REVIEW_PORT"
 ```
+
+For lane C, skip the `rm` line and the migrate and seed line, since the database is already seeded. Stop the app before the next lane starts, and recreate the database when you switch between CE and enterprise, because their migrations differ.
 
 The seeded account is `user@openlit.io` with password `openlituser`, and it is the instance admin.

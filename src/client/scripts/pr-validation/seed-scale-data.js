@@ -15,15 +15,21 @@
  *   SCALE_PROJECTS_PER_ORG [20]  SCALE_ENVIRONMENTS_PER_PROJECT [3]
  *   SCALE_INVITES_PER_ORG [10]  SCALE_INSTANCE_ADMINS [5]
  *
- * Every mock user signs in with the password `openlituser`. Never run this
- * against a database that holds real data.
+ * Every mock user signs in with the password `openlituser`, and some are
+ * instance admins, so this refuses to run unless the database is a SQLite file
+ * in the system temp directory holding only the seeded account and mock users.
  */
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const { PrismaClient } = require("@prisma/client");
 
 // bcrypt hash of "openlituser", the same hash prisma/seed.js uses.
 const PASSWORD_HASH = "$2a$10$gh6Odw7fhLRrE1A1OxaHfeWOWKiZEEQpkOAhhCQ.RHx8VWOngwlHO";
 const ENVIRONMENTS = ["production", "staging", "development", "qa", "sandbox"];
 const BATCH = 500;
+const SEEDED_ACCOUNT = "user@openlit.io";
+const MOCK_EMAIL_SUFFIX = "@scale.test";
 
 function size(name, fallback) {
 	const value = Number.parseInt(process.env[name] || "", 10);
@@ -47,27 +53,55 @@ async function insertInBatches(model, rows) {
 	return rows.length;
 }
 
+// Symlinks are resolved, so a link in the temp directory can't reach a real database.
+function isTemporaryDatabase(databaseUrl) {
+	const [, file] = /^file:([^?]+)/.exec(databaseUrl) || [];
+	if (!file || !path.isAbsolute(file) || !fs.existsSync(file)) return false;
+	const database = fs.realpathSync(file);
+	return ["/tmp", os.tmpdir()]
+		.filter((root) => fs.existsSync(root))
+		.some((root) => database.startsWith(fs.realpathSync(root) + path.sep));
+}
+
+function refuse(reason) {
+	console.error(`Refusing to run: ${reason}`);
+	process.exitCode = 1;
+}
+
 async function main() {
 	const databaseUrl = process.env.SQLITE_DATABASE_URL || "";
-	if (!process.argv.includes("--throwaway") || !databaseUrl) {
-		console.error(
-			"Refusing to run: pass --throwaway and point SQLITE_DATABASE_URL at a disposable database."
-		);
-		process.exitCode = 1;
+	if (!process.argv.includes("--throwaway")) {
+		refuse("pass --throwaway.");
+		return;
+	}
+	if (!isTemporaryDatabase(databaseUrl)) {
+		refuse("point SQLITE_DATABASE_URL at a migrated SQLite file in the system temp directory.");
 		return;
 	}
 
 	const prisma = new PrismaClient();
 	const started = Date.now();
 	const run = Date.now().toString(36);
-	console.log(`Seeding mock data into ${databaseUrl}`, config);
 
 	try {
+		const otherAccounts = await prisma.user.count({
+			where: {
+				email: { not: SEEDED_ACCOUNT },
+				NOT: { email: { endsWith: MOCK_EMAIL_SUFFIX } },
+			},
+		});
+		if (otherAccounts > 0) {
+			refuse(`the database has ${otherAccounts} account(s) that aren't seeded or mock users.`);
+			return;
+		}
+
+		console.log(`Seeding mock data into ${databaseUrl}`, config);
+
 		// The earliest account stays the primary instance admin, so mock users
 		// are created after any account that already exists.
 		const users = Array.from({ length: config.users }, (_, index) => ({
 			id: `scale-user-${run}-${index}`,
-			email: `scale-${run}-${index}@scale.test`,
+			email: `scale-${run}-${index}${MOCK_EMAIL_SUFFIX}`,
 			name: `Scale User ${index}`,
 			password: PASSWORD_HASH,
 			hasCompletedOnboarding: true,
@@ -146,7 +180,7 @@ async function main() {
 			}
 
 			for (let i = 0; i < config.invitesPerOrg; i += 1) {
-				invites.push({ organisationId: orgId, email: `invite-${run}-${o}-${i}@scale.test`, invitedByUserId: owner.id });
+				invites.push({ organisationId: orgId, email: `invite-${run}-${o}-${i}${MOCK_EMAIL_SUFFIX}`, invitedByUserId: owner.id });
 			}
 		}
 
