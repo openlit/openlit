@@ -610,7 +610,8 @@ def common_chat_logic(
             logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     # Span status and metrics
-    scope._span.set_status(Status(StatusCode.OK))
+    if not getattr(scope, "_streaming_failed", False):
+        scope._span.set_status(Status(StatusCode.OK))
     if not disable_metrics:
         inter_chunk_durations = None
         if getattr(scope, "_timestamps", None) and len(scope._timestamps) > 1:

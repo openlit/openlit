@@ -74,6 +74,7 @@ def chat(
             self._server_address = server_address
             self._server_port = server_port
             self._streaming_response_processed = False
+            self._streaming_failed = False
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -108,8 +109,13 @@ def chat(
             except StopIteration:
                 self._finalize_streaming_span()
                 raise
+            except BaseException as e:
+                # A read error or Ctrl-C mid-stream never reaches
+                # StopIteration; end the span with the error instead of leaking it.
+                self._finalize_streaming_span(e)
+                raise
 
-        def _finalize_streaming_span(self):
+        def _finalize_streaming_span(self, error=None):
             """Complete and end the span exactly once.
 
             Called on stream exhaustion and again from close()/manager exit;
@@ -119,8 +125,11 @@ def chat(
             if self._streaming_response_processed:
                 return
             self._streaming_response_processed = True
+            self._streaming_failed = error is not None
             try:
                 with self._span:
+                    if error is not None:
+                        handle_exception(self._span, error)
                     process_streaming_chat_response(
                         self,
                         pricing_info=pricing_info,
@@ -134,7 +143,8 @@ def chat(
                     )
 
             except Exception as e:
-                handle_exception(self._span, e)
+                if error is None:
+                    handle_exception(self._span, e)
 
         def close(self):
             """Close the wrapped stream and finalize the span if not ended."""
