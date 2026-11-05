@@ -1,8 +1,34 @@
 ### 3. Instrument your application
+
+Export directly to Oodle using the HTTPS OTLP endpoint shown in your Oodle tile and both authentication headers. Replace `OODLE_ENDPOINT`, `API_KEY`, and `INSTANCE_ID` below with your own values; keep credentials private. Use the base endpoint without `/v1/traces` or `/v1/metrics`: the exporters append the signal paths.
+
+These examples use OTLP/HTTP with protobuf. Set the protocol before starting your Python application:
+
+```shell
+export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
+```
+
+If you use the optional Collector from step 2, use the Collector examples instead.
+
     <Tabs>
       <Tab title="SDK">
-        **For direct integration into your Python applications:**
-        
+        **Send directly to Oodle:**
+
+        ```python
+        import openlit
+
+        openlit.init(
+            service_name="my-ai-service",
+            otlp_endpoint="https://OODLE_ENDPOINT",
+            otlp_headers={
+                "X-API-KEY": "API_KEY",
+                "X-OODLE-INSTANCE": "INSTANCE_ID",
+            },
+        )
+        ```
+
+        **Or send through your OpenTelemetry Collector:**
+
         <Tabs>
           <Tab title="Function Arguments">
           ```python
@@ -44,16 +70,28 @@
       </Tab>
       
       <Tab title="CLI">
-        **For zero-code auto-instrumentation via command line:**
-        
+        **Send directly to Oodle without changing application code:**
+
+        ```shell
+        openlit-instrument \
+          --service_name "my-ai-service" \
+          --otlp_endpoint "https://OODLE_ENDPOINT" \
+          --otlp_headers '{"X-API-KEY":"API_KEY","X-OODLE-INSTANCE":"INSTANCE_ID"}' \
+          python app.py
+        ```
+
+        `--otlp_headers` takes a JSON object. Existing environment variables take precedence over CLI arguments.
+
+        **Or send through your OpenTelemetry Collector:**
+
         <Tabs>
           <Tab title="CLI Arguments">
           ```shell
           # Using CLI arguments
           openlit-instrument \
-            --otlp-endpoint "YOUR_OTELCOL_URL:4318" \
-            --service-name "my-ai-service" \
-            --deployment-environment "production" \
+            --otlp_endpoint "YOUR_OTELCOL_URL:4318" \
+            --service_name "my-ai-service" \
+            --environment "production" \
             python app.py
           ```
           
