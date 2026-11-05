@@ -22,6 +22,28 @@ def test_string_contents_become_a_user_message():
     ]
 
 
+def test_consecutive_strings_become_one_user_message():
+    """google-genai sends consecutive strings as the parts of one user message."""
+    assert google_ai_studio_utils.build_input_messages(["Why?", "Because."]) == [
+        {
+            "role": "user",
+            "parts": [
+                {"type": "text", "content": "Why?"},
+                {"type": "text", "content": "Because."},
+            ],
+        }
+    ]
+
+
+def test_a_single_content_is_recorded():
+    """A Content passed in place of a list is recorded like a one-item list."""
+    content = types.Content(role="user", parts=[types.Part(text="Why is the sky blue?")])
+
+    assert google_ai_studio_utils.build_input_messages(content) == [
+        _user_text("Why is the sky blue?")
+    ]
+
+
 def test_strings_in_a_contents_list_become_user_messages():
     """Strings in the list are kept, in order, next to Content objects."""
     contents = [
