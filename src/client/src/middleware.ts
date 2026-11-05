@@ -40,6 +40,8 @@ export const config = {
 		"/vault",
 		"/vault/:path*",
 		"/settings/:path*",
+		"/admin",
+		"/admin/:path*",
 		"/telemetry-enabled",
 		"/home",
 		"/dashboards/:path*",
