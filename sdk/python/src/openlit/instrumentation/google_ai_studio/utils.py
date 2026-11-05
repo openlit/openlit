@@ -561,7 +561,7 @@ def process_chunk(scope, chunk):
         scope._llmresponse += str(chunk.text)
     candidates = chunked.get("candidates") or []
     if candidates:
-        scope._finish_reason = str(candidates[0].get("finish_reason", ""))
+        scope._finish_reason = _finish_reason_value(candidates[0].get("finish_reason"))
 
     try:
         c0 = (chunked.get("candidates") or [{}])[0]
@@ -575,6 +575,17 @@ def process_chunk(scope, chunk):
         if not isinstance(getattr(scope, "_tools", None), list):
             scope._tools = []
         scope._tools.extend(new_calls)
+
+
+def _finish_reason_value(finish_reason):
+    """Return a candidate's finish reason as its plain value, such as "STOP".
+
+    google-genai keeps it as a ``FinishReason`` member after ``model_dump()``,
+    and ``str()`` of that member is ``"FinishReason.STOP"``. Chunks without a
+    finish reason give an empty string.
+    """
+    value = getattr(finish_reason, "value", finish_reason)
+    return str(value) if value else ""
 
 
 def _get_config_value(config, key):
@@ -949,7 +960,7 @@ def process_chat_response(
     self._kwargs = kwargs
     candidates = response_dict.get("candidates") or []
     self._finish_reason = (
-        str(candidates[0].get("finish_reason", "")) if candidates else ""
+        _finish_reason_value(candidates[0].get("finish_reason")) if candidates else ""
     )
 
     try:
