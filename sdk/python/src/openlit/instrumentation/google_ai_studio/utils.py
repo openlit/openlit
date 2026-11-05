@@ -94,6 +94,10 @@ def build_input_messages(contents, system_instruction=None):
     if not contents:
         return []
 
+    # google-genai also takes a plain string, or strings inside the list
+    if isinstance(contents, str):
+        contents = [contents]
+
     otel_messages = []
 
     # Add system instruction first if present
@@ -113,6 +117,11 @@ def build_input_messages(contents, system_instruction=None):
             )
 
     for content in contents:
+        if isinstance(content, str):
+            otel_messages.append(
+                {"role": "user", "parts": [{"type": "text", "content": content}]}
+            )
+            continue
         try:
             # Extract role - Google uses "user" and "model"
             role = getattr(content, "role", "user")
