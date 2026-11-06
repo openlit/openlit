@@ -2,6 +2,8 @@ import { Resource } from '@opentelemetry/resources';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { metrics } from '@opentelemetry/api';
 import type { Guard } from './guard/base';
+import type { TokenCounter } from './platform/types';
+import type { FetchAdapterName } from './instrumentation/fetch';
 
 export type InstrumentationType = 'openai' | 'anthropic' | 'cohere' | 'groq' | 'mistral' | 'google-ai' | 'vertexai' | 'together' | 'typesafe' | 'ollama' | 'vllm' | 'vercel-ai' | 'langchain' | 'langgraph' | 'pinecone' | 'bedrock' | 'llamaindex' | 'huggingface' | 'replicate' | 'chroma' | 'qdrant' | 'milvus' | 'astra' | 'azure-ai-inference' | 'openai-agents' | 'strands' | 'google-adk' | 'claude-agent-sdk' | 'cursor-sdk' | 'ai21' | 'gradient' | 'browser-use' | 'mcp' | 'mem0' | 'elevenlabs' | 'assemblyai' | 'transformers' | 'pg' | 'firecrawl' | 'letta';
 
@@ -67,6 +69,21 @@ export type OpenlitOptions = {
   guards?: Guard[];
   guardFailOpen?: boolean;
   collectGpuStats?: boolean;
+  /**
+   * Replaces the built-in token counting. Mainly for edge builds, which estimate
+   * tokens because the tiktoken tables are too large to bundle.
+   */
+  tokenCounter?: TokenCounter;
+  /** Direct HTTP APIs to trace by wrapping `fetch`. */
+  fetchAdapters?: FetchAdapterName[];
+  /**
+   * Continue a `traceparent` sent to `withWorker`. Off by default because anyone
+   * can send that header to a public Worker: it would let them choose a trace ID,
+   * or use an unsampled flag to drop their request from telemetry. Turn it on only
+   * behind something that sets or strips the header. When off, the incoming
+   * context is kept as a span link.
+   */
+  trustIncomingTraceparent?: boolean;
 };
 
 /**
@@ -92,6 +109,7 @@ export interface ResolvedOptions {
   guards?: Guard[];
   guardFailOpen: boolean;
   collectGpuStats: boolean;
+  trustIncomingTraceparent: boolean;
 }
 
 export type SetupTracerOptions = ResolvedOptions & {

@@ -1,5 +1,6 @@
 import { OpenlitConfigInterface, PricingObject } from './types';
 import type { Pipeline } from './guard/pipeline';
+import type { TokenCounter } from './platform/types';
 
 export default class OpenlitConfig {
   static environment: OpenlitConfigInterface['environment'];
@@ -18,6 +19,8 @@ export default class OpenlitConfig {
   static openlitApiKey?: string;
   static openlitUrl?: string;
   static guardPipeline?: Pipeline;
+  static tokenCounter?: TokenCounter;
+  static trustIncomingTraceparent?: boolean;
 
   static updateConfig({
     environment = 'default',

@@ -11,6 +11,7 @@ openlit
 ├── coding        Coding-agent observability (Claude Code, Cursor, Codex, OpenCode)
 │   ├── install     Install per-vendor host plugin manifests
 │   ├── launch      Bootstrap the plugin for an agent and exec it
+│   ├── exec        Run a headless agent with its native telemetry on
 │   ├── uninstall   Remove per-vendor host plugin manifests
 │   └── hook        Process a hook event (invoked by host plugins)
 ├── configure     Write persistent settings to config.env
@@ -61,6 +62,27 @@ openlit coding launch opencode
 | `<agent>` *(required)* | `claude` \| `claude-code` \| `cc` \| `cursor` \| `codex` \| `opencode` (`claude-code` and `cc` are aliases for `claude`) |
 
 Any arguments after `--` are forwarded to the agent's own CLI.
+
+### openlit coding exec
+
+Runs a headless coding agent with its native telemetry on, inside a span. Use it where hooks and plugins are off, such as CI jobs and restricted modes. For interactive sessions, use `openlit coding launch`.
+
+```bash
+openlit coding exec --vendor=claude-code -- claude -p "summarise this repo"
+```
+
+- A `TRACEPARENT` in the environment makes the span a child of the caller's trace.
+- The agent's exit code is passed through, and a signal that kills it gives 128+N. If the agent can't be run, the exit code is 127 or 126. The agent still runs if telemetry fails.
+- The span records the binary's name but not its arguments, because arguments often hold prompts.
+- Prompts and tool details stay off unless you pass `--capture-content`, even if `OPENLIT_CODING_CONTENT_CAPTURE` is `full`.
+
+<Warning>
+With `exec`, the agent exports directly to your collector, so the CLI's secret redaction doesn't apply to anything `--capture-content` sends. The agent also receives your OTLP headers, including your OpenLIT API key, so tools it runs can read them. Use a key scoped to ingest for CI.
+</Warning>
+
+The agent's native telemetry appears in the trace view and counts on the Agents hub tile, but doesn't create rows on the Sessions and Users pages, which are built from hook spans.
+
+Only `claude-code` is supported today.
 
 ### openlit coding uninstall
 

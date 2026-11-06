@@ -17,6 +17,64 @@ export type BaseSpanAttributes = {
   errorType?: string;
 };
 
+type ApiPromiseObserver = {
+  onResult: (result: any) => any;
+  onError: (error: any) => void;
+  /** The caller read the raw response, so `onResult` will never run. */
+  onRawResponse: () => void;
+};
+
+/**
+ * Observe a call to a Stainless-generated client without changing what the
+ * caller receives. Those clients return an `APIPromise`, a Promise that also has
+ * `withResponse()`, `asResponse()` and `_thenUnwrap()`, and the clients' own
+ * helpers depend on them. Anything else (older clients, test doubles) is treated
+ * as an ordinary thenable.
+ */
+export function observeApiPromise(pending: any, observer: ApiPromiseObserver): any {
+  const { onResult, onError, onRawResponse } = observer;
+  if (typeof pending?._thenUnwrap !== 'function' || typeof pending?.asResponse !== 'function') {
+    return Promise.resolve(pending).then(onResult, (e: any) => {
+      onError(e);
+      throw e;
+    });
+  }
+
+  const observed = pending._thenUnwrap(onResult);
+  const asResponse = observed.asResponse;
+  let parsing = false;
+  let rawRequested = false;
+
+  // Everything that reads the parsed result marks it, so the raw path below only
+  // ever ends the span of a caller who took the response alone.
+  for (const method of ['then', 'parse', 'withResponse', '_thenUnwrap']) {
+    const original = observed[method];
+    observed[method] = function (this: any, ...args: any[]) {
+      parsing = true;
+      return original.apply(this, args);
+    };
+  }
+  observed.asResponse = function (this: any, ...args: any[]) {
+    const raw = asResponse.apply(this, args);
+    if (parsing) return raw;
+    rawRequested = true;
+    return raw.then((response: any) => {
+      if (!parsing) onRawResponse();
+      return response;
+    });
+  };
+
+  // `asResponse()` shares the request's promise and leaves the body unread, so it
+  // reports request failures without forcing a parse. `_thenUnwrap` is lazy: a
+  // call nobody awaits would never end its span, so by the time the response
+  // arrives, with the caller's synchronous chaining done, parse it for them.
+  pending.asResponse().then(() => {
+    if (!parsing && !rawRequested) observed.then(undefined, () => undefined);
+  }, onError);
+
+  return observed;
+}
+
 export default class BaseWrapper {
   static setBaseSpanAttributes(
     span: Span,

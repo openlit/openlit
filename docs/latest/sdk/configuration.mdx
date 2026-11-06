@@ -142,6 +142,10 @@ Customize OpenLIT SDK behavior for your specific instrumentation needs:
 | `traceContent`          | Enable LLM prompt and response content capture for comprehensive debugging.          | `true`                                                             | No       |
 | `disabledInstrumentations` | Disable specific AI service instrumentations for customized monitoring scope.       | `undefined`                                                             | No       |
 | `instrumentations`        | Object of instrumentation modules for manual patching                                          | `undefined`                                                            | No       |
+| `guards`                  | Guards to run on model calls. In bundled code, they apply only to `instrumentations` modules and `openlit.instrument()` clients. | `undefined`                                                            | No       |
+| `tokenCounter`            | Function that replaces built-in token counting. Mainly for edge builds, which estimate tokens. | `undefined`                                                            | No       |
+| `fetchAdapters`           | Direct HTTP APIs to trace by wrapping `fetch`, such as `["typesafe"]`.                         | `undefined`                                                            | No       |
+| `trustIncomingTraceparent` | Continue a `traceparent` sent to `withWorker`. Only for Workers behind something that sets or strips the header. | `false`                                                            | No       |
 | `pricing_json`           | Custom pricing configuration URL for accurate LLM cost tracking and optimization.    | `https://github.com/openlit/openlit/blob/main/assets/pricing.json` | No       |
 
 ### Resource attributes

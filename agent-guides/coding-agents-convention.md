@@ -361,6 +361,8 @@ Every span MUST carry this attribute (resource-level, set by the adapter or infe
 | `native` | The vendor's own OTel exporter emitted this span (e.g. Claude Code with `CLAUDE_CODE_ENABLE_TELEMETRY=1`) |
 | `sdk` | A regular OpenLit Go/Python SDK process (NOT a coding agent) |
 
+`openlit coding exec` is the one CLI path outside this table's `hook` meaning. Its `coding_agent.exec` span wraps a headless agent and is trace-only: it has no `coding_agent.session.id`, is not in `CODING_AGENT_SPAN_NAMES`, and still carries `hook` because `NewEmitter` stamps it. The agent's own spans arrive as `native`. On those, `openlit.caller.service` names the application that started the agent, and `openlit.parent.trace_id` / `openlit.parent.span_id` link to its trace for vendors that ignore `TRACEPARENT`. Nothing reads these three yet.
+
 Adapters MUST stamp `hook` explicitly. The query layer infers `native` from `service.name = 'claude-code'` AND absence of `coding_agent.signal_source`. The materializer's SDK discovery excludes anything that isn't `sdk` (a positive value of `hook` or `native` keeps the row off the SDK side).
 
 ## 7. Outcome enum mapping

@@ -23,6 +23,9 @@
  * Must stay in sync with: sdk/python/src/openlit/guard/_integration.py
  */
 
+import { diag } from '@opentelemetry/api';
+import { IS_EDGE_BUILD } from '../platform';
+import type { OpenlitInstrumentations } from '../types';
 import { Guard, GuardAction, GuardDeniedError } from './base';
 import { Pipeline } from './pipeline';
 
@@ -189,6 +192,7 @@ const GUARDED_METHODS: GuardedMethod[] = [
   { npmPackage: 'openai', protoPath: ['OpenAI', 'Responses', 'prototype'], methodName: 'create', extractInput: extractOpenAIInput, extractOutput: extractOpenAIOutput },
   // Anthropic
   { npmPackage: '@anthropic-ai/sdk', protoPath: ['Anthropic', 'Messages', 'prototype'], methodName: 'create', extractInput: extractAnthropicInput, extractOutput: extractAnthropicOutput },
+  { npmPackage: '@anthropic-ai/sdk', protoPath: ['Anthropic', 'Beta', 'Messages', 'prototype'], methodName: 'create', extractInput: extractAnthropicInput, extractOutput: extractAnthropicOutput },
   // Groq
   { npmPackage: 'groq-sdk', protoPath: ['Groq', 'Chat', 'Completions', 'prototype'], methodName: 'create', extractInput: extractGenericInput, extractOutput: extractGenericOutput },
   // Mistral
@@ -292,14 +296,64 @@ function applyPostflight(
 // Prototype resolver
 // ---------------------------------------------------------------------------
 
-function resolveProto(moduleExports: any, protoPath: string[]): any {
-  let obj = moduleExports;
-  for (const key of protoPath) {
+function walk(root: any, path: string[]): any {
+  let obj = root;
+  for (const key of path) {
     if (obj == null) return null;
     obj = obj[key];
   }
   return obj;
 }
+
+// A namespace import has `.Anthropic`. A default import is the class itself, so
+// the path starts one level lower.
+function resolveProto(moduleExports: any, protoPath: string[]): any {
+  return walk(moduleExports, protoPath) ?? walk(moduleExports, protoPath.slice(1));
+}
+
+const GUARDED = Symbol.for('openlit.guarded');
+
+/**
+ * Runs in sync so a client's `APIPromise` reaches the caller: the clients' own
+ * `stream()` helpers call `.withResponse()` on what `create()` returns.
+ */
+function guardMethod(
+  target: any,
+  methodName: string,
+  pipeline: Pipeline,
+  extractInput: Extractor,
+  extractOutput: Extractor,
+): boolean {
+  const original = target?.[methodName];
+  if (typeof original !== 'function' || original[GUARDED]) return false;
+
+  const guarded = function (this: any, ...args: any[]) {
+    try {
+      args[0] = applyPreflight(pipeline, args[0] || {}, extractInput);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    const pending = original.apply(this, args);
+    const postflight = (response: any) => applyPostflight(pipeline, response, extractOutput);
+    return typeof pending?._thenUnwrap === 'function'
+      ? pending._thenUnwrap(postflight)
+      : Promise.resolve(pending).then(postflight);
+  };
+  (guarded as any)[GUARDED] = true;
+  target[methodName] = guarded;
+  return true;
+}
+
+const INSTRUMENTATION_KEYS: Record<string, keyof OpenlitInstrumentations> = {
+  openai: 'openai',
+  '@anthropic-ai/sdk': 'anthropic',
+  'groq-sdk': 'groq',
+  '@mistralai/mistralai': 'mistral',
+  'cohere-ai': 'cohere',
+  'together-ai': 'together',
+  '@aws-sdk/client-bedrock-runtime': 'bedrock',
+  '@google/generative-ai': 'google-ai',
+};
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -308,6 +362,7 @@ function resolveProto(moduleExports: any, protoPath: string[]): any {
 export function setupAutoGuards(
   guards: Guard[],
   failOpen = true,
+  modules: OpenlitInstrumentations = {},
 ): void {
   const pipeline = new Pipeline({ guards, failOpen });
 
@@ -321,23 +376,12 @@ export function setupAutoGuards(
   let wrappedCount = 0;
   for (const { npmPackage, protoPath, methodName, extractInput, extractOutput } of GUARDED_METHODS) {
     try {
+      // Bundled code cannot `require` a provider, so a module passed to
+      // `instrumentations` comes first.
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mod = require(npmPackage);
+      const mod = modules[INSTRUMENTATION_KEYS[npmPackage]] ?? require(npmPackage);
       const proto = resolveProto(mod, protoPath);
-      if (!proto || typeof proto[methodName] !== 'function') continue;
-
-      const original = proto[methodName];
-      proto[methodName] = async function (this: any, ...args: any[]) {
-        let params = args[0] || {};
-
-        params = applyPreflight(pipeline, params, extractInput);
-        args[0] = params;
-
-        const response = await original.apply(this, args);
-
-        return applyPostflight(pipeline, response, extractOutput);
-      };
-      wrappedCount++;
+      if (guardMethod(proto, methodName, pipeline, extractInput, extractOutput)) wrappedCount++;
     } catch {
       // module not installed, skip silently
     }
@@ -345,5 +389,23 @@ export function setupAutoGuards(
 
   if (wrappedCount > 0) {
     console.log(`[openlit] Auto-guards: wrapped ${wrappedCount}/${GUARDED_METHODS.length} provider methods`);
+  } else if (IS_EDGE_BUILD) {
+    diag.warn(
+      'OpenLIT: guards are not applied to any provider yet. In bundled code, pass the provider ' +
+        'module to `instrumentations` or wrap the client with `openlit.instrument()`.'
+    );
+  }
+}
+
+/** Guard one client object, for `openlit.instrument()`. */
+export function guardClient(client: any, pipeline: Pipeline): void {
+  const targets: [any, Extractor, Extractor][] = [
+    [client?.messages, extractAnthropicInput, extractAnthropicOutput],
+    [client?.beta?.messages, extractAnthropicInput, extractAnthropicOutput],
+    [client?.chat?.completions, extractOpenAIInput, extractOpenAIOutput],
+    [client?.responses, extractOpenAIInput, extractOpenAIOutput],
+  ];
+  for (const [target, extractInput, extractOutput] of targets) {
+    guardMethod(target, 'create', pipeline, extractInput, extractOutput);
   }
 }
