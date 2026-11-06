@@ -1,6 +1,7 @@
 import { Context, Link, SpanKind, SpanStatusCode, ROOT_CONTEXT, context, diag, trace as otelTrace } from '@opentelemetry/api';
 import OpenlitConfig from './config';
 import OpenLitHelper from './helpers';
+import { getTracer } from './manual-trace';
 import { extract } from './trace-context';
 import type { OpenlitOptions } from './types';
 
@@ -24,10 +25,6 @@ export type WorkerHandler<Env> = {
 const LAMBDA_FLUSH_BUDGET_MS = 2000;
 const LAMBDA_FLUSH_MARGIN_MS = 500;
 const MAX_PATH_LENGTH = 256;
-
-function tracer() {
-  return (OpenlitConfig.tracer as any)?.getTracer?.('openlit') ?? otelTrace.getTracer('openlit');
-}
 
 function str(value: unknown): string | undefined {
   return typeof value === 'string' && value !== '' ? value : undefined;
@@ -139,10 +136,6 @@ function requestParent(request: Request): { parent: Context; links: Link[] } {
   return { parent: ROOT_CONTEXT, links: remote ? [{ context: remote }] : [] };
 }
 
-function recordFailure(span: any, error: any): void {
-  OpenLitHelper.handleException(span, error);
-}
-
 export function createWorkerWrapper(lifecycle: Lifecycle) {
   type Prepare = (env: any, ctx: WorkerContext) => void;
 
@@ -157,7 +150,7 @@ export function createWorkerWrapper(lifecycle: Lifecycle) {
     const { pathname } = new URL(request.url);
     const path = pathname.slice(0, MAX_PATH_LENGTH);
     const { parent, links } = requestParent(request);
-    const span = tracer().startSpan(
+    const span = getTracer().startSpan(
       `${request.method} ${path}`,
       {
         kind: SpanKind.SERVER,
@@ -176,7 +169,7 @@ export function createWorkerWrapper(lifecycle: Lifecycle) {
       ctx.waitUntil(lifecycle.flush());
       return flushAfterBody(response, lifecycle.flush, ctx);
     } catch (error: any) {
-      recordFailure(span, error);
+      OpenLitHelper.handleException(span, error);
       span.end();
       ctx.waitUntil(lifecycle.flush());
       throw error;
@@ -192,11 +185,11 @@ export function createWorkerWrapper(lifecycle: Lifecycle) {
   ) => {
     prepare(env, ctx);
     try {
-      return await tracer().startActiveSpan(`worker.${event}`, { kind: SpanKind.CONSUMER }, async (span: any) => {
+      return await getTracer().startActiveSpan(`worker.${event}`, { kind: SpanKind.CONSUMER }, async (span: any) => {
         try {
           return await call(trackBackgroundWork(ctx, lifecycle.flush));
         } catch (error: any) {
-          recordFailure(span, error);
+          OpenLitHelper.handleException(span, error);
           throw error;
         } finally {
           span.end();
@@ -296,7 +289,7 @@ export function createLambdaWrapper(lifecycle: Lifecycle) {
     return async (event, lambdaContext) => {
       await lifecycle.ensurePricing();
       try {
-        return await tracer().startActiveSpan(
+        return await getTracer().startActiveSpan(
           lambdaContext?.functionName ?? 'lambda.invoke',
           {
             kind: SpanKind.SERVER,
@@ -306,7 +299,7 @@ export function createLambdaWrapper(lifecycle: Lifecycle) {
             try {
               return await handler(event, lambdaContext);
             } catch (error: any) {
-              recordFailure(span, error);
+              OpenLitHelper.handleException(span, error);
               throw error;
             } finally {
               span.end();

@@ -478,6 +478,34 @@ def emit_inference_event(
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
+def fallback_model(usage):
+    """
+    The model that served the response when the request named fallbacks.
+
+    A `fallback_message` entry in `usage.iterations` is the API's signal for this.
+    """
+    fallbacks = [
+        entry
+        for entry in (usage or {}).get("iterations") or []
+        if isinstance(entry, dict)
+        and entry.get("type") == "fallback_message"
+        and entry.get("model")
+    ]
+    return fallbacks[-1]["model"] if fallbacks else None
+
+
+def capture_usage_details(scope, usage):
+    """
+    Keep server tool use and fallback details from a usage block when present.
+    """
+    server_tool_use = usage.get("server_tool_use")
+    if server_tool_use:
+        scope._server_tool_use = server_tool_use
+    model = fallback_model(usage)
+    if model:
+        scope._fallback_model = model
+
+
 def process_chunk(scope, chunk):
     """
     Process a chunk of response data and update state.
@@ -508,6 +536,7 @@ def process_chunk(scope, chunk):
         )
         scope._response_model = message.get("model")
         scope._response_role = message.get("role")
+        capture_usage_details(scope, message_usage)
 
     if not hasattr(scope, "_tool_calls_by_index") or scope._tool_calls_by_index is None:
         scope._tool_calls_by_index = {}
@@ -556,6 +585,7 @@ def process_chunk(scope, chunk):
         cache_read = usage.get("cache_read_input_tokens")
         if cache_read is not None:
             scope._cache_read_input_tokens = cache_read or 0
+        capture_usage_details(scope, usage)
 
 
 def common_chat_logic(
@@ -580,6 +610,9 @@ def common_chat_logic(
 
     prompt = format_content(scope._kwargs.get("messages", []))
     request_model = scope._kwargs.get("model", "claude-3-5-sonnet-latest")
+    served_by_fallback = getattr(scope, "_fallback_model", None)
+    if served_by_fallback:
+        scope._response_model = served_by_fallback
 
     # Calculate tokens and cost
     if hasattr(scope, "_input_tokens") and scope._input_tokens is not None:
@@ -593,7 +626,7 @@ def common_chat_logic(
     # tokens, so the cache tokens are added on top (prompt_tokens_include_cache
     # stays False).
     cost = get_chat_model_cost(
-        request_model,
+        served_by_fallback or request_model,
         pricing_info,
         input_tokens,
         output_tokens,
@@ -714,6 +747,22 @@ def common_chat_logic(
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
             scope._cache_creation_input_tokens,
+        )
+
+    server_tool_use = getattr(scope, "_server_tool_use", None) or {}
+    if server_tool_use.get("web_search_requests"):
+        scope._span.set_attribute(
+            SemanticConvention.ANTHROPIC_USAGE_WEB_SEARCH_REQUESTS,
+            server_tool_use["web_search_requests"],
+        )
+    if server_tool_use.get("web_fetch_requests"):
+        scope._span.set_attribute(
+            SemanticConvention.ANTHROPIC_USAGE_WEB_FETCH_REQUESTS,
+            server_tool_use["web_fetch_requests"],
+        )
+    if served_by_fallback:
+        scope._span.set_attribute(
+            SemanticConvention.ANTHROPIC_RESPONSE_FALLBACK_MODEL, served_by_fallback
         )
 
     # Compute version hash regardless of content capture so versions still
@@ -902,6 +951,7 @@ def process_chat_response(
     scope._output_tokens = usage.get("output_tokens", 0) or 0
     scope._cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0) or 0
     scope._cache_read_input_tokens = usage.get("cache_read_input_tokens", 0) or 0
+    capture_usage_details(scope, usage)
 
     scope._response_model = response_dict.get("model", "")
     scope._finish_reason = response_dict.get("stop_reason", "")

@@ -463,17 +463,19 @@ export default class OpenLitHelper {
     }
   }
 
+  static isPricingUrl(pricingJson: unknown): pricingJson is string {
+    if (typeof pricingJson !== 'string') return false;
+    try {
+      return !!new URL(pricingJson);
+    } catch {
+      return false;
+    }
+  }
+
   static async fetchPricingInfo(pricingJson: any) {
     let pricingUrl = 'https://raw.githubusercontent.com/openlit/openlit/main/assets/pricing.json';
     if (pricingJson) {
-      let isUrl = false;
-      try {
-        isUrl = !!new URL(pricingJson);
-      } catch {
-        isUrl = false;
-      }
-
-      if (isUrl) {
+      if (OpenLitHelper.isPricingUrl(pricingJson)) {
         pricingUrl = pricingJson;
       } else {
         try {

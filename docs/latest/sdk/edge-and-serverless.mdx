@@ -18,7 +18,7 @@ Install `openlit` as usual. Runtimes and bundlers choose the build through packa
 | Vercel and Netlify Edge (`edge-light`, `deno`) | Edge | Traces |
 | Deno, Deno Deploy (`deno`) | Edge | Traces |
 
-To force the edge build, for example in a browser-targeted bundle, import `openlit/core`.
+Browser-targeted bundles get the edge build too. To force it elsewhere, import `openlit/core`.
 
 The edge build differs from Node in these ways:
 
@@ -208,6 +208,8 @@ Tag model calls so that calls to one model can be told apart:
 ```typescript
 await openlit.withTags({ purpose: "classification", route: "gateway" }, () => classify(text));
 ```
+
+In the Python SDK, use `with openlit.with_tags(purpose="classification", route="gateway"):`.
 
 This sets `openlit.request.purpose` and `openlit.route` on each model span. To filter on them, open the filters on the traces page, and add a custom attribute filter on either key.
 

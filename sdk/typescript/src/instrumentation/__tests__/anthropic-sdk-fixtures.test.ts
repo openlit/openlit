@@ -205,6 +205,22 @@ describe('the SDK\'s own tracing', () => {
     expect(scopes()).toEqual([expect.stringContaining('instrumentation-anthropic')]);
   });
 
+  it('leaves a client alone that was given its own tracer provider', async () => {
+    const seen = new InMemorySpanExporter();
+    const own = new NodeTracerProvider({ spanProcessors: [new SimpleSpanProcessor(seen)] });
+    const dedicated = new Anthropic({
+      apiKey: 'test',
+      maxRetries: 0,
+      fetch: async () => json(message()),
+      openTelemetry: { tracerProvider: own },
+    } as any);
+
+    await dedicated.messages.create(params);
+
+    expect(seen.getFinishedSpans()).toHaveLength(1);
+    await own.shutdown();
+  });
+
   it('emits no second span for the first stream() on a client', async () => {
     await client(() => sse()).messages.stream(params).finalMessage();
 

@@ -26,6 +26,7 @@ const workspace = mkdtempSync(join(tmpdir(), 'openlit-runtime-'));
 mkdirSync(join(workspace, 'node_modules/@anthropic-ai'), { recursive: true });
 symlinkSync(root, join(workspace, 'node_modules/openlit'));
 symlinkSync(join(root, 'node_modules/@anthropic-ai/sdk'), join(workspace, 'node_modules/@anthropic-ai/sdk'));
+symlinkSync(join(root, 'node_modules/openai'), join(workspace, 'node_modules/openai'));
 
 function attrs(span) {
   const out = {};
@@ -188,6 +189,13 @@ await test('workerd: request span parents the patched model span, with cost from
   assert.deepEqual(spans.filter((s) => s.attrs['gen_ai.operation.name'] === 'chat').length, 1, 'no native SDK span');
 });
 
+await test('workerd: a patched OpenAI call survives bundling', async () => {
+  collector.reset();
+  assert.equal((await mf.dispatchFetch('http://worker/openai')).status, 200);
+  const spans = await collector.waitFor((s) => s.some(isOpenlitChat), 'OpenAI span');
+  assert.equal(spans.find(isOpenlitChat).attrs['gen_ai.provider.name'], 'openai');
+});
+
 await test('workerd: messages.stream gives one span', async () => {
   collector.reset();
   assert.equal((await mf.dispatchFetch('http://worker/anthropic-stream')).status, 200);
@@ -341,6 +349,11 @@ await test('workerd: withWorker wraps a WorkerEntrypoint class', async () => {
   assert.equal(await response.text(), 'helped');
   await collector.waitFor((s) => s.some((x) => x.name === 'GET /hello'), 'request span');
   await classWorker.dispose();
+});
+
+await test('bundle: a browser build resolves the edge entry', async () => {
+  const { inputs } = await bundle('edge.mjs', []);
+  assert.ok(inputs.some((input) => input.endsWith('dist/edge/index.mjs')));
 });
 
 await test('vercel edge: edge-light picks the edge entry; nested spans arrive after flush', async () => {

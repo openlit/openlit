@@ -18,6 +18,8 @@
   },
   "files": [
     "dist",
+    "!dist/**/*.edge.*",
+    "!dist/**/__tests__",
     "README.md",
     "LICENSE",
     "package.json"
@@ -31,6 +33,7 @@
       "workerd": "./dist/edge/index.mjs",
       "edge-light": "./dist/edge/index.mjs",
       "deno": "./dist/edge/index.mjs",
+      "browser": "./dist/edge/index.mjs",
       "node": {
         "import": "./dist/index.mjs",
         "default": "./dist/index.js"

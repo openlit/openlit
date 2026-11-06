@@ -142,16 +142,6 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
 
 const PRICING_BUDGET_MS = 2000;
 
-function isPricingUrl(pricingJson: ResolvedOptions['pricingJson']): pricingJson is string {
-  if (typeof pricingJson !== 'string') return false;
-  try {
-    new URL(pricingJson);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 class Openlit extends BaseOpenlit {
   static resource: ReturnType<typeof resourceFromAttributes>;
   static options: ResolvedOptions;
@@ -281,7 +271,7 @@ class Openlit extends BaseOpenlit {
    * URL is fetched by `ensurePricing()` once a request is running.
    */
   private static loadPricing(pricingJson: ResolvedOptions['pricingJson']) {
-    if (IS_EDGE_BUILD && (!pricingJson || isPricingUrl(pricingJson))) {
+    if (IS_EDGE_BUILD && (!pricingJson || OpenLitHelper.isPricingUrl(pricingJson))) {
       OpenlitConfig.pricingInfo = pricingSnapshot() ?? {};
       this.pendingPricingUrl = pricingJson as string | undefined;
       return;

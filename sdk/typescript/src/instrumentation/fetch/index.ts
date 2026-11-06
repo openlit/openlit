@@ -1,4 +1,5 @@
 import { trace } from '@opentelemetry/api';
+import { getTracer } from '../../manual-trace';
 import SemanticConvention from '../../semantic-convention';
 import TypeSafeWrapper from '../typesafe/wrapper';
 
@@ -21,7 +22,7 @@ const ADAPTERS: Record<FetchAdapterName, Adapter> = {
   typesafe: {
     matches: (url) => url.hostname === 'api.typesafe.ai' && url.pathname.toLowerCase().startsWith('/v1/systemone'),
     trace(url, body, send) {
-      const patched = TypeSafeWrapper._patchSystemOne(trace.getTracer('openlit'))(send);
+      const patched = TypeSafeWrapper._patchSystemOne(getTracer())(send);
       return patched.call({ baseURL: url.origin }, body);
     },
   },

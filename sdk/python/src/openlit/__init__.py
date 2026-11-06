@@ -5,7 +5,7 @@ This module sets up the openLIT configuration and instrumentation for various
 large language models (LLMs).
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import logging
 import os
 from importlib.util import find_spec
@@ -30,6 +30,7 @@ from openlit.__helpers import (
     reset_agent_version,
     set_custom_attributes,
     reset_custom_attributes,
+    get_custom_attributes,
     record_agent_invocation,
     record_agent_tool_error,
 )
@@ -903,6 +904,33 @@ class using_attributes(ContextDecorator):
     def __exit__(self, *exc):
         reset_custom_attributes(self._token)
         return False
+
+
+class with_tags(using_attributes):
+    """
+    Context manager and decorator that tags model calls with their business
+    purpose and route, so calls to one model can be told apart in the UI.
+
+    Attributes already set by an enclosing `using_attributes` are kept.
+
+    Usage:
+        with openlit.with_tags(purpose="classification", route="gateway"):
+            client.chat.completions.create(...)
+    """
+
+    def __init__(self, purpose: Optional[str] = None, route: Optional[str] = None):
+        tags = {}
+        if purpose:
+            tags[SemanticConvention.OPENLIT_REQUEST_PURPOSE] = purpose
+        if route:
+            tags[SemanticConvention.OPENLIT_ROUTE] = route
+        super().__init__(tags)
+
+    def __enter__(self):
+        self._token = set_custom_attributes(
+            {**(get_custom_attributes() or {}), **self._attributes}
+        )
+        return self
 
 
 def inject_additional_attributes(fn, attributes: Dict[str, Any]):

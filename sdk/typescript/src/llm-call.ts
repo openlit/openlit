@@ -2,6 +2,7 @@ import { Attributes, Span, SpanKind, context, trace as otelTrace } from '@opente
 import OpenlitConfig from './config';
 import OpenLitHelper, { getCurrentAgentVersion } from './helpers';
 import BaseWrapper, { BaseSpanAttributes } from './instrumentation/base-wrapper';
+import { getTracer } from './manual-trace';
 import SemanticConvention from './semantic-convention';
 
 export type LlmCallOptions = {
@@ -211,8 +212,7 @@ function finishSpan(handle: LlmSpan, options: LlmCallOptions): BaseSpanAttribute
  */
 export async function llm<T>(options: LlmCallOptions, fn: (span: LlmSpan) => T | Promise<T>): Promise<T> {
   const operation = options.operation ?? SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT;
-  const tracer = (OpenlitConfig.tracer as any)?.getTracer?.('openlit') ?? otelTrace.getTracer('openlit');
-  const span: Span = tracer.startSpan(`${operation} ${options.model}`, {
+  const span: Span = getTracer().startSpan(`${operation} ${options.model}`, {
     kind: SpanKind.CLIENT,
     attributes: {
       [SemanticConvention.GEN_AI_OPERATION]: operation,

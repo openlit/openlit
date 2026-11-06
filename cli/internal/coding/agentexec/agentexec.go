@@ -135,7 +135,8 @@ func startTelemetry(
 	emitterCfg := *cfg
 	emitterCfg.ApplicationName = vendor
 
-	emitter, err := otlp.NewEmitter(context.Background(), &emitterCfg, vendor)
+	emitter, err := otlp.NewEmitter(context.Background(), &emitterCfg, vendor,
+		map[string]string{"coding_agent.signal_source": "exec"})
 	if err != nil {
 		warn(fmt.Errorf("telemetry off: %w", err))
 		emitter = nil

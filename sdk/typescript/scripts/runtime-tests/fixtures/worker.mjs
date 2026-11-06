@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import openlit from 'openlit';
 
 // Module scope on purpose: Workers rejects I/O and timers here.
@@ -6,7 +7,7 @@ openlit.init({
   environment: 'runtime-test',
   disableMetrics: true,
   disableEvents: true,
-  instrumentations: { anthropic: Anthropic, 'not-a-provider': {} },
+  instrumentations: { anthropic: Anthropic, openai: OpenAI, 'not-a-provider': {} },
 });
 
 const message = {
@@ -42,6 +43,22 @@ export default openlit.withWorker(
         case '/anthropic':
           await client(() => Response.json(message)).messages.create(params);
           return new Response('ok');
+        case '/openai': {
+          const openai = new OpenAI({
+            apiKey: 'test',
+            maxRetries: 0,
+            fetch: async () =>
+              Response.json({
+                id: 'chatcmpl_1',
+                object: 'chat.completion',
+                model: 'gpt-4o-mini',
+                choices: [{ index: 0, message: { role: 'assistant', content: 'hi' }, finish_reason: 'stop' }],
+                usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
+              }),
+          });
+          await openai.chat.completions.create({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: 'hi' }] });
+          return new Response('ok');
+        }
         case '/anthropic-stream': {
           await client(sse).messages.stream(params).finalMessage();
           return new Response('ok');

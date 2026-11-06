@@ -34,11 +34,12 @@ function fallbackModel(usage: any): string | undefined {
  * Recent SDK versions emit their own `gen_ai.*` call span on the global tracer
  * provider, which is OpenLIT's. Left on, every call would appear twice and its
  * tokens would be counted twice. The SDK reads `_tracer` per call and treats an
- * unset value as tracing off.
+ * unset value as tracing off. A client given its own `tracerProvider` sends those
+ * spans somewhere the application chose, so it keeps them.
  */
 function disableNativeCallSpan(resource: any): void {
   const client = resource?._client;
-  if (client?._tracer) client._tracer = undefined;
+  if (client?._tracer && !client.openTelemetry?.tracerProvider) client._tracer = undefined;
 }
 
 function spanCreationAttrs(
