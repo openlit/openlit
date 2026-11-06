@@ -79,10 +79,8 @@ def build_input_messages(messages):
                 if isinstance(part, dict):
                     if part.get("type") == "text":
                         parts.append({"type": "text", "content": part.get("text", "")})
-                elif getattr(part, "type", None) == "text":
-                    parts.append(
-                        {"type": "text", "content": getattr(part, "text", "")}
-                    )
+                elif part.type == "text":
+                    parts.append({"type": "text", "content": part.text})
         if parts:
             structured_messages.append({"role": role, "parts": parts})
     return structured_messages
