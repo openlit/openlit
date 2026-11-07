@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 describe("memory connector bootstrap", () => {
-	it("registers Claude, LangGraph, Mem0, MemCode, and Zep exactly once", () => {
+	it("registers Claude, Cognee, LangGraph, Mem0, MemCode, Supermemory, and Zep exactly once", () => {
 		ensureMemoryAdaptersRegistered();
 		ensureMemoryAdaptersRegistered();
 		expect(hasMemoryAdapterFactory("claude")).toBe(true);
@@ -32,11 +32,15 @@ describe("memory connector bootstrap", () => {
 		expect(hasMemoryAdapterFactory("mem0")).toBe(true);
 		expect(hasMemoryAdapterFactory("memcode")).toBe(true);
 		expect(hasMemoryAdapterFactory("zep")).toBe(true);
+		expect(hasMemoryAdapterFactory("cognee")).toBe(true);
+		expect(hasMemoryAdapterFactory("supermemory")).toBe(true);
 		expect(listMemoryTypeDescriptors().map((item) => item.type).sort()).toEqual([
 			"claude",
+			"cognee",
 			"langgraph",
 			"mem0",
 			"memcode",
+			"supermemory",
 			"zep",
 		]);
 	});
@@ -64,9 +68,11 @@ describe("memory connector bootstrap", () => {
 		ensureMemoryAdaptersRegistered();
 		expect(listConnectorTypes("memory").map((item) => item.type).sort()).toEqual([
 			"claude",
+			"cognee",
 			"langgraph",
 			"mem0",
 			"memcode",
+			"supermemory",
 			"zep",
 		]);
 		expect(listConnectorTypes("datasource")).toHaveLength(0);

@@ -158,6 +158,8 @@ export interface MemoryListPage {
  */
 export interface MemoryGraphFilter {
 	userId?: string;
+	/** Session filter, for backends whose graph is scoped to one (Cognee dataset). */
+	sessionId?: string;
 	maxNodes?: number;
 	maxEdges?: number;
 }

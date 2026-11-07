@@ -21,6 +21,8 @@ const CONNECTOR_DISPLAY_NAMES: Record<string, string> = {
 	memcode: "MemCode",
 	zep: "Zep",
 	langgraph: "LangGraph",
+	cognee: "Cognee",
+	supermemory: "Supermemory",
 };
 
 export function classifySignalRoutingChange(

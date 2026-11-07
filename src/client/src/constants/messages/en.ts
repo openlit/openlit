@@ -2980,6 +2980,36 @@ export const MEMORY_CONNECTOR_AUTH_HELP_MEMCODE =
 	"Use a MemCode API key from memory.memcode.in. Calls send Authorization: Bearer.";
 export const MEMORY_CONNECTOR_AUTH_HELP_ZEP =
 	"Use a Zep Cloud API key. Self-hosted Zep can use a custom endpoint with the same Api-Key authentication.";
+export const MEMORY_CONNECTOR_COGNEE_DESCRIPTION =
+	"Browse, search, and edit the documents and knowledge graph in a Cognee dataset.";
+export const MEMORY_CONNECTOR_SUPERMEMORY_DESCRIPTION =
+	"Store and search long-term agent memories with Supermemory.";
+export const MEMORY_CONNECTOR_AUTH_HELP_COGNEE =
+	"Leave the API key empty for a self-hosted Cognee server with authentication disabled. For Cognee Cloud or a server that requires an API key, paste it; it is sent as X-Api-Key. Login tokens (Bearer) are not supported.";
+export const MEMORY_CONNECTOR_COGNEE_API_KEY_HELP =
+	"Optional. Sent as X-Api-Key when set.";
+export const MEMORY_CONNECTOR_AUTH_HELP_SUPERMEMORY =
+	"Use a Supermemory API key. Calls send Authorization: Bearer. A self-hosted Supermemory server can use a custom endpoint with the same authentication. The key must be allowed to list namespaces.";
+export const MEMORY_CONNECTOR_FIELD_DATASET = "Dataset";
+export const MEMORY_CONNECTOR_FIELD_SUPERMEMORY_NAMESPACE = "Namespace";
+export const MEMORY_CONNECTOR_BAD_RESPONSE =
+	"The memory service returned a response OpenLIT could not read.";
+export const MEMORY_CONNECTOR_COGNEE_URL_REQUIRED =
+	"A Cognee server URL is required.";
+export const MEMORY_CONNECTOR_COGNEE_AUTH_FAILED =
+	"Cognee rejected the credentials. Check the API key, or clear it for servers without authentication.";
+export const MEMORY_CONNECTOR_COGNEE_API_NOT_FOUND =
+	"The Cognee API was not found at this URL. Check the server URL.";
+export const MEMORY_CONNECTOR_COGNEE_DATASET_NOT_FOUND =
+	"No Cognee dataset with this name or id is visible to this API key.";
+export const MEMORY_CONNECTOR_COGNEE_LOOKUP_LIMIT =
+	"This Cognee dataset is too large to look up one document by id. Open the memory from the list instead.";
+export const MEMORY_CONNECTOR_COGNEE_COGNIFY_FAILED = (reason: string) =>
+	`Cognee stored the memory but could not start building its graph (${reason}). Adding the same text again retries it.`;
+export const MEMORY_CONNECTOR_SUPERMEMORY_AUTH_FAILED =
+	"Supermemory rejected the API key. Check the key and that it can list namespaces.";
+export const MEMORY_CONNECTOR_SUPERMEMORY_ADD_FAILED =
+	"Supermemory accepted the request but marked the document as failed.";
 export const MEMORY_CONNECTOR_LANGGRAPH_DESCRIPTION =
 	"Browse and edit long-term memories in a LangGraph Store.";
 export const MEMORY_CONNECTOR_AUTH_HELP_LANGGRAPH =
@@ -3304,6 +3334,16 @@ export const DATA_SOURCE_SETUP_GUIDES: Record<string, { summary: string; steps: 
 		summary: "Connect OpenLIT to the Store API of a LangGraph server.",
 		steps: ["Enter the LangGraph server URL, for example a LangGraph Platform deployment or a self-hosted server such as http://localhost:2024.", "For LangGraph Platform, paste a LangSmith API key. Leave it empty for self-hosted servers without authentication.", "Optionally set a namespace template such as memories/{user_id}, then test the connection."],
 		docsUrl: "https://docs.langchain.com/langsmith/agent-server",
+	},
+	cognee: {
+		summary: "Connect OpenLIT to Cognee to browse a dataset's documents and knowledge graph.",
+		steps: ["Enter the Cognee server URL, for example a Cognee Cloud tenant or a self-hosted server such as http://localhost:8000.", "Paste an API key if the server requires one. Leave it empty for self-hosted servers with authentication disabled.", "Save the connector, then pick a dataset on the Memory page. Adding a memory also starts building the dataset's graph, which uses the LLM configured on your Cognee server."],
+		docsUrl: "https://docs.cognee.ai/api-reference/introduction",
+	},
+	supermemory: {
+		summary: "Connect OpenLIT to Supermemory for long-term agent memory.",
+		steps: ["Create a Supermemory API key in the developer console, or point the endpoint at a self-hosted Supermemory server.", "Paste the API key into the credentials field. It is stored in the OpenLIT vault.", "Save the connector, then pick a namespace on the Memory page. Added text becomes searchable memories after Supermemory finishes processing it."],
+		docsUrl: "https://api.supermemory.ai/v5/reference",
 	},
 	trustabl: {
 		summary: "Connect OpenLIT to Trustabl for agent reliability scans.",
