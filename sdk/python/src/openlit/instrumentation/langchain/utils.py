@@ -476,9 +476,11 @@ def common_chat_logic(
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_TOOL_CALL_ID, ", ".join(filter(None, ids))
         )
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, ", ".join(filter(None, args))
-        )
+        if capture_message_content:
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+                ", ".join(filter(None, args)),
+            )
 
     # Span Attributes for Cost and Tokens
     scope._span.set_attribute(
