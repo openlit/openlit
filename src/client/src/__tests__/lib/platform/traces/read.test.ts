@@ -651,6 +651,30 @@ describe("getTraceSpanRecord", () => {
 		expect(res.record).toMatchObject({ SpanId: "s1", TraceId: "t1" });
 	});
 
+	it("bounds the trace read with the span time it just resolved", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const getTraceSpans = jest.fn().mockResolvedValue([]);
+		mockGetAdapter.mockResolvedValue({
+			getSpan: jest.fn().mockResolvedValue({
+				traceId: "t1",
+				spanId: "s1",
+				parentSpanId: "",
+				name: "chat",
+				serviceName: "api",
+				timestamp: "2026-07-01T00:00:00.000Z",
+				durationNs: 1,
+				statusCode: "OK",
+				spanAttributes: {},
+				resourceAttributes: {},
+			}),
+			getTraceSpans,
+		});
+
+		await getTraceSpanRecord("s1");
+
+		expect(getTraceSpans).toHaveBeenCalledWith("t1", "2026-07-01T00:00:00.000Z");
+	});
+
 	it("falls back to getTraceSpans when TraceId is provided and getSpan misses", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		const getSpan = jest.fn().mockResolvedValue(null);

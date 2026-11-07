@@ -402,7 +402,8 @@ export interface DataSourceAdapter {
 	// Traces
 	listSpans(query: OpenLITQuery): Promise<DataFrame<NormalizedSpan>>;
 	getSpan(spanId: string): Promise<NormalizedSpan | null>;
-	getTraceSpans(traceId: string): Promise<NormalizedSpan[]>;
+	/** `spanTimestamp`, when a span of the trace is known, lets the read skip distant partitions. */
+	getTraceSpans(traceId: string, spanTimestamp?: string): Promise<NormalizedSpan[]>;
 	getSpansBySession(sessionId: string): Promise<NormalizedSpan[]>;
 	aggregateSpans(query: OpenLITQuery): Promise<DataFrame>;
 	/** Optional exact matching-span count for paginated list surfaces. */

@@ -156,6 +156,34 @@ describe("ClickHouseAdapter", () => {
 		expect(dbId).toBe("db-1");
 	});
 
+	it("getTraceSpans stays unbounded when the trace time is unknown", async () => {
+		mockDataCollector.mockResolvedValue({ data: [] });
+		await adapter.getTraceSpans("t1");
+		const [args] = mockDataCollector.mock.calls[0];
+		expect((args as { query: string }).query).not.toContain("Timestamp >=");
+	});
+
+	it("getTraceSpans bounds the scan around a known span time", async () => {
+		mockDataCollector.mockResolvedValue({ data: [] });
+		await adapter.getTraceSpans("t1", "2026-07-01 00:00:00.123456789");
+		const [args] = mockDataCollector.mock.calls[0];
+		const { query } = args as { query: string };
+		expect(query).toContain("TraceId = 't1'");
+		expect(query).toContain(
+			"Timestamp >= parseDateTimeBestEffort('2026-07-01 00:00:00.123456789') - INTERVAL 7 DAY"
+		);
+		expect(query).toContain(
+			"Timestamp <= parseDateTimeBestEffort('2026-07-01 00:00:00.123456789') + INTERVAL 7 DAY"
+		);
+	});
+
+	it("getTraceSpans escapes the span time it interpolates", async () => {
+		mockDataCollector.mockResolvedValue({ data: [] });
+		await adapter.getTraceSpans("t1", "x' OR 1=1 --");
+		const [args] = mockDataCollector.mock.calls[0];
+		expect((args as { query: string }).query).toContain("'x\\' OR 1=1 --'");
+	});
+
 	it("getSpansBySession defaults to [] when the query returns no data field", async () => {
 		mockDataCollector.mockResolvedValue({});
 		expect(await adapter.getSpansBySession("sess-1")).toEqual([]);

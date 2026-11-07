@@ -612,7 +612,7 @@ export async function getTraceSpanRecord(
 		let record = denormalizeSpanToTraceRow(span);
 		if (span.traceId && typeof adapter.getTraceSpans === "function") {
 			try {
-				const tree = await adapter.getTraceSpans(span.traceId);
+				const tree = await adapter.getTraceSpans(span.traceId, span.timestamp);
 				if (tree.length) {
 					record = await attachLoopForDetail(adapter, descriptor, record, tree);
 				} else {
@@ -691,7 +691,7 @@ export async function getTraceHierarchy(
 		if (!opts?.traceId) span = await adapter.getSpan(spanId);
 		if (!span) return { err: "Span not found", record: {} };
 
-		let spans = await adapter.getTraceSpans(span.traceId);
+		let spans = await adapter.getTraceSpans(span.traceId, span.timestamp);
 		const sessionId =
 			span.spanAttributes["coding_agent.session.id"] ||
 			span.resourceAttributes["coding_agent.session.id"];

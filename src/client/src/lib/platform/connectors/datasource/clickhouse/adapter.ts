@@ -101,6 +101,15 @@ function timeRangeClause(range: QueryTimeRange, column = "Timestamp"): string {
 }
 
 /**
+ * Partition bound for a trace read anchored on one of its spans. Wide on
+ * purpose: a trace running past it would silently lose spans from the tree.
+ */
+function traceWindowClause(spanTimestamp: string): string {
+	const anchor = `parseDateTimeBestEffort('${escapeCH(spanTimestamp)}')`;
+	return `Timestamp >= ${anchor} - INTERVAL 7 DAY AND Timestamp <= ${anchor} + INTERVAL 7 DAY`;
+}
+
+/**
  * Map attribute lookups are String-typed; Duration and arithmetic on it are
  * already numeric. `toFloat64OrZero` / `OrNull` only accept String arguments
  * in ClickHouse — wrapping `Duration / 1e9` breaks group-by aggregations.
@@ -251,10 +260,14 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			: null;
 	}
 
-	async getTraceSpans(traceId: string): Promise<NormalizedSpan[]> {
+	async getTraceSpans(
+		traceId: string,
+		spanTimestamp?: string
+	): Promise<NormalizedSpan[]> {
 		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
 		const query = `SELECT * FROM ${tracesTable}
 			WHERE TraceId = '${escapeCH(traceId)}'
+			${spanTimestamp ? `AND ${traceWindowClause(spanTimestamp)}` : ""}
 			ORDER BY Timestamp ASC
 			LIMIT 5000`;
 		const result = await queryConnectorTraces(query, this.dbConfigId);
