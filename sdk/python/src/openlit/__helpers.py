@@ -391,8 +391,12 @@ def get_env_variable(name, arg_value, error_message):
 def general_tokens(text):
     """
     Calculate the number of tokens a given text would take up.
+
+    Returns 0 for None or empty input to avoid a TypeError from len(None).
     """
 
+    if text is None:
+        return 0
     return math.ceil(len(text) / 2)
 
 
