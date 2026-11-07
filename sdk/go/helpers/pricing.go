@@ -27,13 +27,18 @@ type PricingCache struct {
 	client            *http.Client
 }
 
-// pricingResponse represents the structure from the pricing JSON
+// pricingResponse represents the structure of assets/pricing.json. Chat and
+// embedding prices there are USD per 1,000 tokens, the same unit the Python
+// and TypeScript SDKs read.
 type pricingResponse struct {
-	Data map[string]struct {
-		Input  float64 `json:"input"`
-		Output float64 `json:"output"`
-	} `json:"data"`
+	Chat map[string]struct {
+		PromptPrice     float64 `json:"promptPrice"`
+		CompletionPrice float64 `json:"completionPrice"`
+	} `json:"chat"`
+	Embeddings map[string]float64 `json:"embeddings"`
 }
+
+const tokensPerPriceUnit = 1000.0
 
 var (
 	globalPricingCache *PricingCache
@@ -153,16 +158,21 @@ func (pc *PricingCache) fetchPricing(ctx context.Context) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 
-	// Update pricing information
-	for model, prices := range pricingData.Data {
+	// Update pricing information without overriding custom pricing.
+	setIfAbsent := func(model string, pricing PricingInfo) {
 		normalizedModel := normalizeModelName(model)
-		// Don't override custom pricing
 		if _, exists := pc.prices[normalizedModel]; !exists {
-			pc.prices[normalizedModel] = PricingInfo{
-				InputCostPerToken:  prices.Input,
-				OutputCostPerToken: prices.Output,
-			}
+			pc.prices[normalizedModel] = pricing
 		}
+	}
+	for model, price := range pricingData.Embeddings {
+		setIfAbsent(model, PricingInfo{InputCostPerToken: price / tokensPerPriceUnit})
+	}
+	for model, prices := range pricingData.Chat {
+		setIfAbsent(model, PricingInfo{
+			InputCostPerToken:  prices.PromptPrice / tokensPerPriceUnit,
+			OutputCostPerToken: prices.CompletionPrice / tokensPerPriceUnit,
+		})
 	}
 
 	pc.lastFetch = time.Now()
