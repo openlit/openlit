@@ -495,7 +495,7 @@ def get_image_model_cost(model, pricing_info, size, quality):
 
     try:
         cost = pricing_info["images"][model][quality][size]
-    except:
+    except Exception:
         cost = 0
     return cost
 
@@ -506,11 +506,14 @@ def get_audio_model_cost(model, pricing_info, prompt, duration=None):
     """
 
     try:
+        audio_pricing = pricing_info["audio"][model]
         if prompt:
-            cost = (len(prompt) / 1000) * pricing_info["audio"][model]
+            cost = (len(prompt) / 1000) * audio_pricing
+        elif duration is not None:
+            cost = duration * audio_pricing
         else:
-            cost = duration * pricing_info["audio"][model]
-    except:
+            cost = 0
+    except Exception:
         cost = 0
     return cost
 
