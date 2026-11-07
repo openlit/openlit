@@ -112,6 +112,26 @@ describe("DatePickerWithRange", () => {
 		);
 	});
 
+	it("keeps an end time typed before the range is finished", () => {
+		const onCustomDateChange = jest.fn();
+		render(
+			<DatePickerWithRange
+				showTime
+				selectedDate={selectedDate}
+				onCustomDateChange={onCustomDateChange}
+			/>
+		);
+		open();
+		const pickMarch12 = () =>
+			fireEvent.click(screen.getAllByRole("gridcell", { name: "12" })[0]);
+		pickMarch12();
+		fireEvent.change(screen.getByLabelText(m.DATE_RANGE_END_TIME), {
+			target: { value: "09:50" },
+		});
+		pickMarch12();
+		expect(screen.getByLabelText(m.DATE_RANGE_END_TIME)).toHaveValue("09:50");
+	});
+
 	it("blocks a cleared field and an end before the start", () => {
 		const sameDay = {
 			start: new Date(2026, 2, 10, 9, 0),

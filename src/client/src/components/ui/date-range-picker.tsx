@@ -64,7 +64,9 @@ export function DatePickerWithRange({
 		if (range?.from && !(date?.from && isSameDay(range.from, date.from))) {
 			setStartTime("00:00");
 		}
-		if (range?.to && !(date?.to && isSameDay(range.to, date.to))) {
+		// The first click of a new range clears `to`; the second must keep any
+		// end time typed in between.
+		if (!range?.to || (date?.to && !isSameDay(range.to, date.to))) {
 			setEndTime("23:59");
 		}
 		setDate(range);
