@@ -13,6 +13,7 @@ from openlit.__helpers import (
     safe_detach,
 )
 from openlit.instrumentation.anthropic.utils import (
+    normalize_system_blocks,
     process_chunk,
     process_chat_response,
     process_streaming_chat_response,
@@ -144,6 +145,8 @@ def messages(
 
         if is_framework_llm_active():
             return wrapped(*args, **kwargs)
+
+        normalize_system_blocks(kwargs)
 
         streaming = kwargs.get("stream", False)
         server_address, server_port = set_server_address_and_port(
@@ -444,6 +447,8 @@ def messages_stream(
 
         if is_framework_llm_active():
             return wrapped(*args, **kwargs)
+
+        normalize_system_blocks(kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.anthropic.com", 443
