@@ -226,4 +226,88 @@ describe('AI21 Cross-Language Trace Comparison', () => {
       expect((OpenLitHelper as any).emitInferenceEvent).toHaveBeenCalled();
     });
   });
+
+  describe('cache token usage', () => {
+    const args = [
+      { messages: [{ role: 'user', content: 'Ping' }], model: 'jamba-large' },
+    ];
+
+    it('reports cache tokens on a non-streaming response (matches Python)', async () => {
+      await AI21Wrapper._chatCompletion({
+        args,
+        genAIEndpoint: 'ai21.chat.completions',
+        response: {
+          id: 'ai21-cache',
+          choices: [{ message: { role: 'assistant', content: 'Pong' }, finish_reason: 'stop' }],
+          usage: {
+            prompt_tokens: 40,
+            completion_tokens: 6,
+            total_tokens: 46,
+            prompt_tokens_details: { cached_tokens: 22 },
+            input_tokens_details: { cache_creation_tokens: 5 },
+          },
+        },
+        span: mockSpan,
+      });
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 40);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        22
+      );
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+        5
+      );
+    });
+
+    it('carries cache token details through the streaming accumulator', async () => {
+      async function* chunks() {
+        yield { choices: [{ delta: { content: 'Po' } }] };
+        yield {
+          choices: [{ delta: { content: 'ng' }, finish_reason: 'stop' }],
+          usage: {
+            prompt_tokens: 40,
+            completion_tokens: 6,
+            total_tokens: 46,
+            prompt_tokens_details: { cached_tokens: 22 },
+          },
+        };
+      }
+
+      const stream = AI21Wrapper._chatCompletionGenerator({
+        args,
+        genAIEndpoint: 'ai21.chat.completions',
+        response: chunks(),
+        span: mockSpan,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _chunk of stream) {
+        // consume
+      }
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 40);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        22
+      );
+    });
+
+    it('sets nothing when the provider reports no cache usage', async () => {
+      await AI21Wrapper._chatCompletion({
+        args,
+        genAIEndpoint: 'ai21.chat.completions',
+        response: {
+          id: 'ai21-nocache',
+          choices: [{ message: { role: 'assistant', content: 'Pong' }, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 40, completion_tokens: 6, total_tokens: 46 },
+        },
+        span: mockSpan,
+      });
+
+      const attrKeys = (mockSpan.setAttribute as jest.Mock).mock.calls.map((c: any[]) => c[0]);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS);
+    });
+  });
 });
