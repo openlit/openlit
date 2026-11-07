@@ -279,12 +279,13 @@ def emit_inference_event(
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
-def _chunk_mapping(chunk):
-    """Return a dict for one premai stream chunk.
+def _response_mapping(chunk):
+    """Return a dict for a premai response or stream chunk.
 
-    0.3 streams yield attrs objects. ``response_as_dict`` returns those
-    unchanged, and this reader only understands dicts. ``to_dict`` on the
-    chunk already recurses into choices and usage. Dict chunks pass through.
+    0.3 returns attrs objects, both from streams and from non-streaming
+    calls. ``response_as_dict`` returns those unchanged, and the readers only
+    understand dicts. ``to_dict`` already recurses into choices and usage.
+    Dicts pass through.
     This stays in the premai package: ``response_as_dict`` is shared by every
     provider.
     """
@@ -313,7 +314,7 @@ def process_chunk(scope, chunk):
     if len(scope._timestamps) == 1:
         scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
-    chunked = _chunk_mapping(chunk)
+    chunked = _response_mapping(chunk)
     choices = chunked.get("choices", []) if isinstance(chunked, dict) else []
     if choices:
         first_choice = choices[0] if isinstance(choices[0], dict) else {}
@@ -750,7 +751,7 @@ def process_chat_response(
     """
 
     scope = type("GenericScope", (), {})()
-    response_dict = response_as_dict(response)
+    response_dict = _response_mapping(response)
     choices = response_dict.get("choices", [])
     first_choice = choices[0] if choices else {}
     message = first_choice.get("message") or {}
@@ -760,7 +761,9 @@ def process_chat_response(
     scope._end_time = time.time()
     scope._span = span
     scope._llmresponse = str(message.get("content", ""))
-    scope._response_id = response_dict.get("additional_properties", {}).get("id")
+    scope._response_id = response_dict.get("id") or (
+        response_dict.get("additional_properties") or {}
+    ).get("id")
     scope._response_model = response_dict.get("model")
     scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._output_tokens = usage.get("completion_tokens", 0)
@@ -819,13 +822,13 @@ def process_embedding_response(
     """
 
     scope = type("GenericScope", (), {})()
-    response_dict = response_as_dict(response)
+    response_dict = _response_mapping(response)
 
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
     scope._response_model = response_dict.get("model")
-    scope._input_tokens = response_dict.get("usage").get("prompt_tokens")
+    scope._input_tokens = (response_dict.get("usage") or {}).get("prompt_tokens")
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
