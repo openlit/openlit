@@ -22,6 +22,21 @@ export function stringValue(value: unknown): string | undefined {
 	return trimmed || undefined;
 }
 
+/** A JSON object body, or `message` when the service answered something else (an HTML page, text, an array). */
+export function requireObject(
+	raw: unknown,
+	message: string
+): Record<string, unknown> {
+	if (!isPlainObject(raw)) throw new Error(message);
+	return raw;
+}
+
+/** A JSON array body, or `message` when the service answered something else. */
+export function requireArray(raw: unknown, message: string): unknown[] {
+	if (!Array.isArray(raw)) throw new Error(message);
+	return raw;
+}
+
 export function uniqueChoices(choices: MemoryFilterChoice[]): MemoryFilterChoice[] {
 	const seen = new Set<string>();
 	const next: MemoryFilterChoice[] = [];

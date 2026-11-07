@@ -28,6 +28,11 @@ import { ClaudeAdapter, claudeAdapterFactory } from "@/lib/platform/connectors/m
 import { Mem0Adapter, mem0AdapterFactory } from "@/lib/platform/connectors/memory/mem0/adapter";
 import { MemcodeAdapter, memcodeAdapterFactory } from "@/lib/platform/connectors/memory/memcode/adapter";
 import { ZepAdapter, zepAdapterFactory } from "@/lib/platform/connectors/memory/zep/adapter";
+import { CogneeAdapter, cogneeAdapterFactory } from "@/lib/platform/connectors/memory/cognee/adapter";
+import {
+	SupermemoryAdapter,
+	supermemoryAdapterFactory,
+} from "@/lib/platform/connectors/memory/supermemory/adapter";
 import {
 	LangGraphAdapter,
 	langgraphAdapterFactory,
@@ -3621,5 +3626,1274 @@ describe("LangGraph adapter", () => {
 		await expect(adapter.feedback("memories.u1:k1", { rating: "positive" })).rejects.toBeInstanceOf(
 			UnsupportedMemoryCapabilityError
 		);
+	});
+});
+
+describe("Cognee adapter", () => {
+	const BASE = "https://cognee.example.com";
+	const DS = "11111111-1111-4111-8111-111111111111";
+	const DOC = "22222222-2222-4222-8222-222222222222";
+	const REF = `${DS}:${DOC}`;
+
+	function cgDescriptor(settings: Record<string, unknown> = {}): MemorySourceDescriptor {
+		return {
+			type: "cognee",
+			id: "memory:cognee",
+			settings: { url: BASE, ...settings },
+			secretRef: "vault-1",
+			name: "cognee",
+			projectId: "proj-1",
+		};
+	}
+
+	function call(index: number) {
+		const [url, options] = mockSafeFetch.mock.calls[index];
+		return {
+			url: String(url),
+			method: options.method,
+			headers: options.headers,
+			body: options.body as string | undefined,
+		};
+	}
+
+	function dataRow(extra: Record<string, unknown> = {}) {
+		return {
+			id: DOC,
+			name: "text_abc",
+			createdAt: "2026-09-01T00:00:00Z",
+			updatedAt: "2026-09-02T00:00:00Z",
+			extension: "txt",
+			mimeType: "text/plain",
+			rawDataLocation: "file:///data/text_abc.txt",
+			datasetId: DS,
+			dataSize: 12,
+			contentHash: "0".repeat(32),
+			...extra,
+		};
+	}
+
+	it("describes a self-hosted friendly config schema and a graph-capable profile", () => {
+		const described = cogneeAdapterFactory.describe();
+		expect(described.type).toBe("cognee");
+		expect(described.capabilities).toEqual({
+			add: true,
+			search: true,
+			get: true,
+			list: true,
+			update: true,
+			delete: true,
+			feedback: false,
+		});
+		expect(described.configFields.map((field) => field.key)).toEqual(
+			expect.arrayContaining(["url", "apiKey"])
+		);
+		expect(described.configFields.find((field) => field.key === "apiKey")?.group).toBe(
+			"credentials"
+		);
+		expect(described.filterFields).toEqual([
+			expect.objectContaining({ key: "sessionId", label: "Dataset", required: true }),
+		]);
+		expect(described.authStyle).toBe("api-key");
+		expect(new CogneeAdapter(cgDescriptor()).graph).toBeInstanceOf(Function);
+	});
+
+	it("health-checks an authenticated route and sends X-Api-Key", async () => {
+		mockSafeFetch.mockResolvedValue([]);
+		const adapter = new CogneeAdapter(cgDescriptor());
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: true })
+		);
+		const request = call(0);
+		expect(request.url).toBe(`${BASE}/api/v1/datasets`);
+		expect(request.headers["X-Api-Key"]).toBe("secret-key");
+		expect(request.headers.Authorization).toBeUndefined();
+	});
+
+	it("sends no auth header when the connector has no key", async () => {
+		(resolveSourceSecret as jest.Mock).mockResolvedValueOnce({ raw: "", credentials: {} });
+		mockSafeFetch.mockResolvedValue([]);
+		await new CogneeAdapter(cgDescriptor()).healthCheck();
+		expect(call(0).headers["X-Api-Key"]).toBeUndefined();
+	});
+
+	it("explains auth failures, a missing API, and other errors in the health check", async () => {
+		const adapter = new CogneeAdapter(cgDescriptor());
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(401, "nope"));
+		await expect(adapter.healthCheck()).resolves.toMatchObject({
+			ok: false,
+			message: expect.stringContaining("rejected the credentials"),
+		});
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(403, "nope"));
+		await expect(adapter.healthCheck()).resolves.toMatchObject({
+			message: expect.stringContaining("rejected the credentials"),
+		});
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(404, "nope"));
+		await expect(adapter.healthCheck()).resolves.toMatchObject({
+			message: expect.stringContaining("API was not found"),
+		});
+		mockSafeFetch.mockRejectedValueOnce(new Error("socket hang up"));
+		await expect(adapter.healthCheck()).resolves.toMatchObject({
+			ok: false,
+			message: "socket hang up",
+		});
+	});
+
+	it("requires a server URL", async () => {
+		const adapter = new CogneeAdapter(cgDescriptor({ url: "" }));
+		await expect(adapter.healthCheck()).resolves.toMatchObject({
+			ok: false,
+			message: expect.stringContaining("server URL is required"),
+		});
+		expect(mockSafeFetch).not.toHaveBeenCalled();
+	});
+
+	it("lists datasets as session filters and returns none when the call fails", async () => {
+		mockSafeFetch.mockResolvedValueOnce([
+			{ id: DS, name: "main_dataset", ownerId: "u" },
+			{ name: "no id is skipped" },
+		]);
+		const adapter = new CogneeAdapter(cgDescriptor());
+		const filters = await adapter.listFilters();
+		expect(filters.sessions).toEqual([{ id: DS, label: "main_dataset" }]);
+		expect(filters.users).toEqual([]);
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(500, "boom"));
+		await expect(adapter.listFilters()).resolves.toMatchObject({ sessions: [] });
+	});
+
+	describe("add", () => {
+		it("stores text as a form post, then starts building the graph", async () => {
+			mockSafeFetch
+				.mockResolvedValueOnce({ status: "PipelineRunCompleted", dataset_id: DS, data_ids: [DOC] })
+				.mockResolvedValueOnce({});
+			const adapter = new CogneeAdapter(cgDescriptor());
+			const records = await adapter.add({
+				content: "Ada likes tea & scones",
+				sessionId: "main_dataset",
+				metadata: { source: "chat", node_set: "reserved" },
+			});
+			expect(records).toEqual([
+				expect.objectContaining({
+					id: REF,
+					content: "Ada likes tea & scones",
+					sessionId: DS,
+					metadata: { source: "chat", cognee: { graph: "building" } },
+				}),
+			]);
+			const add = call(0);
+			expect(add.url).toBe(`${BASE}/api/v1/add`);
+			expect(add.method).toBe("POST");
+			expect(add.headers["Content-Type"]).toBe("application/x-www-form-urlencoded");
+			const form = new URLSearchParams(add.body);
+			expect(form.get("raw_data")).toBe("Ada likes tea & scones");
+			expect(form.get("datasetName")).toBe("main_dataset");
+			expect(form.get("datasetId")).toBeNull();
+			expect(JSON.parse(form.get("external_metadata") as string)).toEqual([{ source: "chat" }]);
+			const cognify = call(1);
+			expect(cognify.url).toBe(`${BASE}/api/v1/cognify`);
+			expect(JSON.parse(cognify.body as string)).toEqual({
+				dataset_ids: [DS],
+				run_in_background: true,
+			});
+		});
+
+		it("targets an existing dataset by id and joins messages into the text", async () => {
+			mockSafeFetch
+				.mockResolvedValueOnce({ dataset_id: DS, data_ids: [DOC] })
+				.mockResolvedValueOnce({});
+			const adapter = new CogneeAdapter(cgDescriptor());
+			await adapter.add({
+				messages: [
+					{ role: "user", content: "hi" },
+					{ role: "assistant", content: "hello" },
+				],
+				sessionId: DS.toUpperCase(),
+			});
+			const form = new URLSearchParams(call(0).body);
+			expect(form.get("raw_data")).toBe("hi\nhello");
+			expect(form.get("datasetId")).toBe(DS.toUpperCase());
+			expect(form.get("datasetName")).toBeNull();
+			expect(form.get("external_metadata")).toBeNull();
+		});
+
+		it("finds the stored document by content hash when the run reports no ids", async () => {
+			mockSafeFetch
+				.mockResolvedValueOnce({ datasetId: DS })
+				.mockResolvedValueOnce([{ id: DOC }])
+				.mockResolvedValueOnce({});
+			const records = await new CogneeAdapter(cgDescriptor()).add({
+				content: "abc",
+				sessionId: DS,
+			});
+			expect(records[0].id).toBe(REF);
+			const lookup = call(1);
+			expect(lookup.url).toContain(`/api/v1/datasets/${DS}/data?`);
+			// md5("abc")
+			expect(lookup.url).toContain("content_hash=900150983cd24fb0d6963f7d28e17f72");
+		});
+
+		it("keeps the stored document when building the graph fails", async () => {
+			mockSafeFetch
+				.mockResolvedValueOnce({ dataset_id: DS, data_ids: [DOC] })
+				.mockRejectedValueOnce(new SourceResponseError(409, "LLM not configured"));
+			const records = await new CogneeAdapter(cgDescriptor()).add({
+				content: "x",
+				sessionId: DS,
+			});
+			expect(records).toHaveLength(1);
+			expect(records[0].metadata?.cognee).toEqual({
+				graph: "failed",
+				error: expect.stringContaining("LLM not configured"),
+			});
+		});
+
+		it("rejects writes without content or a dataset, and unreadable responses", async () => {
+			const adapter = new CogneeAdapter(cgDescriptor());
+			await expect(adapter.add({ content: "  ", sessionId: DS })).rejects.toThrow(
+				"Memory content or messages are required."
+			);
+			await expect(adapter.add({ content: "x" })).rejects.toThrow(
+				"A session id is required for this memory connector."
+			);
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+			mockSafeFetch.mockResolvedValueOnce("<html>proxy error</html>");
+			await expect(adapter.add({ content: "x", sessionId: DS })).rejects.toThrow(
+				"could not read"
+			);
+			mockSafeFetch.mockResolvedValueOnce({ status: "ok" });
+			await expect(adapter.add({ content: "x", sessionId: DS })).rejects.toThrow(
+				"could not read"
+			);
+			mockSafeFetch.mockResolvedValueOnce({ dataset_id: DS }).mockResolvedValueOnce([]);
+			await expect(adapter.add({ content: "x", sessionId: DS })).rejects.toThrow(
+				"could not read"
+			);
+		});
+
+		it("surfaces HTTP errors from the add call", async () => {
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(403, "no write access"));
+			await expect(
+				new CogneeAdapter(cgDescriptor()).add({ content: "x", sessionId: DS })
+			).rejects.toMatchObject({ status: 403 });
+		});
+	});
+
+	describe("search", () => {
+		it("runs a CHUNKS search and merges chunks of one document", async () => {
+			mockSafeFetch.mockResolvedValueOnce([
+				{
+					dataset_id: DS,
+					search_result: [
+						{ id: "c1", text: "Ada likes tea.", document_id: DOC, document_name: "text_abc" },
+						{ id: "c2", text: "Ada owns a cat.", document_id: DOC },
+						{ id: "c3", text: "Grace uses COBOL.", document_id: "other" },
+						{ id: "c4", text: "" },
+					],
+				},
+			]);
+			const records = await new CogneeAdapter(cgDescriptor()).search({
+				query: " who likes tea ",
+				sessionId: DS,
+				limit: 5,
+			});
+			expect(records).toEqual([
+				expect.objectContaining({
+					id: REF,
+					content: "Ada likes tea.\n\nAda owns a cat.",
+					metadata: { document_name: "text_abc", chunk_id: "c1" },
+				}),
+				expect.objectContaining({ id: `${DS}:other`, content: "Grace uses COBOL." }),
+			]);
+			const request = call(0);
+			expect(request.url).toBe(`${BASE}/api/v1/search`);
+			expect(JSON.parse(request.body as string)).toEqual({
+				search_type: "CHUNKS",
+				query: "who likes tea",
+				dataset_ids: [DS],
+				top_k: 5,
+			});
+		});
+
+		it("reads the bare result list returned when access control is off", async () => {
+			mockSafeFetch.mockResolvedValueOnce([{ id: "c1", text: "plain", document_id: DOC }]);
+			const records = await new CogneeAdapter(cgDescriptor()).search({
+				query: "q",
+				sessionId: DS,
+			});
+			expect(records).toEqual([expect.objectContaining({ id: REF, content: "plain" })]);
+		});
+
+		it("resolves a dataset name to its id, and fails clearly when it is unknown", async () => {
+			mockSafeFetch
+				.mockResolvedValueOnce([{ id: DS, name: "main_dataset" }])
+				.mockResolvedValueOnce([]);
+			const adapter = new CogneeAdapter(cgDescriptor());
+			await adapter.search({ query: "q", sessionId: "main_dataset" });
+			expect(call(0).url).toBe(`${BASE}/api/v1/datasets`);
+			expect(JSON.parse(call(1).body as string).dataset_ids).toEqual([DS]);
+
+			mockSafeFetch.mockResolvedValueOnce([{ id: DS, name: "other" }]);
+			await expect(adapter.search({ query: "q", sessionId: "missing" })).rejects.toThrow(
+				"No Cognee dataset"
+			);
+		});
+
+		it("rejects an empty query, a missing dataset, and a non-list response", async () => {
+			const adapter = new CogneeAdapter(cgDescriptor());
+			await expect(adapter.search({ query: " ", sessionId: DS })).rejects.toThrow(
+				"search query is required"
+			);
+			await expect(adapter.search({ query: "q" })).rejects.toThrow(
+				"A session id is required"
+			);
+			mockSafeFetch.mockResolvedValueOnce({ detail: "weird" });
+			await expect(adapter.search({ query: "q", sessionId: DS })).rejects.toThrow(
+				"could not read"
+			);
+		});
+
+		it("surfaces HTTP errors from search", async () => {
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(409, "no data added"));
+			await expect(
+				new CogneeAdapter(cgDescriptor()).search({ query: "q", sessionId: DS })
+			).rejects.toMatchObject({ status: 409 });
+		});
+	});
+
+	describe("list", () => {
+		it("pages a dataset's documents with a durable total", async () => {
+			mockSafeFetch
+				.mockResolvedValueOnce([dataRow({ label: "profile", externalMetadata: { source: "chat" } })])
+				.mockResolvedValueOnce({ count: 3 });
+			const page = await new CogneeAdapter(cgDescriptor()).listPage({
+				sessionId: DS,
+				limit: 1,
+				offset: 1,
+			});
+			expect(page).toMatchObject({ total: 3, hasMore: true, nextOffset: 2 });
+			expect(page.records).toEqual([
+				expect.objectContaining({
+					id: REF,
+					content: "text_abc",
+					sessionId: DS,
+					categories: ["profile"],
+					createdAt: "2026-09-01T00:00:00Z",
+					metadata: expect.objectContaining({
+						source: "chat",
+						mime_type: "text/plain",
+						data_size: 12,
+					}),
+				}),
+			]);
+			expect(call(0).url).toBe(`${BASE}/api/v1/datasets/${DS}/data?limit=1&offset=1`);
+			expect(call(1).url).toBe(`${BASE}/api/v1/datasets/${DS}/data/count`);
+		});
+
+		it("still lists when the count call fails, and reports the last page", async () => {
+			mockSafeFetch
+				.mockResolvedValueOnce([dataRow()])
+				.mockRejectedValueOnce(new SourceResponseError(500, "x"));
+			const page = await new CogneeAdapter(cgDescriptor()).listPage({ sessionId: DS });
+			expect(page.total).toBeUndefined();
+			expect(page.hasMore).toBe(false);
+			expect(page.records).toHaveLength(1);
+		});
+
+		it("list() returns only the records", async () => {
+			mockSafeFetch.mockResolvedValueOnce([dataRow()]).mockResolvedValueOnce({ count: 1 });
+			await expect(
+				new CogneeAdapter(cgDescriptor()).list({ sessionId: DS })
+			).resolves.toHaveLength(1);
+		});
+
+		it("requires a dataset and a list response", async () => {
+			const adapter = new CogneeAdapter(cgDescriptor());
+			await expect(adapter.list({})).rejects.toThrow("A session id is required");
+			mockSafeFetch
+				.mockResolvedValueOnce({ detail: "nope" })
+				.mockResolvedValueOnce({ count: 0 });
+			await expect(adapter.list({ sessionId: DS })).rejects.toThrow("could not read");
+		});
+
+		it("surfaces a rejected key as an HTTP error", async () => {
+			mockSafeFetch.mockRejectedValue(new SourceResponseError(401, "Unauthorized"));
+			await expect(
+				new CogneeAdapter(cgDescriptor()).list({ sessionId: DS })
+			).rejects.toMatchObject({ status: 401 });
+		});
+	});
+
+	describe("get", () => {
+		it("reads the stored text of a text document", async () => {
+			mockSafeFetch
+				.mockResolvedValueOnce([dataRow()])
+				.mockResolvedValueOnce("Ada likes tea.\n");
+			const record = await new CogneeAdapter(cgDescriptor()).get(REF);
+			expect(record).toMatchObject({ id: REF, content: "Ada likes tea." });
+			expect(call(1).url).toBe(`${BASE}/api/v1/datasets/${DS}/data/${DOC}/raw`);
+		});
+
+		it("turns JSON-looking text back into text", async () => {
+			mockSafeFetch
+				.mockResolvedValueOnce([dataRow()])
+				.mockResolvedValueOnce({ a: 1 });
+			const record = await new CogneeAdapter(cgDescriptor()).get(REF);
+			expect(record?.content).toBe('{"a":1}');
+		});
+
+		it("keeps the listed record for a binary document", async () => {
+			mockSafeFetch.mockResolvedValueOnce([dataRow({ mimeType: "application/pdf" })]);
+			const record = await new CogneeAdapter(cgDescriptor()).get(REF);
+			expect(record?.content).toBe("text_abc");
+			expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		});
+
+		it("returns null for a malformed id, a missing document, or a missing dataset", async () => {
+			const adapter = new CogneeAdapter(cgDescriptor());
+			await expect(adapter.get("not-a-ref")).resolves.toBeNull();
+			await expect(adapter.get(`${DS}:nope`)).resolves.toBeNull();
+			await expect(adapter.get(`${DS}:${DOC}:extra`)).resolves.toBeNull();
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+			mockSafeFetch.mockResolvedValueOnce([dataRow({ id: "33333333-3333-4333-8333-333333333333" })]);
+			await expect(adapter.get(REF)).resolves.toBeNull();
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(404, "Dataset not found"));
+			await expect(adapter.get(REF)).resolves.toBeNull();
+		});
+
+		it("rethrows other HTTP errors", async () => {
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(500, "boom"));
+			await expect(new CogneeAdapter(cgDescriptor()).get(REF)).rejects.toMatchObject({
+				status: 500,
+			});
+		});
+
+		it("pages past a full first page to find the document", async () => {
+			const filler = Array.from({ length: 1000 }, (_, index) =>
+				dataRow({ id: `44444444-4444-4444-8444-${String(index).padStart(12, "0")}` })
+			);
+			mockSafeFetch
+				.mockResolvedValueOnce(filler)
+				.mockResolvedValueOnce([dataRow({ mimeType: "application/pdf" })]);
+			const record = await new CogneeAdapter(cgDescriptor()).get(REF);
+			expect(record?.id).toBe(REF);
+			expect(call(1).url).toContain("limit=1000&offset=1000");
+		});
+	});
+
+	describe("update", () => {
+		it("replaces the document text with a multipart patch", async () => {
+			mockSafeFetch.mockResolvedValueOnce({ status: "incremental", data_id: DOC });
+			const record = await new CogneeAdapter(cgDescriptor()).update(REF, {
+				content: " Ada likes coffee ",
+			});
+			expect(record).toEqual({ id: REF, content: "Ada likes coffee", sessionId: DS });
+			const request = call(0);
+			expect(request.method).toBe("PATCH");
+			expect(request.url).toBe(`${BASE}/api/v1/update?data_id=${DOC}&dataset_id=${DS}`);
+			expect(request.headers["Content-Type"]).toMatch(/^multipart\/form-data; boundary=openlit-/);
+			const boundary = request.headers["Content-Type"].split("boundary=")[1];
+			expect(request.body).toBe(
+				[
+					`--${boundary}`,
+					'Content-Disposition: form-data; name="data"; filename="memory.txt"',
+					"Content-Type: text/plain; charset=utf-8",
+					"",
+					"Ada likes coffee",
+					`--${boundary}--`,
+					"",
+				].join("\r\n")
+			);
+		});
+
+		it("reports a failed rebuild, bad ids, and empty content", async () => {
+			const adapter = new CogneeAdapter(cgDescriptor());
+			mockSafeFetch.mockResolvedValueOnce({
+				status: "failed",
+				error: { error_class: "LLMError", message: "LLM key missing" },
+			});
+			await expect(adapter.update(REF, { content: "x" })).rejects.toThrow("LLM key missing");
+			await expect(adapter.update("bad", { content: "x" })).rejects.toThrow(
+				"could not be found"
+			);
+			await expect(adapter.update(REF, { content: "  " })).rejects.toThrow(
+				"Memory content or messages are required."
+			);
+			mockSafeFetch.mockResolvedValueOnce({ status: "failed" });
+			await expect(adapter.update(REF, { content: "x" })).rejects.toThrow("could not read");
+		});
+
+		it("surfaces HTTP errors from update", async () => {
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(422, "bad id"));
+			await expect(
+				new CogneeAdapter(cgDescriptor()).update(REF, { content: "x" })
+			).rejects.toMatchObject({ status: 422 });
+		});
+	});
+
+	describe("delete", () => {
+		it("deletes a document from its dataset", async () => {
+			mockSafeFetch.mockResolvedValueOnce({ status: "success", deletedNodes: 3 });
+			await expect(new CogneeAdapter(cgDescriptor()).delete(REF)).resolves.toBeUndefined();
+			const request = call(0);
+			expect(request.method).toBe("DELETE");
+			expect(request.url).toBe(`${BASE}/api/v1/datasets/${DS}/data/${DOC}`);
+		});
+
+		it("treats a not_found receipt as an error, and rejects malformed ids", async () => {
+			const adapter = new CogneeAdapter(cgDescriptor());
+			mockSafeFetch.mockResolvedValueOnce({ status: "not_found" });
+			await expect(adapter.delete(REF)).rejects.toThrow("could not be found");
+			await expect(adapter.delete("memory-1")).rejects.toThrow("could not be found");
+			expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		});
+
+		it("surfaces HTTP errors from delete", async () => {
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(401, "Unauthorized"));
+			await expect(new CogneeAdapter(cgDescriptor()).delete(REF)).rejects.toMatchObject({
+				status: 401,
+			});
+		});
+	});
+
+	describe("graph", () => {
+		const documentNode = { id: DOC, label: "text_abc", type: "TextDocument", properties: {} };
+		const chunkNode = { id: "c1", label: "DocumentChunk_c1", type: "DocumentChunk", properties: {} };
+		const adaNode = { id: "e1", label: "Ada", type: "Person", properties: {} };
+		const teaNode = { id: "e2", label: "tea", type: "Entity", properties: {} };
+
+		it("reads the dataset graph and folds chunks into their documents", async () => {
+			mockSafeFetch.mockResolvedValueOnce({
+				nodes: [documentNode, chunkNode, adaNode, teaNode, { label: "no id" }],
+				edges: [
+					{ source: "c1", target: DOC, label: "is_part_of" },
+					{ source: "c1", target: "e1", label: "contains" },
+					{ source: "e1", target: "e2", label: "likes" },
+					{ source: "e1", target: "e1", label: "self" },
+					{ source: "e1", target: "ghost", label: "dangling" },
+				],
+			});
+			const graph = await new CogneeAdapter(cgDescriptor()).graph({ sessionId: DS });
+			expect(call(0).url).toBe(`${BASE}/api/v1/datasets/${DS}/graph`);
+			expect(graph.kind).toBe("knowledge");
+			expect(graph.totalMemories).toBe(1);
+			expect(graph.truncated).toBe(false);
+			expect(graph.nodes.map((node) => node.id).sort()).toEqual([DOC, "e1", "e2"].sort());
+			expect(graph.nodes.find((node) => node.id === DOC)).toMatchObject({
+				type: "memory",
+				memoryId: REF,
+				label: "text_abc",
+			});
+			expect(graph.nodes.find((node) => node.id === "e1")).toMatchObject({
+				type: "entity",
+				entityType: "entity",
+				label: "Ada",
+			});
+			expect(graph.edges).toEqual(
+				expect.arrayContaining([
+					{ from: DOC, to: "e1", label: "contains" },
+					{ from: "e1", to: "e2", label: "likes" },
+				])
+			);
+			expect(graph.edges).toHaveLength(2);
+		});
+
+		it("keeps the best-connected nodes when the graph exceeds the budget", async () => {
+			mockSafeFetch.mockResolvedValueOnce({
+				nodes: [adaNode, teaNode, { id: "e3", label: "lonely", type: "Entity" }],
+				edges: [{ source: "e1", target: "e2", label: "likes" }],
+			});
+			const graph = await new CogneeAdapter(cgDescriptor()).graph({
+				sessionId: DS,
+				maxNodes: 2,
+			});
+			expect(graph.nodes.map((node) => node.id).sort()).toEqual(["e1", "e2"]);
+			expect(graph.truncated).toBe(true);
+			expect(graph.edges).toHaveLength(1);
+		});
+
+		it("requires a dataset and a graph object, and surfaces HTTP errors", async () => {
+			const adapter = new CogneeAdapter(cgDescriptor());
+			await expect(adapter.graph({})).rejects.toThrow("A session id is required");
+			mockSafeFetch.mockResolvedValueOnce("<html></html>");
+			await expect(adapter.graph({ sessionId: DS })).rejects.toThrow("could not read");
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(404, "Dataset not found"));
+			await expect(adapter.graph({ sessionId: DS })).rejects.toMatchObject({ status: 404 });
+		});
+	});
+
+	it("does not support feedback", async () => {
+		const adapter = new CogneeAdapter(cgDescriptor());
+		expect(adapter.capabilities().feedback).toBe(false);
+		await expect(adapter.feedback(REF, { rating: "positive" })).rejects.toBeInstanceOf(
+			UnsupportedMemoryCapabilityError
+		);
+	});
+});
+
+describe("Supermemory adapter", () => {
+	const BASE = "https://api.supermemory.ai";
+
+	function smDescriptor(settings: Record<string, unknown> = {}): MemorySourceDescriptor {
+		return {
+			type: "supermemory",
+			id: "memory:supermemory",
+			settings: { url: BASE, ...settings },
+			secretRef: "vault-1",
+			name: "supermemory",
+			projectId: "proj-1",
+		};
+	}
+
+	function call(index: number) {
+		const [url, options] = mockSafeFetch.mock.calls[index];
+		return {
+			url: String(url),
+			method: options.method,
+			headers: options.headers,
+			body: options.body === undefined ? undefined : JSON.parse(options.body),
+		};
+	}
+
+	function memoryRow(extra: Record<string, unknown> = {}) {
+		return {
+			id: "mem_1",
+			memory: "Ada prefers tea",
+			metadata: { source: "chat" },
+			isStatic: false,
+			isInference: false,
+			isLatest: true,
+			isForgotten: false,
+			version: 2,
+			system: { createdAt: "2026-09-01T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z" },
+			...extra,
+		};
+	}
+
+	it("describes a namespace-scoped config schema with no write or graph profile", () => {
+		const described = supermemoryAdapterFactory.describe();
+		expect(described.type).toBe("supermemory");
+		expect(described.capabilities).toEqual({
+			add: true,
+			search: true,
+			get: true,
+			list: true,
+			update: false,
+			delete: true,
+			feedback: false,
+		});
+		expect(described.configFields.map((field) => field.key)).toEqual(
+			expect.arrayContaining(["url", "apiKey"])
+		);
+		expect(described.configFields.find((field) => field.key === "url")?.defaultValue).toBe(
+			BASE
+		);
+		expect(described.filterFields).toEqual([
+			expect.objectContaining({ key: "userId", label: "Namespace", required: true }),
+		]);
+		expect(described.authStyle).toBe("api-key");
+		expect("graph" in new SupermemoryAdapter(smDescriptor())).toBe(false);
+	});
+
+	it("health-checks namespaces and sends a bearer token", async () => {
+		mockSafeFetch.mockResolvedValue({ namespaces: [] });
+		const adapter = new SupermemoryAdapter(smDescriptor());
+		await expect(adapter.healthCheck()).resolves.toEqual(
+			expect.objectContaining({ ok: true })
+		);
+		const request = call(0);
+		expect(request.url).toBe(`${BASE}/namespaces?page=1&limit=1`);
+		expect(request.headers.Authorization).toBe("Bearer secret-key");
+	});
+
+	it("explains auth failures and passes other errors through", async () => {
+		const adapter = new SupermemoryAdapter(smDescriptor());
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(401, "Unauthorized"));
+		await expect(adapter.healthCheck()).resolves.toMatchObject({
+			ok: false,
+			message: expect.stringContaining("rejected the API key"),
+		});
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(403, "Forbidden"));
+		await expect(adapter.healthCheck()).resolves.toMatchObject({
+			message: expect.stringContaining("rejected the API key"),
+		});
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(500, "boom"));
+		await expect(adapter.healthCheck()).resolves.toMatchObject({
+			ok: false,
+			message: "boom",
+		});
+	});
+
+	it("omits the auth header when the secret has no usable value", async () => {
+		(resolveSourceSecret as jest.Mock).mockResolvedValueOnce({ raw: "", credentials: {} });
+		mockSafeFetch.mockResolvedValue({ namespaces: [] });
+		await new SupermemoryAdapter(smDescriptor()).healthCheck();
+		expect(call(0).headers.Authorization).toBeUndefined();
+	});
+
+	it("lists namespaces as user filters and returns none when the call fails", async () => {
+		mockSafeFetch.mockResolvedValueOnce({
+			namespaces: [{ namespace: "user_b" }, { namespace: "user_a" }, { id: "no name" }],
+			pagination: {},
+		});
+		const adapter = new SupermemoryAdapter(smDescriptor());
+		const filters = await adapter.listFilters();
+		expect(filters.users).toEqual([
+			{ id: "user_a", label: "user_a" },
+			{ id: "user_b", label: "user_b" },
+		]);
+		expect(call(0).url).toBe(`${BASE}/namespaces?page=1&limit=100`);
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(500, "x"));
+		await expect(adapter.listFilters()).resolves.toMatchObject({ users: [] });
+		mockSafeFetch.mockResolvedValueOnce({ detail: "weird" });
+		await expect(adapter.listFilters()).resolves.toMatchObject({ users: [] });
+	});
+
+	describe("add", () => {
+		it("stores a document in the namespace and returns its id", async () => {
+			mockSafeFetch.mockResolvedValueOnce({ id: "doc_1", status: "queued" });
+			const records = await new SupermemoryAdapter(smDescriptor()).add({
+				content: "Ada prefers tea",
+				userId: "user 1/a",
+				metadata: { source: "chat", tags: ["a", "b"], nested: { x: 1 }, n: 3, ok: true },
+			});
+			expect(records).toEqual([
+				expect.objectContaining({
+					id: "user%201%2Fa:document:doc_1",
+					content: "Ada prefers tea",
+					userId: "user 1/a",
+					metadata: {
+						source: "chat",
+						tags: ["a", "b"],
+						n: 3,
+						ok: true,
+						supermemory: { kind: "document", status: "queued" },
+					},
+				}),
+			]);
+			const request = call(0);
+			expect(request.url).toBe(`${BASE}/ns/user%201%2Fa/document`);
+			expect(request.method).toBe("POST");
+			expect(request.body).toEqual({
+				content: "Ada prefers tea",
+				metadata: { source: "chat", tags: ["a", "b"], n: 3, ok: true },
+			});
+		});
+
+		it("joins messages into the content and omits empty metadata", async () => {
+			mockSafeFetch.mockResolvedValueOnce({ id: "doc_1", status: "done" });
+			await new SupermemoryAdapter(smDescriptor()).add({
+				messages: [
+					{ role: "user", content: "hi" },
+					{ role: "assistant", content: "hello" },
+				],
+				userId: "u1",
+				metadata: { nested: { x: 1 } },
+			});
+			expect(call(0).body).toEqual({ content: "hi\nhello" });
+		});
+
+		it("rejects writes without content or a namespace", async () => {
+			const adapter = new SupermemoryAdapter(smDescriptor());
+			await expect(adapter.add({ content: " ", userId: "u1" })).rejects.toThrow(
+				"Memory content or messages are required."
+			);
+			await expect(adapter.add({ content: "x" })).rejects.toThrow(
+				"A user, agent, or session is required"
+			);
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+		});
+
+		it("rejects a failed document and unreadable responses", async () => {
+			const adapter = new SupermemoryAdapter(smDescriptor());
+			mockSafeFetch.mockResolvedValueOnce({ id: "doc_1", status: "failed" });
+			await expect(adapter.add({ content: "x", userId: "u1" })).rejects.toThrow(
+				"marked the document as failed"
+			);
+			mockSafeFetch.mockResolvedValueOnce({ status: "queued" });
+			await expect(adapter.add({ content: "x", userId: "u1" })).rejects.toThrow(
+				"could not read"
+			);
+			mockSafeFetch.mockResolvedValueOnce("<html></html>");
+			await expect(adapter.add({ content: "x", userId: "u1" })).rejects.toThrow(
+				"could not read"
+			);
+		});
+
+		it("surfaces HTTP errors from add", async () => {
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(401, "Unauthorized"));
+			await expect(
+				new SupermemoryAdapter(smDescriptor()).add({ content: "x", userId: "u1" })
+			).rejects.toMatchObject({ status: 401 });
+		});
+	});
+
+	describe("search", () => {
+		it("searches memories only and keeps similarity as the score", async () => {
+			mockSafeFetch.mockResolvedValueOnce({
+				results: [
+					{ ...memoryRow(), similarity: 0.82 },
+					{ id: "chunk_1", chunk: "A source passage", similarity: 0.5, metadata: {}, system: {} },
+					{ id: "empty", similarity: 0.1 },
+				],
+				searchTime: 12,
+			});
+			const records = await new SupermemoryAdapter(smDescriptor()).search({
+				query: " tea ",
+				userId: "user_1",
+				limit: 5,
+				threshold: 0.6,
+			});
+			expect(records).toEqual([
+				expect.objectContaining({
+					id: "user_1:mem_1",
+					content: "Ada prefers tea",
+					score: 0.82,
+					userId: "user_1",
+				}),
+				expect.objectContaining({
+					id: "user_1:chunk_1",
+					content: "A source passage",
+					metadata: { supermemory: { source: "chunk" } },
+				}),
+			]);
+			const request = call(0);
+			expect(request.url).toBe(`${BASE}/ns/user_1/search`);
+			expect(request.body).toEqual({
+				query: "tea",
+				searchMode: "memories",
+				limit: 5,
+				threshold: 0.6,
+			});
+		});
+
+		it("omits the threshold when none is given", async () => {
+			mockSafeFetch.mockResolvedValueOnce({ results: [] });
+			await new SupermemoryAdapter(smDescriptor()).search({ query: "q", userId: "u" });
+			expect(call(0).body).toEqual({ query: "q", searchMode: "memories", limit: 10 });
+		});
+
+		it("rejects an empty query, a missing namespace, and unreadable responses", async () => {
+			const adapter = new SupermemoryAdapter(smDescriptor());
+			await expect(adapter.search({ query: " ", userId: "u" })).rejects.toThrow(
+				"search query is required"
+			);
+			await expect(adapter.search({ query: "q" })).rejects.toThrow(
+				"A user, agent, or session is required"
+			);
+			mockSafeFetch.mockResolvedValueOnce({ results: "nope" });
+			await expect(adapter.search({ query: "q", userId: "u" })).rejects.toThrow(
+				"could not read"
+			);
+			mockSafeFetch.mockResolvedValueOnce([]);
+			await expect(adapter.search({ query: "q", userId: "u" })).rejects.toThrow(
+				"could not read"
+			);
+		});
+
+		it("surfaces HTTP errors from search", async () => {
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(402, "Out of credits"));
+			await expect(
+				new SupermemoryAdapter(smDescriptor()).search({ query: "q", userId: "u" })
+			).rejects.toMatchObject({ status: 402 });
+		});
+	});
+
+	describe("list", () => {
+		it("lists the latest memories of a namespace with a durable total", async () => {
+			mockSafeFetch.mockResolvedValueOnce({
+				documents: [],
+				memories: [memoryRow(), memoryRow({ id: "mem_2", isForgotten: true })],
+				pagination: { currentPage: 1, limit: 2, totalItems: 5, totalPages: 3, hasMore: true },
+			});
+			const page = await new SupermemoryAdapter(smDescriptor()).listPage({
+				userId: "user_1",
+				limit: 2,
+			});
+			expect(page).toMatchObject({ total: 5, hasMore: true, nextOffset: 2 });
+			expect(page.records[0]).toMatchObject({
+				id: "user_1:mem_1",
+				content: "Ada prefers tea",
+				userId: "user_1",
+				createdAt: "2026-09-01T00:00:00Z",
+				updatedAt: "2026-09-02T00:00:00Z",
+				metadata: {
+					source: "chat",
+					supermemory: { version: 2, is_static: false, is_inference: false, is_latest: true },
+				},
+			});
+			expect(page.records[1].lifecycleState).toBe("forgotten");
+			const request = call(0);
+			expect(request.url).toBe(
+				`${BASE}/ns/user_1/list/memories?page=1&limit=2&sort=createdAt&order=desc`
+			);
+			expect(request.method).toBe("POST");
+			expect(request.body).toEqual({});
+		});
+
+		it("maps an offset to its page and drops rows before the offset", async () => {
+			mockSafeFetch.mockResolvedValueOnce({
+				memories: [memoryRow({ id: "a" }), memoryRow({ id: "b" })],
+				pagination: { currentPage: 2, totalItems: 4, totalPages: 2 },
+			});
+			const page = await new SupermemoryAdapter(smDescriptor()).listPage({
+				userId: "u",
+				limit: 2,
+				offset: 3,
+			});
+			expect(call(0).url).toContain("page=2&limit=2");
+			expect(page.records.map((record) => record.id)).toEqual(["u:b"]);
+			expect(page).toMatchObject({ hasMore: false, nextOffset: 4 });
+		});
+
+		it("caps the page size at the API maximum and list() returns records", async () => {
+			mockSafeFetch.mockResolvedValueOnce({
+				memories: [memoryRow()],
+				pagination: { totalItems: 1, totalPages: 1 },
+			});
+			const records = await new SupermemoryAdapter(smDescriptor()).list({
+				userId: "u",
+				limit: 500,
+			});
+			expect(records).toHaveLength(1);
+			expect(call(0).url).toContain("limit=100");
+		});
+
+		it("requires a namespace and a list response", async () => {
+			const adapter = new SupermemoryAdapter(smDescriptor());
+			await expect(adapter.list({})).rejects.toThrow("A user, agent, or session is required");
+			mockSafeFetch.mockResolvedValueOnce({ memories: null });
+			await expect(adapter.list({ userId: "u" })).rejects.toThrow("could not read");
+			mockSafeFetch.mockResolvedValueOnce("<html></html>");
+			await expect(adapter.list({ userId: "u" })).rejects.toThrow("could not read");
+		});
+
+		it("surfaces a rejected key as an HTTP error", async () => {
+			mockSafeFetch.mockRejectedValue(new SourceResponseError(401, "Unauthorized"));
+			await expect(
+				new SupermemoryAdapter(smDescriptor()).list({ userId: "u" })
+			).rejects.toMatchObject({ status: 401 });
+		});
+	});
+
+	describe("get", () => {
+		it("reads a memory with its earlier versions as history", async () => {
+			mockSafeFetch.mockResolvedValueOnce({
+				...memoryRow(),
+				included: {
+					related: {
+						parents: [
+							{
+								id: "mem_0",
+								relation: "updates",
+								memory: "Ada prefers coffee",
+								metadata: {},
+								system: { updatedAt: "2026-08-01T00:00:00Z" },
+							},
+							{ id: "mem_x", relation: "extends", memory: "", system: {} },
+						],
+						children: [],
+						siblings: [],
+					},
+				},
+			});
+			const record = await new SupermemoryAdapter(smDescriptor()).get("user%201:mem_1");
+			expect(record).toMatchObject({ id: "user%201:mem_1", userId: "user 1", content: "Ada prefers tea" });
+			expect(record?.history).toEqual([
+				{
+					id: "mem_0",
+					event: "UPDATES",
+					oldMemory: "Ada prefers coffee",
+					createdAt: "2026-08-01T00:00:00Z",
+				},
+			]);
+			expect(call(0).url).toBe(
+				`${BASE}/ns/user%201/memories/mem_1?include=related&relatedLimit=20`
+			);
+		});
+
+		it("returns null for a malformed id or a memory the namespace does not have", async () => {
+			const adapter = new SupermemoryAdapter(smDescriptor());
+			await expect(adapter.get("no-namespace")).resolves.toBeNull();
+			await expect(adapter.get("u:")).resolves.toBeNull();
+			await expect(adapter.get("%E0%A4%A:mem_1")).resolves.toBeNull();
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(404, "Not found"));
+			await expect(adapter.get("u:mem_9")).resolves.toBeNull();
+		});
+
+		it("rethrows other HTTP errors and rejects unreadable responses", async () => {
+			const adapter = new SupermemoryAdapter(smDescriptor());
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(500, "boom"));
+			await expect(adapter.get("u:mem_1")).rejects.toMatchObject({ status: 500 });
+			mockSafeFetch.mockResolvedValueOnce("<html></html>");
+			await expect(adapter.get("u:mem_1")).rejects.toThrow("could not read");
+		});
+	});
+
+	describe("delete", () => {
+		it("forgets a memory by exact id", async () => {
+			mockSafeFetch.mockResolvedValueOnce({
+				count: 1,
+				matches: [{ id: "mem_1", memory: "Ada prefers tea" }],
+				errors: [],
+			});
+			await expect(
+				new SupermemoryAdapter(smDescriptor()).delete("user_1:mem_1")
+			).resolves.toBeUndefined();
+			const request = call(0);
+			expect(request.method).toBe("DELETE");
+			expect(request.url).toBe(`${BASE}/ns/user_1/memories`);
+			expect(request.body).toEqual({ ids: ["mem_1"] });
+		});
+
+		it("fails when the API reports a per-id error despite HTTP success", async () => {
+			mockSafeFetch.mockResolvedValueOnce({
+				count: 0,
+				matches: [],
+				errors: [{ id: "mem_1", error: "Memory not found" }],
+			});
+			await expect(
+				new SupermemoryAdapter(smDescriptor()).delete("u:mem_1")
+			).rejects.toThrow("Memory not found");
+		});
+
+		it("fails when nothing was forgotten and no reason is given", async () => {
+			mockSafeFetch.mockResolvedValueOnce({ count: 0, matches: [], errors: [] });
+			await expect(
+				new SupermemoryAdapter(smDescriptor()).delete("u:mem_1")
+			).rejects.toThrow("could not be found");
+		});
+
+		it("rejects malformed ids and unreadable responses", async () => {
+			const adapter = new SupermemoryAdapter(smDescriptor());
+			await expect(adapter.delete("memory-1")).rejects.toThrow("could not be found");
+			expect(mockSafeFetch).not.toHaveBeenCalled();
+			mockSafeFetch.mockResolvedValueOnce("ok");
+			await expect(adapter.delete("u:mem_1")).rejects.toThrow("could not read");
+		});
+
+		it("surfaces HTTP errors from delete", async () => {
+			mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(403, "read-only key"));
+			await expect(
+				new SupermemoryAdapter(smDescriptor()).delete("u:mem_1")
+			).rejects.toMatchObject({ status: 403 });
+		});
+	});
+
+	it("does not support update or feedback", async () => {
+		const adapter = new SupermemoryAdapter(smDescriptor());
+		expect(adapter.capabilities().update).toBe(false);
+		expect(adapter.capabilities().feedback).toBe(false);
+		await expect(adapter.update("u:mem_1", { content: "x" })).rejects.toBeInstanceOf(
+			UnsupportedMemoryCapabilityError
+		);
+		await expect(adapter.feedback("u:mem_1", { rating: "positive" })).rejects.toBeInstanceOf(
+			UnsupportedMemoryCapabilityError
+		);
+		expect(mockSafeFetch).not.toHaveBeenCalled();
+	});
+});
+
+describe("Cognee adapter hardening", () => {
+	const BASE = "https://cognee.example.com";
+	const DS = "11111111-1111-4111-8111-111111111111";
+	const DOC = "22222222-2222-4222-8222-222222222222";
+	const d = (): MemorySourceDescriptor => ({
+		type: "cognee",
+		id: "memory:cognee",
+		settings: { url: BASE },
+		secretRef: "vault-1",
+		name: "cognee",
+		projectId: "proj-1",
+	});
+	const row = (id: string) => ({ id, name: "n", mimeType: "application/pdf", datasetId: DS });
+
+	it("throws a typed error instead of null when the by-id scan hits its cap", async () => {
+		const full = Array.from({ length: 1000 }, (_, i) =>
+			row(`44444444-4444-4444-8444-${String(i).padStart(12, "0")}`)
+		);
+		mockSafeFetch.mockResolvedValue(full);
+		const { CogneeLookupLimitError } = await import(
+			"@/lib/platform/connectors/memory/cognee/adapter"
+		);
+		await expect(new CogneeAdapter(d()).get(`${DS}:${DOC}`)).rejects.toBeInstanceOf(
+			CogneeLookupLimitError
+		);
+		expect(mockSafeFetch).toHaveBeenCalledTimes(20);
+	});
+
+	it("never retries writes, and keeps retry on for reads", async () => {
+		mockSafeFetch
+			.mockRejectedValueOnce(new SourceResponseError(503, "down"))
+			.mockResolvedValueOnce({ dataset_id: DS, data_ids: [DOC] })
+			.mockResolvedValueOnce({})
+			.mockResolvedValueOnce({ status: "incremental" })
+			.mockResolvedValueOnce({ status: "success" })
+			.mockResolvedValueOnce([]);
+		const adapter = new CogneeAdapter(d());
+		await expect(adapter.add({ content: "x", sessionId: DS })).rejects.toMatchObject({
+			status: 503,
+		});
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		await adapter.add({ content: "x", sessionId: DS });
+		await adapter.update(`${DS}:${DOC}`, { content: "y" });
+		await adapter.delete(`${DS}:${DOC}`);
+		await adapter.listFilters();
+		const retry = mockSafeFetch.mock.calls.map((c) => c[1].retry);
+		expect(retry).toEqual([false, false, false, false, false, true]);
+	});
+
+	it("uses a fresh multipart boundary that never appears in the text", async () => {
+		mockSafeFetch.mockResolvedValue({ status: "incremental" });
+		const adapter = new CogneeAdapter(d());
+		await adapter.update(`${DS}:${DOC}`, { content: "a" });
+		await adapter.update(`${DS}:${DOC}`, { content: "a" });
+		const b = (i: number) =>
+			mockSafeFetch.mock.calls[i][1].headers["Content-Type"].split("boundary=")[1];
+		expect(b(0)).not.toBe(b(1));
+	});
+
+	it("truncates a graph over 600 nodes, pruning edges to dropped nodes", async () => {
+		const nodes = Array.from({ length: 700 }, (_, i) => ({ id: `n${i}`, label: `n${i}`, type: "Entity" }));
+		const edges = Array.from({ length: 699 }, (_, i) => ({ source: `n${i}`, target: `n${i + 1}`, label: "next" }));
+		mockSafeFetch.mockResolvedValueOnce({ nodes, edges });
+		const graph = await new CogneeAdapter(d()).graph({ sessionId: DS });
+		expect(graph.nodes).toHaveLength(600);
+		expect(graph.truncated).toBe(true);
+		const kept = new Set(graph.nodes.map((n) => n.id));
+		expect(graph.edges.length).toBeGreaterThan(0);
+		expect(graph.edges.length).toBeLessThan(699);
+		expect(graph.edges.every((e) => kept.has(e.from) && kept.has(e.to))).toBe(true);
+	});
+
+	it("does not leak the API key in thrown errors", async () => {
+		mockSafeFetch.mockRejectedValue(new SourceResponseError(401, "Data source responded 401: [redacted]"));
+		const adapter = new CogneeAdapter(d());
+		for (const run of [
+			() => adapter.add({ content: "x", sessionId: DS }),
+			() => adapter.list({ sessionId: DS }),
+			() => adapter.delete(`${DS}:${DOC}`),
+		]) {
+			await expect(run()).rejects.toThrow(/^(?!.*secret-key)/);
+		}
+		const health = await adapter.healthCheck();
+		expect(health.message).not.toContain("secret-key");
+	});
+});
+
+describe("Supermemory adapter hardening", () => {
+	const BASE = "https://api.supermemory.ai";
+	const d = (): MemorySourceDescriptor => ({
+		type: "supermemory",
+		id: "memory:supermemory",
+		settings: { url: BASE },
+		secretRef: "vault-1",
+		name: "supermemory",
+		projectId: "proj-1",
+	});
+
+	it("reads and deletes the document add stored, through the document routes", async () => {
+		const adapter = new SupermemoryAdapter(d());
+		mockSafeFetch.mockResolvedValueOnce({ id: "doc_1", status: "queued" });
+		const [added] = await adapter.add({ content: "Ada prefers tea", userId: "u1" });
+		expect(added.id).toBe("u1:document:doc_1");
+
+		mockSafeFetch.mockResolvedValueOnce({
+			id: "doc_1",
+			content: "Ada prefers tea",
+			summary: null,
+			title: null,
+			metadata: {},
+			system: { status: "done", createdAt: "c", updatedAt: "u" },
+		});
+		const got = await adapter.get(added.id);
+		expect(got).toMatchObject({
+			id: "u1:document:doc_1",
+			content: "Ada prefers tea",
+			metadata: { supermemory: { kind: "document", status: "done" } },
+		});
+		expect(String(mockSafeFetch.mock.calls[1][0])).toBe(`${BASE}/ns/u1/document/doc_1`);
+
+		mockSafeFetch.mockResolvedValueOnce({ count: 1, errors: [] });
+		await adapter.delete(added.id);
+		const [url, options] = mockSafeFetch.mock.calls[2];
+		expect(String(url)).toBe(`${BASE}/ns/u1/document`);
+		expect(options.method).toBe("DELETE");
+		expect(JSON.parse(options.body)).toEqual({ ids: ["doc_1"] });
+	});
+
+	it("returns null for a missing or empty document", async () => {
+		const adapter = new SupermemoryAdapter(d());
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(404, "nf"));
+		await expect(adapter.get("u1:document:x")).resolves.toBeNull();
+		mockSafeFetch.mockResolvedValueOnce({ id: "x", content: null, system: {} });
+		await expect(adapter.get("u1:document:x")).resolves.toBeNull();
+		await expect(adapter.get("u1:document:")).resolves.toBeNull();
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(500, "boom"));
+		await expect(adapter.get("u1:document:x")).rejects.toMatchObject({ status: 500 });
+	});
+
+	it("never retries writes, and keeps retry on for reads", async () => {
+		mockSafeFetch
+			.mockRejectedValueOnce(new SourceResponseError(503, "down"))
+			.mockResolvedValueOnce({ count: 1, errors: [] })
+			.mockResolvedValueOnce({ results: [] });
+		const adapter = new SupermemoryAdapter(d());
+		await expect(adapter.add({ content: "x", userId: "u" })).rejects.toMatchObject({ status: 503 });
+		expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+		await adapter.delete("u:mem_1");
+		await adapter.search({ query: "q", userId: "u" });
+		expect(mockSafeFetch.mock.calls.map((c) => c[1].retry)).toEqual([false, false, true]);
+	});
+
+	it("maps offset 25 / limit 50 to page 1 and keeps rows from the offset", async () => {
+		const rows = Array.from({ length: 50 }, (_, i) => ({
+			id: `m${i}`, memory: `memory ${i}`, metadata: {}, system: {},
+		}));
+		mockSafeFetch.mockResolvedValueOnce({
+			memories: rows,
+			pagination: { currentPage: 1, totalItems: 120, totalPages: 3, hasMore: true },
+		});
+		const page = await new SupermemoryAdapter(d()).listPage({ userId: "u", limit: 50, offset: 25 });
+		expect(String(mockSafeFetch.mock.calls[0][0])).toContain("page=1&limit=50");
+		expect(page.records).toHaveLength(25);
+		expect(page.records[0].id).toBe("u:m25");
+		expect(page).toMatchObject({ total: 120, hasMore: true, nextOffset: 50 });
+	});
+
+	it("rejects ids without a namespace and does not read across namespaces", async () => {
+		const adapter = new SupermemoryAdapter(d());
+		await expect(adapter.get("plainid")).resolves.toBeNull();
+		mockSafeFetch.mockRejectedValueOnce(new SourceResponseError(404, "other namespace"));
+		await expect(adapter.get("ns_b:mem_of_ns_a")).resolves.toBeNull();
+		expect(String(mockSafeFetch.mock.calls[0][0])).toContain("/ns/ns_b/memories/mem_of_ns_a");
+	});
+
+	it("reports non-object responses and a missing results list as unreadable", async () => {
+		const adapter = new SupermemoryAdapter(d());
+		mockSafeFetch.mockResolvedValueOnce([]);
+		await expect(adapter.listPage({ userId: "u" })).rejects.toThrow("could not read");
+		mockSafeFetch.mockResolvedValueOnce({ searchTime: 1 });
+		await expect(adapter.search({ query: "q", userId: "u" })).rejects.toThrow("could not read");
+	});
+
+	it("uses the first per-id error message on delete", async () => {
+		mockSafeFetch.mockResolvedValueOnce({
+			count: 0,
+			errors: [{ id: "a", error: "first" }, { id: "b", error: "second" }],
+		});
+		await expect(new SupermemoryAdapter(d()).delete("u:a")).rejects.toThrow("first");
+	});
+
+	it("does not leak the API key in thrown errors", async () => {
+		mockSafeFetch.mockRejectedValue(new SourceResponseError(401, "Data source responded 401: [redacted]"));
+		const adapter = new SupermemoryAdapter(d());
+		for (const run of [
+			() => adapter.add({ content: "x", userId: "u" }),
+			() => adapter.list({ userId: "u" }),
+			() => adapter.delete("u:m"),
+		]) {
+			await expect(run()).rejects.toThrow(/^(?!.*secret-key)/);
+		}
+		expect((await adapter.healthCheck()).message).not.toContain("secret-key");
 	});
 });
