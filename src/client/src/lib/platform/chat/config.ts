@@ -65,8 +65,13 @@ export async function getChatConfigWithApiKey(
 		return { err: baseUrlErr };
 	}
 
-	if (config.provider === OPENAI_COMPATIBLE_PROVIDER_ID && !config.vaultId) {
-		return { data: { ...config, apiKey: "", baseUrl } };
+	if (config.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
+		if (!baseUrl) {
+			return { err: getMessage().OPENAI_COMPATIBLE_BASE_URL_REQUIRED };
+		}
+		if (!config.vaultId) {
+			return { data: { ...config, apiKey: "", baseUrl } };
+		}
 	}
 
 	const { data: secrets, err: secretErr } = await getSecretById(
@@ -100,6 +105,24 @@ export async function getChatConfigWithApiKey(
 			baseUrl,
 		},
 	};
+}
+
+export async function clearChatConfigKey(
+	provider: string,
+	databaseConfigId: string
+): Promise<{ err?: unknown }> {
+	return intelligenceDataCollector(
+		{
+			query: `
+				ALTER TABLE ${OPENLIT_CHAT_CONFIG_TABLE}
+				UPDATE vault_id = ''
+				WHERE provider = '${Sanitizer.sanitizeValue(provider)}'
+				SETTINGS mutations_sync = 1
+			`,
+		},
+		"exec",
+		databaseConfigId
+	);
 }
 
 export async function upsertChatConfig(

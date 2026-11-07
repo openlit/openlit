@@ -1,4 +1,5 @@
 import { getChatConfig, upsertChatConfig } from "@/lib/platform/chat/config";
+import { isOwnSecret } from "@/lib/platform/vault";
 import { resolveRequestAuth } from "@/helpers/server/auth";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
@@ -42,6 +43,16 @@ export async function POST(request: NextRequest) {
 		return Response.json("Missing required fields: provider, model, vaultId", {
 			status: 400,
 		});
+	}
+
+	// The chat row is shared, so switching it to this provider must not carry
+	// someone else's key to the configurable endpoint.
+	if (
+		!keyRequired &&
+		formData.vaultId &&
+		!(await isOwnSecret(formData.vaultId, auth.databaseConfigId))
+	) {
+		return Response.json(getMessage().VAULT_SECRET_NOT_OWNED, { status: 403 });
 	}
 
 	const [thrown, result] = await asaw(

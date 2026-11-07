@@ -328,7 +328,8 @@ export default function EvaluationConfiguration() {
 								</Select>
 								{provider === OPENAI_COMPATIBLE_PROVIDER_ID && (
 									<p className="text-xs text-stone-500 dark:text-stone-400">
-										{m.PROVIDER_API_KEY_OPTIONAL_HINT}
+										{m.PROVIDER_API_KEY_OPTIONAL_HINT}{" "}
+										{m.OPENAI_COMPATIBLE_ENDPOINT_HINT(selectedProviderMeta?.baseUrl)}
 									</p>
 								)}
 								<EvaluationVaultCreate

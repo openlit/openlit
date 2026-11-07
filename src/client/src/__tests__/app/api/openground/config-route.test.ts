@@ -11,6 +11,7 @@ jest.mock('@/lib/platform/providers/config', () => ({
 	deleteOpenGroundConfig: jest.fn(),
 	toggleOpenGroundConfigStatus: jest.fn(),
 }));
+jest.mock('@/lib/platform/vault', () => ({ isOwnSecret: jest.fn() }));
 jest.mock('@/utils/asaw', () =>
 	jest.fn(async (promise: Promise<any>) => {
 		try {
@@ -34,6 +35,8 @@ import { POST } from '@/app/api/openground/config/route';
 import { getCurrentUser } from '@/lib/session';
 import { getDBConfigByUser } from '@/lib/db-config';
 import { upsertOpenGroundConfig } from '@/lib/platform/providers/config';
+import { isOwnSecret } from '@/lib/platform/vault';
+import * as messages from '@/constants/messages/en';
 
 function req(body: unknown, raw = false) {
 	return {
@@ -48,6 +51,7 @@ beforeEach(() => {
 	jest.clearAllMocks();
 	(getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u1' });
 	(getDBConfigByUser as jest.Mock).mockResolvedValue({ id: 'db-1' });
+	(isOwnSecret as jest.Mock).mockResolvedValue(true);
 });
 
 describe('POST /api/openground/config', () => {
@@ -96,5 +100,22 @@ describe('POST /api/openground/config key handling', () => {
 		const res: any = await POST(req({ provider: 'openai' }));
 		expect(res.status).toBe(400);
 		expect(upsertOpenGroundConfig).not.toHaveBeenCalled();
+	});
+
+	it("rejects a vault id the caller does not own", async () => {
+		(isOwnSecret as jest.Mock).mockResolvedValue(false);
+		const res: any = await (POST as any)(
+			req({ provider: 'openai-compatible', vaultId: 'victim-secret' })
+		);
+		expect(res).toEqual({ status: 403, body: { error: messages.VAULT_SECRET_NOT_OWNED } });
+		expect(isOwnSecret).toHaveBeenCalledWith('victim-secret', 'db-1');
+		expect(upsertOpenGroundConfig).not.toHaveBeenCalled();
+	});
+
+	it('does not check ownership when no key is selected', async () => {
+		(upsertOpenGroundConfig as jest.Mock).mockResolvedValue({ data: {} });
+		await (POST as any)(req({ provider: 'openai-compatible' }));
+		expect(isOwnSecret).not.toHaveBeenCalled();
+		expect(upsertOpenGroundConfig).toHaveBeenCalled();
 	});
 });

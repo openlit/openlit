@@ -240,6 +240,8 @@ export const SECRET_SAVED = "Secret saved successfully!";
 export const SECRET_NOT_SAVED = "Secret cannot be saved";
 export const SECRET_DELETED = "Secret deleted successfully!";
 export const SECRET_NOT_DELETED = "Error deleting secret!";
+export const VAULT_SECRET_NOT_OWNED =
+	"Select a Vault secret that you created.";
 
 // Evaluations
 export const EVALUATION_CONFIG_NOT_FOUND = "Evaluation config not set!";
@@ -303,6 +305,12 @@ export const PROVIDER_API_KEY_OPTIONAL_HINT =
 	"Optional for OpenAI-compatible endpoints. Leave empty if your server does not need a key.";
 export const OPENAI_COMPATIBLE_BASE_URL_REQUIRED =
 	"Set a base URL for the OpenAI-compatible provider under Manage Models.";
+export const OPENAI_COMPATIBLE_ENDPOINT_HINT = (baseUrl?: string) =>
+	baseUrl
+		? `Requests and the selected API key go to ${baseUrl}.`
+		: "No base URL is set for this provider yet.";
+export const MODEL_ENDPOINT_ADMIN_REQUIRED =
+	"Only an organisation owner or admin can change the base URL.";
 export const MODEL_ENDPOINT_NOT_ALLOWED =
 	"This base URL cannot be used. It must be a resolvable http(s) address without embedded credentials. Private and localhost addresses need OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS=true on the server, and cloud metadata addresses are always blocked.";
 export const EVALUATION_ENGINE_LABEL = "Engine";
@@ -879,7 +887,7 @@ export const MANAGE_PROVIDERS_REQUIRES_VAULT = "Requires API Key (Vault)";
 export const MANAGE_PROVIDERS_BASE_URL = "Base URL";
 export const MANAGE_PROVIDERS_BASE_URL_PLACEHOLDER = "http://vllm.internal:8000/v1";
 export const MANAGE_PROVIDERS_BASE_URL_HINT =
-	"Used by Chat, OpenGround and Evaluations. When OpenLIT runs in a container, localhost means the container, not your machine.";
+	"Used by every user's Chat, OpenGround and Evaluations. Changing it clears the API keys selected for this provider. When OpenLIT runs in a container, localhost means the container, not your machine.";
 
 // Costs
 export const COSTS_TITLE = "Costs";

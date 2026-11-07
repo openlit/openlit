@@ -35,6 +35,7 @@ interface ModelMetadata {
 interface ProviderMetadata {
 	providerId: string;
 	displayName: string;
+	baseUrl?: string;
 	supportedModels: ModelMetadata[];
 }
 
@@ -267,7 +268,10 @@ export default function ChatSettingsForm() {
 						</Select>
 						{!keyRequired && (
 							<p className="text-xs text-stone-500 dark:text-stone-400">
-								{m.PROVIDER_API_KEY_OPTIONAL_HINT}
+								{m.PROVIDER_API_KEY_OPTIONAL_HINT}{" "}
+								{m.OPENAI_COMPATIBLE_ENDPOINT_HINT(
+									providers.find((p) => p.providerId === provider)?.baseUrl
+								)}
 							</p>
 						)}
 						<div className="flex flex-wrap items-center gap-1 text-xs text-stone-500 dark:text-stone-400">

@@ -4,9 +4,11 @@ import {
 	isChatProvider,
 	OPENAI_COMPATIBLE_PROVIDER_ID,
 } from "@/constants/chat-providers";
+import prisma from "@/lib/prisma";
 import Sanitizer from "@/utils/sanitizer";
-import { decryptValue } from "@/utils/crypto";
-import { OPENLIT_VAULT_TABLE_NAME } from "@/lib/platform/vault/table-details";
+import asaw from "@/utils/asaw";
+import { getSecretById } from "@/lib/platform/vault";
+import { clearChatConfigKey } from "@/lib/platform/chat/config";
 import { OPENLIT_PROVIDERS_TABLE_NAME } from "./table-details";
 
 export interface OpenGroundConfigData {
@@ -108,31 +110,24 @@ export async function getOpenGroundConfigWithSecret(
 			return { data: { ...config, apiKey: "", vaultKey: "" } };
 		}
 
-		const vaultQuery = `
-      SELECT key, value
-      FROM ${OPENLIT_VAULT_TABLE_NAME}
-      WHERE id = '${Sanitizer.sanitizeValue(config.vaultId)}'
-    `;
-
-		const { data: vaultData, err: vaultErr } = await dataCollector(
-			{ query: vaultQuery },
-			"query",
-			databaseConfigId
+		const { data: secrets, err: secretErr } = await getSecretById(
+			config.vaultId,
+			databaseConfigId,
+			false
 		);
+		const secret = (secrets as any[])?.[0];
 
-		if (vaultErr || !(vaultData as any[])?.length) {
+		if (secretErr || !secret) {
 			return {
 				err: `API key not found in Vault for provider: ${provider}`,
 			};
 		}
 
-		const vaultRecord = (vaultData as any[])[0];
-
 		return {
 			data: {
 				...config,
-				apiKey: decryptValue(vaultRecord.value),
-				vaultKey: vaultRecord.key,
+				apiKey: secret.value,
+				vaultKey: secret.key,
 			},
 		};
 	} catch (error: any) {
@@ -249,6 +244,43 @@ export async function upsertOpenGroundConfig(data: {
 		console.error("Error upserting OpenGround config:", error);
 		return { err: getMessage().OPERATION_FAILED };
 	}
+}
+
+/**
+ * A saved key must not follow the endpoint to a new host, so changing the
+ * OpenAI-compatible base URL makes everyone select their key again. Each table
+ * is cleared before the new URL is stored; a failure leaves the URL unchanged.
+ */
+export async function clearOpenAICompatibleKeys(
+	databaseConfigId: string
+): Promise<{ err?: unknown }> {
+	const { err } = await dataCollector(
+		{
+			query: `
+        ALTER TABLE ${OPENLIT_PROVIDERS_TABLE_NAME}
+        UPDATE vault_id = ''
+        WHERE provider = '${OPENAI_COMPATIBLE_PROVIDER_ID}'
+        SETTINGS mutations_sync = 1
+      `,
+		},
+		"exec",
+		databaseConfigId
+	);
+	if (err) return { err };
+
+	const { err: chatErr } = await clearChatConfigKey(
+		OPENAI_COMPATIBLE_PROVIDER_ID,
+		databaseConfigId
+	);
+	if (chatErr) return { err: chatErr };
+
+	const [evaluationErr] = await asaw(
+		prisma.evaluationConfigs.updateMany({
+			where: { databaseConfigId, provider: OPENAI_COMPATIBLE_PROVIDER_ID },
+			data: { vaultId: "" },
+		})
+	);
+	return { err: evaluationErr || undefined };
 }
 
 /**

@@ -64,6 +64,8 @@ jest.mock('@/lib/platform/chat/telemetry-sql-routing', () => ({
 
 import { streamText, generateText } from 'ai';
 import { dataCollector } from '@/lib/platform/common';
+import { getModelInstance } from '@/lib/platform/chat/stream';
+import { createModel } from '@/lib/platform/providers/create-model';
 import { addMessage, getConversationMessages, updateConversation } from '@/lib/platform/chat/conversation';
 import { extractSQLFromResponse, validateSQL } from '@/lib/platform/chat/sql-validator';
 import { authorizeTelemetrySQLRouting } from '@/lib/platform/chat/telemetry-sql-routing';
@@ -74,6 +76,12 @@ async function* streamParts(parts: any[]) {
     yield part;
   }
 }
+
+describe('getModelInstance', () => {
+  it('stays importable from this module as the shared model factory', () => {
+    expect(getModelInstance).toBe(createModel);
+  });
+});
 
 describe('formatStreamError', () => {
   it('returns specific message for 401', () => {

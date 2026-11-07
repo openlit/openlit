@@ -12,6 +12,7 @@ import {
 	deleteOpenGroundConfig,
 	toggleOpenGroundConfigStatus,
 } from "@/lib/platform/providers/config";
+import { isOwnSecret } from "@/lib/platform/vault";
 import {
 	isChatProvider,
 	OPENAI_COMPATIBLE_PROVIDER_ID,
@@ -101,6 +102,13 @@ async function POSTHandler(request: NextRequest) {
 			return NextResponse.json(
 				{ error: messages.PROVIDER_EVALUATION_ONLY_ERROR },
 				{ status: 400 }
+			);
+		}
+
+		if (vaultId && !(await isOwnSecret(vaultId, dbConfig.id))) {
+			return NextResponse.json(
+				{ error: messages.VAULT_SECRET_NOT_OWNED },
+				{ status: 403 }
 			);
 		}
 

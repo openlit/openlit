@@ -3,7 +3,7 @@ import { getDBConfigByUser } from "@/lib/db-config";
 import prisma from "@/lib/prisma";
 import asaw from "@/utils/asaw";
 import { throwIfError } from "@/utils/error";
-import { getSecretById } from "../vault";
+import { getSecretById, isOwnSecret } from "../vault";
 import { Secret } from "@/types/vault";
 import {
 	EvaluationConfig,
@@ -164,6 +164,22 @@ export async function getEvaluationConfig(
 	};
 }
 
+/**
+ * Cron runs have no session, so they read the saved secret without an owner
+ * check. Saving is the only point that can stop someone else's key reaching
+ * the configurable endpoint.
+ */
+async function assertEndpointKeyOwned(
+	{ provider, vaultId }: Pick<EvaluationConfigInput, "provider" | "vaultId">,
+	databaseConfigId: string
+) {
+	if (provider !== OPENAI_COMPATIBLE_PROVIDER_ID || !vaultId) return;
+	throwIfError(
+		!(await isOwnSecret(vaultId, databaseConfigId)),
+		getMessage().VAULT_SECRET_NOT_OWNED
+	);
+}
+
 export async function setEvaluationConfig(
 	evaluationConfig: EvaluationConfigInput,
 	apiURL: string
@@ -218,6 +234,7 @@ export async function setEvaluationConfig(
 			})
 		);
 		evaluationConfig = merge(previousConfig, evaluationConfig);
+		await assertEndpointKeyOwned(evaluationConfig, dbConfig.id);
 		[err, data] = await asaw(
 			prisma.evaluationConfigs.update({
 				data: evaluationConfig,
@@ -235,6 +252,7 @@ export async function setEvaluationConfig(
 				cronJobId,
 			})
 		);
+		await assertEndpointKeyOwned(evaluationConfig, dbConfig.id);
 		[err, data] = await asaw(
 			prisma.evaluationConfigs.create({
 				data: {

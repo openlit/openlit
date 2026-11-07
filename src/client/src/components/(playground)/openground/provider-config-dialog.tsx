@@ -209,7 +209,7 @@ export default function ProviderConfigDialog({
 						<p className="text-xs text-stone-500 dark:text-stone-400">
 							{keyRequired
 								? `${provider.displayName} ${getMessage().OPENGROUND_API_KEY_STORED_IN_VAULT}`
-								: getMessage().PROVIDER_API_KEY_OPTIONAL_HINT}
+								: `${getMessage().PROVIDER_API_KEY_OPTIONAL_HINT} ${getMessage().OPENAI_COMPATIBLE_ENDPOINT_HINT(provider.baseUrl)}`}
 						</p>
 					</div>
 

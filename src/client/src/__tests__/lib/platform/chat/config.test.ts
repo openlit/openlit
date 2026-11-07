@@ -18,6 +18,7 @@ jest.mock('@/utils/sanitizer', () => ({
 import { getChatConfig, upsertChatConfig, getChatConfigWithApiKey } from '@/lib/platform/chat/config';
 import { dataCollector } from '@/lib/platform/common';
 import { getSecretById } from '@/lib/platform/vault';
+import getMessage from '@/constants/messages';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -140,6 +141,18 @@ describe('getChatConfigWithApiKey for the OpenAI-compatible provider', () => {
     const { data, err } = await getChatConfigWithApiKey();
     expect(err).toBeUndefined();
     expect(data).toMatchObject({ apiKey: '', baseUrl: 'http://llm.internal/v1' });
+    expect(getSecretById).not.toHaveBeenCalled();
+  });
+
+  it.each(['', 'v1'])('reports a missing base URL before loading the key (vault id "%s")', async (vaultId) => {
+    (dataCollector as jest.Mock).mockImplementation(async ({ query }: { query: string }) =>
+      query.includes('openlit_chat_config')
+        ? { data: [{ provider: 'openai-compatible', model: 'llama3', vaultId }] }
+        : { data: [{ ...baseRow, base_url: null }] }
+    );
+    const { data, err } = await getChatConfigWithApiKey();
+    expect(data).toBeUndefined();
+    expect(err).toBe(getMessage().OPENAI_COMPATIBLE_BASE_URL_REQUIRED);
     expect(getSecretById).not.toHaveBeenCalled();
   });
 

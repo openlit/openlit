@@ -13,6 +13,8 @@ import {
 	searchProvidersWithCustomModels,
 } from "@/lib/platform/providers/provider-service";
 import { assertModelEndpointAllowed } from "@/lib/platform/providers/create-model";
+import { clearOpenAICompatibleKeys } from "@/lib/platform/providers/config";
+import { canConfigureModelEndpoint } from "@/lib/access/model-endpoint-route";
 import { dataCollector } from "@/lib/platform/common";
 import {
 	OPENLIT_PROVIDER_METADATA_TABLE_NAME,
@@ -226,12 +228,27 @@ async function PUTHandler(request: NextRequest) {
 		let nextBaseUrl: string | null = existing.base_url;
 		if (providerId === OPENAI_COMPATIBLE_PROVIDER_ID && baseUrl !== undefined) {
 			nextBaseUrl = String(baseUrl).trim() || null;
-			if (nextBaseUrl) {
-				const [blocked] = await asaw(assertModelEndpointAllowed(nextBaseUrl));
-				if (blocked) {
+			if (nextBaseUrl !== (existing.base_url || null)) {
+				if (!(await canConfigureModelEndpoint(user.id))) {
 					return NextResponse.json(
-						{ error: getMessage().MODEL_ENDPOINT_NOT_ALLOWED },
-						{ status: 400 }
+						{ error: getMessage().MODEL_ENDPOINT_ADMIN_REQUIRED },
+						{ status: 403 }
+					);
+				}
+				if (nextBaseUrl) {
+					const [blocked] = await asaw(assertModelEndpointAllowed(nextBaseUrl));
+					if (blocked) {
+						return NextResponse.json(
+							{ error: getMessage().MODEL_ENDPOINT_NOT_ALLOWED },
+							{ status: 400 }
+						);
+					}
+				}
+				const { err: clearErr } = await clearOpenAICompatibleKeys(dbConfig.id);
+				if (clearErr) {
+					return NextResponse.json(
+						{ error: getMessage().OPERATION_FAILED },
+						{ status: 500 }
 					);
 				}
 			}

@@ -13,6 +13,8 @@ import { authorizeTelemetrySQLRouting } from "./telemetry-sql-routing";
 import { createModel } from "@/lib/platform/providers/create-model";
 
 export { CHAT_PROVIDER_IDS, isChatProvider } from "@/constants/chat-providers";
+// Kept for callers outside this repository that still import it from here.
+export { createModel as getModelInstance } from "@/lib/platform/providers/create-model";
 
 // ==================== Error Formatting ====================
 

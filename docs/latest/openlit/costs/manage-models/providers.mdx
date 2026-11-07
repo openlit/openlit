@@ -19,18 +19,22 @@ The built-in **OpenAI-compatible** provider connects Chat, OpenGround, and Evalu
 
 <Steps>
   <Step title="Set the base URL">
-    Edit **OpenAI-compatible** and set **Base URL**, including the version path, for example `http://vllm.internal:8000/v1`. One base URL applies per database configuration.
+    Edit **OpenAI-compatible** and set **Base URL**, including the version path, for example `http://vllm.internal:8000/v1`. One base URL applies to every user of a database configuration, so only the instance admin and organisation owners or admins can change it.
   </Step>
   <Step title="Register your models">
     Add each model under this provider, using the model name your server expects. Set prices here so usage is costed, or leave them at `0`.
   </Step>
   <Step title="Select it">
-    Choose the provider in Chat Settings, OpenGround, or Evaluations. The API key is optional here: select a Vault secret only if your server checks one.
+    Choose the provider in Chat Settings, OpenGround, or Evaluations. Each form shows the endpoint in use. The API key is optional here: select a Vault secret only if your server checks one, and you can only select secrets you created.
   </Step>
 </Steps>
 
 <Warning>
-Private and localhost addresses are blocked until you set [`OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS=true`](/latest/openlit/configuration#security-variables) on the server. Cloud metadata addresses such as `169.254.169.254` are always blocked, and redirects from the endpoint are not followed.
+Private and localhost addresses are blocked until you set [`OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS=true`](/latest/openlit/configuration#security-variables) on the server, including for hostnames that resolve to them when OpenLIT connects. Cloud metadata and link-local addresses are always blocked, such as `169.254.169.254`, `fd00:ec2::254`, and `fe80::/10`. Redirects from the endpoint are not followed.
+</Warning>
+
+<Warning>
+Changing the base URL clears the API keys selected for this provider in Chat, OpenGround, and Evaluations, so a saved key is never sent to a new host. Select them again after checking the new endpoint. Everyone's prompts and telemetry-based tool results go to the configured endpoint, so only set hosts you trust.
 </Warning>
 
 ### Reaching a model from a container
