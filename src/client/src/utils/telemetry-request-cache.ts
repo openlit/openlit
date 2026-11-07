@@ -13,11 +13,10 @@ const store = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<unknown>>();
 
 /**
- * Matches the default 1m poll, so a remount reuses the response until the next
- * poll. A relative poll moves the window past TIME_QUANTUM_MS, which changes
- * the cache key, so it always fetches fresh data.
+ * Below the default 1m poll: a CUSTOM range keeps its cache key across polls,
+ * so an entry that outlived the interval would answer every other poll.
  */
-const DEFAULT_TTL_MS = 60_000;
+const DEFAULT_TTL_MS = 45_000;
 /** Floor relative-range timestamps so remounts within the poll window share a key. */
 const TIME_QUANTUM_MS = 30_000;
 const MAX_ENTRIES = 80;
