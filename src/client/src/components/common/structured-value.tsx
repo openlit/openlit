@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Markdown from "@/components/common/markdown";
 import getMessage from "@/constants/messages";
 import {
+	normalizeRole,
 	parseStructuredValue,
 	stringifyValue,
 } from "@/helpers/client/span-messages";
@@ -60,12 +61,18 @@ export default function StructuredValue({
 								className="rounded-md border border-stone-200 bg-white px-2.5 py-2 dark:border-stone-800 dark:bg-stone-950"
 							>
 								<div className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
-									{message.role}
+									{normalizeRole(message.role)}
 								</div>
-								<Markdown
-									className="mt-1 text-xs leading-5 text-stone-800 dark:text-stone-200"
-									content={message.content}
-								/>
+								{markdown ? (
+									<Markdown
+										className="mt-1 text-xs leading-5 text-stone-800 dark:text-stone-200"
+										content={message.content}
+									/>
+								) : (
+									<div className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-stone-800 dark:text-stone-200">
+										{message.content}
+									</div>
+								)}
 							</div>
 						))}
 					</div>

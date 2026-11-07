@@ -25,7 +25,7 @@ describe("StructuredValue", () => {
 				],
 			},
 		]);
-		render(<StructuredValue value={raw} />);
+		render(<StructuredValue value={raw} markdown />);
 
 		expect(screen.getByText("assistant")).toBeInTheDocument();
 		expect(screen.getByTestId("markdown")).toHaveTextContent("hello");
@@ -38,6 +38,27 @@ describe("StructuredValue", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Formatted" }));
 
 		expect(screen.getByTestId("markdown")).toBeInTheDocument();
+	});
+
+	it("keeps message bubbles as plain text outside the markdown allowlist", () => {
+		const raw = JSON.stringify([{ role: "user", content: "**not markdown**" }]);
+		render(<StructuredValue value={raw} />);
+
+		expect(screen.getByText("**not markdown**")).toBeInTheDocument();
+		expect(screen.queryByTestId("markdown")).not.toBeInTheDocument();
+	});
+
+	it("labels legacy roles the way the chat view does", () => {
+		const raw = JSON.stringify([
+			{ role: "developer", content: "rules" },
+			{ role: "function", content: "result" },
+		]);
+		render(<StructuredValue value={raw} markdown />);
+
+		expect(screen.getByText("user")).toBeInTheDocument();
+		expect(screen.getByText("tool")).toBeInTheDocument();
+		expect(screen.queryByText("developer")).not.toBeInTheDocument();
+		expect(screen.queryByText("function")).not.toBeInTheDocument();
 	});
 
 	it("renders a JSON tree for objects and JSON strings", () => {
