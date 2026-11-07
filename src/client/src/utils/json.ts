@@ -19,3 +19,12 @@ export function jsonParse(str: string) {
 		return undefined;
 	}
 }
+
+/** Like `jsonParse`, but silent: for probing values that may not be JSON. */
+export function tryJsonParse(str: string): unknown {
+	try {
+		return JSON.parse(str);
+	} catch {
+		return undefined;
+	}
+}

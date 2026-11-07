@@ -50,6 +50,18 @@ describe("JSONViewer", () => {
 		expect(screen.queryByText(/"42"/)).not.toBeInTheDocument();
 	});
 
+	it("does not log while checking strings that only look like JSON", () => {
+		const log = jest.spyOn(console, "log").mockImplementation(() => {});
+		try {
+			render(<JSONViewer value={{ a: "[not json", b: "has { brace", c: '{"ok":1}' }} />);
+
+			expect(screen.getByText(/\[not json/)).toBeInTheDocument();
+			expect(log).not.toHaveBeenCalled();
+		} finally {
+			log.mockRestore();
+		}
+	});
+
 	it("honours enableClipboard={false}", () => {
 		render(<JSONViewer value={{}} enableClipboard={false} />);
 		expect(viewerProps().enableClipboard).toBe(false);

@@ -1,4 +1,4 @@
-import { jsonParse } from "@/utils/json";
+import { tryJsonParse } from "@/utils/json";
 import {
 	JsonViewer,
 	JsonViewerProps,
@@ -19,7 +19,8 @@ const objectType = defineEasyType<string>({
 		if (typeof value !== "string" || !/^\[|\{/.test(value)) {
 			return false;
 		}
-		return jsonParse(value);
+		// Probed on every render, so a non-JSON string must not log.
+		return tryJsonParse(value) !== undefined;
 	},
 	type: "object",
 	colorKey: "base0E",
