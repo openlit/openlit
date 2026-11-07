@@ -216,7 +216,9 @@ export async function getRequests(params: MetricParams) {
 	const limitBy = oneRowPerTrace ? "LIMIT 1 BY TraceId" : "";
 
 	// Page on span identity first so the sort only touches the sort column,
-	// then read full rows (heavy map columns) for that page alone.
+	// then read full rows (heavy map columns) for that page alone. The row read
+	// takes no LIMIT: the ids already bound it, and exact duplicate spans match
+	// the same id, so a LIMIT would push the page's last row off every page.
 	const query = `SELECT *	FROM ${table}
 		WHERE ${getTimeRangeWhereCondition(params) || "1"}
 		AND (Timestamp, TraceId, SpanId) IN (
@@ -229,8 +231,7 @@ export async function getRequests(params: MetricParams) {
 			OFFSET ${offset}
 		)
 		${orderBy}
-		${limitBy}
-		LIMIT ${limit}`;
+		${limitBy}`;
 
 	const { data, err } = await queryTracesSql(query, params.databaseConfigId);
 	return {

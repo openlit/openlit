@@ -253,7 +253,28 @@ describe('getRequests id paging', () => {
     expect(query).toContain('LIMIT 10\n\t\t\tOFFSET 20');
     // The page's row order survives the second read, with the offset consumed.
     expect(query.match(/ORDER BY Timestamp desc/g)).toHaveLength(2);
-    expect(query.trim().endsWith('LIMIT 10')).toBe(true);
+    expect(query.match(/LIMIT 10/g)).toHaveLength(1);
+  });
+
+  it('shows every row when a duplicate span straddles a page boundary', async () => {
+    const pageSize = 3;
+    // Sorted result set: positions 2 and 3 are one span exported twice.
+    const ids = ['a', 'b', 'dup', 'dup', 'c', 'd', 'e'];
+    (dataCollector as jest.Mock).mockImplementation(async ({ query }) => {
+      if (!query.includes('OFFSET')) return { data: [{ total: ids.length }], err: null };
+      const offset = Number(query.match(/OFFSET (\d+)/)[1]);
+      const page = new Set(ids.slice(offset, offset + pageSize));
+      const rows = ids.filter((id) => page.has(id));
+      const rowLimit = query.split('OFFSET')[1].match(/LIMIT (\d+)/);
+      return { data: rowLimit ? rows.slice(0, Number(rowLimit[1])) : rows, err: null };
+    });
+
+    const shown = new Set<string>();
+    for (let offset = 0; offset < ids.length; offset += pageSize) {
+      const { records } = await getRequests({ ...baseParams, limit: pageSize, offset });
+      (records as string[]).forEach((id) => shown.add(id));
+    }
+    expect(Array.from(shown)).toEqual(['a', 'b', 'dup', 'c', 'd', 'e']);
   });
 
   it('applies the filter to the id page, not to the row read', async () => {
