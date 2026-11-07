@@ -564,6 +564,7 @@ export const OBSERVABILITY_LOG_ATTRS = "Log Attrs";
 export const OBSERVABILITY_RESOURCE = "Resource";
 export const OBSERVABILITY_SCOPE = "Scope";
 export const OBSERVABILITY_RAW = "Raw";
+export const OBSERVABILITY_FORMATTED = "Formatted";
 export const OBSERVABILITY_AUTO = "Auto";
 export const OBSERVABILITY_METRIC_POINTS = "Metric points";
 export const OBSERVABILITY_LOG_EVENTS = "Log events";
