@@ -3347,6 +3347,8 @@ export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS = "Maximum query window (days
 export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS_PLACEHOLDER = "30";
 export const DATA_SOURCE_MAX_TIME_RANGE_HINT = (days: number) =>
 	`Maximum ${days} day${days === 1 ? "" : "s"} for the selected data source.`;
+export const DATE_RANGE_START_TIME = "Start time";
+export const DATE_RANGE_END_TIME = "End time";
 export const DATA_SOURCE_SECRET_UNAVAILABLE =
 	"The connector credentials could not be loaded from the OpenLIT vault. Check the selected ClickHouse connection and try again.";
 export const DATA_SOURCE_SECRET_NOT_FOUND =
