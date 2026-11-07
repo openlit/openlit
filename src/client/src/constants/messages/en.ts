@@ -215,6 +215,7 @@ export const OPENAPI_SPEC_CONTEXT_HEADERS_HINT =
 	"org / project / environment headers required for signal routing";
 export const REQUEST_CURL_EXAMPLE = "Request Curl Example";
 export const COPY_SNIPPET = "Copy Snippet";
+export const COPY_CODE = "Copy code";
 export const COPIED = "Copied";
 export const REQUEST_PAYLOAD_JSON = "Request Payload (JSON)";
 export const RESPONSE_BODY_JSON = "Response Body (JSON)";
