@@ -75,3 +75,26 @@ describe('POST /api/openground/config', () => {
 		expect(upsertOpenGroundConfig).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe('POST /api/openground/config key handling', () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+		(getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1' });
+		(getDBConfigByUser as jest.Mock).mockResolvedValue({ id: 'db-1' });
+		(upsertOpenGroundConfig as jest.Mock).mockResolvedValue({ data: { id: 'cfg-1' } });
+	});
+
+	it('accepts the OpenAI-compatible provider without a vault id', async () => {
+		const res: any = await POST(req({ provider: 'openai-compatible' }));
+		expect(res.status).toBe(200);
+		expect(upsertOpenGroundConfig).toHaveBeenCalledWith(
+			expect.objectContaining({ provider: 'openai-compatible', vaultId: '' })
+		);
+	});
+
+	it('still requires a vault id for other providers', async () => {
+		const res: any = await POST(req({ provider: 'openai' }));
+		expect(res.status).toBe(400);
+		expect(upsertOpenGroundConfig).not.toHaveBeenCalled();
+	});
+});

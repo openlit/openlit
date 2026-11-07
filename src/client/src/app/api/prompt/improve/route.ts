@@ -5,7 +5,7 @@ import { resolveRequestAuth } from "@/helpers/server/auth";
 import { getDBConfigByUser } from "@/lib/db-config";
 import { getChatConfigWithApiKey } from "@/lib/platform/chat/config";
 import { saveOtterRun } from "@/lib/platform/chat/otter-runs";
-import { getModelInstance } from "@/lib/platform/chat/stream";
+import { createModel } from "@/lib/platform/providers/create-model";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
 	}
 
 	try {
-		const model = getModelInstance(config.provider, config.apiKey, config.model);
+		const model = createModel(config.provider, config.apiKey, config.model, config.baseUrl);
 		let usageStats = { promptTokens: 0, completionTokens: 0, cost: 0 };
 		const result = await generateText({
 			model,

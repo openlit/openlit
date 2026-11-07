@@ -28,6 +28,7 @@ const MIGRATION_MODULES = [
   "@/clickhouse/migrations/drop-legacy-openground-tables-migration",
   "@/clickhouse/migrations/seed-orcarouter-provider-migration",
   "@/clickhouse/migrations/seed-typesafe-provider-migration",
+  "@/clickhouse/migrations/add-openai-compatible-provider-migration",
   "@/clickhouse/migrations/encrypt-vault-values-migration",
   "@/clickhouse/migrations/add-chat-conversation-type-migration",
   "@/clickhouse/migrations/add-chat-message-model-attribution-migration",

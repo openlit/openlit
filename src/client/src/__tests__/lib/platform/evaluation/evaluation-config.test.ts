@@ -81,7 +81,7 @@ const mockDBConfig = { id: 'db-1', name: 'test-db' };
 
 // Factory function to always get a fresh copy, preventing cross-test mutation
 // (the source mutates updatedConfig.vaultId directly on the object reference)
-const makeMockEvalConfig = () => ({
+const makeMockEvalConfig = (overrides: Record<string, unknown> = {}) => ({
   id: 'eval-cfg-1',
   vaultId: 'vault-1',
   databaseConfigId: 'db-1',
@@ -90,6 +90,7 @@ const makeMockEvalConfig = () => ({
   meta: '{}',
   provider: 'openai',
   model: 'gpt-4',
+  ...overrides,
 });
 
 const mockSecret = { id: 'secret-1', key: 'OPENAI_API_KEY', value: 'sk-xxx' };
@@ -179,6 +180,17 @@ describe('getEvaluationConfig', () => {
     await expect(getEvaluationConfig(undefined, true, true)).rejects.toThrow(
       'Vault secret not found'
     );
+  });
+
+  it('does not require a vault secret for the OpenAI-compatible provider', async () => {
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, makeMockEvalConfig({ provider: 'openai-compatible', vaultId: '' })]);
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [] });
+
+    const result = await getEvaluationConfig(undefined, false, true);
+    expect(result.provider).toBe('openai-compatible');
+    expect(result.secret).toEqual({});
   });
 
   it('returns config with empty vaultId when secret not found and validateVaultId=false', async () => {
@@ -607,6 +619,14 @@ describe('getEvaluationConfigByDbConfigId', () => {
     await expect(getEvaluationConfigByDbConfigId('db-1')).rejects.toThrow(
       'Vault secret not found'
     );
+  });
+
+  it('does not require a vault secret for the OpenAI-compatible provider', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, makeMockEvalConfig({ provider: 'openai-compatible', vaultId: '' })]);
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [] });
+
+    const result = await getEvaluationConfigByDbConfigId('db-1');
+    expect(result.provider).toBe('openai-compatible');
   });
 
   it('returns full config with secret and evaluationTypes when found', async () => {

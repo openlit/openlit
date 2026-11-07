@@ -23,6 +23,24 @@ function req(body: unknown, raw = false) {
 beforeEach(() => jest.clearAllMocks());
 
 describe('POST /api/chat/config', () => {
+	it('accepts the OpenAI-compatible provider without a vault id', async () => {
+		authed();
+		(upsertChatConfig as jest.Mock).mockResolvedValue({ data: 'ok' });
+		const res = await POST(req({ provider: 'openai-compatible', model: 'llama3' }));
+		expect(res.status).toBe(200);
+		expect(upsertChatConfig).toHaveBeenCalledWith(
+			expect.objectContaining({ provider: 'openai-compatible', vaultId: '' }),
+			'db-1'
+		);
+	});
+
+	it('still requires a vault id for other providers', async () => {
+		authed();
+		const res = await POST(req({ provider: 'openai', model: 'gpt-4o' }));
+		expect(res.status).toBe(400);
+		expect(upsertChatConfig).not.toHaveBeenCalled();
+	});
+
 	it('returns 401 when unauthenticated', async () => {
 		(resolveRequestAuth as jest.Mock).mockResolvedValue(['err', null]);
 		const res = await POST(req({}));

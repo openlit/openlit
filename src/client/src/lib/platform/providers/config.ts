@@ -1,6 +1,9 @@
 import { dataCollector } from "@/lib/platform/common";
 import getMessage from "@/constants/messages";
-import { isChatProvider } from "@/constants/chat-providers";
+import {
+	isChatProvider,
+	OPENAI_COMPATIBLE_PROVIDER_ID,
+} from "@/constants/chat-providers";
 import Sanitizer from "@/utils/sanitizer";
 import { decryptValue } from "@/utils/crypto";
 import { OPENLIT_VAULT_TABLE_NAME } from "@/lib/platform/vault/table-details";
@@ -100,6 +103,10 @@ export async function getOpenGroundConfigWithSecret(
 		}
 
 		const config = (configData as any[])[0];
+
+		if (provider === OPENAI_COMPATIBLE_PROVIDER_ID && !config.vaultId) {
+			return { data: { ...config, apiKey: "", vaultKey: "" } };
+		}
 
 		const vaultQuery = `
       SELECT key, value

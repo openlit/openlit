@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import SecretForm from "@/components/(playground)/vault/form";
 import getMessage from "@/constants/messages";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
 import { consoleLog } from "@/utils/log";
 
 interface ProviderConfigDialogProps {
@@ -57,6 +58,7 @@ export default function ProviderConfigDialog({
 	const [selectedModelId, setSelectedModelId] = useState<string>("");
 
 	const provider = availableProviders.find((p) => p.providerId === providerId);
+	const keyRequired = providerId !== OPENAI_COMPATIBLE_PROVIDER_ID;
 
 	useEffect(() => {
 		if (open) {
@@ -100,7 +102,7 @@ export default function ProviderConfigDialog({
 	};
 
 	const handleSave = () => {
-		if (!selectedVaultId) {
+		if (!selectedVaultId && keyRequired) {
 			toast.error(getMessage().OPENGROUND_SELECT_API_KEY_ERROR);
 			return;
 		}
@@ -205,7 +207,9 @@ export default function ProviderConfigDialog({
 							</SelectContent>
 						</Select>
 						<p className="text-xs text-stone-500 dark:text-stone-400">
-							{provider.displayName} {getMessage().OPENGROUND_API_KEY_STORED_IN_VAULT}
+							{keyRequired
+								? `${provider.displayName} ${getMessage().OPENGROUND_API_KEY_STORED_IN_VAULT}`
+								: getMessage().PROVIDER_API_KEY_OPTIONAL_HINT}
 						</p>
 					</div>
 
@@ -260,7 +264,7 @@ export default function ProviderConfigDialog({
 					<Button variant="outline" onClick={() => onOpenChange(false)}>
 						{getMessage().CANCEL}
 					</Button>
-					<Button onClick={handleSave} disabled={loading || loadingConfig || !selectedVaultId}>
+					<Button onClick={handleSave} disabled={loading || loadingConfig || (keyRequired && !selectedVaultId)}>
 						{loading ? (isUpdating ? getMessage().UPDATING : getMessage().SAVING) : (isUpdating ? getMessage().OPENGROUND_UPDATE_CONFIGURATION : getMessage().OPENGROUND_SAVE_CONFIGURATION)}
 					</Button>
 				</DialogFooter>

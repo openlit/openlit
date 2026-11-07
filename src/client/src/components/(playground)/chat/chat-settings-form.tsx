@@ -19,7 +19,10 @@ import {
 import getMessage from "@/constants/messages";
 import SecretForm from "@/components/(playground)/vault/form";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
-import { isChatProvider } from "@/constants/chat-providers";
+import {
+	isChatProvider,
+	OPENAI_COMPATIBLE_PROVIDER_ID,
+} from "@/constants/chat-providers";
 
 interface ModelMetadata {
 	id: string;
@@ -97,8 +100,10 @@ export default function ChatSettingsForm() {
 		}
 	};
 
+	const keyRequired = provider !== OPENAI_COMPATIBLE_PROVIDER_ID;
+
 	const handleSave = async () => {
-		if (!provider || !model || !vaultId) {
+		if (!provider || !model || (keyRequired && !vaultId)) {
 			toast.error(m.CHAT_SETTINGS_FILL_ALL);
 			return;
 		}
@@ -260,6 +265,11 @@ export default function ChatSettingsForm() {
 								))}
 							</SelectContent>
 						</Select>
+						{!keyRequired && (
+							<p className="text-xs text-stone-500 dark:text-stone-400">
+								{m.PROVIDER_API_KEY_OPTIONAL_HINT}
+							</p>
+						)}
 						<div className="flex flex-wrap items-center gap-1 text-xs text-stone-500 dark:text-stone-400">
 							{m.CHAT_SETTINGS_API_KEY_HINT_PREFIX}{" "}
 							<a

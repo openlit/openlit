@@ -26,7 +26,7 @@ Object.assign(global, {
 	TextEncoder,
 });
 
-jest.mock("@/lib/platform/chat/stream", () => ({ getModelInstance: jest.fn() }));
+jest.mock("@/lib/platform/providers/create-model", () => ({ createModel: jest.fn() }));
 jest.mock("@/lib/platform/chat/config", () => ({ getChatConfigWithApiKey: jest.fn() }));
 jest.mock("@/lib/platform/request", () => ({ getHeirarchyViaSpanId: jest.fn() }));
 jest.mock("@/lib/platform/traces/read", () => ({
@@ -73,7 +73,7 @@ import {
 	streamTraceImprovementAnalysis,
 	TraceAnalysisRun,
 } from "@/lib/platform/chat/improvement";
-import { getModelInstance } from "@/lib/platform/chat/stream";
+import { createModel } from "@/lib/platform/providers/create-model";
 import { getHeirarchyViaSpanId } from "@/lib/platform/request";
 import { streamText } from "ai";
 import { emptyTraceAnalysis } from "@/types/trace-analysis";
@@ -85,7 +85,7 @@ beforeEach(() => {
 	(getChatConfigWithApiKey as jest.Mock).mockResolvedValue({
 		data: { provider: "openai", model: "gpt-4o-mini", apiKey: "sk-test" },
 	});
-	(getModelInstance as jest.Mock).mockReturnValue("model-instance");
+	(createModel as jest.Mock).mockReturnValue("model-instance");
 	(getContextFromRuleEngineForTrace as jest.Mock).mockResolvedValue({
 		matchingRuleIds: ["rule-1"],
 		contextEntityIds: ["ctx-1"],
@@ -508,7 +508,7 @@ describe("streamTraceImprovementAnalysis", () => {
 		const insertValues = (dataCollector as jest.Mock).mock.calls[1][0].values[0];
 
 		expect(streamText).toHaveBeenCalledTimes(16);
-		expect(getModelInstance).toHaveBeenCalledWith("openai", "sk-test", "gpt-4o-mini");
+		expect(createModel).toHaveBeenCalledWith("openai", "sk-test", "gpt-4o-mini", undefined);
 		expect(dimensionEvents.map((event) => event.dimension)).toEqual([
 			"strengths",
 			"improvements",

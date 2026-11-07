@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { EVALUATION_ENGINES } from "@/constants/evaluation-engines";
 import { CLIENT_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
 import { EvaluationConfig } from "@/types/evaluation";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { usePostHog } from "posthog-js/react";
@@ -120,7 +121,8 @@ export default function EvaluationConfiguration() {
 			: EVALUATION_ENGINES.find((e) => e.id === "vercel")?.id || "vercel";
 
 	const handleSave = () => {
-		if (!provider || !model || !vaultId) {
+		const keyRequired = provider !== OPENAI_COMPATIBLE_PROVIDER_ID;
+		if (!provider || !model || (keyRequired && !vaultId)) {
 			toast.error(m.EVALUATION_CONFIG_INVALID, {
 				id: EVALUATION_TOAST_ID,
 			});
@@ -324,6 +326,11 @@ export default function EvaluationConfiguration() {
 										))}
 									</SelectContent>
 								</Select>
+								{provider === OPENAI_COMPATIBLE_PROVIDER_ID && (
+									<p className="text-xs text-stone-500 dark:text-stone-400">
+										{m.PROVIDER_API_KEY_OPTIONAL_HINT}
+									</p>
+								)}
 								<EvaluationVaultCreate
 									successCallback={() =>
 										getVaultKeys({

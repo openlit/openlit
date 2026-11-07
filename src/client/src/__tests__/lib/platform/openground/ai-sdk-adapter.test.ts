@@ -1,7 +1,7 @@
 jest.mock('ai', () => ({ generateText: jest.fn() }));
 jest.mock('@ai-sdk/openai', () => ({ createOpenAI: jest.fn() }));
 jest.mock('@ai-sdk/anthropic', () => ({ createAnthropic: jest.fn() }));
-jest.mock('@ai-sdk/google', () => ({ google: jest.fn() }));
+jest.mock('@ai-sdk/google', () => ({ createGoogleGenerativeAI: jest.fn() }));
 jest.mock('@ai-sdk/mistral', () => ({ createMistral: jest.fn() }));
 jest.mock('@ai-sdk/cohere', () => ({ createCohere: jest.fn() }));
 

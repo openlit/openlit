@@ -450,6 +450,15 @@ OpenLIT enables stricter API protections by default, including security response
   ```
 </ResponseField>
 
+<ResponseField name="OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS">
+  Set to `true` to let the [OpenAI-compatible provider](/latest/openlit/costs/manage-models/providers#self-hosted-and-local-models) call private and localhost addresses. Off by default. Enable it only when everyone who can configure providers is trusted to reach your internal network from the OpenLIT server. Cloud metadata addresses stay blocked either way.
+
+  **Example**:
+  ```yaml
+  export OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS=true
+  ```
+</ResponseField>
+
 <ResponseField name="OPENLIT_ALLOWED_CORS_ORIGINS">
   Comma-separated list of browser origins that are allowed to call API-key authenticated Vault secret retrieval from another domain.
 

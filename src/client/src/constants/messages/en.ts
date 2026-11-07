@@ -299,6 +299,12 @@ export const EVALUATION_ERROR_TYPESAFE_INVALID_JSON =
 	"TypeSafe System One returned invalid JSON";
 export const PROVIDER_EVALUATION_ONLY_ERROR =
 	"This provider is evaluation-only and cannot be used here";
+export const PROVIDER_API_KEY_OPTIONAL_HINT =
+	"Optional for OpenAI-compatible endpoints. Leave empty if your server does not need a key.";
+export const OPENAI_COMPATIBLE_BASE_URL_REQUIRED =
+	"Set a base URL for the OpenAI-compatible provider under Manage Models.";
+export const MODEL_ENDPOINT_NOT_ALLOWED =
+	"This base URL cannot be used. It must be a resolvable http(s) address without embedded credentials. Private and localhost addresses need OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS=true on the server, and cloud metadata addresses are always blocked.";
 export const EVALUATION_ENGINE_LABEL = "Engine";
 export const EVALUATION_CONFIG_SECTION = "Configuration";
 export const EVALUATION_PROVIDER_LABEL = "Provider";
@@ -870,6 +876,10 @@ export const MANAGE_PROVIDERS_ID_HINT =
 export const MANAGE_PROVIDERS_DISPLAY_NAME = "Display Name";
 export const MANAGE_PROVIDERS_DESCRIPTION = "Description";
 export const MANAGE_PROVIDERS_REQUIRES_VAULT = "Requires API Key (Vault)";
+export const MANAGE_PROVIDERS_BASE_URL = "Base URL";
+export const MANAGE_PROVIDERS_BASE_URL_PLACEHOLDER = "http://vllm.internal:8000/v1";
+export const MANAGE_PROVIDERS_BASE_URL_HINT =
+	"Used by Chat, OpenGround and Evaluations. When OpenLIT runs in a container, localhost means the container, not your machine.";
 
 // Costs
 export const COSTS_TITLE = "Costs";

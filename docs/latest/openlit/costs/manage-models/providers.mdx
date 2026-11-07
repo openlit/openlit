@@ -3,7 +3,7 @@ title: "Providers"
 description: "Add and edit LLM providers in Manage Models - Provider ID, display name, description, and Requires API Key (Vault)"
 ---
 
-Providers are the top-level grouping for models on **Manage Models** (`/costs?tab=models`). OpenLIT ships 16 built-in chat providers plus **TypeSafe** for Jev evaluation models; you can add your own for self-hosted or niche APIs.
+Providers are the top-level grouping for models on **Manage Models** (`/costs?tab=models`). OpenLIT ships 17 built-in chat providers, including [OpenAI-compatible](#self-hosted-and-local-models), plus **TypeSafe** for Jev evaluation models; you can add your own for self-hosted or niche APIs.
 
 ## TypeSafe Jev models
 
@@ -12,6 +12,37 @@ Providers are the top-level grouping for models on **Manage Models** (`/costs?ta
 <Frame>
   <img src="/images/jev-manage-models.png" alt="Manage Models showing the TypeSafe provider with Jev 1.13.0, Jev Latest, and Jev Preview, and the Jev 1.13.0 editor open with Model Type Chat and input price 0.042" />
 </Frame>
+
+## Self-hosted and local models
+
+The built-in **OpenAI-compatible** provider connects Chat, OpenGround, and Evaluations to any server that implements the OpenAI `/chat/completions` API, such as Ollama, vLLM, or LM Studio.
+
+<Steps>
+  <Step title="Set the base URL">
+    Edit **OpenAI-compatible** and set **Base URL**, including the version path, for example `http://vllm.internal:8000/v1`. One base URL applies per database configuration.
+  </Step>
+  <Step title="Register your models">
+    Add each model under this provider, using the model name your server expects. Set prices here so usage is costed, or leave them at `0`.
+  </Step>
+  <Step title="Select it">
+    Choose the provider in Chat Settings, OpenGround, or Evaluations. The API key is optional here: select a Vault secret only if your server checks one.
+  </Step>
+</Steps>
+
+<Warning>
+Private and localhost addresses are blocked until you set [`OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS=true`](/latest/openlit/configuration#security-variables) on the server. Cloud metadata addresses such as `169.254.169.254` are always blocked, and redirects from the endpoint are not followed.
+</Warning>
+
+### Reaching a model from a container
+
+A containerised OpenLIT cannot reach `localhost` on your laptop, because `localhost` inside the container is the container itself. When `OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS` is on, OpenLIT rewrites `localhost` and `127.0.0.1` to `host.docker.internal` for you. Docker Desktop provides that name. On Linux, add it to the OpenLIT service:
+
+```yaml
+extra_hosts:
+  - "host.docker.internal:host-gateway"
+```
+
+The model server must also listen on an address the container can reach, not only `127.0.0.1`. For Ollama, set `OLLAMA_HOST=0.0.0.0`. In Kubernetes or Compose, use the service name instead, for example `http://vllm:8000/v1`.
 
 ## Add a provider
 
@@ -32,7 +63,7 @@ Providers are the top-level grouping for models on **Manage Models** (`/costs?ta
 
 ## Edit a provider
 
-Hover a provider in the sidebar and use the edit control to open **Edit Provider**. You can change display name, description, and the Vault requirement. **Provider ID cannot be changed** after creation.
+Hover a provider in the sidebar and use the edit control to open **Edit Provider**. You can change display name, description, and the Vault requirement, plus the base URL for **OpenAI-compatible**. **Provider ID cannot be changed** after creation.
 
 ## Delete a provider
 

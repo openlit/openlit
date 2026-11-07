@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "crypto";
 import { getChatConfigWithApiKey } from "./config";
 import { OPENLIT_TRACE_ANALYSIS_TABLE } from "./table-details";
 import { intelligenceDataCollector } from "../common";
-import { getModelInstance } from "./stream";
+import { createModel } from "@/lib/platform/providers/create-model";
 import { recoverTruncatedJson } from "./json-recovery";
 import { getTraceHierarchy } from "../traces/read";
 import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
@@ -1507,7 +1507,7 @@ export async function streamTraceImprovementAnalysis(
 		metricsChars: JSON.stringify(metrics).length,
 		ruleContextChars: JSON.stringify(ruleContext).length,
 	});
-	const modelInstance = getModelInstance(config.provider, config.apiKey, config.model);
+	const modelInstance = createModel(config.provider, config.apiKey, config.model, config.baseUrl);
 	const encoder = new TextEncoder();
 
 	const stream = new ReadableStream<Uint8Array>({

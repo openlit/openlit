@@ -123,3 +123,39 @@ describe('getChatConfigWithApiKey', () => {
     expect(data?.provider).toBe('openai');
   });
 });
+
+describe('getChatConfigWithApiKey for the OpenAI-compatible provider', () => {
+  const baseRow = { provider_id: 'openai-compatible', display_name: 'OpenAI-compatible', base_url: 'http://llm.internal/v1' };
+
+  function mockConfig(vaultId: string) {
+    (dataCollector as jest.Mock).mockImplementation(async ({ query }: { query: string }) =>
+      query.includes('openlit_chat_config')
+        ? { data: [{ provider: 'openai-compatible', model: 'llama3', vaultId }] }
+        : { data: [baseRow] }
+    );
+  }
+
+  it('returns an empty key and the provider base URL without touching the vault', async () => {
+    mockConfig('');
+    const { data, err } = await getChatConfigWithApiKey();
+    expect(err).toBeUndefined();
+    expect(data).toMatchObject({ apiKey: '', baseUrl: 'http://llm.internal/v1' });
+    expect(getSecretById).not.toHaveBeenCalled();
+  });
+
+  it('uses the vault key when one is selected', async () => {
+    mockConfig('v1');
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [{ value: 'local-key' }] });
+    const { data } = await getChatConfigWithApiKey();
+    expect(data).toMatchObject({ apiKey: 'local-key', baseUrl: 'http://llm.internal/v1' });
+  });
+
+  it('still requires a vault secret for other providers', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({
+      data: [{ provider: 'openai', model: 'gpt-4o', vaultId: '' }],
+    });
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [] });
+    const { err } = await getChatConfigWithApiKey();
+    expect(err).toBeTruthy();
+  });
+});

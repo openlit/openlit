@@ -2,7 +2,7 @@ jest.mock("ai", () => ({ generateText: jest.fn() }));
 jest.mock("@/lib/db-config", () => ({ getDBConfigByUser: jest.fn() }));
 jest.mock("@/lib/platform/chat/config", () => ({ getChatConfigWithApiKey: jest.fn() }));
 jest.mock("@/lib/platform/chat/otter-runs", () => ({ saveOtterRun: jest.fn() }));
-jest.mock("@/lib/platform/chat/stream", () => ({ getModelInstance: jest.fn() }));
+jest.mock("@/lib/platform/providers/create-model", () => ({ createModel: jest.fn() }));
 jest.mock("@/lib/session", () => ({ getCurrentUser: jest.fn() }));
 jest.mock("@/lib/platform/api-keys", () => ({ getAPIKeyInfo: jest.fn() }));
 jest.mock("@/utils/asaw", () =>
@@ -21,7 +21,7 @@ import { POST } from "@/app/api/prompt/improve/route";
 import { getDBConfigByUser } from "@/lib/db-config";
 import { getChatConfigWithApiKey } from "@/lib/platform/chat/config";
 import { saveOtterRun } from "@/lib/platform/chat/otter-runs";
-import { getModelInstance } from "@/lib/platform/chat/stream";
+import { createModel } from "@/lib/platform/providers/create-model";
 import { getCurrentUser } from "@/lib/session";
 
 class TestResponse {
@@ -61,7 +61,7 @@ describe("POST /api/prompt/improve", () => {
 		(getChatConfigWithApiKey as jest.Mock).mockResolvedValue({
 			data: { provider: "openai", model: "gpt-4o", apiKey: "sk-test" },
 		});
-		(getModelInstance as jest.Mock).mockReturnValue({ provider: "openai", model: "gpt-4o" });
+		(createModel as jest.Mock).mockReturnValue({ provider: "openai", model: "gpt-4o" });
 		(saveOtterRun as jest.Mock).mockResolvedValue({ data: "run-1" });
 		(generateText as jest.Mock).mockResolvedValue({
 			text: JSON.stringify({

@@ -17,6 +17,7 @@ import { merge } from "lodash";
 import { randomUUID } from "crypto";
 import path, { dirname } from "path";
 import { EVALUATION_TYPES } from "@/constants/evaluation-types";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
 import { getEvaluationTypeDefaultPrompts } from "./evaluation-type-defaults";
 import { normalizeEvalSampleRate } from "./sampling";
 
@@ -143,7 +144,8 @@ export async function getEvaluationConfig(
 
 	if (validateVaultId) {
 		throwIfError(
-			!updatedSecretData?.id,
+			!updatedSecretData?.id &&
+				updatedConfig.provider !== OPENAI_COMPATIBLE_PROVIDER_ID,
 			getMessage().EVALUATION_VAULT_SECRET_NOT_FOUND
 		);
 	} else {
@@ -367,7 +369,8 @@ export async function getEvaluationConfigByDbConfigId(
 
 	const updatedSecretData = (data as Secret[])?.[0] || {};
 	throwIfError(
-		!updatedSecretData?.id,
+		!updatedSecretData?.id &&
+			updatedConfig.provider !== OPENAI_COMPATIBLE_PROVIDER_ID,
 		getMessage().EVALUATION_VAULT_SECRET_NOT_FOUND
 	);
 

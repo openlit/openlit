@@ -139,6 +139,7 @@ export default function ManageModelsSection() {
 			displayName: provider.displayName,
 			description: provider.description || "",
 			requiresVault: provider.requiresVault,
+			baseUrl: provider.baseUrl,
 		});
 		setShowProviderEditor(true);
 	};

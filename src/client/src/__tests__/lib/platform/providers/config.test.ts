@@ -375,3 +375,23 @@ describe('getActiveProviders', () => {
     expect(result.err).toBe('Operation failed');
   });
 });
+
+describe('getOpenGroundConfigWithSecret key handling', () => {
+  it('needs no vault record for the OpenAI-compatible provider', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({
+      data: [{ ...mockConfig, provider: 'openai-compatible', vaultId: '' }],
+    });
+    const { data, err } = await getOpenGroundConfigWithSecret('openai-compatible', 'user-1', 'db-1');
+    expect(err).toBeUndefined();
+    expect(data?.apiKey).toBe('');
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+  });
+
+  it('still fails for another provider with no vault record', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ ...mockConfig, vaultId: '' }] })
+      .mockResolvedValueOnce({ data: [] });
+    const { err } = await getOpenGroundConfigWithSecret('openai', 'user-1', 'db-1');
+    expect(err).toContain('API key not found');
+  });
+});
