@@ -1,9 +1,7 @@
 import { ValueOf } from "../../types/util";
 import { MetricParams } from "@/lib/platform/common";
 import {
-	addDays,
 	addMilliseconds,
-	addMonths,
 	differenceInDays,
 	differenceInMilliseconds,
 	differenceInYears,
@@ -498,34 +496,13 @@ export const getFilterPreviousParams = (filter: MetricParams) => {
 		const previousParams: MetricParams = JSON.parse(JSON.stringify(filter));
 		const { start, end, type } = filter.timeLimit || {};
 		switch (type) {
+			// The browser builds every window, in its own timezone, so the server
+			// shifts by the exact duration: the previous window then ends where the
+			// current one starts and has the same length, across DST changes too.
 			case "24H":
-				previousParams.timeLimit.start = addDays(
-					start as Date,
-					-1
-				).toISOString();
-				previousParams.timeLimit.end = addDays(end as Date, -1).toISOString();
-				break;
 			case "7D":
-				previousParams.timeLimit.start = addDays(
-					start as Date,
-					-7
-				).toISOString();
-				previousParams.timeLimit.end = addDays(end as Date, -7).toISOString();
-				break;
 			case "1M":
-				previousParams.timeLimit.start = addMonths(
-					start as Date,
-					-1
-				).toISOString();
-				previousParams.timeLimit.end = addMonths(end as Date, -1).toISOString();
-				break;
 			case "3M":
-				previousParams.timeLimit.start = addMonths(
-					start as Date,
-					-3
-				).toISOString();
-				previousParams.timeLimit.end = addMonths(end as Date, -3).toISOString();
-				break;
 			case "CUSTOM":
 				const durationMs = differenceInMilliseconds(
 					end as Date,

@@ -132,6 +132,40 @@ describe("DatePickerWithRange", () => {
 		expect(screen.getByLabelText(m.DATE_RANGE_END_TIME)).toHaveValue("09:50");
 	});
 
+	it("keeps an end time typed before picking a different end day", () => {
+		const onCustomDateChange = jest.fn();
+		render(
+			<DatePickerWithRange
+				showTime
+				selectedDate={selectedDate}
+				onCustomDateChange={onCustomDateChange}
+			/>
+		);
+		open();
+		const pick = (day: string) =>
+			fireEvent.click(screen.getAllByRole("gridcell", { name: day })[0]);
+		// Clicking the current end day starts a new range from it.
+		pick("12");
+		fireEvent.change(screen.getByLabelText(m.DATE_RANGE_END_TIME), {
+			target: { value: "09:50" },
+		});
+		pick("14");
+		expect(screen.getByLabelText(m.DATE_RANGE_END_TIME)).toHaveValue("09:50");
+		// Clicking the start day clears the range; the next click starts a new one.
+		pick("12");
+		pick("16");
+		fireEvent.change(screen.getByLabelText(m.DATE_RANGE_END_TIME), {
+			target: { value: "08:20" },
+		});
+		pick("18");
+		expect(screen.getByLabelText(m.DATE_RANGE_END_TIME)).toHaveValue("08:20");
+		fireEvent.click(done());
+		expect(onCustomDateChange).toHaveBeenCalledWith(
+			new Date(2026, 2, 16, 0, 0, 0, 0),
+			new Date(2026, 2, 18, 8, 20, 59, 999)
+		);
+	});
+
 	it("blocks a cleared field and an end before the start", () => {
 		const sameDay = {
 			start: new Date(2026, 2, 10, 9, 0),
