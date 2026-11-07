@@ -140,6 +140,7 @@ export const GEN_AI_ATTR = {
 	usageTotalTokens: "gen_ai.usage.total_tokens",
 	conversationId: "gen_ai.conversation.id",
 	toolName: "gen_ai.tool.name",
+	toolCallId: "gen_ai.tool.call.id",
 } as const;
 
 /** OTel `vcs.*` keys we read on coding-agent spans. */

@@ -815,7 +815,9 @@ describe("native Claude Code telemetry", () => {
 		);
 		// Tokens and tool calls from native spans count when no hook reported them.
 		expect(query).toContain("SpanAttributes['input_tokens']");
-		expect(query).toContain("SpanName = 'claude_code.tool'");
+		expect(query).toContain(
+			"uniqExactIf(SpanAttributes['gen_ai.tool.call.id'], SpanName IN ('coding_agent.tool.call', 'claude_code.tool')"
+		);
 	});
 
 	it("takes the cost of a native-only session from its api_request events", async () => {
@@ -858,6 +860,27 @@ describe("native Claude Code telemetry", () => {
 		expect(mockDataCollector.mock.calls[0][0].query).toMatch(
 			/if\(toInt64\(sumIf\(toInt64OrZero\(SpanAttributes\['input_tokens'\]\), SpanName = 'claude_code\.llm_request'\)\) > 0/
 		);
+	});
+
+	it("logs a cost lookup failure that is not a missing logs table", async () => {
+		const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+		try {
+			mockDataCollector
+				.mockResolvedValueOnce({ err: null, data: [nativeRow()] })
+				.mockResolvedValueOnce({ err: "Code: 210. DB::NetException: Connection refused", data: null })
+				.mockResolvedValueOnce({ err: null, data: [nativeRow()] })
+				.mockResolvedValueOnce({ err: "Code: 60. DB::Exception: Table native.otel_logs does not exist. (UNKNOWN_TABLE)", data: null });
+
+			const outage = await listSessions(auth, { limit: 10 });
+			expect(outage.rows[0].cost_usd).toBe(0);
+			expect(error).toHaveBeenCalledWith("coding_agent.native_cost.lookup_failed", expect.stringContaining("Connection refused"));
+
+			error.mockClear();
+			await listSessions(auth, { limit: 10 });
+			expect(error).not.toHaveBeenCalled();
+		} finally {
+			error.mockRestore();
+		}
 	});
 
 	it("keeps the rows when the logs table is missing", async () => {

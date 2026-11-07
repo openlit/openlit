@@ -214,10 +214,18 @@ export interface CodingAgentSessionRow {
 // Native Claude Code spans report the tool calls and tokens a hook would, under
 // their own names. Per the dual-path rule in
 // agent-guides/coding-agents-convention.md, native tokens win when present,
-// because they come from the API response and the hook's are estimates. Tool
-// calls take the larger count, so a session reported both ways is not counted
-// twice.
-const NATIVE_TOOL_CALLS = `countIf(SpanName = '${CLAUDE_CODE_SPAN_TOOL}')`;
+// because they come from the API response and the hook's are estimates.
+//
+// Tool calls coalesce by `gen_ai.tool.call.id`, which the hook and native spans
+// both carry (Claude's `tool_use_id`): a call reported both ways counts once,
+// and calls only one side saw still count. Spans without an id, as some vendors
+// send, count one each.
+const TOOL_CALL_SPANS = `SpanName IN ('${CODING_AGENT_SPAN_TOOL_CALL}', '${CLAUDE_CODE_SPAN_TOOL}')`;
+const TOOL_CALL_ID = `SpanAttributes['${GEN_AI_ATTR.toolCallId}']`;
+const TOOL_CALLS = `(
+	uniqExactIf(${TOOL_CALL_ID}, ${TOOL_CALL_SPANS} AND notEmpty(${TOOL_CALL_ID}))
+	+ countIf(${TOOL_CALL_SPANS} AND empty(${TOOL_CALL_ID}))
+)`;
 const nativeFirst = (hook: string, native: string) => `if(${native} > 0, ${native}, ${hook})`;
 const nativeTokens = (key: string) =>
 	`toInt64(sumIf(toInt64OrZero(SpanAttributes['${key}']), SpanName = '${CLAUDE_CODE_SPAN_LLM_REQUEST}'))`;
@@ -255,12 +263,15 @@ const nativeLogCostSubquery = (timeClause: string) => `
 	GROUP BY native_sid
 `;
 
+// anyIf(..., notEmpty) rather than any(): a session that mixes hook and native
+// spans has the user on only some of them, and any() could pick an empty one.
+const anyNonEmpty = (column: string) => `nullIf(anyIf(${column}, notEmpty(${column})), '')`;
 const USER_EXPR = `
 	coalesce(
-		nullIf(any(SpanAttributes['${GEN_AI_ATTR.userName}']), ''),
-		nullIf(any(ResourceAttributes['${GEN_AI_ATTR.userName}']), ''),
-		nullIf(any(ResourceAttributes['user.email']), ''),
-		nullIf(any(SpanAttributes['user.email']), ''),
+		${anyNonEmpty(`SpanAttributes['${GEN_AI_ATTR.userName}']`)},
+		${anyNonEmpty(`ResourceAttributes['${GEN_AI_ATTR.userName}']`)},
+		${anyNonEmpty("ResourceAttributes['user.email']")},
+		${anyNonEmpty("SpanAttributes['user.email']")},
 		'unknown'
 	)
 `;
@@ -400,7 +411,7 @@ const SESSION_BASE_COLUMNS = `
 	) AS duration_ms,
 	greatest(
 		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
-		toInt64(greatest(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'), ${NATIVE_TOOL_CALLS}))
+		toInt64(${TOOL_CALLS})
 	) AS tool_call_count,
 	-- Cost rollup. Two source paths exist:
 	--   (1) The session-root span stamps coding_agent.session.cost_usd
@@ -836,6 +847,15 @@ async function attachSessionLoopHits(
 	}
 }
 
+// `otel_logs` appears only once some logs have arrived, so a missing table is
+// normal and stays quiet. Any other failure is logged, so an outage or a broken
+// query is not mistaken for sessions that had no cost.
+function reportNativeCostFailure(error: unknown): void {
+	const message = String((error as { message?: string })?.message ?? error);
+	if (message.includes(OTEL_LOGS_TABLE) && /UNKNOWN_TABLE|does(n't| not) exist/i.test(message)) return;
+	console.error("coding_agent.native_cost.lookup_failed", error);
+}
+
 // Native Claude Code telemetry reports cost only on its `api_request` log
 // events, never on a span, so a session seen only that way would show no cost.
 // Per the dual-path rule, the logged cost wins over a hook's estimate when both
@@ -858,14 +878,19 @@ async function nativeCostBySession(
 			"query",
 			auth.dbConfigId
 		);
-		if (err || !Array.isArray(data)) return new Map();
+		if (err) {
+			reportNativeCostFailure(err);
+			return new Map();
+		}
+		if (!Array.isArray(data)) return new Map();
 		return new Map(
 			(data as Array<{ native_sid: string; native_cost: number | string }>).map((row) => [
 				String(row.native_sid),
 				Number(row.native_cost) || 0,
 			])
 		);
-	} catch {
+	} catch (error) {
+		reportNativeCostFailure(error);
 		return new Map();
 	}
 }
@@ -1473,7 +1498,7 @@ export async function getCodingUserDigest(
 				max(Timestamp) AS last_seen,
 				greatest(
 					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
-					toInt64(greatest(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'), ${NATIVE_TOOL_CALLS}))
+					toInt64(${TOOL_CALLS})
 				) AS tool_calls,
 				-- Canonical per-session cost. Mirrors the dedupe in
 				-- SESSION_BASE_COLUMNS: prefer the authoritative
@@ -1801,7 +1826,7 @@ export async function listCodingUsers(
 						max(Timestamp) AS session_last_ts,
 						greatest(
 							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
-							toInt64(greatest(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'), ${NATIVE_TOOL_CALLS}))
+							toInt64(${TOOL_CALLS})
 						) AS tool_calls,
 						-- Canonical per-session cost: same dedupe as
 						-- listSessions / getCodingUserDigest. Without
@@ -2015,7 +2040,11 @@ async function attachNativeUserCost<T extends { user: string; cost_usd: number }
 			"query",
 			auth.dbConfigId
 		);
-		if (err || !Array.isArray(data) || !data.length) return rows;
+		if (err) {
+			reportNativeCostFailure(err);
+			return rows;
+		}
+		if (!Array.isArray(data) || !data.length) return rows;
 		const costs = new Map(
 			(data as Array<{ user: string; cost_delta: number | string }>).map((row) => [
 				String(row.user),
@@ -2027,7 +2056,8 @@ async function attachNativeUserCost<T extends { user: string; cost_usd: number }
 				? { ...row, cost_usd: Math.round((Number(row.cost_usd || 0) + costs.get(row.user)!) * 10000) / 10000 }
 				: row
 		);
-	} catch {
+	} catch (error) {
+		reportNativeCostFailure(error);
 		return rows;
 	}
 }

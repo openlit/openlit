@@ -312,7 +312,8 @@ How the query layer (`src/client/src/lib/platform/coding-agents/queries.ts`) rea
 - **Scope:** `whereScope` admits the native span names (`claude_code.interaction`, `claude_code.llm_request`, `claude_code.tool`, `claude_code.tool.execution`, `claude_code.tool.blocked_on_user`) when they carry `session.id`, next to the `coding_agent.*` spans keyed by `coding_agent.session.id`.
 - **Tokens:** summed from the `input_tokens` / `output_tokens` attributes of `claude_code.llm_request` spans.
 - **Cost:** native spans carry none. It is summed from `cost_usd` on `api_request` log events in `otel_logs`, read by a follow-up query that leaves the rows unchanged if the table doesn't exist yet. The `claude_code.cost.usage` metric carries the same figure.
-- **Tool calls:** the larger of the hook and native counts, which stands in for the per-call-ID coalesce below at session level.
+- **Tool calls:** coalesced by `gen_ai.tool.call.id` across `coding_agent.tool.call` and `claude_code.tool` spans, as below. Spans without an id count one each.
+- **Failures:** a missing `otel_logs` table is expected and stays quiet; any other cost-lookup failure is logged as `coding_agent.native_cost.lookup_failed`.
 
 ### Identity (user, cwd, repo)
 
