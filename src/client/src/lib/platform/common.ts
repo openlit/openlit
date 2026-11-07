@@ -62,6 +62,12 @@ export type GPU_TYPE_KEY =
 
 export interface GPUMetricParams extends MetricParams { }
 
+/**
+ * Server-side ceiling for direct reads, matching the OpenPlait read path. A
+ * caller that gives up cannot stop its query, so without this it keeps running.
+ */
+const MAX_READ_EXECUTION_SECONDS = 60;
+
 export type DataCollectorType = { err?: unknown; data?: unknown };
 type CollectorParams = Partial<
 	QueryParams &
@@ -120,6 +126,7 @@ async function collectClickHouseData(
 		if (clientQueryType === "query") {
 			if (!query) return { err: "No query specified!" };
 			const querySettings = {
+				max_execution_time: MAX_READ_EXECUTION_SECONDS,
 				...(enable_readonly ? { readonly: "1" } : {}),
 				...(clickhouse_settings || {}),
 			};
@@ -127,9 +134,7 @@ async function collectClickHouseData(
 				client.query({
 					query,
 					format,
-					...(Object.keys(querySettings).length
-						? { clickhouse_settings: querySettings }
-						: {}),
+					clickhouse_settings: querySettings,
 				} as QueryParams)
 			);
 			if (!respErr && result) {
@@ -162,12 +167,15 @@ async function collectClickHouseData(
 			);
 
 			if (!respErr) {
+				// Pooled clients are reused: an unread response would hold its socket.
+				result?.stream.resume();
 				return { data: result };
 			}
 		} else if (clientQueryType === "ping") {
 			[respErr, result] = await asaw(client.query({
 				query: "SELECT 1",
 			}));
+			result?.close();
 
 			return { err: respErr, data: !!result };
 		} else if (clientQueryType === "command") {
