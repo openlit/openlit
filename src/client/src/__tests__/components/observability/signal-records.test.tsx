@@ -77,6 +77,37 @@ describe("SignalRecords rows", () => {
 		expect(onOpen).toHaveBeenCalledWith(second);
 	});
 
+	it("does not open when a shift-click extends a selection into the row", () => {
+		const first = { id: "t1", spanName: "first" };
+		const second = { id: "t2", spanName: "second" };
+		const onOpen = renderRows("traces", [first, second]);
+		window
+			.getSelection()
+			?.setBaseAndExtent(
+				screen.getByText("first").firstChild as Node,
+				2,
+				screen.getByText("second").firstChild as Node,
+				3
+			);
+		fireEvent.click(screen.getByText("second"));
+		expect(onOpen).not.toHaveBeenCalled();
+	});
+
+	it.each(["Enter", " "])(
+		"opens once while key %j is held down",
+		(keyName) => {
+			const onOpen = renderRows("traces", [records[0][2]]);
+			const rowElement = screen.getByRole("button");
+			fireEvent.keyDown(rowElement, { key: keyName });
+			const notPrevented = fireEvent.keyDown(rowElement, {
+				key: keyName,
+				repeat: true,
+			});
+			expect(onOpen).toHaveBeenCalledTimes(1);
+			expect(notPrevented).toBe(false);
+		}
+	);
+
 	it("opens on click when the selection is collapsed", () => {
 		const onOpen = renderRows("traces", [records[0][2]]);
 		const text = screen.getByText("checkout").firstChild as Node;

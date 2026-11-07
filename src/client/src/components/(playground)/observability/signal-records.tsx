@@ -181,16 +181,20 @@ function RecordRow({
 			aria-disabled={disabled}
 			onClick={(event) => {
 				const selection = window.getSelection();
+				// Either end can be in the row: a shift-click extends a selection
+				// that started elsewhere.
 				const isSelectingText =
 					selection &&
 					!selection.isCollapsed &&
-					event.currentTarget.contains(selection.anchorNode);
+					(event.currentTarget.contains(selection.anchorNode) ||
+						event.currentTarget.contains(selection.focusNode));
 				if (!disabled && !isSelectingText) onOpen(row);
 			}}
 			onKeyDown={(event) => {
 				if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
 				event.preventDefault();
-				onOpen(row);
+				// Holding the key down should open the row once, not on every repeat.
+				if (!event.repeat) onOpen(row);
 			}}
 			className={`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-950 dark:focus-visible:ring-stone-300 ${className}`}
 		>
