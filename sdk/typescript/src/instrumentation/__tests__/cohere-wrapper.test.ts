@@ -377,6 +377,19 @@ describe('CohereWrapper', () => {
       );
     });
 
+    it('falls through a reported zero to a positive later field (matches Python or-chain)', async () => {
+      await callSetter({
+        text: 'Pong',
+        usage: { billed_units: { input_tokens: 30, output_tokens: 9 }, cached_tokens: 0 },
+        meta: { cached_tokens: 4 },
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        4
+      );
+    });
+
     it('sets nothing when the provider reports no cached tokens', async () => {
       await callSetter({
         text: 'Pong',

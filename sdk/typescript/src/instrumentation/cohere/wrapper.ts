@@ -419,12 +419,11 @@ export default class CohereWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
 
     const cacheReadTokens =
-      Number(
-        result.usage?.cachedTokens
-          ?? result.usage?.cached_tokens
-          ?? result.meta?.cachedTokens
-          ?? result.meta?.cached_tokens
-      ) || 0;
+      Number(result.usage?.cachedTokens) ||
+      Number(result.usage?.cached_tokens) ||
+      Number(result.meta?.cachedTokens) ||
+      Number(result.meta?.cached_tokens) ||
+      0;
     if (cacheReadTokens) {
       span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, cacheReadTokens);
     }
