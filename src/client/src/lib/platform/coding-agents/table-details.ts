@@ -7,6 +7,7 @@
  */
 
 export const OTEL_TRACES_TABLE = "otel_traces";
+export const OTEL_LOGS_TABLE = "otel_logs";
 
 /**
  * Span names emitted by the openlit CLI normalizer (mirrors
@@ -25,6 +26,33 @@ export const CODING_AGENT_SPAN_SESSION_SNAPSHOT_START =
 	"coding_agent.session.snapshot.start";
 export const CODING_AGENT_SPAN_SESSION_SNAPSHOT =
 	"coding_agent.session.snapshot";
+
+/**
+ * Spans Claude Code exports itself when `CLAUDE_CODE_ENABLE_TELEMETRY=1`, with
+ * no OpenLIT hook involved (for example `openlit coding exec` in CI). They carry
+ * the session in `session.id` and their own token keys, not `coding_agent.*`.
+ */
+export const CLAUDE_CODE_VENDOR = "claude-code";
+export const CLAUDE_CODE_SPAN_INTERACTION = "claude_code.interaction";
+export const CLAUDE_CODE_SPAN_LLM_REQUEST = "claude_code.llm_request";
+export const CLAUDE_CODE_SPAN_TOOL = "claude_code.tool";
+export const CLAUDE_CODE_NATIVE_SPAN_NAMES = [
+	CLAUDE_CODE_SPAN_INTERACTION,
+	CLAUDE_CODE_SPAN_LLM_REQUEST,
+	CLAUDE_CODE_SPAN_TOOL,
+	"claude_code.tool.execution",
+	"claude_code.tool.blocked_on_user",
+] as const;
+
+/** Keys on native Claude Code spans and events. */
+export const CLAUDE_CODE_NATIVE_ATTR = {
+	sessionId: "session.id",
+	inputTokens: "input_tokens",
+	outputTokens: "output_tokens",
+	eventName: "event.name",
+	apiRequestEvent: "api_request",
+	costUsd: "cost_usd",
+} as const;
 
 /** All coding-agent span names in a single tuple — handy for `IN (...)` clauses. */
 export const CODING_AGENT_SPAN_NAMES = [

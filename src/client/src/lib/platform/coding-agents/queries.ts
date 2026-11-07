@@ -36,8 +36,14 @@ import {
 	CODING_AGENT_SPAN_SESSION,
 	CODING_AGENT_SPAN_SUBAGENT,
 	CODING_AGENT_SPAN_TOOL_CALL,
+	CLAUDE_CODE_NATIVE_ATTR,
+	CLAUDE_CODE_NATIVE_SPAN_NAMES,
+	CLAUDE_CODE_SPAN_LLM_REQUEST,
+	CLAUDE_CODE_SPAN_TOOL,
+	CLAUDE_CODE_VENDOR,
 	COHORT_K_FLOOR,
 	GEN_AI_ATTR,
+	OTEL_LOGS_TABLE,
 	OTEL_TRACES_TABLE,
 	VCS_ATTR,
 } from "./table-details";
@@ -205,6 +211,50 @@ export interface CodingAgentSessionRow {
 // would surface an agent identifier ("claude-code") in the user
 // column when identity resolution misses, which produced confusing
 // "claude-code" user rows in the hub.
+// Native Claude Code spans report the tool calls and tokens a hook would, under
+// their own names. Per the dual-path rule in
+// agent-guides/coding-agents-convention.md, native tokens win when present,
+// because they come from the API response and the hook's are estimates. Tool
+// calls take the larger count, so a session reported both ways is not counted
+// twice.
+const NATIVE_TOOL_CALLS = `countIf(SpanName = '${CLAUDE_CODE_SPAN_TOOL}')`;
+const nativeFirst = (hook: string, native: string) => `if(${native} > 0, ${native}, ${hook})`;
+const nativeTokens = (key: string) =>
+	`toInt64(sumIf(toInt64OrZero(SpanAttributes['${key}']), SpanName = '${CLAUDE_CODE_SPAN_LLM_REQUEST}'))`;
+const NATIVE_TOKENS = {
+	input: nativeTokens(CLAUDE_CODE_NATIVE_ATTR.inputTokens),
+	output: nativeTokens(CLAUDE_CODE_NATIVE_ATTR.outputTokens),
+	total: `(${nativeTokens(CLAUDE_CODE_NATIVE_ATTR.inputTokens)} + ${nativeTokens(CLAUDE_CODE_NATIVE_ATTR.outputTokens)})`,
+};
+
+// Per-session cost from spans, with the dedupe every rollup here uses: the
+// session root's total when present, otherwise the sum over child spans.
+const SPAN_SESSION_COST_EXPR = `
+	coalesce(
+		nullIf(toFloat64OrZero(anyIf(
+			SpanAttributes['${CODING_AGENT_ATTR.sessionCostUsd}'],
+			SpanName = '${CODING_AGENT_SPAN_SESSION}'
+		)), 0),
+		sumOrNull(if(
+			SpanName != '${CODING_AGENT_SPAN_SESSION}',
+			toFloat64OrZero(SpanAttributes['${GEN_AI_ATTR.usageCost}']),
+			0
+		))
+	)
+`;
+
+// Native Claude Code cost per session, from its `api_request` log events.
+const nativeLogCostSubquery = (timeClause: string) => `
+	SELECT
+		LogAttributes['${CLAUDE_CODE_NATIVE_ATTR.sessionId}'] AS native_sid,
+		sum(toFloat64OrZero(LogAttributes['${CLAUDE_CODE_NATIVE_ATTR.costUsd}'])) AS native_cost
+	FROM ${OTEL_LOGS_TABLE}
+	WHERE LogAttributes['${CLAUDE_CODE_NATIVE_ATTR.eventName}'] = '${CLAUDE_CODE_NATIVE_ATTR.apiRequestEvent}'
+		AND notEmpty(LogAttributes['${CLAUDE_CODE_NATIVE_ATTR.sessionId}'])
+		${timeClause}
+	GROUP BY native_sid
+`;
+
 const USER_EXPR = `
 	coalesce(
 		nullIf(any(SpanAttributes['${GEN_AI_ATTR.userName}']), ''),
@@ -350,7 +400,7 @@ const SESSION_BASE_COLUMNS = `
 	) AS duration_ms,
 	greatest(
 		max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
-		toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'))
+		toInt64(greatest(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'), ${NATIVE_TOOL_CALLS}))
 	) AS tool_call_count,
 	-- Cost rollup. Two source paths exist:
 	--   (1) The session-root span stamps coding_agent.session.cost_usd
@@ -423,7 +473,7 @@ const SESSION_BASE_COLUMNS = `
 	-- child span stamps its own per-turn count. A naive sum across
 	-- all spans double-counts ended sessions. Prefer the authoritative
 	-- root value when present and only sum **child** spans otherwise.
-	toInt64(coalesce(
+	${nativeFirst(`toInt64(coalesce(
 		nullIf(toInt64OrZero(anyIf(
 			SpanAttributes['${GEN_AI_ATTR.usageInputTokens}'],
 			SpanName = '${CODING_AGENT_SPAN_SESSION}'
@@ -433,8 +483,8 @@ const SESSION_BASE_COLUMNS = `
 			toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']),
 			0
 		))
-	))                                                                 AS input_tokens,
-	toInt64(coalesce(
+	))`, NATIVE_TOKENS.input)}                                                                 AS input_tokens,
+	${nativeFirst(`toInt64(coalesce(
 		nullIf(toInt64OrZero(anyIf(
 			SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}'],
 			SpanName = '${CODING_AGENT_SPAN_SESSION}'
@@ -444,8 +494,8 @@ const SESSION_BASE_COLUMNS = `
 			toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']),
 			0
 		))
-	))                                                                 AS output_tokens,
-	toInt64(coalesce(
+	))`, NATIVE_TOKENS.output)}                                                                 AS output_tokens,
+	${nativeFirst(`toInt64(coalesce(
 		nullIf(toInt64OrZero(anyIf(
 			SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}'],
 			SpanName = '${CODING_AGENT_SPAN_SESSION}'
@@ -459,7 +509,7 @@ const SESSION_BASE_COLUMNS = `
 			),
 			0
 		))
-	))                                                                 AS total_tokens,
+	))`, NATIVE_TOKENS.total)}                                                                 AS total_tokens,
 	-- TraceId for the session. The CLI derives it deterministically
 	-- from (session_id, vendor) so every span in the same (chat,
 	-- vendor) group shares one TraceId — any() picks the same value
@@ -732,8 +782,17 @@ function whereScope(opts?: {
 			: "";
 
 	return `
-		WHERE SpanName IN (${CODING_AGENT_SPAN_NAMES.map((n) => `'${n}'`).join(", ")})
-		AND notEmpty(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'])
+		WHERE (
+			(
+				SpanName IN (${CODING_AGENT_SPAN_NAMES.map((n) => `'${n}'`).join(", ")})
+				AND notEmpty(SpanAttributes['${CODING_AGENT_ATTR.sessionId}'])
+			)
+			-- Native Claude Code telemetry, sent with no OpenLIT hook.
+			OR (
+				SpanName IN (${CLAUDE_CODE_NATIVE_SPAN_NAMES.map((n) => `'${n}'`).join(", ")})
+				AND notEmpty(SpanAttributes['${CLAUDE_CODE_NATIVE_ATTR.sessionId}'])
+			)
+		)
 		${since}
 		${until}
 		${orgScope}
@@ -775,6 +834,52 @@ async function attachSessionLoopHits(
 	} catch {
 		return rows;
 	}
+}
+
+// Native Claude Code telemetry reports cost only on its `api_request` log
+// events, never on a span, so a session seen only that way would show no cost.
+// Per the dual-path rule, the logged cost wins over a hook's estimate when both
+// exist. `otel_logs` exists only once some logs have arrived, so any failure
+// leaves the rows as they were.
+async function nativeCostBySession(
+	auth: CodingAgentAuth,
+	sessionIds: string[]
+): Promise<Map<string, number>> {
+	if (!sessionIds.length) return new Map();
+	const ids = sessionIds.map((id) => `'${escape(id)}'`).join(", ");
+	try {
+		const { data, err } = await intelligenceDataCollector(
+			{
+				query: nativeLogCostSubquery(`
+					AND LogAttributes['${CLAUDE_CODE_NATIVE_ATTR.sessionId}'] IN (${ids})
+					AND Timestamp >= now() - INTERVAL ${SESSION_DIGEST_LOOKBACK_DAYS} DAY
+				`),
+			},
+			"query",
+			auth.dbConfigId
+		);
+		if (err || !Array.isArray(data)) return new Map();
+		return new Map(
+			(data as Array<{ native_sid: string; native_cost: number | string }>).map((row) => [
+				String(row.native_sid),
+				Number(row.native_cost) || 0,
+			])
+		);
+	} catch {
+		return new Map();
+	}
+}
+
+async function attachNativeCost<T extends { session_id: string; cost_usd: number; vendor?: string }>(
+	auth: CodingAgentAuth,
+	rows: T[]
+): Promise<T[]> {
+	const claudeCode = rows.filter((row) => row.vendor === CLAUDE_CODE_VENDOR).map((row) => row.session_id);
+	const costs = await nativeCostBySession(auth, claudeCode);
+	if (!costs.size) return rows;
+	return rows.map((row) =>
+		(costs.get(row.session_id) ?? 0) > 0 ? { ...row, cost_usd: costs.get(row.session_id)! } : row
+	);
 }
 
 /**
@@ -876,7 +981,8 @@ export async function listSessions(
 		since: opts.since ?? null,
 		until: opts.until ?? null,
 	});
-	const withLoops = await attachSessionLoopHits(auth, projected, opts);
+	const withCost = await attachNativeCost(auth, projected);
+	const withLoops = await attachSessionLoopHits(auth, withCost, opts);
 	const totalRow = (totalData as Array<{ total: number | string }>) ?? [];
 	const total = opts.withTotal
 		? Number(totalRow[0]?.total ?? 0)
@@ -980,6 +1086,7 @@ export async function getCodingSessionDigest(
 		SELECT
 			${CHAT_ID_EXPR} AS session_id,
 			${USER_EXPR} AS user,
+			${VENDOR_EXPR} AS vendor,
 			greatest(
 				toInt64OrZero(any(SpanAttributes['${CODING_AGENT_ATTR.sessionLinesAdded}'])),
 				toInt64(sumIf(
@@ -1050,7 +1157,7 @@ export async function getCodingSessionDigest(
 					0
 				))
 			) AS cost_usd,
-			toInt64(coalesce(
+			${nativeFirst(`toInt64(coalesce(
 				nullIf(toInt64OrZero(anyIf(
 					SpanAttributes['${GEN_AI_ATTR.usageInputTokens}'],
 					SpanName = '${CODING_AGENT_SPAN_SESSION}'
@@ -1060,8 +1167,8 @@ export async function getCodingSessionDigest(
 					toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']),
 					0
 				))
-			)) AS input_tokens,
-			toInt64(coalesce(
+			))`, NATIVE_TOKENS.input)} AS input_tokens,
+			${nativeFirst(`toInt64(coalesce(
 				nullIf(toInt64OrZero(anyIf(
 					SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}'],
 					SpanName = '${CODING_AGENT_SPAN_SESSION}'
@@ -1071,8 +1178,8 @@ export async function getCodingSessionDigest(
 					toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}']),
 					0
 				))
-			)) AS output_tokens,
-			toInt64(coalesce(
+			))`, NATIVE_TOKENS.output)} AS output_tokens,
+			${nativeFirst(`toInt64(coalesce(
 				nullIf(toInt64OrZero(anyIf(
 					SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}'],
 					SpanName = '${CODING_AGENT_SPAN_SESSION}'
@@ -1086,7 +1193,7 @@ export async function getCodingSessionDigest(
 					),
 					0
 				))
-			)) AS total_tokens,
+			))`, NATIVE_TOKENS.total)} AS total_tokens,
 			-- Wall-clock session duration. Same shape as Sessions row:
 			-- prefer the SessionEnd-stamped duration; fall back to
 			-- (max - min) Timestamp across spans for in-flight
@@ -1181,6 +1288,13 @@ export async function getCodingSessionDigest(
 	const accepts = Number(row.edit_accept_count || 0);
 	const rejects = Number(row.edit_reject_count || 0);
 	const decisions = accepts + rejects;
+	const [{ cost_usd: costUsd }] = await attachNativeCost(auth, [
+		{
+			session_id: String(row.session_id || sessionId),
+			cost_usd: Number(row.cost_usd || 0),
+			vendor: typeof row.vendor === "string" ? row.vendor : undefined,
+		},
+	]);
 	return {
 		session_id: String(row.session_id || sessionId),
 		lines_added: Number(row.lines_added || 0),
@@ -1197,7 +1311,7 @@ export async function getCodingSessionDigest(
 		total_tokens: Number(row.total_tokens || 0),
 		input_tokens: Number(row.input_tokens || 0),
 		output_tokens: Number(row.output_tokens || 0),
-		cost_usd: Number(row.cost_usd || 0),
+		cost_usd: costUsd,
 		duration_ms: Number(row.duration_ms || 0),
 		model: typeof row.model === "string" ? row.model : "",
 		repo_url: typeof row.repo_url === "string" ? row.repo_url : "",
@@ -1359,7 +1473,7 @@ export async function getCodingUserDigest(
 				max(Timestamp) AS last_seen,
 				greatest(
 					max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
-					toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'))
+					toInt64(greatest(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'), ${NATIVE_TOOL_CALLS}))
 				) AS tool_calls,
 				-- Canonical per-session cost. Mirrors the dedupe in
 				-- SESSION_BASE_COLUMNS: prefer the authoritative
@@ -1687,7 +1801,7 @@ export async function listCodingUsers(
 						max(Timestamp) AS session_last_ts,
 						greatest(
 							max(toInt64OrZero(SpanAttributes['${CODING_AGENT_ATTR.sessionToolCallCount}'])),
-							toInt64(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'))
+							toInt64(greatest(countIf(SpanName = '${CODING_AGENT_SPAN_TOOL_CALL}'), ${NATIVE_TOOL_CALLS}))
 						) AS tool_calls,
 						-- Canonical per-session cost: same dedupe as
 						-- listSessions / getCodingUserDigest. Without
@@ -1710,21 +1824,22 @@ export async function listCodingUsers(
 						-- Tokens: same dedupe as cost (root carries
 						-- gen_ai.usage.*_tokens at SessionEnd; child
 						-- turn spans carry per-turn counts).
-						coalesce(
-							nullIf(toInt64OrZero(anyIf(
-								SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}'],
-								SpanName = '${CODING_AGENT_SPAN_SESSION}'
-							)), 0),
-							sumOrNull(if(
-								SpanName != '${CODING_AGENT_SPAN_SESSION}',
-								coalesce(
-									nullIf(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}']), 0),
-									toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
-										toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}'])
-								),
+						${nativeFirst(`coalesce(
+								nullIf(toInt64OrZero(anyIf(
+									SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}'],
+									SpanName = '${CODING_AGENT_SPAN_SESSION}'
+								)), 0),
+								sumOrNull(if(
+									SpanName != '${CODING_AGENT_SPAN_SESSION}',
+									coalesce(
+										nullIf(toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageTotalTokens}']), 0),
+										toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageInputTokens}']) +
+											toInt64OrZero(SpanAttributes['${GEN_AI_ATTR.usageOutputTokens}'])
+									),
+									0
+								)),
 								0
-							))
-						) AS tokens,
+							)`, NATIVE_TOKENS.total)} AS tokens,
 						-- Per-session code-change rollups (same
 						-- dual-source pattern as listSessions /
 						-- getCodingUserDigest). The user-list page
@@ -1855,7 +1970,66 @@ export async function listCodingUsers(
 	const totalRow = (totalData as Array<{ total: number | string }>) ?? [];
 	const total = opts.withTotal ? Number(totalRow[0]?.total ?? 0) : null;
 
-	return { rows, total };
+	return { rows: await attachNativeUserCost(auth, rows, opts, vendorClause), total };
+}
+
+// The Users rollup prices sessions from spans, so native Claude Code cost, which
+// is only logged, is missing there. Per the dual-path rule the logged cost wins
+// for each session that has it, so this adds, per user, the logged cost minus
+// the span cost of those sessions. Masked cohort rows are left alone, and any
+// failure, such as no `otel_logs` yet, keeps the rows.
+async function attachNativeUserCost<T extends { user: string; cost_usd: number }>(
+	auth: CodingAgentAuth,
+	rows: T[],
+	opts: { since?: Date | null; until?: Date | null },
+	vendorClause: string
+): Promise<T[]> {
+	const users = rows.map((row) => row.user).filter((user) => user && !["unknown", "low_cohort"].includes(user));
+	if (!users.length) return rows;
+	const timeClause = [
+		opts.since ? `AND Timestamp >= parseDateTimeBestEffort('${escape(opts.since.toISOString())}')` : "",
+		opts.until ? `AND Timestamp <= parseDateTimeBestEffort('${escape(opts.until.toISOString())}')` : "",
+	].join(" ");
+	try {
+		const { data, err } = await intelligenceDataCollector(
+			{
+				query: `
+					SELECT user, sum(native_cost - ifNull(cost, 0)) AS cost_delta
+					FROM (
+						SELECT
+							${CHAT_ID_EXPR} AS sid,
+							${USER_EXPR} AS user,
+							${VENDOR_EXPR} AS vendor,
+							${SPAN_SESSION_COST_EXPR} AS cost
+						FROM ${OTEL_TRACES_TABLE}
+						${whereScope({ since: opts.since ?? null, until: opts.until ?? null, auth })}
+						GROUP BY sid, ${PER_SPAN_VENDOR_EXPR}
+					) per_session
+					INNER JOIN (${nativeLogCostSubquery(timeClause)}) native ON per_session.sid = native.native_sid
+					WHERE native_cost > 0
+						AND user IN (${users.map((user) => `'${escape(user)}'`).join(", ")})
+						${vendorClause}
+					GROUP BY user
+				`,
+			},
+			"query",
+			auth.dbConfigId
+		);
+		if (err || !Array.isArray(data) || !data.length) return rows;
+		const costs = new Map(
+			(data as Array<{ user: string; cost_delta: number | string }>).map((row) => [
+				String(row.user),
+				Number(row.cost_delta) || 0,
+			])
+		);
+		return rows.map((row) =>
+			costs.has(row.user)
+				? { ...row, cost_usd: Math.round((Number(row.cost_usd || 0) + costs.get(row.user)!) * 10000) / 10000 }
+				: row
+		);
+	} catch {
+		return rows;
+	}
 }
 
 /**
