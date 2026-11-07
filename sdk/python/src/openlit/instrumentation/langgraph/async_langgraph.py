@@ -4,7 +4,7 @@ LangGraph async wrapper for instrumentation
 
 import time
 import json
-from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.trace import SpanKind, Status, StatusCode, set_span_in_context
 from opentelemetry import context as context_api
 from openlit.__helpers import (
     handle_exception,
@@ -219,7 +219,15 @@ async def _create_async_stream_wrapper(
     """
     Creates an async generator wrapper for astream.
     """
-    with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
+    # The workflow span is created WITHOUT becoming the current span: a
+    # suspended stream must not leak it into the caller's context, or
+    # every other session the app runs while holding the stream joins
+    # this trace, and finalizing an abandoned stream in another task
+    # fails the context detach. The span is made current only around
+    # each pull from the graph's iterator, never between chunks (#1761).
+    span = tracer.start_span(span_name, kind=SpanKind.INTERNAL)
+    span_ended = False
+    try:
         graph_name = _get_graph_name(instance)
         span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, graph_name)
 
@@ -283,32 +291,74 @@ async def _create_async_stream_wrapper(
                     config_info["checkpoint_id"],
                 )
 
+        # Get the async stream - call without await since it returns async generator.
+        # The graph runs while the CONSUMER pulls chunks, outside the
+        # suppression window a plain wrapped() call would have. Make the
+        # workflow span current and hold the suppression key and the
+        # wrapper flag only around each pull, so nested wrappers and the
+        # LangChain handler stay quiet for the whole stream, exactly as
+        # for invoke() (#1766). The span and the flags are dropped again
+        # before yielding, so consumer code between chunks is neither
+        # parented into this trace nor suppressed (#1761).
+        span_token = context_api.attach(set_span_in_context(span))
+        suppress_token = context_api.attach(
+            context_api.set_value(_LANGGRAPH_SUPPRESS_KEY, True)
+        )
+        lg_token = set_langgraph_wrapper_active()
         try:
-            # Get the async stream - call without await since it returns async generator
             stream_gen = wrapped(*args, **kwargs)
+        finally:
+            reset_langgraph_wrapper_active(lg_token)
+            context_api.detach(suppress_token)
+            context_api.detach(span_token)
 
-            async for chunk in stream_gen:
-                # Track first token time
-                if execution_state["first_token_time"] is None:
-                    execution_state["first_token_time"] = time.time()
-                    ttft = execution_state["first_token_time"] - start_time
-                    span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
-
-                execution_state["chunk_count"] += 1
-
-                # Process chunk
-                _process_stream_chunk(chunk, execution_state, stream_mode)
-
-                yield chunk
-
-            # Set final attributes
-            _finalize_async_stream_span(
-                span, execution_state, capture_message_content, start_time
+        while True:
+            span_token = context_api.attach(set_span_in_context(span))
+            suppress_token = context_api.attach(
+                context_api.set_value(_LANGGRAPH_SUPPRESS_KEY, True)
             )
+            lg_token = set_langgraph_wrapper_active()
+            try:
+                chunk = await anext(stream_gen)
+            except StopAsyncIteration:
+                break
+            finally:
+                reset_langgraph_wrapper_active(lg_token)
+                context_api.detach(suppress_token)
+                context_api.detach(span_token)
 
-        except Exception as e:
-            handle_exception(span, e)
-            raise
+            # Track first token time
+            if execution_state["first_token_time"] is None:
+                execution_state["first_token_time"] = time.time()
+                ttft = execution_state["first_token_time"] - start_time
+                span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
+
+            execution_state["chunk_count"] += 1
+
+            # Process chunk
+            _process_stream_chunk(chunk, execution_state, stream_mode)
+
+            yield chunk
+
+        # Set final attributes
+        _finalize_async_stream_span(
+            span, execution_state, capture_message_content, start_time
+        )
+        span.end()
+        span_ended = True
+
+    except Exception as e:
+        handle_exception(span, e)
+        span.end()
+        span_ended = True
+        raise
+
+    finally:
+        # Abandoned stream (consumer closed it or let it be collected):
+        # end the span wherever finalization runs. Ending never touches
+        # the caller's context, so no cross-context detach can fail.
+        if not span_ended:
+            span.end()
 
 
 def _process_stream_chunk(chunk, execution_state, stream_mode):
