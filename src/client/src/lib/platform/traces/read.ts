@@ -739,7 +739,12 @@ const GROUP_BY_FIELD: Record<string, string> = {
 function groupByToField(groupBy: string): string {
 	if (groupBy in GROUP_BY_FIELD) return GROUP_BY_FIELD[groupBy];
 	const sep = groupBy.indexOf(":");
-	return sep === -1 ? groupBy : groupBy.slice(sep + 1);
+	if (sep === -1) return groupBy;
+	const key = groupBy.slice(sep + 1);
+	// Adapters read a bare dotted key as a span attribute, so a resource
+	// attribute must keep its scope or it groups on the wrong (usually empty)
+	// value while the drill-down still filters on ResourceAttributes.
+	return groupBy.slice(0, sep) === "ResourceAttributes" ? `resource:${key}` : key;
 }
 
 /**
@@ -874,13 +879,15 @@ export async function getTraceGrouped(params: MetricParams, groupBy: string) {
 			],
 		};
 		const frame = await planAndAggregateSpans(adapter, query);
-		const data = (frame.rows as Record<string, unknown>[]).map((row) => ({
-			group_value: String(row.group_value ?? row[field] ?? row.g0 ?? ""),
-			count: Number(row.count ?? 0),
-			total_cost: Number(row.total_cost ?? 0),
-			total_tokens: Number(row.total_tokens ?? 0),
-			avg_duration_seconds: Number(row.avg_duration_seconds ?? 0),
-		}));
+		const data = (frame.rows as Record<string, unknown>[])
+			.map((row) => ({
+				group_value: String(row.group_value ?? row[field] ?? row.g0 ?? ""),
+				count: Number(row.count ?? 0),
+				total_cost: Number(row.total_cost ?? 0),
+				total_tokens: Number(row.total_tokens ?? 0),
+				avg_duration_seconds: Number(row.avg_duration_seconds ?? 0),
+			}))
+			.sort((a, b) => b.count - a.count);
 		return { err: null, data };
 	} catch (err) {
 		rethrowIfSourceFailure(err);

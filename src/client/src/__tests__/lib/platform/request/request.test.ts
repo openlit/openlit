@@ -13,7 +13,6 @@ jest.mock('@/lib/platform/common', () => {
 });
 
 import {
-  getGroupByExpression,
   getRequestPerTime,
   getTotalRequests,
   getAverageRequestDuration,
@@ -26,7 +25,6 @@ import {
   getHeirarchyViaSpanId,
   getRequestExist,
   getAttributeKeys,
-  getGroupedRequests,
 } from '@/lib/platform/request/index';
 import { dataCollector } from '@/lib/platform/common';
 
@@ -51,26 +49,6 @@ describe('getRequestPerTime', () => {
     expect(query).toContain('total');
     expect(query).toContain('request_time');
     expect(query).toContain('GROUP BY');
-  });
-});
-
-describe('getGroupByExpression', () => {
-  it('returns predefined group-by expressions', () => {
-    expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
-    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.provider.name']");
-  });
-
-  it('builds safe span/resource/field group-by expressions', () => {
-    expect(getGroupByExpression('custom.key')).toBe("SpanAttributes['custom.key']");
-    expect(getGroupByExpression("SpanAttributes:o'malley")).toBe("SpanAttributes['o\\'malley']");
-    expect(getGroupByExpression('ResourceAttributes:service.name')).toBe("ResourceAttributes['service.name']");
-    expect(getGroupByExpression('Field:Duration')).toBe('Duration');
-  });
-
-  it('rejects empty and unsupported field group-by inputs', () => {
-    expect(getGroupByExpression('')).toBeNull();
-    expect(getGroupByExpression('SpanAttributes:   ')).toBeNull();
-    expect(getGroupByExpression('Field:Duration;DROP')).toBeNull();
   });
 });
 
@@ -537,46 +515,5 @@ describe('getAttributeKeys', () => {
     const [call1, call2] = (dataCollector as jest.Mock).mock.calls;
     expect(call1[0].query).toContain('SpanAttributes');
     expect(call2[0].query).toContain('ResourceAttributes');
-  });
-});
-
-describe('getGroupedRequests', () => {
-  it('returns predefined and attribute group expressions', () => {
-    expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
-    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.provider.name']");
-    expect(getGroupByExpression('applicationName')).toBe("ResourceAttributes['service.name']");
-    expect(getGroupByExpression('custom.attribute')).toBe("SpanAttributes['custom.attribute']");
-    expect(getGroupByExpression('ResourceAttributes:service.namespace')).toBe(
-      "ResourceAttributes['service.namespace']"
-    );
-    expect(getGroupByExpression('')).toBeNull();
-    expect(getGroupByExpression('Field:NotAllowed')).toBeNull();
-  });
-
-  it('returns an error and skips querying for an invalid Field groupBy', async () => {
-    const result = await getGroupedRequests(baseParams as any, 'Field:!!!');
-
-    expect(result.err).toBe('Invalid groupBy value');
-    expect(result.data).toEqual([]);
-    expect(dataCollector).not.toHaveBeenCalled();
-  });
-
-  it('builds a grouped query for an allowed Field groupBy', async () => {
-    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ group_value: 'ok' }], err: null });
-
-    await getGroupedRequests(baseParams as any, 'Field:SpanName');
-
-    expect(dataCollector).toHaveBeenCalledTimes(1);
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain('SpanName AS group_value');
-  });
-
-  it('escapes backslashes before quotes in attribute groupBy values', async () => {
-    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ group_value: 'ok' }], err: null });
-
-    await getGroupedRequests(baseParams as any, "SpanAttributes:gen\\ai.system's");
-
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain("SpanAttributes['gen\\\\ai.system\\'s'] AS group_value");
   });
 });

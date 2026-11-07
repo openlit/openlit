@@ -21,55 +21,6 @@ import {
 	buildRequestsOrderByClause,
 } from "@/lib/clickhouse-escape";
 
-const PREDEFINED_GROUP_BY: Record<string, string> = {
-	model: `SpanAttributes['gen_ai.request.model']`,
-	// OTel GenAI renamed gen_ai.system -> gen_ai.provider.name (1.30+). The
-	// current SDK emits provider.name. This must stay a single-attribute
-	// expression so the drill-down customFilter in grouped-table.tsx
-	// (SpanAttributes['gen_ai.provider.name'] = <value>) matches the exact
-	// same rows this GROUP BY produces.
-	provider: `SpanAttributes['gen_ai.provider.name']`,
-	spanName: `SpanName`,
-	applicationName: `ResourceAttributes['service.name']`,
-};
-
-const ALLOWED_FIELD_GROUP_BY = new Set([
-	"TraceId",
-	"ParentSpanId",
-	"TraceState",
-	"SpanId",
-	"SpanName",
-	"SpanKind",
-	"ServiceName",
-	"ScopeName",
-	"ScopeVersion",
-	"Timestamp",
-	"Duration",
-	"StatusCode",
-	"StatusMessage",
-]);
-
-export function getGroupByExpression(groupBy: string): string | null {
-	if (groupBy in PREDEFINED_GROUP_BY) return PREDEFINED_GROUP_BY[groupBy];
-	const sep = groupBy.indexOf(":");
-	if (sep === -1) {
-		const sanitized = escapeClickHouseString(groupBy).trim();
-		if (!sanitized) return null;
-		return `SpanAttributes['${sanitized}']`;
-	}
-	const attrType = groupBy.slice(0, sep);
-	const key = escapeClickHouseString(groupBy.slice(sep + 1)).trim();
-	if (!key) return null;
-	if (attrType === "ResourceAttributes") return `ResourceAttributes['${key}']`;
-	if (attrType === "Field") {
-		const field = key.replace(/[^A-Za-z0-9_.]/g, "");
-		if (!field || !ALLOWED_FIELD_GROUP_BY.has(field)) return null;
-		return field;
-	}
-	if (attrType === "SpanAttributes") return `SpanAttributes['${key}']`;
-	return `SpanAttributes['${key}']`;
-}
-
 export async function getRequestPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
@@ -702,28 +653,4 @@ export async function getAttributeKeys(params: MetricParams) {
 		spanAttributeKeys: (spanResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
 		resourceAttributeKeys: (resourceResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
 	};
-}
-
-export async function getGroupedRequests(params: MetricParams, groupBy: string) {
-	const table = await tracesTableRef(params.databaseConfigId);
-	const expr = getGroupByExpression(groupBy);
-	if (!expr) {
-		return {
-			err: "Invalid groupBy value",
-			data: [],
-		};
-	}
-	const query = `
-		SELECT
-			${expr} AS group_value,
-			CAST(COUNT(*) AS INTEGER) AS count,
-			CAST(SUM(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost'])) AS FLOAT) AS total_cost,
-			CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS total_tokens,
-			CAST(AVG(Duration) * 1e-9 AS FLOAT) AS avg_duration_seconds
-		FROM ${table}
-		WHERE ${getFilterWhereCondition(params, true)}
-		GROUP BY group_value
-		ORDER BY count DESC
-	`;
-	return queryTracesSql(query, params.databaseConfigId);
 }
