@@ -411,6 +411,39 @@ describe('intelligenceDataCollector', () => {
     expect(callArg.clickhouse_settings).toEqual({ max_execution_time: 60, readonly: '1' });
   });
 
+  it('retries without the execution limit for a readonly database user', async () => {
+    const mockClient = makeClient();
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient])
+      .mockResolvedValueOnce([{ code: '164' }, null])
+      .mockResolvedValueOnce([null, { json: jest.fn().mockResolvedValue([{ total: 2 }]) }])
+      .mockResolvedValueOnce([null, [{ total: 2 }]]);
+
+    const result = await intelligenceDataCollector({ query: 'SELECT 1', enable_readonly: true });
+
+    expect(result).toEqual({ err: null, data: [{ total: 2 }] });
+    expect(mockClient.query).toHaveBeenCalledTimes(2);
+    expect(mockClient.query.mock.calls[0][0].clickhouse_settings.max_execution_time).toBe(60);
+    expect(mockClient.query.mock.calls[1][0].clickhouse_settings).toEqual({ readonly: '1' });
+  });
+
+  it('does not retry other query errors', async () => {
+    const mockClient = makeClient();
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient])
+      .mockResolvedValueOnce([{ code: '159' }, null]);
+
+    await intelligenceDataCollector({ query: 'SELECT 1' });
+
+    expect(mockClient.query).toHaveBeenCalledTimes(1);
+  });
+
   it('bounds every direct read with a server-side execution limit', async () => {
     const mockClient = makeClient();
     const mockPool = { acquire: jest.fn(), release: jest.fn() };
