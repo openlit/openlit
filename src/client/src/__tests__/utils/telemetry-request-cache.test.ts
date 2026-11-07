@@ -231,6 +231,28 @@ describe("telemetry-request-cache", () => {
 		).toEqual({ tag: "fresh" });
 	});
 
+	it("does not cache a 200 response that carries an err", async () => {
+		const loader = jest
+			.fn()
+			.mockResolvedValueOnce({ err: "Span not found" })
+			.mockResolvedValueOnce({ err: null, record: { spanId: "s1" } });
+
+		await expect(
+			withTelemetryRequestCache("/api/telemetry/request/span/s1", undefined, loader)
+		).resolves.toEqual({ err: "Span not found" });
+		expect(
+			peekTelemetryRequestCache("/api/telemetry/request/span/s1", undefined)
+		).toBeNull();
+
+		const result = await withTelemetryRequestCache(
+			"/api/telemetry/request/span/s1",
+			undefined,
+			loader
+		);
+		expect(result).toEqual({ err: null, record: { spanId: "s1" } });
+		expect(loader).toHaveBeenCalledTimes(2);
+	});
+
 	it("propagates loader rejections without caching the failure", async () => {
 		const loader = jest
 			.fn()
