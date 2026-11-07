@@ -1803,6 +1803,24 @@ describe("getTraceGrouped", () => {
 		);
 	});
 
+	it("keeps the resource scope on a custom ResourceAttributes groupBy", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const aggregateSpans = jest.fn().mockResolvedValue({
+			rows: [{ group_value: "eu-west-1", count: "3" }],
+		});
+		mockGetAdapter.mockResolvedValue({ aggregateSpans });
+
+		const res = await getTraceGrouped(
+			params as never,
+			"ResourceAttributes:cloud.region"
+		);
+
+		expect(aggregateSpans).toHaveBeenCalledWith(
+			expect.objectContaining({ groupBy: ["resource:cloud.region"] })
+		);
+		expect(res.data[0].group_value).toBe("eu-west-1");
+	});
+
 	it("passes through a plain groupBy key without a colon", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		const aggregateSpans = jest.fn().mockResolvedValue({ rows: [] });

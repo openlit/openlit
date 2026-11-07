@@ -739,7 +739,12 @@ const GROUP_BY_FIELD: Record<string, string> = {
 function groupByToField(groupBy: string): string {
 	if (groupBy in GROUP_BY_FIELD) return GROUP_BY_FIELD[groupBy];
 	const sep = groupBy.indexOf(":");
-	return sep === -1 ? groupBy : groupBy.slice(sep + 1);
+	if (sep === -1) return groupBy;
+	const key = groupBy.slice(sep + 1);
+	// Adapters read a bare dotted key as a span attribute, so a resource
+	// attribute must keep its scope or it groups on the wrong (usually empty)
+	// value while the drill-down still filters on ResourceAttributes.
+	return groupBy.slice(0, sep) === "ResourceAttributes" ? `resource:${key}` : key;
 }
 
 /**
