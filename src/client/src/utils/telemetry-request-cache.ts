@@ -1,6 +1,6 @@
 /**
  * Short-lived browser cache for read-only Telemetry / metrics POSTs.
- * Tab remounts and 1m poll windows reuse the last response instead of
+ * Tab remounts between polls reuse the last response instead of
  * re-triggering expensive external L1 sampling on every navigation.
  */
 
@@ -12,7 +12,12 @@ interface CacheEntry {
 const store = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<unknown>>();
 
-const DEFAULT_TTL_MS = 45_000;
+/**
+ * Matches the default 1m poll, so a remount reuses the response until the next
+ * poll. A relative poll moves the window past TIME_QUANTUM_MS, which changes
+ * the cache key, so it always fetches fresh data.
+ */
+const DEFAULT_TTL_MS = 60_000;
 /** Floor relative-range timestamps so remounts within the poll window share a key. */
 const TIME_QUANTUM_MS = 30_000;
 const MAX_ENTRIES = 80;

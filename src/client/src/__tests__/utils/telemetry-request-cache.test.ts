@@ -253,6 +253,46 @@ describe("telemetry-request-cache", () => {
 		expect(loader).toHaveBeenCalledTimes(2);
 	});
 
+	describe("alignment with the default 1m poll", () => {
+		const url = "/api/telemetry/request";
+		const bodyAt = (end: string, start = "2026-07-10T00:00:00.000Z") =>
+			JSON.stringify({ timeLimit: { type: "24H", start, end } });
+
+		beforeEach(() => jest.useFakeTimers());
+		afterEach(() => jest.useRealTimers());
+
+		it("reuses a window's response for a remount right up to the next poll", async () => {
+			jest.setSystemTime(new Date("2026-07-11T00:00:00.000Z"));
+			const body = bodyAt("2026-07-11T00:00:00.000Z");
+			const loader = jest.fn().mockResolvedValue({ rows: 1 });
+
+			await withTelemetryRequestCache(url, body, loader);
+			jest.advanceTimersByTime(59_000);
+			await withTelemetryRequestCache(url, body, loader);
+
+			expect(loader).toHaveBeenCalledTimes(1);
+		});
+
+		it("fetches fresh data when a poll moves the window", async () => {
+			jest.setSystemTime(new Date("2026-07-11T00:00:00.000Z"));
+			const loader = jest.fn().mockResolvedValue({ rows: 1 });
+
+			await withTelemetryRequestCache(
+				url,
+				bodyAt("2026-07-11T00:00:00.000Z", "2026-07-10T00:00:00.000Z"),
+				loader
+			);
+			jest.advanceTimersByTime(60_000);
+			await withTelemetryRequestCache(
+				url,
+				bodyAt("2026-07-11T00:01:00.000Z", "2026-07-10T00:01:00.000Z"),
+				loader
+			);
+
+			expect(loader).toHaveBeenCalledTimes(2);
+		});
+	});
+
 	it("propagates loader rejections without caching the failure", async () => {
 		const loader = jest
 			.fn()
