@@ -129,6 +129,26 @@
         "canopylabs/orpheus-arabic-saudi": 0.04
     },
     "chat": {
+        "gpt-oss-20b": {
+            "promptPrice": 1.7e-05,
+            "completionPrice": 8.5e-05
+        },
+        "qwen/qwen3-30b-a3b": {
+            "promptPrice": 5.8512e-05,
+            "completionPrice": 0.0002438
+        },
+        "qwen/qwen3-vl-30b-a3b-instruct": {
+            "promptPrice": 0.00014,
+            "completionPrice": 0.00057
+        },
+        "gemma-4-26b-a4b-it": {
+            "promptPrice": 4e-05,
+            "completionPrice": 0.00021
+        },
+        "qwen3-coder-30b": {
+            "promptPrice": 6.75e-05,
+            "completionPrice": 0.00027
+        },
         "jev-latest": {
             "promptPrice": 4.2e-05,
             "completionPrice": 0
