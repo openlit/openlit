@@ -429,4 +429,68 @@ describe('MistralWrapper', () => {
       expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_SERVER_TBT);
     });
   });
+
+  describe('cache token usage', () => {
+    async function callSetter(usage: any) {
+      jest.restoreAllMocks();
+      (OpenlitConfig as any).pricingInfo = {};
+      (OpenlitConfig as any).disableEvents = true;
+      (OpenlitConfig as any).captureMessageContent = false;
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0.5);
+
+      await MistralWrapper._chatCompletionCommonSetter({
+        args: [{ model: 'mistral-small-latest', messages: [{ role: 'user', content: 'Ping' }] }],
+        genAIEndpoint: 'mistral.chat.completions',
+        result: {
+          id: 'cmpl-1',
+          model: 'mistral-small-latest',
+          choices: [{ message: { role: 'assistant', content: 'Pong' }, finishReason: 'stop' }],
+          usage,
+        },
+        span,
+      });
+    }
+
+    it('reports cached prompt tokens from prompt_tokens_details (matches Python)', async () => {
+      await callSetter({
+        prompt_tokens: 40,
+        completion_tokens: 10,
+        total_tokens: 50,
+        prompt_tokens_details: { cached_tokens: 25 },
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 40);
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        25
+      );
+    });
+
+    it('prefers input_tokens_details and reports cache_creation_input_tokens', async () => {
+      await callSetter({
+        prompt_tokens: 40,
+        completion_tokens: 10,
+        total_tokens: 50,
+        input_tokens_details: { cached_tokens: 12 },
+        cache_creation_input_tokens: 8,
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        12
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+        8
+      );
+    });
+
+    it('sets nothing when the provider reports no cache usage', async () => {
+      await callSetter({ prompt_tokens: 40, completion_tokens: 10, total_tokens: 50 });
+
+      const attrKeys = (span.setAttribute as jest.Mock).mock.calls.map((c: any[]) => c[0]);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS);
+      expect(attrKeys).not.toContain(SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS);
+    });
+  });
 });
