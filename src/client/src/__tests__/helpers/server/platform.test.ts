@@ -458,7 +458,7 @@ describe('getFilterPreviousParams', () => {
     );
   });
 
-  it('7D: shifts start back 7 days and end back 1 day', () => {
+  it('7D: shifts start and end back 7 days', () => {
     const start = new Date('2024-02-01T00:00:00Z');
     const end = new Date('2024-02-08T00:00:00Z');
     const result = getFilterPreviousParams(makeFilter('7D', start, end) as any);
@@ -466,7 +466,7 @@ describe('getFilterPreviousParams', () => {
       addDays(start, -7).toISOString()
     );
     expect(new Date(result.timeLimit.end).toISOString()).toBe(
-      addDays(end, -1).toISOString()
+      addDays(end, -7).toISOString()
     );
   });
 
@@ -504,6 +504,22 @@ describe('getFilterPreviousParams', () => {
     expect(new Date(result.timeLimit.end).toISOString()).toBe(
       addDays(end, -10).toISOString()
     );
+  });
+
+  it('CUSTOM: a sub-day range compares against the window right before it', () => {
+    const start = new Date('2024-02-01T10:00:00.000Z');
+    const end = new Date('2024-02-01T14:30:00.000Z');
+    const result = getFilterPreviousParams(makeFilter('CUSTOM', start, end) as any);
+    expect(result.timeLimit.start).toBe('2024-02-01T05:30:00.000Z');
+    expect(result.timeLimit.end).toBe('2024-02-01T10:00:00.000Z');
+  });
+
+  it('CUSTOM: keeps the partial day of a multi-day range', () => {
+    const start = new Date('2024-02-01T00:00:00.000Z');
+    const end = new Date('2024-02-02T12:00:00.000Z');
+    const result = getFilterPreviousParams(makeFilter('CUSTOM', start, end) as any);
+    expect(result.timeLimit.start).toBe('2024-01-30T12:00:00.000Z');
+    expect(result.timeLimit.end).toBe('2024-02-01T00:00:00.000Z');
   });
 
   it('default (unknown type): returns the same filter unchanged', () => {

@@ -2,8 +2,10 @@ import { ValueOf } from "../../types/util";
 import { MetricParams } from "@/lib/platform/common";
 import {
 	addDays,
+	addMilliseconds,
 	addMonths,
 	differenceInDays,
+	differenceInMilliseconds,
 	differenceInYears,
 } from "date-fns";
 import {
@@ -508,7 +510,7 @@ export const getFilterPreviousParams = (filter: MetricParams) => {
 					start as Date,
 					-7
 				).toISOString();
-				previousParams.timeLimit.end = addDays(end as Date, -1).toISOString();
+				previousParams.timeLimit.end = addDays(end as Date, -7).toISOString();
 				break;
 			case "1M":
 				previousParams.timeLimit.start = addMonths(
@@ -525,14 +527,17 @@ export const getFilterPreviousParams = (filter: MetricParams) => {
 				previousParams.timeLimit.end = addMonths(end as Date, -3).toISOString();
 				break;
 			case "CUSTOM":
-				const differenceDays = differenceInDays(end as Date, start as Date);
-				previousParams.timeLimit.start = addDays(
-					start as Date,
-					-differenceDays
-				).toISOString();
-				previousParams.timeLimit.end = addDays(
+				const durationMs = differenceInMilliseconds(
 					end as Date,
-					-differenceDays
+					start as Date
+				);
+				previousParams.timeLimit.start = addMilliseconds(
+					start as Date,
+					-durationMs
+				).toISOString();
+				previousParams.timeLimit.end = addMilliseconds(
+					end as Date,
+					-durationMs
 				).toISOString();
 				break;
 			default:
