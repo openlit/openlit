@@ -463,7 +463,10 @@ func NewEmitter(_ context.Context, cfg *config.Resolved, vendor string, extraAtt
 	// `agent-guides/coding-agents-convention.md` §6 for the full
 	// dual-path coalesce contract; without this stamp, reads can't
 	// reliably prefer native cost/tokens over our hook estimates.
-	extra["coding_agent.signal_source"] = "hook"
+	// `openlit coding exec` passes its own value through extraAttrs.
+	if _, set := extra["coding_agent.signal_source"]; !set {
+		extra["coding_agent.signal_source"] = "hook"
+	}
 	// Positively brand every CLI span as a distinct OpenTelemetry
 	// distribution. This is the structural barrier that keeps the
 	// agent-hub's SDK discovery (`materialize.ts:discoverAgents`)

@@ -239,6 +239,14 @@ export default class Metrics {
     }
   }
 
+  static async forceFlush(): Promise<void> {
+    await this.meterProvider?.forceFlush();
+  }
+
+  static async shutdown(): Promise<void> {
+    await this.meterProvider?.shutdown();
+  }
+
   private static buildMetricReaders(options: SetupMetricsOptions) {
     const readers: PeriodicExportingMetricReader[] = [];
     const exporterList = parseExporters('OTEL_METRICS_EXPORTER');

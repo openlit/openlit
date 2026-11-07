@@ -16,6 +16,8 @@ The integration is compatible with:
 
 OpenLIT wraps the native System One API (`TypeSafeClient.system_one` in Python and `TypeSafeClient.systemOne` in TypeScript). Vercel AI Gateway `experimental_evaluate` is not instrumented in this release; that path can be added when AI SDK `evaluate` is stable.
 
+For direct HTTP calls to the TypeSafe API, set `fetchAdapters: ["typesafe"]` in `init()` in the TypeScript SDK. See [Trace calls the SDK can't patch](/latest/sdk/edge-and-serverless#trace-calls-the-sdk-cant-patch).
+
 ## Get started
 
 <Steps>

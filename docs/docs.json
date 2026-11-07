@@ -364,6 +364,7 @@
               },
               "latest/sdk/configuration",
               "latest/sdk/instrumentation-methods",
+              "latest/sdk/edge-and-serverless",
               "latest/sdk/go-overview"
             ]
           },
