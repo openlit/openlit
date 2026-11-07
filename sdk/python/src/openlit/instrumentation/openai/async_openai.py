@@ -3,6 +3,8 @@ Module for monitoring OpenAI API calls.
 """
 
 import time
+import inspect
+from functools import wraps
 from opentelemetry import trace as trace_api, context as context_api
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
@@ -183,7 +185,10 @@ def async_chat_completions(
             )
 
         else:
-            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            deferred = False
+            with tracer.start_as_current_span(
+                span_name, kind=SpanKind.CLIENT, end_on_exit=False
+            ) as span:
                 start_time = time.time()
                 set_openai_request_span_attributes(
                     span,
@@ -198,7 +203,7 @@ def async_chat_completions(
                 )
                 try:
                     response = await wrapped(*args, **kwargs)
-                except Exception as e:
+                except BaseException as e:
                     err_type = set_span_error_type(span, e)
                     if not disable_metrics and metrics:
                         record_completion_metrics(
@@ -220,26 +225,89 @@ def async_chat_completions(
                             None,
                             error_type=err_type,
                         )
+                    span.end()
                     raise
 
                 try:
-                    response = process_chat_response(
-                        response=response,
-                        request_model=request_model,
-                        pricing_info=pricing_info,
-                        server_port=server_port,
-                        server_address=server_address,
-                        environment=environment,
-                        application_name=application_name,
-                        metrics=metrics,
-                        start_time=start_time,
-                        span=span,
-                        capture_message_content=capture_message_content,
-                        disable_metrics=disable_metrics,
-                        version=version,
-                        event_provider=event_provider,
-                        **kwargs,
-                    )
+                    def record_response(parsed):
+                        process_chat_response(
+                            response=parsed,
+                            request_model=request_model,
+                            pricing_info=pricing_info,
+                            server_port=server_port,
+                            server_address=server_address,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            start_time=start_time,
+                            span=span,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version,
+                            event_provider=event_provider,
+                            **kwargs,
+                        )
+
+                    if inspect.iscoroutinefunction(getattr(response, "parse", None)):
+                        original_parse = response.parse
+                        original_close = response.close
+                        finalized = False
+
+                        def finalize(parsed=None, error=None):
+                            nonlocal finalized
+                            if finalized:
+                                return
+                            finalized = True
+                            try:
+                                token = context_api.attach(trace_api.set_span_in_context(span))
+                                try:
+                                    if error is not None:
+                                        handle_exception(span, error)
+                                    elif parsed is not None:
+                                        record_response(parsed)
+                                finally:
+                                    context_api.detach(token)
+                            except Exception as exc:
+                                handle_exception(span, exc)
+                            finally:
+                                span.end()
+
+                        @wraps(original_parse)
+                        async def traced_parse(*parse_args, **parse_kwargs):
+                            try:
+                                parsed = await original_parse(*parse_args, **parse_kwargs)
+                            except BaseException as exc:
+                                finalize(error=exc)
+                                raise
+                            if not finalized:
+                                try:
+                                    telemetry_response = (
+                                        await original_parse()
+                                        if parse_kwargs.get("to") is not None
+                                        else parsed
+                                    )
+                                    finalize(parsed=telemetry_response)
+                                except BaseException as exc:
+                                    finalize(error=exc)
+                                    if not isinstance(exc, Exception):
+                                        raise
+                            return parsed
+
+                        @wraps(original_close)
+                        async def traced_close():
+                            try:
+                                return await original_close()
+                            except BaseException as exc:
+                                finalize(error=exc)
+                                raise
+                            finally:
+                                finalize()
+
+                        response.parse = traced_parse
+                        response.close = traced_close
+                        deferred = True
+                    else:
+                        record_response(response)
 
                 except Exception as e:
                     handle_exception(span, e)
@@ -263,6 +331,10 @@ def async_chat_completions(
                             None,
                             error_type=type(e).__name__ or "_OTHER",
                         )
+
+                finally:
+                    if not deferred:
+                        span.end()
 
                 return response
 
