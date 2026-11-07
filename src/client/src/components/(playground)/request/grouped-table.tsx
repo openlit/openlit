@@ -8,6 +8,7 @@ import { getPingStatus } from "@/selectors/database-config";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { CustomFilter, CustomFilterAttributeType, FilterConfig } from "@/types/store/filter";
 import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
+import getMessage from "@/constants/messages";
 
 // ─── Shared utilities (also imported by requests/page.tsx) ────────────────────
 
@@ -133,6 +134,7 @@ export default function GroupedTable({
 	groupBy: string;
 	apiUrl?: string;
 }) {
+	const m = getMessage();
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
 	const pingStatus = useRootStore(getPingStatus);
@@ -176,7 +178,7 @@ export default function GroupedTable({
 			{/* Column header */}
 			<div className={`grid ${GRID_COLS} w-full sticky top-0 z-10 bg-stone-100 dark:bg-stone-900 text-xs font-medium text-stone-500 dark:text-stone-400 border-b dark:border-stone-800`}>
 				<div className="px-3 py-2">{groupLabel}</div>
-				<div className="px-3 py-2 text-right">Spans</div>
+				<div className="px-3 py-2 text-right">{m.OBSERVABILITY_SPANS}</div>
 				<div className="px-3 py-2 text-right">Total Cost</div>
 				<div className="px-3 py-2 text-right">Tokens</div>
 				<div className="px-3 py-2 text-right">Avg Duration</div>

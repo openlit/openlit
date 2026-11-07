@@ -874,13 +874,15 @@ export async function getTraceGrouped(params: MetricParams, groupBy: string) {
 			],
 		};
 		const frame = await planAndAggregateSpans(adapter, query);
-		const data = (frame.rows as Record<string, unknown>[]).map((row) => ({
-			group_value: String(row.group_value ?? row[field] ?? row.g0 ?? ""),
-			count: Number(row.count ?? 0),
-			total_cost: Number(row.total_cost ?? 0),
-			total_tokens: Number(row.total_tokens ?? 0),
-			avg_duration_seconds: Number(row.avg_duration_seconds ?? 0),
-		}));
+		const data = (frame.rows as Record<string, unknown>[])
+			.map((row) => ({
+				group_value: String(row.group_value ?? row[field] ?? row.g0 ?? ""),
+				count: Number(row.count ?? 0),
+				total_cost: Number(row.total_cost ?? 0),
+				total_tokens: Number(row.total_tokens ?? 0),
+				avg_duration_seconds: Number(row.avg_duration_seconds ?? 0),
+			}))
+			.sort((a, b) => b.count - a.count);
 		return { err: null, data };
 	} catch (err) {
 		rethrowIfSourceFailure(err);

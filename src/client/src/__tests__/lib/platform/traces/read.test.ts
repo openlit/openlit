@@ -6,7 +6,6 @@ const mockResolveDescriptor = jest.fn();
 const mockGetAdapter = jest.fn();
 
 const mockGetRequestsConfig = jest.fn();
-const mockGetGroupedRequests = jest.fn();
 const mockGetAttributeKeys = jest.fn();
 const mockGetSignalSummary = jest.fn();
 const mockGetTraceSummaries = jest.fn();
@@ -18,7 +17,6 @@ jest.mock("@/lib/platform/request", () => ({
 	getRequestViaTraceId: (...a: unknown[]) => mockGetRequestViaTraceId(...a),
 	getHeirarchyViaSpanId: (...a: unknown[]) => mockGetHeirarchyViaSpanId(...a),
 	getRequestsConfig: (...a: unknown[]) => mockGetRequestsConfig(...a),
-	getGroupedRequests: (...a: unknown[]) => mockGetGroupedRequests(...a),
 	getAttributeKeys: (...a: unknown[]) => mockGetAttributeKeys(...a),
 	getTotalRequests: jest.fn(),
 	getRequestPerTime: jest.fn(),
@@ -1742,6 +1740,55 @@ describe("getTraceGrouped", () => {
 				avg_duration_seconds: 0.4,
 			},
 		]);
+	});
+
+	it("orders groups by count, highest first", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		mockGetAdapter.mockResolvedValue({
+			aggregateSpans: jest.fn().mockResolvedValue({
+				rows: [
+					{ group_value: "rare", count: "2" },
+					{ group_value: "common", count: "30" },
+					{ group_value: "middling", count: "4" },
+				],
+			}),
+		});
+
+		const res = await getTraceGrouped(params as never, "spanName");
+
+		expect(res.data.map((row) => row.group_value)).toEqual([
+			"common",
+			"middling",
+			"rare",
+		]);
+	});
+
+	it("keeps the agent scope on the grouped query", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const aggregateSpans = jest.fn().mockResolvedValue({ rows: [] });
+		mockGetAdapter.mockResolvedValue({ aggregateSpans });
+
+		await getTraceGrouped(
+			{
+				...params,
+				selectedConfig: {
+					serviceNames: ["support-agent"],
+					versionFilter: { versionHash: "abc123" },
+				},
+			} as never,
+			"spanName"
+		);
+
+		const { filters } = aggregateSpans.mock.calls[0][0];
+		expect(filters).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ value: ["support-agent"] }),
+				expect.objectContaining({
+					key: "openlit.agent.version_hash",
+					value: "abc123",
+				}),
+			])
+		);
 	});
 
 	it("passes through a scoped groupBy key that has no friendly mapping", async () => {
