@@ -199,6 +199,23 @@ describe("ClickHouseAdapter", () => {
 		);
 	});
 
+	it("getSpansBySession stays unbounded when the time is unknown", async () => {
+		mockDataCollector.mockResolvedValue({ data: [] });
+		await adapter.getSpansBySession("sess-1");
+		const sql = (mockDataCollector.mock.calls[0][0] as { query: string }).query;
+		expect(sql).not.toContain("Timestamp >=");
+	});
+
+	it("getSpansBySession applies the time bound to every session match", async () => {
+		mockDataCollector.mockResolvedValue({ data: [] });
+		await adapter.getSpansBySession("sess-1", "2026-07-01 00:00:00");
+		const sql = (mockDataCollector.mock.calls[0][0] as { query: string }).query;
+		// Without the parentheses AND would bind to the last OR branch alone.
+		expect(sql).toMatch(
+			/WHERE \(SpanAttributes\[[\s\S]*'sess-1'\)\s+AND Timestamp >= parseDateTimeBestEffort\('2026-07-01 00:00:00'\) - INTERVAL 7 DAY/
+		);
+	});
+
 	it("validateAISignal counts spans matching the AI selector", async () => {
 		mockDataCollector.mockResolvedValue({ data: [{ c: 42 }] });
 		const result = await adapter.validateAISignal(window);

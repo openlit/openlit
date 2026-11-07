@@ -911,6 +911,70 @@ describe("getTraceHierarchy", () => {
 		expect(mockGetHeirarchyViaSpanId).not.toHaveBeenCalled();
 	});
 
+	it("reuses the full trace it already read when a traceId is given", async () => {
+		mockResolveDescriptor.mockResolvedValue(builtin);
+		const span = (spanId: string, parentSpanId: string, timestamp: string) => ({
+			traceId: "t1",
+			spanId,
+			parentSpanId,
+			name: spanId,
+			serviceName: "api",
+			timestamp,
+			durationNs: 1,
+			statusCode: "OK",
+			spanAttributes: {},
+			resourceAttributes: {},
+		});
+		const getTraceSpans = jest
+			.fn()
+			.mockResolvedValue([
+				span("root", "", "2026-07-01T00:00:00.000Z"),
+				span("clicked", "root", "2026-07-02T00:00:00.000Z"),
+				span("late", "root", "2026-07-10T00:00:00.000Z"),
+			]);
+		mockGetAdapter.mockResolvedValue({
+			capabilities: () => ({ crossTraceSession: false }),
+			getTraceSpans,
+		});
+
+		await getTraceHierarchy("clicked", { traceId: "t1" });
+
+		expect(getTraceSpans).toHaveBeenCalledTimes(1);
+		expect(getTraceSpans).toHaveBeenCalledWith("t1");
+		const [rows] = (buildHierarchy as jest.Mock).mock.lastCall;
+		expect(rows.map((row: { SpanId: string }) => row.SpanId)).toEqual([
+			"root",
+			"clicked",
+			"late",
+		]);
+	});
+
+	it("reads the whole trace when it starts from a span id alone", async () => {
+		mockResolveDescriptor.mockResolvedValue(builtin);
+		const span = {
+			traceId: "t1",
+			spanId: "s1",
+			parentSpanId: "",
+			name: "root",
+			serviceName: "api",
+			timestamp: "2026-07-01T00:00:00.000Z",
+			durationNs: 1,
+			statusCode: "OK",
+			spanAttributes: {},
+			resourceAttributes: {},
+		};
+		const getTraceSpans = jest.fn().mockResolvedValue([span]);
+		mockGetAdapter.mockResolvedValue({
+			capabilities: () => ({ crossTraceSession: false }),
+			getSpan: jest.fn().mockResolvedValue(span),
+			getTraceSpans,
+		});
+
+		await getTraceHierarchy("s1");
+
+		expect(getTraceSpans).toHaveBeenCalledWith("t1");
+	});
+
 	it("builds ClickHouse hierarchy through the same adapter contract", async () => {
 		mockResolveDescriptor.mockResolvedValue(builtin);
 		const span = {
@@ -2202,15 +2266,20 @@ describe("getTraceHierarchy additional branches", () => {
 			resourceAttributes: { "coding_agent.session.id": "sess-1" },
 		};
 		const sessionSpan = { ...rootSpan, traceId: "t2", spanId: "s2" };
+		const getSpansBySession = jest.fn().mockResolvedValue([sessionSpan]);
 		mockGetAdapter.mockResolvedValue({
 			capabilities: () => ({ crossTraceSession: true }),
 			getSpan: jest.fn().mockResolvedValue(rootSpan),
 			getTraceSpans: jest.fn().mockResolvedValue([rootSpan]),
-			getSpansBySession: jest.fn().mockResolvedValue([sessionSpan]),
+			getSpansBySession,
 		});
 
 		const res = await getTraceHierarchy("s1");
 		expect(res.err).toBeNull();
+		expect(getSpansBySession).toHaveBeenCalledWith(
+			"sess-1",
+			"2026-07-01T00:00:00.000Z"
+		);
 	});
 
 	it("still builds a hierarchy when session expansion throws", async () => {
