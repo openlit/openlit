@@ -5,6 +5,7 @@ export const VISIBLE_CONNECTOR_TYPES = [
 	"loki",
 	"prometheus",
 	"jaeger",
+	"otlp-http",
 	"claude",
 	"mem0",
 	"memcode",

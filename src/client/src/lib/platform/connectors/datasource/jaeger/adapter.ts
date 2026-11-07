@@ -40,12 +40,15 @@ import {
 import { cacheKey, cachedQuery } from "../http/cache";
 import { summarizeTraceSpans } from "../graph/sample-fetch";
 import { resolveSourceSecret, redactableSecretValues } from "../http/secret";
-import { spanMatchesAISelector, traceMatchesAISelector } from "../selector-match";
+import {
+	spanMatchesAISelector,
+	spanMatchesFilters,
+	traceMatchesAISelector,
+} from "../selector-match";
 import {
 	computeAggregateSpansL1,
 	computeDistinctValuesL1,
 } from "../l1-compute";
-import { spanFieldValue } from "../graph/sample-aggregate";
 import { mapPool } from "../graph/map-pool";
 import {
 	firstSpanMatchingGenerationHealth,
@@ -116,51 +119,6 @@ function pickRootSpan(spans: NormalizedSpan[]): NormalizedSpan | undefined {
 		const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
 		return ta - tb;
 	})[0];
-}
-
-function spanMatchesFilters(
-	span: NormalizedSpan,
-	filters?: NormalizedFilter[]
-): boolean {
-	if (!filters?.length) return true;
-	return filters.every((filter) => {
-		if (filter.target === "spanName") {
-			const values = Array.isArray(filter.value)
-				? filter.value.map(String)
-				: [String(filter.value || "")];
-			return values.includes(span.name);
-		}
-		if (filter.target === "status") {
-			const values = Array.isArray(filter.value)
-				? filter.value.map(String)
-				: [String(filter.value || "")];
-			const wantsError = values.some(
-				(v) => /error/i.test(v) || v === "STATUS_CODE_ERROR"
-			);
-			const isError = /error/i.test(span.statusCode || "");
-			return wantsError ? isError : !isError;
-		}
-		if (
-			(filter.target === "attribute" || filter.target === "field") &&
-			filter.key
-		) {
-			const raw = spanFieldValue(span, filter.key);
-			const value = raw === undefined ? undefined : String(raw);
-			if (filter.op === "exists") return !!value;
-			if (filter.op === "eq") return value === String(filter.value ?? "");
-			if (filter.op === "neq") return value !== String(filter.value ?? "");
-			if (filter.op === "contains") {
-				return !!value && value.toLowerCase().includes(String(filter.value ?? "").toLowerCase());
-			}
-			if (filter.op === "in") {
-				const values = Array.isArray(filter.value)
-					? filter.value.map(String)
-					: [String(filter.value || "")];
-				return value !== undefined && values.includes(value);
-			}
-		}
-		return true;
-	});
 }
 
 /** Prefer explicit service.name filters so we do not fan out across every service. */

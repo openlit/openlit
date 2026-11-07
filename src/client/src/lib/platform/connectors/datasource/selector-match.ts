@@ -12,7 +12,8 @@ import {
 	type AITelemetrySelector,
 	type SelectorCondition,
 } from "./ai-selector";
-import type { NormalizedSpan } from "./types";
+import { spanFieldValue } from "./graph/sample-aggregate";
+import type { NormalizedFilter, NormalizedSpan } from "./types";
 
 function attrValue(span: NormalizedSpan, cond: SelectorCondition): string | undefined {
 	const key = cond.key || "";
@@ -62,4 +63,50 @@ export function traceMatchesAISelector(
 	selector: AITelemetrySelector = buildAITelemetrySelector()
 ): boolean {
 	return spans.some((s) => spanMatchesAISelector(s, selector));
+}
+
+/** True when a span satisfies every normalized UI filter (AND semantics). */
+export function spanMatchesFilters(
+	span: NormalizedSpan,
+	filters?: NormalizedFilter[]
+): boolean {
+	if (!filters?.length) return true;
+	return filters.every((filter) => {
+		if (filter.target === "spanName") {
+			const values = Array.isArray(filter.value)
+				? filter.value.map(String)
+				: [String(filter.value || "")];
+			return values.includes(span.name);
+		}
+		if (filter.target === "status") {
+			const values = Array.isArray(filter.value)
+				? filter.value.map(String)
+				: [String(filter.value || "")];
+			const wantsError = values.some(
+				(v) => /error/i.test(v) || v === "STATUS_CODE_ERROR"
+			);
+			const isError = /error/i.test(span.statusCode || "");
+			return wantsError ? isError : !isError;
+		}
+		if (
+			(filter.target === "attribute" || filter.target === "field") &&
+			filter.key
+		) {
+			const raw = spanFieldValue(span, filter.key);
+			const value = raw === undefined ? undefined : String(raw);
+			if (filter.op === "exists") return !!value;
+			if (filter.op === "eq") return value === String(filter.value ?? "");
+			if (filter.op === "neq") return value !== String(filter.value ?? "");
+			if (filter.op === "contains") {
+				return !!value && value.toLowerCase().includes(String(filter.value ?? "").toLowerCase());
+			}
+			if (filter.op === "in") {
+				const values = Array.isArray(filter.value)
+					? filter.value.map(String)
+					: [String(filter.value || "")];
+				return value !== undefined && values.includes(value);
+			}
+		}
+		return true;
+	});
 }
