@@ -56,8 +56,10 @@ export function codingAgentEnv(options: CodingAgentEnvOptions): Record<string, s
     ...options.resourceAttributes,
   };
 
-  const { OTEL_SERVICE_NAME, OTEL_LOG_USER_PROMPTS, OTEL_LOG_TOOL_DETAILS, ...inherited } =
-    process.env as Record<string, string>;
+  const inherited = { ...process.env } as Record<string, string>;
+  for (const name of ['OTEL_SERVICE_NAME', 'OTEL_LOG_USER_PROMPTS', 'OTEL_LOG_TOOL_DETAILS']) {
+    delete inherited[name];
+  }
   const resourceAttributes = [inherited.OTEL_RESOURCE_ATTRIBUTES, encodePairs(attributes)].filter(Boolean);
 
   const env: Record<string, string> = {

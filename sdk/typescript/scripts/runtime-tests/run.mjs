@@ -29,9 +29,7 @@ symlinkSync(join(root, 'node_modules/@anthropic-ai/sdk'), join(workspace, 'node_
 symlinkSync(join(root, 'node_modules/openai'), join(workspace, 'node_modules/openai'));
 
 function attrs(span) {
-  const out = {};
-  for (const { key, value } of span.attributes ?? []) out[key] = Object.values(value)[0];
-  return out;
+  return Object.fromEntries((span.attributes ?? []).map(({ key, value }) => [key, Object.values(value)[0]]));
 }
 
 // The Anthropic SDK emits its own `chat` span unless OpenLIT switched it off, so

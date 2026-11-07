@@ -906,7 +906,7 @@ class using_attributes(ContextDecorator):
         return False
 
 
-class with_tags(using_attributes):
+class with_tags(using_attributes):  # pylint: disable=too-few-public-methods
     """
     Context manager and decorator that tags model calls with their business
     purpose and route, so calls to one model can be told apart in the UI.

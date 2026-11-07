@@ -18,7 +18,9 @@ export default openlit.withWorker({
       });
       return new Response('reached the model');
     } catch (error) {
-      return new Response(error instanceof GuardDeniedError ? 'blocked' : String(error));
+      if (error instanceof GuardDeniedError) return new Response('blocked');
+      console.error(error);
+      return new Response('unexpected error', { status: 500 });
     }
   },
 });
