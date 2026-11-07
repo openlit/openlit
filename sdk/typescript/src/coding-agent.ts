@@ -38,6 +38,16 @@ function parentTraceparent(parent?: RunTraceContext): string | undefined {
  * that read it. Those that do not can still be joined to the caller through
  * `openlit.parent.trace_id`.
  */
+/**
+ * An inherited service name would stop the Agents hub recognising the agent, and
+ * an inherited content flag would export prompts, tool content or raw API bodies
+ * nobody asked for. Every `OTEL_LOG_*` flag goes, because a vendor may add more,
+ * except `OTEL_LOG_LEVEL`, which carries no content. Matches the CLI's list.
+ */
+function removedFromChild(name: string): boolean {
+  return name === 'OTEL_SERVICE_NAME' || (name.startsWith('OTEL_LOG_') && name !== 'OTEL_LOG_LEVEL');
+}
+
 export function codingAgentEnv(options: CodingAgentEnvOptions): Record<string, string> {
   if (options.vendor !== 'claude-code') {
     throw new Error(`OpenLIT: no native telemetry settings for coding agent "${options.vendor}"`);
@@ -57,8 +67,8 @@ export function codingAgentEnv(options: CodingAgentEnvOptions): Record<string, s
   };
 
   const inherited = { ...process.env } as Record<string, string>;
-  for (const name of ['OTEL_SERVICE_NAME', 'OTEL_LOG_USER_PROMPTS', 'OTEL_LOG_TOOL_DETAILS']) {
-    delete inherited[name];
+  for (const name of Object.keys(inherited)) {
+    if (removedFromChild(name)) delete inherited[name];
   }
   const resourceAttributes = [inherited.OTEL_RESOURCE_ATTRIBUTES, encodePairs(attributes)].filter(Boolean);
 

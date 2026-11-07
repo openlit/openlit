@@ -146,8 +146,12 @@ func TestNativeEnvRejectsOtherVendors(t *testing.T) {
 
 func TestMergeEnvTakesOutWhatWouldUndoTheSetup(t *testing.T) {
 	t.Parallel()
-	got := mergeEnv([]string{"PATH=/bin", "OTEL_SERVICE_NAME=app", "OTEL_LOG_USER_PROMPTS=1"}, map[string]string{})
-	if strings.Join(got, " ") != "PATH=/bin" {
+	got := mergeEnv([]string{
+		"PATH=/bin", "OTEL_SERVICE_NAME=app", "OTEL_LOG_USER_PROMPTS=1", "OTEL_LOG_TOOL_DETAILS=1",
+		"OTEL_LOG_RAW_API_BODIES=1", "OTEL_LOG_TOOL_CONTENT=1", "OTEL_LOG_ASSISTANT_RESPONSES=1",
+		"OTEL_LOG_LEVEL=debug",
+	}, map[string]string{})
+	if strings.Join(got, " ") != "PATH=/bin OTEL_LOG_LEVEL=debug" {
 		t.Fatalf("got %v", got)
 	}
 	got = mergeEnv([]string{"OTEL_LOG_USER_PROMPTS=0"}, map[string]string{"OTEL_LOG_USER_PROMPTS": "1"})

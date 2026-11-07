@@ -4,7 +4,7 @@ import { ATTR_SERVICE_NAME, ATTR_TELEMETRY_SDK_NAME } from '@opentelemetry/seman
 import SemanticConvention from '../semantic-convention';
 import { Attributes, Span, SpanStatusCode } from '@opentelemetry/api';
 import Metrics from '../otel/metrics';
-import { applyCustomSpanAttributes } from '../helpers';
+import { applyCustomSpanAttributes, captureCallContext } from '../helpers';
 
 export type BaseSpanAttributes = {
   genAIEndpoint: string;
@@ -32,7 +32,12 @@ type ApiPromiseObserver = {
  * as an ordinary thenable.
  */
 export function observeApiPromise(pending: any, observer: ApiPromiseObserver): any {
-  const { onResult, onError, onRawResponse } = observer;
+  // The callbacks may run after the caller's context is gone, so they get the
+  // tags that were active when the call was made.
+  const inCallContext = captureCallContext();
+  const onResult = (result: any) => inCallContext(() => observer.onResult(result));
+  const onError = (error: any) => inCallContext(() => observer.onError(error));
+  const onRawResponse = () => inCallContext(() => observer.onRawResponse());
   if (typeof pending?._thenUnwrap !== 'function' || typeof pending?.asResponse !== 'function') {
     return Promise.resolve(pending).then(onResult, (e: any) => {
       onError(e);

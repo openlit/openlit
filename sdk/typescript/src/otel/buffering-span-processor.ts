@@ -14,18 +14,26 @@ function approximateSize(span: ReadableSpan): number {
   return size;
 }
 
+type Failure = 'retry' | 'split' | 'drop';
+
 /**
- * Only these are worth trying again in the next flush. The OTLP exporter marks
- * them with this message once its own retries run out, and a local limit or a
- * network failure clears by itself. Anything else, such as a 400 or a span that
- * cannot be serialised, would fail the same way on every flush.
+ * What a failed export means for its spans.
+ * - `retry`: the collector could not be reached, timed out or asked for a retry,
+ *   so the spans go back to the buffer. A fetch that throws always lands here:
+ *   the transport reports it as "Fetch request errored", with the real cause,
+ *   such as a refused connection or an abort, on `error.cause`.
+ * - `split`: a 400 or 413 may come from one span, so the batch is split to find it.
+ * - `drop`: any other refusal, such as a 401, 403 or 404, applies to every span
+ *   alike, so splitting would only repeat it.
  */
-function isRetryable(result: ExportResult): boolean {
+function classify(result: ExportResult): Failure {
   const message = result.error?.message ?? '';
-  return (
-    /retryable status|Concurrent export limit|network|fetch failed|timed? ?out/i.test(message) &&
-    !/non-retryable/i.test(message)
-  );
+  const status = /non-retryable status (\d{3})/i.exec(message);
+  if (status) return status[1] === '400' || status[1] === '413' ? 'split' : 'drop';
+  if (/retryable status|Concurrent export limit|network|fetch failed|timed? ?out|Fetch request errored/i.test(message)) {
+    return 'retry';
+  }
+  return 'split';
 }
 
 /**
@@ -35,9 +43,9 @@ function isRetryable(result: ExportResult): boolean {
  * its own batch and shares no promise with any other flush.
  *
  * The buffer is bounded: when full, the oldest spans go first, and the count is
- * kept in `droppedSpans`. A batch that may succeed later returns to the buffer. A
- * batch rejected for good is split to find the spans at fault, so one bad span
- * costs only itself and cannot block everything behind it.
+ * kept in `droppedSpans`. Spans that may succeed later return to the buffer. A
+ * batch the collector rejects as bad input is split to find the spans at fault,
+ * so one bad span costs only itself and cannot block everything behind it.
  */
 export class BufferingSpanProcessor implements SpanProcessor {
   droppedSpans = 0;
@@ -61,9 +69,10 @@ export class BufferingSpanProcessor implements SpanProcessor {
     const droppedBefore = this.droppedSpans;
     while (this.buffer.length > 0) {
       const batch = this.takeBatch();
-      if (!(await this.deliver(batch))) {
-        diag.warn(`OpenLIT: span export failed, keeping ${batch.length} spans for the next flush`);
-        this.buffer.unshift(...batch);
+      const kept = await this.deliver(batch);
+      if (kept.length > 0) {
+        diag.warn(`OpenLIT: span export failed, keeping ${kept.length} spans for the next flush`);
+        this.buffer.unshift(...kept);
         this.enforceLimit();
         break;
       }
@@ -89,20 +98,26 @@ export class BufferingSpanProcessor implements SpanProcessor {
     return this.buffer.splice(0, count);
   }
 
-  /** False means the batch may succeed later. Permanent failures resolve true. */
-  private async deliver(batch: ReadableSpan[]): Promise<boolean> {
+  /**
+   * Returns the spans worth another try. Spans that were stored, or that failed
+   * for good, are not returned, so a retry never sends a span twice.
+   */
+  private async deliver(batch: ReadableSpan[]): Promise<ReadableSpan[]> {
     const result = await this.send(batch);
-    if (result.code === ExportResultCode.SUCCESS) return true;
-    if (isRetryable(result)) return false;
-    if (batch.length === 1) {
-      this.droppedSpans += 1;
-      diag.warn(`OpenLIT: span "${batch[0].name}" was rejected and dropped: ${result.error?.message}`);
-      return true;
+    if (result.code === ExportResultCode.SUCCESS) return [];
+    const failure = classify(result);
+    if (failure === 'retry') return batch;
+    if (failure === 'drop' || batch.length === 1) {
+      this.droppedSpans += batch.length;
+      const what = batch.length === 1 ? `span "${batch[0].name}" was` : `${batch.length} spans were`;
+      diag.warn(`OpenLIT: ${what} rejected and dropped: ${result.error?.message}`);
+      return [];
     }
     const middle = batch.length >>> 1;
     const first = await this.deliver(batch.slice(0, middle));
-    const second = await this.deliver(batch.slice(middle));
-    return first && second;
+    // Once the collector stops answering, the rest of the batch waits for the next flush.
+    if (first.length > 0) return [...first, ...batch.slice(middle)];
+    return this.deliver(batch.slice(middle));
   }
 
   private enforceLimit(): void {

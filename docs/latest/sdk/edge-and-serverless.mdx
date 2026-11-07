@@ -101,7 +101,9 @@ await openlit.shutdown(); // flush, then stop the exporters
 
 `openlit.flush()` alone has no time limit of that kind: with a hung collector it waits for the exporter's 10-second timeout. On Vercel Edge and other runtimes without a wrapper, pass it to the platform's `waitUntil` instead of awaiting it before returning.
 
-Spans that can't be sent yet stay in a buffer of 2,048 for the next flush, and the oldest go first when it fills. A span the collector rejects outright is dropped by itself, without holding up the others. `openlit.droppedSpans()` returns how many have been lost this way.
+On the edge, spans that can't be sent yet, because the collector is down, timed out or asked for a retry, stay in a buffer of 2,048 for the next flush, and the oldest go first when it fills. A span the collector rejects as bad input is dropped by itself, without holding up the others. A refusal that applies to every span, such as a `401` for a wrong key or a `404` for a wrong URL, drops that batch at once. `openlit.droppedSpans()` returns how many have been lost.
+
+On Node, including Lambda, spans go through the standard OpenTelemetry batch processor, which has its own limits, and `openlit.droppedSpans()` returns `0`.
 
 ## Instrument bundled code
 
@@ -124,6 +126,16 @@ An unknown key in `instrumentations` logs a warning and the rest still apply.
 
 ### Guards in bundled code
 
+A client wrapped with `openlit.instrument()` uses the guards from `init()` at the time of each call, so it can be wrapped before `init()` runs, and guards returned from the `withWorker` settings callback apply too.
+
+A denied call rejects with `GuardDeniedError`. The clients' own stream helpers, such as `messages.stream()`, wrap errors they didn't raise, so a denied stream rejects with the client's error and the `GuardDeniedError` as its `cause`:
+
+```typescript
+const isDenied = (error: unknown) =>
+  error instanceof openlit.GuardDeniedError || (error as any)?.cause instanceof openlit.GuardDeniedError;
+```
+
+
 On Node, `init({ guards })` finds installed providers by itself. Bundled code has nothing to find them with, so guards apply only to modules you pass to `instrumentations` and clients wrapped with `openlit.instrument()`:
 
 ```typescript
@@ -134,7 +146,7 @@ openlit.init({
 ```
 
 <Warning>
-A client that reaches a provider any other way isn't guarded. If no provider is guarded at all, `init()` logs a warning, and it can't warn about a `fetch` call you make yourself. For those, run the guard yourself with `openlit.Pipeline`.
+A client that reaches a provider any other way isn't guarded. If no provider is guarded at all, `init()` logs a warning to the console, and it can't warn about a `fetch` call you make yourself. For those, run the guard yourself with `openlit.Pipeline`.
 </Warning>
 
 ## Trace calls the SDK can't patch
@@ -225,7 +237,7 @@ spawn("claude", ["-p", prompt], {
 });
 ```
 
-The child reports under its own `service.name`, which the Agents hub uses to recognise it, so an inherited `OTEL_SERVICE_NAME` is removed. Your service appears as `openlit.caller.service`, and your trace as `openlit.parent.trace_id`. `TRACEPARENT` is also set, for agents that read it. Prompts and tool details are sent only with `captureContent: true`, even if the parent process has those variables set.
+The child reports under its own `service.name`, which the Agents hub uses to recognise it, so an inherited `OTEL_SERVICE_NAME` is removed. Your service appears as `openlit.caller.service`, and your trace as `openlit.parent.trace_id`. `TRACEPARENT` is also set, for agents that read it. Prompts and tool details are sent only with `captureContent: true`. Every inherited `OTEL_LOG_*` content flag, such as `OTEL_LOG_RAW_API_BODIES`, is removed from the child, while `OTEL_LOG_LEVEL` is kept.
 
 The result includes your whole environment, as `spawn` expects, and the OTLP headers, so the agent and any tool it runs can read them. Use a key scoped to ingest for CI. The options are `vendor`, `serviceName`, `otlpEndpoint`, `otlpHeaders`, `captureContent`, `resourceAttributes` and `parent`.
 

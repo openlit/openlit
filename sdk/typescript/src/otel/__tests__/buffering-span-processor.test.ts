@@ -152,6 +152,58 @@ describe('BufferingSpanProcessor', () => {
     expect(processor.droppedSpans).toBe(1);
   });
 
+  it('keeps spans when the collector cannot be reached or times out', async () => {
+    // The fetch transport reports a refused connection or an abort this way.
+    const unreachable = {
+      code: ExportResultCode.FAILED,
+      error: Object.assign(new Error('Fetch request errored'), { cause: new TypeError('fetch failed') }),
+    };
+    const { instance, batches } = exporter([unreachable, { code: ExportResultCode.SUCCESS }]);
+    const processor = new BufferingSpanProcessor(() => instance);
+
+    for (let i = 0; i < 8; i++) processor.onEnd(span());
+    await processor.forceFlush();
+    expect(batches).toHaveLength(1);
+    expect(processor.droppedSpans).toBe(0);
+
+    await processor.forceFlush();
+    expect(batches[1]).toHaveLength(8);
+  });
+
+  it('drops a batch refused for the whole endpoint without splitting it', async () => {
+    const unauthorized = {
+      code: ExportResultCode.FAILED,
+      error: new Error('Fetch request failed with non-retryable status 401'),
+    };
+    const { instance, batches } = exporter([unauthorized]);
+    const processor = new BufferingSpanProcessor(() => instance);
+
+    for (let i = 0; i < 64; i++) processor.onEnd(span());
+    await processor.forceFlush();
+
+    expect(batches).toHaveLength(1);
+    expect(processor.droppedSpans).toBe(64);
+  });
+
+  it('never sends a span twice when the collector fails partway through a split', async () => {
+    const sent: ReadableSpan[] = [];
+    const { instance } = exporter([
+      REJECTED,
+      (spans) => (sent.push(...spans), { code: ExportResultCode.SUCCESS }),
+      RETRYABLE,
+      (spans) => (sent.push(...spans), { code: ExportResultCode.SUCCESS }),
+    ]);
+    const processor = new BufferingSpanProcessor(() => instance);
+    const all = Array.from({ length: 8 }, () => span());
+
+    for (const item of all) processor.onEnd(item);
+    await processor.forceFlush();
+    await processor.forceFlush();
+
+    expect(new Set(sent).size).toBe(sent.length);
+    expect(sent).toHaveLength(8);
+  });
+
   it('flushes on shutdown and stops the exporter', async () => {
     const { instance, batches } = exporter();
     const processor = new BufferingSpanProcessor(() => instance);

@@ -72,6 +72,21 @@ export function getCurrentAgentVersion(): string | undefined {
 }
 
 /**
+ * Remember the call's tags and agent version now, and restore them for a
+ * callback that runs later, outside the caller's async context. A client may
+ * resolve a call lazily, after `withTags(tags, () => client.create(p))` has
+ * already returned.
+ */
+export function captureCallContext(): <R>(fn: () => R) => R {
+  const attributes = _customSpanAttributes.getStore();
+  const agentVersion = _currentAgentVersion.getStore();
+  return (fn) => {
+    const withVersion = agentVersion === undefined ? fn : () => _currentAgentVersion.run(agentVersion, fn);
+    return attributes === undefined ? withVersion() : _customSpanAttributes.run(attributes, withVersion);
+  };
+}
+
+/**
  * Set the agent version label for the current execution context.
  *
  * IMPORTANT: this uses `AsyncLocalStorage.enterWith` which permanently

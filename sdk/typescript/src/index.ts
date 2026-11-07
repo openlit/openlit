@@ -30,7 +30,7 @@ import { IS_EDGE_BUILD, pricingSnapshot } from './platform';
 import Metrics from './otel/metrics';
 import GpuMetricsCollector from './instrumentation/gpu';
 import SemanticConvention from './semantic-convention';
-import { parseBoolEnv } from './otel/utils';
+import { parseBoolEnv, parseOtlpHeaders } from './otel/utils';
 import { setupAutoGuards } from './guard/integration';
 import { PII } from './guard/pii';
 import { PromptInjection } from './guard/prompt-injection';
@@ -70,18 +70,7 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
     ? rawEndpoint.replace(/\/v1\/traces$/, '')
     : undefined;
 
-  let otlpHeaders = o.otlpHeaders ?? undefined;
-  if (!otlpHeaders && process.env.OTEL_EXPORTER_OTLP_HEADERS) {
-    otlpHeaders = process.env.OTEL_EXPORTER_OTLP_HEADERS.split(',').reduce(
-      (acc: Record<string, string>, item: string) => {
-        const keyVal = item.split('=');
-        acc[keyVal[0]] = keyVal[1];
-        return acc;
-      },
-      {} as Record<string, string>
-    );
-  }
-  if (!otlpHeaders) otlpHeaders = {};
+  const otlpHeaders = o.otlpHeaders ?? parseOtlpHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS) ?? {};
 
   let disableBatch = o.disableBatch ?? undefined;
   const envDisableBatch = parseBoolEnv('OPENLIT_DISABLE_BATCH');
@@ -255,6 +244,17 @@ class Openlit extends BaseOpenlit {
     OpenlitConfig.tokenCounter = merged.tokenCounter;
     OpenlitConfig.trustIncomingTraceparent = resolved.trustIncomingTraceparent;
     this.loadPricing(resolved.pricingJson);
+
+    // `init()` already ran at module scope, so settings that only `init()` acts
+    // on are applied here when the Worker's own settings bring them.
+    const initial = this.initArguments ?? {};
+    const guardsChanged = merged.guards !== initial.guards || merged.guardFailOpen !== initial.guardFailOpen;
+    if (resolved.guards?.length && guardsChanged) {
+      setupAutoGuards(resolved.guards, resolved.guardFailOpen, resolved.instrumentations);
+    }
+    if (merged.fetchAdapters?.length && !initial.fetchAdapters?.length) {
+      instrumentFetch(merged.fetchAdapters);
+    }
   }
 
   private static buildResource(resolved: ResolvedOptions) {

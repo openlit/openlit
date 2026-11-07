@@ -18,10 +18,17 @@ var inheritedEnv = os.Getenv
 
 var validTraceparent = regexp.MustCompile(`^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$`)
 
-// removedFromChild lists inherited variables that would undo what exec sets up.
-// An inherited service name would stop the Agents hub recognising the vendor,
-// and inherited content flags would export prompts nobody asked exec to send.
-var removedFromChild = []string{"OTEL_SERVICE_NAME", "OTEL_LOG_USER_PROMPTS", "OTEL_LOG_TOOL_DETAILS"}
+// removedFromChild reports inherited variables that would undo what exec sets
+// up. An inherited service name would stop the Agents hub recognising the
+// vendor, and inherited content flags would export prompts, tool content or raw
+// API bodies nobody asked exec to send. Every OTEL_LOG_* flag goes, because a
+// vendor may add more, except OTEL_LOG_LEVEL, which carries no content.
+func removedFromChild(key string) bool {
+	if key == "OTEL_SERVICE_NAME" {
+		return true
+	}
+	return strings.HasPrefix(key, "OTEL_LOG_") && key != "OTEL_LOG_LEVEL"
+}
 
 // encodeOTELValue percent-encodes for the OTEL_* `key=value,...` format.
 // PathEscape leaves `=` alone, and OTel JS discards the whole variable on a
@@ -100,15 +107,10 @@ func headerList(headers map[string]string) string {
 // mergeEnv lays overrides on top of base and takes out removedFromChild, unless
 // an override sets the key again.
 func mergeEnv(base []string, overrides map[string]string) []string {
-	removed := map[string]bool{}
-	for _, key := range removedFromChild {
-		removed[key] = true
-	}
-
 	merged := make([]string, 0, len(base)+len(overrides))
 	for _, entry := range base {
 		key, _, _ := strings.Cut(entry, "=")
-		if _, replaced := overrides[key]; !replaced && !removed[key] {
+		if _, replaced := overrides[key]; !replaced && !removedFromChild(key) {
 			merged = append(merged, entry)
 		}
 	}

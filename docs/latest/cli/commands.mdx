@@ -74,7 +74,7 @@ openlit coding exec --vendor=claude-code -- claude -p "summarise this repo"
 - A `TRACEPARENT` in the environment makes the span a child of the caller's trace.
 - The agent's exit code is passed through, and a signal that kills it gives 128+N. If the agent can't be run, the exit code is 127 or 126. The agent still runs if telemetry fails.
 - The span records the binary's name but not its arguments, because arguments often hold prompts.
-- Prompts and tool details stay off unless you pass `--capture-content`, even if `OPENLIT_CODING_CONTENT_CAPTURE` is `full`.
+- Prompts and tool details stay off unless you pass `--capture-content`, even if `OPENLIT_CODING_CONTENT_CAPTURE` is `full`. Every inherited `OTEL_LOG_*` content flag, such as `OTEL_LOG_RAW_API_BODIES`, is removed from the agent's environment, while `OTEL_LOG_LEVEL` is kept.
 
 <Warning>
 With `exec`, the agent exports directly to your collector, so the CLI's secret redaction doesn't apply to anything `--capture-content` sends. The agent also receives your OTLP headers, including your OpenLIT API key, so tools it runs can read them. Use a key scoped to ingest for CI.

@@ -17,6 +17,8 @@ import OpenLitHelper, { withTags, usingAttributes } from '../helpers';
 import { llm } from '../llm-call';
 import Tracing from '../otel/tracing';
 import { createLambdaWrapper, createWorkerWrapper } from '../runtime-wrappers';
+import { parseBool, parseOtlpHeaders } from '../otel/utils';
+import VllmWrapper from '../instrumentation/vllm/wrapper';
 import SemanticConvention from '../semantic-convention';
 import { extract, inject, recordSpan, traceContextFrom, withParent } from '../trace-context';
 
@@ -286,6 +288,34 @@ describe('withTags', () => {
 
     expect(attributes[SemanticConvention.OPENLIT_REQUEST_PURPOSE]).toBe('classification');
     expect(attributes[SemanticConvention.OPENLIT_ROUTE]).toBe('gateway');
+  });
+
+  it('reaches a patched client call that the callback returns without awaiting', async () => {
+    const instrumentation = new OpenlitAnthropicInstrumentation();
+    instrumentation.setTracerProvider(provider);
+    const client = new Anthropic({
+      apiKey: 'test',
+      maxRetries: 0,
+      fetch: async () =>
+        Response.json({
+          id: 'msg',
+          type: 'message',
+          role: 'assistant',
+          model: 'model-a',
+          content: [{ type: 'text', text: 'hi' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    });
+    (instrumentation as any).patchClient(client);
+
+    await withTags({ purpose: 'lazy', route: 'api' }, () =>
+      client.messages.create({ model: 'model-a', max_tokens: 5, messages: [{ role: 'user', content: 'x' }] })
+    );
+
+    const chat = spans().find((item) => item.attributes[SemanticConvention.GEN_AI_OPERATION] === 'chat');
+    expect(chat?.attributes[SemanticConvention.OPENLIT_REQUEST_PURPOSE]).toBe('lazy');
+    expect(chat?.attributes[SemanticConvention.OPENLIT_ROUTE]).toBe('api');
   });
 
   it('keeps attributes from an enclosing usingAttributes', async () => {
@@ -615,11 +645,71 @@ describe('guards', () => {
   });
 
   it('keeps the APIPromise, so stream() works with guards on', async () => {
+    OpenlitConfig.guardPipeline = pipeline;
     const client = new Anthropic({ apiKey: 'test', maxRetries: 0, fetch: async () => sse() });
-    guardClient(client, pipeline);
+    guardClient(client);
 
     const clean = { ...secret, messages: [{ role: 'user' as const, content: 'hello' }] };
     await expect(client.messages.stream(clean).finalMessage()).resolves.toMatchObject({ id: 'msg' });
+  });
+
+  describe('a denied call', () => {
+    const unhandled = jest.fn();
+    beforeAll(() => process.on('unhandledRejection', unhandled));
+    afterAll(() => process.off('unhandledRejection', unhandled));
+    beforeEach(() => unhandled.mockClear());
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+    const deniedClient = () => {
+      OpenlitConfig.guardPipeline = pipeline;
+      const upstream = jest.fn(async () => sse());
+      const client = new Anthropic({ apiKey: 'test', maxRetries: 0, fetch: upstream });
+      guardClient(client);
+      return { client, upstream };
+    };
+
+    it('reaches stream() callers as an error they can catch, with nothing left unhandled', async () => {
+      const { client, upstream } = deniedClient();
+
+      const error = await client.messages.stream(secret).finalMessage().catch((e: any) => e);
+      await settle();
+
+      // The SDK's stream helper wraps any error it did not raise, and keeps ours as the cause.
+      expect(error instanceof GuardDeniedError || error?.cause instanceof GuardDeniedError).toBe(true);
+      expect(upstream).not.toHaveBeenCalled();
+      expect(unhandled).not.toHaveBeenCalled();
+    });
+
+    it('rejects withResponse() and asResponse() with the guard error', async () => {
+      const { client } = deniedClient();
+
+      await expect(client.messages.create(secret).withResponse()).rejects.toThrow(GuardDeniedError);
+      await expect(client.messages.create(secret).asResponse()).rejects.toThrow(GuardDeniedError);
+      await settle();
+      expect(unhandled).not.toHaveBeenCalled();
+    });
+  });
+
+  it('guards a client wrapped before the guards were set up', async () => {
+    const upstream = jest.fn(async () => Response.json(message));
+    const client = instrument(new Anthropic({ apiKey: 'test', maxRetries: 0, fetch: upstream }));
+    OpenlitConfig.guardPipeline = pipeline;
+
+    await expect(client.messages.create(secret)).rejects.toThrow(GuardDeniedError);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it('warns when no provider could be guarded', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const bare = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      setupAutoGuards([new PII({ action: 'deny' } as any)], false, { anthropic: {} as any, openai: {} as any });
+      // Node can still require the real providers here, so only the bundled case is certain to warn.
+      const wrapped = bare.mock.calls.some(([line]) => String(line).includes('Auto-guards: wrapped'));
+      expect(wrapped || warn.mock.calls.some(([line]) => String(line).includes('not applied'))).toBe(true);
+    } finally {
+      warn.mockRestore();
+      bare.mockRestore();
+    }
   });
 
   it('guards a module passed in, under a default import', async () => {
@@ -764,11 +854,14 @@ describe('codingAgentEnv', () => {
 
     it('cannot undo what it sets up', () => {
       process.env.OTEL_SERVICE_NAME = 'parent';
-      process.env.OTEL_LOG_USER_PROMPTS = '1';
+      for (const flag of ['USER_PROMPTS', 'TOOL_DETAILS', 'RAW_API_BODIES', 'TOOL_CONTENT', 'ASSISTANT_RESPONSES']) {
+        process.env[`OTEL_LOG_${flag}`] = '1';
+      }
+      process.env.OTEL_LOG_LEVEL = 'debug';
       const env = codingAgentEnv({ vendor: 'claude-code' });
 
       expect(env.OTEL_SERVICE_NAME).toBeUndefined();
-      expect(env.OTEL_LOG_USER_PROMPTS).toBeUndefined();
+      expect(Object.keys(env).filter((name) => name.startsWith('OTEL_LOG_'))).toEqual(['OTEL_LOG_LEVEL']);
     });
 
     it('merges resource attributes and keeps a chosen protocol', () => {
@@ -783,5 +876,65 @@ describe('codingAgentEnv', () => {
 
   it('refuses vendors with no native settings', () => {
     expect(() => codingAgentEnv({ vendor: 'cursor' as any })).toThrow('cursor');
+  });
+});
+
+describe('settings parsers', () => {
+  it('reads OTLP headers whose values contain = or are percent-encoded', () => {
+    expect(parseOtlpHeaders('Authorization=Bearer%20abc,x-token=a=b, bad ,=nokey')).toEqual({
+      Authorization: 'Bearer abc',
+      'x-token': 'a=b',
+    });
+    expect(parseOtlpHeaders('')).toBeUndefined();
+  });
+
+  it('reads booleans the same way from env vars and Worker bindings', () => {
+    for (const value of [false, 'false', '0', 'no', 'NO ']) expect(parseBool(value)).toBe(false);
+    for (const value of [true, 'true', '1', 'yes']) expect(parseBool(value)).toBe(true);
+    for (const value of [undefined, '', 'maybe', 0]) expect(parseBool(value)).toBeUndefined();
+  });
+});
+
+describe('withWorker settings', () => {
+  const lifecycle = () => ({
+    flush: jest.fn(async () => {}),
+    applyRuntimeOptions: jest.fn(),
+    ensurePricing: jest.fn(async () => {}),
+  });
+  const ctx = { waitUntil: () => undefined };
+
+  it('keeps the bindings when the settings callback throws', async () => {
+    const hooks = lifecycle();
+    const wrapped: any = createWorkerWrapper(hooks)({ fetch: async () => new Response('ok') }, () => {
+      throw new Error('boom');
+    });
+
+    await wrapped.fetch(new Request('https://app.example/'), { OTEL_EXPORTER_OTLP_ENDPOINT: 'https://c.example' }, ctx);
+
+    expect(hooks.applyRuntimeOptions).toHaveBeenCalledWith(
+      expect.objectContaining({ otlpEndpoint: 'https://c.example' }),
+      undefined
+    );
+  });
+
+  it('switches content capture off for a boolean or 0 binding', async () => {
+    for (const value of [false, '0']) {
+      const hooks = lifecycle();
+      const wrapped: any = createWorkerWrapper(hooks)({ fetch: async () => new Response('ok') });
+
+      await wrapped.fetch(new Request('https://app.example/'), { OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: value }, ctx);
+
+      expect(hooks.applyRuntimeOptions.mock.calls[0][0].captureMessageContent).toBe(false);
+    }
+  });
+});
+
+describe('vLLM hook on the openai module', () => {
+  it('hands other OpenAI clients the original APIPromise, not a new Promise', () => {
+    const apiPromise = { withResponse: () => undefined, _thenUnwrap: () => undefined };
+    const openaiHandler = jest.fn(() => apiPromise);
+    const create = VllmWrapper._patchChat({} as any, openaiHandler, jest.fn())(jest.fn());
+
+    expect(create.call({ baseURL: 'https://api.openai.com/v1' }, { model: 'gpt' })).toBe(apiPromise);
   });
 });

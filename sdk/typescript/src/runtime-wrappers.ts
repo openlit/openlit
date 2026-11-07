@@ -4,6 +4,7 @@ import OpenLitHelper from './helpers';
 import { getTracer } from './manual-trace';
 import { extract } from './trace-context';
 import type { OpenlitOptions } from './types';
+import { parseBool, parseOtlpHeaders } from './otel/utils';
 
 type Lifecycle = {
   flush(): Promise<void>;
@@ -30,34 +31,15 @@ function str(value: unknown): string | undefined {
   return typeof value === 'string' && value !== '' ? value : undefined;
 }
 
-function bool(value: unknown): boolean | undefined {
-  const text = str(value)?.toLowerCase();
-  if (text === 'true') return true;
-  return text === 'false' ? false : undefined;
-}
-
-function headersFromEnv(value: unknown): Record<string, string> | undefined {
-  const raw = str(value);
-  if (!raw) return undefined;
-  const headers: Record<string, string> = {};
-  for (const item of raw.split(',')) {
-    const separator = item.indexOf('=');
-    if (separator <= 0) continue;
-    const rawValue = item.slice(separator + 1).trim();
-    try {
-      headers[item.slice(0, separator).trim()] = decodeURIComponent(rawValue);
-    } catch {
-      headers[item.slice(0, separator).trim()] = rawValue;
-    }
-  }
-  return headers;
-}
+// A wrangler var may arrive as a real boolean, and `0` or `no` must switch a
+// setting off just as they do in `process.env`.
+const bool = parseBool;
 
 /** Worker bindings are not on `process.env`; they reach the SDK through here. */
 function optionsFromBindings(env: Record<string, unknown>): OpenlitOptions {
   const options: OpenlitOptions = {};
   const endpoint = str(env?.OTEL_EXPORTER_OTLP_ENDPOINT);
-  const headers = headersFromEnv(env?.OTEL_EXPORTER_OTLP_HEADERS);
+  const headers = parseOtlpHeaders(str(env?.OTEL_EXPORTER_OTLP_HEADERS));
   const applicationName = str(env?.OTEL_SERVICE_NAME);
   const environment = str(env?.OTEL_DEPLOYMENT_ENVIRONMENT);
   const openlitApiKey = str(env?.OPENLIT_API_KEY);
@@ -222,8 +204,16 @@ export function createWorkerWrapper(lifecycle: Lifecycle) {
     const prepare: Prepare = (env, ctx) => {
       if (!configured) {
         configured = true;
+        // A failing `configure` must not cost the bindings, which may carry the
+        // endpoint or the content opt-out.
+        let overrides: OpenlitOptions | undefined;
         try {
-          lifecycle.applyRuntimeOptions(optionsFromBindings(env), configure?.(env));
+          overrides = configure?.(env);
+        } catch (error) {
+          diag.warn(`OpenLIT: the withWorker settings callback failed, using bindings only: ${error}`);
+        }
+        try {
+          lifecycle.applyRuntimeOptions(optionsFromBindings(env), overrides);
         } catch (error) {
           diag.warn(`OpenLIT: could not apply Worker settings: ${error}`);
         }

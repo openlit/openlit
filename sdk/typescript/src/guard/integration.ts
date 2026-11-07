@@ -23,11 +23,10 @@
  * Must stay in sync with: sdk/python/src/openlit/guard/_integration.py
  */
 
-import { diag } from '@opentelemetry/api';
-import { IS_EDGE_BUILD } from '../platform';
 import type { OpenlitInstrumentations } from '../types';
 import { Guard, GuardAction, GuardDeniedError } from './base';
 import { Pipeline } from './pipeline';
+import OpenlitConfig from '../config';
 
 // ---------------------------------------------------------------------------
 // Provider-specific text extractors
@@ -314,13 +313,30 @@ function resolveProto(moduleExports: any, protoPath: string[]): any {
 const GUARDED = Symbol.for('openlit.guarded');
 
 /**
+ * A denied call returns this, not a bare rejected promise. The clients' own
+ * helpers (`stream()`, `parse()`) call `withResponse()` or `_thenUnwrap()` on
+ * what `create()` returns, and a bare promise would make them throw a TypeError
+ * and leave this rejection unhandled, which ends a Node process. It is marked
+ * handled because the helpers may never await it; callers that do still get it.
+ */
+function deniedCall(error: unknown): Promise<never> {
+  const denied: any = Promise.reject(error);
+  denied.catch(() => undefined);
+  denied.withResponse = () => denied;
+  denied.asResponse = () => denied;
+  denied._thenUnwrap = () => denied;
+  return denied;
+}
+
+/**
  * Runs in sync so a client's `APIPromise` reaches the caller: the clients' own
- * `stream()` helpers call `.withResponse()` on what `create()` returns.
+ * `stream()` helpers call `.withResponse()` on what `create()` returns. The
+ * pipeline is read on every call, so a method wrapped before `init()`, or before
+ * the guards change, still uses the current guards.
  */
 function guardMethod(
   target: any,
   methodName: string,
-  pipeline: Pipeline,
   extractInput: Extractor,
   extractOutput: Extractor,
 ): boolean {
@@ -328,10 +344,12 @@ function guardMethod(
   if (typeof original !== 'function' || original[GUARDED]) return false;
 
   const guarded = function (this: any, ...args: any[]) {
+    const pipeline: Pipeline | undefined = OpenlitConfig.guardPipeline;
+    if (!pipeline) return original.apply(this, args);
     try {
       args[0] = applyPreflight(pipeline, args[0] || {}, extractInput);
     } catch (error) {
-      return Promise.reject(error);
+      return deniedCall(error);
     }
     const pending = original.apply(this, args);
     const postflight = (response: any) => applyPostflight(pipeline, response, extractOutput);
@@ -364,14 +382,7 @@ export function setupAutoGuards(
   failOpen = true,
   modules: OpenlitInstrumentations = {},
 ): void {
-  const pipeline = new Pipeline({ guards, failOpen });
-
-  try {
-    const OpenlitConfig = require('../config').default;
-    OpenlitConfig.guardPipeline = pipeline;
-  } catch {
-    // config not available
-  }
+  OpenlitConfig.guardPipeline = new Pipeline({ guards, failOpen });
 
   let wrappedCount = 0;
   for (const { npmPackage, protoPath, methodName, extractInput, extractOutput } of GUARDED_METHODS) {
@@ -381,7 +392,7 @@ export function setupAutoGuards(
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const mod = modules[INSTRUMENTATION_KEYS[npmPackage]] ?? require(npmPackage);
       const proto = resolveProto(mod, protoPath);
-      if (guardMethod(proto, methodName, pipeline, extractInput, extractOutput)) wrappedCount++;
+      if (guardMethod(proto, methodName, extractInput, extractOutput)) wrappedCount++;
     } catch {
       // module not installed, skip silently
     }
@@ -389,16 +400,21 @@ export function setupAutoGuards(
 
   if (wrappedCount > 0) {
     console.log(`[openlit] Auto-guards: wrapped ${wrappedCount}/${GUARDED_METHODS.length} provider methods`);
-  } else if (IS_EDGE_BUILD) {
-    diag.warn(
-      'OpenLIT: guards are not applied to any provider yet. In bundled code, pass the provider ' +
-        'module to `instrumentations` or wrap the client with `openlit.instrument()`.'
+  } else {
+    // A bundle cannot `require` the provider, so this is the usual result there.
+    // It goes to the console, not `diag`, so it is seen without a diag logger.
+    console.warn(
+      '[openlit] Guards are not applied to any provider yet. Pass the provider module to ' +
+        '`instrumentations`, or wrap the client with `openlit.instrument()`; until then, calls are not guarded.'
     );
   }
 }
 
-/** Guard one client object, for `openlit.instrument()`. */
-export function guardClient(client: any, pipeline: Pipeline): void {
+/**
+ * Guard one client object, for `openlit.instrument()`. The guards come from
+ * `init()` at call time, so the client may be wrapped first.
+ */
+export function guardClient(client: any): void {
   const targets: [any, Extractor, Extractor][] = [
     [client?.messages, extractAnthropicInput, extractAnthropicOutput],
     [client?.beta?.messages, extractAnthropicInput, extractAnthropicOutput],
@@ -406,6 +422,6 @@ export function guardClient(client: any, pipeline: Pipeline): void {
     [client?.responses, extractOpenAIInput, extractOpenAIOutput],
   ];
   for (const [target, extractInput, extractOutput] of targets) {
-    guardMethod(target, 'create', pipeline, extractInput, extractOutput);
+    guardMethod(target, 'create', extractInput, extractOutput);
   }
 }
