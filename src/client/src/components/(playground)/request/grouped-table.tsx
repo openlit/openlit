@@ -9,6 +9,7 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { CustomFilter, CustomFilterAttributeType, FilterConfig } from "@/types/store/filter";
 import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 import getMessage from "@/constants/messages";
+import { clientFetchErrorMessage } from "@/utils/api";
 
 // ─── Shared utilities (also imported by requests/page.tsx) ────────────────────
 
@@ -138,7 +139,7 @@ export default function GroupedTable({
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
 	const pingStatus = useRootStore(getPingStatus);
-	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const { data, error, fireRequest, isFetched, isLoading } = useFetchWrapper();
 
 	const fetchGroups = useCallback(() => {
 		fireRequest({
@@ -170,11 +171,19 @@ export default function GroupedTable({
 		updateFilter("groupValue", groupValue);
 	}, [updateFilter]);
 
-	const groups: GroupSummary[] = (data as any)?.data ?? [];
+	// useFetchWrapper keeps the last good data on failure; groups from the
+	// previous filters must not stay on screen under the new ones.
+	const groups: GroupSummary[] = error ? [] : (data as any)?.data ?? [];
 	const groupLabel = getGroupByLabel(groupBy);
 
 	return (
 		<div className={`flex flex-col w-full overflow-auto scrollbar-hidden border dark:border-stone-800 rounded-md grow ${PRIMARY_BACKGROUND}`}>
+			{error ? (
+				<div role="alert" className="m-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+					{clientFetchErrorMessage(error)}
+				</div>
+			) : null}
+
 			{/* Column header */}
 			<div className={`grid ${GRID_COLS} w-full sticky top-0 z-10 bg-stone-100 dark:bg-stone-900 text-xs font-medium text-stone-500 dark:text-stone-400 border-b dark:border-stone-800`}>
 				<div className="px-3 py-2">{groupLabel}</div>
@@ -200,7 +209,7 @@ export default function GroupedTable({
 			))}
 
 			{/* Empty state */}
-			{isFetched && !isLoading && groups.length === 0 && (
+			{isFetched && !isLoading && !error && groups.length === 0 && (
 				<div className="flex items-center justify-center py-16 text-sm text-stone-500 dark:text-stone-400">
 					No data found for the selected filters.
 				</div>
