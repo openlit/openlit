@@ -419,10 +419,10 @@ export default function ObservabilitySignalList({
 	}, [config, selectedLogRow]);
 
 	const updateTraceSelection = useCallback(
-		(spanId: string) => {
+		(spanId: string, traceId?: string) => {
 			skipSelectedHydrationRef.current = false;
 			setPreviewSpanId(spanId);
-			setSelectedInUrl(spanId);
+			setSelectedInUrl(spanId, traceId || null);
 		},
 		[setSelectedInUrl]
 	);
