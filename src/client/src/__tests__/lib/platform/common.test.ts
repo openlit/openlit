@@ -129,6 +129,17 @@ describe('dataCollector', () => {
       expect(result.data).toEqual([]);
     });
 
+    it('returns the error when the config cannot build a client', async () => {
+      (createClickhousePool as jest.Mock).mockImplementation(() => {
+        throw new Error('ClickHouse URL is malformed.');
+      });
+      (asaw as jest.Mock).mockResolvedValueOnce([null, mockDbConfig]);
+
+      const result = await dataCollector({}, 'ping');
+      expect(result.err).toBe('ClickHouse Query Error: ClickHouse URL is malformed.');
+      expect(result.data).toEqual([]);
+    });
+
     it('returns an unavailable-client error when acquire resolves without a client', async () => {
       const mockPool = { acquire: jest.fn(), release: jest.fn() };
       (createClickhousePool as jest.Mock).mockReturnValue(mockPool);

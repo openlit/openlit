@@ -38,10 +38,44 @@ describe("createClickhousePool", () => {
 		);
 	});
 
-	it("opens no connections until a query needs one", async () => {
-		createClickhousePool({ ...baseConfig, id: "lazy" });
+	it("keeps no client in the pool until a query needs one", async () => {
+		const pool = createClickhousePool({ ...baseConfig, id: "lazy" });
 		await flush();
-		expect(mockCreateClient).not.toHaveBeenCalled();
+		expect(pool.size).toBe(0);
+	});
+
+	it("closes the client that checks the config", async () => {
+		createClickhousePool({ ...baseConfig, id: "checked" });
+		await flush();
+		expect(mockCreateClient.mock.results[0].value.close).toHaveBeenCalled();
+	});
+
+	it.each(["99999", "abc"])(
+		"throws before a pool exists when the real client rejects port %s",
+		(port) => {
+			mockCreateClient.mockImplementation(
+				jest.requireActual("@clickhouse/client").createClient
+			);
+			const config = { ...baseConfig, id: `bad-port-${port}`, port };
+			expect(() => createClickhousePool(config)).toThrow("malformed");
+			// A pool left behind would spin forever on its first acquire.
+			expect(() => createClickhousePool(config)).toThrow("malformed");
+		}
+	);
+
+	it("keeps the working pool when a changed config cannot build a client", async () => {
+		const id = "bad-change";
+		const before = createClickhousePool({ ...baseConfig, id });
+
+		mockCreateClient.mockImplementationOnce(() => {
+			throw new Error("bad config");
+		});
+		expect(() =>
+			createClickhousePool({ ...baseConfig, id, port: "99999" })
+		).toThrow("bad config");
+
+		expect(createClickhousePool({ ...baseConfig, id })).toBe(before);
+		await before.release(await before.acquire());
 	});
 
 	it("does not ping before each query", async () => {

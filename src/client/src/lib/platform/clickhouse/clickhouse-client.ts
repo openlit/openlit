@@ -51,6 +51,11 @@ export default function createClickhousePool(
 	const connectionKey = JSON.stringify(connectionObject);
 	const current = pools.get(dbConfig.id);
 	if (current?.connectionKey === connectionKey) return current.pool;
+	// A factory that fails makes generic-pool retry in a microtask loop, which
+	// freezes the process before any acquire timeout can fire, so a config that
+	// cannot build a client has to throw here instead. The client only parses
+	// its config, it connects on the first request.
+	createClient(connectionObject).close().catch(() => undefined);
 	// Drain waits for in-flight queries; nobody is left to report a close failure.
 	if (current) closePool(current.pool).catch(() => undefined);
 
