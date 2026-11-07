@@ -434,6 +434,7 @@ export const OBSERVABILITY_TITLE = "Telemetry";
 export const OBSERVABILITY_TRACE_LOADING = "Loading trace...";
 export const OBSERVABILITY_LOADING = "Loading...";
 export const OBSERVABILITY_TRACE_DETAILS = "Trace Details";
+export const OBSERVABILITY_SPAN_LOAD_FAILED = "Could not load this span";
 export const OBSERVABILITY_TRACES = "Traces";
 export const OBSERVABILITY_EXCEPTIONS = "Exceptions";
 export const OBSERVABILITY_METRICS = "Metrics";
