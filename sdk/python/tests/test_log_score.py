@@ -200,3 +200,45 @@ def test_log_score_reraises_value_error():
 
     with pytest.raises(ValueError, match="name is required"):
         openlit.log_score("", 0.5)
+
+
+def test_record_evaluation_score_prefers_trace_and_span_ids_over_active_span():
+    active_span = Mock()
+    active_span.is_recording.return_value = True
+    mock_logger = MagicMock()
+    mock_provider = MagicMock()
+    mock_provider.get_logger.return_value = mock_logger
+
+    with patch("openlit.score._events_disabled", return_value=False), patch(
+        "opentelemetry._logs.get_logger_provider", return_value=mock_provider
+    ), patch("opentelemetry.trace.get_current_span", return_value=active_span):
+        emitted = record_evaluation_score(
+            "user_feedback",
+            True,
+            trace_id="0123456789abcdef0123456789abcdef",
+            span_id="0123456789abcdef",
+        )
+
+    assert emitted is True
+    active_span.add_event.assert_not_called()
+    log_record = mock_logger.emit.call_args.args[0]
+    assert log_record.trace_id == 0x0123456789ABCDEF0123456789ABCDEF
+    assert log_record.span_id == 0x0123456789ABCDEF
+
+
+def test_record_evaluation_score_ignores_active_span_for_invalid_ids():
+    active_span = Mock()
+    active_span.is_recording.return_value = True
+
+    with patch("openlit.score._events_disabled", return_value=True), patch(
+        "opentelemetry.trace.get_current_span", return_value=active_span
+    ):
+        emitted = record_evaluation_score(
+            "quality",
+            0.5,
+            trace_id="not-a-valid-trace-id",
+            span_id="bad",
+        )
+
+    assert emitted is False
+    active_span.add_event.assert_not_called()
