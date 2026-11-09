@@ -39,7 +39,9 @@ def _run(image_count, **kwargs):
     }
     response = ImagesResponse(
         created=1700000000,
-        data=[Image(url=f"https://example.com/{i}.png") for i in range(image_count)],
+        data=None
+        if image_count is None
+        else [Image(url=f"https://example.com/{i}.png") for i in range(image_count)],
     )
     process_image_response(
         response=response,
@@ -76,5 +78,10 @@ def test_cost_scales_with_number_of_generated_images():
 
 
 def test_cost_uses_requested_count_when_response_has_no_data():
-    attributes, _ = _run(0, n=3)
+    attributes, _ = _run(None, n=3)
     assert attributes[SemanticConvention.GEN_AI_USAGE_COST] == pytest.approx(0.06)
+
+
+def test_empty_response_costs_nothing():
+    attributes, _ = _run(0, n=3)
+    assert attributes[SemanticConvention.GEN_AI_USAGE_COST] == pytest.approx(0.0)

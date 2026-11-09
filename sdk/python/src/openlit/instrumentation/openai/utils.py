@@ -2000,8 +2000,11 @@ def common_image_logic(
     """
 
     # Calculate cost
-    image_count = len(scope._response_dict.get("data") or []) or handle_not_given(
-        scope._kwargs.get("n"), 1
+    images = scope._response_dict.get("data")
+    image_count = (
+        len(images)
+        if images is not None
+        else handle_not_given(scope._kwargs.get("n"), 1)
     )
     cost = image_count * get_image_model_cost(
         request_model,
