@@ -488,6 +488,31 @@ describe("TempoAdapter", () => {
 		expect(metricsUrl).toContain("by (span.gen_ai.request.model)");
 	});
 
+	it("aggregateSpans groups a resource-scoped field by its resource attribute", async () => {
+		mockSafeFetch.mockResolvedValueOnce({
+			series: [
+				{
+					labels: [
+						{ key: "resource.cloud.region", value: { stringValue: "eu-west-1" } },
+					],
+					samples: [{ timestampMs: window.start.getTime(), value: 7 }],
+				},
+			],
+		});
+		const frame = await adapter.aggregateSpans({
+			signal: "traces",
+			timeRange: window,
+			aiSelector: true,
+			groupBy: ["resource:cloud.region"],
+			aggregations: [{ fn: "count", as: "count" }],
+		});
+		const metricsUrl = decodeURIComponent(
+			mockSafeFetch.mock.calls[0][0] as string
+		).replace(/\+/g, " ");
+		expect(metricsUrl).toContain("by (resource.cloud.region)");
+		expect(frame.rows[0]).toMatchObject({ group_value: "eu-west-1", count: 7 });
+	});
+
 	it("spanTimeSeries merges count + sum buckets from native metrics", async () => {
 		const t0 = window.start.getTime();
 		const t1 = t0 + 3_600_000;

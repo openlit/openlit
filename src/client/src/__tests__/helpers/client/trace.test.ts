@@ -557,7 +557,7 @@ describe('ensureTraceRowShape', () => {
   });
 });
 
-describe('extractTextFromMessages (via normalizeTrace)', () => {
+describe('message text extraction (via normalizeTrace)', () => {
   it('extracts text parts from gen_ai.input.messages JSON string', () => {
     const messages = JSON.stringify([
       { role: 'user', parts: [{ type: 'text', content: 'Hello' }] },
@@ -596,13 +596,48 @@ describe('extractTextFromMessages (via normalizeTrace)', () => {
     expect(result.prompt).toBe('text-only');
   });
 
-  it('returns undefined prompt when messages JSON is invalid', () => {
+  it('returns the text of a plain string that is not JSON', () => {
     const trace = {
       SpanId: 's', Timestamp: '2024-01-15T10:30:00.000Z',
-      SpanAttributes: { 'gen_ai.input.messages': 'not-valid-json' },
+      SpanAttributes: { 'gen_ai.input.messages': 'plain prompt text' },
+    } as any;
+    const result = normalizeTrace(trace);
+    expect(result.prompt).toBe('plain prompt text');
+  });
+
+  it('returns undefined prompt when messages JSON is truncated', () => {
+    const trace = {
+      SpanId: 's', Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: { 'gen_ai.input.messages': '[{"role":"user","parts":[{"ty' },
     } as any;
     const result = normalizeTrace(trace);
     expect(result.prompt).toBeUndefined();
+  });
+
+  it.each([
+    ['parts[].text', [{ role: 'user', parts: [{ type: 'text', text: 'Hello' }] }]],
+    ['string content', [{ role: 'user', content: 'Hello' }]],
+    ['content parts', [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }]],
+  ])('extracts the same text as the chat view from %s', (_shape, messages) => {
+    const trace = {
+      SpanId: 's', Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: { 'gen_ai.input.messages': JSON.stringify(messages) },
+    } as any;
+    const result = normalizeTrace(trace);
+    expect(result.prompt).toBe('Hello');
+  });
+
+  it('joins text across messages with a blank line', () => {
+    const messages = JSON.stringify([
+      { role: 'user', content: 'First' },
+      { role: 'user', parts: [{ type: 'text', content: 'Second' }] },
+    ]);
+    const trace = {
+      SpanId: 's', Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: { 'gen_ai.input.messages': messages },
+    } as any;
+    const result = normalizeTrace(trace);
+    expect(result.prompt).toBe('First\n\nSecond');
   });
 
   it('returns undefined prompt when messages has no text parts', () => {

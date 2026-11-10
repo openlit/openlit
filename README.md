@@ -2,7 +2,7 @@
 
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT logo" width="30%">
 
-# OpenLIT: the open-source agent harness engineering platform
+# Same Agent, Smaller Bill!
 
 **Trace, evaluate, guard, and improve AI agents and coding agents with OpenTelemetry.**
 Agent observability · Evals · Guardrails · Prompt management · Cost & GPU monitoring · Self-host free (Apache 2.0)
@@ -615,7 +615,7 @@ You can contribute by:
 * reporting issues
 * sharing OpenLIT with other developers
 
-Check the repository's issues for opportunities to contribute.
+Check the repository's issues for opportunities to contribute. To run OpenLIT from source, see [Run OpenLIT locally](CONTRIBUTING.md#run-openlit-locally): one script, `scripts/dev-realtime.sh`, starts the UI, OTLP receiver, realtime engine, and NATS.
 
 ---
 

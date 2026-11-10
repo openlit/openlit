@@ -416,7 +416,12 @@ def common_generate_logic(
             **extra,
         )
 
-    scope._span.set_status(Status(StatusCode.OK))
+    # OK is sticky in the OTel SDK: a later set_status(ERROR) is ignored.
+    # Stream failures set scope._stream_error before this runs, then
+    # handle_exception records ERROR once these attributes are written.
+    # Non-streaming scopes have no _stream_error, so they still end OK.
+    if getattr(scope, "_stream_error", None) is None:
+        scope._span.set_status(Status(StatusCode.OK))
 
     # Span status and metrics
     if not disable_metrics:

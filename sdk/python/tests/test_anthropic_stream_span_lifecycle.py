@@ -9,11 +9,14 @@ exported and its telemetry was lost — the Anthropic instance of the early-
 close streaming bug filed for OpenAI in #1454. These tests drive the real
 `messages_stream`/`async_messages_stream` wrapper factories with synthetic
 managers and event streams shaped like the anthropic SDK's, and assert the
-span ends exactly once on each exit path.
+span ends exactly once on each exit path. `messages.create(stream=True)` is
+covered separately: that call returns the stream itself, so `close()` is the
+only finalizer.
 """
 
 import time
 
+import pytest
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
@@ -106,6 +109,36 @@ class FakeRawStream:
         self.closed = True
 
 
+class FakeAsyncRawStream:
+    """Async event stream shaped like anthropic's AsyncMessageStream.
+
+    `close` is a coroutine and there is no `aclose`, matching
+    `anthropic/lib/streaming/_messages.py` and `anthropic/_streaming.py`. The
+    fake has to mirror the library rather than the wrapper, otherwise an
+    override the caller can never reach would still look reachable here.
+    """
+
+    def __init__(self, close_error=None):
+        self._it = iter(EVENTS)
+        self.closed = False
+        self._close_error = close_error
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._it)
+        except StopIteration:
+            raise StopAsyncIteration from None
+
+    async def close(self):
+        """Record that the caller closed the stream without draining it."""
+        self.closed = True
+        if self._close_error is not None:
+            raise self._close_error
+
+
 class FakeManager:
     """Context manager shaped like anthropic's MessageStreamManager."""
 
@@ -168,6 +201,7 @@ def test_sync_close_finalizes_span():
     assert len(spans) == 1, "close() must finalize the span exactly once"
 
 
+@pytest.mark.asyncio
 async def test_async_early_break_inside_with_ends_span():
     """Leaving the async with-block after one event must still end the span."""
     tracer, exporter = _tracer_with_exporter()
@@ -182,6 +216,7 @@ async def test_async_early_break_inside_with_ends_span():
     assert len(spans) == 1, "early async exit must still end and export the span"
 
 
+@pytest.mark.asyncio
 async def test_async_full_consumption_exports_exactly_one_span():
     """Draining the async stream must export exactly one finished span."""
     tracer, exporter = _tracer_with_exporter()
@@ -194,3 +229,112 @@ async def test_async_full_consumption_exports_exactly_one_span():
 
     time.sleep(0.1)
     assert len(exporter.get_finished_spans()) == 1
+
+
+@pytest.mark.asyncio
+async def test_async_close_finalizes_span_before_block_exit():
+    """`await stream.close()` must finalize the span at that moment.
+
+    The span count is checked inside the `async with` block on purpose:
+    `__aexit__` finalizes unconditionally, so a check placed after it passes
+    whether or not `close()` is reachable.
+    """
+    tracer, exporter = _tracer_with_exporter()
+    factory = _factory(tracer, is_async=True)
+
+    raw = FakeAsyncRawStream()
+    manager = factory(lambda *a, **k: FakeManager(raw), None, (), REQUEST_KWARGS)
+    async with manager as stream:
+        await anext(stream)
+        await stream.close()
+
+        time.sleep(0.1)
+        spans = exporter.get_finished_spans()
+        assert len(spans) == 1, "close() must finalize the span exactly once"
+
+    assert raw.closed, "close() must still close the wrapped stream"
+    assert len(exporter.get_finished_spans()) == 1, (
+        "leaving the block after close() must not export a second span"
+    )
+
+
+@pytest.mark.asyncio
+async def test_async_close_override_matches_the_sdk_name():
+    """The override must be `close`; anthropic defines no `aclose`.
+
+    Naming it `aclose` would leave `await stream.close()` falling through
+    `__getattr__` to the wrapped stream, so the span would never finalize.
+    """
+    tracer, _ = _tracer_with_exporter()
+    factory = _factory(tracer, is_async=True)
+
+    manager = factory(lambda *a, **k: FakeManager(FakeAsyncRawStream()), None, (),
+                      REQUEST_KWARGS)
+    async with manager as stream:
+        await anext(stream)
+        assert "close" in type(stream).__dict__, "wrapper must override close()"
+        assert "aclose" not in type(stream).__dict__, (
+            "anthropic streams define close(), not aclose()"
+        )
+        await stream.close()
+
+
+@pytest.mark.asyncio
+async def test_async_close_exports_span_when_wrapped_close_raises():
+    """A failing wrapped close() must still export the span, then re-raise.
+
+    The override's `finally` is the only thing that keeps this from leaking.
+    An await-then-finalize without `finally` passes the success test above.
+    """
+    tracer, exporter = _tracer_with_exporter()
+    factory = _factory(tracer, is_async=True)
+
+    raw = FakeAsyncRawStream(close_error=RuntimeError("close failed"))
+    manager = factory(lambda *a, **k: FakeManager(raw), None, (), REQUEST_KWARGS)
+    async with manager as stream:
+        await anext(stream)
+        with pytest.raises(RuntimeError, match="close failed"):
+            await stream.close()
+
+        time.sleep(0.1)
+        assert len(exporter.get_finished_spans()) == 1
+
+    assert raw.closed
+    assert len(exporter.get_finished_spans()) == 1
+
+
+@pytest.mark.asyncio
+async def test_async_create_close_alone_finalizes_span():
+    """`messages.create(stream=True)` returns the stream, not a manager.
+
+    Nothing runs after `close()` here, so a dead override leaks the span
+    permanently. The `.stream()` tests above cannot see that class.
+    """
+    tracer, exporter = _tracer_with_exporter()
+    factory = async_mod.async_messages(
+        version="test",
+        environment="test",
+        application_name="test",
+        tracer=tracer,
+        pricing_info={},
+        capture_message_content=True,
+        metrics=None,
+        disable_metrics=True,
+    )
+    raw = FakeAsyncRawStream()
+
+    async def wrapped(*_args, **_kwargs):
+        return raw
+
+    stream = await factory(
+        wrapped, None, (), {**REQUEST_KWARGS, "stream": True}
+    )
+    await anext(stream)
+    assert len(exporter.get_finished_spans()) == 0
+
+    await stream.close()
+
+    time.sleep(0.1)
+    assert raw.closed
+    assert len(exporter.get_finished_spans()) == 1
+    assert "close" in type(stream).__dict__

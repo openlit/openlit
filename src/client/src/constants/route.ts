@@ -37,6 +37,13 @@ export const CRON_JOB_ROUTES = [
 	"/api/telemetry-snapshot",
 ];
 
+// Realtime engine callbacks. Middleware only checks the secret header is
+// present; the route handlers verify it against OPENLIT_ENGINE_SECRET.
+export const ENGINE_INTERNAL_ROUTES = [
+	"/api/internal/realtime/rules",
+	"/api/internal/realtime/findings",
+];
+
 // Non-API routes that are accessible without completing onboarding
 export const ONBOARDING_WHITELIST_ROUTES = ["/onboarding"];
 export const ONBOARDING_WHITELIST_ROUTE_PREFIXES = [
@@ -84,3 +91,7 @@ export const RESTRICTED_DEMO_ACCOUNT_ROUTES: Record<string, string[]> = {
 	PUT: ["/api/db-config", "/api/vault"],
 	DELETE: ["/api/db-config", "/api/api-key", "/api/vault", "/api/prompt-hub"],
 };
+
+// Instance admin area: its own shell outside organisation/project scope.
+export const INSTANCE_ADMIN_ROUTE_PREFIX = "/admin";
+export const INSTANCE_ADMIN_API_ROUTE_PREFIX = "/api/admin";

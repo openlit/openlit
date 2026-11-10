@@ -1,17 +1,34 @@
 ---
 title: 'OAuth'
-description: 'Configure Google and GitHub OAuth authentication for OpenLIT using NextAuth.js'
+description: 'Configure Google, GitHub, Microsoft, and Okta sign-in for OpenLIT'
 icon: 'shield-check'
 ---
 
-This guide walks you through setting up OAuth authentication with Google and GitHub providers in OpenLIT using [NextAuth.js](https://next-auth.js.org/).
+This guide walks you through setting up sign-in with Google, GitHub, Microsoft, and Okta in OpenLIT using [NextAuth.js](https://next-auth.js.org/).
 
 ## Overview
 
-OpenLIT supports OAuth authentication through NextAuth.js with these providers:
-- **Google OAuth** - Sign in with Google accounts
-- **GitHub OAuth** - Sign in with GitHub accounts  
+OpenLIT supports these sign-in methods:
+- **Google** - Sign in with Google accounts
+- **GitHub** - Sign in with GitHub accounts
+- **Microsoft** - Sign in with Microsoft Entra ID (work, school, or personal Microsoft accounts)
+- **Okta** - Sign in through your Okta organisation
 - **Email/Password** - Traditional credentials-based authentication
+
+Each provider is configured with environment variables, in both the community edition and OpenLIT Enterprise. A provider's button appears on the sign-in page only when all of its required values are set.
+
+| Provider | Required variables | Optional variables | Redirect URI |
+| --- | --- | --- | --- |
+| Google | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | | `/api/auth/callback/google` |
+| GitHub | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | | `/api/auth/callback/github` |
+| Microsoft | `AZURE_AD_CLIENT_ID`, `AZURE_AD_CLIENT_SECRET` | `AZURE_AD_TENANT_ID` | `/api/auth/callback/azure-ad` |
+| Okta | `OKTA_CLIENT_ID`, `OKTA_CLIENT_SECRET`, `OKTA_ISSUER` | | `/api/auth/callback/okta` |
+
+Prefix each redirect URI with your OpenLIT URL, for example `https://openlit.example.com/api/auth/callback/okta`.
+
+<Tip>
+In [OpenLIT Enterprise](/latest/openlit/enterprise), the instance admin can also set and test these values from **Instance admin → Auth** without redeploying. See [Instance admin](/latest/openlit/instance-admin#auth).
+</Tip>
 
 NextAuth.js automatically handles:
 - OAuth 2.0 authorization flow
@@ -19,9 +36,9 @@ NextAuth.js automatically handles:
 - User session management
 - Security best practices
 
-When users sign in via OAuth, OpenLIT automatically:
+When users sign in with a provider, OpenLIT automatically:
 - Creates new user accounts if they don't exist
-- Links OAuth accounts to existing email-based accounts
+- Links the provider to an existing account with the same email, when the provider has verified that email (see [Account linking](#account-linking))
 - Syncs profile information (name, profile picture)
 - Runs user setup and database configuration
 
@@ -137,6 +154,55 @@ When users sign in via OAuth, OpenLIT automatically:
 If creating a GitHub App instead of OAuth App, set "Email addresses" permission to read-only to access private email addresses as mentioned in the [NextAuth.js documentation](https://next-auth.js.org/providers/github).
 </Note>
 
+## Microsoft setup
+
+<Steps>
+  <Step title="Register an application">
+    In the [Microsoft Entra admin center](https://entra.microsoft.com/), go to **Identity** > **Applications** > **App registrations** and select **New registration**.
+    - **Name**: OpenLIT
+    - **Supported account types**: choose **Accounts in this organizational directory only** to limit sign-in to your organisation, or a multi-tenant option to accept other directories
+    - **Redirect URI**: select **Web** and enter `https://yourdomain.com/api/auth/callback/azure-ad` (use `http://localhost:3000/api/auth/callback/azure-ad` for local development)
+  </Step>
+
+  <Step title="Copy the IDs">
+    On the app's **Overview** page, copy the **Application (client) ID** for `AZURE_AD_CLIENT_ID`, and the **Directory (tenant) ID** for `AZURE_AD_TENANT_ID`.
+  </Step>
+
+  <Step title="Create a client secret">
+    Go to **Certificates & secrets** > **Client secrets** > **New client secret**. Copy the secret **Value** (not the secret ID) for `AZURE_AD_CLIENT_SECRET`. It's shown only once.
+  </Step>
+
+  <Step title="Choose the tenant">
+    - Set `AZURE_AD_TENANT_ID` to your directory ID or a verified domain to accept only your organisation. This is recommended.
+    - Leave it unset (or set `common`) to accept any Microsoft account. `organizations` accepts any work or school account, and `consumers` accepts only personal Microsoft accounts.
+  </Step>
+</Steps>
+
+<Warning>
+With `common`, `organizations`, or `consumers`, anyone with a Microsoft account can create an OpenLIT account. OpenLIT doesn't trust the email from these sign-ins to link to an existing account, because the admin of any directory can set it. Set a single directory if your users already have OpenLIT accounts and should be able to sign in with Microsoft.
+</Warning>
+
+## Okta setup
+
+<Steps>
+  <Step title="Create an app integration">
+    In the Okta Admin Console, go to **Applications** > **Applications** > **Create App Integration**. Select **OIDC - OpenID Connect** and **Web Application**.
+  </Step>
+
+  <Step title="Configure the redirect URI">
+    - **Sign-in redirect URIs**: `https://yourdomain.com/api/auth/callback/okta` (use `http://localhost:3000/api/auth/callback/okta` for local development)
+    - **Assignments**: assign the users or groups who should be able to sign in to OpenLIT
+  </Step>
+
+  <Step title="Copy the credentials">
+    From the app's **General** tab, copy the **Client ID** for `OKTA_CLIENT_ID` and the **Client secret** for `OKTA_CLIENT_SECRET`. Keep **Client authentication** set to **Client secret**.
+  </Step>
+
+  <Step title="Find the issuer">
+    Go to **Security** > **API** > **Authorization Servers** and copy the **Issuer URI** of the server you use, for example `https://your-domain.okta.com/oauth2/default`. Set it as `OKTA_ISSUER`. The issuer must be a public `https` URL.
+  </Step>
+</Steps>
+
 ## Environment Configuration
 
 ```.env.production
@@ -151,15 +217,27 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 # GitHub OAuth
 GITHUB_CLIENT_ID=your-github-client-id  
 GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# Microsoft Entra ID
+AZURE_AD_CLIENT_ID=your-azure-client-id
+AZURE_AD_CLIENT_SECRET=your-azure-client-secret
+AZURE_AD_TENANT_ID=your-directory-id   # optional, defaults to common
+
+# Okta
+OKTA_CLIENT_ID=your-okta-client-id
+OKTA_CLIENT_SECRET=your-okta-client-secret
+OKTA_ISSUER=https://your-domain.okta.com/oauth2/default
 ```
 
 ### Production Setup
 
 <Steps>
   <Step title="Update OAuth app URLs">
-    Update both Google and GitHub OAuth apps with production URLs:
+    Update each provider's app with production URLs:
     - **Google**: Add `https://yourdomain.com` to origins and `https://yourdomain.com/api/auth/callback/google` to redirect URIs
     - **GitHub**: Update callback URL to `https://yourdomain.com/api/auth/callback/github`
+    - **Microsoft**: Add `https://yourdomain.com/api/auth/callback/azure-ad` as a Web redirect URI
+    - **Okta**: Add `https://yourdomain.com/api/auth/callback/okta` as a sign-in redirect URI
   </Step>
   
   <Step title="HTTPS requirement">
@@ -171,10 +249,23 @@ GITHUB_CLIENT_SECRET=your-github-client-secret
 
 ### User management
 
-- **New Users**: Automatically created when signing in via OAuth for the first time
-- **Existing Users**: OAuth accounts are linked to existing email-based accounts
-- **Profile Sync**: Name and profile picture are synced from OAuth providers
+- **New Users**: Automatically created when signing in with a provider for the first time
+- **Existing Users**: A provider is linked to an existing account with the same email when the provider has verified the email (see below)
+- **Profile Sync**: Name and profile picture are synced from the provider when the account doesn't have them yet
 - **Database Setup**: New users get proper database configurations and permissions
+
+### Account linking
+
+When someone signs in with a provider and an OpenLIT account already uses that email, OpenLIT links the provider to that account only when the provider vouches for the email:
+
+| Provider | Linked to an existing account when |
+| --- | --- |
+| Google | Google reports the email as verified |
+| GitHub | Always (GitHub returns the account's own primary email) |
+| Microsoft | `AZURE_AD_TENANT_ID` names a single directory |
+| Okta | Okta reports the email as verified |
+
+Otherwise the sign-in is refused and the user sees a message to sign in with the method they used originally. A provider identity that is already linked to the account can always sign in. If a provider reports an email as unverified, the sign-in is refused even when no account uses that email.
 
 ### Session management
 
@@ -189,7 +280,9 @@ NextAuth.js handles all session management including:
 <AccordionGroup>
   <Accordion title="OAuth button not appearing">
     **Solutions**: 
+    - Check that every required variable for the provider is set. For example, Okta needs `OKTA_CLIENT_ID`, `OKTA_CLIENT_SECRET`, and `OKTA_ISSUER`
     - Check that environment variables are set correctly
+    - In OpenLIT Enterprise, open **Instance admin → Auth**: each provider shows **Shown on sign-in**, **Incomplete** (with the missing fields), or **Not configured**
     - Ensure `.env` file is in the correct directory (`src/client/`) for development
     - You can create a `.env` file to in the same directory as the `docker-compose.yml` file with the creds
   </Accordion>
@@ -203,9 +296,24 @@ NextAuth.js handles all session management including:
 
   <Accordion title="Invalid client error">
     **Solutions**:
+    - In OpenLIT Enterprise, use **Test credentials** on **Instance admin → Auth** to check the values with the provider
+    - For Microsoft, use the client secret **Value**, not the secret ID, and check that the secret hasn't expired
     - Verify client credentials are copied correctly
     - Check for extra spaces or characters in environment variables
     - Ensure you're using credentials from the correct OAuth app
+  </Accordion>
+
+  <Accordion title="Sign-in refused for an existing account">
+    **Solutions**:
+    - The provider didn't verify the email, so OpenLIT won't link it to the existing account. See [Account linking](#account-linking)
+    - For Microsoft, set `AZURE_AD_TENANT_ID` to your directory instead of `common`
+    - Sign in with the method the account used originally (for example, email and password)
+  </Accordion>
+
+  <Accordion title="Okta issuer rejected">
+    **Solutions**:
+    - Use the full issuer URI from **Security** > **API** > **Authorization Servers**, such as `https://your-domain.okta.com/oauth2/default`
+    - The issuer must use `https` and a public hostname. IP addresses, `localhost`, and private network addresses are rejected
   </Accordion>
 
   <Accordion title="NEXTAUTH_URL mismatch">

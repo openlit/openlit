@@ -62,6 +62,14 @@ export type GPU_TYPE_KEY =
 
 export interface GPUMetricParams extends MetricParams { }
 
+/**
+ * Server-side ceiling for direct reads, matching the OpenPlait read path. A
+ * caller that gives up cannot stop its query, so without this it keeps running.
+ */
+const MAX_READ_EXECUTION_SECONDS = 60;
+/** ClickHouse READONLY error: a readonly=1 user may not change any setting. */
+const CLICKHOUSE_READONLY_ERROR_CODE = "164";
+
 export type DataCollectorType = { err?: unknown; data?: unknown };
 type CollectorParams = Partial<
 	QueryParams &
@@ -120,18 +128,23 @@ async function collectClickHouseData(
 		if (clientQueryType === "query") {
 			if (!query) return { err: "No query specified!" };
 			const querySettings = {
+				max_execution_time: MAX_READ_EXECUTION_SECONDS,
 				...(enable_readonly ? { readonly: "1" } : {}),
 				...(clickhouse_settings || {}),
 			};
-			[respErr, result] = await asaw(
-				client.query({
-					query,
-					format,
-					...(Object.keys(querySettings).length
-						? { clickhouse_settings: querySettings }
-						: {}),
-				} as QueryParams)
-			);
+			const runQuery = (clickhouseSettings: QueryParams["clickhouse_settings"]) =>
+				asaw(
+					client!.query({
+						query,
+						format,
+						clickhouse_settings: clickhouseSettings,
+					} as QueryParams)
+				);
+			[respErr, result] = await runQuery(querySettings);
+			if ((respErr as { code?: string })?.code === CLICKHOUSE_READONLY_ERROR_CODE) {
+				const { max_execution_time: _limit, ...settingsWithoutLimit } = querySettings;
+				[respErr, result] = await runQuery(settingsWithoutLimit);
+			}
 			if (!respErr && result) {
 				const [jsonErr, rows] = await asaw((result as any).json());
 				return { err: jsonErr, data: rows || [] };
@@ -162,12 +175,15 @@ async function collectClickHouseData(
 			);
 
 			if (!respErr) {
+				// Pooled clients are reused: an unread response would hold its socket.
+				result?.stream.resume();
 				return { data: result };
 			}
 		} else if (clientQueryType === "ping") {
 			[respErr, result] = await asaw(client.query({
 				query: "SELECT 1",
 			}));
+			result?.close();
 
 			return { err: respErr, data: !!result };
 		} else if (clientQueryType === "command") {

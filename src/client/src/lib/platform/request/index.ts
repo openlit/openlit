@@ -21,55 +21,6 @@ import {
 	buildRequestsOrderByClause,
 } from "@/lib/clickhouse-escape";
 
-const PREDEFINED_GROUP_BY: Record<string, string> = {
-	model: `SpanAttributes['gen_ai.request.model']`,
-	// OTel GenAI renamed gen_ai.system -> gen_ai.provider.name (1.30+). The
-	// current SDK emits provider.name. This must stay a single-attribute
-	// expression so the drill-down customFilter in grouped-table.tsx
-	// (SpanAttributes['gen_ai.provider.name'] = <value>) matches the exact
-	// same rows this GROUP BY produces.
-	provider: `SpanAttributes['gen_ai.provider.name']`,
-	spanName: `SpanName`,
-	applicationName: `ResourceAttributes['service.name']`,
-};
-
-const ALLOWED_FIELD_GROUP_BY = new Set([
-	"TraceId",
-	"ParentSpanId",
-	"TraceState",
-	"SpanId",
-	"SpanName",
-	"SpanKind",
-	"ServiceName",
-	"ScopeName",
-	"ScopeVersion",
-	"Timestamp",
-	"Duration",
-	"StatusCode",
-	"StatusMessage",
-]);
-
-export function getGroupByExpression(groupBy: string): string | null {
-	if (groupBy in PREDEFINED_GROUP_BY) return PREDEFINED_GROUP_BY[groupBy];
-	const sep = groupBy.indexOf(":");
-	if (sep === -1) {
-		const sanitized = escapeClickHouseString(groupBy).trim();
-		if (!sanitized) return null;
-		return `SpanAttributes['${sanitized}']`;
-	}
-	const attrType = groupBy.slice(0, sep);
-	const key = escapeClickHouseString(groupBy.slice(sep + 1)).trim();
-	if (!key) return null;
-	if (attrType === "ResourceAttributes") return `ResourceAttributes['${key}']`;
-	if (attrType === "Field") {
-		const field = key.replace(/[^A-Za-z0-9_.]/g, "");
-		if (!field || !ALLOWED_FIELD_GROUP_BY.has(field)) return null;
-		return field;
-	}
-	if (attrType === "SpanAttributes") return `SpanAttributes['${key}']`;
-	return `SpanAttributes['${key}']`;
-}
-
 export async function getRequestPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
@@ -96,7 +47,7 @@ export async function getTotalRequests(params: MetricParams) {
 	const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			COUNT(*) AS total_requests,
-			'${params.timeLimit.start}' as start_date
+			'${escapeClickHouseString(String(params.timeLimit.start))}' as start_date
 		FROM ${table}
 		WHERE ${getFilterWhereCondition(parameters, true)}	
 	`;
@@ -128,7 +79,7 @@ export async function getAverageRequestDuration(params: MetricParams) {
 	const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			AVG(${keyPath}) AS average_duration,
-			'${params.timeLimit.start}' as start_date
+			'${escapeClickHouseString(String(params.timeLimit.start))}' as start_date
 		FROM ${table}
 		WHERE ${getFilterWhereCondition(parameters, true)} AND isFinite(${keyPath})
 	`;
@@ -258,15 +209,29 @@ export async function getRequests(params: MetricParams) {
 		};
 	}
 
-	const query = `SELECT *	FROM ${table}
-		WHERE ${getFilterWhereCondition(params, true)}
-		${params.sorting && params.sorting.type && params.sorting.direction
+	const orderBy =
+		params.sorting && params.sorting.type && params.sorting.direction
 			? buildRequestsOrderByClause(params.sorting.type, params.sorting.direction)
-			: `ORDER BY Timestamp desc `
-		}
-		${oneRowPerTrace ? "LIMIT 1 BY TraceId" : ""}
-		LIMIT ${limit}
-		OFFSET ${offset}`;
+			: `ORDER BY Timestamp desc `;
+	const limitBy = oneRowPerTrace ? "LIMIT 1 BY TraceId" : "";
+
+	// Page on span identity first so the sort only touches the sort column,
+	// then read full rows (heavy map columns) for that page alone. The row read
+	// takes no LIMIT: the ids already bound it, and exact duplicate spans match
+	// the same id, so a LIMIT would push the page's last row off every page.
+	const query = `SELECT *	FROM ${table}
+		WHERE ${getTimeRangeWhereCondition(params) || "1"}
+		AND (Timestamp, TraceId, SpanId) IN (
+			SELECT Timestamp, TraceId, SpanId
+			FROM ${table}
+			WHERE ${getFilterWhereCondition(params, true)}
+			${orderBy}
+			${limitBy}
+			LIMIT ${limit}
+			OFFSET ${offset}
+		)
+		${orderBy}
+		${limitBy}`;
 
 	const { data, err } = await queryTracesSql(query, params.databaseConfigId);
 	return {
@@ -318,6 +283,8 @@ export async function getTraceSummaries(params: MetricParams) {
 	const { data: dataTotal, err: errTotal } = await queryTracesSql(countQuery, params.databaseConfigId);
 	if (errTotal) return { err: errTotal };
 
+	// `page` runs twice, for the join and for the IN that stops heavy map columns
+	// being read across the window, so TraceId must settle ties the same way.
 	const query = `WITH page AS (
 		SELECT
 			TraceId,
@@ -325,7 +292,7 @@ export async function getTraceSummaries(params: MetricParams) {
 		FROM ${table}
 		WHERE ${where}
 		GROUP BY TraceId
-		ORDER BY TraceStart ${direction}
+		ORDER BY TraceStart ${direction}, TraceId
 		LIMIT ${limit}
 		OFFSET ${offset}
 	)
@@ -355,7 +322,7 @@ export async function getTraceSummaries(params: MetricParams) {
 		CAST(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) AS INTEGER) AS ErrorCount
 	FROM ${table} AS t
 	INNER JOIN page AS p ON t.TraceId = p.TraceId
-	WHERE ${timeWhere}
+	WHERE ${timeWhere} AND t.TraceId IN (SELECT TraceId FROM page)
 	GROUP BY t.TraceId, p.TraceStart
 	ORDER BY p.TraceStart ${direction}`;
 
@@ -702,28 +669,4 @@ export async function getAttributeKeys(params: MetricParams) {
 		spanAttributeKeys: (spanResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
 		resourceAttributeKeys: (resourceResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
 	};
-}
-
-export async function getGroupedRequests(params: MetricParams, groupBy: string) {
-	const table = await tracesTableRef(params.databaseConfigId);
-	const expr = getGroupByExpression(groupBy);
-	if (!expr) {
-		return {
-			err: "Invalid groupBy value",
-			data: [],
-		};
-	}
-	const query = `
-		SELECT
-			${expr} AS group_value,
-			CAST(COUNT(*) AS INTEGER) AS count,
-			CAST(SUM(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost'])) AS FLOAT) AS total_cost,
-			CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS total_tokens,
-			CAST(AVG(Duration) * 1e-9 AS FLOAT) AS avg_duration_seconds
-		FROM ${table}
-		WHERE ${getFilterWhereCondition(params, true)}
-		GROUP BY group_value
-		ORDER BY count DESC
-	`;
-	return queryTracesSql(query, params.databaseConfigId);
 }

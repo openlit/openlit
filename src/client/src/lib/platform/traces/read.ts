@@ -612,7 +612,7 @@ export async function getTraceSpanRecord(
 		let record = denormalizeSpanToTraceRow(span);
 		if (span.traceId && typeof adapter.getTraceSpans === "function") {
 			try {
-				const tree = await adapter.getTraceSpans(span.traceId);
+				const tree = await adapter.getTraceSpans(span.traceId, span.timestamp);
 				if (tree.length) {
 					record = await attachLoopForDetail(adapter, descriptor, record, tree);
 				} else {
@@ -676,11 +676,10 @@ export async function getTraceHierarchy(
 
 	try {
 		let span: NormalizedSpan | null = null;
+		let spans: NormalizedSpan[] | undefined;
 		if (opts?.traceId) {
-			const spans = await adapter.getTraceSpans(opts.traceId);
-			span =
-				spans.find((s) => s.spanId === spanId) ||
-				null;
+			spans = await adapter.getTraceSpans(opts.traceId);
+			span = findSpanInTrace(spans, spanId, opts.traceId);
 			if (!span) {
 				return {
 					err: "Span not found in the selected trace and telemetry source",
@@ -691,13 +690,17 @@ export async function getTraceHierarchy(
 		if (!opts?.traceId) span = await adapter.getSpan(spanId);
 		if (!span) return { err: "Span not found", record: {} };
 
-		let spans = await adapter.getTraceSpans(span.traceId);
+		// Unbounded: a span missing from the tree can drop its whole subtree.
+		spans ??= await adapter.getTraceSpans(span.traceId);
 		const sessionId =
 			span.spanAttributes["coding_agent.session.id"] ||
 			span.resourceAttributes["coding_agent.session.id"];
 		if (sessionId && adapter.capabilities().crossTraceSession) {
 			try {
-				const sessionSpans = await adapter.getSpansBySession(sessionId);
+				const sessionSpans = await adapter.getSpansBySession(
+					sessionId,
+					span.timestamp
+				);
 				const byId = new Map<string, NormalizedSpan>();
 				for (const s of [...spans, ...sessionSpans]) byId.set(s.spanId, s);
 				spans = Array.from(byId.values());
@@ -739,7 +742,12 @@ const GROUP_BY_FIELD: Record<string, string> = {
 function groupByToField(groupBy: string): string {
 	if (groupBy in GROUP_BY_FIELD) return GROUP_BY_FIELD[groupBy];
 	const sep = groupBy.indexOf(":");
-	return sep === -1 ? groupBy : groupBy.slice(sep + 1);
+	if (sep === -1) return groupBy;
+	const key = groupBy.slice(sep + 1);
+	// Adapters read a bare dotted key as a span attribute, so a resource
+	// attribute must keep its scope or it groups on the wrong (usually empty)
+	// value while the drill-down still filters on ResourceAttributes.
+	return groupBy.slice(0, sep) === "ResourceAttributes" ? `resource:${key}` : key;
 }
 
 /**
@@ -874,13 +882,15 @@ export async function getTraceGrouped(params: MetricParams, groupBy: string) {
 			],
 		};
 		const frame = await planAndAggregateSpans(adapter, query);
-		const data = (frame.rows as Record<string, unknown>[]).map((row) => ({
-			group_value: String(row.group_value ?? row[field] ?? row.g0 ?? ""),
-			count: Number(row.count ?? 0),
-			total_cost: Number(row.total_cost ?? 0),
-			total_tokens: Number(row.total_tokens ?? 0),
-			avg_duration_seconds: Number(row.avg_duration_seconds ?? 0),
-		}));
+		const data = (frame.rows as Record<string, unknown>[])
+			.map((row) => ({
+				group_value: String(row.group_value ?? row[field] ?? row.g0 ?? ""),
+				count: Number(row.count ?? 0),
+				total_cost: Number(row.total_cost ?? 0),
+				total_tokens: Number(row.total_tokens ?? 0),
+				avg_duration_seconds: Number(row.avg_duration_seconds ?? 0),
+			}))
+			.sort((a, b) => b.count - a.count);
 		return { err: null, data };
 	} catch (err) {
 		rethrowIfSourceFailure(err);

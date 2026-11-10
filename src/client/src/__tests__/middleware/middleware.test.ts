@@ -40,6 +40,11 @@ describe('middleware', () => {
     expect(config.matcher).toContain('/api/:path*');
   });
 
+  it('matcher includes the instance admin area', () => {
+    expect(config.matcher).toContain('/admin');
+    expect(config.matcher).toContain('/admin/:path*');
+  });
+
   it('matcher includes /login route', () => {
     expect(config.matcher).toContain('/login');
   });

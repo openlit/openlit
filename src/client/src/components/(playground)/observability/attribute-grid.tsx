@@ -2,42 +2,38 @@
 
 import { useMemo, useState } from "react";
 import { isPlainObject } from "lodash";
-
-function isEmptyValue(value: unknown) {
-	return value === "" || value === null || value === undefined;
-}
-
-function stringifyValue(value: unknown) {
-	if (isEmptyValue(value)) return "-";
-	if (typeof value === "string") return value;
-	if (typeof value === "number" || typeof value === "boolean") return String(value);
-	try {
-		return JSON.stringify(value, null, 2);
-	} catch {
-		return String(value);
-	}
-}
+import StructuredValue from "@/components/common/structured-value";
+import {
+	SPAN_CONTENT_KEYS,
+	isEmptyValue,
+	stringifyValue,
+} from "@/helpers/client/span-messages";
 
 function shouldClamp(value: unknown, text: string) {
 	return Array.isArray(value) || isPlainObject(value) || text.length > 180 || text.split("\n").length > 3;
 }
 
-function ValueCell({ value }: { value: unknown }) {
+function ValueCell({
+	attributeKey,
+	value,
+}: {
+	attributeKey: string;
+	value: unknown;
+}) {
 	const [expanded, setExpanded] = useState(false);
 	const text = useMemo(() => stringifyValue(value), [value]);
 	const clamp = shouldClamp(value, text);
-	const isStructured = Array.isArray(value) || isPlainObject(value);
-	const className = isStructured
-		? `max-w-full overflow-auto whitespace-pre-wrap break-words rounded border border-stone-200 bg-stone-50 p-2 font-mono text-xs leading-5 text-stone-800 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200 ${
-				expanded ? "max-h-96" : "max-h-[3.75rem]"
-		  }`
-		: `max-w-full whitespace-pre-wrap break-words font-mono text-xs leading-5 text-stone-800 dark:text-stone-200 ${
-				!expanded && clamp ? "line-clamp-3 overflow-hidden" : ""
-		  }`;
+	const clampClassName = expanded
+		? "max-h-96 overflow-auto"
+		: "max-h-[3.75rem] overflow-hidden";
 
 	return (
 		<div className="min-w-0 max-w-full">
-			<pre className={className}>{text}</pre>
+			<StructuredValue
+				value={value}
+				markdown={SPAN_CONTENT_KEYS.has(attributeKey)}
+				bodyClassName={clamp ? clampClassName : undefined}
+			/>
 			{clamp && (
 				<button
 					type="button"
@@ -51,8 +47,8 @@ function ValueCell({ value }: { value: unknown }) {
 	);
 }
 
-function renderValue(value: unknown) {
-	return <ValueCell value={value} />;
+function renderValue(key: string, value: unknown) {
+	return <ValueCell attributeKey={key} value={value} />;
 }
 
 function getObjectEntries(data: unknown) {
@@ -77,7 +73,7 @@ function KeyValueRows({ entries }: { entries: Array<[string, unknown]> }) {
 					<div className="truncate font-mono text-xs font-medium text-stone-600 dark:text-stone-300">
 						{key}
 					</div>
-					{renderValue(value)}
+					{renderValue(key, value)}
 				</div>
 			))}
 		</div>
