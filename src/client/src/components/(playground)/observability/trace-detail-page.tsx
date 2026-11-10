@@ -392,7 +392,7 @@ export function TraceDetailView({
 	spanId: string;
 	type: "traces" | "exceptions";
 	variant?: "page" | "sheet";
-	onSpanChange?: (spanId: string) => void;
+	onSpanChange?: (spanId: string, traceId?: string) => void;
 	onActiveSpanChange?: (spanId: string) => void;
 	extraActions?: ReactNode;
 	navigationRows?: any[];
@@ -410,6 +410,9 @@ export function TraceDetailView({
 	const urlTraceId = searchParams.get("traceId") || undefined;
 	const [selectedSpanId, setSelectedSpanId] = useState(spanId);
 	const [activeListSpanId, setActiveListSpanId] = useState(spanId);
+	// Trace of the row the arrows moved to. URL updates land after this render,
+	// so without it the first fetch would pair the new span with the old trace.
+	const [listTrace, setListTrace] = useState<{ spanId: string; traceId?: string } | null>(null);
 	// Per-session code-impact rollups (lines added / removed,
 	// commits, edit accept/reject, PRs, acceptance %) fetched by
 	// session_id from the trace's coding-agent attributes. Used to
@@ -468,7 +471,7 @@ export function TraceDetailView({
 	const detailBasePathRef = useRef(
 		type === "exceptions" ? "/telemetry/exceptions" : "/telemetry/traces"
 	);
-	const { data, fireRequest, isLoading } = useFetchWrapper();
+	const { data, error, fireRequest, isLoading } = useFetchWrapper();
 	const {
 		data: listData,
 		fireRequest: fireListRequest,
@@ -485,7 +488,10 @@ export function TraceDetailView({
 			undefined
 		);
 	}, [navigationRows, selectedSpanId, activeListSpanId]);
-	const knownTraceId = urlTraceId || listHintTraceId;
+	const knownTraceId =
+		(listTrace?.spanId === activeListSpanId && listTrace.traceId) ||
+		urlTraceId ||
+		listHintTraceId;
 	const fetchData = useCallback(() => {
 		const qs = knownTraceId
 			? `?traceId=${encodeURIComponent(knownTraceId)}`
@@ -516,6 +522,7 @@ export function TraceDetailView({
 			hierarchySpanIdRef.current = nextSpanId;
 			setActiveListSpanId(nextSpanId);
 			setSelectedSpanId(nextSpanId);
+			setListTrace({ spanId: nextSpanId, traceId: nextTraceId });
 			const source = fromRef.current;
 			const params = new URLSearchParams();
 			if (source) params.set("from", source);
@@ -526,7 +533,7 @@ export function TraceDetailView({
 			if (variant === "page") {
 				router.replace(`${detailBasePathRef.current}/${nextSpanId}${qs}`, { scroll: false });
 			}
-			onSpanChange?.(nextSpanId);
+			onSpanChange?.(nextSpanId, nextTraceId);
 		},
 		[onSpanChange, router, searchParams, variant]
 	);
@@ -588,7 +595,9 @@ export function TraceDetailView({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const raw = (data as any)?.record;
+	// useFetchWrapper keeps the last good data on failure; the previous span's
+	// content must not stay on screen under the newly selected span.
+	const raw = error ? undefined : (data as any)?.record;
 	const trace = raw ? normalizeTrace(raw) : null;
 	const resourceAttributes = raw?.ResourceAttributes || {};
 	const spanAttributes = raw?.SpanAttributes || {};
@@ -994,6 +1003,18 @@ export function TraceDetailView({
 				</div>
 			}
 		>
+			{error ? (
+				<div
+					role="alert"
+					className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200"
+				>
+					<AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+					<div className="min-w-0">
+						<div className="font-medium">{m.OBSERVABILITY_SPAN_LOAD_FAILED}</div>
+						<div className="break-words">{String(error)}</div>
+					</div>
+				</div>
+			) : null}
 			{trace && (
 				<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
 					<div className="flex shrink-0 flex-wrap gap-1.5">

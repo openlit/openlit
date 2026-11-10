@@ -1,9 +1,9 @@
 import { ValueOf } from "../../types/util";
 import { MetricParams } from "@/lib/platform/common";
 import {
-	addDays,
-	addMonths,
+	addMilliseconds,
 	differenceInDays,
+	differenceInMilliseconds,
 	differenceInYears,
 } from "date-fns";
 import {
@@ -496,43 +496,25 @@ export const getFilterPreviousParams = (filter: MetricParams) => {
 		const previousParams: MetricParams = JSON.parse(JSON.stringify(filter));
 		const { start, end, type } = filter.timeLimit || {};
 		switch (type) {
+			// The browser builds every window, in its own timezone, so the server
+			// shifts by the exact duration: the previous window then ends where the
+			// current one starts and has the same length, across DST changes too.
 			case "24H":
-				previousParams.timeLimit.start = addDays(
-					start as Date,
-					-1
-				).toISOString();
-				previousParams.timeLimit.end = addDays(end as Date, -1).toISOString();
-				break;
 			case "7D":
-				previousParams.timeLimit.start = addDays(
-					start as Date,
-					-7
-				).toISOString();
-				previousParams.timeLimit.end = addDays(end as Date, -1).toISOString();
-				break;
 			case "1M":
-				previousParams.timeLimit.start = addMonths(
-					start as Date,
-					-1
-				).toISOString();
-				previousParams.timeLimit.end = addMonths(end as Date, -1).toISOString();
-				break;
 			case "3M":
-				previousParams.timeLimit.start = addMonths(
-					start as Date,
-					-3
-				).toISOString();
-				previousParams.timeLimit.end = addMonths(end as Date, -3).toISOString();
-				break;
 			case "CUSTOM":
-				const differenceDays = differenceInDays(end as Date, start as Date);
-				previousParams.timeLimit.start = addDays(
-					start as Date,
-					-differenceDays
-				).toISOString();
-				previousParams.timeLimit.end = addDays(
+				const durationMs = differenceInMilliseconds(
 					end as Date,
-					-differenceDays
+					start as Date
+				);
+				previousParams.timeLimit.start = addMilliseconds(
+					start as Date,
+					-durationMs
+				).toISOString();
+				previousParams.timeLimit.end = addMilliseconds(
+					end as Date,
+					-durationMs
 				).toISOString();
 				break;
 			default:

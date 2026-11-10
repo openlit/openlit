@@ -92,6 +92,8 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		columns: traceColumns,
 		pageName: "request",
 		visibilityPage: "request",
+		supportGrouping: true,
+		groupedUrl: "/api/telemetry/request/grouped",
 		includeOnlySorting: ["Timestamp"],
 		customAttributeTypes: ["SpanAttributes", "ResourceAttributes", "Field"],
 		normalize: (row) => ({
