@@ -13,7 +13,7 @@ describe('default-models', () => {
     const expectedProviders = [
       'openai', 'anthropic', 'google', 'mistral', 'groq',
       'perplexity', 'azure', 'cohere', 'together', 'fireworks',
-      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax', 'orcarouter', 'typesafe',
+      'deepseek', 'xai', 'huggingface', 'replicate', 'minimax', 'orcarouter', 'typesafe', 'atlascloud',
     ];
     for (const provider of expectedProviders) {
       expect(DEFAULT_MODELS_BY_PROVIDER).toHaveProperty(provider);
@@ -173,5 +173,20 @@ describe('default-models', () => {
         expect(exportable.has(model.modelType || 'chat')).toBe(true);
       }
     }
+  });
+
+  it('seeds Atlas Cloud with vendor-prefixed models', () => {
+    const provider = DEFAULT_PROVIDERS.find((p) => p.providerId === 'atlascloud');
+    expect(provider).toEqual(
+      expect.objectContaining({ displayName: 'Atlas Cloud', requiresVault: true })
+    );
+    expect(DEFAULT_MODELS_BY_PROVIDER.atlascloud.map((m) => m.id)).toEqual([
+      'openai/gpt-4.1-mini',
+      'anthropic/claude-sonnet-4.6',
+      'deepseek-ai/deepseek-v3.2',
+    ]);
+    expect(
+      DEFAULT_MODELS_BY_PROVIDER.atlascloud.find((m) => m.id === 'openai/gpt-4.1-mini')
+    ).toMatchObject({ inputPricePerMToken: 0.4, outputPricePerMToken: 1.6 });
   });
 });
