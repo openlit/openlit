@@ -101,3 +101,4 @@ class TestAssemblyAICost:
         assert attributes[SemanticConvention.GEN_AI_USAGE_COST] == pytest.approx(
             600 * PRICING["audio"]["best"], rel=1e-9
         )
+        assert attributes[SemanticConvention.GEN_AI_USAGE_COST_CURRENCY] == "USD"

@@ -518,6 +518,7 @@ def common_chat_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # Span Attributes for Request parameters
@@ -608,7 +609,6 @@ def common_chat_logic(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
         input_tokens + output_tokens,
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Reasoning tokens (OTel: gen_ai.usage.reasoning.output_tokens is a subset
     # of gen_ai.usage.output_tokens above, so it is recorded separately and
@@ -910,6 +910,7 @@ def common_embedding_logic(
         0,
         scope._end_time - scope._start_time,
         version,
+        cost=cost,
     )
 
     # Span Attributes for Request parameters
@@ -928,7 +929,6 @@ def common_embedding_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Content
     if capture_message_content:

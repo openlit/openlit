@@ -619,6 +619,7 @@ def common_chat_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # Request parameters
@@ -725,7 +726,6 @@ def common_chat_logic(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
         scope._input_tokens + scope._output_tokens,
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
         getattr(scope, "_cache_read_input_tokens", 0) or 0,
@@ -1212,6 +1212,7 @@ def process_embedding_response(
         0,
         0,
         version,
+        cost=cost,
     )
 
     encoding = body.get("encoding_format")
@@ -1230,8 +1231,6 @@ def process_embedding_response(
 
     span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
     span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens)
-    span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-
     if capture_message_content:
         # Record the input(s) as a single user message in OTel shape
         prompt_input = body.get("input")
@@ -1316,6 +1315,7 @@ def process_async_invoke_response(
         0,
         0,
         version,
+        cost=cost,
     )
 
     request_id = response_dict.get("request_id")

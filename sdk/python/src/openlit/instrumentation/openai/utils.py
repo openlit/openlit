@@ -939,6 +939,7 @@ def common_response_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # OpenAI-specific API type attribute (TIER 2: OpenAI-Specific Semconv)
@@ -1061,7 +1062,6 @@ def common_response_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Reasoning tokens. OTel: gen_ai.usage.reasoning.output_tokens is a subset
     # of gen_ai.usage.output_tokens (already set above), so it is recorded as a
@@ -1450,6 +1450,7 @@ def common_chat_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # OpenAI-specific API type attribute (TIER 2: OpenAI-Specific Semconv)
@@ -1571,7 +1572,6 @@ def common_chat_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Reasoning tokens (OTel: gen_ai.usage.reasoning.output_tokens is a subset
     # of gen_ai.usage.output_tokens above, so it is recorded separately and
@@ -1894,6 +1894,7 @@ def common_embedding_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # Span Attributes for Request parameters
@@ -1924,7 +1925,6 @@ def common_embedding_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Content (OTel: array structure for gen_ai.input.messages)
     if capture_message_content:
@@ -2021,6 +2021,7 @@ def common_image_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # Span Attributes for Request parameters
@@ -2080,9 +2081,6 @@ def common_image_logic(
         scope._span.set_attribute(
             "gen_ai.response.output_format", response_output_format
         )
-
-    # Span Attributes for Cost
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Content (OTel: array structure)
     if capture_message_content:
@@ -2206,6 +2204,7 @@ def common_audio_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # Span Attributes for Request parameters
@@ -2221,9 +2220,6 @@ def common_audio_logic(
         SemanticConvention.GEN_AI_REQUEST_AUDIO_SPEED,
         handle_not_given(scope._kwargs.get("speed"), 1.0),
     )
-
-    # Span Attributes for Cost
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Content (OTel: array structure)
     if capture_message_content:
@@ -2464,6 +2460,7 @@ def common_transcription_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     language = scope._kwargs.get("language")
@@ -2499,8 +2496,6 @@ def common_transcription_logic(
             SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
             scope._input_tokens + scope._output_tokens,
         )
-
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     if capture_message_content:
         file_obj = scope._kwargs.get("file")
