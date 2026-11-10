@@ -873,6 +873,33 @@ describe("getTraceRecordByTraceId", () => {
 });
 
 describe("getTraceHierarchy", () => {
+	const tempoTrace = () => {
+		const traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+		const rootSpanId = "00f067aa0ba902b7";
+		const rootSpan = {
+			traceId,
+			spanId: rootSpanId,
+			parentSpanId: "",
+			name: "root",
+			serviceName: "api",
+			timestamp: "2026-07-01T00:00:00.000Z",
+			durationNs: 1_000_000_000,
+			statusCode: "OK",
+			spanAttributes: {},
+			resourceAttributes: {},
+		};
+		const spans = [
+			rootSpan,
+			{
+				...rootSpan,
+				spanId: "b9c7c989f97918e1",
+				parentSpanId: rootSpanId,
+				name: "child",
+			},
+		];
+		return { traceId, rootSpan, spans };
+	};
+
 	it("builds a ParentSpanId tree from external getTraceSpans", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		mockGetAdapter.mockResolvedValue({
@@ -909,6 +936,54 @@ describe("getTraceHierarchy", () => {
 		expect(res.err).toBeNull();
 		expect(res.record).toMatchObject({ SpanId: "s1" });
 		expect(mockGetHeirarchyViaSpanId).not.toHaveBeenCalled();
+	});
+
+	it("resolves a Tempo trace-id summary placeholder to its root hierarchy", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const { traceId, rootSpan, spans } = tempoTrace();
+		const getTraceSpans = jest.fn().mockResolvedValue(spans);
+		mockGetAdapter.mockResolvedValue({
+			capabilities: () => ({ crossTraceSession: false }),
+			getTraceSpans,
+		});
+
+		const res = await getTraceHierarchy(traceId, { traceId });
+
+		expect(res.err).toBeNull();
+		expect(res.record).toMatchObject({ SpanId: rootSpan.spanId });
+		expect(buildHierarchy).toHaveBeenCalled();
+	});
+
+	it("continues to accept the actual root span id for a Tempo trace", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const { traceId, rootSpan, spans } = tempoTrace();
+		mockGetAdapter.mockResolvedValue({
+			capabilities: () => ({ crossTraceSession: false }),
+			getTraceSpans: jest.fn().mockResolvedValue(spans),
+		});
+
+		const res = await getTraceHierarchy(rootSpan.spanId, { traceId });
+
+		expect(res.err).toBeNull();
+		expect(res.record).toMatchObject({ SpanId: rootSpan.spanId });
+		expect(buildHierarchy).toHaveBeenCalled();
+	});
+
+	it("rejects an unrelated span id even when the selected Tempo trace has spans", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const { traceId, spans } = tempoTrace();
+		const getTraceSpans = jest.fn().mockResolvedValue(spans);
+		mockGetAdapter.mockResolvedValue({
+			capabilities: () => ({ crossTraceSession: false }),
+			getTraceSpans,
+		});
+
+		const res = await getTraceHierarchy("ffffffffffffffff", { traceId });
+
+		expect(res.record).toEqual({});
+		expect(res.err).toContain("selected trace and telemetry source");
+		expect(getTraceSpans).toHaveBeenCalledTimes(1);
+		expect(buildHierarchy).not.toHaveBeenCalled();
 	});
 
 	it("reuses the full trace it already read when a traceId is given", async () => {
