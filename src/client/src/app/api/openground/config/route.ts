@@ -12,7 +12,11 @@ import {
 	deleteOpenGroundConfig,
 	toggleOpenGroundConfigStatus,
 } from "@/lib/platform/providers/config";
-import { isChatProvider } from "@/constants/chat-providers";
+import { isOwnSecret } from "@/lib/platform/vault";
+import {
+	isChatProvider,
+	OPENAI_COMPATIBLE_PROVIDER_ID,
+} from "@/constants/chat-providers";
 import * as messages from "@/constants/messages/en";
 
 /**
@@ -87,7 +91,7 @@ async function POSTHandler(request: NextRequest) {
 		}
 		const { provider, vaultId, modelId, isActive } = body || {};
 
-		if (!provider || !vaultId) {
+		if (!provider || (!vaultId && provider !== OPENAI_COMPATIBLE_PROVIDER_ID)) {
 			return NextResponse.json(
 				{ error: "Provider and vaultId are required" },
 				{ status: 400 }
@@ -101,9 +105,16 @@ async function POSTHandler(request: NextRequest) {
 			);
 		}
 
+		if (vaultId && !(await isOwnSecret(vaultId, dbConfig.id))) {
+			return NextResponse.json(
+				{ error: messages.VAULT_SECRET_NOT_OWNED },
+				{ status: 403 }
+			);
+		}
+
 		const { data, err } = await upsertOpenGroundConfig({
 			provider,
-			vaultId,
+			vaultId: vaultId || "",
 			modelId,
 			userId: user.id,
 			databaseConfigId: dbConfig.id,

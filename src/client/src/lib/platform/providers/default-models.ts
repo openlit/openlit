@@ -152,6 +152,14 @@ export const DEFAULT_PROVIDERS: DefaultProviderEntry[] = [
 		},
 	},
 	{
+		providerId: "openai-compatible", displayName: "OpenAI-compatible", description: "Self-hosted or local server that speaks the OpenAI API, such as Ollama, vLLM or LM Studio", requiresVault: false,
+		configSchema: {
+			temperature: { min: 0, max: 2, step: 0.1, default: 1, description: "Sampling temperature (0 = deterministic, 2 = very random)" },
+			maxTokens: { min: 1, max: 16000, step: 1, default: 1000, description: "Maximum tokens to generate" },
+			topP: { min: 0, max: 1, step: 0.1, default: 1, description: "Nucleus sampling threshold" },
+		},
+	},
+	{
 		providerId: "typesafe", displayName: "TypeSafe", description: "Jev System One decision model for structured LLM evaluation", requiresVault: true,
 		configSchema: {},
 	},

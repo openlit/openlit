@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
 						provider: config.provider,
 						apiKey: config.apiKey,
 						model: config.model,
+						baseUrl: config.baseUrl,
 						userId: auth.userId!,
 						dbConfigId,
 						environment,

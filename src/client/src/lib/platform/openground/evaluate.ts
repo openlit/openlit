@@ -159,6 +159,7 @@ async function evaluateProvider(
 			provider,
 			model,
 			apiKey: configWithSecret.apiKey,
+			baseUrl: await ProviderRegistry.getBaseUrl(provider, databaseConfigId),
 			systemPrompt: prompt,
 			temperature: config.temperature,
 			maxTokens: config.maxTokens,

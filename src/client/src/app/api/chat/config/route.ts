@@ -1,8 +1,10 @@
 import { getChatConfig, upsertChatConfig } from "@/lib/platform/chat/config";
+import { isOwnSecret } from "@/lib/platform/vault";
 import { resolveRequestAuth } from "@/helpers/server/auth";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
 import getMessage from "@/constants/messages";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
 
 export async function GET(request: NextRequest) {
 	const [authErr, auth] = await resolveRequestAuth(request);
@@ -32,10 +34,25 @@ export async function POST(request: NextRequest) {
 		return Response.json(getMessage().MALFORMED_INPUTS, { status: 400 });
 	}
 
-	if (!formData?.provider || !formData.model || !formData.vaultId) {
+	const keyRequired = formData?.provider !== OPENAI_COMPATIBLE_PROVIDER_ID;
+	if (
+		!formData?.provider ||
+		!formData.model ||
+		(keyRequired && !formData.vaultId)
+	) {
 		return Response.json("Missing required fields: provider, model, vaultId", {
 			status: 400,
 		});
+	}
+
+	// The chat row is shared, so switching it to this provider must not carry
+	// someone else's key to the configurable endpoint.
+	if (
+		!keyRequired &&
+		formData.vaultId &&
+		!(await isOwnSecret(formData.vaultId, auth.databaseConfigId))
+	) {
+		return Response.json(getMessage().VAULT_SECRET_NOT_OWNED, { status: 403 });
 	}
 
 	const [thrown, result] = await asaw(
@@ -43,7 +60,7 @@ export async function POST(request: NextRequest) {
 			{
 				provider: formData.provider,
 				model: formData.model,
-				vaultId: formData.vaultId,
+				vaultId: formData.vaultId || "",
 				meta: formData.meta || "{}",
 			},
 			auth.databaseConfigId

@@ -2,7 +2,12 @@ import { intelligenceDataCollector } from "../common";
 import { OPENLIT_CHAT_CONFIG_TABLE } from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
 import getMessage from "@/constants/messages";
-import { isChatProvider } from "@/constants/chat-providers";
+import {
+	isChatProvider,
+	OPENAI_COMPATIBLE_PROVIDER_ID,
+} from "@/constants/chat-providers";
+import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
+import asaw from "@/utils/asaw";
 import { getSecretById } from "../vault";
 import { isEncrypted } from "@/utils/crypto";
 
@@ -16,6 +21,7 @@ export interface ChatConfig {
 
 export interface ChatConfigWithApiKey extends ChatConfig {
 	apiKey: string;
+	baseUrl?: string;
 }
 
 export async function getChatConfig(
@@ -52,6 +58,22 @@ export async function getChatConfigWithApiKey(
 		return { err: err || "Chat configuration not found. Please configure your AI provider in Chat Settings." };
 	}
 
+	const [baseUrlErr, baseUrl] = await asaw(
+		ProviderRegistry.getBaseUrl(config.provider, databaseConfigId)
+	);
+	if (baseUrlErr) {
+		return { err: baseUrlErr };
+	}
+
+	if (config.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
+		if (!baseUrl) {
+			return { err: getMessage().OPENAI_COMPATIBLE_BASE_URL_REQUIRED };
+		}
+		if (!config.vaultId) {
+			return { data: { ...config, apiKey: "", baseUrl } };
+		}
+	}
+
 	const { data: secrets, err: secretErr } = await getSecretById(
 		config.vaultId,
 		databaseConfigId,
@@ -80,8 +102,27 @@ export async function getChatConfigWithApiKey(
 		data: {
 			...config,
 			apiKey: secret.value,
+			baseUrl,
 		},
 	};
+}
+
+export async function clearChatConfigKey(
+	provider: string,
+	databaseConfigId: string
+): Promise<{ err?: unknown }> {
+	return intelligenceDataCollector(
+		{
+			query: `
+				ALTER TABLE ${OPENLIT_CHAT_CONFIG_TABLE}
+				UPDATE vault_id = ''
+				WHERE provider = '${Sanitizer.sanitizeValue(provider)}'
+				SETTINGS mutations_sync = 1
+			`,
+		},
+		"exec",
+		databaseConfigId
+	);
 }
 
 export async function upsertChatConfig(

@@ -41,6 +41,17 @@ const METADATA_HOSTNAMES = new Set([
 	"instance-data",
 ]);
 
+/**
+ * Always blocked — metadata and platform services outside 169.254.0.0/16:
+ * Alibaba Cloud, Azure WireServer, and the AWS and GCP IPv6 metadata endpoints.
+ */
+const METADATA_ADDRESSES = new Set([
+	"100.100.100.200",
+	"168.63.129.16",
+	"fd00:ec2::254",
+	"fd20:ce::254",
+]);
+
 /** Loopback hostnames: blocked unless `allowPrivateNetwork` is set. */
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -230,10 +241,12 @@ export function isCloudMetadataAddress(ip: string): boolean {
 		if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return true;
 		// AWS/GCP/Azure link-local metadata
 		if (p[0] === 169 && p[1] === 254) return true;
-		return false;
+		return METADATA_ADDRESSES.has(ip);
 	}
 	if (version === 6) {
 		const lower = ip.toLowerCase().replace(/^\[|\]$/g, "");
+		if (METADATA_ADDRESSES.has(lower)) return true;
+		if (/^fe[89ab]/.test(lower)) return true; // fe80::/10 link-local
 		const mapped = embeddedIPv4(lower);
 		if (mapped) return isCloudMetadataAddress(mapped);
 		return false;

@@ -43,6 +43,24 @@ describe('runEvaluation — early return for missing params', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('runs the OpenAI-compatible provider without an API key', async () => {
+    const chat = jest.fn().mockReturnValue(mockModelInstance);
+    (createOpenAI as jest.Mock).mockReturnValue({ chat });
+
+    const result = await runEvaluation({
+      provider: 'openai-compatible',
+      model: 'llama3',
+      apiKey: undefined as unknown as string,
+      baseUrl: 'http://llm.internal/v1',
+    });
+
+    expect(result.success).toBe(true);
+    expect(createOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: 'http://llm.internal/v1', apiKey: '' })
+    );
+    expect(chat).toHaveBeenCalledWith('llama3');
+  });
+
   it('returns failure when provider is missing', async () => {
     const result = await runEvaluation({ ...BASE_PARAMS, provider: '' });
     expect(result.success).toBe(false);

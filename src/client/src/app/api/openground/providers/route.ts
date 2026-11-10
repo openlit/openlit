@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { getDBConfigByUser } from "@/lib/db-config";
 import getMessage from "@/constants/messages";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
 import Sanitizer from "@/utils/sanitizer";
 import asaw from "@/utils/asaw";
 import {
@@ -11,6 +12,9 @@ import {
 	getProviderByIdWithCustomModels,
 	searchProvidersWithCustomModels,
 } from "@/lib/platform/providers/provider-service";
+import { assertModelEndpointAllowed } from "@/lib/platform/providers/create-model";
+import { clearOpenAICompatibleKeys } from "@/lib/platform/providers/config";
+import { canConfigureModelEndpoint } from "@/lib/access/model-endpoint-route";
 import { dataCollector } from "@/lib/platform/common";
 import {
 	OPENLIT_PROVIDER_METADATA_TABLE_NAME,
@@ -189,7 +193,7 @@ async function PUTHandler(request: NextRequest) {
 		}
 
 		const body = await request.json();
-		const { providerId, displayName, description, requiresVault, configSchema } = body;
+		const { providerId, displayName, description, requiresVault, configSchema, baseUrl } = body;
 
 		if (!providerId) {
 			return NextResponse.json(
@@ -200,7 +204,7 @@ async function PUTHandler(request: NextRequest) {
 
 		// Fetch the existing row so we can merge unchanged fields
 		const existingQuery = `
-			SELECT provider_id, display_name, description, requires_vault, config_schema, is_default
+			SELECT provider_id, display_name, description, requires_vault, config_schema, base_url, is_default
 			FROM ${OPENLIT_PROVIDER_METADATA_TABLE_NAME} FINAL
 			WHERE provider_id = '${Sanitizer.sanitizeValue(providerId)}'
 			LIMIT 1
@@ -219,6 +223,37 @@ async function PUTHandler(request: NextRequest) {
 			);
 		}
 
+		// Only the OpenAI-compatible provider has a configurable endpoint; the
+		// others send their keys to fixed vendor URLs.
+		let nextBaseUrl: string | null = existing.base_url;
+		if (providerId === OPENAI_COMPATIBLE_PROVIDER_ID && baseUrl !== undefined) {
+			nextBaseUrl = String(baseUrl).trim() || null;
+			if (nextBaseUrl !== (existing.base_url || null)) {
+				if (!(await canConfigureModelEndpoint(user.id))) {
+					return NextResponse.json(
+						{ error: getMessage().MODEL_ENDPOINT_ADMIN_REQUIRED },
+						{ status: 403 }
+					);
+				}
+				if (nextBaseUrl) {
+					const [blocked] = await asaw(assertModelEndpointAllowed(nextBaseUrl));
+					if (blocked) {
+						return NextResponse.json(
+							{ error: getMessage().MODEL_ENDPOINT_NOT_ALLOWED },
+							{ status: 400 }
+						);
+					}
+				}
+				const { err: clearErr } = await clearOpenAICompatibleKeys(dbConfig.id);
+				if (clearErr) {
+					return NextResponse.json(
+						{ error: getMessage().OPERATION_FAILED },
+						{ status: 500 }
+					);
+				}
+			}
+		}
+
 		// INSERT a new row — ReplacingMergeTree deduplicates by provider_id
 		const { err } = await dataCollector(
 			{
@@ -233,6 +268,7 @@ async function PUTHandler(request: NextRequest) {
 							configSchema !== undefined
 								? JSON.stringify(configSchema)
 								: existing.config_schema,
+						base_url: nextBaseUrl,
 						is_default: existing.is_default,
 					},
 				],

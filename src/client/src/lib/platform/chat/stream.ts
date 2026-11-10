@@ -1,9 +1,4 @@
 import { streamText, generateText, stepCountIs } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { google } from "@ai-sdk/google";
-import { createMistral } from "@ai-sdk/mistral";
-import { createCohere } from "@ai-sdk/cohere";
 import { getChatSystemPrompt } from "./schema-context";
 import { validateSQL, extractSQLFromResponse } from "./sql-validator";
 import { intelligenceDataCollector } from "../common";
@@ -15,53 +10,11 @@ import {
 } from "./conversation";
 import { getChatTools } from "./tools";
 import { authorizeTelemetrySQLRouting } from "./telemetry-sql-routing";
-import { CHAT_PROVIDER_IDS } from "@/constants/chat-providers";
-
-// ==================== Provider Factories ====================
-
-type ProviderFactory = (apiKey: string) => any;
-
-const providerFactories: Record<string, ProviderFactory> = {
-	openai: (apiKey) => createOpenAI({ apiKey }),
-	anthropic: (apiKey) => createAnthropic({ apiKey }),
-	google: () => google,
-	mistral: (apiKey) => createMistral({ apiKey }),
-	cohere: (apiKey) => createCohere({ apiKey }),
-	groq: (apiKey) => createOpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey }),
-	perplexity: (apiKey) => createOpenAI({
-		baseURL: "https://api.perplexity.ai",
-		apiKey,
-		headers: { "X-Pplx-Integration": "openlit" },
-	}),
-	azure: (apiKey) => createOpenAI({
-		baseURL: process.env.AZURE_OPENAI_ENDPOINT || "https://your-resource.openai.azure.com",
-		apiKey,
-		headers: { "api-key": apiKey },
-	}),
-	together: (apiKey) => createOpenAI({ baseURL: "https://api.together.xyz/v1", apiKey }),
-	fireworks: (apiKey) => createOpenAI({ baseURL: "https://api.fireworks.ai/inference/v1", apiKey }),
-	deepseek: (apiKey) => createOpenAI({ baseURL: "https://api.deepseek.com", apiKey }),
-	xai: (apiKey) => createOpenAI({ baseURL: "https://api.x.ai/v1", apiKey }),
-	huggingface: (apiKey) => createOpenAI({ baseURL: "https://api-inference.huggingface.co/v1", apiKey }),
-	replicate: (apiKey) => createOpenAI({ baseURL: "https://openai-proxy.replicate.com/v1", apiKey }),
-	minimax: (apiKey) => createOpenAI({ baseURL: "https://api.minimax.io/v1", apiKey }),
-	orcarouter: (apiKey) => createOpenAI({ baseURL: "https://api.orcarouter.ai/v1", apiKey }),
-};
-
-const VALID_PROVIDERS = CHAT_PROVIDER_IDS as readonly string[];
+import { createModel } from "@/lib/platform/providers/create-model";
 
 export { CHAT_PROVIDER_IDS, isChatProvider } from "@/constants/chat-providers";
-
-export function getModelInstance(providerId: string, apiKey: string, modelName: string) {
-	if (!VALID_PROVIDERS.includes(providerId)) {
-		throw new Error(`Provider ${providerId} not supported`);
-	}
-	const factory = providerFactories[providerId];
-	const provider = factory(apiKey);
-	if (typeof provider === "function") return provider(modelName);
-	if (typeof provider === "object" && provider !== null) return provider(modelName);
-	throw new Error(`Invalid provider instance for ${providerId}`);
-}
+// Kept for callers outside this repository that still import it from here.
+export { createModel as getModelInstance } from "@/lib/platform/providers/create-model";
 
 // ==================== Error Formatting ====================
 
@@ -114,6 +67,7 @@ export interface StreamChatParams {
 	provider: string;
 	apiKey: string;
 	model: string;
+	baseUrl?: string;
 	userId: string;
 	dbConfigId: string;
 	environment?: string;
@@ -135,7 +89,7 @@ export interface StreamChatResult {
  * - Handling tool call fallback text
  */
 export async function streamChatMessage(params: StreamChatParams): Promise<StreamChatResult> {
-	const { conversationId, content, provider, apiKey, model, userId, dbConfigId, environment, onDelta, onStep } = params;
+	const { conversationId, content, provider, apiKey, model, baseUrl, userId, dbConfigId, environment, onDelta, onStep } = params;
 
 	// Save user message
 	onStep?.("Saving user message", "active");
@@ -149,7 +103,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 
 	// Create model instance
 	onStep?.("Preparing model and tools", "active", `${provider} / ${model}`);
-	const modelInstance = getModelInstance(provider, apiKey, model);
+	const modelInstance = createModel(provider, apiKey, model, baseUrl);
 
 	const isFirstMessage = messages.filter((m) => m.role === "user").length === 1;
 	const tools = getChatTools(userId, dbConfigId, environment);
@@ -212,7 +166,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 
 			// Generate title for first message
 			if (isFirstMessage && finalText) {
-				generateConversationTitle(provider, apiKey, model, content, finalText, conversationId).catch(() => {
+				generateConversationTitle(provider, apiKey, model, baseUrl, content, finalText, conversationId).catch(() => {
 					updateConversation(conversationId, {
 						title: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
 					}).catch(() => {});
@@ -369,11 +323,12 @@ async function generateConversationTitle(
 	providerId: string,
 	apiKey: string,
 	modelName: string,
+	baseUrl: string | undefined,
 	userMessage: string,
 	assistantResponse: string,
 	conversationId: string
 ) {
-	const modelInstance = getModelInstance(providerId, apiKey, modelName);
+	const modelInstance = createModel(providerId, apiKey, modelName, baseUrl);
 	const { text: title } = await generateText({
 		model: modelInstance,
 		prompt: `Generate a short title (max 6 words) summarizing this conversation. User asked: "${userMessage.slice(0, 200)}" Assistant responded about: "${assistantResponse.slice(0, 200)}". Return ONLY the title text, no quotes or punctuation.`,

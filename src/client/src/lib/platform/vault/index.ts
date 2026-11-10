@@ -332,6 +332,19 @@ export async function getSecretsFromDatabaseId(
 	return normalizeSecretDataForSDK(secretData as any[]);
 }
 
+/**
+ * Whether the signed-in user created this secret. A saved vault id is later
+ * decrypted and sent to the configured endpoint, so nobody may save another
+ * user's id. Requests without a session are refused because `getSecretById`
+ * does not scope those by owner.
+ */
+export async function isOwnSecret(id: string, databaseConfigId?: string) {
+	const user = await getCurrentUser();
+	if (!user) return false;
+	const { data } = await getSecretById(id, databaseConfigId);
+	return ((data as unknown[]) || []).length > 0;
+}
+
 export async function getSecretById(
 	id: string,
 	databaseConfigId?: string,

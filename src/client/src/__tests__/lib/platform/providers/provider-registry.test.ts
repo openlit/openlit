@@ -285,3 +285,25 @@ describe('ProviderRegistry', () => {
     });
   });
 });
+
+describe('ProviderRegistry.getBaseUrl', () => {
+  it('reads the stored base URL for the OpenAI-compatible provider', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({
+      data: [{ ...mockProviderRows[0], provider_id: 'openai-compatible', base_url: 'http://llm.internal/v1' }],
+    });
+    await expect(ProviderRegistry.getBaseUrl('openai-compatible', 'db-1')).resolves.toBe('http://llm.internal/v1');
+  });
+
+  it('returns undefined for an unset base URL', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({
+      data: [{ ...mockProviderRows[0], provider_id: 'openai-compatible', base_url: null }],
+    });
+    await expect(ProviderRegistry.getBaseUrl('openai-compatible', 'db-1')).resolves.toBeUndefined();
+  });
+
+  it('skips the lookup for vendor providers', async () => {
+    (dataCollector as jest.Mock).mockClear();
+    await expect(ProviderRegistry.getBaseUrl('openai', 'db-1')).resolves.toBeUndefined();
+    expect(dataCollector).not.toHaveBeenCalled();
+  });
+});
