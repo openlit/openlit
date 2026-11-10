@@ -24,6 +24,7 @@ class _TtsResponse:  # pylint: disable=too-few-public-methods
     audios = ["UklGRg=="]
 
     def model_dump(self):
+        """Return the response as a dict, like the pydantic model."""
         return {"request_id": self.request_id, "audios": self.audios}
 
 
