@@ -5,6 +5,7 @@ const CONNECTOR_ICONS: Record<string, string> = {
 	loki: "/images/connectors/grafana.svg",
 	prometheus: "/images/connectors/grafana.svg",
 	jaeger: "/images/connectors/jaeger.svg",
+	"otlp-http": "/images/connectors/otlp-http.svg",
 	claude: "/images/connectors/claude.svg",
 	mem0: "/images/connectors/mem0.svg",
 	memcode: "/images/connectors/memcode.png",
