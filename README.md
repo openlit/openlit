@@ -586,7 +586,15 @@ Feature-by-feature comparisons on [openlit.io/compare](https://openlit.io/compar
 
 OpenLIT is open source and built with the AI engineering community.
 
+
+## ☁️ One-Click Deploy
+
+[![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/openlit/)
+
+## 🌱 Contributing
+
 Join us:
+
 
 * [GitHub](https://github.com/openlit/openlit)
 * [Documentation](https://docs.openlit.io/)
