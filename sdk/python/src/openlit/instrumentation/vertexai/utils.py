@@ -5,6 +5,7 @@ VertexAI OpenTelemetry instrumentation utility functions
 import json
 import logging
 import time
+from collections.abc import Mapping, Sequence
 
 from opentelemetry.trace import Status, StatusCode
 
@@ -46,6 +47,20 @@ def _field(obj, name):
     return getattr(obj, name, None)
 
 
+def _plain(value):
+    """Turn proto maps and repeated fields (FunctionCall.args) into JSON-safe values."""
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, Mapping) or hasattr(value, "items"):
+        try:
+            return {str(k): _plain(v) for k, v in value.items()}
+        except Exception:  # pylint: disable=broad-exception-caught
+            return str(value)
+    if isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
+        return [_plain(v) for v in value]
+    return str(value)
+
+
 def _is_content(item):
     """True for a Content (object or dict); False for a str, Part or Image."""
     return not isinstance(item, str) and _field(item, "parts") is not None
@@ -60,7 +75,10 @@ def _group_contents(contents):
     """
     if not contents:
         return
-    if not isinstance(contents, (list, tuple)):
+    # Any sequence is a list of items (UserList, a proto RepeatedComposite);
+    # anything else is one item. Generators are left alone: the SDK rejects
+    # them, and reading one here would consume the caller's prompt.
+    if isinstance(contents, (str, bytes)) or not isinstance(contents, Sequence):
         contents = [contents]
     loose_parts = []
     for item in contents:
@@ -122,10 +140,29 @@ def build_input_messages(contents):
                     otel_parts.append({"type": "text", "content": "[inline_data]"})
                 elif _field(part, "file_data"):
                     otel_parts.append({"type": "text", "content": "[file_data]"})
-                elif not any(_field(part, field) for field in _PART_FIELDS):
-                    # An Image or other object the SDK turns into a Part
+                elif function_call := _field(part, "function_call"):
                     otel_parts.append(
-                        {"type": "text", "content": f"[{type(part).__name__}]"}
+                        {
+                            "type": "tool_call",
+                            "id": _field(function_call, "id"),
+                            "name": _field(function_call, "name"),
+                            "arguments": _plain(_field(function_call, "args")),
+                        }
+                    )
+                elif function_response := _field(part, "function_response"):
+                    otel_parts.append(
+                        {
+                            "type": "tool_call_response",
+                            "id": _field(function_response, "id"),
+                            "response": _plain(_field(function_response, "response")),
+                        }
+                    )
+                else:
+                    # Another recognized field (executable_code, thought, ...),
+                    # or an Image or other object the SDK turns into a Part
+                    field = next((f for f in _PART_FIELDS if _field(part, f)), None)
+                    otel_parts.append(
+                        {"type": "text", "content": f"[{field or type(part).__name__}]"}
                     )
             if otel_parts:
                 otel_messages.append({"role": role, "parts": otel_parts})

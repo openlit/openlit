@@ -10,6 +10,7 @@ call succeeded.
 """
 
 import asyncio
+from collections import UserList
 
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -191,6 +192,82 @@ def test_dict_contents_are_read_like_content_objects():
     assert vertexai_utils.build_input_messages(contents) == [
         {"role": "user", "parts": [{"type": "text", "content": "Hi"}]},
         {"role": "model", "parts": [{"type": "text", "content": "Hello"}]},
+    ]
+
+
+class FakeFunctionCall:
+    """Shaped like vertexai's FunctionCall."""
+
+    id = None
+    name = "get_weather"
+    args = {"city": "Paris"}
+
+
+class FakeFunctionResponse:
+    """Shaped like vertexai's FunctionResponse."""
+
+    id = None
+    name = "get_weather"
+    response = {"temp_c": 21}
+
+
+class FakeToolPart:
+    """A Part that carries only a function_call or function_response."""
+
+    def __init__(self, function_call=None, function_response=None):
+        self.function_call = function_call
+        self.function_response = function_response
+
+
+class FakeCodePart:
+    """A Part that carries only executable_code."""
+
+    executable_code = {"language": "PYTHON", "code": "print(1)"}
+
+
+def test_tool_and_other_recognized_parts_are_kept():
+    """function_call/response become tool parts; other fields get a placeholder."""
+    contents = [
+        FakeContent("model", [FakeToolPart(function_call=FakeFunctionCall())]),
+        FakeContent("user", [FakeToolPart(function_response=FakeFunctionResponse())]),
+        FakeContent("model", [FakeCodePart()]),
+    ]
+    assert vertexai_utils.build_input_messages(contents) == [
+        {
+            "role": "model",
+            "parts": [
+                {
+                    "type": "tool_call",
+                    "id": None,
+                    "name": "get_weather",
+                    "arguments": {"city": "Paris"},
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "parts": [
+                {"type": "tool_call_response", "id": None, "response": {"temp_c": 21}}
+            ],
+        },
+        {"role": "model", "parts": [{"type": "text", "content": "[executable_code]"}]},
+    ]
+
+
+def test_any_sequence_of_contents_is_iterated():
+    """A UserList of Contents is read item by item, as the SDK accepts it."""
+    contents = UserList(
+        [
+            FakeContent("user", [FakePart("Hi")]),
+            FakeContent("model", [FakePart("Hello")]),
+        ]
+    )
+    assert vertexai_utils.format_content(contents) == (
+        "user: text: Hi\nmodel: text: Hello"
+    )
+    assert [m["role"] for m in vertexai_utils.build_input_messages(contents)] == [
+        "user",
+        "model",
     ]
 
 
