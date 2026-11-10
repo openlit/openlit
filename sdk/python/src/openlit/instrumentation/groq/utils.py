@@ -391,6 +391,7 @@ def common_chat_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # Span Attributes for Request parameters
@@ -483,7 +484,6 @@ def common_chat_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # OTel cached token attributes (set even when 0)
     if hasattr(scope, "_cache_read_input_tokens"):
@@ -771,6 +771,7 @@ def common_audio_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # Span Attributes for Request parameters
@@ -786,9 +787,6 @@ def common_audio_logic(
         SemanticConvention.GEN_AI_REQUEST_AUDIO_SPEED,
         handle_not_given(scope._kwargs.get("speed"), 1.0),
     )
-
-    # Span Attributes for Cost
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Content (OTel: array structure)
     if capture_message_content:
@@ -923,6 +921,7 @@ def common_transcription_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     language = scope._kwargs.get("language")
@@ -958,8 +957,6 @@ def common_transcription_logic(
             SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
             scope._input_tokens + scope._output_tokens,
         )
-
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     if capture_message_content:
         file_obj = scope._kwargs.get("file")

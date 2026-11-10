@@ -121,7 +121,6 @@ def common_agent_logic(
             SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
             scope._input_tokens + scope._output_tokens,
         )
-        scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, scope._cost)
 
     # Span Attributes for Content
     if capture_message_content and hasattr(scope, "_chat_history"):

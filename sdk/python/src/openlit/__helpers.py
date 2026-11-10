@@ -899,6 +899,18 @@ def format_and_concatenate(messages):
     )
 
 
+def set_span_cost(scope_or_span, cost, currency="USD"):
+    """
+    Set gen_ai.usage.cost and gen_ai.usage.cost.currency attributes on span.
+    """
+    if cost is None:
+        return
+    span = getattr(scope_or_span, "_span", scope_or_span)
+    if span is not None:
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST_CURRENCY, currency)
+
+
 def common_span_attributes(
     scope,
     gen_ai_operation,
@@ -913,6 +925,8 @@ def common_span_attributes(
     tbt,
     ttft,
     version,
+    cost=None,
+    currency="USD",
 ):
     """
     Set common span attributes for both chat and RAG operations.
@@ -939,6 +953,10 @@ def common_span_attributes(
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+    if cost is None and hasattr(scope, "_cost") and scope._cost is not None:
+        cost = scope._cost
+    if cost is not None:
+        set_span_cost(scope, cost, currency)
     _apply_custom_span_attributes(scope._span)
 
 
@@ -1117,7 +1135,7 @@ def _apply_custom_span_attributes(span):
     Global attributes (from init) are applied first; context attributes
     (from using_attributes / inject_additional_attributes) override on conflict.
     """
-    global_attrs = OpenlitConfig.custom_span_attributes
+    global_attrs = getattr(OpenlitConfig, "custom_span_attributes", None)
     if global_attrs:
         for key, value in global_attrs.items():
             span.set_attribute(key, value)

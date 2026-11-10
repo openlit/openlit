@@ -18,6 +18,7 @@ from openlit.__helpers import (
     build_system_instructions_from_messages,
     build_tool_definitions,
     calculate_ttft,
+    common_span_attributes,
     response_as_dict,
     calculate_tbt,
     get_chat_model_cost,
@@ -106,43 +107,6 @@ def process_chunk(scope, chunk):
         scope._end_time = time.time()
 
 
-def common_span_attributes(
-    scope,
-    gen_ai_operation,
-    GEN_AI_PROVIDER_NAME,
-    server_address,
-    server_port,
-    request_model,
-    response_model,
-    environment,
-    application_name,
-    is_stream,
-    tbt,
-    ttft,
-    version,
-):
-    """
-    Set common span attributes for both chat and RAG operations.
-    """
-
-    scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-    scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, gen_ai_operation)
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_PROVIDER_NAME, GEN_AI_PROVIDER_NAME
-    )
-    scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
-    scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, response_model)
-    scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
-    scope._span.set_attribute(SERVICE_NAME, application_name)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, is_stream)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
-    _apply_custom_span_attributes(scope._span)
-
-
 def record_common_metrics(
     metrics,
     gen_ai_operation,
@@ -229,6 +193,7 @@ def common_chat_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # Span Attributes for Response parameters
@@ -277,7 +242,6 @@ def common_chat_logic(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
         scope._input_tokens + scope._output_tokens,
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Tools
     if scope._tools:
@@ -524,15 +488,13 @@ def common_image_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=len(scope._response_data) * cost,
     )
 
     # Image-specific span attributes
     scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
     scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "image")
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE, image_size)
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_COST, len(scope._response_data) * cost
-    )
 
     # Content attributes
     if capture_message_content:

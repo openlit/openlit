@@ -493,6 +493,7 @@ def common_chat_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     def safe_get(value, default):
@@ -609,7 +610,6 @@ def common_chat_logic(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
         scope._input_tokens + scope._output_tokens,
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # OTel cached token attributes (set even when 0)
     if hasattr(scope, "_cache_read_input_tokens"):
@@ -894,6 +894,7 @@ def process_embedding_response(
         0,
         scope._end_time - scope._start_time,
         version,
+        cost=cost,
     )
 
     # Helper function to handle None values with proper defaults
@@ -916,7 +917,6 @@ def process_embedding_response(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Content
     if capture_message_content:

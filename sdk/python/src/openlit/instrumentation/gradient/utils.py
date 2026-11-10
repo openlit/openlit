@@ -479,6 +479,7 @@ def common_chat_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     if body.get("temperature") is not None:
@@ -575,7 +576,6 @@ def common_chat_logic(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
         scope._input_tokens + scope._output_tokens,
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
     if getattr(scope, "_reasoning_tokens", 0):
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, scope._reasoning_tokens
@@ -934,13 +934,13 @@ def process_image_response(
         0,
         0,
         version,
+        cost=cost,
     )
     span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "image")
     if response_dict.get("created"):
         span.set_attribute(
             SemanticConvention.GEN_AI_RESPONSE_ID, str(response_dict["created"])
         )
-    span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     if capture_message_content:
         prompt = body.get("prompt", "")
@@ -1026,6 +1026,7 @@ def process_retrieve_response(
         0,
         0,
         version,
+        cost=cost,
     )
     if kb_id:
         span.set_attribute(SemanticConvention.GEN_AI_DATA_SOURCE_ID, kb_id)

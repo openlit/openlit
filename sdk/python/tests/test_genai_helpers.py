@@ -21,8 +21,11 @@ import pytest
 from openlit.__helpers import (
     build_system_instructions_from_messages,
     build_tool_definitions,
+    common_span_attributes,
     compute_agent_version_hash,
+    set_span_cost,
 )
+from openlit.semcov import SemanticConvention
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +445,112 @@ class TestComputeAgentVersionHash:
         )
         expected = hashlib.sha1(encoded.encode("utf-8")).hexdigest()[:16]
         assert self._hash() == expected
+
+
+# ---------------------------------------------------------------------------
+# set_span_cost and common_span_attributes cost/currency handling
+# ---------------------------------------------------------------------------
+
+
+class TestSpanCostAndCurrencyHelpers:
+    """Tests for set_span_cost and common_span_attributes cost/currency handling."""
+
+    class MockSpan:
+        def __init__(self):
+            self.attributes = {}
+
+        def set_attribute(self, key, value):
+            self.attributes[key] = value
+
+    class MockScope:
+        def __init__(self, span=None):
+            self._span = span or TestSpanCostAndCurrencyHelpers.MockSpan()
+
+    def test_set_span_cost_on_span(self):
+        span = self.MockSpan()
+        set_span_cost(span, 0.005)
+        assert span.attributes[SemanticConvention.GEN_AI_USAGE_COST] == 0.005
+        assert span.attributes[SemanticConvention.GEN_AI_USAGE_COST_CURRENCY] == "USD"
+
+    def test_set_span_cost_on_scope(self):
+        scope = self.MockScope()
+        set_span_cost(scope, 0.012)
+        assert scope._span.attributes[SemanticConvention.GEN_AI_USAGE_COST] == 0.012
+        assert scope._span.attributes[SemanticConvention.GEN_AI_USAGE_COST_CURRENCY] == "USD"
+
+    def test_set_span_cost_custom_currency(self):
+        span = self.MockSpan()
+        set_span_cost(span, 0.02, currency="EUR")
+        assert span.attributes[SemanticConvention.GEN_AI_USAGE_COST] == 0.02
+        assert span.attributes[SemanticConvention.GEN_AI_USAGE_COST_CURRENCY] == "EUR"
+
+    def test_set_span_cost_none_is_noop(self):
+        span = self.MockSpan()
+        set_span_cost(span, None)
+        assert SemanticConvention.GEN_AI_USAGE_COST not in span.attributes
+        assert SemanticConvention.GEN_AI_USAGE_COST_CURRENCY not in span.attributes
+
+    def test_common_span_attributes_with_cost(self):
+        scope = self.MockScope()
+        common_span_attributes(
+            scope,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+            "api.openai.com",
+            443,
+            "gpt-4o",
+            "gpt-4o",
+            "production",
+            "test-app",
+            False,
+            0.1,
+            0.2,
+            "1.0.0",
+            cost=0.0035,
+        )
+        assert scope._span.attributes[SemanticConvention.GEN_AI_USAGE_COST] == 0.0035
+        assert scope._span.attributes[SemanticConvention.GEN_AI_USAGE_COST_CURRENCY] == "USD"
+
+    def test_common_span_attributes_with_scope_cost(self):
+        scope = self.MockScope()
+        scope._cost = 0.0042
+        common_span_attributes(
+            scope,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+            "api.openai.com",
+            443,
+            "gpt-4o",
+            "gpt-4o",
+            "production",
+            "test-app",
+            False,
+            0.1,
+            0.2,
+            "1.0.0",
+        )
+        assert scope._span.attributes[SemanticConvention.GEN_AI_USAGE_COST] == 0.0042
+        assert scope._span.attributes[SemanticConvention.GEN_AI_USAGE_COST_CURRENCY] == "USD"
+
+    def test_common_span_attributes_without_cost(self):
+        scope = self.MockScope()
+        common_span_attributes(
+            scope,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+            "api.openai.com",
+            443,
+            "gpt-4o",
+            "gpt-4o",
+            "production",
+            "test-app",
+            False,
+            0.1,
+            0.2,
+            "1.0.0",
+        )
+        assert SemanticConvention.GEN_AI_USAGE_COST not in scope._span.attributes
+        assert SemanticConvention.GEN_AI_USAGE_COST_CURRENCY not in scope._span.attributes
 
 
 if __name__ == "__main__":

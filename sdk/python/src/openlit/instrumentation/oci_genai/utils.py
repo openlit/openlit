@@ -168,6 +168,7 @@ def common_chat_logic(
         0,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     _set_request_params(scope._span, getattr(scope, "_request", None))
@@ -194,7 +195,6 @@ def common_chat_logic(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
         scope._input_tokens + scope._output_tokens,
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # OCI has no cache-token concept today; stamp 0 for parity with other providers.
     scope._span.set_attribute(
@@ -445,6 +445,7 @@ def process_embedding_response(
             0,
             scope._ttft,
             version,
+            cost=cost,
         )
 
         span.set_attribute(
@@ -453,7 +454,6 @@ def process_embedding_response(
         span.set_attribute(
             SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens
         )
-        span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
         span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "float")
 
         if capture_message_content:
