@@ -376,6 +376,7 @@ def test_function_calls_handles_object_shaped_parts():
 
 
 def test_thought_tokens_are_included_in_priced_completion_usage():
+    """Gemini thought tokens are billed as completion tokens in cost."""
     tracer, exporter = _tracer_with_exporter()
     pricing = {
         "chat": {
