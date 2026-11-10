@@ -33,35 +33,35 @@ def format_content(contents):
 
     if not contents:
         return ""
+    # A single string or Content is accepted in place of a list
+    if not isinstance(contents, (list, tuple)):
+        contents = [contents]
 
     formatted_messages = []
     for content in contents:
-        role = content.role
-        parts = content.parts
+        if isinstance(content, str):
+            formatted_messages.append(f"user: {content}")
+            continue
+        role = getattr(content, "role", "user")
         content_str = []
 
-        for part in parts:
-            # Collect relevant fields and handle each type of data that Part could contain
-            if part.text:
-                content_str.append(f"text: {part.text}")
-            if part.video_metadata:
-                content_str.append(f"video_metadata: {part.video_metadata}")
-            if part.thought:
-                content_str.append(f"thought: {part.thought}")
-            if part.code_execution_result:
-                content_str.append(
-                    f"code_execution_result: {part.code_execution_result}"
-                )
-            if part.executable_code:
-                content_str.append(f"executable_code: {part.executable_code}")
-            if part.file_data:
-                content_str.append(f"file_data: {part.file_data}")
-            if part.function_call:
-                content_str.append(f"function_call: {part.function_call}")
-            if part.function_response:
-                content_str.append(f"function_response: {part.function_response}")
-            if part.inline_data:
-                content_str.append(f"inline_data: {part.inline_data}")
+        for part in getattr(content, "parts", None) or []:
+            # vertexai's Part exposes only some of these fields, so read each
+            # with getattr instead of assuming it exists.
+            for field in (
+                "text",
+                "video_metadata",
+                "thought",
+                "code_execution_result",
+                "executable_code",
+                "file_data",
+                "function_call",
+                "function_response",
+                "inline_data",
+            ):
+                value = getattr(part, field, None)
+                if value:
+                    content_str.append(f"{field}: {value}")
 
         formatted_messages.append(f"{role}: {', '.join(content_str)}")
 
@@ -75,8 +75,19 @@ def build_input_messages(contents):
     """
     if not contents:
         return []
+    # A single string or Content is accepted in place of a list
+    if not isinstance(contents, (list, tuple)):
+        contents = [contents]
     otel_messages = []
+    # The SDK sends consecutive strings as the parts of one user message
+    text_parts = []
     for content in contents:
+        if isinstance(content, str):
+            text_parts.append({"type": "text", "content": content})
+            continue
+        if text_parts:
+            otel_messages.append({"role": "user", "parts": text_parts})
+            text_parts = []
         try:
             role = (
                 getattr(content, "role", "user")
@@ -110,6 +121,8 @@ def build_input_messages(contents):
         except Exception as e:
             logger.warning("Failed to process input content: %s", e, exc_info=True)
             continue
+    if text_parts:
+        otel_messages.append({"role": "user", "parts": text_parts})
     return otel_messages
 
 
