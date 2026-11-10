@@ -1972,6 +1972,74 @@ def _create_callback_handler_class(
             except Exception as e:
                 logger.debug("Error in on_retry: %s", e)
 
+        def _graph_lifecycle_span(self, run_id: Optional[UUID]) -> Any:
+            """Resolve the span that owns a graph lifecycle event."""
+            if run_id is not None:
+                with self._lock:
+                    holder = self.spans.get(run_id)
+                if holder is not None:
+                    return holder.span
+            # When the LangGraph instrumentation owns the workflow span, the
+            # root chain run is skipped here, so fall back to the current span.
+            current_span = trace.get_current_span()
+            if current_span is not None and current_span.is_recording():
+                return current_span
+            return None
+
+        def _graph_event_attributes(self, event: Any) -> Dict[str, Any]:
+            """Build span-event attributes from a graph lifecycle event."""
+            attributes: Dict[str, Any] = {}
+            status = getattr(event, "status", None)
+            if status is not None:
+                attributes["graph.status"] = str(status)
+            checkpoint_id = getattr(event, "checkpoint_id", None)
+            if checkpoint_id:
+                attributes["graph.checkpoint_id"] = str(checkpoint_id)
+            checkpoint_ns = getattr(event, "checkpoint_ns", None)
+            if checkpoint_ns:
+                attributes["graph.checkpoint_ns"] = "/".join(
+                    str(part) for part in checkpoint_ns
+                )
+            return attributes
+
+        def on_interrupt(self, event: Any) -> None:
+            """Record a LangGraph interrupt as an event on the workflow span."""
+            try:
+                span = self._graph_lifecycle_span(getattr(event, "run_id", None))
+                if span is None:
+                    return
+                attributes = self._graph_event_attributes(event)
+                interrupts = getattr(event, "interrupts", None)
+                if interrupts and self._capture_message_content:
+                    try:
+                        attributes["graph.interrupts"] = truncate_content(
+                            json.dumps(
+                                [
+                                    getattr(item, "value", str(item))
+                                    for item in interrupts
+                                ],
+                                default=str,
+                            )
+                        )
+                    except Exception:
+                        pass
+                span.add_event("graph.interrupt", attributes=attributes)
+            except Exception as e:
+                logger.debug("Error in on_interrupt: %s", e)
+
+        def on_resume(self, event: Any) -> None:
+            """Record a LangGraph resume as an event on the workflow span."""
+            try:
+                span = self._graph_lifecycle_span(getattr(event, "run_id", None))
+                if span is None:
+                    return
+                span.add_event(
+                    "graph.resume",
+                    attributes=self._graph_event_attributes(event),
+                )
+            except Exception as e:
+                logger.debug("Error in on_resume: %s", e)
+
     return OpenLITCallbackHandler
 
 
