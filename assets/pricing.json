@@ -129,6 +129,18 @@
         "canopylabs/orpheus-arabic-saudi": 0.04
     },
     "chat": {
+        "jev-latest": {
+            "promptPrice": 4.2e-05,
+            "completionPrice": 0
+        },
+        "jev-1.13.0": {
+            "promptPrice": 4.2e-05,
+            "completionPrice": 0
+        },
+        "jev-preview": {
+            "promptPrice": 4.2e-05,
+            "completionPrice": 0
+        },
         "gpt-4.1-nano-2025-04-14": {
             "promptPrice": 0.0001,
             "completionPrice": 0.0004

@@ -287,6 +287,55 @@ describe("runWidgetQuery", () => {
 		);
 	});
 
+	it("expands {{#filter.*}} sections without a template engine", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [{ n: 1 }], err: null });
+
+		const result = await runWidgetQuery("w1", {
+			userQuery:
+				"SELECT 1 WHERE 1=1 {{#filter.vendor}}AND vendor = '{{filter.vendor}}'{{/filter.vendor}} {{#filter.user}}AND user = '{{filter.user}}'{{/filter.user}}",
+			filter: { vendor: "cursor" } as any,
+		});
+
+		expect(result).toEqual({ data: [{ n: 1 }] });
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{
+				query: "SELECT 1 WHERE 1=1 AND vendor = 'cursor' ",
+				enable_readonly: true,
+			},
+			"query",
+			undefined
+		);
+	});
+
+	it("drops {{#filter.*}} sections when the filter value is empty", async () => {
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [{ id: "w1", config: JSON.stringify({ query: "SELECT 1" }) }],
+				err: null,
+			})
+			.mockResolvedValueOnce({ data: [], err: null });
+
+		await runWidgetQuery("w1", {
+			userQuery:
+				"SELECT 1 WHERE 1=1 {{#filter.vendor}}AND vendor = '{{filter.vendor}}'{{/filter.vendor}}",
+			filter: {} as any,
+		});
+
+		expect(dataCollector).toHaveBeenLastCalledWith(
+			{
+				query: "SELECT 1 WHERE 1=1 ",
+				enable_readonly: true,
+			},
+			"query",
+			undefined
+		);
+	});
+
 	it("ignores non-filter mustache-like tags so they cannot run as code", async () => {
 		(dataCollector as jest.Mock)
 			.mockResolvedValueOnce({

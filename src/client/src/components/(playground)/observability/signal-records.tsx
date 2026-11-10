@@ -159,6 +159,50 @@ function HealthBadge({
 	);
 }
 
+// A div rather than a native button, because browsers do not let you drag-select
+// text inside a button and rows carry ids people need to copy.
+function RecordRow({
+	row,
+	onOpen,
+	disabled,
+	className,
+	children,
+}: {
+	row: any;
+	onOpen: (row: any) => void;
+	disabled?: boolean;
+	className: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<div
+			role="button"
+			tabIndex={disabled ? undefined : 0}
+			aria-disabled={disabled}
+			onClick={(event) => {
+				const selection = window.getSelection();
+				// Either end can be in the row: a shift-click extends a selection
+				// that started elsewhere.
+				const isSelectingText =
+					selection &&
+					!selection.isCollapsed &&
+					(event.currentTarget.contains(selection.anchorNode) ||
+						event.currentTarget.contains(selection.focusNode));
+				if (!disabled && !isSelectingText) onOpen(row);
+			}}
+			onKeyDown={(event) => {
+				if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
+				event.preventDefault();
+				// Holding the key down should open the row once, not on every repeat.
+				if (!event.repeat) onOpen(row);
+			}}
+			className={`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-950 dark:focus-visible:ring-stone-300 ${className}`}
+		>
+			{children}
+		</div>
+	);
+}
+
 function TraceRecord({
 	row,
 	config,
@@ -173,6 +217,13 @@ function TraceRecord({
 	onOpen: (row: any) => void;
 }) {
 	const show = (key: string) => visibilityColumns[key] !== false;
+	const isTraceSummary = config.key === "traces";
+	const spanCount =
+		row.spanCount == null || Number.isNaN(Number(row.spanCount))
+			? null
+			: Number(row.spanCount);
+	const errorCount = Number(row.errorCount || 0);
+	const hasErrors = errorCount > 0;
 	const health = classifyFromNormalizedTrace(row);
 	const healthChips: GenerationHealthChip[] = (
 		["truncated", "filtered", "empty", "swapped"] as GenerationHealthChip[]
@@ -185,9 +236,9 @@ function TraceRecord({
 			})
 		: undefined;
 	return (
-		<button
-			type="button"
-			onClick={() => onOpen(row)}
+		<RecordRow
+			row={row}
+			onOpen={onOpen}
 			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
 					? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/20 dark:border-primary dark:bg-primary/15"
@@ -197,7 +248,7 @@ function TraceRecord({
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div className="min-w-0">
 					<div className="flex min-w-0 items-center gap-2">
-						<span className={`h-2 w-2 shrink-0 rounded-full ${config.key === "exceptions" ? "bg-rose-500" : "bg-sky-500"}`} />
+						<span className={`h-2 w-2 shrink-0 rounded-full ${config.key === "exceptions" || hasErrors ? "bg-rose-500" : "bg-sky-500"}`} />
 						<h3 className="min-w-0 truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
 							{show("spanName") ? row.spanName || row.id : row.id}
 						</h3>
@@ -218,17 +269,20 @@ function TraceRecord({
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400">
 						{show("time") && <span>{row.time}</span>}
-						{show("id") && <span className="font-mono">{row.spanId}</span>}
+						{show("id") && <span className="font-mono" title={isTraceSummary ? m.OBSERVABILITY_TRACE_ID : m.OBSERVABILITY_SPAN_ID}>{isTraceSummary ? `${m.OBSERVABILITY_TRACE_ID}: ${row.id}` : `${m.OBSERVABILITY_SPAN_ID}: ${row.spanId}`}</span>}
+						{isTraceSummary && row.spanId && <span className="font-mono" title={m.OBSERVABILITY_SPAN_ID}>{m.OBSERVABILITY_SPAN_ID}: {row.spanId}</span>}
 						{show("serviceName") && row.serviceName && <span>{row.serviceName}</span>}
 					</div>
 				</div>
 				<div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:justify-end">
+					{isTraceSummary && spanCount != null && <MiniMeta icon={<GitBranch className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_SPAN_COUNT_LABEL} value={spanCount} />}
+					{isTraceSummary && hasErrors && <MiniMeta icon={<Info className="h-3.5 w-3.5" />} label={m.OBSERVABILITY_ERROR_COUNT_LABEL} value={errorCount} />}
 					{show("requestDuration") && <MiniMeta icon={<Clock className="h-3.5 w-3.5" />} label="duration" value={`${parseFloat(row.requestDuration || "0").toFixed(3)}s`} />}
 					{show("totalTokens") && <MiniMeta icon={<Zap className="h-3.5 w-3.5" />} label="tokens" value={row.totalTokens} />}
 					{show("model") && <MiniMeta icon={<Hash className="h-3.5 w-3.5" />} label="model" value={row.model || row.system} />}
 				</div>
 			</div>
-		</button>
+		</RecordRow>
 	);
 }
 
@@ -275,9 +329,9 @@ function LogRecord({
 	const fallbackPairs = topAttributePairs([logAttrs, resourceAttrs, row.ScopeAttributes], 3);
 
 	return (
-		<button
-			type="button"
-			onClick={() => onOpen(row)}
+		<RecordRow
+			row={row}
+			onOpen={onOpen}
 			className={`w-full rounded-md border bg-white font-mono text-left transition dark:bg-stone-950 ${
 				isSelected
 					? "border-amber-500 bg-amber-50 shadow-sm ring-1 ring-amber-200 dark:border-amber-500 dark:bg-amber-950/20 dark:ring-amber-900"
@@ -315,7 +369,7 @@ function LogRecord({
 				))}
 				<span>attrs:{logAttrCount}/{resourceAttrCount}/{scopeAttrCount}</span>
 			</div>
-		</button>
+		</RecordRow>
 	);
 }
 
@@ -340,9 +394,9 @@ function MetricRecord({
 	const unit = row.metricUnit || "unitless";
 
 	return (
-		<button
-			type="button"
-			onClick={() => onOpen(row)}
+		<RecordRow
+			row={row}
+			onOpen={onOpen}
 			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
 					? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/20 dark:border-primary dark:bg-primary/15"
@@ -421,7 +475,7 @@ function MetricRecord({
 					</div>
 				</div>
 			</div>
-		</button>
+		</RecordRow>
 	);
 }
 
@@ -478,9 +532,9 @@ function CodingUserRecord({
 	);
 	const workPct = (Number(row.classification_work || 0) / total) * 100;
 	return (
-		<button
-			type="button"
-			onClick={() => !masked && onOpen(row)}
+		<RecordRow
+			row={row}
+			onOpen={onOpen}
 			disabled={masked}
 			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
@@ -552,7 +606,7 @@ function CodingUserRecord({
 					)}
 				</div>
 			</div>
-		</button>
+		</RecordRow>
 	);
 }
 
@@ -587,9 +641,9 @@ function SessionRecord({
 	const folderLabel = (row.working_dir_label || "").trim();
 	const loopHit = asAgentLoopHit(row.agentLoop);
 	return (
-		<button
-			type="button"
-			onClick={() => onOpen(row)}
+		<RecordRow
+			row={row}
+			onOpen={onOpen}
 			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
 					? "border-violet-500 bg-violet-50 shadow-sm ring-1 ring-violet-200 dark:border-violet-500 dark:bg-violet-950/30 dark:ring-violet-900"
@@ -740,7 +794,7 @@ function SessionRecord({
 					)}
 				</div>
 			</div>
-		</button>
+		</RecordRow>
 	);
 }
 

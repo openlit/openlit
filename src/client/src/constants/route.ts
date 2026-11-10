@@ -3,7 +3,6 @@ export const ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN = [
 	"/api/prompt/get-compiled",
 	"/api/vault/get-secrets",
 	"/api/rule-engine/evaluate",
-	"/api/controller/poll",
 	"/api/evaluation/offline",
 ];
 
@@ -18,7 +17,6 @@ export const ALLOWED_OPENLIT_ROUTES_WITH_TOKEN = [
 	"/api/vault/get-secrets",
 	"/api/rule-engine/evaluate",
 	"/api/controller/poll",
-	"/api/api-key",
 	"/api/db-config",
 ];
 
@@ -26,12 +24,10 @@ export const ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN = [
 	"/api/telemetry/",
 	"/api/rule-engine/",
 	"/api/evaluation/",
-	"/api/controller/",
 	"/api/prompt/",
 	"/api/vault/",
 	"/api/metrics/",
 	"/api/chat/",
-	"/api/api-key/",
 ];
 
 export const CRON_JOB_ROUTES = [
@@ -39,6 +35,13 @@ export const CRON_JOB_ROUTES = [
 	"/api/pricing/auto",
 	"/api/agents/materialize",
 	"/api/telemetry-snapshot",
+];
+
+// Realtime engine callbacks. Middleware only checks the secret header is
+// present; the route handlers verify it against OPENLIT_ENGINE_SECRET.
+export const ENGINE_INTERNAL_ROUTES = [
+	"/api/internal/realtime/rules",
+	"/api/internal/realtime/findings",
 ];
 
 // Non-API routes that are accessible without completing onboarding
@@ -51,15 +54,34 @@ export const ONBOARDING_WHITELIST_ROUTE_PREFIXES = [
 // Prefix entries must include a trailing slash to avoid overmatching sibling routes.
 export const ONBOARDING_WHITELIST_API_ROUTES = {
 	exact: {
-		GET: ["/api/organisation", "/api/organisation/invitation", "/api/user/profile", "/api/auth/session"],
-		POST: ["/api/organisation", "/api/user/complete-onboarding", "/api/auth/session"],
+		GET: [
+			"/api/organisation",
+			"/api/organisation/invitation",
+			"/api/user/profile",
+			"/api/auth/session",
+			"/api/db-config",
+			"/api/project/environment",
+		],
+		POST: [
+			"/api/organisation",
+			"/api/user/complete-onboarding",
+			"/api/auth/session",
+			"/api/db-config",
+			"/api/clickhouse",
+			"/api/project/environment",
+		],
 	},
 	prefix: {
-		GET: ["/api/organisation/"],
-		POST: ["/api/organisation/current/", "/api/organisation/invitation/", "/api/organisation/"],
-		PUT: ["/api/organisation/"],
+		GET: ["/api/organisation/", "/api/db-config/"],
+		POST: [
+			"/api/organisation/current/",
+			"/api/organisation/invitation/",
+			"/api/organisation/",
+			"/api/db-config/",
+		],
+		PUT: ["/api/organisation/", "/api/db-config/"],
 		PATCH: ["/api/organisation/"],
-		DELETE: ["/api/organisation/invitation/", "/api/organisation/"],
+		DELETE: ["/api/organisation/invitation/", "/api/organisation/", "/api/db-config/"],
 	},
 } as const;
 
@@ -69,3 +91,7 @@ export const RESTRICTED_DEMO_ACCOUNT_ROUTES: Record<string, string[]> = {
 	PUT: ["/api/db-config", "/api/vault"],
 	DELETE: ["/api/db-config", "/api/api-key", "/api/vault", "/api/prompt-hub"],
 };
+
+// Instance admin area: its own shell outside organisation/project scope.
+export const INSTANCE_ADMIN_ROUTE_PREFIX = "/admin";
+export const INSTANCE_ADMIN_API_ROUTE_PREFIX = "/api/admin";

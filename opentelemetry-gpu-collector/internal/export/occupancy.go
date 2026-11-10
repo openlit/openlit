@@ -230,20 +230,23 @@ func (om *OccupancyMetrics) HandleEvent(ev gpuebpf.CUDAEvent) {
 		om.engine.HandleLaunch(cudaoccupancy.KernelLaunch{
 			PID: e.PID, TID: e.TID, StreamID: e.StreamID, KtimeNs: e.KtimeNs,
 			Name: name, Kind: cudaspans.LaunchKindKernel,
-			GridX: e.GridX, GridY: e.GridY, GridZ: e.GridZ,
+			DeviceIdx: gpuebpf.DeviceIndex(e.DeviceIdx),
+			GridX:     e.GridX, GridY: e.GridY, GridZ: e.GridZ,
 			BlockX: e.BlockX, BlockY: e.BlockY, BlockZ: e.BlockZ,
 		})
 	case *gpuebpf.GraphLaunchEvent:
 		om.engine.HandleLaunch(cudaoccupancy.KernelLaunch{
 			PID: e.PID, TID: e.TID, StreamID: e.StreamID, KtimeNs: e.KtimeNs,
 			Name: "graph", Kind: cudaspans.LaunchKindGraph,
-			GridX: 1, GridY: 1, GridZ: 1,
+			DeviceIdx: gpuebpf.DeviceIndex(e.DeviceIdx),
+			GridX:     1, GridY: 1, GridZ: 1,
 			BlockX: 1, BlockY: 1, BlockZ: 1,
 		})
 	case *gpuebpf.SyncEvent:
 		om.engine.HandleSync(cudaoccupancy.SyncEvent{
 			PID: e.PID, TID: e.TID, StreamID: e.StreamID, KtimeNs: e.KtimeNs,
 			DeviceWide: e.DeviceWide,
+			DeviceIdx:  gpuebpf.DeviceIndex(e.DeviceIdx),
 		})
 	case *gpuebpf.SetDeviceEvent:
 		om.engine.HandleSetDevice(cudaoccupancy.SetDeviceEvent{

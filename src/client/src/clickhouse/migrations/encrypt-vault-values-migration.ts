@@ -48,12 +48,18 @@ export default async function EncryptVaultValuesMigration(
 			dbConfig.id
 		);
 
-		if (readErr || !data || !Array.isArray(data)) {
+		if (readErr) {
 			consoleLog(
-				`Vault encryption migration: no data to migrate or error: ${readErr}`
+				`Vault encryption migration: could not read the vault table: ${readErr}`
 			);
-			await markMigrationComplete(dbConfig.id);
-			return { migrationExist: false, queriesRun: true };
+			return { migrationExist: false, queriesRun: false, err: readErr };
+		}
+
+		if (!data || !Array.isArray(data)) {
+			const unexpectedRead =
+				"Vault encryption migration: unexpected vault read result";
+			consoleLog(unexpectedRead);
+			return { migrationExist: false, queriesRun: false, err: unexpectedRead };
 		}
 
 		const plaintextSecrets = (data as any[]).filter(
@@ -65,6 +71,8 @@ export default async function EncryptVaultValuesMigration(
 			await markMigrationComplete(dbConfig.id);
 			return { migrationExist: false, queriesRun: true };
 		}
+
+		let failedCount = 0;
 
 		for (const secret of plaintextSecrets) {
 			const encrypted = escapeClickHouseString(encryptValue(secret.value));
@@ -82,10 +90,17 @@ export default async function EncryptVaultValuesMigration(
 			);
 
 			if (updateErr) {
+				failedCount += 1;
 				consoleLog(
 					`Vault encryption migration: failed to encrypt secret ${secret.id}: ${updateErr}`
 				);
 			}
+		}
+
+		if (failedCount > 0) {
+			const pendingErr = `Vault encryption migration: ${failedCount} of ${plaintextSecrets.length} secrets still hold plaintext, leaving the migration pending`;
+			consoleLog(pendingErr);
+			return { migrationExist: false, queriesRun: false, err: pendingErr };
 		}
 
 		consoleLog(
@@ -97,7 +112,7 @@ export default async function EncryptVaultValuesMigration(
 		return { migrationExist: false, queriesRun: true };
 	} catch (migrationError) {
 		consoleLog(`Vault encryption migration error: ${migrationError}`);
-		return { migrationExist: false, queriesRun: false };
+		return { migrationExist: false, queriesRun: false, err: migrationError };
 	}
 }
 

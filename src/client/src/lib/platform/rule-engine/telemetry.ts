@@ -45,6 +45,26 @@ export function getRuleTraceFieldValue(
 		"gen_ai.usage.output_tokens": ["SpanAttributes", "gen_ai.usage.output_tokens"],
 		"gen_ai.usage.total_cost": ["SpanAttributes", "gen_ai.usage.total_cost"],
 		"gen_ai.request.temperature": ["SpanAttributes", "gen_ai.request.temperature"],
+		"gen_ai.tool.name": ["SpanAttributes", "gen_ai.tool.name"],
+		"gen_ai.tool.call.name": ["SpanAttributes", "gen_ai.tool.call.name"],
+		"coding_agent.client": ["SpanAttributes", "coding_agent.client"],
+		"coding_agent.policy.permission_mode": [
+			"SpanAttributes",
+			"coding_agent.policy.permission_mode",
+		],
+		"coding_agent.content_capture_mode": [
+			"SpanAttributes",
+			"coding_agent.content_capture_mode",
+		],
+		"coding_agent.user.classification": [
+			"SpanAttributes",
+			"coding_agent.user.classification",
+		],
+		"coding_agent.session.outcome": [
+			"SpanAttributes",
+			"coding_agent.session.outcome",
+		],
+		"coding_agent.tool.name": ["SpanAttributes", "coding_agent.tool.name"],
 	};
 	if (field === "deployment.environment") {
 		return String(
@@ -52,6 +72,17 @@ export function getRuleTraceFieldValue(
 			trace.SpanAttributes?.["deployment.environment"] ??
 			trace.SpanAttributes?.["gen_ai.environment"] ??
 			""
+		);
+	}
+	if (
+		field.startsWith("coding_agent.") ||
+		field === "gen_ai.tool.name" ||
+		field === "gen_ai.tool.call.name"
+	) {
+		return String(
+			trace.SpanAttributes?.[field] ??
+				trace.ResourceAttributes?.[field] ??
+				""
 		);
 	}
 	const attribute = attributeFields[field];

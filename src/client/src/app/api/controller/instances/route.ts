@@ -1,6 +1,7 @@
 import { getControllerInstances } from "@/lib/platform/controller";
+import { withControllerProduct } from "@/lib/platform/controller/product";
 
-export async function GET() {
+async function GETHandler() {
 	const res = await getControllerInstances();
 	if (res.err) {
 		console.error("controller instances error:", res.err);
@@ -11,3 +12,5 @@ export async function GET() {
 	}
 	return Response.json({ data: res.data || [] });
 }
+
+export const GET = withControllerProduct(GETHandler);

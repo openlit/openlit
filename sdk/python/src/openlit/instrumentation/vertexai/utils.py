@@ -229,6 +229,10 @@ def emit_inference_event(
                 attributes[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] = value
             elif key == "output_tokens":
                 attributes[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] = value
+            elif key == "reasoning_tokens":
+                # Vertex/Gemini: thoughts_token_count is separate from
+                # candidates_token_count, not a subset of output tokens.
+                attributes[SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS] = value
             elif key == "cache_read_input_tokens":
                 attributes[SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS] = (
                     value
@@ -277,6 +281,9 @@ def process_chunk(scope, chunk):
     scope._output_tokens = (
         getattr(usage_metadata, "candidates_token_count", 0) if usage_metadata else 0
     )
+    scope._reasoning_tokens = (
+        getattr(usage_metadata, "thoughts_token_count", 0) if usage_metadata else 0
+    ) or 0
     scope._cache_read_input_tokens = (
         getattr(usage_metadata, "cached_content_token_count", 0)
         if usage_metadata
@@ -424,6 +431,17 @@ def common_chat_logic(
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
+    # Reasoning tokens
+    if (
+        hasattr(scope, "_reasoning_tokens")
+        and scope._reasoning_tokens
+        and scope._reasoning_tokens > 0
+    ):
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
+            scope._reasoning_tokens,
+        )
+
     # OTel cached token attributes (set even when 0)
     if hasattr(scope, "_cache_read_input_tokens"):
         scope._span.set_attribute(
@@ -529,6 +547,8 @@ def common_chat_logic(
                 "output_tokens": output_tokens,
                 **version_extras,
             }
+            if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens:
+                extra["reasoning_tokens"] = scope._reasoning_tokens
             if capture_message_content and system_instr:
                 extra["system_instructions"] = system_instr
             emit_inference_event(
@@ -546,7 +566,12 @@ def common_chat_logic(
         except Exception as e:
             logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
-    scope._span.set_status(Status(StatusCode.OK))
+    # OK is sticky in the OTel SDK: a later set_status(ERROR) is ignored.
+    # Stream failures set scope._stream_error before this runs, then
+    # handle_exception records ERROR once these attributes are written.
+    # Non-streaming scopes never set _stream_error, so they still record OK.
+    if getattr(scope, "_stream_error", None) is None:
+        scope._span.set_status(Status(StatusCode.OK))
 
     # Record metrics
     if not disable_metrics:
@@ -556,6 +581,8 @@ def common_chat_logic(
                 scope._timestamps[i] - scope._timestamps[i - 1]
                 for i in range(1, len(scope._timestamps))
             ]
+        stream_error = getattr(scope, "_stream_error", None)
+        error_type = type(stream_error).__name__ if stream_error is not None else None
         record_completion_metrics(
             metrics,
             SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -573,6 +600,7 @@ def common_chat_logic(
             cost,
             scope._tbt,
             scope._ttft,
+            error_type=error_type,
             is_stream=is_stream,
             time_per_chunk_observations=inter_chunk_durations,
         )
@@ -642,6 +670,9 @@ def process_chat_response(
     scope._output_tokens = (
         getattr(usage_metadata, "candidates_token_count", 0) if usage_metadata else 0
     )
+    scope._reasoning_tokens = (
+        getattr(usage_metadata, "thoughts_token_count", 0) if usage_metadata else 0
+    ) or 0
     scope._cache_read_input_tokens = (
         getattr(usage_metadata, "cached_content_token_count", 0)
         if usage_metadata

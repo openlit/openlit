@@ -7,13 +7,48 @@ import { throwIfError } from "@/utils/error";
 import getMessage from "@/constants/messages";
 import { recordOrganisationUsageEvent } from "@/lib/billing/usage-recorder";
 import { getCurrentOrganisation } from "@/lib/organisation";
+import { getApiKeyScopesByIds } from "@/lib/platform/api-key-access/server";
 
 const APIKEY_PREFIX = "openlit-";
+
+function previewApiKey(apiKey: string): string {
+	const body = apiKey.startsWith(APIKEY_PREFIX)
+		? apiKey.slice(APIKEY_PREFIX.length)
+		: apiKey;
+	return `${APIKEY_PREFIX}${body.slice(0, 4)}…${body.slice(-6)}`;
+}
 
 export interface APIKeyInfo {
 	id: string;
 	databaseConfigId: string | null;
+	organisationId?: string | null;
+	projectId?: string | null;
+	environment?: string;
 	createdByUser?: { email: string } | null;
+	createdByUserId?: string;
+}
+
+const DEFAULT_API_KEY_ENVIRONMENT = "production";
+
+function scopeFromKeyRow(row: {
+	organisationId?: string | null;
+	projectId?: string | null;
+	environment?: string | null;
+	databaseConfig?: {
+		projectId?: string | null;
+		environment?: string | null;
+		project?: { organisationId?: string | null } | null;
+	} | null;
+}): Pick<APIKeyInfo, "organisationId" | "projectId" | "environment"> {
+	return {
+		organisationId:
+			row.organisationId || row.databaseConfig?.project?.organisationId || null,
+		projectId: row.projectId || row.databaseConfig?.projectId || null,
+		environment:
+			row.environment ||
+			row.databaseConfig?.environment ||
+			DEFAULT_API_KEY_ENVIRONMENT,
+	};
 }
 
 function createAPIKey() {
@@ -24,7 +59,12 @@ function createAPIKey() {
 	return `${APIKEY_PREFIX}${key.toString("base64")}`;
 }
 
-export async function generateAPIKey(name: string) {
+// `extraData` carries edition-specific columns (e.g. enterprise access scopes)
+// so they are written atomically with the key.
+export async function generateAPIKey(
+	name: string,
+	extraData: Record<string, unknown> = {}
+) {
 	const user = await getCurrentUser();
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
@@ -35,12 +75,29 @@ export async function generateAPIKey(name: string) {
 	throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
 
 	const apiKey = createAPIKey();
+	const projectId = dbConfig.projectId || null;
+	let organisationId: string | null = null;
+	if (projectId) {
+		const project = await prisma.project.findUnique({
+			where: { id: projectId },
+			select: { organisationId: true },
+		});
+		organisationId = project?.organisationId || null;
+	}
+	const environment =
+		typeof dbConfig.environment === "string" && dbConfig.environment.trim()
+			? dbConfig.environment.trim()
+			: "production";
 
-	await prisma.aPIKeys.create({
+	const created = await prisma.aPIKeys.create({
 		data: {
+			...extraData,
 			apiKey,
 			name,
 			databaseConfigId: dbConfig.id,
+			organisationId,
+			projectId,
+			environment,
 			createdByUserId: user!.id,
 		},
 	});
@@ -64,8 +121,12 @@ export async function generateAPIKey(name: string) {
 	}
 
 	return {
+		id: created.id,
 		apiKey,
 		databaseConfigId: dbConfig.id,
+		organisationId,
+		projectId,
+		environment,
 	};
 }
 
@@ -82,7 +143,23 @@ export async function getAPIKeyInfo({ apiKey }: { apiKey: string }) {
 					},
 				],
 			},
-			include: { createdByUser: { select: { email: true } } },
+			include: {
+				createdByUser: { select: { email: true } },
+				databaseConfig: {
+					select: {
+						projectId: true,
+						environment: true,
+						project: { select: { organisationId: true } },
+					},
+				},
+			},
+		}).then((row) => {
+			if (!row) return row;
+			const scope = scopeFromKeyRow(row);
+			return {
+				...row,
+				...scope,
+			};
 		})
 	);
 }
@@ -122,7 +199,18 @@ export async function getAllAPIKeys(databaseConfigId?: string) {
 			},
 		})
 	);
-	return data;
+
+	if (!Array.isArray(data)) {
+		return data;
+	}
+
+	const scopesById = await getApiKeyScopesByIds(data.map((row) => row.id));
+
+	return data.map(({ apiKey, ...rest }) => ({
+		...rest,
+		apiKeyPreview: previewApiKey(apiKey),
+		scopes: scopesById[rest.id] ?? null,
+	}));
 }
 
 export async function deleteAPIKey(id: string) {

@@ -6,6 +6,10 @@ import { isValidCron } from "cron-validator";
 import { existsSync, mkdirSync } from "fs";
 import path from "path";
 
+// macOS can hold `crontab` on a privacy permission prompt; never block the
+// server indefinitely on it.
+const CRONTAB_TIMEOUT_MS = 15_000;
+
 export default class Cron {
 	START_MARKER =
 		"# Do not modify this section it is being used by OpenLIT ::: Start";
@@ -14,7 +18,10 @@ export default class Cron {
 
 	getCronJobs() {
 		try {
-			return execSync("crontab -l", { encoding: "utf-8" });
+			return execSync("crontab -l", {
+				encoding: "utf-8",
+				timeout: CRONTAB_TIMEOUT_MS,
+			});
 		} catch (error) {
 			return ""; // No crontab exists
 		}
@@ -106,6 +113,7 @@ export default class Cron {
 		execSync("crontab -", {
 			input: newCrontab.trimEnd() + "\n",
 			encoding: "utf-8",
+			timeout: CRONTAB_TIMEOUT_MS,
 		});
 	}
 
@@ -136,6 +144,7 @@ export default class Cron {
 		execSync("crontab -", {
 			input: newCrontab.trimEnd() + "\n",
 			encoding: "utf-8",
+			timeout: CRONTAB_TIMEOUT_MS,
 		});
 	}
 }

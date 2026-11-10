@@ -11,7 +11,7 @@ Organisation
   └── Project   ← create / select a project first
         └── Environment
               ├── Database Config (ClickHouse app store)
-              ├── Connectors (data sources + memory)
+              ├── Connectors (data sources, memory, scanners)
               └── Signal routing (traces / logs / metrics)
 ```
 
@@ -21,7 +21,7 @@ Use organisations for membership and workspace boundaries. Use [projects](/lates
 
 | Layer | Owns |
 | --- | --- |
-| **Organisation** | Workspace name, members, invitations; billing/licensing where applicable |
+| **Organisation** | Workspace name, members, invitations, built-in roles; [enterprise licenses](/latest/openlit/enterprise#how-licensing-works) and [RBAC](/latest/openlit/rbac) in OpenLIT Enterprise |
 | **Project** | Environments, Database Configs, connectors, bindings |
 | **Environment** | Partition for configs, connectors, and per-signal routing |
 | **Database Config** | ClickHouse connection on the project (seeded from `INIT_DB_*`, then managed in UI) |
@@ -42,7 +42,7 @@ Every organisation has a default project. Existing installations are mapped to a
     Add ClickHouse on a project (seeded from INIT_DB_* then managed in the UI).
   </Card>
   <Card title="Connectors" href="/latest/openlit/connectors/overview" icon="plug">
-    Data-source and memory connectors on a project.
+    Data-source, memory, and scanner connectors on a project.
   </Card>
   <Card title="Signal routing" href="/latest/openlit/organisation/signal-routing" icon="route">
     Bind traces, logs, and metrics independently per environment.

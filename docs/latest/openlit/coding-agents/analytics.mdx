@@ -34,7 +34,7 @@ WHERE SpanName IN (
 )
 ```
 
-The metrics pipeline emits the same rollups as counters, if you'd rather point a Prometheus/Mimir/Datadog backend at the OpenLIT collector directly: `coding_agent.session.count`, `coding_agent.session.duration`, `coding_agent.tool.call.count`, `coding_agent.lines_of_code.count`, `coding_agent.edit.decision.count`, `coding_agent.commit.count`, `coding_agent.pull_request.count`.
+The metrics pipeline emits the same rollups as counters, if you'd rather point a Prometheus/Mimir/Datadog backend at OpenLIT's OTLP endpoint directly: `coding_agent.session.count`, `coding_agent.session.duration`, `coding_agent.tool.call.count`, `coding_agent.lines_of_code.count`, `coding_agent.edit.decision.count`, `coding_agent.commit.count`, `coding_agent.pull_request.count`.
 
 ---
 

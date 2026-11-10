@@ -20,6 +20,10 @@ Each run is broken into dimension tabs:
 - **Cost**: cost per call, the most expensive span, and where spend concentrates.
 - **Token efficiency**: input/output/cache/reasoning token usage, duplicate tool or retrieval inputs, and repeated context.
 - **Path**: the request's execution path across services, tools, databases, and HTTP calls.
+- **Prompt injection**: signs the model or agent followed untrusted instructions.
+- **Tool misuse**: unsafe, redundant, or out-of-policy tool use along the path.
+
+When a hierarchy analysis run exists, Trace Governance merges the **prompt injection** and **tool misuse** findings into the same passport (no extra LLM call). See [Trace Governance](/latest/openlit/observability/telemetry/trace-governance).
 
 ## Run analysis from trace details
 

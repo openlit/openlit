@@ -34,19 +34,22 @@ export async function resolveDbConfigId(
 export async function resolveRequestAuth(
 	request: Request
 ): Promise<[string | null, RequestAuth | null]> {
+	const authorizationHeader = request.headers?.get?.("Authorization") || "";
+	const hasBearer = authorizationHeader.startsWith("Bearer ");
 	const middlewareDbConfigId = request.headers
 		?.get?.(MIDDLEWARE_DATABASE_CONFIG_HEADER)
 		?.trim();
-	if (middlewareDbConfigId) {
+
+	// Tenant header is only a verified API-key binding when middleware set it
+	// after Bearer verification. A session request with a forged header must
+	// not bind another tenant's database.
+	if (middlewareDbConfigId && hasBearer) {
 		let userId: string | undefined;
-		const authorizationHeader = request.headers?.get?.("Authorization") || "";
-		if (authorizationHeader.startsWith("Bearer ")) {
-			const apiKey = authorizationHeader.replace(/^Bearer /, "").trim();
-			if (apiKey) {
-				const [keyErr, apiInfo] = await getAPIKeyInfo({ apiKey });
-				if (!keyErr && apiInfo?.createdByUserId) {
-					userId = apiInfo.createdByUserId;
-				}
+		const apiKey = authorizationHeader.replace(/^Bearer /, "").trim();
+		if (apiKey) {
+			const [keyErr, apiInfo] = await getAPIKeyInfo({ apiKey });
+			if (!keyErr && apiInfo?.createdByUserId) {
+				userId = apiInfo.createdByUserId;
 			}
 		}
 		return [

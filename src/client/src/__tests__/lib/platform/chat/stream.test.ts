@@ -8,6 +8,7 @@ jest.mock('ai', () => ({
 }));
 
 import { getModelInstance, formatStreamError, buildConversationMessages, streamChatMessage } from '@/lib/platform/chat/stream';
+import { CHAT_PROVIDER_IDS } from '@/constants/chat-providers';
 
 // Mock external dependencies
 jest.mock('@ai-sdk/openai', () => ({
@@ -101,15 +102,41 @@ describe('getModelInstance', () => {
     expect(instance).toBeDefined();
   });
 
-  it('supports all 14 providers', () => {
-    const providers = [
-      'openai', 'anthropic', 'google', 'mistral', 'cohere',
-      'groq', 'perplexity', 'azure', 'together', 'fireworks',
-      'deepseek', 'xai', 'huggingface', 'replicate',
-    ];
-    for (const p of providers) {
+  it('attributes Perplexity requests to OpenLIT', () => {
+    getModelInstance('perplexity', 'key', 'sonar');
+    expect(createOpenAI).toHaveBeenCalledWith({
+      baseURL: 'https://api.perplexity.ai',
+      apiKey: 'key',
+      headers: { 'X-Pplx-Integration': 'openlit' },
+    });
+  });
+
+  it('supports all built-in providers including MiniMax', () => {
+    for (const p of CHAT_PROVIDER_IDS) {
       expect(() => getModelInstance(p, 'key', 'model')).not.toThrow();
     }
+  });
+
+  it('supports MiniMax via the OpenAI-compatible endpoint', () => {
+    const instance = getModelInstance('minimax', 'key', 'MiniMax-M3');
+    expect(instance).toBeDefined();
+    expect(createOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: 'https://api.minimax.io/v1' })
+    );
+  });
+
+  it('supports OrcaRouter via the OpenAI-compatible endpoint', () => {
+    const instance = getModelInstance('orcarouter', 'sk-orca-test', 'orcarouter/auto');
+    expect(instance).toBeDefined();
+    expect(createOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: 'https://api.orcarouter.ai/v1' })
+    );
+  });
+
+  it('does not support TypeSafe Jev as a chat provider', () => {
+    expect(() => getModelInstance('typesafe', 'key', 'jev-latest')).toThrow(
+      'Provider typesafe not supported'
+    );
   });
 
   it('throws when a provider factory returns a non-callable object instance', () => {

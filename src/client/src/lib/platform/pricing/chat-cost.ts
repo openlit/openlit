@@ -43,6 +43,8 @@ const INCLUSIVE_CACHE_PROVIDERS = new Set([
 	"langchain",
 	"cohere",
 	"xai",
+	"minimax",
+	"orcarouter",
 	"claude_agent_sdk",
 	"claude-agent-sdk",
 	"pydo",

@@ -13,18 +13,18 @@ jest.mock('@/lib/platform/common', () => {
 });
 
 import {
-  getGroupByExpression,
   getRequestPerTime,
   getTotalRequests,
   getAverageRequestDuration,
   getRequestsConfig,
   getRequests,
+	getTraceSummaries,
+	getTraceSummarySeries,
   getRequestViaSpanId,
   getRequestViaTraceId,
   getHeirarchyViaSpanId,
   getRequestExist,
   getAttributeKeys,
-  getGroupedRequests,
 } from '@/lib/platform/request/index';
 import { dataCollector } from '@/lib/platform/common';
 
@@ -49,26 +49,6 @@ describe('getRequestPerTime', () => {
     expect(query).toContain('total');
     expect(query).toContain('request_time');
     expect(query).toContain('GROUP BY');
-  });
-});
-
-describe('getGroupByExpression', () => {
-  it('returns predefined group-by expressions', () => {
-    expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
-    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.provider.name']");
-  });
-
-  it('builds safe span/resource/field group-by expressions', () => {
-    expect(getGroupByExpression('custom.key')).toBe("SpanAttributes['custom.key']");
-    expect(getGroupByExpression("SpanAttributes:o'malley")).toBe("SpanAttributes['o\\'malley']");
-    expect(getGroupByExpression('ResourceAttributes:service.name')).toBe("ResourceAttributes['service.name']");
-    expect(getGroupByExpression('Field:Duration')).toBe('Duration');
-  });
-
-  it('rejects empty and unsupported field group-by inputs', () => {
-    expect(getGroupByExpression('')).toBeNull();
-    expect(getGroupByExpression('SpanAttributes:   ')).toBeNull();
-    expect(getGroupByExpression('Field:Duration;DROP')).toBeNull();
   });
 });
 
@@ -106,6 +86,7 @@ describe('getRequestsConfig', () => {
     // Provider dropdown folds the current OTel key and the legacy fallback.
     expect(query).toContain("gen_ai.provider.name");
     expect(query).toContain("gen_ai.system");
+    expect(query).toContain("deployment.environment");
   });
 });
 
@@ -187,6 +168,30 @@ describe('getRequests', () => {
     expect(query).toContain('toInt32OrZero(gen_ai.usage.prompt_tokens)');
   });
 
+  it('does not interpolate injected ORDER BY type or direction', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null })
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'Timestamp; DROP TABLE', direction: 'ASC' },
+    });
+    const typeQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(typeQuery).toContain('ORDER BY Timestamp DESC');
+    expect(typeQuery).not.toContain('DROP TABLE');
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'Timestamp', direction: 'ASC; SELECT 1' },
+    });
+    const directionQuery = (dataCollector as jest.Mock).mock.calls[3][0].query as string;
+    expect(directionQuery).toContain('ORDER BY Timestamp DESC');
+    expect(directionQuery).not.toContain('SELECT 1');
+  });
+
   it('lists one matching span per trace when generation-health chips are on', async () => {
     (dataCollector as jest.Mock)
       .mockResolvedValueOnce({ data: [{ total: 3 }], err: null })
@@ -232,6 +237,80 @@ describe('getRequests', () => {
     expect(countQuery).toContain('COUNT(*)');
     expect(listQuery).not.toContain('LIMIT 1 BY TraceId');
   });
+});
+
+describe('getTraceSummaries', () => {
+  it('counts unique traces and returns one root-oriented row per trace', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 3 }], err: null })
+      .mockResolvedValueOnce({
+        data: [{ TraceId: 'trace-1', SpanId: 'root-1', SpanCount: 4 }],
+        err: null,
+      });
+
+    const result = await getTraceSummaries({ ...baseParams, limit: 10, offset: 0 });
+
+    expect(result.total).toBe(3);
+    expect(result.records).toEqual([
+      { TraceId: 'trace-1', SpanId: 'root-1', SpanCount: 4 },
+    ]);
+    const countQuery = (dataCollector as jest.Mock).mock.calls[0][0].query;
+    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(countQuery).toContain('uniqExact(TraceId)');
+    expect(listQuery).toContain('WITH page AS');
+    expect(listQuery).toContain('INNER JOIN page AS p ON t.TraceId = p.TraceId');
+    expect(listQuery).toContain("t.ParentSpanId = '0000000000000000'");
+    expect(listQuery).toContain('t.SpanId');
+    expect(listQuery).toContain('t.Timestamp >= parseDateTimeBestEffort');
+    expect(listQuery).toContain('LIMIT 10');
+    expect(listQuery).toContain('OFFSET 0');
+    expect(listQuery.match(/LIMIT/g)).toHaveLength(1);
+    expect(listQuery).not.toContain('argMin(Events');
+    expect(listQuery).not.toContain('argMin(Links');
+    expect(listQuery).toContain('AS SpanCount');
+    expect(listQuery).toContain('AS ErrorCount');
+    expect(listQuery).toContain('ORDER BY p.TraceStart DESC');
+  });
+
+  it('honors an ascending timestamp sort on the paged trace ids', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 1 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getTraceSummaries({
+      ...baseParams,
+      limit: 10,
+      offset: 0,
+      sorting: { type: 'Timestamp', direction: 'asc' },
+    });
+
+    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(listQuery).toContain('ORDER BY TraceStart ASC');
+    expect(listQuery).toContain('ORDER BY p.TraceStart ASC');
+  });
+
+  it('returns the count error without running the list query', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({
+      data: null,
+      err: 'count failed',
+    });
+
+    const result = await getTraceSummaries(baseParams);
+
+    expect(result.err).toBe('count failed');
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+  });
+});
+
+it('counts unique trace IDs in the ClickHouse trace volume series', async () => {
+  (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [{ label: '2024/01', count: 2 }], err: null });
+
+  const result = await getTraceSummarySeries(baseParams);
+
+  expect(result.total).toBe(2);
+  const query = (dataCollector as jest.Mock).mock.calls[0][0].query as string;
+  expect(query).toContain('uniqExact(TraceId)');
+  expect(query).toContain('FROM');
 });
 
 describe('getRequestViaSpanId', () => {
@@ -436,46 +515,5 @@ describe('getAttributeKeys', () => {
     const [call1, call2] = (dataCollector as jest.Mock).mock.calls;
     expect(call1[0].query).toContain('SpanAttributes');
     expect(call2[0].query).toContain('ResourceAttributes');
-  });
-});
-
-describe('getGroupedRequests', () => {
-  it('returns predefined and attribute group expressions', () => {
-    expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
-    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.provider.name']");
-    expect(getGroupByExpression('applicationName')).toBe("ResourceAttributes['service.name']");
-    expect(getGroupByExpression('custom.attribute')).toBe("SpanAttributes['custom.attribute']");
-    expect(getGroupByExpression('ResourceAttributes:service.namespace')).toBe(
-      "ResourceAttributes['service.namespace']"
-    );
-    expect(getGroupByExpression('')).toBeNull();
-    expect(getGroupByExpression('Field:NotAllowed')).toBeNull();
-  });
-
-  it('returns an error and skips querying for an invalid Field groupBy', async () => {
-    const result = await getGroupedRequests(baseParams as any, 'Field:!!!');
-
-    expect(result.err).toBe('Invalid groupBy value');
-    expect(result.data).toEqual([]);
-    expect(dataCollector).not.toHaveBeenCalled();
-  });
-
-  it('builds a grouped query for an allowed Field groupBy', async () => {
-    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ group_value: 'ok' }], err: null });
-
-    await getGroupedRequests(baseParams as any, 'Field:SpanName');
-
-    expect(dataCollector).toHaveBeenCalledTimes(1);
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain('SpanName AS group_value');
-  });
-
-  it('escapes backslashes before quotes in attribute groupBy values', async () => {
-    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ group_value: 'ok' }], err: null });
-
-    await getGroupedRequests(baseParams as any, "SpanAttributes:gen\\ai.system's");
-
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain("SpanAttributes['gen\\\\ai.system\\'s'] AS group_value");
   });
 });

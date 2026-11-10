@@ -43,9 +43,13 @@ describe("governance hierarchy", () => {
 			SpanAttributes: {
 				"gen_ai.request.model": "gpt-4o",
 				"gen_ai.system": "openai",
+				"gen_ai.tool.name": "Shell",
+				"coding_agent.policy.permission_mode": "bypassPermissions",
+				"coding_agent.client": "cursor",
 			},
 			ResourceAttributes: {
 				"deployment.environment": "production",
+				"coding_agent.content_capture_mode": "metadata_only",
 			},
 		});
 		const fields = ruleFieldsFromHierarchySpan(span);
@@ -53,6 +57,12 @@ describe("governance hierarchy", () => {
 		expect(fields.SpanName).toBe("chat");
 		expect(fields["gen_ai.request.model"]).toBe("gpt-4o");
 		expect(fields["deployment.environment"]).toBe("production");
+		expect(fields["gen_ai.tool.name"]).toBe("Shell");
+		expect(fields["coding_agent.policy.permission_mode"]).toBe(
+			"bypassPermissions"
+		);
+		expect(fields["coding_agent.client"]).toBe("cursor");
+		expect(fields["coding_agent.content_capture_mode"]).toBe("metadata_only");
 	});
 
 	it("classifies tool spans", () => {

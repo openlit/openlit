@@ -60,4 +60,71 @@ describe("EncryptVaultValuesMigration", () => {
 		expect(query).toContain("UPDATE value = 'enc:v1:plain\\\\value\\'secret'");
 		expect(query).toContain("WHERE id = 'secret\\\\1'");
 	});
+
+	it("leaves the migration pending when the vault table cannot be read", async () => {
+		(dataCollector as jest.Mock).mockReset();
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: undefined,
+			err: "default: Authentication failed: password is incorrect",
+		});
+
+		const result = await EncryptVaultValuesMigration();
+
+		expect(prisma.clickhouseMigrations.create).not.toHaveBeenCalled();
+		expect(result).toEqual({
+			migrationExist: false,
+			queriesRun: false,
+			err: "default: Authentication failed: password is incorrect",
+		});
+	});
+
+	it("leaves the migration pending when a secret fails to encrypt", async () => {
+		(dataCollector as jest.Mock).mockReset();
+		(dataCollector as jest.Mock)
+			.mockResolvedValueOnce({
+				data: [
+					{ id: "secret-1", value: "plaintext-1" },
+					{ id: "secret-2", value: "plaintext-2" },
+				],
+				err: null,
+			})
+			.mockResolvedValueOnce({ err: null })
+			.mockResolvedValueOnce({ err: "TABLE_IS_READ_ONLY" });
+
+		const result = await EncryptVaultValuesMigration();
+
+		expect(prisma.clickhouseMigrations.create).not.toHaveBeenCalled();
+		expect(result).toEqual({
+			migrationExist: false,
+			queriesRun: false,
+			err: "Vault encryption migration: 1 of 2 secrets still hold plaintext, leaving the migration pending",
+		});
+	});
+
+	it("records the migration when the vault holds no rows to encrypt", async () => {
+		(dataCollector as jest.Mock).mockReset();
+		(dataCollector as jest.Mock).mockResolvedValueOnce({ data: [], err: null });
+
+		const result = await EncryptVaultValuesMigration();
+
+		expect(prisma.clickhouseMigrations.create).toHaveBeenCalledTimes(1);
+		expect(result).toEqual({ migrationExist: false, queriesRun: true });
+	});
+
+	it("leaves the migration pending when the vault read is not a row list", async () => {
+		(dataCollector as jest.Mock).mockReset();
+		(dataCollector as jest.Mock).mockResolvedValueOnce({
+			data: undefined,
+			err: null,
+		});
+
+		const result = await EncryptVaultValuesMigration();
+
+		expect(prisma.clickhouseMigrations.create).not.toHaveBeenCalled();
+		expect(result).toEqual({
+			migrationExist: false,
+			queriesRun: false,
+			err: "Vault encryption migration: unexpected vault read result",
+		});
+	});
 });

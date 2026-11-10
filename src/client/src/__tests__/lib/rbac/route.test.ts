@@ -1,3 +1,8 @@
+jest.mock("@/lib/platform/api-keys", () => ({
+	getAPIKeyInfo: jest.fn(async ({ apiKey }: { apiKey: string }) =>
+		apiKey === "live-key" ? [null, { databaseConfigId: "api-key-db" }] : [null, null]
+	),
+}));
 jest.mock("@/lib/session", () => ({
 	getCurrentUser: jest.fn(),
 }));
@@ -106,18 +111,32 @@ describe("withDbConfigAccess", () => {
 		expect(handler).not.toHaveBeenCalled();
 	});
 
-	it("allows API key requests via middleware x-database-config-id without a session", async () => {
+	it("allows API key requests whose Bearer key is bound to the middleware database config", async () => {
 		(getCurrentUser as jest.Mock).mockResolvedValue(null);
 		const wrapped = withDbConfigAccess(handler);
 
 		await wrapped(
-			jsonRequest({}, { "x-database-config-id": "api-key-db" }),
+			jsonRequest({}, { "x-database-config-id": "api-key-db", Authorization: "Bearer live-key" }),
 			{}
 		);
 
 		expect(handler).toHaveBeenCalledTimes(1);
 		expect(getCurrentUser).not.toHaveBeenCalled();
 		expect(getDBConfigByIdForUser).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		["no Bearer key", { "x-database-config-id": "api-key-db" }],
+		["an unknown Bearer key", { "x-database-config-id": "api-key-db", Authorization: "Bearer stolen" }],
+		["a key bound to another config", { "x-database-config-id": "victim-db", Authorization: "Bearer live-key" }],
+	])("does not trust x-database-config-id with %s", async (_label, headers) => {
+		(getCurrentUser as jest.Mock).mockResolvedValue(null);
+		const wrapped = withDbConfigAccess(handler);
+
+		const res = await wrapped(jsonRequest({}, headers as Record<string, string>), {});
+
+		expect(res.status).toBe(401);
+		expect(handler).not.toHaveBeenCalled();
 	});
 
 	it("returns 403 when no db config id and org has no current project", async () => {
@@ -212,9 +231,9 @@ describe("withDbConfigAccess", () => {
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
 
-	it("extracts database config id from request header", async () => {
+	it("does not bind tenant from a client x-openlit-database-config-id header", async () => {
 		(getCurrentUser as jest.Mock).mockResolvedValue({ id: "u1" });
-		(getDBConfigByIdForUser as jest.Mock).mockResolvedValue({ id: "hdr-db" });
+		(getCurrentOrganisation as jest.Mock).mockResolvedValue(null);
 		const wrapped = withDbConfigAccess(handler);
 
 		await wrapped(
@@ -225,10 +244,7 @@ describe("withDbConfigAccess", () => {
 			{}
 		);
 
-		expect(getDBConfigByIdForUser).toHaveBeenCalledWith({
-			id: "hdr-db",
-			userId: "u1",
-		});
+		expect(getDBConfigByIdForUser).not.toHaveBeenCalled();
 		expect(handler).toHaveBeenCalledTimes(1);
 	});
 

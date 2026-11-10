@@ -15,6 +15,7 @@ import {
 } from "./conversation";
 import { getChatTools } from "./tools";
 import { authorizeTelemetrySQLRouting } from "./telemetry-sql-routing";
+import { CHAT_PROVIDER_IDS } from "@/constants/chat-providers";
 
 // ==================== Provider Factories ====================
 
@@ -27,7 +28,11 @@ const providerFactories: Record<string, ProviderFactory> = {
 	mistral: (apiKey) => createMistral({ apiKey }),
 	cohere: (apiKey) => createCohere({ apiKey }),
 	groq: (apiKey) => createOpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey }),
-	perplexity: (apiKey) => createOpenAI({ baseURL: "https://api.perplexity.ai", apiKey }),
+	perplexity: (apiKey) => createOpenAI({
+		baseURL: "https://api.perplexity.ai",
+		apiKey,
+		headers: { "X-Pplx-Integration": "openlit" },
+	}),
 	azure: (apiKey) => createOpenAI({
 		baseURL: process.env.AZURE_OPENAI_ENDPOINT || "https://your-resource.openai.azure.com",
 		apiKey,
@@ -39,9 +44,13 @@ const providerFactories: Record<string, ProviderFactory> = {
 	xai: (apiKey) => createOpenAI({ baseURL: "https://api.x.ai/v1", apiKey }),
 	huggingface: (apiKey) => createOpenAI({ baseURL: "https://api-inference.huggingface.co/v1", apiKey }),
 	replicate: (apiKey) => createOpenAI({ baseURL: "https://openai-proxy.replicate.com/v1", apiKey }),
+	minimax: (apiKey) => createOpenAI({ baseURL: "https://api.minimax.io/v1", apiKey }),
+	orcarouter: (apiKey) => createOpenAI({ baseURL: "https://api.orcarouter.ai/v1", apiKey }),
 };
 
-const VALID_PROVIDERS = Object.keys(providerFactories);
+const VALID_PROVIDERS = CHAT_PROVIDER_IDS as readonly string[];
+
+export { CHAT_PROVIDER_IDS, isChatProvider } from "@/constants/chat-providers";
 
 export function getModelInstance(providerId: string, apiKey: string, modelName: string) {
 	if (!VALID_PROVIDERS.includes(providerId)) {

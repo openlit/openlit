@@ -10,7 +10,14 @@ import (
 const threadDevMaxSize = 8192
 
 // DeviceResolver maps cudaSetDevice(index) onto NVML device identity.
-// Fallback when unset: sole NVIDIA GPU only (not an arbitrary map entry).
+//
+// Resolution order for a (pid, tid):
+//  1. Last successful cudaSetDevice for that thread
+//  2. Sole NVIDIA GPU on the host (unambiguous)
+//  3. CUDA runtime default current device 0, when index 0 is a known NVIDIA GPU
+//
+// CUDA_VISIBLE_DEVICES remapping is not applied: CUDA index is treated as the
+// NVML index. That assumption already applies to NoteSetDevice.
 type DeviceResolver struct {
 	mu sync.Mutex
 
@@ -82,17 +89,14 @@ func (r *DeviceResolver) NoteSetDevice(pid, tid uint32, deviceIdx int) {
 	r.threadDev[threadKey(pid, tid)] = deviceIdx
 }
 
-// ResolveIndex returns the CUDA device index for a thread, or sole GPU, or -1.
+// ResolveIndex returns the CUDA device index for a thread, or -1 if unknown.
 func (r *DeviceResolver) ResolveIndex(pid, tid uint32) int {
 	if r == nil {
 		return -1
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if idx, ok := r.threadDev[threadKey(pid, tid)]; ok {
-		return idx
-	}
-	return r.soleIndex
+	return r.resolveIndexLocked(pid, tid)
 }
 
 // ResolveUUID returns the GPU UUID for a thread (via index), or "".
@@ -102,14 +106,25 @@ func (r *DeviceResolver) ResolveUUID(pid, tid uint32) string {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	idx, ok := r.threadDev[threadKey(pid, tid)]
-	if !ok {
-		if r.soleIndex < 0 {
-			return ""
-		}
-		idx = r.soleIndex
+	idx := r.resolveIndexLocked(pid, tid)
+	if idx < 0 {
+		return ""
 	}
 	return r.indexUUID[idx]
+}
+
+func (r *DeviceResolver) resolveIndexLocked(pid, tid uint32) int {
+	if idx, ok := r.threadDev[threadKey(pid, tid)]; ok {
+		return idx
+	}
+	if r.soleIndex >= 0 {
+		return r.soleIndex
+	}
+	// CUDA runtime: current device is 0 until cudaSetDevice.
+	if _, ok := r.indexUUID[0]; ok {
+		return 0
+	}
+	return -1
 }
 
 // UUIDForIndex returns the UUID for a CUDA device index.
@@ -134,6 +149,21 @@ func (r *DeviceResolver) IndexInfo(idx int) (uuid, name, pci string, ok bool) {
 		return "", "", "", false
 	}
 	return uuid, r.indexName[idx], r.indexPCI[idx], true
+}
+
+// IndexForUUID returns the CUDA/NVML index for a GPU UUID.
+func (r *DeviceResolver) IndexForUUID(uuid string) (int, bool) {
+	if r == nil || uuid == "" {
+		return -1, false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for idx, u := range r.indexUUID {
+		if u == uuid {
+			return idx, true
+		}
+	}
+	return -1, false
 }
 
 // ForgetPID drops thread mappings for a PID (inactive cleanup).

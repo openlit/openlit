@@ -5,6 +5,8 @@ description: "Every coding session for a vendor, with a full conversational dril
 
 The **Sessions** tab on a coding agent's detail page lists every individual coding session for that vendor, one row per `coding_agent.session.id` (folded up to its chat thread when subagents are linked in).
 
+Claude Code sessions sent only through its native telemetry, with no OpenLIT hook, appear here too, keyed by Claude Code's `session.id`. They need native traces switched on (`CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` and `OTEL_TRACES_EXPORTER=otlp`), and their cost comes from Claude Code's `api_request` log events, so it also needs `OTEL_LOGS_EXPORTER=otlp`. Native telemetry doesn't report the repository, working folder, code changes or outcome, so those columns stay empty unless the hook also runs.
+
 ## Sessions list
 
 Columns: Session, User, Started, Duration, Model, Tool calls, Code changed (`+added/-removed`, with accepted/rejected broken out in a tooltip), Acceptance %, Commits, Pull Requests, Tokens, Cost, and Outcome.

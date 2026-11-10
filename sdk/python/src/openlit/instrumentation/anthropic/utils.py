@@ -543,11 +543,19 @@ def process_chunk(scope, chunk):
         delta = chunked.get("delta") or {}
         scope._output_tokens = usage.get("output_tokens", 0) or 0
         scope._finish_reason = delta.get("stop_reason") or scope._finish_reason
-        # message_delta carries final usage; update cache token counts when present
-        scope._cache_creation_input_tokens = (
-            usage.get("cache_creation_input_tokens", 0) or 0
-        )
-        scope._cache_read_input_tokens = usage.get("cache_read_input_tokens", 0) or 0
+        # message_delta carries final usage; update cache token counts when
+        # present. The comment always said "when present" and the code did not:
+        # a message_delta carrying only output_tokens reset both counters to
+        # zero, losing what message_start reported. `is not None` keeps a delta
+        # that does report a cache field authoritative while leaving the
+        # message_start values alone when it does not, which is what the Go SDK
+        # in this repository already does (sdk/go/.../anthropic/streaming.go).
+        cache_creation = usage.get("cache_creation_input_tokens")
+        if cache_creation is not None:
+            scope._cache_creation_input_tokens = cache_creation or 0
+        cache_read = usage.get("cache_read_input_tokens")
+        if cache_read is not None:
+            scope._cache_read_input_tokens = cache_read or 0
 
 
 def common_chat_logic(
@@ -890,10 +898,10 @@ def process_chat_response(
 
     # Handle token usage including reasoning tokens and cached tokens
     usage = response_dict.get("usage", {})
-    scope._input_tokens = usage.get("input_tokens", 0)
-    scope._output_tokens = usage.get("output_tokens", 0)
-    scope._cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
-    scope._cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
+    scope._input_tokens = usage.get("input_tokens", 0) or 0
+    scope._output_tokens = usage.get("output_tokens", 0) or 0
+    scope._cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0) or 0
+    scope._cache_read_input_tokens = usage.get("cache_read_input_tokens", 0) or 0
 
     scope._response_model = response_dict.get("model", "")
     scope._finish_reason = response_dict.get("stop_reason", "")

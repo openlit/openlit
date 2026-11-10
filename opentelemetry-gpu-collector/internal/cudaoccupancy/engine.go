@@ -25,6 +25,7 @@ type KernelLaunch struct {
 	TID                    uint32
 	StreamID               uint64
 	DeviceUUID             string
+	DeviceIdx              int // CUDA index when known; -1 unknown. Ignored when DeviceUUID is set.
 	KtimeNs                uint64
 	Name                   string
 	Kind                   cudaspans.LaunchKind
@@ -38,6 +39,7 @@ type SyncEvent struct {
 	TID        uint32
 	StreamID   uint64
 	DeviceUUID string
+	DeviceIdx  int // CUDA index when known; -1 unknown. Ignored when DeviceUUID is set.
 	KtimeNs    uint64
 	DeviceWide bool
 }
@@ -187,11 +189,16 @@ func (e *Engine) HandleSetDevice(ev SetDeviceEvent) {
 	e.devices.NoteSetDevice(ev.PID, ev.TID, ev.DeviceIdx)
 }
 
-func (e *Engine) resolveUUID(pid, tid uint32, explicit string) string {
+func (e *Engine) resolveUUID(pid, tid uint32, explicit string, explicitIdx int) string {
 	if explicit != "" {
 		return explicit
 	}
 	if e.devices != nil {
+		if explicitIdx >= 0 {
+			if u := e.devices.UUIDForIndex(explicitIdx); u != "" {
+				return u
+			}
+		}
 		if u := e.devices.ResolveUUID(pid, tid); u != "" {
 			return u
 		}
@@ -204,7 +211,7 @@ func (e *Engine) HandleLaunch(ev KernelLaunch) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	uuid := e.resolveUUID(ev.PID, ev.TID, ev.DeviceUUID)
+	uuid := e.resolveUUID(ev.PID, ev.TID, ev.DeviceUUID, ev.DeviceIdx)
 	if uuid == "" {
 		uuid = "unknown"
 	}
@@ -231,7 +238,7 @@ func (e *Engine) HandleSync(ev SyncEvent) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	uuid := e.resolveUUID(ev.PID, ev.TID, ev.DeviceUUID)
+	uuid := e.resolveUUID(ev.PID, ev.TID, ev.DeviceUUID, ev.DeviceIdx)
 
 	if ev.DeviceWide || ev.StreamID == 0 {
 		e.fanOutDeviceSync(ev.PID, uuid, ev.KtimeNs)
@@ -343,20 +350,21 @@ func (e *Engine) markSynchronization(h *streamHandler, ts uint64) {
 			kind = cudaspans.LaunchKindKernel
 		}
 		e.closedSinceTake = append(e.closedSinceTake, cudaspans.ClosedSpan{
-			StartNs:    l.KtimeNs,
-			EndNs:      ts,
-			PID:        l.PID,
-			TID:        l.TID,
-			StreamID:   l.StreamID,
-			DeviceUUID: l.DeviceUUID,
-			KernelName: l.Name,
-			Kind:       kind,
-			GridX:      l.GridX,
-			GridY:      l.GridY,
-			GridZ:      l.GridZ,
-			BlockX:     l.BlockX,
-			BlockY:     l.BlockY,
-			BlockZ:     l.BlockZ,
+			StartNs:     l.KtimeNs,
+			EndNs:       ts,
+			PID:         l.PID,
+			TID:         l.TID,
+			StreamID:    l.StreamID,
+			DeviceUUID:  l.DeviceUUID,
+			DeviceIndex: l.DeviceIdx,
+			KernelName:  l.Name,
+			Kind:        kind,
+			GridX:       l.GridX,
+			GridY:       l.GridY,
+			GridZ:       l.GridZ,
+			BlockX:      l.BlockX,
+			BlockY:      l.BlockY,
+			BlockZ:      l.BlockZ,
 		})
 	}
 	// Keep launches at/after ts

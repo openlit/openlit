@@ -1,6 +1,7 @@
 import { getDiscoveredServices } from "@/lib/platform/controller";
+import { withControllerProduct } from "@/lib/platform/controller/product";
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
 	const { searchParams } = new URL(request.url);
 	const start = searchParams.get("start") || undefined;
 	const end = searchParams.get("end") || undefined;
@@ -15,3 +16,5 @@ export async function GET(request: Request) {
 	}
 	return Response.json({ data: res.data || [] });
 }
+
+export const GET = withControllerProduct(GETHandler);

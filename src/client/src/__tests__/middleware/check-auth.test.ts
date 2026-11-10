@@ -88,6 +88,24 @@ describe('checkAuth', () => {
       expect(nextHandler).not.toHaveBeenCalled();
     });
 
+    it('rejects a Bearer token on API key management routes', async () => {
+      for (const [method, path] of [
+        ['GET', '/api/api-key'],
+        ['POST', '/api/api-key'],
+        ['PATCH', '/api/api-key/key-1'],
+        ['DELETE', '/api/api-key/key-1'],
+      ]) {
+        (NextResponse.json as jest.Mock).mockClear();
+        const req = makeRequest(method, path, '', { Authorization: 'Bearer abc123' });
+        await middleware(req as any, makeFetchEvent());
+        expect(NextResponse.json).toHaveBeenCalledWith(
+          { error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+      expect(nextHandler).not.toHaveBeenCalled();
+    });
+
     it('rejects an empty API key', async () => {
       const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer   ' });
       await middleware(req as any, makeFetchEvent());
@@ -124,13 +142,67 @@ describe('checkAuth', () => {
     it('forwards the request with the resolved database config id when the key is valid', async () => {
       (global as any).fetch = jest.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ valid: true, databaseConfigId: 'db-config-1' }),
+        json: async () => ({
+          valid: true,
+          databaseConfigId: 'db-config-1',
+          organisationId: 'org-1',
+          projectId: 'proj-1',
+          environment: 'staging',
+        }),
       });
+      const req = {
+        ...makeRequest('GET', '/api/vault/get-secrets'),
+        headers: new Headers({
+          Authorization: 'Bearer key-1',
+          cookie: 'next-auth.session-token=member-session',
+          'x-database-config-id': 'forged',
+        }),
+      };
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      const init = (NextResponse.next as jest.Mock).mock.calls.at(-1)?.[0];
+      // Rewritten headers go to the route as *request* headers, never echoed
+      // back as response headers.
+      expect(init.request).toBeDefined();
+      const forwarded = init.request.headers as Headers;
+      expect(forwarded.get('x-database-config-id')).toBe('db-config-1');
+      expect(forwarded.get('x-openlit-organisation-id')).toBe('org-1');
+      expect(forwarded.get('x-openlit-project-id')).toBe('proj-1');
+      expect(forwarded.get('x-openlit-environment')).toBe('staging');
+      expect(forwarded.get('authorization')).toBe('Bearer key-1');
+      expect(forwarded.get('cookie')).toBeNull();
+      expect(nextHandler).not.toHaveBeenCalled();
+    });
+
+    const mockVerifiedKey = (scopes: string[] | null) => {
+      (global as any).fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ valid: true, databaseConfigId: 'db-config-1', scopes }),
+      });
+    };
+
+    it('ignores API key scopes in the community edition', async () => {
+      mockVerifiedKey(['prompts']);
       const req = makeRequest('GET', '/api/vault/get-secrets', '', { Authorization: 'Bearer key-1' });
       await middleware(req as any, makeFetchEvent());
-      expect(nextHandler).toHaveBeenCalled();
-      const forwardedRequest = nextHandler.mock.calls[0][0] as { headers: Headers };
-      expect(forwardedRequest.headers.get('x-database-config-id')).toBe('db-config-1');
+      expect(NextResponse.next).toHaveBeenCalled();
+      const init = (NextResponse.next as jest.Mock).mock.calls.at(-1)?.[0];
+      expect(init.request.headers.get('x-database-config-id')).toBe('db-config-1');
+    });
+
+    it('strips a client-supplied x-database-config-id on session API requests', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      const headers = new Headers({ 'x-database-config-id': 'victim-db' });
+      const req = {
+        method: 'GET',
+        nextUrl: { pathname: '/api/some-endpoint', search: '' },
+        url: 'http://localhost/api/some-endpoint',
+        headers,
+      };
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      const forwarded = (NextResponse.next as jest.Mock).mock.calls.at(-1)?.[0];
+      expect(forwarded.request.headers.get('x-database-config-id')).toBeNull();
     });
 
     it('returns 401 when the verify-key request throws', async () => {
@@ -385,6 +457,38 @@ describe('checkAuth', () => {
       await middleware(req as any, makeFetchEvent());
       expect(NextResponse.next).toHaveBeenCalled();
     });
+
+    it('allows GET to /api/db-config without onboarding so step 3 can list ClickHouse configs', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('GET', '/api/db-config');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows POST to /api/db-config without onboarding so step 3 can save ClickHouse configs', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/db-config');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows GET to /api/project/environment without onboarding', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('GET', '/api/project/environment');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows POST to /api/clickhouse without onboarding so the db config form can ping', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/clickhouse');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
   });
 
   describe('onboarding-whitelisted API routes (prefix match)', () => {
@@ -409,6 +513,84 @@ describe('checkAuth', () => {
       const req = makeRequest('DELETE', '/api/organisation/invitation/456');
       await middleware(req as any, makeFetchEvent());
       expect(NextResponse.next).toHaveBeenCalled();
+    });
+
+    it('allows POST to /api/db-config/current/:id without onboarding', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/db-config/current/db-1');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('instance admin area', () => {
+    it('redirects a signed-in user who is not the instance admin away from /admin pages', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true, isInstanceAdmin: false });
+      for (const path of ['/admin', '/admin/auth']) {
+        (NextResponse.redirect as jest.Mock).mockClear();
+        await middleware(makeRequest('GET', path) as any, makeFetchEvent());
+        const redirectCall = (NextResponse.redirect as jest.Mock).mock.calls[0][0];
+        expect(redirectCall.toString()).toBe('http://localhost/home');
+      }
+    });
+
+    it('treats a token without the admin claim as not admin', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      await middleware(makeRequest('GET', '/admin/auth') as any, makeFetchEvent());
+      expect(NextResponse.redirect).toHaveBeenCalled();
+      expect(NextResponse.next).not.toHaveBeenCalled();
+    });
+
+    it('lets the instance admin open /admin pages', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true, isInstanceAdmin: true });
+      await middleware(makeRequest('GET', '/admin/auth') as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.redirect).not.toHaveBeenCalled();
+    });
+
+    it('does not treat lookalike paths as the admin area', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true, isInstanceAdmin: false });
+      await middleware(makeRequest('GET', '/administrators') as any, makeFetchEvent());
+      expect(NextResponse.redirect).not.toHaveBeenCalled();
+    });
+
+    it('sends signed-out visitors to login with the admin page as callback', async () => {
+      (getToken as jest.Mock).mockResolvedValue(null);
+      await middleware(makeRequest('GET', '/admin/auth') as any, makeFetchEvent());
+      const redirectCall = (NextResponse.redirect as jest.Mock).mock.calls[0][0];
+      expect(redirectCall.toString()).toContain(`/login?callbackUrl=${encodeURIComponent('/admin/auth')}`);
+    });
+
+    it('returns 401 for signed-out admin API calls', async () => {
+      (getToken as jest.Mock).mockResolvedValue(null);
+      await middleware(makeRequest('PATCH', '/api/admin/auth') as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Unauthorized' }, { status: 401 });
+    });
+
+    it('returns 403 for admin API calls from a user who is not the instance admin', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true, isInstanceAdmin: false });
+      await middleware(makeRequest('PATCH', '/api/admin/auth') as any, makeFetchEvent());
+      expect(NextResponse.json).toHaveBeenCalledWith(
+        { error: expect.any(String) },
+        { status: 403 }
+      );
+      expect(NextResponse.next).not.toHaveBeenCalled();
+    });
+
+    it('rejects API keys on admin API routes', async () => {
+      await middleware(
+        makeRequest('GET', '/api/admin/auth', '', { Authorization: 'Bearer key-1' }) as any,
+        makeFetchEvent()
+      );
+      expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Forbidden' }, { status: 403 });
+    });
+
+    it('passes admin API calls from the instance admin through to the route', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true, isInstanceAdmin: true });
+      await middleware(makeRequest('GET', '/api/admin/auth') as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
     });
   });
 

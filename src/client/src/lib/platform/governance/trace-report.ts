@@ -23,6 +23,9 @@ import {
 	buildSecurityFindings,
 	summarizeGovernanceReport,
 } from "./security-checks";
+import { loadOtterSecurityFindings } from "./otter-findings";
+import { policyControlsForFindings } from "./policy-packs";
+import { stampGovernanceReportId } from "./passport";
 import { createHash } from "crypto";
 
 export const GOVERNANCE_MAX_SPANS_RULE_EVAL = 100;
@@ -253,9 +256,14 @@ export async function buildTraceGovernanceReport(
 		spanIdsForEval,
 		opts?.databaseConfigId
 	);
+	const otter = await loadOtterSecurityFindings(
+		root.SpanId,
+		opts?.databaseConfigId
+	);
 	const security = [
 		...buildSecurityFindings(spans),
 		...evaluationFindings(evaluations),
+		...otter.findings,
 	];
 	const harness = buildHarnessMetrics(root, spans);
 	const { risk_level, summary } = summarizeGovernanceReport(
@@ -263,9 +271,10 @@ export async function buildTraceGovernanceReport(
 		ruleMatches.length,
 		evaluations.length
 	);
+	const policy_controls = policyControlsForFindings(security);
 
 	return {
-		report: {
+		report: stampGovernanceReportId({
 			trace_id: root.TraceId || opts?.traceId || spanId,
 			root_span_id: root.SpanId,
 			risk_level,
@@ -277,6 +286,8 @@ export async function buildTraceGovernanceReport(
 			finding_count: security.length,
 			rule_match_count: ruleMatches.length,
 			analysis_limited: analysisLimited || undefined,
-		},
+			otter_run_id: otter.otter_run_id,
+			policy_controls: policy_controls.length ? policy_controls : undefined,
+		}),
 	};
 }

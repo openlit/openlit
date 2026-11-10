@@ -29,6 +29,7 @@ import {
 import { AGENTS_SUMMARY_TABLE, AGENT_VERSIONS_TABLE } from "./table-details";
 import { escapeClickHouseString } from "@/lib/clickhouse-escape";
 import { mergeProviders } from "./provider-normalize";
+import { isControllerProductEnabled } from "@/lib/platform/controller/product";
 
 /** SQL: fold empty / local-dev env labels into `default` (matches normalizeDeploymentEnvironment). */
 const DEPLOYMENT_ENV_SQL = `multiIf(
@@ -366,13 +367,7 @@ async function discoverAgents(
 			latest.last_seen AS last_seen
 		FROM latest
 	`;
-	const ctrlRes = await intelligenceDataCollector({ query: ctrlQuery }, "query", dbConfigId);
-	if (ctrlRes.err) {
-		agentsLogger.error("materializer_controller_discovery_failed", {
-			err: ctrlRes.err,
-		});
-	}
-	const ctrlRows = (ctrlRes.data as Array<{
+	let ctrlRows: Array<{
 		id: string;
 		controller_instance_id: string;
 		cluster_id: string;
@@ -384,7 +379,17 @@ async function discoverAgents(
 		llm_providers: string[] | null;
 		first_seen: string;
 		last_seen: string;
-	}>) || [];
+	}> = [];
+	if (isControllerProductEnabled()) {
+		const ctrlRes = await intelligenceDataCollector({ query: ctrlQuery }, "query", dbConfigId);
+		if (ctrlRes.err) {
+			agentsLogger.error("materializer_controller_discovery_failed", {
+				err: ctrlRes.err,
+			});
+		}
+		ctrlRows =
+			(ctrlRes.data as typeof ctrlRows) || [];
+	}
 
 	const merged = new Map<string, DiscoveredAgent>();
 	// Secondary index: (cluster_id|workload_key) -> agent_key in `merged`.
@@ -559,9 +564,10 @@ function buildCodingWindowClause(
  * arbitrary time window. Used by `listAgents` when the user's
  * top-right time filter is something other than the materializer's
  * fixed 24h. We deliberately call into the same query path as the
- * materializer (one row per vendor, `greatest(session.cost_usd,
- * sum(turn.cost))` per chat) so the hub numbers can never disagree
- * with the Sessions / Users / Dashboard tabs for the same window.
+ * materializer (one row per vendor; per chat, the root's
+ * session.cost_usd when present, otherwise the sum of non-root turn
+ * costs) so the hub numbers can never disagree with the Sessions /
+ * Users / Dashboard tabs for the same window.
  */
 export async function recomputeCodingAgentsForWindow(
 	window: CodingAgentDiscoveryWindow,
@@ -619,18 +625,20 @@ async function discoverCodingAgents(
 	//     estimates from text length × static pricing; Claude Code
 	//     uses authoritative provider numbers).
 	//
-	// We sum both per session and `greatest()` them — exactly how the
-	// per-session list does it — so an authoritative session-end total
-	// wins when present and a turn-by-turn estimate keeps the row
-	// non-zero in the meantime. Active-user rollup also moves to
+	// We take the root's session total when present and otherwise sum
+	// the non-root (per-turn) costs — exactly how the per-session list
+	// does it — so an authoritative session-end total wins and a
+	// turn-by-turn estimate keeps the row non-zero in the meantime. The
+	// root also carries its total as gen_ai.usage.cost, so it is left
+	// out of that sum. Active-user rollup also moves to
 	// `gen_ai.user.name` (which the CLI stamps as a resource attr) so
 	// it stops returning 0 when the per-span `user.id` isn't set.
 	// Materialize over CHAT_ID (= coalesce(parent_id, session_id)) so
 	// the hub stats agree with the Sessions list:
 	//   - 1 parent chat + N subagents = 1 session in both views
-	//   - cost is summed across all spans of the chat (the parent's
-	//     authoritative `coding_agent.session.cost_usd` still wins
-	//     when present, via greatest())
+	//   - cost is the root's authoritative
+	//     `coding_agent.session.cost_usd` when present, otherwise the
+	//     sum of the chat's non-root spans
 	//   - active_users stores the *raw* distinct-user count. The
 	//     COHORT_K_FLOOR mask used to live here, but it ran before
 	//     auth context was even resolved, so a single-developer OSS
@@ -647,8 +655,7 @@ async function discoverCodingAgents(
 	// (coalesce of parent_id and session_id, both raw map lookups),
 	// so we can GROUP BY (vendor, chat_id) directly. session-level
 	// aggregation isn't needed because each (chat_id, session_id)
-	// shares the same vendor, and cost is summed across all spans of
-	// the chat anyway.
+	// shares the same vendor, and cost is rolled up per chat anyway.
 	// The chat_id rollup MUST mirror queries.ts CHAT_ID_EXPR so the hub
 	// row counts agree with the Sessions list. New vendors should fold
 	// into the per-row coalesce here, NOT introduce a second discovery
@@ -700,11 +707,20 @@ async function discoverCodingAgents(
 					nullIf(ResourceAttributes['session.id'], '')
 				) AS chat_id,
 				-- session-end cost wins when present, otherwise sum of
-				-- per-turn cost estimates. Both are stamped on chat-level
-				-- spans (root and per LLM turn).
-				greatest(
-					toFloat64OrZero(any(SpanAttributes['coding_agent.session.cost_usd'])),
-					sumOrNull(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']))
+				-- per-turn cost estimates. The root span carries the
+				-- session total as both coding_agent.session.cost_usd and
+				-- gen_ai.usage.cost, so the per-turn sum skips it (same
+				-- dedupe as the cost_usd column in coding-agents/queries.ts).
+				coalesce(
+					nullIf(toFloat64OrZero(anyIf(
+						SpanAttributes['coding_agent.session.cost_usd'],
+						SpanName = 'coding_agent.session'
+					)), 0),
+					sumOrNull(if(
+						SpanName != 'coding_agent.session',
+						toFloat64OrZero(SpanAttributes['gen_ai.usage.cost']),
+						0
+					))
 				) AS chat_cost,
 				-- Per-chat code-change rollups. The greatest(session-
 				-- rollup-attr, per-edit-decision-sum) pattern mirrors

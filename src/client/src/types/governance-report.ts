@@ -7,7 +7,25 @@ export type GovernanceFindingCategory =
 	| "evaluation"
 	| "coding_agent"
 	| "harness"
-	| "policy";
+	| "policy"
+	| "prompt_injection"
+	| "tool_misuse";
+
+export type GovernancePolicyFramework =
+	| "nist_ai_rmf"
+	| "eu_ai_act"
+	| "owasp_asi";
+
+export type GovernancePolicyControl = {
+	framework: GovernancePolicyFramework;
+	control_id: string;
+	title: string;
+	finding_categories: GovernanceFindingCategory[];
+	/** Optional auditor-facing note from the pack entry. */
+	rationale?: string;
+	/** Source pack id (e.g. `nist-ai-rmf`) when emitted from the registry. */
+	pack_id?: string;
+};
 
 export type GovernanceRuleEntityType =
 	| "context"
@@ -82,6 +100,8 @@ export type GovernanceHarnessReport = {
 export type TraceGovernanceReport = {
 	trace_id: string;
 	root_span_id: string;
+	/** Stable id for CI / evidence correlation (`openlit.governance.report_id`). */
+	report_id?: string;
 	risk_level: GovernanceSeverity | "none";
 	summary: string;
 	harness: GovernanceHarnessReport;
@@ -91,4 +111,8 @@ export type TraceGovernanceReport = {
 	finding_count: number;
 	rule_match_count: number;
 	analysis_limited?: boolean;
+	/** Latest Otter trace_analysis run id when security dims were merged. */
+	otter_run_id?: string;
+	/** Policy pack controls implicated by findings on this trace. */
+	policy_controls?: GovernancePolicyControl[];
 };

@@ -50,6 +50,11 @@ jest.mock("@/utils/log", () => ({
 }));
 
 let headerValues: Record<string, string | null> = {};
+jest.mock("@/lib/platform/api-keys", () => ({
+	getAPIKeyInfo: jest.fn(async ({ apiKey }: { apiKey: string }) =>
+		apiKey === "live-key" ? [null, { databaseConfigId: "db-header" }] : [null, null]
+	),
+}));
 jest.mock("next/headers", () => ({
 	headers: jest.fn(async () => ({
 		get: (key: string) => headerValues[key] ?? null,
@@ -214,6 +219,7 @@ describe("request-context header resolution (getCurrentProjectId)", () => {
 
 	it("resolves the project via the middleware database-config header when no project header is present", async () => {
 		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "db-header";
+		headerValues.authorization = "Bearer live-key";
 		mockGetDBConfigByIdInternal.mockResolvedValue({
 			id: "db-header",
 			projectId: "proj-fromheader",
@@ -230,8 +236,22 @@ describe("request-context header resolution (getCurrentProjectId)", () => {
 		});
 	});
 
+	it("ignores a middleware database-config header that no live API key backs", async () => {
+		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "victim-db";
+		headerValues.authorization = "Bearer live-key";
+		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
+		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
+		mockFindFirst.mockResolvedValue(null);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+
+		await resolveTelemetrySourceDescriptor();
+
+		expect(mockGetDBConfigByIdInternal).not.toHaveBeenCalledWith({ id: "victim-db" });
+	});
+
 	it("falls through to org lookup when the header database config has no projectId", async () => {
 		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "db-header";
+		headerValues.authorization = "Bearer live-key";
 		mockGetDBConfigByIdInternal.mockResolvedValue({ id: "db-header" });
 		mockGetCurrentOrganisation.mockResolvedValue({ id: "org-1" });
 		mockGetCurrentProjectForOrganisation.mockResolvedValue({ id: "proj-1" });
@@ -502,6 +522,16 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 		expect(res.via).toBe("none");
 	});
 
+	it("falls back to built-in ClickHouse when an explicit environment has no binding", async () => {
+		mockBindingFindUnique.mockResolvedValue(null);
+		mockFindMany.mockResolvedValue([]);
+		mockGetDBConfigByUser.mockResolvedValue(dbConfig);
+		const res = await resolveSignalSource("traces", { environment: "demo" });
+		expect(res.via).toBe("builtin");
+		expect(res.hasSource).toBe(true);
+		expect(res.descriptor.dbConfigId).toBe("db-1");
+	});
+
 	it("never routes a signal to a source that lacks it; falls back to built-in", async () => {
 		mockBindingFindUnique.mockResolvedValue(null);
 		mockFindMany.mockResolvedValue([
@@ -634,9 +664,9 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 			},
 			include: { source: true, databaseConfig: true },
 		});
-		// An explicitly requested (if invalid) environment still fails closed
-		// when nothing is routed for it, rather than silently using a default.
-		expect(res.via).toBe("none");
+		expect(res.via).toBe("builtin");
+		expect(res.hasSource).toBe(true);
+		expect(res.descriptor.dbConfigId).toBe("db-1");
 	});
 
 	it("scopes resolveActiveCredentialDatabase to null when an explicit projectId is given without a dbConfigId", async () => {
@@ -656,6 +686,7 @@ describe("resolveSignalSource (signal-aware routing)", () => {
 
 	it("resolves the active vault database from the middleware header when no dbConfigId/projectId override is given", async () => {
 		headerValues[MIDDLEWARE_DATABASE_CONFIG_HEADER] = "db-header";
+		headerValues.authorization = "Bearer live-key";
 		mockGetDBConfigByIdInternal.mockResolvedValue({
 			...dbConfig,
 			id: "db-header",
@@ -814,7 +845,7 @@ describe("getTelemetryAdapterForDbConfig", () => {
 		expect(mockGetDBConfigById).not.toHaveBeenCalled();
 	});
 
-	it("throws the typed no-source error when the DatabaseConfig's environment has no routed connector", async () => {
+	it("falls back to the DatabaseConfig ClickHouse when the environment has no dedicated binding", async () => {
 		mockGetDBConfigByIdInternal.mockResolvedValue({
 			...dbConfig,
 			environment: "production",
@@ -823,7 +854,10 @@ describe("getTelemetryAdapterForDbConfig", () => {
 
 		await expect(
 			getTelemetryAdapterForDbConfig("db-1", "traces")
-		).rejects.toThrow(/No connector is configured/);
+		).resolves.toMatchObject({
+			isBuiltIn: true,
+			descriptor: { id: "builtin:db-1", dbConfigId: "db-1" },
+		});
 	});
 
 	it("resolves the isBuiltIn descriptor unchanged (no dbConfigId re-attachment) when the binding routes to the built-in store", async () => {

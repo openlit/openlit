@@ -30,13 +30,21 @@ describe('ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN', () => {
 });
 
 describe('ALLOWED_OPENLIT_ROUTES_WITH_TOKEN', () => {
-  it('includes API key and db-config routes for Bearer auth', () => {
-    expect(ALLOWED_OPENLIT_ROUTES_WITH_TOKEN).toContain('/api/api-key');
+  it('includes the db-config route for Bearer auth', () => {
     expect(ALLOWED_OPENLIT_ROUTES_WITH_TOKEN).toContain('/api/db-config');
   });
 
-  it('includes API key prefix for delete-by-id', () => {
-    expect(ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN).toContain('/api/api-key/');
+  // API key management is session-only: a Bearer key must not list,
+  // create, change, or delete keys (including its own).
+  it('does not allow Bearer auth on API key management routes', () => {
+    expect(ALLOWED_OPENLIT_ROUTES_WITH_TOKEN).not.toContain('/api/api-key');
+    expect(ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN).not.toContain('/api/api-key/');
+  });
+
+  it('allows Bearer poll but not unauthenticated poll or a controller prefix', () => {
+    expect(ALLOWED_OPENLIT_ROUTES_WITH_TOKEN).toContain('/api/controller/poll');
+    expect(ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN).not.toContain('/api/controller/poll');
+    expect(ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN).not.toContain('/api/controller/');
   });
 });
 
@@ -74,8 +82,20 @@ describe('ONBOARDING_WHITELIST_API_ROUTES', () => {
     expect(ONBOARDING_WHITELIST_API_ROUTES.exact.POST).toContain('/api/organisation');
   });
 
+  it('allows database config setup APIs before onboarding is complete', () => {
+    expect(ONBOARDING_WHITELIST_API_ROUTES.exact.GET).toContain('/api/db-config');
+    expect(ONBOARDING_WHITELIST_API_ROUTES.exact.GET).toContain('/api/project/environment');
+    expect(ONBOARDING_WHITELIST_API_ROUTES.exact.POST).toContain('/api/db-config');
+    expect(ONBOARDING_WHITELIST_API_ROUTES.exact.POST).toContain('/api/clickhouse');
+    expect(ONBOARDING_WHITELIST_API_ROUTES.exact.POST).toContain('/api/project/environment');
+  });
+
   it('prefix.POST includes /api/organisation/current/', () => {
     expect(ONBOARDING_WHITELIST_API_ROUTES.prefix.POST).toContain('/api/organisation/current/');
+  });
+
+  it('prefix.POST includes /api/db-config/ for setting the active config', () => {
+    expect(ONBOARDING_WHITELIST_API_ROUTES.prefix.POST).toContain('/api/db-config/');
   });
 
   it('prefix.DELETE includes /api/organisation/invitation/', () => {

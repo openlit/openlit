@@ -18,12 +18,23 @@ type CUDAEvent interface {
 	ProcessPID() uint32
 }
 
+// DeviceIdxUnknown is the BPF header sentinel when CUDA device index is unset.
+const DeviceIdxUnknown = uint16(0xffff)
+
 type eventMeta struct {
 	PID       uint32
 	TID       uint32
 	StreamID  uint64
 	KtimeNs   uint64
-	DeviceIdx uint16 // 0xffff = unknown
+	DeviceIdx uint16 // DeviceIdxUnknown when unset
+}
+
+// DeviceIndex converts a BPF header device_idx to a CUDA index, or -1 if unknown.
+func DeviceIndex(idx uint16) int {
+	if idx == DeviceIdxUnknown {
+		return -1
+	}
+	return int(idx)
 }
 
 type KernelLaunchEvent struct {

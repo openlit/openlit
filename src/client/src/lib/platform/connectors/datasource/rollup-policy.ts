@@ -28,6 +28,7 @@ export function queryHasScopeFilters(query: OpenLITQuery): boolean {
 		if (f.target !== "attribute" || !f.key) return false;
 		return (
 			f.key === "service.name" ||
+			f.key === "organisation.environment.name" ||
 			f.key === "deployment.environment" ||
 			f.key === "openlit.agent.version_hash"
 		);

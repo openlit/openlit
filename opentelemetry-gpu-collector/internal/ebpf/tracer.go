@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -82,7 +83,9 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 			"cudaGraphLaunch":             objs.HandleCudaGraphLaunch,
 			"__cudaGetKernel":             objs.HandleCudaGetKernelEnter,
 			"cudaMalloc":                  objs.HandleCudaMallocEnter,
+			"cudaMallocAsync":             objs.HandleCudaMallocEnter,
 			"cudaFree":                    objs.HandleCudaFree,
+			"cudaMemcpy":                  objs.HandleCudaMemcpyEnter,
 			"cudaMemcpyAsync":             objs.HandleCudaMemcpyAsync,
 			"cudaStreamSynchronize":       objs.HandleCudaStreamSyncEnter,
 			"cudaEventRecord":             objs.HandleCudaEventRecordEnter,
@@ -92,6 +95,7 @@ func NewTracer(logger *slog.Logger, handler EventHandler) (*Tracer, error) {
 		uretprobes: map[string]*ebpf.Program{
 			"__cudaGetKernel":       objs.HandleCudaGetKernelExit,
 			"cudaMalloc":            objs.HandleCudaMalloc,
+			"cudaMallocAsync":       objs.HandleCudaMalloc,
 			"cudaMemcpy":            objs.HandleCudaMemcpy,
 			"cudaStreamSynchronize": objs.HandleCudaStreamSync,
 			"cudaDeviceSynchronize": objs.HandleCudaDeviceSync,
@@ -161,6 +165,7 @@ func (t *Tracer) attachNewCudaLibs() int {
 		}
 	}
 	t.refreshCudartPIDs()
+	t.dropDeadCurrentDevices()
 	return attached
 }
 
@@ -187,6 +192,31 @@ func (t *Tracer) refreshCudartPIDs() {
 	for _, pid := range stale {
 		p := pid
 		_ = t.objs.CudartPids.Delete(&p)
+	}
+}
+
+func procExists(pid uint32) bool {
+	_, err := os.Stat("/proc/" + strconv.FormatUint(uint64(pid), 10))
+	return err == nil
+}
+
+// dropDeadCurrentDevices removes cuda_current_device entries for exited
+// processes. Without this, a reused pid_tgid inherits the previous process's
+// CUDA index and fill_header stamps the wrong hw.id.
+func (t *Tracer) dropDeadCurrentDevices() {
+	if t.closed.Load() || t.objs == nil || t.objs.CudaCurrentDevice == nil {
+		return
+	}
+	var key uint64
+	var val int32
+	var keys []uint64
+	iter := t.objs.CudaCurrentDevice.Iterate()
+	for iter.Next(&key, &val) {
+		keys = append(keys, key)
+	}
+	for _, k := range stalePidTgidKeys(keys, procExists) {
+		key := k
+		_ = t.objs.CudaCurrentDevice.Delete(&key)
 	}
 }
 
@@ -308,11 +338,12 @@ func (t *Tracer) Run(ctx context.Context) {
 
 	go func() {
 		defer t.wg.Done()
-		// Fast while waiting for the first libcudart/libcuda; back off once
-		// attached so steady-state /proc scans stay cheap on busy nodes.
-		interval := 30 * time.Second
-		ticker := time.NewTicker(interval)
+		// Device-map hygiene stays at 30s so a reused pid_tgid cannot keep a
+		// dead process's CUDA index. Full libcudart/libcuda /proc scans still
+		// back off after the first attach.
+		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
+		var lastAttach time.Time
 		for {
 			select {
 			case <-ctx.Done():
@@ -320,14 +351,15 @@ func (t *Tracer) Run(ctx context.Context) {
 			case <-t.stop:
 				return
 			case <-ticker.C:
+				t.dropDeadCurrentDevices()
+				next := cudaRescanInterval(t.hasAttachedProbes())
+				if !lastAttach.IsZero() && time.Since(lastAttach) < next {
+					continue
+				}
 				n := t.attachNewCudaLibs()
+				lastAttach = time.Now()
 				if n > 0 {
 					t.logger.Info("attached CUDA probes after /proc rescan", "libraries", n)
-				}
-				next := cudaRescanInterval(t.hasAttachedProbes())
-				if next != interval {
-					interval = next
-					ticker.Reset(interval)
 				}
 			}
 		}

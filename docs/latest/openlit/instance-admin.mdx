@@ -1,0 +1,189 @@
+---
+title: 'Instance admin'
+description: 'Manage settings for the whole OpenLIT instance, including sign-in providers and the people who can change them'
+icon: 'user-shield'
+tag: 'Enterprise'
+---
+
+import EnterpriseFeature from '/snippets/enterprise-feature.mdx';
+
+<EnterpriseFeature />
+
+The instance admin area holds settings that apply to the whole OpenLIT deployment rather than to one organisation or project. It has its own layout, without the organisation, project, or database switchers, and only instance admins can open it.
+
+The instance admin area has two pages:
+
+- **[Auth](#auth)**: set up and test Google, GitHub, Microsoft, and Okta sign-in without redeploying.
+- **[Admins](#admins)**: choose who else can manage instance settings.
+
+## Who is the instance admin
+
+The first account created on the instance is the **primary instance admin**. On a standard install this is the seeded `user@openlit.io` account. On installs that don't run the seed, it's the first person to register.
+
+- The primary admin can't be removed, so the instance always has an admin.
+- The primary admin can [add more admins](#admins).
+- Instance admin is separate from organisation roles. Being an organisation **Owner** doesn't make someone an instance admin, and being an instance admin doesn't change their organisation access.
+
+## Open the instance admin area
+
+Instance admins see an **Instance admin** entry in two places:
+
+- **Settings** in the sidebar
+- The account menu at the bottom of the sidebar
+
+Both open `/admin`. Anyone else who opens `/admin` is sent back to the home page, and the instance admin APIs return `403`.
+
+<Frame>
+  <img src="/images/enterprise/instance-admin-settings-entry.png" alt="Settings panel in the sidebar with the Instance admin entry below OpenAPI Spec" />
+</Frame>
+
+Select **Back to app** in the admin sidebar to return to your organisation.
+
+## Availability
+
+| | Community | Enterprise |
+| --- | :---: | :---: |
+| Sign in with Google, GitHub, Microsoft, and Okta using [environment variables](/latest/openlit/oauth) | ✓ | ✓ |
+| First account is the instance admin | ✓ | ✓ |
+| [Auth](#auth): manage and test sign-in providers in the app | | ✓ |
+| [Admins](#admins): add and remove instance admins | | ✓ |
+
+The instance admin pages need the [OpenLIT Enterprise](/latest/openlit/enterprise) build and an active enterprise license on **at least one organisation** on the instance. They don't need a specific license feature. Without a license, the pages are locked and the APIs return `403` with `upgrade_required`.
+
+In the community edition, `/admin` opens for the instance admin but has no settings pages.
+
+## Auth
+
+**Auth** (`/admin/auth`) shows every sign-in provider OpenLIT supports. Saved values override the deployment's [environment variables](/latest/openlit/configuration#oauth-authentication-variables) and apply on the next sign-in, with no restart.
+
+<Frame>
+  <img src="/images/enterprise/instance-admin-auth.png" alt="Auth page with provider tiles for Google, GitHub, Microsoft, and Okta, the Okta form, and a credential test result" />
+</Frame>
+
+### Provider status
+
+Each provider tile shows whether its button appears on the sign-in page:
+
+| Status | Meaning |
+| --- | --- |
+| **Shown on sign-in** | Every required value is set |
+| **Incomplete** | Some values are set; the form lists the missing fields |
+| **Not configured** | No values are set |
+
+A dot next to a provider's name means it has unsaved changes. If more providers are available than fit on screen, use the arrows on either side of the row to scroll.
+
+### Configure a provider
+
+<Steps>
+  <Step title="Select the provider">
+    Select a provider tile to open its form. The form shows the redirect URI to register with the provider.
+  </Step>
+  <Step title="Enter the values">
+    Each field shows where its current value comes from: **Saved for this instance**, **Deployment environment**, or **Not configured**.
+    - Client IDs, the Microsoft tenant ID, and the Okta issuer are shown.
+    - Client secrets are never shown again after they're saved. Leave a secret field empty to keep the current secret.
+  </Step>
+  <Step title="Test the credentials">
+    Select **Test credentials**. See [Test credentials](#test-credentials).
+  </Step>
+  <Step title="Save">
+    Select **Save changes**. The provider's button appears on the sign-in page on the next sign-in.
+  </Step>
+</Steps>
+
+To go back to the deployment's value for a field, select **Use deployment value** below it and save.
+
+### Test credentials
+
+**Test credentials** checks the values in the form with the provider before you save them. Empty fields use the saved or deployment value. Nothing is saved, and secrets are never shown in the result.
+
+| Provider | What's checked |
+| --- | --- |
+| Google | Client ID and secret |
+| GitHub | Client ID and secret |
+| Microsoft | Tenant, then client ID and secret |
+| Okta | Issuer, then client ID and secret |
+
+The result shows whether the provider accepted the credentials, plus the provider's error code when it didn't (for example `invalid_client`).
+
+<Note>
+A successful test confirms the client ID and secret. It doesn't confirm that the redirect URI is registered with the provider, so check that separately.
+</Note>
+
+With the Microsoft tenant set to `common`, Microsoft may not confirm credentials that are correct, and the test reports that they couldn't be confirmed. Set a single directory for a definite answer.
+
+### Validation and storage
+
+- The Okta issuer must be a public `https` URL. IP addresses, `localhost`, and addresses that resolve to a private network are rejected.
+- The Microsoft tenant must be a directory ID, a domain, `common`, `organizations`, or `consumers`.
+- Saved values are encrypted at rest.
+- Saving is recorded in [Audit Logs](/latest/openlit/audit-logs) as `instance_auth.updated`, listing only the changed variable names, never their values.
+
+## Admins
+
+**Admins** (`/admin/admins`) lists everyone who can manage instance settings. For each admin it shows who added them and when.
+
+<Frame>
+  <img src="/images/enterprise/instance-admin-admins.png" alt="Admins page with an add-by-email form, the primary admin, and an added admin with a Remove button" />
+</Frame>
+
+### Add an admin
+
+1. Enter the person's email under **Add an admin by email**.
+2. Select **Add admin**.
+
+The person needs an OpenLIT account on this instance first. Ask them to sign up or sign in once before you add them. They get access to the instance admin area on their next page load.
+
+### Remove an admin
+
+Select **Remove** next to an admin and confirm. They lose access to instance settings on their next request. Their account and organisation access don't change.
+
+- The primary admin can't be removed.
+- You can't remove yourself. Ask another admin to remove you.
+
+Adding and removing admins is recorded in [Audit Logs](/latest/openlit/audit-logs) as `instance_admin.added` and `instance_admin.removed`.
+
+## Audit logs
+
+Instance admin actions are recorded against the acting admin's current organisation, when that organisation is licensed for [Audit Logs](/latest/openlit/audit-logs).
+
+| Action | Recorded when |
+| --- | --- |
+| `instance_auth.updated` | Sign-in provider settings are saved |
+| `instance_admin.added` | An instance admin is added |
+| `instance_admin.removed` | An instance admin is removed |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="I don't see Instance admin in Settings">
+    - Only instance admins see the entry. Check with the primary admin that you were added on the **Admins** page.
+    - The community edition has no instance settings pages, so the entry is hidden there.
+  </Accordion>
+
+  <Accordion title="The Auth or Admins page is locked">
+    Apply an active enterprise license to any organisation on the instance. See [How licensing works](/latest/openlit/enterprise#how-licensing-works).
+  </Accordion>
+
+  <Accordion title="No account uses that email">
+    The person must have an OpenLIT account before they can be made an admin. Ask them to sign up on this instance, then add them again.
+  </Accordion>
+
+  <Accordion title="A provider is saved but its button doesn't appear">
+    Open the provider on **Auth** and check its status. **Incomplete** lists the missing fields. For example, Okta needs a client ID, client secret, and issuer.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Sign-in providers" href="/latest/openlit/oauth" icon="shield-check">
+    Set up Google, GitHub, Microsoft, and Okta sign-in
+  </Card>
+  <Card title="OpenLIT Enterprise" href="/latest/openlit/enterprise" icon="crown">
+    Enterprise features and how licensing works
+  </Card>
+  <Card title="Audit Logs" href="/latest/openlit/audit-logs" icon="clock-rotate-left">
+    Who changed what across your organisation
+  </Card>
+</CardGroup>

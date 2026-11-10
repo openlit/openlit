@@ -220,6 +220,24 @@ describe('getEvaluationConfig', () => {
     expect(result.evaluationTypes).toBeDefined();
     expect(result.evaluationTypes!.length).toBeGreaterThan(0);
   });
+
+  it('loads default prompts for the database config it was given', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, makeMockEvalConfig()]);
+
+    await getEvaluationConfig({ id: 'db-9' } as any);
+
+    expect(getEvaluationTypeDefaultPrompts).toHaveBeenCalledWith('db-9');
+  });
+
+  it('loads default prompts for the session database config', async () => {
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, { id: 'db-9' }])
+      .mockResolvedValueOnce([null, makeMockEvalConfig()]);
+
+    await getEvaluationConfig();
+
+    expect(getEvaluationTypeDefaultPrompts).toHaveBeenCalledWith('db-9');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -267,10 +285,24 @@ describe('setEvaluationConfig', () => {
     const result = await setEvaluationConfig(inputConfig as any, 'http://api.example.com');
 
     expect(prisma.evaluationConfigs.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'eval-cfg-1' } })
+      expect.objectContaining({ where: { id: 'eval-cfg-1', databaseConfigId: 'db-1' } })
     );
     expect(prisma.evaluationConfigs.update).toHaveBeenCalledTimes(1);
     expect(result).toEqual(updatedRecord);
+  });
+
+  it('does not update a config that belongs to another database', async () => {
+    const inputConfig = { id: 'foreign-eval', auto: false, recurringTime: '', meta: '{}' };
+
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, null]);
+
+    await expect(
+      setEvaluationConfig(inputConfig as any, 'http://api.example.com')
+    ).rejects.toThrow('Eval config not found');
+    expect(prisma.evaluationConfigs.update).not.toHaveBeenCalled();
+    expect(prisma.evaluationConfigs.create).not.toHaveBeenCalled();
   });
 
   it('throws EVALUATION_CONFIG_SET_ERROR when prisma create fails', async () => {
@@ -544,6 +576,15 @@ describe('getEvaluationConfigById', () => {
     expect(result.evaluationTypes).toBeDefined();
     expect(result.evaluationTypes!.length).toBeGreaterThan(0);
   });
+
+  it('loads default prompts for the config row databaseConfigId', async () => {
+    const config = { ...makeMockEvalConfig(), databaseConfigId: 'db-9' };
+    (asaw as jest.Mock).mockResolvedValueOnce([null, config]);
+
+    await getEvaluationConfigById('eval-cfg-1');
+
+    expect(getEvaluationTypeDefaultPrompts).toHaveBeenCalledWith('db-9');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -593,6 +634,15 @@ describe('getEvaluationConfigByDbConfigId', () => {
 
     expect(getSecretById).toHaveBeenCalledWith('vault-1', 'db-1', false);
     expect(result.secret).toEqual(secretWithValue);
+  });
+
+  it('loads default prompts for the requested databaseConfigId', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, makeMockEvalConfig()]);
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [mockSecret] });
+
+    await getEvaluationConfigByDbConfigId('db-9');
+
+    expect(getEvaluationTypeDefaultPrompts).toHaveBeenCalledWith('db-9');
   });
 
   it('defaults meta to an empty object when config.meta is undefined', async () => {

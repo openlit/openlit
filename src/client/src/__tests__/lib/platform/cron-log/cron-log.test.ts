@@ -151,4 +151,11 @@ describe('getLastFailureCronLogBySpanId', () => {
     expect(query).toContain('span-1');
     expect(query).toContain('FAILURE');
   });
+
+  it('escapes quotes in spanId before interpolating into ClickHouse', async () => {
+    await getLastFailureCronLogBySpanId("span-' OR 1=1");
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toContain("span-\\' OR 1=1");
+    expect(query).not.toMatch(/'"span-' OR 1=1"/);
+  });
 });

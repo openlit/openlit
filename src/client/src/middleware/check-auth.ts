@@ -13,24 +13,26 @@ import {
 	ALLOWED_OPENLIT_ROUTES_WITH_TOKEN,
 	ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN,
 	CRON_JOB_ROUTES,
+	ENGINE_INTERNAL_ROUTES,
 	ONBOARDING_WHITELIST_ROUTES,
 	ONBOARDING_WHITELIST_ROUTE_PREFIXES,
 	ONBOARDING_WHITELIST_API_ROUTES,
+	INSTANCE_ADMIN_ROUTE_PREFIX,
+	INSTANCE_ADMIN_API_ROUTE_PREFIX,
 } from "@/constants/route";
+import { isValidCronJobRequest } from "@/helpers/server/cron-auth";
+import { isApiKeyPathAllowed } from "@/lib/platform/api-key-access/scopes";
+import getMessage from "@/constants/messages";
 
-function isValidCronJobRequest(request: NextRequest) {
-	// Self-hosted / dev installs run the cron in the same container and do
-	// not set CRON_JOB_SECRET. Fall back to the literal "true" the cron
-	// scripts send so the materialize / evaluation / pricing crons work out
-	// of the box (this matches the documented `-H 'X-CRON-JOB: true'` call).
-	// When an operator DOES set CRON_JOB_SECRET, both this check and the cron
-	// scripts use it, so the endpoints require the secret and can't be
-	// triggered without it.
-	const expectedToken = process.env.CRON_JOB_SECRET || "true";
-	const cronJobToken =
-		request.headers.get("X-CRON-JOB") ?? request.headers.get("x-cron-job");
+const CLIENT_TENANT_HEADERS = [
+	"x-database-config-id",
+	"x-openlit-database-config-id",
+] as const;
 
-	return cronJobToken === expectedToken;
+function stripClientTenantHeaders(headers: Headers) {
+	for (const name of CLIENT_TENANT_HEADERS) {
+		headers.delete(name);
+	}
 }
 
 const rateLimitWindows = new Map<string, { count: number; resetAt: number }>();
@@ -50,10 +52,15 @@ const RATE_LIMITED_API_PREFIXES = [
 	"/api/agents",
 	"/api/alerts",
 	"/api/vault",
+	"/api/admin",
 	"/api/context",
 	"/api/manage-dashboard",
 ];
 let nextRateLimitCleanupAt = 0;
+
+function isWithinPrefix(pathname: string, prefix: string) {
+	return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 function shouldRateLimitApi(pathname: string) {
 	return RATE_LIMITED_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
@@ -114,6 +121,13 @@ export default function checkAuth(next: NextMiddleware) {
 				return NextResponse.next();
 			}
 
+			const requestHeaders = new Headers(request.headers);
+			stripClientTenantHeaders(requestHeaders);
+			const continueWithoutClientTenant = () =>
+				NextResponse.next({
+					request: { headers: requestHeaders },
+				});
+
 			const isWithTokenRoute =
 				ALLOWED_OPENLIT_ROUTES_WITH_TOKEN.includes(pathname) ||
 				ALLOWED_OPENLIT_ROUTE_PREFIXES_WITH_TOKEN.some((prefix) =>
@@ -142,14 +156,47 @@ export default function checkAuth(next: NextMiddleware) {
 					if (res.ok) {
 						const data = await res.json();
 						if (data.valid && data.databaseConfigId) {
-							const requestHeaders = new Headers(request.headers);
+							if (!isApiKeyPathAllowed(pathname, data.scopes)) {
+								return NextResponse.json(
+									{ error: getMessage().API_KEY_FEATURE_ACCESS_DENIED },
+									{ status: 403 }
+								);
+							}
 							requestHeaders.set("x-database-config-id", data.databaseConfigId);
-							return next(
-								new NextRequest(request, {
-									headers: requestHeaders,
-								}),
-								_next
-							);
+							if (data.organisationId) {
+								requestHeaders.set(
+									"x-openlit-organisation-id",
+									String(data.organisationId)
+								);
+							} else {
+								requestHeaders.delete("x-openlit-organisation-id");
+							}
+							if (data.projectId) {
+								requestHeaders.set(
+									"x-openlit-project-id",
+									String(data.projectId)
+								);
+							} else {
+								requestHeaders.delete("x-openlit-project-id");
+							}
+							if (data.environment) {
+								requestHeaders.set(
+									"x-openlit-environment",
+									String(data.environment)
+								);
+							} else {
+								requestHeaders.delete("x-openlit-environment");
+							}
+							requestHeaders.delete("x-openlit-database-config-id");
+							// An API-key request acts as the key, never as whoever is
+							// also logged in: route wrappers skip RBAC for verified keys,
+							// so a session cookie must not ride along.
+							requestHeaders.delete("cookie");
+							// Forward the rewritten request headers. Passing a NextRequest
+							// to NextResponse.next() would use it as the *response* init,
+							// echoing every request header (Authorization, cookies) back
+							// to the client and dropping the deletions above.
+							return continueWithoutClientTenant();
 						}
 					}
 				} catch (e) {
@@ -168,10 +215,13 @@ export default function checkAuth(next: NextMiddleware) {
 						pathname.startsWith(prefix)
 					);
 				const isCronJobRoute = CRON_JOB_ROUTES.includes(pathname);
+				const isEngineRoute = ENGINE_INTERNAL_ROUTES.includes(pathname);
 				const isAuthPage =
 					pathname.startsWith("/login") || pathname.startsWith("/register");
 				const isApiPage = pathname.startsWith("/api");
 				const isRateLimitedApi = shouldRateLimitApi(pathname);
+				const isInstanceAdminPage = isWithinPrefix(pathname, INSTANCE_ADMIN_ROUTE_PREFIX);
+				const isInstanceAdminApi = isWithinPrefix(pathname, INSTANCE_ADMIN_API_ROUTE_PREFIX);
 				const method = request.method.toUpperCase();
 				const isOnboardingWhitelistedPage = ONBOARDING_WHITELIST_ROUTES.includes(
 					pathname
@@ -211,21 +261,49 @@ export default function checkAuth(next: NextMiddleware) {
 						);
 					}
 
-					return NextResponse.next();
+					return continueWithoutClientTenant();
 				}
 
 				if (isApiPage) {
-					if (isRateLimitedApi && !isCronJobRoute && isRateLimited(request)) {
+					if (
+						isRateLimitedApi &&
+						!isCronJobRoute &&
+						!isEngineRoute &&
+						isRateLimited(request)
+					) {
 						return NextResponse.json(
 							{ error: "Too many requests" },
 							{ status: 429 }
 						);
 					}
 
+					// Instance admin APIs need a session whose user is the instance
+					// admin. Route handlers repeat the check against the database.
+					if (isInstanceAdminApi) {
+						if (!isAuth) {
+							return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+						}
+						if (token.isInstanceAdmin !== true) {
+							return NextResponse.json(
+								{ error: getMessage().INSTANCE_ADMIN_REQUIRED },
+								{ status: 403 }
+							);
+						}
+					}
+
+					if (isEngineRoute) {
+						// Edge middleware cannot use Node crypto; the route handler
+						// does the constant-time secret check.
+						if (request.headers.get("x-openlit-engine-secret")) {
+							return continueWithoutClientTenant();
+						}
+						return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+					}
+
 					if (isAuth || isAllowedRequestWithoutToken || isCronJobRoute) {
 						if (isCronJobRoute) {
 							if (isValidCronJobRequest(request)) {
-								return NextResponse.next();
+								return continueWithoutClientTenant();
 							}
 							return NextResponse.json(
 								{ error: "Forbidden" },
@@ -246,7 +324,7 @@ export default function checkAuth(next: NextMiddleware) {
 							{ status: 403 }
 						);
 					}
-						return NextResponse.next();
+						return continueWithoutClientTenant();
 					}
 				}
 
@@ -275,7 +353,13 @@ export default function checkAuth(next: NextMiddleware) {
 					);
 				}
 
-				return NextResponse.next();
+				if (isInstanceAdminPage && token.isInstanceAdmin !== true) {
+					return NextResponse.redirect(
+						new URL(DEFAULT_LOGGED_IN_ROUTE, request.url)
+					);
+				}
+
+				return continueWithoutClientTenant();
 			} catch (error) {
 				// If there's an error getting the token (e.g., invalid/corrupted token),
 				// treat as unauthenticated and redirect to login
@@ -295,7 +379,7 @@ export default function checkAuth(next: NextMiddleware) {
 					);
 				}
 				
-				return NextResponse.next();
+				return continueWithoutClientTenant();
 			}
 		},
 		{
