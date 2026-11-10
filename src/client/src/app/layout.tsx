@@ -13,9 +13,9 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-	title: "OpenLIT | Open Source Observability for LLMs",
+	title: "OpenLIT | Open source Agent Harness Engineering",
 	description:
-		"Open-source tool for tracking and analyzing usage patterns of Large Language Models (LLMs).",
+		"Open-source Agent Harness Engineering platform for LLM tracing, evaluations, prompt management, and cost tracking.",
 };
 
 export default function RootLayout({

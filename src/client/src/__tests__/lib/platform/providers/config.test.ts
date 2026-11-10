@@ -9,6 +9,7 @@ jest.mock('@/constants/messages', () => ({
   __esModule: true,
   default: jest.fn(() => ({
     OPERATION_FAILED: 'Operation failed',
+    PROVIDER_EVALUATION_ONLY_ERROR: 'This provider is evaluation-only and cannot be used here',
   })),
 }));
 
@@ -120,6 +121,22 @@ describe('getOpenGroundConfigWithSecret', () => {
 });
 
 describe('upsertOpenGroundConfig', () => {
+  it('rejects evaluation-only providers such as typesafe without querying', async () => {
+    (getMessage as jest.Mock).mockReturnValue({
+      PROVIDER_EVALUATION_ONLY_ERROR: 'This provider is evaluation-only and cannot be used here',
+    });
+    const result = await upsertOpenGroundConfig({
+      provider: 'typesafe',
+      vaultId: 'vault-1',
+      modelId: 'jev-latest',
+      userId: 'user-1',
+      databaseConfigId: 'db-1',
+    });
+    expect(result.data).toBeUndefined();
+    expect(result.err).toContain('evaluation-only');
+    expect(dataCollector).not.toHaveBeenCalled();
+  });
+
   it('inserts new config when none exists', async () => {
     (dataCollector as jest.Mock)
       .mockResolvedValueOnce({ data: [] }) // exists check — none

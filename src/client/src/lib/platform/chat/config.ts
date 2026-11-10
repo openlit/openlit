@@ -1,6 +1,8 @@
 import { intelligenceDataCollector } from "../common";
 import { OPENLIT_CHAT_CONFIG_TABLE } from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
+import getMessage from "@/constants/messages";
+import { isChatProvider } from "@/constants/chat-providers";
 import { getSecretById } from "../vault";
 import { isEncrypted } from "@/utils/crypto";
 
@@ -86,6 +88,9 @@ export async function upsertChatConfig(
 	config: ChatConfig,
 	databaseConfigId?: string
 ): Promise<{ data?: string; err?: unknown }> {
+	if (!isChatProvider(config.provider)) {
+		return { err: getMessage().PROVIDER_EVALUATION_ONLY_ERROR };
+	}
 	const sanitizedProvider = Sanitizer.sanitizeValue(config.provider);
 	const sanitizedModel = Sanitizer.sanitizeValue(config.model);
 	const sanitizedVaultId = Sanitizer.sanitizeValue(config.vaultId);

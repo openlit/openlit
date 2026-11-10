@@ -2,6 +2,7 @@ import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	getTraceFilterConfig,
 	listTraceRecords,
+	listTraceSummaries,
 } from "@/lib/platform/traces/read";
 import {
 	validateMetricsRequest,
@@ -42,9 +43,13 @@ async function POSTHandler(request: Request) {
 		});
 
 	try {
-		const res: any = await listTraceRecords(params);
-
 		const { searchParams } = new URL(request.url);
+		const view = searchParams.get("view") || formData.view;
+		const res: any =
+			view === "traces"
+				? await listTraceSummaries(params)
+				: await listTraceRecords(params);
+
 		const includeFilters =
 			searchParams.get("includeFilters") === "true" ||
 			formData.includeFilters === true;

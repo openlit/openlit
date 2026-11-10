@@ -1,0 +1,215 @@
+package signal
+
+import (
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+)
+
+// Keep these rules in sync with src/otlp-receiver/internal/signal/attrs.go and
+// src/client/src/lib/platform/realtime/attributes.ts.
+//
+// Rules may match or group by any span or resource attribute. Prompt,
+// completion, message, and secret attributes are never copied, even when
+// OPENLIT_SIGNAL_ATTRIBUTES names them. Personal keys (user, session, and
+// conversation ids, email, phone, IP, URL paths, server addresses) only cross
+// the bus when an operator lists them in OPENLIT_SIGNAL_ATTRIBUTES. The
+// defaults below are copied first, so they survive the per-span cap.
+
+const maxAttributes = 64
+
+var defaultAttributes = []string{
+	"gen_ai.tool.name",
+	"gen_ai.tool.type",
+	"gen_ai.response.finish_reasons",
+	"gen_ai.request.temperature",
+	"gen_ai.request.max_tokens",
+	"gen_ai.request.top_p",
+	"gen_ai.request.frequency_penalty",
+	"gen_ai.request.presence_penalty",
+	"gen_ai.request.seed",
+	"http.request.method",
+	"http.method",
+	"http.route",
+	"server.port",
+	"db.system",
+	"db.operation.name",
+	"service.version",
+	"deployment.environment",
+}
+
+var sensitiveAttributeParts = []string{
+	"prompt", "completion", "message", "content", "secret", "password",
+	"authorization", "api_key", "apikey", "api-key", "credential", "cookie",
+	"bearer", "instruction",
+}
+
+var (
+	attrMu     sync.RWMutex
+	extraAttrs = map[string]struct{}{}
+)
+
+func init() {
+	setExtraAttributes(os.Getenv("OPENLIT_SIGNAL_ATTRIBUTES"))
+}
+
+// SetExtraAttributes replaces the process allowlist extension. Sensitive
+// keys and keys that are not identifiers are ignored.
+func SetExtraAttributes(raw string) {
+	attrMu.Lock()
+	defer attrMu.Unlock()
+	setExtraAttributes(raw)
+}
+
+func setExtraAttributes(raw string) {
+	next := map[string]struct{}{}
+	for _, part := range strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\t' }) {
+		key := strings.TrimSpace(part)
+		if !validAttributeKey(key) || len(next) >= maxAttributes {
+			continue
+		}
+		next[key] = struct{}{}
+	}
+	extraAttrs = next
+}
+
+func validAttributeKey(key string) bool {
+	if key == "" || len(key) > 128 || sensitiveAttribute(key) {
+		return false
+	}
+	for i, r := range key {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z':
+		case i > 0 && (r == '.' || r == '_' || r == '-' || (r >= '0' && r <= '9')):
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// personalSegments mark attributes that identify people or reveal private
+// locations (user, session, and conversation ids, email, phone, IP, URL
+// paths, server addresses). Any key containing one of these segments is
+// forwarded and matchable only when OPENLIT_SIGNAL_ATTRIBUTES names it.
+var personalSegments = map[string]struct{}{
+	"user": {}, "enduser": {}, "session": {}, "conversation": {}, "email": {},
+	"phone": {}, "ip": {}, "address": {}, "path": {},
+}
+
+func personalAttribute(key string) bool {
+	lower := strings.ToLower(key)
+	if strings.Contains(lower, "email") || strings.Contains(lower, "phone") {
+		return true
+	}
+	for _, segment := range attributeSegments(key) {
+		if _, ok := personalSegments[segment]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// attributeSegments splits a key on '.', '_', '-' and camelCase boundaries,
+// lowercased: "client.userId" -> client, user, id.
+func attributeSegments(key string) []string {
+	var segments []string
+	var current []rune
+	var prev rune
+	flush := func() {
+		if len(current) > 0 {
+			segments = append(segments, strings.ToLower(string(current)))
+			current = current[:0]
+		}
+	}
+	for _, r := range key {
+		switch {
+		case r == '.' || r == '_' || r == '-':
+			flush()
+		case r >= 'A' && r <= 'Z' && ((prev >= 'a' && prev <= 'z') || (prev >= '0' && prev <= '9')):
+			flush()
+			current = append(current, r)
+		default:
+			current = append(current, r)
+		}
+		prev = r
+	}
+	flush()
+	return segments
+}
+
+func sensitiveAttribute(key string) bool {
+	lower := strings.ToLower(key)
+	for _, part := range sensitiveAttributeParts {
+		if strings.Contains(lower, part) {
+			return true
+		}
+	}
+	return false
+}
+
+// AllowedAttribute reports whether a rule may use this span attribute: any
+// well-formed key that is not sensitive, and personal keys only when
+// OPENLIT_SIGNAL_ATTRIBUTES names them.
+func AllowedAttribute(key string) bool {
+	// Built-in field names always mean the built-in field.
+	if !validAttributeKey(key) || stringBuiltin(key) || numericBuiltin(key) {
+		return false
+	}
+	if !personalAttribute(key) {
+		return true
+	}
+	attrMu.RLock()
+	defer attrMu.RUnlock()
+	_, ok := extraAttrs[key]
+	return ok
+}
+
+func stringBuiltin(name string) bool {
+	switch name {
+	case "service", "model", "provider", "operation", "status", "error_type", "environment", "span_name":
+		return true
+	}
+	return false
+}
+
+func numericBuiltin(name string) bool {
+	switch name {
+	case "http_status", "duration_ms", "input_tokens", "output_tokens", "total_tokens", "cost":
+		return true
+	}
+	return false
+}
+
+// Known reports whether a match condition may name this field.
+func Known(name string) bool {
+	return stringBuiltin(name) || numericBuiltin(name) || AllowedAttribute(name)
+}
+
+// Groupable reports whether a window may group by this field.
+func Groupable(name string) bool {
+	return stringBuiltin(name) || AllowedAttribute(name)
+}
+
+func (s Signal) attribute(name string) (string, bool) {
+	if !AllowedAttribute(name) {
+		return "", false
+	}
+	if s.Attrs == nil {
+		return "", true
+	}
+	return s.Attrs[name], true
+}
+
+func (s Signal) attributeNumber(name string) (float64, bool) {
+	raw, ok := s.attribute(name)
+	if !ok || strings.TrimSpace(raw) == "" {
+		return 0, false
+	}
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil {
+		return 0, false
+	}
+	return value, true
+}

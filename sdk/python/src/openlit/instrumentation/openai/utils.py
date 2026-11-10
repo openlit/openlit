@@ -31,6 +31,8 @@ from openlit.__helpers import (
     common_span_attributes,
     otel_event,
     truncate_message_content,
+    extract_reasoning_tokens,
+    set_reasoning_subset_attributes,
 )
 from openlit.semcov import SemanticConvention
 from openlit._config import OpenlitConfig
@@ -102,19 +104,6 @@ def extract_reasoning_content(payload):
         return ""
     reasoning = payload.get("reasoning_content") or payload.get("reasoning")
     return reasoning if isinstance(reasoning, str) else ""
-
-
-def extract_reasoning_tokens(usage, details_key):
-    """Return reasoning tokens (a subset of output tokens) from a usage dict.
-
-    Works for both chat completions (``completion_tokens_details``) and the
-    responses API (``output_tokens_details``) and falls back to 0 whenever the
-    details object is missing or not a dict.
-    """
-    details = (usage or {}).get(details_key) or {}
-    if not isinstance(details, dict):
-        details = {}
-    return details.get("reasoning_tokens", 0) or 0
 
 
 def format_content(messages):
@@ -1076,16 +1065,11 @@ def common_response_logic(
 
     # Reasoning tokens. OTel: gen_ai.usage.reasoning.output_tokens is a subset
     # of gen_ai.usage.output_tokens (already set above), so it is recorded as a
-    # separate attribute and never added on top of the output total.
-    if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
-            scope._reasoning_tokens,
-        )
-        # OpenLIT legacy alias (pre-OTel naming), kept for backward compat.
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
-            scope._reasoning_tokens,
+    # separate attribute and never added on top of the output total. Missing
+    # details surface as unknown (marker false), never as a guessed 0.
+    if hasattr(scope, "_reasoning_tokens"):
+        set_reasoning_subset_attributes(
+            scope._span, output_tokens, scope._reasoning_tokens
         )
 
     # OTel cached token attributes (set even when 0)
@@ -1591,16 +1575,11 @@ def common_chat_logic(
 
     # Reasoning tokens (OTel: gen_ai.usage.reasoning.output_tokens is a subset
     # of gen_ai.usage.output_tokens above, so it is recorded separately and
-    # never added on top of the output total / token-usage metric).
-    if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
-            scope._reasoning_tokens,
-        )
-        # OpenLIT legacy alias (pre-OTel naming), kept for backward compat.
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
-            scope._reasoning_tokens,
+    # never added on top of the output total / token-usage metric). Missing
+    # details surface as unknown (marker false), never as a guessed 0.
+    if hasattr(scope, "_reasoning_tokens"):
+        set_reasoning_subset_attributes(
+            scope._span, output_tokens, scope._reasoning_tokens
         )
 
     # OTel cached token attributes (set even when 0)

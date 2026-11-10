@@ -220,6 +220,24 @@ describe('getEvaluationConfig', () => {
     expect(result.evaluationTypes).toBeDefined();
     expect(result.evaluationTypes!.length).toBeGreaterThan(0);
   });
+
+  it('loads default prompts for the database config it was given', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, makeMockEvalConfig()]);
+
+    await getEvaluationConfig({ id: 'db-9' } as any);
+
+    expect(getEvaluationTypeDefaultPrompts).toHaveBeenCalledWith('db-9');
+  });
+
+  it('loads default prompts for the session database config', async () => {
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, { id: 'db-9' }])
+      .mockResolvedValueOnce([null, makeMockEvalConfig()]);
+
+    await getEvaluationConfig();
+
+    expect(getEvaluationTypeDefaultPrompts).toHaveBeenCalledWith('db-9');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -558,6 +576,15 @@ describe('getEvaluationConfigById', () => {
     expect(result.evaluationTypes).toBeDefined();
     expect(result.evaluationTypes!.length).toBeGreaterThan(0);
   });
+
+  it('loads default prompts for the config row databaseConfigId', async () => {
+    const config = { ...makeMockEvalConfig(), databaseConfigId: 'db-9' };
+    (asaw as jest.Mock).mockResolvedValueOnce([null, config]);
+
+    await getEvaluationConfigById('eval-cfg-1');
+
+    expect(getEvaluationTypeDefaultPrompts).toHaveBeenCalledWith('db-9');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -607,6 +634,15 @@ describe('getEvaluationConfigByDbConfigId', () => {
 
     expect(getSecretById).toHaveBeenCalledWith('vault-1', 'db-1', false);
     expect(result.secret).toEqual(secretWithValue);
+  });
+
+  it('loads default prompts for the requested databaseConfigId', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, makeMockEvalConfig()]);
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [mockSecret] });
+
+    await getEvaluationConfigByDbConfigId('db-9');
+
+    expect(getEvaluationTypeDefaultPrompts).toHaveBeenCalledWith('db-9');
   });
 
   it('defaults meta to an empty object when config.meta is undefined', async () => {

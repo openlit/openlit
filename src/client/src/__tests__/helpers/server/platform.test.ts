@@ -6,7 +6,7 @@ import {
   getFilterWhereConditionForGPU,
   dateTruncGroupingLogic,
 } from '@/helpers/server/platform';
-import { addDays, addMonths } from 'date-fns';
+import { addDays } from 'date-fns';
 
 // ─── validateMetricsRequest ────────────────────────────────────────────────────
 
@@ -265,6 +265,8 @@ describe('getFilterWhereCondition', () => {
       true
     );
     expect(result).toContain("'production'");
+    expect(result).toContain("ResourceAttributes['deployment.environment']");
+    expect(result).toContain("SpanAttributes['gen_ai.environment']");
   });
 
 	  it('adds SpanAttributes custom filter (covers lines 250-252)', () => {
@@ -444,51 +446,64 @@ describe('getFilterPreviousParams', () => {
     timeLimit: { type, start: start.toISOString(), end: end.toISOString() },
   });
 
+  // The previous window is the one right before the current window, with the
+  // same length, whatever timezone the client built the preset in.
+  const expectWindowRightBefore = (type: string, start: Date, end: Date) => {
+    const result = getFilterPreviousParams(makeFilter(type, start, end) as any);
+    const duration = end.getTime() - start.getTime();
+    expect(result.timeLimit.start).toBe(
+      new Date(start.getTime() - duration).toISOString()
+    );
+    expect(result.timeLimit.end).toBe(start.toISOString());
+  };
+
   it('24H: shifts start and end back 1 day', () => {
     const start = new Date('2024-02-02T00:00:00Z');
     const end = new Date('2024-02-03T00:00:00Z');
     const result = getFilterPreviousParams(makeFilter('24H', start, end) as any);
-    expect(new Date(result.timeLimit.start).toISOString()).toBe(
-      addDays(start, -1).toISOString()
-    );
-    expect(new Date(result.timeLimit.end).toISOString()).toBe(
-      addDays(end, -1).toISOString()
-    );
+    expect(result.timeLimit.start).toBe('2024-02-01T00:00:00.000Z');
+    expect(result.timeLimit.end).toBe('2024-02-02T00:00:00.000Z');
   });
 
-  it('7D: shifts start back 7 days and end back 1 day', () => {
+  it('7D: shifts start and end back 7 days', () => {
     const start = new Date('2024-02-01T00:00:00Z');
     const end = new Date('2024-02-08T00:00:00Z');
     const result = getFilterPreviousParams(makeFilter('7D', start, end) as any);
-    expect(new Date(result.timeLimit.start).toISOString()).toBe(
-      addDays(start, -7).toISOString()
-    );
-    expect(new Date(result.timeLimit.end).toISOString()).toBe(
-      addDays(end, -1).toISOString()
+    expect(result.timeLimit.start).toBe('2024-01-25T00:00:00.000Z');
+    expect(result.timeLimit.end).toBe('2024-02-01T00:00:00.000Z');
+  });
+
+  // A browser in New York builds these presets across the 2024-03-10 DST
+  // change, so they are an hour shorter than whole UTC days.
+  it('24H: a 23-hour window across a DST change stays contiguous', () => {
+    expectWindowRightBefore(
+      '24H',
+      new Date('2024-03-09T17:00:00Z'),
+      new Date('2024-03-10T16:00:00Z')
     );
   });
 
-  it('1M: shifts start and end back 1 month', () => {
-    const start = new Date('2024-02-01T00:00:00Z');
-    const end = new Date('2024-03-01T00:00:00Z');
-    const result = getFilterPreviousParams(makeFilter('1M', start, end) as any);
-    expect(new Date(result.timeLimit.start).toISOString()).toBe(
-      addMonths(start, -1).toISOString()
-    );
-    expect(new Date(result.timeLimit.end).toISOString()).toBe(
-      addMonths(end, -1).toISOString()
+  it('7D: a 167-hour window across a DST change stays contiguous', () => {
+    expectWindowRightBefore(
+      '7D',
+      new Date('2024-03-07T17:00:00Z'),
+      new Date('2024-03-14T16:00:00Z')
     );
   });
 
-  it('3M: shifts start and end back 3 months', () => {
-    const start = new Date('2024-01-01T00:00:00Z');
-    const end = new Date('2024-04-01T00:00:00Z');
-    const result = getFilterPreviousParams(makeFilter('3M', start, end) as any);
-    expect(new Date(result.timeLimit.start).toISOString()).toBe(
-      addMonths(start, -3).toISOString()
+  it('1M: the 30-day preset compares against the 30 days before it', () => {
+    expectWindowRightBefore(
+      '1M',
+      new Date('2024-03-01T00:00:00Z'),
+      new Date('2024-03-31T00:00:00Z')
     );
-    expect(new Date(result.timeLimit.end).toISOString()).toBe(
-      addMonths(end, -3).toISOString()
+  });
+
+  it('3M: the 90-day preset compares against the 90 days before it', () => {
+    expectWindowRightBefore(
+      '3M',
+      new Date('2024-01-01T00:00:00Z'),
+      new Date('2024-03-31T00:00:00Z')
     );
   });
 
@@ -502,6 +517,22 @@ describe('getFilterPreviousParams', () => {
     expect(new Date(result.timeLimit.end).toISOString()).toBe(
       addDays(end, -10).toISOString()
     );
+  });
+
+  it('CUSTOM: a sub-day range compares against the window right before it', () => {
+    const start = new Date('2024-02-01T10:00:00.000Z');
+    const end = new Date('2024-02-01T14:30:00.000Z');
+    const result = getFilterPreviousParams(makeFilter('CUSTOM', start, end) as any);
+    expect(result.timeLimit.start).toBe('2024-02-01T05:30:00.000Z');
+    expect(result.timeLimit.end).toBe('2024-02-01T10:00:00.000Z');
+  });
+
+  it('CUSTOM: keeps the partial day of a multi-day range', () => {
+    const start = new Date('2024-02-01T00:00:00.000Z');
+    const end = new Date('2024-02-02T12:00:00.000Z');
+    const result = getFilterPreviousParams(makeFilter('CUSTOM', start, end) as any);
+    expect(result.timeLimit.start).toBe('2024-01-30T12:00:00.000Z');
+    expect(result.timeLimit.end).toBe('2024-02-01T00:00:00.000Z');
   });
 
   it('default (unknown type): returns the same filter unchanged', () => {

@@ -310,7 +310,9 @@ def responses(
             self._finish_reason = ""
             self._input_tokens = 0
             self._output_tokens = 0
-            self._reasoning_tokens = 0
+            # Do not default _reasoning_tokens. Absence means no usage was
+            # received yet; a literal 0 is a measured zero and would be emitted
+            # as reported=true if the stream ends without response.completed.
             self._operation_type = "responses"
             self._service_tier = "default"
             self._tools = None
@@ -380,6 +382,12 @@ def responses(
         """
         Wraps the OpenAI responses API call.
         """
+
+        # Framework instrumentors (CrewAI, LiteLLM, LangChain, Strands) own
+        # the LLM span and set this flag for the duration of the call. Skip
+        # the provider span so it cannot export ahead of that parent.
+        if is_framework_llm_active():
+            return wrapped(*args, **kwargs)
 
         streaming = kwargs.get("stream", False)
         server_address, server_port = set_server_address_and_port(

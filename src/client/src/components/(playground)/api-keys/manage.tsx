@@ -18,6 +18,10 @@ import Link from "next/link";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import getMessage from "@/constants/messages";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+	ApiKeyAccessAction,
+	ApiKeyAccessCell,
+} from "@/components/(playground)/api-keys/access";
 
 const columns: Columns<string, ApiKey> = {
 	name: {
@@ -33,6 +37,10 @@ const columns: Columns<string, ApiKey> = {
 				</Badge>
 			);
 		},
+	},
+	access: {
+		header: () => "Access",
+		cell: ({ row }) => <ApiKeyAccessCell apiKey={row} />,
 	},
 	createdBy: {
 		header: () => "Created By",
@@ -50,7 +58,11 @@ const columns: Columns<string, ApiKey> = {
 		header: () => "Actions",
 		cell: ({ row, extraFunctions }) => {
 			return (
-				<div className="flex gap-4 justify-center">
+				<div className="flex items-center justify-center gap-1">
+					<ApiKeyAccessAction
+						apiKey={row}
+						onUpdated={extraFunctions?.refresh}
+					/>
 					<ConfirmationModal
 						handleYes={extraFunctions?.handleYes}
 						title="Are you sure you want to delete?"
@@ -59,7 +71,14 @@ const columns: Columns<string, ApiKey> = {
 							id: row.id,
 						}}
 					>
-						<TrashIcon className="w-4 cursor-pointer" />
+						<button
+							type="button"
+							aria-label={getMessage().API_KEY_DELETE}
+							title={getMessage().API_KEY_DELETE}
+							className="rounded-md p-1.5 text-stone-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-stone-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+						>
+							<TrashIcon className="h-4 w-4" />
+						</button>
 					</ConfirmationModal>
 				</div>
 			);
@@ -159,12 +178,14 @@ export default function ManageKeys() {
 					visibilityColumns={{
 						name: true,
 						apiKey: true,
+						access: true,
 						createdBy: true,
 						createdAt: true,
 						actions: true,
 					}}
 					extraFunctions={{
 						handleYes,
+						refresh: fetchData,
 					}}
 				/>
 			</div>

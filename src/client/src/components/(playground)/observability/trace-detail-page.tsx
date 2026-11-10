@@ -27,6 +27,7 @@ import { agentLoopDetailLine } from "@/lib/platform/agent-loop/format";
 import Evaluations from "@/components/(playground)/request/components/evaluations";
 import { RequestProvider } from "@/components/(playground)/request/request-context";
 import TraceAiAnalysisPanel from "@/components/(playground)/request/components/trace-ai-analysis-panel";
+import ScannerSessionFindings from "@/components/(playground)/scanner/scanner-session-findings";
 import DetailObjectTabs, { buildObjectTabs } from "./detail-object-tabs";
 import {
 	ResizableHandle,
@@ -341,6 +342,32 @@ function filterFromSource(from: string | null, offsetOverride?: number): FilterT
 	};
 }
 
+function tabFromLocation(from: string | null): string | null {
+	if (!from) return null;
+	try {
+		return new URL(from, "http://localhost").searchParams.get("tab");
+	} catch {
+		return null;
+	}
+}
+
+function detailListUrl(args: {
+	type: "traces" | "exceptions";
+	listUrl?: string;
+	signal: string | null;
+	tab: string | null;
+	from: string | null;
+}): string {
+	if (args.listUrl) return args.listUrl;
+	const hinted = args.signal || args.tab || tabFromLocation(args.from);
+	if (args.type === "exceptions" || hinted === "exceptions") {
+		return "/api/telemetry/exception";
+	}
+	if (hinted === "traces") return "/api/telemetry/trace?view=traces";
+	if (hinted === "spans") return "/api/telemetry/trace";
+	return "/api/telemetry/request";
+}
+
 function sourceWithOffset(from: string | null, offset: number) {
 	if (!from || typeof window === "undefined") return from;
 	const url = new URL(from, window.location.origin);
@@ -360,11 +387,12 @@ export function TraceDetailView({
 	navigationTotal,
 	navigationFilter,
 	onNavigationPageChange,
+	listUrl,
 }: {
 	spanId: string;
 	type: "traces" | "exceptions";
 	variant?: "page" | "sheet";
-	onSpanChange?: (spanId: string) => void;
+	onSpanChange?: (spanId: string, traceId?: string) => void;
 	onActiveSpanChange?: (spanId: string) => void;
 	extraActions?: ReactNode;
 	navigationRows?: any[];
@@ -372,6 +400,8 @@ export function TraceDetailView({
 	navigationTotal?: number;
 	navigationFilter?: FilterType;
 	onNavigationPageChange?: (offset: number) => void;
+	/** Neighbor-list endpoint. The full-page view falls back to `signal` / `tab`. */
+	listUrl?: string;
 }) {
 	const m = getMessage();
 	const router = useRouter();
@@ -380,6 +410,9 @@ export function TraceDetailView({
 	const urlTraceId = searchParams.get("traceId") || undefined;
 	const [selectedSpanId, setSelectedSpanId] = useState(spanId);
 	const [activeListSpanId, setActiveListSpanId] = useState(spanId);
+	// Trace of the row the arrows moved to. URL updates land after this render,
+	// so without it the first fetch would pair the new span with the old trace.
+	const [listTrace, setListTrace] = useState<{ spanId: string; traceId?: string } | null>(null);
 	// Per-session code-impact rollups (lines added / removed,
 	// commits, edit accept/reject, PRs, acceptance %) fetched by
 	// session_id from the trace's coding-agent attributes. Used to
@@ -426,11 +459,19 @@ export function TraceDetailView({
 		total?: number;
 	} | null>(null);
 	const fromRef = useRef(from);
-	const listUrlRef = useRef(type === "exceptions" ? "/api/telemetry/exception" : "/api/telemetry/request");
+	const listUrlRef = useRef(
+		detailListUrl({
+			type,
+			listUrl,
+			signal: searchParams.get("signal"),
+			tab: searchParams.get("tab"),
+			from: searchParams.get("from"),
+		})
+	);
 	const detailBasePathRef = useRef(
 		type === "exceptions" ? "/telemetry/exceptions" : "/telemetry/traces"
 	);
-	const { data, fireRequest, isLoading } = useFetchWrapper();
+	const { data, error, fireRequest, isLoading } = useFetchWrapper();
 	const {
 		data: listData,
 		fireRequest: fireListRequest,
@@ -447,7 +488,10 @@ export function TraceDetailView({
 			undefined
 		);
 	}, [navigationRows, selectedSpanId, activeListSpanId]);
-	const knownTraceId = urlTraceId || listHintTraceId;
+	const knownTraceId =
+		(listTrace?.spanId === activeListSpanId && listTrace.traceId) ||
+		urlTraceId ||
+		listHintTraceId;
 	const fetchData = useCallback(() => {
 		const qs = knownTraceId
 			? `?traceId=${encodeURIComponent(knownTraceId)}`
@@ -478,17 +522,20 @@ export function TraceDetailView({
 			hierarchySpanIdRef.current = nextSpanId;
 			setActiveListSpanId(nextSpanId);
 			setSelectedSpanId(nextSpanId);
+			setListTrace({ spanId: nextSpanId, traceId: nextTraceId });
 			const source = fromRef.current;
 			const params = new URLSearchParams();
 			if (source) params.set("from", source);
+			const signal = searchParams.get("signal");
+			if (signal) params.set("signal", signal);
 			if (nextTraceId) params.set("traceId", nextTraceId);
 			const qs = params.toString() ? `?${params.toString()}` : "";
 			if (variant === "page") {
 				router.replace(`${detailBasePathRef.current}/${nextSpanId}${qs}`, { scroll: false });
 			}
-			onSpanChange?.(nextSpanId);
+			onSpanChange?.(nextSpanId, nextTraceId);
 		},
-		[onSpanChange, router, variant]
+		[onSpanChange, router, searchParams, variant]
 	);
 
 	const selectSpanInCurrentTrace = useCallback(
@@ -548,7 +595,9 @@ export function TraceDetailView({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const raw = (data as any)?.record;
+	// useFetchWrapper keeps the last good data on failure; the previous span's
+	// content must not stay on screen under the newly selected span.
+	const raw = error ? undefined : (data as any)?.record;
 	const trace = raw ? normalizeTrace(raw) : null;
 	const resourceAttributes = raw?.ResourceAttributes || {};
 	const spanAttributes = raw?.SpanAttributes || {};
@@ -742,6 +791,15 @@ export function TraceDetailView({
 		: null;
 	const extraDetailTabs = [
 		...(analysisTab ? [analysisTab] : []),
+		...(isCodingAgentTrace && repoUrl
+			? [
+					{
+						id: "scanner-findings",
+						label: m.SCANNER_SESSION_TAB,
+						content: <ScannerSessionFindings repoUrl={repoUrl} />,
+					},
+			  ]
+			: []),
 		...(hasEvaluationPanel && trace
 			? [
 					{
@@ -945,6 +1003,18 @@ export function TraceDetailView({
 				</div>
 			}
 		>
+			{error ? (
+				<div
+					role="alert"
+					className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200"
+				>
+					<AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+					<div className="min-w-0">
+						<div className="font-medium">{m.OBSERVABILITY_SPAN_LOAD_FAILED}</div>
+						<div className="break-words">{String(error)}</div>
+					</div>
+				</div>
+			) : null}
 			{trace && (
 				<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
 					<div className="flex shrink-0 flex-wrap gap-1.5">

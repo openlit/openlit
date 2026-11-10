@@ -39,7 +39,7 @@ def async_complete(
     Generates a telemetry wrapper for GenAI function call
     """
 
-    class TracedAsyncStream:
+    class TracedAsyncStream:  # pylint: disable=too-many-instance-attributes
         """
         Wrapper for streaming responses to collect telemetry.
         """
@@ -66,7 +66,9 @@ def async_complete(
             self._tools = None
             self._input_tokens = 0
             self._output_tokens = 0
-            self._reasoning_tokens = 0
+            # Do not default _reasoning_tokens. Absence means no usage was
+            # received yet; a literal 0 is a measured zero and would be emitted
+            # as reported=true if the stream ends without a usage chunk.
             self._cache_read_input_tokens = 0
             self._cache_creation_input_tokens = 0
 
@@ -80,35 +82,121 @@ def async_complete(
             self._server_address = server_address
             self._server_port = server_port
             self._event_provider = event_provider
+            self._streaming_response_processed = False
+            self._stream_error = None
 
         async def __aenter__(self):
             await self.__wrapped__.__aenter__()
             return self
 
         async def __aexit__(self, exc_type, exc_val, exc_tb):
-            await self.__wrapped__.__aexit__(exc_type, exc_val, exc_tb)
-            process_streaming_chat_response(
-                self,
-                pricing_info,
-                environment,
-                application_name,
-                metrics,
-                capture_message_content,
-                disable_metrics,
-                version,
-                event_provider=self._event_provider,
-            )
+            try:
+                await self.__wrapped__.__aexit__(exc_type, exc_val, exc_tb)
+            finally:
+                # Exhaustion already ended the span. Leave that export alone,
+                # including when the body raises after the stream is consumed.
+                # Do not return from this finally: a return would swallow an
+                # exception raised by the wrapped __aexit__.
+                if not self._streaming_response_processed:
+                    stream_error = exc_val if exc_type is not None else None
+                    # A break never hits StopAsyncIteration, so a clean exit is a cancel.
+                    self._finalize_streaming_span(False, stream_error)
 
         def __aiter__(self):
             return self
 
         async def __anext__(self):
-            chunk = await self.__wrapped__.__anext__()
-            process_chunk(self, chunk)
+            try:
+                chunk = await self.__wrapped__.__anext__()
+            except StopAsyncIteration:
+                self._finalize_streaming_span(True)
+                raise
+            except Exception as exc:
+                await self._abort_stream(exc, close_wrapped=True)
+                raise
+            try:
+                process_chunk(self, chunk)
+            except Exception as exc:
+                # The chunk itself failed instrumentation. Leave the SDK
+                # stream open so a surrounding ``async with`` can still close it.
+                await self._abort_stream(exc, close_wrapped=False)
+                raise
             return chunk
 
         def __getattr__(self, name):
             return getattr(self.__wrapped__, name)
+
+        async def _close_wrapped_quietly(self):
+            """Close the SDK stream without masking the error that aborted it."""
+            try:
+                await self.__wrapped__.aclose()
+            except Exception as exc:
+                logger.warning("Failed to close Azure AI Inference stream: %s", exc)
+
+        async def _abort_stream(self, exc, close_wrapped):
+            """End the span for a stream or chunk failure."""
+            if close_wrapped:
+                await self._close_wrapped_quietly()
+            self._finalize_streaming_span(False, exc)
+
+        def _finalize_streaming_span(self, ended_cleanly, stream_error=None):
+            """Complete and end the span exactly once.
+
+            ``ended_cleanly`` is True only for StopAsyncIteration. Any other
+            exit with no finish reason is ``incomplete``, or ``error`` when
+            ``stream_error`` is set. Partial text and usage are written first.
+            A failed stream does not set OK, because the SDK ignores a later
+            ERROR. The error status is applied while the span is still recording.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            if stream_error is not None:
+                # common_chat_logic reads this for the metrics error.type.
+                self._stream_error = stream_error
+                if not self._finish_reason:
+                    self._finish_reason = "error"
+            elif not ended_cleanly and not self._finish_reason:
+                self._finish_reason = "incomplete"
+            try:
+                with self._span:
+                    try:
+                        process_streaming_chat_response(
+                            self,
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version,
+                            event_provider=self._event_provider,
+                        )
+                    except Exception as exc:
+                        if stream_error is None:
+                            stream_error = exc
+                            self._stream_error = exc
+                        raise
+                    finally:
+                        if stream_error is not None:
+                            handle_exception(self._span, stream_error)
+            except Exception as exc:
+                if self._span.is_recording():
+                    handle_exception(self._span, exc)
+                    self._span.end()
+
+        async def aclose(self):
+            """Close the wrapped stream and finalize the span if not ended.
+
+            azure-ai-inference's AsyncStreamingChatCompletions exposes
+            ``aclose()``, not ``close()``. A wrapped aclose that raises still
+            exports the span. That close error is not a model failure, so it
+            is not stored as one.
+            """
+            try:
+                await self.__wrapped__.aclose()
+            finally:
+                self._finalize_streaming_span(False)
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
