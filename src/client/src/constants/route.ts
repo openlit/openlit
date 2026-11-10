@@ -91,3 +91,7 @@ export const RESTRICTED_DEMO_ACCOUNT_ROUTES: Record<string, string[]> = {
 	PUT: ["/api/db-config", "/api/vault"],
 	DELETE: ["/api/db-config", "/api/api-key", "/api/vault", "/api/prompt-hub"],
 };
+
+// Instance admin area: its own shell outside organisation/project scope.
+export const INSTANCE_ADMIN_ROUTE_PREFIX = "/admin";
+export const INSTANCE_ADMIN_API_ROUTE_PREFIX = "/api/admin";
