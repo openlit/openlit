@@ -720,6 +720,220 @@ class TracedLettaStream:
         return getattr(self.__wrapped__, name)
 
 
+class TracedLettaAsyncStream:
+    """Traced async streaming wrapper for Letta message operations.
+
+    Mirrors ``TracedLettaStream`` (sync) with the async stream lifecycle of
+    the Together/Cohere ``TracedAsyncStream`` wrappers: the span started when
+    the stream was detected is ended exactly once — on StopAsyncIteration,
+    on early ``aclose()``/``__aexit__``/abandonment, or with ERROR status
+    when the wrapped stream raises.
+    """
+
+    def __init__(
+        self,
+        wrapped_stream,
+        span,
+        span_name,
+        kwargs,
+        operation_type,
+        instance,
+        start_time,
+        environment,
+        application_name,
+        version,
+        endpoint,
+        capture_content,
+        pricing_info,
+        tracer,
+    ):
+        self.__wrapped__ = wrapped_stream
+        self._span = span
+        self._span_name = span_name
+        self._kwargs = kwargs
+        self._operation_type = operation_type
+        self._instance = instance
+        self._start_time = start_time
+        self._environment = environment
+        self._application_name = application_name
+        self._version = version
+        self._endpoint = endpoint
+        self._capture_content = capture_content
+        self._pricing_info = pricing_info
+        self._tracer = tracer
+
+        # Response tracking
+        self._response_content = ""
+        self._response_messages = []
+        self._chunk_count = 0
+        self._ttft = 0
+        self._stream_error = None
+        self._finalized = False
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            chunk = await self.__wrapped__.__anext__()
+            self._process_chunk(chunk)
+            return chunk
+        except StopAsyncIteration:
+            self._finalize_span()
+            raise
+        except GeneratorExit:
+            self._finalize_span()
+            raise
+        except Exception as exc:
+            self._stream_error = exc
+            self._finalize_span()
+            raise
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.aclose()
+
+    async def aclose(self):
+        """Close the wrapped async stream and finalize the span if not ended."""
+        try:
+            aclose = getattr(self.__wrapped__, "aclose", None)
+            if aclose is not None:
+                await aclose()
+        finally:
+            self._finalize_span()
+
+    async def close(self):
+        """Alias for aclose(), kept for callers using the older name."""
+        await self.aclose()
+
+    def __del__(self):
+        """Finalize a span abandoned by a bare ``async for`` loop.
+
+        Dealloc cannot await ``aclose()``. The wrapped async generator's own
+        dealloc hook still closes the underlying response.
+        """
+        try:
+            self._finalize_span()
+        except Exception:
+            pass
+
+    def _process_chunk(self, chunk):
+        """Process individual chunk"""
+        self._chunk_count += 1
+
+        # Calculate TTFT on first chunk
+        if self._chunk_count == 1:
+            self._ttft = time.time() - self._start_time
+
+        # Accumulate response content and messages
+        self._response_messages.append(chunk)
+
+        # Extract content from various message types
+        if hasattr(chunk, "content") and chunk.content:
+            self._response_content += str(chunk.content)
+        elif hasattr(chunk, "message") and hasattr(chunk.message, "content"):
+            self._response_content += str(chunk.message.content)
+
+        # Set streaming attributes while the span is still recording
+        if self._span.is_recording():
+            self._span.set_attribute(
+                SemanticConvention.GEN_AI_STREAMING_CHUNK_COUNT, self._chunk_count
+            )
+            if self._ttft > 0:
+                self._span.set_attribute(
+                    SemanticConvention.GEN_AI_SERVER_TTFT, self._ttft
+                )
+
+    def _process_streaming_response(self, span):
+        """Set the final streaming attributes on the original span"""
+        # Create a synthetic response object from collected messages so the
+        # common processing logic can be reused
+        synthetic_response = type("StreamResponse", (), {})()
+        synthetic_response.messages = self._response_messages
+
+        # Extract usage from response messages if available
+        for msg in self._response_messages:
+            if (
+                hasattr(msg, "message_type")
+                and msg.message_type == "usage_statistics"
+            ):
+                synthetic_response.usage = msg
+                break
+
+        if self._stream_error is None:
+            # Process the streaming response with all collected data
+            # (process_letta_response also sets the OK status)
+            process_letta_response(
+                span,
+                synthetic_response,
+                self._kwargs,
+                self._operation_type,
+                self._instance,
+                self._start_time,
+                self._environment,
+                self._application_name,
+                self._version,
+                self._endpoint,
+                self._capture_content,
+                self._pricing_info,
+            )
+        else:
+            # A failed stream follows the letta error convention
+            # (handle_exception only): process_letta_response would set the
+            # OK status, and Span.set_status ignores updates once OK is set,
+            # losing the ERROR status.
+            handle_exception(span, self._stream_error)
+
+        # Set streaming-specific attributes (using semantic conventions)
+        span.set_attribute(
+            SemanticConvention.GEN_AI_STREAMING_CHUNK_COUNT, self._chunk_count
+        )
+        span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, self._ttft)
+        span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True)
+        span.set_attribute(
+            SemanticConvention.GEN_AI_STREAMING_RESPONSE_COUNT,
+            len(self._response_messages),
+        )
+
+        # Set completion content if available
+        if self._capture_content and self._response_messages:
+            completion_content = str(self._response_messages)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completion_content
+            )
+        elif self._capture_content and self._response_content:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES, self._response_content
+            )
+
+    def _finalize_span(self):
+        """End the original span exactly once with the collected data.
+
+        ``Span.set_status`` ignores updates once the status is OK, so a
+        failure raised by the wrapped stream is recorded instead of the OK
+        that ``process_letta_response`` would write.
+        """
+        if self._finalized:
+            return
+
+        self._finalized = True
+        try:
+            with self._span:
+                try:
+                    if self._span.is_recording():
+                        self._process_streaming_response(self._span)
+                except Exception as e:
+                    handle_exception(self._span, e)
+        except Exception:
+            # Never raise from finalization
+            pass
+
+    def __getattr__(self, name):
+        return getattr(self.__wrapped__, name)
+
+
 # Operation type mappings for Letta endpoints
 OPERATION_TYPE_MAP = {
     # Agent operations
