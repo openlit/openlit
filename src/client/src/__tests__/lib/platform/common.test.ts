@@ -129,6 +129,17 @@ describe('dataCollector', () => {
       expect(result.data).toEqual([]);
     });
 
+    it('returns the error when the config cannot build a client', async () => {
+      (createClickhousePool as jest.Mock).mockImplementation(() => {
+        throw new Error('ClickHouse URL is malformed.');
+      });
+      (asaw as jest.Mock).mockResolvedValueOnce([null, mockDbConfig]);
+
+      const result = await dataCollector({}, 'ping');
+      expect(result.err).toBe('ClickHouse Query Error: ClickHouse URL is malformed.');
+      expect(result.data).toEqual([]);
+    });
+
     it('returns an unavailable-client error when acquire resolves without a client', async () => {
       const mockPool = { acquire: jest.fn(), release: jest.fn() };
       (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
@@ -217,7 +228,7 @@ describe('dataCollector', () => {
       const mockClient = makeClient();
       const mockPool = { acquire: jest.fn(), release: jest.fn() };
       (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
-      const execResult = { query_id: 'exec-qid' };
+      const execResult = { query_id: 'exec-qid', stream: { resume: jest.fn() } };
       (asaw as jest.Mock)
         .mockResolvedValueOnce([null, mockDbConfig])
         .mockResolvedValueOnce([null, mockClient])
@@ -225,6 +236,22 @@ describe('dataCollector', () => {
 
       const result = await dataCollector({ query: 'CREATE TABLE t (c UInt8)' }, 'exec');
       expect(result.data).toBe(execResult);
+    });
+
+    it('drains the exec response so a reused client keeps its socket', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      const resume = jest.fn();
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce([null, { query_id: 'q', stream: { resume } }]);
+
+      await dataCollector({ query: 'CREATE TABLE t (c UInt8)' }, 'exec');
+
+      expect(resume).toHaveBeenCalledTimes(1);
+      expect(mockPool.release).toHaveBeenCalledWith(mockClient);
     });
 
     it('returns error fallback when exec fails', async () => {
@@ -298,6 +325,23 @@ describe('dataCollector', () => {
   });
 
   describe('ping mode', () => {
+    it('closes the ping result so a reused client keeps its socket', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      const close = jest.fn();
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce([null, { close }]);
+
+      const result = await dataCollector({}, 'ping');
+
+      expect(result.data).toBe(true);
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(mockPool.release).toHaveBeenCalledWith(mockClient);
+    });
+
     it('returns err when ping query fails', async () => {
       const mockClient = makeClient({
         query: jest.fn().mockResolvedValue(null),
@@ -364,7 +408,93 @@ describe('intelligenceDataCollector', () => {
     await intelligenceDataCollector({ query: 'SELECT 1', enable_readonly: true });
 
     const callArg = mockClient.query.mock.calls[0][0];
-    expect(callArg.clickhouse_settings).toEqual({ readonly: '1' });
+    expect(callArg.clickhouse_settings).toEqual({ max_execution_time: 60, readonly: '1' });
+  });
+
+  it('retries without the execution limit for a readonly database user', async () => {
+    const mockClient = makeClient();
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient])
+      .mockResolvedValueOnce([{ code: '164' }, null])
+      .mockResolvedValueOnce([null, { json: jest.fn().mockResolvedValue([{ total: 2 }]) }])
+      .mockResolvedValueOnce([null, [{ total: 2 }]]);
+
+    const result = await intelligenceDataCollector({ query: 'SELECT 1', enable_readonly: true });
+
+    expect(result).toEqual({ err: null, data: [{ total: 2 }] });
+    expect(mockClient.query).toHaveBeenCalledTimes(2);
+    expect(mockClient.query.mock.calls[0][0].clickhouse_settings.max_execution_time).toBe(60);
+    expect(mockClient.query.mock.calls[1][0].clickhouse_settings).toEqual({ readonly: '1' });
+  });
+
+  it('does not retry other query errors', async () => {
+    const mockClient = makeClient();
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient])
+      .mockResolvedValueOnce([{ code: '159' }, null]);
+
+    await intelligenceDataCollector({ query: 'SELECT 1' });
+
+    expect(mockClient.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('bounds every direct read with a server-side execution limit', async () => {
+    const mockClient = makeClient();
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient])
+      .mockResolvedValueOnce([null, { json: jest.fn() }])
+      .mockResolvedValueOnce([null, []]);
+
+    await intelligenceDataCollector({ query: 'SELECT 1' });
+
+    expect(mockClient.query.mock.calls[0][0].clickhouse_settings).toEqual({
+      max_execution_time: 60,
+    });
+  });
+
+  it('lets a caller raise the limit while enable_readonly still applies', async () => {
+    const mockClient = makeClient();
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient])
+      .mockResolvedValueOnce([null, { json: jest.fn() }])
+      .mockResolvedValueOnce([null, []]);
+
+    await intelligenceDataCollector({
+      query: 'SELECT 1',
+      enable_readonly: true,
+      clickhouse_settings: { max_execution_time: 120 },
+    });
+
+    expect(mockClient.query.mock.calls[0][0].clickhouse_settings).toEqual({
+      max_execution_time: 120,
+      readonly: '1',
+    });
+  });
+
+  it('does not bound mutations, which can legitimately run long', async () => {
+    const mockClient = makeClient();
+    const mockPool = { acquire: jest.fn(), release: jest.fn() };
+    (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDbConfig])
+      .mockResolvedValueOnce([null, mockClient])
+      .mockResolvedValueOnce([null, { query_id: 'q' }]);
+
+    await intelligenceDataCollector({ query: 'OPTIMIZE TABLE t' }, 'command');
+
+    expect(mockClient.command.mock.calls[0][0]).toEqual({ query: 'OPTIMIZE TABLE t' });
   });
 
   it('defaults to an empty data array when the native query resolves without rows', async () => {

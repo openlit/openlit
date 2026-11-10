@@ -239,6 +239,67 @@ describe('getRequests', () => {
   });
 });
 
+describe('getRequests id paging', () => {
+  it('pages on span identity first and reads full rows only for that page', async () => {
+    await getRequests({ ...baseParams, limit: 10, offset: 20 });
+    const query = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(query).toMatch(/^SELECT \*\s+FROM/);
+    // Tuple IN, kept inside the window so the row read still prunes partitions.
+    const [outer] = query.split('AND (Timestamp, TraceId, SpanId) IN (');
+    expect(outer).toContain('Timestamp >= parseDateTimeBestEffort');
+    expect(outer).toContain('Timestamp <= parseDateTimeBestEffort');
+    expect(query).toMatch(/IN \(\s*SELECT Timestamp, TraceId, SpanId\s+FROM/);
+    expect(query.match(/OFFSET/g)).toHaveLength(1);
+    expect(query).toContain('LIMIT 10\n\t\t\tOFFSET 20');
+    // The page's row order survives the second read, with the offset consumed.
+    expect(query.match(/ORDER BY Timestamp desc/g)).toHaveLength(2);
+    expect(query.match(/LIMIT 10/g)).toHaveLength(1);
+  });
+
+  it('shows every row when a duplicate span straddles a page boundary', async () => {
+    const pageSize = 3;
+    // Sorted result set: positions 2 and 3 are one span exported twice.
+    const ids = ['a', 'b', 'dup', 'dup', 'c', 'd', 'e'];
+    (dataCollector as jest.Mock).mockImplementation(async ({ query }) => {
+      if (!query.includes('OFFSET')) return { data: [{ total: ids.length }], err: null };
+      const offset = Number(query.match(/OFFSET (\d+)/)[1]);
+      const page = new Set(ids.slice(offset, offset + pageSize));
+      const rows = ids.filter((id) => page.has(id));
+      const rowLimit = query.split('OFFSET')[1].match(/LIMIT (\d+)/);
+      return { data: rowLimit ? rows.slice(0, Number(rowLimit[1])) : rows, err: null };
+    });
+
+    const shown = new Set<string>();
+    for (let offset = 0; offset < ids.length; offset += pageSize) {
+      const { records } = await getRequests({ ...baseParams, limit: pageSize, offset });
+      (records as string[]).forEach((id) => shown.add(id));
+    }
+    expect(Array.from(shown)).toEqual(['a', 'b', 'dup', 'c', 'd', 'e']);
+  });
+
+  it('applies the filter to the id page, not to the row read', async () => {
+    await getRequests({
+      ...baseParams,
+      selectedConfig: { models: ['gpt-4'] },
+    } as any);
+    const query = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    const [outer, page] = query.split('SELECT Timestamp, TraceId, SpanId');
+    expect(outer).not.toContain('gpt-4');
+    expect(page).toContain('gpt-4');
+  });
+
+  it('keeps the requested sort and one-row-per-trace paging on both reads', async () => {
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'Duration', direction: 'asc' },
+      selectedConfig: { generationHealth: ['truncated'] },
+    } as any);
+    const query = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(query.match(/ORDER BY Duration ASC/g)).toHaveLength(2);
+    expect(query.match(/LIMIT 1 BY TraceId/g)).toHaveLength(2);
+  });
+});
+
 describe('getTraceSummaries', () => {
   it('counts unique traces and returns one root-oriented row per trace', async () => {
     (dataCollector as jest.Mock)
@@ -259,6 +320,10 @@ describe('getTraceSummaries', () => {
     expect(countQuery).toContain('uniqExact(TraceId)');
     expect(listQuery).toContain('WITH page AS');
     expect(listQuery).toContain('INNER JOIN page AS p ON t.TraceId = p.TraceId');
+    // Heavy map columns are read for the page's traces, not the whole window.
+    expect(listQuery).toMatch(/WHERE t\.Timestamp >= .* AND t\.TraceId IN \(SELECT TraceId FROM page\)/);
+    // `page` is evaluated by the join and by the IN: ties must resolve the same way.
+    expect(listQuery).toContain('ORDER BY TraceStart DESC, TraceId');
     expect(listQuery).toContain("t.ParentSpanId = '0000000000000000'");
     expect(listQuery).toContain('t.SpanId');
     expect(listQuery).toContain('t.Timestamp >= parseDateTimeBestEffort');

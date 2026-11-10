@@ -209,15 +209,29 @@ export async function getRequests(params: MetricParams) {
 		};
 	}
 
-	const query = `SELECT *	FROM ${table}
-		WHERE ${getFilterWhereCondition(params, true)}
-		${params.sorting && params.sorting.type && params.sorting.direction
+	const orderBy =
+		params.sorting && params.sorting.type && params.sorting.direction
 			? buildRequestsOrderByClause(params.sorting.type, params.sorting.direction)
-			: `ORDER BY Timestamp desc `
-		}
-		${oneRowPerTrace ? "LIMIT 1 BY TraceId" : ""}
-		LIMIT ${limit}
-		OFFSET ${offset}`;
+			: `ORDER BY Timestamp desc `;
+	const limitBy = oneRowPerTrace ? "LIMIT 1 BY TraceId" : "";
+
+	// Page on span identity first so the sort only touches the sort column,
+	// then read full rows (heavy map columns) for that page alone. The row read
+	// takes no LIMIT: the ids already bound it, and exact duplicate spans match
+	// the same id, so a LIMIT would push the page's last row off every page.
+	const query = `SELECT *	FROM ${table}
+		WHERE ${getTimeRangeWhereCondition(params) || "1"}
+		AND (Timestamp, TraceId, SpanId) IN (
+			SELECT Timestamp, TraceId, SpanId
+			FROM ${table}
+			WHERE ${getFilterWhereCondition(params, true)}
+			${orderBy}
+			${limitBy}
+			LIMIT ${limit}
+			OFFSET ${offset}
+		)
+		${orderBy}
+		${limitBy}`;
 
 	const { data, err } = await queryTracesSql(query, params.databaseConfigId);
 	return {
@@ -269,6 +283,8 @@ export async function getTraceSummaries(params: MetricParams) {
 	const { data: dataTotal, err: errTotal } = await queryTracesSql(countQuery, params.databaseConfigId);
 	if (errTotal) return { err: errTotal };
 
+	// `page` runs twice, for the join and for the IN that stops heavy map columns
+	// being read across the window, so TraceId must settle ties the same way.
 	const query = `WITH page AS (
 		SELECT
 			TraceId,
@@ -276,7 +292,7 @@ export async function getTraceSummaries(params: MetricParams) {
 		FROM ${table}
 		WHERE ${where}
 		GROUP BY TraceId
-		ORDER BY TraceStart ${direction}
+		ORDER BY TraceStart ${direction}, TraceId
 		LIMIT ${limit}
 		OFFSET ${offset}
 	)
@@ -306,7 +322,7 @@ export async function getTraceSummaries(params: MetricParams) {
 		CAST(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) AS INTEGER) AS ErrorCount
 	FROM ${table} AS t
 	INNER JOIN page AS p ON t.TraceId = p.TraceId
-	WHERE ${timeWhere}
+	WHERE ${timeWhere} AND t.TraceId IN (SELECT TraceId FROM page)
 	GROUP BY t.TraceId, p.TraceStart
 	ORDER BY p.TraceStart ${direction}`;
 

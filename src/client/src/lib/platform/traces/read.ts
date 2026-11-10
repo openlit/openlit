@@ -612,7 +612,7 @@ export async function getTraceSpanRecord(
 		let record = denormalizeSpanToTraceRow(span);
 		if (span.traceId && typeof adapter.getTraceSpans === "function") {
 			try {
-				const tree = await adapter.getTraceSpans(span.traceId);
+				const tree = await adapter.getTraceSpans(span.traceId, span.timestamp);
 				if (tree.length) {
 					record = await attachLoopForDetail(adapter, descriptor, record, tree);
 				} else {
@@ -676,8 +676,9 @@ export async function getTraceHierarchy(
 
 	try {
 		let span: NormalizedSpan | null = null;
+		let spans: NormalizedSpan[] | undefined;
 		if (opts?.traceId) {
-			const spans = await adapter.getTraceSpans(opts.traceId);
+			spans = await adapter.getTraceSpans(opts.traceId);
 			span =
 				spans.find((s) => s.spanId === spanId) ||
 				null;
@@ -691,13 +692,17 @@ export async function getTraceHierarchy(
 		if (!opts?.traceId) span = await adapter.getSpan(spanId);
 		if (!span) return { err: "Span not found", record: {} };
 
-		let spans = await adapter.getTraceSpans(span.traceId);
+		// Unbounded: a span missing from the tree can drop its whole subtree.
+		spans ??= await adapter.getTraceSpans(span.traceId);
 		const sessionId =
 			span.spanAttributes["coding_agent.session.id"] ||
 			span.resourceAttributes["coding_agent.session.id"];
 		if (sessionId && adapter.capabilities().crossTraceSession) {
 			try {
-				const sessionSpans = await adapter.getSpansBySession(sessionId);
+				const sessionSpans = await adapter.getSpansBySession(
+					sessionId,
+					span.timestamp
+				);
 				const byId = new Map<string, NormalizedSpan>();
 				for (const s of [...spans, ...sessionSpans]) byId.set(s.spanId, s);
 				spans = Array.from(byId.values());
