@@ -679,9 +679,7 @@ export async function getTraceHierarchy(
 		let spans: NormalizedSpan[] | undefined;
 		if (opts?.traceId) {
 			spans = await adapter.getTraceSpans(opts.traceId);
-			span =
-				spans.find((s) => s.spanId === spanId) ||
-				null;
+			span = findSpanInTrace(spans, spanId, opts.traceId);
 			if (!span) {
 				return {
 					err: "Span not found in the selected trace and telemetry source",
