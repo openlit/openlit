@@ -1,0 +1,157 @@
+jest.mock("@/lib/platform/common", () => ({
+	dataCollector: jest.fn(),
+}));
+jest.mock("@/lib/db-config", () => ({
+	getDBConfigByIdInternal: jest.fn(),
+	getDBConfigByUser: jest.fn(),
+}));
+jest.mock("@/lib/prisma", () => ({
+	__esModule: true,
+	default: {
+		clickhouseMigrations: {
+			findFirst: jest.fn(),
+			create: jest.fn(),
+		},
+		project: {
+			findUnique: jest.fn(),
+		},
+		databaseConfig: {
+			findMany: jest.fn(),
+		},
+	},
+}));
+jest.mock("@/utils/asaw", () =>
+	jest.fn(async (promise: Promise<unknown>) => {
+		try {
+			return [null, await promise];
+		} catch (err) {
+			return [err];
+		}
+	})
+);
+jest.mock("@/utils/log", () => ({
+	consoleLog: jest.fn(),
+}));
+
+import { dataCollector } from "@/lib/platform/common";
+import { getDBConfigByIdInternal } from "@/lib/db-config";
+import prisma from "@/lib/prisma";
+import BackfillOtelTenantEnvironmentMigration from "@/clickhouse/migrations/backfill-otel-tenant-environment-migration";
+
+describe("BackfillOtelTenantEnvironmentMigration", () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+		(getDBConfigByIdInternal as jest.Mock).mockResolvedValue({
+			id: "db-1",
+			projectId: "proj-1",
+			environment: "staging",
+		});
+		(prisma.clickhouseMigrations.findFirst as jest.Mock).mockResolvedValue(null);
+		(prisma.clickhouseMigrations.create as jest.Mock).mockResolvedValue({});
+		(prisma.project.findUnique as jest.Mock).mockResolvedValue({
+			organisationId: "org-1",
+		});
+		(dataCollector as jest.Mock).mockResolvedValue({ err: null });
+		(prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([]);
+	});
+
+	it("stamps organisation.environment.name and tenant ids without rewriting deployment.environment", async () => {
+		const result = await BackfillOtelTenantEnvironmentMigration("db-1");
+		expect(result).toEqual({ migrationExist: false, queriesRun: true });
+		expect(dataCollector).toHaveBeenCalled();
+		const query = String((dataCollector as jest.Mock).mock.calls[0][0].query);
+		expect(query).toContain("organisation.environment.name");
+		expect(query).toContain("staging");
+		expect(query).toContain("openlit.organisation.id");
+		expect(query).toContain("org-1");
+		expect(query).toContain("openlit.project.id");
+		expect(query).toContain("proj-1");
+		expect(query).not.toContain("deployment.environment");
+		expect(query).toContain(
+			"empty(ifNull(ResourceAttributes['organisation.environment.name'], ''))"
+		);
+		expect(prisma.clickhouseMigrations.create).toHaveBeenCalledWith({
+			data: {
+				databaseConfigId: "db-1",
+				clickhouseMigrationId: "backfill-otel-tenant-environment",
+			},
+		});
+	});
+
+	// dataCollector returns errors as strings: asaw() stringifies a rejected
+	// client.exec(), and its catch block prefixes "ClickHouse Query Error:".
+	// ClickHouse words a missing table on ALTER as "Could not find table".
+	it.each([
+		["a rejected exec", "Error: Could not find table: otel_logs. "],
+		["a caught client error", "ClickHouse Query Error: Could not find table: otel_logs. "],
+	])(
+		"skips otel tables that do not exist yet (%s)",
+		async (_label, missingTableErr) => {
+			// Only otel_traces exists, e.g. an external collector that exports
+			// traces only.
+			(dataCollector as jest.Mock).mockImplementation(async ({ query }) =>
+				/ALTER TABLE otel_traces\s/.test(String(query))
+					? { err: null }
+					: { err: missingTableErr }
+			);
+
+			const result = await BackfillOtelTenantEnvironmentMigration("db-1");
+
+			expect(result).toEqual({ migrationExist: false, queriesRun: true });
+			expect(dataCollector).toHaveBeenCalledTimes(7);
+			expect(prisma.clickhouseMigrations.create).toHaveBeenCalledWith({
+				data: {
+					databaseConfigId: "db-1",
+					clickhouseMigrationId: "backfill-otel-tenant-environment",
+				},
+			});
+		}
+	);
+
+	it("fails on errors other than a missing table", async () => {
+		const accessDenied =
+			"Error: default: Not enough privileges. To execute this query, it's necessary to have the grant ALTER UPDATE ON openlit.otel_traces. ";
+		(dataCollector as jest.Mock).mockResolvedValue({ err: accessDenied });
+
+		const result = await BackfillOtelTenantEnvironmentMigration("db-1");
+
+		expect(result).toEqual({
+			migrationExist: false,
+			queriesRun: false,
+			err: accessDenied,
+		});
+		expect(dataCollector).toHaveBeenCalledTimes(1);
+		expect(prisma.clickhouseMigrations.create).not.toHaveBeenCalled();
+	});
+
+	it("skips when the migration already ran", async () => {
+		(prisma.clickhouseMigrations.findFirst as jest.Mock).mockResolvedValue({
+			id: "mig-1",
+		});
+		await expect(
+			BackfillOtelTenantEnvironmentMigration("db-1")
+		).resolves.toEqual({ migrationExist: true, queriesRun: false });
+		expect(dataCollector).not.toHaveBeenCalled();
+	});
+
+	it("does not stamp a store shared with another project or environment", async () => {
+		(prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([
+			{ projectId: "proj-2", environment: "staging" },
+		]);
+		await expect(
+			BackfillOtelTenantEnvironmentMigration("db-1")
+		).resolves.toEqual({ migrationExist: false, queriesRun: false });
+		expect(dataCollector).not.toHaveBeenCalled();
+		expect(prisma.clickhouseMigrations.create).toHaveBeenCalled();
+	});
+
+	it("still stamps when the only other config shares the same tenant", async () => {
+		(prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([
+			{ projectId: "proj-1", environment: "staging" },
+		]);
+		await expect(
+			BackfillOtelTenantEnvironmentMigration("db-1")
+		).resolves.toEqual({ migrationExist: false, queriesRun: true });
+		expect(dataCollector).toHaveBeenCalled();
+	});
+});

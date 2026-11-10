@@ -337,6 +337,7 @@ describe("JaegerAdapter", () => {
 			serviceName: "svc",
 			durationNs: 12_000_000,
 			cost: 0.003,
+			traceSummary: { spanCount: 2, errorCount: 0 },
 		});
 		expect(chat.resourceAttributes["telemetry.sdk.name"]).toBe("openlit");
 		expect(chat.events?.[0]).toMatchObject({
@@ -701,6 +702,29 @@ describe("JaegerAdapter extended coverage", () => {
 				filters: [{ target: "spanName", op: "in", value: ["chat", "other"] }],
 			});
 			expect(array.total).toBe(1);
+		});
+
+		it("filters by Field SpanId", async () => {
+			mockSafeFetch.mockResolvedValue({
+				data: [
+					traceFixture({ traceId: "keep", spanId: "222942bfa699b630" }),
+					traceFixture({ traceId: "drop", spanId: "aaaaaaaaaaaaaaaa" }),
+				],
+			});
+			const matched = await adapter.countTraces({
+				signal: "traces",
+				timeRange: window,
+				aiSelector: false,
+				filters: [
+					{
+						target: "field",
+						key: "SpanId",
+						op: "eq",
+						value: "222942bfa699b630",
+					},
+				],
+			});
+			expect(matched.total).toBe(1);
 		});
 
 		it("filters by span status (error vs ok, scalar and array values)", async () => {

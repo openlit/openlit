@@ -95,6 +95,9 @@ rules:
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -137,7 +140,7 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: "host.name=$(K8S_NODE_NAME),k8s.node.name=$(K8S_NODE_NAME)"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://otel-collector:4317"
+              value: "http://openlit:4318"
             # Optional for on-prem / self-managed clusters:
             # - name: K8S_CLUSTER_NAME
             #   value: my-cluster
@@ -164,7 +167,7 @@ spec:
 ```
 
 <Note>
-`hostPID: true` (same role as Docker `--pid=host`) is required for per-process and per-pod GPU attribution so the collector can see workload PIDs under `/proc`. Without it, device-level `hw.gpu.*` metrics still work. The `nodes/get` ClusterRole enables OpenCost-style `host.type` / `cloud.provider` discovery from node labels without relying on IMDS (helpful when EKS hop limit is 1).
+`hostPID: true` (same role as Docker `--pid=host`) is required for per-process and per-pod GPU attribution so the collector can see workload PIDs under `/proc`. Without it, device-level `hw.gpu.*` metrics still work. `nodes/get` enables OpenCost-style `host.type` / `cloud.provider` discovery from node labels without relying on IMDS (helpful when EKS hop limit is 1). `pods/list` is what `OPENLIT_K8S_POD_LOOKUP` uses to turn a process's cgroup pod UID into `k8s.pod.name`. The list call is field-selected to this node; the permission is cluster-scoped.
 </Note>
 
 See [Configuration](/latest/gpu-collector/configuration) for identity env vars and detection order.

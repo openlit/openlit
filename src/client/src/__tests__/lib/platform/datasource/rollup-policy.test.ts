@@ -50,6 +50,24 @@ describe("rollup-policy", () => {
 		).toBe(false);
 	});
 
+	it("detects organisation.environment.name as a scope filter", () => {
+		expect(
+			queryHasScopeFilters({
+				signal: "traces",
+				timeRange: { start: new Date(), end: new Date() },
+				filters: [
+					{
+						target: "attribute",
+						scope: "resource",
+						key: "organisation.environment.name",
+						op: "eq",
+						value: "staging",
+					},
+				],
+			})
+		).toBe(true);
+	});
+
 	it("detects deployment.environment as a scope filter", () => {
 		expect(
 			queryHasScopeFilters({

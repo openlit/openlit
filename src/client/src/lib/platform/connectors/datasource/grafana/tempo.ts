@@ -467,6 +467,25 @@ function filterToTraceQL(filter: NormalizedFilter): string {
 		);
 		return wantsError ? `status = error` : `status != error`;
 	}
+	if (filter.target === "field" && filter.key) {
+		const intrinsic =
+			filter.key === "SpanId"
+				? "span:id"
+				: filter.key === "TraceId"
+					? "trace:id"
+					: filter.key === "ParentSpanId"
+						? "span:parentID"
+						: filter.key === "Kind"
+							? "kind"
+							: "";
+		if (!intrinsic) return "";
+		const values = Array.isArray(filter.value)
+			? filter.value
+			: [filter.value || ""];
+		return `(${values
+			.map((v) => `${intrinsic} = ${traceqlValue(String(v))}`)
+			.join(" || ")})`;
+	}
 	if (filter.target === "attribute" && filter.key) {
 		const safeKey = sanitizeTraceQLAttrKey(filter.key);
 		if (!safeKey) return "";
@@ -541,7 +560,8 @@ export function tempoAISelectorQuery(
 
 /** Map an OpenLIT numeric field to a scoped TraceQL attribute reference. */
 function metricAttrRef(field?: string): string {
-	const raw = (field || "").trim();
+	// Accept the planner's `span:` / `resource:` scoped form as well as TraceQL's.
+	const raw = (field || "").trim().replace(/^(span|resource):/, "$1.");
 	if (!raw) return "";
 	if (raw === "duration" || raw === "Duration" || raw === "durationNs") return "duration";
 	if (raw.startsWith("span.") || raw.startsWith("resource.")) {

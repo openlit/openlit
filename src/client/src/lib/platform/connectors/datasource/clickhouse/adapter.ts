@@ -101,6 +101,16 @@ function timeRangeClause(range: QueryTimeRange, column = "Timestamp"): string {
 }
 
 /**
+ * Partition bound for a read anchored on one span. Spans past it are silently
+ * missing from the result, so it is wide on purpose, and a read that must be
+ * complete, like the trace tree, does not use it.
+ */
+function traceWindowClause(spanTimestamp: string): string {
+	const anchor = `parseDateTimeBestEffort('${escapeCH(spanTimestamp)}')`;
+	return `Timestamp >= ${anchor} - INTERVAL 7 DAY AND Timestamp <= ${anchor} + INTERVAL 7 DAY`;
+}
+
+/**
  * Map attribute lookups are String-typed; Duration and arithmetic on it are
  * already numeric. `toFloat64OrZero` / `OrNull` only accept String arguments
  * in ClickHouse — wrapping `Duration / 1e9` breaks group-by aggregations.
@@ -141,6 +151,13 @@ function fieldToExpr(field: string): string {
 	}
 	if (field === "deployment.environment") {
 		return "ResourceAttributes['deployment.environment']";
+	}
+	if (
+		field === "organisation.environment.name" ||
+		field === "openlit.organisation.id" ||
+		field === "openlit.project.id"
+	) {
+		return `ResourceAttributes['${escapeCH(field)}']`;
 	}
 	// OTel GenAI renamed gen_ai.system → gen_ai.provider.name (1.30+). Coalesce
 	// so group-by / filters work for both legacy and current SDK emits.
@@ -184,6 +201,7 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			distinctValues: true,
 			crossTraceSession: true,
 			rawQuery: true,
+			contentSearch: true,
 		};
 	}
 
@@ -244,10 +262,14 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			: null;
 	}
 
-	async getTraceSpans(traceId: string): Promise<NormalizedSpan[]> {
+	async getTraceSpans(
+		traceId: string,
+		spanTimestamp?: string
+	): Promise<NormalizedSpan[]> {
 		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
 		const query = `SELECT * FROM ${tracesTable}
 			WHERE TraceId = '${escapeCH(traceId)}'
+			${spanTimestamp ? `AND ${traceWindowClause(spanTimestamp)}` : ""}
 			ORDER BY Timestamp ASC
 			LIMIT 5000`;
 		const result = await queryConnectorTraces(query, this.dbConfigId);
@@ -256,13 +278,17 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 		return ((data as Record<string, unknown>[]) || []).map(normalizeSpanRow);
 	}
 
-	async getSpansBySession(sessionId: string): Promise<NormalizedSpan[]> {
+	async getSpansBySession(
+		sessionId: string,
+		spanTimestamp?: string
+	): Promise<NormalizedSpan[]> {
 		const tracesTable = await resolveTracesTableRef(this.dbConfigId);
 		const s = escapeCH(sessionId);
 		const query = `SELECT * FROM ${tracesTable}
-			WHERE SpanAttributes['${AI_SELECTOR_MARKERS.codingSessionId}'] = '${s}'
+			WHERE (SpanAttributes['${AI_SELECTOR_MARKERS.codingSessionId}'] = '${s}'
 				OR ResourceAttributes['coding_agent.agent.parent_id'] = '${s}'
-				OR SpanAttributes['coding_agent.agent.parent_id'] = '${s}'
+				OR SpanAttributes['coding_agent.agent.parent_id'] = '${s}')
+			${spanTimestamp ? `AND ${traceWindowClause(spanTimestamp)}` : ""}
 			ORDER BY Timestamp ASC
 			LIMIT 5000`;
 		const result = await queryConnectorTraces(query, this.dbConfigId);
@@ -650,6 +676,7 @@ export const clickHouseAdapterFactory = {
 			distinctValues: true,
 			crossTraceSession: true,
 			rawQuery: true,
+			contentSearch: true,
 		},
 		correlation: {
 			crossSignal: true,

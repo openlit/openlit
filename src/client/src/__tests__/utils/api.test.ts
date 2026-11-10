@@ -126,7 +126,20 @@ describe('getData', () => {
       makeFetchResponse(true, '<!DOCTYPE html><html>login</html>')
     );
     await expect(getData({ url: '/api/db-config', method: 'GET' })).rejects.toThrow(
-      /non-JSON/i
+      /page instead of data/i
+    );
+  });
+
+  it('throws a readable message instead of dumping HTML on failed responses', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      makeFetchResponse(
+        false,
+        '<!DOCTYPE html><html><head><style data-next-hide-fouc="true">body{display:none}</style></head></html>',
+        401
+      )
+    );
+    await expect(getData({ url: '/api/test', method: 'GET' })).rejects.toThrow(
+      'The server returned a page instead of data (401). Refresh the page and try again.'
     );
   });
 
@@ -189,6 +202,43 @@ describe('getData', () => {
   });
 });
 
+describe('getData timeout', () => {
+  const abortedAfter = async (timeoutMs?: number) => {
+    __clearTelemetryRequestCache();
+    (global.fetch as jest.Mock).mockReturnValue(new Promise(() => {}));
+    const request = getData({ url: '/api/telemetry/trace', data: { a: timeoutMs ?? 0 }, timeoutMs });
+    request.catch(() => {});
+    await Promise.resolve();
+    const [, options] = (global.fetch as jest.Mock).mock.calls.at(-1);
+    return options.signal as AbortSignal;
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    global.fetch = jest.fn();
+    mockEmptyScope();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    __clearTelemetryRequestCache();
+  });
+
+  it('aborts telemetry reads after 15 seconds by default', async () => {
+    const signal = await abortedAfter();
+    jest.advanceTimersByTime(15_000);
+    expect(signal.aborted).toBe(true);
+  });
+
+  it('honours a longer timeout', async () => {
+    const signal = await abortedAfter(60_000);
+    jest.advanceTimersByTime(59_999);
+    expect(signal.aborted).toBe(false);
+    jest.advanceTimersByTime(1);
+    expect(signal.aborted).toBe(true);
+  });
+});
+
 describe('postData', () => {
   beforeEach(() => {
     global.fetch = jest.fn();
@@ -231,6 +281,15 @@ describe('postData', () => {
   it('throws when response is not ok', async () => {
     (global.fetch as jest.Mock).mockResolvedValue(makeFetchResponse(false, 'Bad Request'));
     await expect(postData({ url: '/api/items', data: {} })).rejects.toThrow();
+  });
+
+  it('throws a readable message instead of dumping HTML on failed responses', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      makeFetchResponse(false, '<html><body>login</body></html>', 500)
+    );
+    await expect(postData({ url: '/api/items', data: {} })).rejects.toThrow(
+      /page instead of data \(500\)/i
+    );
   });
 
   it('throws using the object error fallback fields when the failed response is JSON', async () => {

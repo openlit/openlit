@@ -226,6 +226,39 @@ describe("coding agent query service", () => {
 		);
 	});
 
+	it("aggregates OpenCode snapshot counters numerically without losing total tokens", async () => {
+		mockDataCollector.mockResolvedValue({ err: null, data: [] });
+
+		await listSessions(auth, { limit: 10 });
+		await getCodingSessionDigest(auth, "snapshot-session");
+		await listCodingUsers(auth, { limit: 10 });
+
+		const queries = mockDataCollector.mock.calls.map(
+			([request]) => request.query as string
+		);
+		const perSpanTotal =
+			/nullIf\(\s*toInt64OrZero\(SpanAttributes\['gen_ai\.usage\.total_tokens'\]\),\s*0\s*\)/;
+		for (const query of queries) {
+			expect(query).toMatch(perSpanTotal);
+			expect(query).toContain("'coding_agent.session.snapshot'");
+		}
+		expect(queries[0]).toContain(
+			"max(toInt64OrZero(SpanAttributes['coding_agent.session.tool_call_count']))"
+		);
+		expect(queries[2]).toContain(
+			"max(toInt64OrZero(SpanAttributes['coding_agent.session.tool_call_count']))"
+		);
+		expect(queries[0]).toContain(
+			"max(toInt64OrZero(SpanAttributes['coding_agent.session.duration_ms']))"
+		);
+		expect(queries[1]).toContain(
+			"max(toInt64OrZero(SpanAttributes['coding_agent.session.duration_ms']))"
+		);
+		expect(queries.join("\n")).not.toMatch(
+			/toInt64OrZero\((?:any|max)\(SpanAttributes\['coding_agent\.session\.(?:duration_ms|tool_call_count)'\]\)\)/
+		);
+	});
+
 	it("falls back to default sort columns for unknown sortBy values", async () => {
 		mockDataCollector.mockResolvedValueOnce({
 			err: null,
@@ -755,5 +788,122 @@ describe("DisputeError", () => {
 		expect(error.code).toBe("duplicate");
 		expect(error.status).toBe(409);
 		expect(error.message).toBe("Duplicate");
+	});
+});
+
+describe("native Claude Code telemetry", () => {
+	beforeEach(() => jest.clearAllMocks());
+
+	const nativeRow = (overrides: Record<string, unknown> = {}) => ({
+		session_id: "native-1",
+		started_at: "2026-01-02T00:00:00Z",
+		user: "alice@example.com",
+		vendor: "claude-code",
+		cost_usd: 0,
+		...overrides,
+	});
+
+	it("includes native spans, keyed by session.id, in every session read", async () => {
+		mockDataCollector.mockResolvedValueOnce({ err: null, data: [] });
+
+		await listSessions(auth, { limit: 10 });
+
+		const query = mockDataCollector.mock.calls[0][0].query as string;
+		// The scope admits native span names on their own session key, next to the hook spans.
+		expect(query).toMatch(
+			/OR \(\s*SpanName IN \([^)]*'claude_code\.interaction'[^)]*'claude_code\.llm_request'[^)]*\)\s*AND notEmpty\(SpanAttributes\['session\.id'\]\)\s*\)/
+		);
+		// Tokens and tool calls from native spans count when no hook reported them.
+		expect(query).toContain("SpanAttributes['input_tokens']");
+		expect(query).toContain(
+			"uniqExactIf(SpanAttributes['gen_ai.tool.call.id'], SpanName IN ('coding_agent.tool.call', 'claude_code.tool')"
+		);
+	});
+
+	it("takes the cost of a native-only session from its api_request events", async () => {
+		mockDataCollector
+			.mockResolvedValueOnce({ err: null, data: [nativeRow()] })
+			.mockResolvedValueOnce({ err: null, data: [{ native_sid: "native-1", native_cost: "0.0032" }] });
+
+		const { rows } = await listSessions(auth, { limit: 10 });
+
+		expect(rows[0].cost_usd).toBe(0.0032);
+		const costQuery = mockDataCollector.mock.calls[1][0].query as string;
+		expect(costQuery).toContain("FROM otel_logs");
+		expect(costQuery).toContain("= 'api_request'");
+		expect(costQuery).toContain("IN ('native-1')");
+	});
+
+	it("prefers the logged cost over a hook estimate, and leaves other vendors alone", async () => {
+		mockDataCollector
+			.mockResolvedValueOnce({
+				err: null,
+				data: [
+					nativeRow({ cost_usd: 1.5 }),
+					nativeRow({ session_id: "hook-only", cost_usd: 0.7 }),
+					nativeRow({ session_id: "cursor-1", vendor: "cursor" }),
+				],
+			})
+			.mockResolvedValueOnce({ err: null, data: [{ native_sid: "native-1", native_cost: "1.2" }] });
+
+		const { rows } = await listSessions(auth, { limit: 10 });
+
+		expect(rows.map((row) => row.cost_usd)).toEqual([1.2, 0.7, 0]);
+		expect(mockDataCollector.mock.calls[1][0].query).toContain("IN ('native-1', 'hook-only')");
+	});
+
+	it("prefers native token counts when a session has them", async () => {
+		mockDataCollector.mockResolvedValueOnce({ err: null, data: [] });
+
+		await listSessions(auth, { limit: 10 });
+
+		expect(mockDataCollector.mock.calls[0][0].query).toMatch(
+			/if\(toInt64\(sumIf\(toInt64OrZero\(SpanAttributes\['input_tokens'\]\), SpanName = 'claude_code\.llm_request'\)\) > 0/
+		);
+	});
+
+	it("logs a cost lookup failure that is not a missing logs table", async () => {
+		const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+		try {
+			mockDataCollector
+				.mockResolvedValueOnce({ err: null, data: [nativeRow()] })
+				.mockResolvedValueOnce({ err: "Code: 210. DB::NetException: Connection refused", data: null })
+				.mockResolvedValueOnce({ err: null, data: [nativeRow()] })
+				.mockResolvedValueOnce({ err: "Code: 60. DB::Exception: Table native.otel_logs does not exist. (UNKNOWN_TABLE)", data: null });
+
+			const outage = await listSessions(auth, { limit: 10 });
+			expect(outage.rows[0].cost_usd).toBe(0);
+			expect(error).toHaveBeenCalledWith("coding_agent.native_cost.lookup_failed", expect.stringContaining("Connection refused"));
+
+			error.mockClear();
+			await listSessions(auth, { limit: 10 });
+			expect(error).not.toHaveBeenCalled();
+		} finally {
+			error.mockRestore();
+		}
+	});
+
+	it("keeps the rows when the logs table is missing", async () => {
+		mockDataCollector
+			.mockResolvedValueOnce({ err: null, data: [nativeRow()] })
+			.mockResolvedValueOnce({ err: "Table native.otel_logs does not exist", data: null });
+
+		const { rows } = await listSessions(auth, { limit: 10 });
+
+		expect(rows[0].cost_usd).toBe(0);
+	});
+
+	it("replaces span cost with logged cost in the Users rollup", async () => {
+		mockDataCollector
+			.mockResolvedValueOnce({ err: null, data: [{ user: "alice@example.com", cost_usd: "0.1" }, { user: "low_cohort", cost_usd: "0" }] })
+			.mockResolvedValueOnce({ err: null, data: [{ user: "alice@example.com", cost_delta: "0.2" }] });
+
+		const { rows } = await listCodingUsers(auth, { limit: 10 });
+
+		expect(rows.map((row) => row.cost_usd)).toEqual([0.3, 0]);
+		const costQuery = mockDataCollector.mock.calls[1][0].query as string;
+		expect(costQuery).toContain("sum(native_cost - ifNull(cost, 0)) AS cost_delta");
+		expect(costQuery).toContain("IN ('alice@example.com')");
+		expect(costQuery).not.toContain("low_cohort");
 	});
 });

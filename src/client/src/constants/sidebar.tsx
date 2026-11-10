@@ -1,4 +1,3 @@
-import OpenTelemetrySvg from "@/components/svg/opentelemetry";
 import { getEnterpriseSidebarItems } from "@/features/sidebar";
 import getMessage from "@/constants/messages";
 import { SidebarItemProps } from "@/types/sidebar";
@@ -23,6 +22,8 @@ import {
 	SettingsIcon,
 	SlidersHorizontal,
 	User,
+	ScanSearch,
+	BellRing,
 } from "lucide-react";
 
 export const ICON_CLASSES = "flex-shrink-0 size-4";
@@ -76,9 +77,9 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						type: "action",
 					},
 					{
-						icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
-						text: "Fleet Hub",
-						link: "/fleet-hub",
+						icon: <BellRing className={ICON_CLASSES} />,
+						text: m.ALERTING_TITLE,
+						link: "/alerts",
 						type: "action",
 					},
 				],
@@ -108,6 +109,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 						icon: <BrainCircuit className={ICON_CLASSES} />,
 						text: m.FEATURE_MEMORY,
 						link: "/memory",
+						type: "action",
+					},
+					{
+						icon: <ScanSearch className={ICON_CLASSES} />,
+						text: m.FEATURE_SCANNER,
+						link: "/scanner",
 						type: "action",
 					},
 					{
@@ -174,6 +181,7 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 				link: "/openapi-spec",
 				type: "action",
 			},
+			...getEnterpriseSidebarItems("settings", ICON_CLASSES),
 		],
 	},
 	{

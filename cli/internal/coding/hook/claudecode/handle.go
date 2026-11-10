@@ -913,7 +913,7 @@ func stringFieldFromInput(raw json.RawMessage, field string) string {
 	return s
 }
 
-// tailTranscript scans the end of a Claude Code transcript JSONL file
+// tailTranscript scans a Claude Code transcript JSONL file
 // for the final usage line. The transcript format is one JSON object
 // per line, with assistant turns carrying a `usage` object that totals
 // input/output/cache tokens for that turn. We sum the assistant turns
@@ -931,53 +931,91 @@ func tailTranscript(path string) (model string, cost float64, inTokens, outToken
 			path = filepath.Join(home, strings.TrimPrefix(path, "~/"))
 		}
 	}
-	// F3: bound the read to the last `DefaultCap` bytes so the hook
-	// never blocks on a multi-GB transcript. Marathon sessions whose
-	// usage rolls up across the boundary will undercount tokens —
-	// we accept that in exchange for predictable hook latency. The
-	// last-N-bytes window comfortably holds a multi-hour session at
-	// realistic Claude turn sizes.
-	lines := tailfile.Tail(path, tailfile.DefaultCap)
-	if len(lines) == 0 {
-		return "", 0, 0, 0, 0
-	}
+	// Stream the whole transcript, decoding only the usage-related fields.
+	// A tail read undercounts: tool results push even short sessions past
+	// tailfile.DefaultCap, and the session total must cover every request.
 	type usage struct {
 		InputTokens              int64 `json:"input_tokens"`
 		OutputTokens             int64 `json:"output_tokens"`
 		CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
 		CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+		CacheCreation            struct {
+			Ephemeral1hInputTokens int64 `json:"ephemeral_1h_input_tokens"`
+		} `json:"cache_creation"`
 	}
 	type turn struct {
-		Type    string `json:"type"`
-		Message struct {
+		Type      string `json:"type"`
+		RequestID string `json:"requestId"`
+		Message   struct {
+			ID    string `json:"id"`
 			Model string `json:"model"`
-			Usage usage  `json:"usage"`
+			Usage *usage `json:"usage"`
 		} `json:"message"`
 	}
 
-	var ti, to, cacheRead, cacheCreation int64
+	// Claude Code writes one line per content block (thinking / text /
+	// tool_use) of an API response, each repeating the response's usage.
+	// Count every response once — the last line of a message wins, as
+	// in coalesceAssistants. Keep running totals plus a small usage record
+	// per response (to swap in a later line), not every decoded response.
+	type tally struct{ in, out, read, creation, creation1h int64 }
+	add := func(a, b tally, sign int64) tally {
+		return tally{a.in + sign*b.in, a.out + sign*b.out, a.read + sign*b.read,
+			a.creation + sign*b.creation, a.creation1h + sign*b.creation1h}
+	}
+	byMessage := map[string]tally{}
+	var sum tally
 	var lastModel string
-	for _, line := range lines {
+	var seen bool
+	// Only these fields are kept from each line, so a line carrying a huge
+	// tool input or result costs no extra memory.
+	keep := []string{"type", "requestId", "message.id", "message.model", "message.usage"}
+	err := tailfile.EachJSONLFields(path, keep, func(obj []byte) {
 		var t turn
-		if err := json.Unmarshal(line, &t); err != nil {
-			continue
+		if err := json.Unmarshal(obj, &t); err != nil || t.Message.Usage == nil {
+			return
 		}
+		u := *t.Message.Usage
 		// Anthropic transcript reports cache creation + cache read as
 		// separate counters; "fresh" input is the standard input_tokens.
 		// The OTel field gen_ai.usage.input_tokens should equal total
 		// distinct input the model saw, so we sum them.
-		fresh := t.Message.Usage.InputTokens
-		creation := t.Message.Usage.CacheCreationInputTokens
-		read := t.Message.Usage.CacheReadInputTokens
-		ti += fresh + creation + read
-		cacheRead += read
-		cacheCreation += creation
-		to += t.Message.Usage.OutputTokens
+		r := tally{
+			in:         u.InputTokens + u.CacheCreationInputTokens + u.CacheReadInputTokens,
+			out:        u.OutputTokens,
+			read:       u.CacheReadInputTokens,
+			creation:   u.CacheCreationInputTokens,
+			creation1h: u.CacheCreation.Ephemeral1hInputTokens,
+		}
+		key := t.Message.ID
+		if key == "" {
+			key = t.RequestID
+		}
+		if key != "" {
+			if prev, ok := byMessage[key]; ok {
+				sum = add(sum, prev, -1)
+			}
+			byMessage[key] = r
+		}
+		sum = add(sum, r, 1)
 		if t.Message.Model != "" {
 			lastModel = t.Message.Model
 		}
+		seen = true
+	})
+	// A partial read (I/O error, or a usage field too large to keep) must not
+	// be published as the authoritative session total. Returning zeros lets
+	// the session span fall back to the per-turn counters.
+	if err != nil || !seen {
+		return "", 0, 0, 0, 0
 	}
+	ti, to, cacheRead, cacheCreation, cacheCreation1h := sum.in, sum.out, sum.read, sum.creation, sum.creation1h
 	rate := pricing.Lookup(lastModel)
 	cost = rate.Cost(ti, to, cacheRead, cacheCreation)
+	if cacheCreation1h > 0 && rate.CacheCreationPer1M > 0 {
+		// 1-hour cache writes bill at 2x base input, not the 5-minute
+		// write rate in the table; Claude Code uses them for long sessions.
+		cost += float64(cacheCreation1h) * (2*rate.InputPer1M - rate.CacheCreationPer1M) / 1_000_000.0
+	}
 	return lastModel, cost, ti, to, ti + to
 }

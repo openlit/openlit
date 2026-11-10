@@ -90,16 +90,16 @@ Intel GPU support requires Linux with the **i915** or **Xe** kernel driver (kern
             environment:
               OTEL_SERVICE_NAME: 'my-app'
               OTEL_RESOURCE_ATTRIBUTES: 'deployment.environment=staging'
-              OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+              OTEL_EXPORTER_OTLP_ENDPOINT: "http://openlit:4318"
             devices:
               - /dev/dri:/dev/dri
             depends_on:
-              - otel-collector
+              - openlit
             restart: always
           ```
 
           </Accordion>
-          <Accordion title="Host IP: Use the Host IP to connect to OTel Collector">
+          <Accordion title="Host IP: Use the Host IP to connect to OpenLIT">
 
           ```sh
           OTEL_EXPORTER_OTLP_ENDPOINT="http://192.168.10.15:4318"

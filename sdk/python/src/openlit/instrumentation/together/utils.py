@@ -67,6 +67,8 @@ def process_chunk(scope, chunk):
     chunked = response_as_dict(chunk)
     # Collect message IDs and aggregated response from events
     choices = chunked.get("choices", [])
+    if choices and choices[0].get("finish_reason"):
+        scope._finish_reason = str(choices[0]["finish_reason"])
     if choices and "delta" in choices[0]:
         delta = choices[0].get("delta", {})
         content = delta.get("content")
@@ -77,7 +79,8 @@ def process_chunk(scope, chunk):
         if delta_tools:
             scope._tools = scope._tools or []
             for tool in delta_tools:
-                index = tool.get("index", 0)
+                # The Together SDK types `index` as a float.
+                index = int(tool.get("index") or 0)
                 scope._tools.extend([{}] * (index + 1 - len(scope._tools)))
                 function = tool.get("function") or {}
                 if tool.get("id"):
@@ -102,7 +105,8 @@ def process_chunk(scope, chunk):
         scope._response_model = chunked.get("model")
         scope._input_tokens = chunked.get("usage").get("prompt_tokens")
         scope._output_tokens = chunked.get("usage").get("completion_tokens")
-        scope._finish_reason = str(chunked.get("finish_reason"))
+        if chunked.get("finish_reason"):
+            scope._finish_reason = str(chunked["finish_reason"])
         scope._end_time = time.time()
 
 
@@ -353,7 +357,11 @@ def common_chat_logic(
             },
         )
 
-    scope._span.set_status(Status(StatusCode.OK))
+    # OK is sticky in the OTel SDK: a later set_status(ERROR) is ignored.
+    # Stream failures set scope._stream_error before this runs, then
+    # handle_exception records ERROR once these attributes are written.
+    if getattr(scope, "_stream_error", None) is None:
+        scope._span.set_status(Status(StatusCode.OK))
 
     # Metrics
     if not disable_metrics:

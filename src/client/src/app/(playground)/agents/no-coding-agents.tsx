@@ -17,7 +17,7 @@
  *    returned key replaces the placeholder in the snippet.
  *
  * Per-vendor descriptions / hook lists are removed — the deep
- * reference lives at docs.openlit.io/.../coding-agents/onboarding.
+ * reference lives at docs.openlit.io/.../coding-agents/setup-and-configure.
  */
 
 import { ComponentType, useCallback, useEffect, useMemo, useState } from "react";
@@ -34,6 +34,11 @@ import {
 	CodingAgentVendorIcon,
 	hasCodingAgentVendorIcon,
 } from "@/components/svg/coding-agents";
+import {
+	AGENTS_CODING_VENDOR_OPENCODE_LABEL,
+	AGENTS_CODING_VENDOR_OPENCODE_RESTART,
+	AGENTS_CODING_SETUP_GUIDE,
+} from "@/constants/messages/en";
 import LinuxSvg from "@/components/svg/linux";
 import MacSvg from "@/components/svg/mac";
 import WindowsSvg from "@/components/svg/windows";
@@ -44,7 +49,7 @@ import { ApiKey } from "@/types/api-key";
 
 type OsIconComponent = ComponentType<{ className?: string }>;
 
-type VendorId = "claude-code" | "cursor" | "codex";
+type VendorId = "claude-code" | "cursor" | "codex" | "opencode";
 type OsId = "macos" | "linux" | "windows";
 
 interface VendorMeta {
@@ -68,6 +73,8 @@ interface VendorMeta {
 		restart: string;
 		// Optional follow-up steps. Currently only Codex needs them.
 		extraSteps?: string[];
+		// Some vendors only need a restart after installation.
+		showPromptStep?: boolean;
 	};
 }
 
@@ -110,6 +117,14 @@ const VENDORS: VendorMeta[] = [
 			extraSteps: [
 				"Inside Codex, run `/hooks` and trust each `openlit@openlit` entry.",
 			],
+		},
+	},
+	{
+		id: "opencode",
+		label: AGENTS_CODING_VENDOR_OPENCODE_LABEL,
+		cliFlag: "opencode",
+		postInstall: {
+			restart: AGENTS_CODING_VENDOR_OPENCODE_RESTART,
 		},
 	},
 ];
@@ -473,7 +488,9 @@ export default function NoCodingAgents({ compact = false }: NoCodingAgentsProps)
 								{(vendor.postInstall.extraSteps || []).map((step, i) => (
 									<li key={i}>{step}</li>
 								))}
-								<li>Send any prompt in {vendor.label}.</li>
+								{vendor.postInstall.showPromptStep !== false && (
+									<li>Send any prompt in {vendor.label}.</li>
+								)}
 							</ol>
 						</div>
 
@@ -481,12 +498,12 @@ export default function NoCodingAgents({ compact = false }: NoCodingAgentsProps)
 							Full reference (env vars, content-capture modes,
 							marketplace install):{" "}
 							<a
-								href="https://docs.openlit.io/latest/openlit/coding-agents/onboarding"
+								href="https://docs.openlit.io/latest/openlit/coding-agents/setup-and-configure"
 								target="_blank"
 								rel="noreferrer"
 								className="text-primary hover:underline"
 							>
-								coding-agents onboarding
+								{AGENTS_CODING_SETUP_GUIDE}
 							</a>
 							.
 						</p>

@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-// marketplaceFS holds the embedded Claude Code marketplace tree. The
+// marketplaceFS holds the embedded coding-agent plugin tree. The
 // contents are assembled by `cli/scripts/sync-plugins.sh` from the
 // two repo-root sources (`.claude-plugin/marketplace.json` and
 // `plugins/<vendor>/`) into a single in-tree mirror so the CLI binary
@@ -30,6 +30,7 @@ import (
 //	  plugins/claude-code/
 //	  plugins/cursor/
 //	  plugins/codex/
+//	  plugins/opencode/
 //
 // Keeping the layouts identical means the single marketplace.json
 // `source: "./plugins/claude-code"` resolves correctly whether Claude
@@ -51,6 +52,9 @@ func installVendor(vendor string, dryRun bool) ([]string, error) {
 	// to drop a plugin tree. See install_cursor.go for the why.
 	if vendor == "cursor" {
 		return installCursorHooks(dryRun)
+	}
+	if vendor == "opencode" {
+		return installOpenCodePlugin(dryRun)
 	}
 
 	dest, err := vendorDestRoot(vendor)

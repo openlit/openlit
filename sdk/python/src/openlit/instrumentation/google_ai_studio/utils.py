@@ -9,14 +9,14 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
-    calculate_ttft,
-    response_as_dict,
     calculate_tbt,
-    get_chat_model_cost,
+    calculate_ttft,
     common_span_attributes,
     general_tokens,
+    get_chat_model_cost,
     otel_event,
     record_completion_metrics,
+    response_as_dict,
     truncate_message_content,
 )
 from openlit._config import OpenlitConfig
@@ -276,9 +276,7 @@ def build_output_messages(response_text, finish_reason, function_calls=None):
         # arguments (OTel ToolCallRequestPart).
         if function_calls:
             calls = (
-                function_calls
-                if isinstance(function_calls, list)
-                else [function_calls]
+                function_calls if isinstance(function_calls, list) else [function_calls]
             )
             for function_call in calls:
                 if not isinstance(function_call, dict) or not function_call:
@@ -622,7 +620,7 @@ def common_chat_logic(
         request_model,
         pricing_info,
         input_tokens,
-        output_tokens,
+        output_tokens + (getattr(scope, "_reasoning_tokens", 0) or 0),
         cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
         cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
         prompt_tokens_include_cache=True,
@@ -829,7 +827,12 @@ def common_chat_logic(
             except Exception as e:
                 logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
-    scope._span.set_status(Status(StatusCode.OK))
+    # OK is sticky in the OTel SDK: a later set_status(ERROR) is ignored.
+    # Stream failures set scope._stream_error before this runs, then
+    # handle_exception records ERROR once these attributes are written.
+    # Non-streaming scopes never set _stream_error, so they still record OK.
+    if getattr(scope, "_stream_error", None) is None:
+        scope._span.set_status(Status(StatusCode.OK))
 
     # Record metrics
     if not disable_metrics:
@@ -839,6 +842,8 @@ def common_chat_logic(
                 scope._timestamps[i] - scope._timestamps[i - 1]
                 for i in range(1, len(scope._timestamps))
             ]
+        stream_error = getattr(scope, "_stream_error", None)
+        error_type = type(stream_error).__name__ if stream_error is not None else None
         record_completion_metrics(
             metrics,
             SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -856,6 +861,7 @@ def common_chat_logic(
             cost,
             scope._tbt,
             scope._ttft,
+            error_type=error_type,
             is_stream=is_stream,
             time_per_chunk_observations=inter_chunk_durations,
         )

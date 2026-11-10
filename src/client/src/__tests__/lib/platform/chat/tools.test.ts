@@ -90,6 +90,8 @@ const mockUpdateProjectMemory = jest.fn();
 const mockDeleteProjectMemory = jest.fn();
 const mockRequireMemoryAccess = jest.fn().mockResolvedValue(undefined);
 const mockRecordMemoryMutationAudit = jest.fn().mockResolvedValue(undefined);
+const mockRequireScannerAccess = jest.fn().mockResolvedValue(undefined);
+const mockLookupLatestScannerFindingsForRepo = jest.fn();
 jest.mock("@/lib/platform/connectors/memory/read", () => ({
 	queryProjectMemories: (...args: unknown[]) => mockQueryProjectMemories(...args),
 }));
@@ -102,6 +104,13 @@ jest.mock("@/lib/access/memory-route", () => ({
 	requireMemoryAccess: (...args: unknown[]) => mockRequireMemoryAccess(...args),
 	recordMemoryMutationAudit: (...args: unknown[]) =>
 		mockRecordMemoryMutationAudit(...args),
+}));
+jest.mock("@/lib/access/scanner-route", () => ({
+	requireScannerAccess: (...args: unknown[]) => mockRequireScannerAccess(...args),
+}));
+jest.mock("@/lib/platform/connectors/scanner/lookup", () => ({
+	lookupLatestScannerFindingsForRepo: (...args: unknown[]) =>
+		mockLookupLatestScannerFindingsForRepo(...args),
 }));
 
 jest.mock("@/utils/sanitizer", () => ({
@@ -168,6 +177,7 @@ describe("getChatTools", () => {
 		jest.clearAllMocks();
 		mockRequireMemoryAccess.mockResolvedValue(undefined);
 		mockRecordMemoryMutationAudit.mockResolvedValue(undefined);
+		mockRequireScannerAccess.mockResolvedValue(undefined);
 	});
 
 	it("builds the expected tool set", () => {
@@ -194,6 +204,7 @@ describe("getChatTools", () => {
 				"add_memory",
 				"update_memory",
 				"delete_memory",
+				"get_scanner_findings",
 			])
 		);
 		expect(tools.create_rule.inputSchema.required).toEqual(["name"]);
@@ -1541,5 +1552,33 @@ describe("getChatTools", () => {
 		});
 		expect(mockAddProjectMemories).not.toHaveBeenCalled();
 		expect(mockRecordMemoryMutationAudit).not.toHaveBeenCalled();
+	});
+
+	it("looks up scanner findings for a coding-agent repo URL", async () => {
+		mockLookupLatestScannerFindingsForRepo.mockResolvedValue({
+			matched: true,
+			repoKey: "github.com/acme/checkout-agent",
+			connectorId: "scanner:abc",
+			jobId: "job:1",
+			mediumPlusCount: 2,
+			findingCount: 3,
+			url: "/scanner?connectorId=scanner%3Aabc&jobId=job%3A1",
+			findings: [{ id: "CSDK-010", ruleId: "CSDK-010", severity: "high", title: "Unsafe SDK" }],
+		});
+		const tools = getChatTools("user-1", "db-1", "staging") as any;
+
+		const result = await tools.get_scanner_findings.execute({
+			repo_url: "https://github.com/acme/checkout-agent",
+		});
+
+		expect(result.success).toBe(true);
+		expect(result.matched).toBe(true);
+		expect(result.mediumPlusCount).toBe(2);
+		expect(mockRequireScannerAccess).toHaveBeenCalledWith("read");
+		expect(mockLookupLatestScannerFindingsForRepo).toHaveBeenCalledWith({
+			repoUrl: "https://github.com/acme/checkout-agent",
+			environment: "staging",
+		});
+		expect(tools.get_scanner_findings.inputSchema.required).toEqual(["repo_url"]);
 	});
 });

@@ -13,18 +13,18 @@ jest.mock('@/lib/platform/common', () => {
 });
 
 import {
-  getGroupByExpression,
   getRequestPerTime,
   getTotalRequests,
   getAverageRequestDuration,
   getRequestsConfig,
   getRequests,
+	getTraceSummaries,
+	getTraceSummarySeries,
   getRequestViaSpanId,
   getRequestViaTraceId,
   getHeirarchyViaSpanId,
   getRequestExist,
   getAttributeKeys,
-  getGroupedRequests,
 } from '@/lib/platform/request/index';
 import { dataCollector } from '@/lib/platform/common';
 
@@ -49,26 +49,6 @@ describe('getRequestPerTime', () => {
     expect(query).toContain('total');
     expect(query).toContain('request_time');
     expect(query).toContain('GROUP BY');
-  });
-});
-
-describe('getGroupByExpression', () => {
-  it('returns predefined group-by expressions', () => {
-    expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
-    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.provider.name']");
-  });
-
-  it('builds safe span/resource/field group-by expressions', () => {
-    expect(getGroupByExpression('custom.key')).toBe("SpanAttributes['custom.key']");
-    expect(getGroupByExpression("SpanAttributes:o'malley")).toBe("SpanAttributes['o\\'malley']");
-    expect(getGroupByExpression('ResourceAttributes:service.name')).toBe("ResourceAttributes['service.name']");
-    expect(getGroupByExpression('Field:Duration')).toBe('Duration');
-  });
-
-  it('rejects empty and unsupported field group-by inputs', () => {
-    expect(getGroupByExpression('')).toBeNull();
-    expect(getGroupByExpression('SpanAttributes:   ')).toBeNull();
-    expect(getGroupByExpression('Field:Duration;DROP')).toBeNull();
   });
 });
 
@@ -106,6 +86,7 @@ describe('getRequestsConfig', () => {
     // Provider dropdown folds the current OTel key and the legacy fallback.
     expect(query).toContain("gen_ai.provider.name");
     expect(query).toContain("gen_ai.system");
+    expect(query).toContain("deployment.environment");
   });
 });
 
@@ -255,6 +236,205 @@ describe('getRequests', () => {
     const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
     expect(countQuery).toContain('COUNT(*)');
     expect(listQuery).not.toContain('LIMIT 1 BY TraceId');
+  });
+});
+
+describe('getRequests id paging', () => {
+  it('pages on span identity first and reads full rows only for that page', async () => {
+    await getRequests({ ...baseParams, limit: 10, offset: 20 });
+    const query = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(query).toMatch(/^SELECT \*\s+FROM/);
+    // Tuple IN, kept inside the window so the row read still prunes partitions.
+    const [outer] = query.split('AND (Timestamp, TraceId, SpanId) IN (');
+    expect(outer).toContain('Timestamp >= parseDateTimeBestEffort');
+    expect(outer).toContain('Timestamp <= parseDateTimeBestEffort');
+    expect(query).toMatch(/IN \(\s*SELECT Timestamp, TraceId, SpanId\s+FROM/);
+    expect(query.match(/OFFSET/g)).toHaveLength(1);
+    expect(query).toContain('LIMIT 10\n\t\t\tOFFSET 20');
+    // The page's row order survives the second read, with the offset consumed.
+    expect(query.match(/ORDER BY Timestamp desc/g)).toHaveLength(2);
+    expect(query.match(/LIMIT 10/g)).toHaveLength(1);
+  });
+
+  it('shows every row when a duplicate span straddles a page boundary', async () => {
+    const pageSize = 3;
+    // Sorted result set: positions 2 and 3 are one span exported twice.
+    const ids = ['a', 'b', 'dup', 'dup', 'c', 'd', 'e'];
+    (dataCollector as jest.Mock).mockImplementation(async ({ query }) => {
+      if (!query.includes('OFFSET')) return { data: [{ total: ids.length }], err: null };
+      const offset = Number(query.match(/OFFSET (\d+)/)[1]);
+      const page = new Set(ids.slice(offset, offset + pageSize));
+      const rows = ids.filter((id) => page.has(id));
+      const rowLimit = query.split('OFFSET')[1].match(/LIMIT (\d+)/);
+      return { data: rowLimit ? rows.slice(0, Number(rowLimit[1])) : rows, err: null };
+    });
+
+    const shown = new Set<string>();
+    for (let offset = 0; offset < ids.length; offset += pageSize) {
+      const { records } = await getRequests({ ...baseParams, limit: pageSize, offset });
+      (records as string[]).forEach((id) => shown.add(id));
+    }
+    expect(Array.from(shown)).toEqual(['a', 'b', 'dup', 'c', 'd', 'e']);
+  });
+
+  it('applies the filter to the id page, not to the row read', async () => {
+    await getRequests({
+      ...baseParams,
+      selectedConfig: { models: ['gpt-4'] },
+    } as any);
+    const query = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    const [outer, page] = query.split('SELECT Timestamp, TraceId, SpanId');
+    expect(outer).not.toContain('gpt-4');
+    expect(page).toContain('gpt-4');
+  });
+
+  it('keeps the requested sort and one-row-per-trace paging on both reads', async () => {
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'Duration', direction: 'asc' },
+      selectedConfig: { generationHealth: ['truncated'] },
+    } as any);
+    const query = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(query.match(/ORDER BY Duration ASC/g)).toHaveLength(2);
+    expect(query.match(/LIMIT 1 BY TraceId/g)).toHaveLength(2);
+  });
+});
+
+describe('getTraceSummaries', () => {
+  it('counts unique traces and returns one root-oriented row per trace', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 3 }], err: null })
+      .mockResolvedValueOnce({
+        data: [{ TraceId: 'trace-1', SpanId: 'root-1', SpanCount: 4 }],
+        err: null,
+      });
+
+    const result = await getTraceSummaries({ ...baseParams, limit: 10, offset: 0 });
+
+    expect(result.total).toBe(3);
+    expect(result.records).toEqual([
+      { TraceId: 'trace-1', SpanId: 'root-1', SpanCount: 4 },
+    ]);
+    const countQuery = (dataCollector as jest.Mock).mock.calls[0][0].query;
+    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(countQuery).toContain('uniqExact(TraceId)');
+    // The page is one scalar subquery, so its filters scan the window once.
+    expect(listQuery).toContain(') AS page_ids');
+    expect(listQuery).not.toContain('JOIN');
+    // Heavy map columns are read for the page's traces, not the whole window.
+    expect(listQuery).toMatch(/WHERE t\.Timestamp >= .* AND t\.TraceId IN \(SELECT arrayJoin\(page_ids\)\)/);
+    // Rows come back in page order, with TraceId settling ties.
+    expect(listQuery).toContain('ORDER BY TraceStart DESC, TraceId');
+    expect(listQuery).toContain('ORDER BY indexOf(page_ids, t.TraceId)');
+    expect(listQuery).toContain("t.ParentSpanId = '0000000000000000'");
+    expect(listQuery).toContain('t.SpanId');
+    expect(listQuery).toContain('t.Timestamp >= parseDateTimeBestEffort');
+    expect(listQuery).toContain('LIMIT 10');
+    expect(listQuery).toContain('OFFSET 0');
+    expect(listQuery.match(/LIMIT/g)).toHaveLength(1);
+    expect(listQuery).not.toContain('argMin(Events');
+    expect(listQuery).not.toContain('argMin(Links');
+    expect(listQuery).toContain('AS SpanCount');
+    expect(listQuery).toContain('AS ErrorCount');
+    expect(listQuery).toContain('ORDER BY indexOf(page_ids, t.TraceId)');
+  });
+
+  it('honors an ascending timestamp sort on the paged trace ids', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 1 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getTraceSummaries({
+      ...baseParams,
+      limit: 10,
+      offset: 0,
+      sorting: { type: 'Timestamp', direction: 'asc' },
+    });
+
+    const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
+    expect(listQuery).toContain('ORDER BY TraceStart ASC');
+    expect(listQuery).toContain('ORDER BY indexOf(page_ids, t.TraceId)');
+  });
+
+  it('returns the count error without running the list query', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({
+      data: null,
+      err: 'count failed',
+    });
+
+    const result = await getTraceSummaries(baseParams);
+
+    expect(result.err).toBe('count failed');
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+  });
+});
+
+it('counts unique trace IDs in the ClickHouse trace volume series', async () => {
+  (dataCollector as jest.Mock).mockResolvedValueOnce({ data: [{ label: '2024/01', count: 2 }], err: null });
+
+  const result = await getTraceSummarySeries(baseParams);
+
+  expect(result.total).toBe(2);
+  const query = (dataCollector as jest.Mock).mock.calls[0][0].query as string;
+  expect(query).toContain('uniqExact(TraceId)');
+  expect(query).toContain('FROM');
+});
+
+describe('span content search', () => {
+  const searchParams = {
+    timeLimit: {
+      start: new Date('2024-01-01'),
+      end: new Date('2024-01-02'),
+      type: 'CUSTOM',
+    },
+    selectedConfig: { search: 'refund' },
+  };
+  const wideSearchParams = { ...searchParams, timeLimit: baseParams.timeLimit };
+  const queries = () =>
+    (dataCollector as jest.Mock).mock.calls.map(([{ query }]) => query as string);
+
+  it('applies search to the span list and its count', async () => {
+    await getRequests(searchParams);
+    expect(queries()).toHaveLength(2);
+    queries().forEach((query) =>
+      expect(query).toContain("positionCaseInsensitiveUTF8(StatusMessage, 'refund')")
+    );
+  });
+
+  it('applies search to the trace page and its count', async () => {
+    await getTraceSummaries(searchParams);
+    expect(queries()).toHaveLength(2);
+    queries().forEach((query) =>
+      expect(query).toContain("positionCaseInsensitiveUTF8(StatusMessage, 'refund')")
+    );
+  });
+
+  it('scans span content once per list read', async () => {
+    const searchMatch = "positionCaseInsensitiveUTF8(StatusMessage, 'refund')";
+    await getRequests(searchParams);
+    const spanRead = queries()[1];
+    expect(spanRead.split(searchMatch)).toHaveLength(2);
+    // The search runs in the id page; the row read is bounded by time and ids.
+    const [outer] = spanRead.split('SELECT Timestamp, TraceId, SpanId');
+    expect(outer).not.toContain(searchMatch);
+
+    (dataCollector as jest.Mock).mockClear();
+    await getTraceSummaries(searchParams);
+    expect(queries()[1].split(searchMatch)).toHaveLength(2);
+  });
+
+  it('does not apply search to the summary series', async () => {
+    await getTraceSummarySeries(searchParams);
+    expect(queries()[0]).not.toContain('positionCaseInsensitiveUTF8');
+  });
+
+  it.each([
+    ['getRequests', getRequests],
+    ['getTraceSummaries', getTraceSummaries],
+  ])('%s returns the range error without querying', async (_name, read) => {
+    const result = await read(wideSearchParams);
+    expect(result.err).toContain('Narrow the time range');
+    expect(dataCollector).not.toHaveBeenCalled();
   });
 });
 
@@ -460,46 +640,5 @@ describe('getAttributeKeys', () => {
     const [call1, call2] = (dataCollector as jest.Mock).mock.calls;
     expect(call1[0].query).toContain('SpanAttributes');
     expect(call2[0].query).toContain('ResourceAttributes');
-  });
-});
-
-describe('getGroupedRequests', () => {
-  it('returns predefined and attribute group expressions', () => {
-    expect(getGroupByExpression('model')).toBe("SpanAttributes['gen_ai.request.model']");
-    expect(getGroupByExpression('provider')).toBe("SpanAttributes['gen_ai.provider.name']");
-    expect(getGroupByExpression('applicationName')).toBe("ResourceAttributes['service.name']");
-    expect(getGroupByExpression('custom.attribute')).toBe("SpanAttributes['custom.attribute']");
-    expect(getGroupByExpression('ResourceAttributes:service.namespace')).toBe(
-      "ResourceAttributes['service.namespace']"
-    );
-    expect(getGroupByExpression('')).toBeNull();
-    expect(getGroupByExpression('Field:NotAllowed')).toBeNull();
-  });
-
-  it('returns an error and skips querying for an invalid Field groupBy', async () => {
-    const result = await getGroupedRequests(baseParams as any, 'Field:!!!');
-
-    expect(result.err).toBe('Invalid groupBy value');
-    expect(result.data).toEqual([]);
-    expect(dataCollector).not.toHaveBeenCalled();
-  });
-
-  it('builds a grouped query for an allowed Field groupBy', async () => {
-    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ group_value: 'ok' }], err: null });
-
-    await getGroupedRequests(baseParams as any, 'Field:SpanName');
-
-    expect(dataCollector).toHaveBeenCalledTimes(1);
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain('SpanName AS group_value');
-  });
-
-  it('escapes backslashes before quotes in attribute groupBy values', async () => {
-    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ group_value: 'ok' }], err: null });
-
-    await getGroupedRequests(baseParams as any, "SpanAttributes:gen\\ai.system's");
-
-    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
-    expect(query).toContain("SpanAttributes['gen\\\\ai.system\\'s'] AS group_value");
   });
 });

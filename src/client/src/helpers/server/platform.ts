@@ -1,9 +1,9 @@
 import { ValueOf } from "../../types/util";
 import { MetricParams } from "@/lib/platform/common";
 import {
-	addDays,
-	addMonths,
+	addMilliseconds,
 	differenceInDays,
+	differenceInMilliseconds,
 	differenceInYears,
 } from "date-fns";
 import {
@@ -16,9 +16,20 @@ import { parseGenerationHealthChips } from "@/lib/platform/generation-health/cla
 import { generationHealthWhereSql } from "@/lib/platform/generation-health/sql";
 import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
 import { agentLoopWhereSql } from "@/lib/platform/agent-loop/sql";
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
+import {
+	SPAN_SEARCH_ATTRIBUTES,
+	SPAN_SEARCH_EVENT_ATTRIBUTES,
+	SPAN_SEARCH_JSON_ATTRIBUTES,
+	SPAN_SEARCH_MAX_DAYS,
+	SPAN_SEARCH_MAX_TERMS,
+	SPAN_SEARCH_MAX_LENGTH,
+} from "@/constants/traces";
+import getMessage from "@/constants/messages";
 
-function escapeClickHouseString(value: string) {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+/** Quote a request-supplied value as a ClickHouse string literal. */
+function sqlString(value: unknown) {
+	return `'${escapeClickHouseString(String(value))}'`;
 }
 
 /**
@@ -36,6 +47,20 @@ export const EXCLUDE_CODING_AGENT_WHERE = [
 	"(empty(ResourceAttributes['telemetry.distro.name']) OR ResourceAttributes['telemetry.distro.name'] != 'openlit-cli')",
 	"NOT startsWith(SpanName, 'coding_agent.')",
 ].join(" AND ");
+
+/**
+ * How a term can be spelled inside serialised messages: as typed, as
+ * `JSON.stringify` writes it, and as Python's default `json.dumps` writes it,
+ * which also turns non-ASCII into `\uXXXX` (UTF-16 units, so surrogate pairs).
+ */
+function spanSearchJsonForms(text: string): string[] {
+	const json = JSON.stringify(text).slice(1, -1);
+	const ascii = json.replace(
+		/[\u0080-\uffff]/g,
+		(char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`
+	);
+	return Array.from(new Set([text, json, ascii]));
+}
 
 export const validateMetricsRequestType = {
 	// Request
@@ -97,10 +122,62 @@ export const validateMetricsRequestType = {
 	AGENT_LOOP: "AGENT_LOOP",
 };
 
+// Accepts the shapes the UI and API send (ISO 8601, "YYYY-MM-DD HH:mm:ss",
+// date only) and nothing that could close a SQL string literal.
+const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
+
+export function isSafeTimestamp(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		TIMESTAMP_PATTERN.test(value.trim()) &&
+		!Number.isNaN(Date.parse(value.trim().replace(" ", "T")))
+	);
+}
+
+function boundedInteger(value: unknown, fallback: number, max: number): number {
+	const n = Math.floor(Number(value));
+	return Number.isFinite(n) && n >= 0 ? Math.min(n, max) : fallback;
+}
+
+/**
+ * Normalise request values that query builders interpolate into SQL. Query
+ * builders still escape, but every metrics route goes through this
+ * validator, so a malformed value is rejected before any SQL is built.
+ */
+export function sanitizeMetricsParams(params: Record<string, any>): string | null {
+	if (params.timeLimit !== undefined && params.timeLimit !== null) {
+		if (typeof params.timeLimit !== "object") return "Invalid time range!";
+		const normalise = (value: unknown): string | undefined | null => {
+			if (value === undefined || value === null || value === "") return undefined;
+			if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
+			return isSafeTimestamp(value) ? value.trim() : null;
+		};
+		const start = normalise(params.timeLimit.start);
+		const end = normalise(params.timeLimit.end);
+		if (start === null || end === null) return "Invalid time range!";
+		params.timeLimit = {
+			...params.timeLimit,
+			...(start ? { start } : {}),
+			...(end ? { end } : {}),
+		};
+	}
+	if (typeof params.selectedConfig?.search === "string") {
+		params.selectedConfig.search = params.selectedConfig.search
+			.trim()
+			.slice(0, SPAN_SEARCH_MAX_LENGTH);
+	}
+	if ("limit" in params && params.limit !== undefined) params.limit = boundedInteger(params.limit, 10, 10_000);
+	if ("offset" in params && params.offset !== undefined) params.offset = boundedInteger(params.offset, 0, 10_000_000);
+	if ("top" in params && params.top !== undefined) params.top = boundedInteger(params.top, 5, 1_000);
+	return null;
+}
+
 export const validateMetricsRequest = (
 	params: Record<string, any>,
 	type: ValueOf<typeof validateMetricsRequestType>
 ): { success: boolean; err?: string } => {
+	const invalid = sanitizeMetricsParams(params);
+	if (invalid) return { success: false, err: invalid };
 	switch (type) {
 		// Request
 		case validateMetricsRequestType.REQUEST_PER_TIME:
@@ -211,18 +288,25 @@ export const validateMetricsRequest = (
 	return { success: true };
 };
 
+/** Time predicate shared by span filters and the trace-summary page scan. */
+export function getTimeRangeWhereCondition(filter: {
+	timeLimit?: { start?: unknown; end?: unknown };
+}): string {
+	const { start, end } = filter.timeLimit || {};
+	if (start && end) {
+		return `Timestamp >= parseDateTimeBestEffort(${sqlString(start)}) AND Timestamp <= parseDateTimeBestEffort(${sqlString(end)})`;
+	}
+	return "";
+}
+
 export const getFilterWhereCondition = (
 	filter: FilterWhereConditionType,
 	filterSelectedConfig?: boolean
 ) => {
 	const whereArray: string[] = [];
 	try {
-		const { start, end } = filter.timeLimit || {};
-		if (start && end) {
-			whereArray.push(
-				`Timestamp >= parseDateTimeBestEffort('${start}') AND Timestamp <= parseDateTimeBestEffort('${end}')`
-			);
-		}
+		const timeWhere = getTimeRangeWhereCondition(filter);
+		if (timeWhere) whereArray.push(timeWhere);
 
 		if (filterSelectedConfig && filter.selectedConfig) {
 			if (filter.selectedConfig.models?.length) {
@@ -230,7 +314,7 @@ export const getFilterWhereCondition = (
 					`SpanAttributes['${getTraceMappingKeyFullPath(
 						"model"
 					)}'] IN (${filter.selectedConfig.models
-						.map((model) => `'${model}'`)
+						.map(sqlString)
 						.join(", ")})`
 				);
 			}
@@ -244,7 +328,7 @@ export const getFilterWhereCondition = (
 				// otherwise unticking e.g. "cursor" would have no
 				// effect on the rendered rows.
 				const providerList = filter.selectedConfig.providers
-					.map((provider) => `'${provider}'`)
+					.map(sqlString)
 					.join(", ");
 				const providerClauses = [
 					...(getTraceMappingKeyFullPaths("provider") as string[]),
@@ -261,16 +345,19 @@ export const getFilterWhereCondition = (
 					`SpanAttributes['${getTraceMappingKeyFullPath(
 						"type"
 					)}'] IN (${filter.selectedConfig.traceTypes
-						.map((type) => `'${type}'`)
+						.map(sqlString)
 						.join(", ")})`
 				);
 			}
 
-			if (filter.selectedConfig.maxCost) {
+			if (
+				filter.selectedConfig.maxCost &&
+				Number.isFinite(Number(filter.selectedConfig.maxCost))
+			) {
 				whereArray.push(
 					`toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
 						"cost"
-					)}']) BETWEEN 0 AND ${filter.selectedConfig.maxCost.toFixed(10)}`
+					)}']) BETWEEN 0 AND ${Number(filter.selectedConfig.maxCost).toFixed(10)}`
 				);
 			}
 
@@ -279,7 +366,7 @@ export const getFilterWhereCondition = (
 					`ResourceAttributes['${getTraceMappingKeyFullPath(
 						"applicationName"
 					)}'] IN (${filter.selectedConfig.applicationNames
-						.map((applicationName) => `'${applicationName}'`)
+						.map(sqlString)
 						.join(", ")})`
 				);
 			}
@@ -310,20 +397,16 @@ export const getFilterWhereCondition = (
 			if (filter.selectedConfig.spanNames?.length) {
 				whereArray.push(
 					`SpanName IN (${filter.selectedConfig.spanNames
-						.map((spanName) => `'${spanName}'`)
+						.map((spanName) => `'${escapeClickHouseString(String(spanName))}'`)
 						.join(", ")})`
 				);
 			}
 
 			if (filter.selectedConfig.environments?.length) {
-				// OTel-standard location for environment is
-				// `ResourceAttributes['deployment.environment']`. Older code
-				// here used `getTraceMappingKeyFullPath("environment")` which
-				// returns the dotted `SpanAttributes.gen_ai.environment` path
-				// and then wrapped *that* in `ResourceAttributes[...]`,
-				// producing a non-existent column key that always matched
-				// zero rows. Match both the OTel resource attribute and the
-				// legacy span attribute so any historic data still resolves.
+				// Playground / agent `envs` filter uses OTel
+				// `deployment.environment` (and legacy `gen_ai.environment`).
+				// API-key tenant env is stamped separately as
+				// `organisation.environment.name` and must not replace this.
 				const envList = filter.selectedConfig.environments
 					.map((environment: string) =>
 						`'${escapeClickHouseString(environment)}'`
@@ -410,7 +493,7 @@ export const getFilterWhereCondition = (
 			statusCode = ["STATUS_CODE_OK", "STATUS_CODE_UNSET", "Ok", "Unset"],
 		} = filter;
 		whereArray.push(
-			`StatusCode IN (${statusCode.map((type) => `'${type}'`).join(", ")})`
+			`StatusCode IN (${statusCode.map(sqlString).join(", ")})`
 		);
 
 		if (filter.operationType) {
@@ -433,48 +516,92 @@ export const getFilterWhereCondition = (
 	return whereArray.join(" AND ");
 };
 
+/**
+ * Filter for span list and count queries, the only ones that scan content.
+ * Summary, health and loop queries use `getFilterWhereCondition` and skip it.
+ * The term is inlined because `connectorDataCollector` drops `query_params`.
+ */
+export function getSpanListWhereCondition(params: MetricParams): {
+	where: string;
+	err?: string;
+} {
+	const where = getFilterWhereCondition(params, true);
+	const search = params.selectedConfig?.search;
+	const text = typeof search === "string" ? search.trim() : "";
+	if (!text) return { where };
+
+	const { start, end } = params.timeLimit;
+	if (differenceInDays(new Date(end), new Date(start)) > SPAN_SEARCH_MAX_DAYS) {
+		return {
+			where,
+			err: getMessage().OBSERVABILITY_SPAN_SEARCH_RANGE_TOO_WIDE(SPAN_SEARCH_MAX_DAYS),
+		};
+	}
+
+	const terms = spanSearchTerms(text);
+	if (!terms.length) return { where };
+	const searchClause = terms.map(spanSearchTermClause).join(" AND ");
+	return {
+		where: [where, `(${searchClause})`].filter(Boolean).join(" AND "),
+	};
+}
+
+/**
+ * Splits a search into terms that must all match, so "ships tomorrow" also
+ * finds "ships *tomorrow*". A double-quoted phrase stays one term. A term that
+ * escapes to nothing is dropped, since an empty needle matches every row.
+ */
+function spanSearchTerms(text: string): string[] {
+	const terms = Array.from(
+		text.matchAll(/"([^"]+)"|(\S+)/g),
+		(match) => (match[1] ?? match[2]).trim()
+	).filter((term) => escapeClickHouseString(term));
+	return Array.from(new Set(terms)).slice(0, SPAN_SEARCH_MAX_TERMS);
+}
+
+/** One term, matched case-insensitively against any searched field. */
+function spanSearchTermClause(text: string): string {
+	const term = escapeClickHouseString(text);
+	const matches = (column: string, needle = term) =>
+		`positionCaseInsensitiveUTF8(${column}, '${needle}') > 0`;
+	const eventMatch = SPAN_SEARCH_EVENT_ATTRIBUTES.map((key) =>
+		matches(`attrs['${key}']`)
+	).join(" OR ");
+	const jsonNeedles = spanSearchJsonForms(text).map(escapeClickHouseString);
+	return `(${[
+		...SPAN_SEARCH_JSON_ATTRIBUTES.flatMap((key) =>
+			jsonNeedles.map((needle) => matches(`SpanAttributes['${key}']`, needle))
+		),
+		...SPAN_SEARCH_ATTRIBUTES.map((key) => matches(`SpanAttributes['${key}']`)),
+		matches("StatusMessage"),
+		`arrayExists(attrs -> ${eventMatch}, \`Events.Attributes\`)`,
+	].join(" OR ")})`;
+}
+
 export const getFilterPreviousParams = (filter: MetricParams) => {
 	try {
 		const previousParams: MetricParams = JSON.parse(JSON.stringify(filter));
 		const { start, end, type } = filter.timeLimit || {};
 		switch (type) {
+			// The browser builds every window, in its own timezone, so the server
+			// shifts by the exact duration: the previous window then ends where the
+			// current one starts and has the same length, across DST changes too.
 			case "24H":
-				previousParams.timeLimit.start = addDays(
-					start as Date,
-					-1
-				).toISOString();
-				previousParams.timeLimit.end = addDays(end as Date, -1).toISOString();
-				break;
 			case "7D":
-				previousParams.timeLimit.start = addDays(
-					start as Date,
-					-7
-				).toISOString();
-				previousParams.timeLimit.end = addDays(end as Date, -1).toISOString();
-				break;
 			case "1M":
-				previousParams.timeLimit.start = addMonths(
-					start as Date,
-					-1
-				).toISOString();
-				previousParams.timeLimit.end = addMonths(end as Date, -1).toISOString();
-				break;
 			case "3M":
-				previousParams.timeLimit.start = addMonths(
-					start as Date,
-					-3
-				).toISOString();
-				previousParams.timeLimit.end = addMonths(end as Date, -3).toISOString();
-				break;
 			case "CUSTOM":
-				const differenceDays = differenceInDays(end as Date, start as Date);
-				previousParams.timeLimit.start = addDays(
-					start as Date,
-					-differenceDays
-				).toISOString();
-				previousParams.timeLimit.end = addDays(
+				const durationMs = differenceInMilliseconds(
 					end as Date,
-					-differenceDays
+					start as Date
+				);
+				previousParams.timeLimit.start = addMilliseconds(
+					start as Date,
+					-durationMs
+				).toISOString();
+				previousParams.timeLimit.end = addMilliseconds(
+					end as Date,
+					-durationMs
 				).toISOString();
 				break;
 			default:
@@ -494,7 +621,7 @@ export const getFilterWhereConditionForGPU = (
 		const { start, end } = filter.timeLimit || {};
 		if (start && end) {
 			whereArray.push(
-				`TimeUnix >= parseDateTimeBestEffort('${start}') AND TimeUnix <= parseDateTimeBestEffort('${end}')`
+				`TimeUnix >= parseDateTimeBestEffort(${sqlString(start)}) AND TimeUnix <= parseDateTimeBestEffort(${sqlString(end)})`
 			);
 		}
 	} catch {}

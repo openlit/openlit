@@ -31,6 +31,8 @@ from openlit.__helpers import (
     common_span_attributes,
     otel_event,
     truncate_message_content,
+    extract_reasoning_tokens,
+    set_reasoning_subset_attributes,
 )
 from openlit.semcov import SemanticConvention
 from openlit._config import OpenlitConfig
@@ -102,70 +104,6 @@ def extract_reasoning_content(payload):
         return ""
     reasoning = payload.get("reasoning_content") or payload.get("reasoning")
     return reasoning if isinstance(reasoning, str) else ""
-
-
-def extract_reasoning_tokens(usage, details_key):
-    """Return reasoning tokens (a subset of output tokens) from a usage dict,
-    or None when the provider did not report the details object.
-
-    Works for both chat completions (``completion_tokens_details``) and the
-    responses API (``output_tokens_details``). A missing or non-dict details
-    object means "unknown" and stays distinguishable from an explicit
-    ``reasoning_tokens: 0`` measurement (None vs 0): a reported 0 is a
-    measurement, an absent object is an unknown, and the two must not collapse
-    into the same value.
-    """
-    details = (usage or {}).get(details_key)
-    if not isinstance(details, dict):
-        return None
-    value = details.get("reasoning_tokens")
-    if not isinstance(value, (int, float)) or isinstance(value, bool):
-        return None
-    return value
-
-
-def set_reasoning_subset_attributes(span, output_tokens, reasoning_tokens):
-    """Emit reasoning-token attributes under the subset invariant.
-
-    ``gen_ai.usage.reasoning.output_tokens`` is a facet of the output total,
-    never an addend. Three states stay distinguishable:
-
-    * provider reported a value (including an explicit 0): the facet is
-      emitted, ``...output_tokens.reported`` is true, and the derived
-      completed figure is available;
-    * provider sent no details object: no facet value, marker false
-      (unknown, not a guessed 0);
-    * no usage at all (stream without include_usage): nothing emitted.
-
-    The completed figure is output minus reasoning and lives under the
-    ``gen_ai.usage.derived.*`` namespace so it can never be mistaken for a
-    provider-reported number.
-    """
-    if reasoning_tokens is None:
-        span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED,
-            False,
-        )
-        return
-    span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS_REPORTED,
-        True,
-    )
-    span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_REASONING_OUTPUT_TOKENS,
-        reasoning_tokens,
-    )
-    # OpenLIT legacy alias (pre-OTel naming), kept for backward compat; only
-    # nonzero values so legacy consumers see no behavior change.
-    if reasoning_tokens > 0:
-        span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
-            reasoning_tokens,
-        )
-    span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_DERIVED_COMPLETED_OUTPUT_TOKENS,
-        max(output_tokens - reasoning_tokens, 0),
-    )
 
 
 def format_content(messages):
@@ -919,7 +857,7 @@ def process_response_chunk(scope, chunk):
             else None
         )
 
-        usage = response_data.get("usage", {})
+        usage = response_data.get("usage") or {}
         scope._input_tokens = usage.get("input_tokens", 0)
         scope._output_tokens = usage.get("output_tokens", 0)
 
@@ -1402,7 +1340,7 @@ def process_response_response(
     scope._response_model = response_dict.get("model", "")
 
     # Handle token usage including reasoning tokens and cached tokens
-    usage = response_dict.get("usage", {})
+    usage = response_dict.get("usage") or {}
     scope._input_tokens = usage.get("input_tokens", 0)
     scope._output_tokens = usage.get("output_tokens", 0)
 
@@ -1862,20 +1800,19 @@ def process_chat_response(
         scope._reasoning_content = reasoning_content
     scope._response_id = response_dict.get("id", "")
     scope._response_model = response_dict.get("model", "")
-    scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
-    scope._output_tokens = response_dict.get("usage", {}).get("completion_tokens", 0)
+    usage = response_dict.get("usage") or {}
+    scope._input_tokens = usage.get("prompt_tokens", 0)
+    scope._output_tokens = usage.get("completion_tokens", 0)
 
     # OpenAI chat completions report reasoning tokens under
     # usage.completion_tokens_details.reasoning_tokens (o1/o3 family). These are
     # a subset of completion_tokens, which already includes them.
     scope._reasoning_tokens = extract_reasoning_tokens(
-        response_dict.get("usage", {}), "completion_tokens_details"
+        usage, "completion_tokens_details"
     )
 
     # Extract cache tokens (OpenAI prompt caching)
-    prompt_tokens_details = (
-        response_dict.get("usage", {}).get("prompt_tokens_details", {}) or {}
-    )
+    prompt_tokens_details = usage.get("prompt_tokens_details", {}) or {}
     if not isinstance(prompt_tokens_details, dict):
         prompt_tokens_details = {}
     scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0) or 0
@@ -2416,7 +2353,8 @@ def process_embedding_response(
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
-    scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
+    usage = response_dict.get("usage") or {}
+    scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port

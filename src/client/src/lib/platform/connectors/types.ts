@@ -9,6 +9,8 @@ export type ConnectorCategory =
 	| "datasource"
 	| "notification"
 	| "memory"
+	| "scanner"
+	| "repository"
 	| "vector-store"
 	| "model-provider";
 
