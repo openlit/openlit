@@ -1544,6 +1544,7 @@ export const DB_CONFIG_FIELD_USERNAME = "Username";
 export const DB_CONFIG_FIELD_PASSWORD = "Password";
 export const DB_CONFIG_FIELD_HOST = "Host";
 export const DB_CONFIG_FIELD_PORT = "Port";
+export const DB_CONFIG_INVALID_PORT = "Port must be a number between 1 and 65535";
 export const DB_CONFIG_FIELD_DATABASE = "Database";
 export const DB_CONFIG_FIELD_QUERY_PARAMS = "Query params";
 export const UPDATE_DB_CONFIG = "Update Database config";

@@ -24,6 +24,7 @@ from openlit.__helpers import (
     get_audio_model_cost,
     record_audio_metrics,
     truncate_message_content,
+    truncate_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -1020,9 +1021,10 @@ def process_text_to_speech_response(
     )
 
     # Text-to-speech specific attributes (using Sarvam API defaults)
+    # sarvamai >= 0.1.29 takes language_code; older releases took target_language_code
     span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_TTS_TARGET_LANGUAGE_CODE,
-        kwargs.get("target_language_code", ""),
+        kwargs.get("language_code", kwargs.get("target_language_code", "")),
     )
     span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_TTS_SPEAKER,
@@ -1058,7 +1060,8 @@ def process_text_to_speech_response(
     # Set content attributes if capture is enabled
     if capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("inputs", "")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES,
+            truncate_content(kwargs.get("text", "")),
         )
 
     span.set_status(Status(StatusCode.OK))
@@ -1066,7 +1069,7 @@ def process_text_to_speech_response(
     # Record metrics for text-to-speech
     if not disable_metrics:
         # Calculate cost based on input text for audio operations
-        input_text = kwargs.get("inputs", "")
+        input_text = kwargs.get("text", "")
         cost = get_audio_model_cost(request_model, pricing_info, input_text)
 
         record_audio_metrics(
