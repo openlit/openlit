@@ -312,7 +312,12 @@ def process_chunk(scope, chunk):
     if len(scope._timestamps) == 1:
         scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
-    chunked = _response_mapping(chunk)
+    try:
+        chunked = _response_mapping(chunk)
+    except Exception as exc:
+        # Finalization records the telemetry error without withholding SDK chunks.
+        scope._stream_error = exc
+        return
     choices = chunked.get("choices", []) if isinstance(chunked, dict) else []
     if choices:
         first_choice = choices[0] if isinstance(choices[0], dict) else {}
@@ -584,7 +589,7 @@ def common_chat_logic(
             logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     # Span status and metrics. OTel drops set_status(ERROR) once status is
-    # OK, and a stream failure records ERROR after this returns.
+    # OK, and a stream or chunk conversion failure records ERROR after this returns.
     if getattr(scope, "_stream_error", None) is None:
         scope._span.set_status(Status(StatusCode.OK))
     if not disable_metrics:
