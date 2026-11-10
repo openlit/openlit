@@ -21,6 +21,7 @@ import {
 	MEMORY_INVALID_JSON,
 	MEMORY_INVALID_LIMIT,
 	MEMORY_INVALID_METADATA,
+	MEMORY_INVALID_OFFSET,
 	MEMORY_LOAD_FAILED,
 } from "@/constants/messages/en";
 
@@ -37,11 +38,23 @@ function optionalFilter(value: string | null, max = FILTER_MAX): string | undefi
 	return trimmed;
 }
 
+const LIMIT_MAX = 500;
+const OFFSET_MAX = 1_000_000;
+
 function parseLimit(value: string | null): number | undefined {
 	if (value == null || !value.trim()) return undefined;
 	const parsed = Number(value);
-	if (!Number.isFinite(parsed) || parsed < 1 || parsed > 100) {
+	if (!Number.isFinite(parsed) || parsed < 1 || parsed > LIMIT_MAX) {
 		throw new Error(MEMORY_INVALID_LIMIT);
+	}
+	return Math.floor(parsed);
+}
+
+function parseOffset(value: string | null): number | undefined {
+	if (value == null || !value.trim()) return undefined;
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed) || parsed < 0 || parsed > OFFSET_MAX) {
+		throw new Error(MEMORY_INVALID_OFFSET);
 	}
 	return Math.floor(parsed);
 }
@@ -87,6 +100,7 @@ async function GETHandler(request: NextRequest) {
 	let sessionId: string | undefined;
 	let query: string | undefined;
 	let limit: number | undefined;
+	let offset: number | undefined;
 	try {
 		const params = request.nextUrl.searchParams;
 		connectorId = parseConnectorId(params.get("connectorId"));
@@ -95,6 +109,7 @@ async function GETHandler(request: NextRequest) {
 		sessionId = optionalFilter(params.get("sessionId"));
 		query = optionalFilter(params.get("q"), QUERY_MAX);
 		limit = parseLimit(params.get("limit"));
+		offset = parseOffset(params.get("offset"));
 	} catch (error) {
 		return errorResponse(error, MEMORY_INVALID_FILTER, 400);
 	}
@@ -107,6 +122,7 @@ async function GETHandler(request: NextRequest) {
 			sessionId,
 			query,
 			limit,
+			offset,
 		})
 	);
 	if (err) {

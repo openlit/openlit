@@ -30,6 +30,7 @@ import type {
 	MemoryWriteInput,
 } from "../types";
 import { emptyMemoryFilters } from "../types";
+import { asRecord, stringValue, uniqueChoices } from "../values";
 
 const DEFAULT_URL = "https://api.mem0.ai";
 
@@ -54,18 +55,6 @@ const RATING_TO_MEM0_FEEDBACK: Record<MemoryFeedbackRating, string> = {
 	negative: "NEGATIVE",
 	very_negative: "VERY_NEGATIVE",
 };
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
-
-function stringValue(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const trimmed = value.trim();
-	return trimmed || undefined;
-}
 
 function stringList(value: unknown): string[] {
 	if (!Array.isArray(value)) return [];
@@ -228,17 +217,6 @@ function normalizeList(raw: unknown): MemoryRecord[] {
 	return rows
 		.map((row) => normalizeRecord(row))
 		.filter((row): row is MemoryRecord => !!row);
-}
-
-function uniqueChoices(choices: MemoryFilterChoice[]): MemoryFilterChoice[] {
-	const seen = new Set<string>();
-	const next: MemoryFilterChoice[] = [];
-	for (const choice of choices) {
-		if (!choice.id || seen.has(choice.id)) continue;
-		seen.add(choice.id);
-		next.push(choice);
-	}
-	return next.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function entityKind(row: Record<string, unknown>): "user" | "agent" | "session" | null {

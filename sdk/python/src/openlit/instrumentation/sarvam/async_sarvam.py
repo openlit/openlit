@@ -75,13 +75,15 @@ def async_chat_completions(
             self._cache_read_input_tokens = 0
             self._cache_creation_input_tokens = 0
             self._event_provider = event_provider
+            self._streaming_response_processed = False
+            self._stream_error = None
 
         async def __aenter__(self):
-            await self.__wrapped__.__aenter__()
+            # Sarvam returns an async generator, which has no __aenter__.
             return self
 
         async def __aexit__(self, exc_type, exc_value, traceback):
-            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+            await self.aclose()
 
         def __aiter__(self):
             return self
@@ -90,14 +92,49 @@ def async_chat_completions(
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
-        async def __anext__(self):
+        async def aclose(self):
+            """Close the wrapped async generator and finalize the span if it has not ended yet."""
             try:
-                chunk = await self.__wrapped__.__anext__()
-                process_chunk(self, chunk)
-                return chunk
-            except StopAsyncIteration:
-                try:
-                    with self._span:
+                await self.__wrapped__.aclose()
+            finally:
+                self._finalize_streaming_span(ended_cleanly=False)
+
+        async def close(self):
+            """Alias for aclose(), kept for callers using the older name."""
+            await self.aclose()
+
+        def __del__(self):
+            """Finalize a span abandoned by a bare ``async for`` loop.
+
+            Dealloc cannot await ``aclose()``. The wrapped async generator's
+            own dealloc hook still closes the HTTP response.
+            """
+            try:
+                self._finalize_streaming_span(ended_cleanly=False)
+            except Exception:
+                pass
+
+        def _finalize_streaming_span(self, ended_cleanly):
+            """End the span once.
+
+            ``ended_cleanly`` is True only for StopAsyncIteration. An empty
+            finish reason is otherwise a cancel: the output-message mapper
+            would store it as ``stop``. A failure raised by the wrapped
+            stream is recorded after attributes are set, so partial text
+            stays on the span and the status is ERROR rather than the OK
+            that ``process_streaming_chat_response`` writes when nothing
+            failed.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            if self._stream_error is not None and not self._finish_reason:
+                self._finish_reason = "error"
+            elif not ended_cleanly and not self._finish_reason:
+                self._finish_reason = "incomplete"
+            try:
+                with self._span:
+                    try:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -109,8 +146,22 @@ def async_chat_completions(
                             version=version,
                             event_provider=self._event_provider,
                         )
-                except Exception as e:
-                    handle_exception(self._span, e)
+                    finally:
+                        if self._stream_error is not None:
+                            handle_exception(self._span, self._stream_error)
+            except Exception as e:
+                handle_exception(self._span, e)
+
+        async def __anext__(self):
+            try:
+                chunk = await self.__wrapped__.__anext__()
+                process_chunk(self, chunk)
+                return chunk
+            except StopAsyncIteration:
+                self._finalize_streaming_span(ended_cleanly=True)
+                raise
+            except Exception as exc:
+                self._stream_error = exc
                 raise
 
     async def wrapper(wrapped, instance, args, kwargs):

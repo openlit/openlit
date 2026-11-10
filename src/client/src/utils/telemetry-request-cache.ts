@@ -1,6 +1,6 @@
 /**
  * Short-lived browser cache for read-only Telemetry / metrics POSTs.
- * Tab remounts and 1m poll windows reuse the last response instead of
+ * Tab remounts between polls reuse the last response instead of
  * re-triggering expensive external L1 sampling on every navigation.
  */
 
@@ -12,6 +12,10 @@ interface CacheEntry {
 const store = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<unknown>>();
 
+/**
+ * Below the default 1m poll: a CUSTOM range keeps its cache key across polls,
+ * so an entry that outlived the interval would answer every other poll.
+ */
 const DEFAULT_TTL_MS = 45_000;
 /** Floor relative-range timestamps so remounts within the poll window share a key. */
 const TIME_QUANTUM_MS = 30_000;
@@ -122,8 +126,11 @@ export async function withTelemetryRequestCache<T>(
 	const promise = (async () => {
 		try {
 			const value = await loader();
-			store.set(key, { value, expiresAt: Date.now() + ttlMs });
-			prune(Date.now());
+			// Routes can report failure as a 200 `{ err }`; retries must reach the server.
+			if (!(value as { err?: unknown } | null)?.err) {
+				store.set(key, { value, expiresAt: Date.now() + ttlMs });
+				prune(Date.now());
+			}
 			return value;
 		} finally {
 			inFlight.delete(key);

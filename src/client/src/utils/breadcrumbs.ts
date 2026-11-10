@@ -205,6 +205,25 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		getBreadcrumbs: () => [],
 	},
 	
+	// Alerts
+	{
+		regex: /^\/alerts$/,
+		getTitle: () => getMessage().ALERTING_TITLE,
+		getBreadcrumbs: () => [],
+	},
+	{
+		regex: /^\/alerts\/(list|new)$/,
+		getTitle: (pathname: string) =>
+			pathname.endsWith("/new") ? getMessage().ALERTING_NEW_TITLE : getMessage().ALERTING_ALERTS,
+		getBreadcrumbs: () => [{ title: getMessage().ALERTING_TITLE, href: "/alerts" }],
+	},
+	{
+		regex: /^\/alerts\/(?!list$|new$|events|destinations)([^/]+)(\/edit)?$/,
+		getTitle: (pathname: string) =>
+			pathname.endsWith("/edit") ? getMessage().ALERTING_EDIT_TITLE : getMessage().ALERTING_DETAIL_TITLE,
+		getBreadcrumbs: () => [{ title: getMessage().ALERTING_TITLE, href: "/alerts" }],
+	},
+
 	// Prompt Hub
 	{
 		regex: /^\/prompt-hub$/,

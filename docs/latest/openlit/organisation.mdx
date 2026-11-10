@@ -11,6 +11,7 @@ Organisations in OpenLIT let you group team members under a shared workspace. Ea
 - **Workspace isolation**: Each organisation maintains its own database configuration and resource space.
 - **Project hierarchy**: Projects sit inside organisations and group database configurations for different environments, teams, or workloads.
 - **Role-based access control**: Assign **Admin** or **Member** roles to control who can manage settings and invite others.
+- **Enterprise RBAC** ([Enterprise](/latest/openlit/enterprise)): Licensed organisations can use a dedicated **Roles** page for custom role groups and direct user permission overrides.
 - **Email invitations**: Invite teammates by email. Invitations can be accepted or declined from the notification panel.
 - **Multiple organisations**: A single user can belong to multiple organisations and switch between them at any time.
 - **Member management**: Admins can view all members, update roles, and remove users from the organisation.
@@ -78,6 +79,8 @@ Organisations in OpenLIT let you group team members under a shared workspace. Ea
 
 ## Roles and permissions
 
+The table below describes the default built-in roles available to every organisation. Enterprise RBAC ([Enterprise](/latest/openlit/enterprise)) adds custom role groups and direct user permission overrides on the separate **Roles** page.
+
 | Action | Admin | Member |
 |--------|-------|--------|
 | View dashboards, traces, prompts | ✅ | ✅ |
@@ -88,6 +91,10 @@ Organisations in OpenLIT let you group team members under a shared workspace. Ea
 | Delete organisation | ✅ | ❌ |
 | Manage database configuration | ✅ | ❌ |
 | Create and switch projects | ✅ | ✅ |
+
+<Info>
+For fine-grained access control, see [Role-Based Access Control](/latest/openlit/rbac), an [Enterprise](/latest/openlit/enterprise) feature.
+</Info>
 
 ## Project hierarchy
 
