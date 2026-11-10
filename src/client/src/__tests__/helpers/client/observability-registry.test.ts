@@ -22,6 +22,13 @@ describe("observability signal registry", () => {
 		);
 	});
 
+	it("groups the traces tab through the same endpoint as the spans tab", () => {
+		const traces = getSignalConfig("traces");
+
+		expect(traces.supportGrouping).toBe(true);
+		expect(traces.groupedUrl).toBe(getSignalConfig("spans").groupedUrl);
+	});
+
 	it("keeps the existing span list as a separate signal", () => {
 		const spans = getSignalConfig("spans");
 

@@ -1,27 +1,26 @@
-import { jsonParse } from "@/utils/json";
+import { tryJsonParse } from "@/utils/json";
 import {
 	JsonViewer,
 	JsonViewerProps,
 	defineEasyType,
 } from "@textea/json-viewer";
-import { isInteger } from "lodash";
+import useTheme from "@/utils/hooks/useTheme";
 
 const integerType = defineEasyType<string>({
-	is: (value) => {
-		const changedValue = parseInt(value as string, 10);
-		return isInteger(changedValue);
-	},
+	is: (value) => typeof value === "string" && /^-?\d+$/.test(value),
 	type: "number",
 	colorKey: "base0C",
-	Renderer: (props) => parseInt(props.value, 10),
+	// Rendered verbatim: long numeric ids exceed Number.MAX_SAFE_INTEGER.
+	Renderer: (props) => props.value,
 });
 
 const objectType = defineEasyType<string>({
 	is: (value) => {
-		if (!/^\[|\{/.test(value as string)) {
+		if (typeof value !== "string" || !/^\[|\{/.test(value)) {
 			return false;
 		}
-		return jsonParse(value as string);
+		// Probed on every render, so a non-JSON string must not log.
+		return tryJsonParse(value) !== undefined;
 	},
 	type: "object",
 	colorKey: "base0E",
@@ -40,16 +39,19 @@ const booleanType = defineEasyType<string>({
 });
 
 export default function JSONViewer(props: JsonViewerProps) {
+	const { theme } = useTheme();
+
 	return (
 		<JsonViewer
 			value={props.value}
 			className={`bg-transparent dark:bg-transparent text-success dark:text-success ${props.className}`}
-			enableClipboard={props.enableClipboard || true}
+			enableClipboard={props.enableClipboard ?? true}
 			displayDataTypes={props.displayDataTypes || false}
 			displaySize={props.displaySize || false}
 			rootName={props.rootName || false}
 			valueTypes={[integerType, objectType, booleanType]}
 			maxDisplayLength={20}
+			theme={theme}
 		/>
 	);
 }
