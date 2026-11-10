@@ -491,6 +491,9 @@ export const OBSERVABILITY_COPY_UNSUPPORTED =
 export const OBSERVABILITY_LINK_COPIED = "Link copied to clipboard";
 export const OBSERVABILITY_LINK_COPY_FAILED = "Could not copy link";
 export const OBSERVABILITY_COPY_SHARE_LINK = "Copy shareable link";
+export const OBSERVABILITY_SPAN_SEARCH_PLACEHOLDER = "Search span content";
+export const OBSERVABILITY_SPAN_SEARCH_RANGE_TOO_WIDE = (days: number) =>
+	`Span content search covers up to ${days} days. Narrow the time range and search again.`;
 export const GENERATION_HEALTH_TRUNCATED = "Truncated";
 export const GENERATION_HEALTH_FILTERED = "Filtered";
 export const GENERATION_HEALTH_EMPTY = "Empty";

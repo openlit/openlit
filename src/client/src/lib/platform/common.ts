@@ -10,6 +10,7 @@ import {
 	CommandParams,
 } from "@clickhouse/client";
 import { OPERATION_TYPE } from "@/types/platform";
+import { CLICKHOUSE_READ_MAX_EXECUTION_SECONDS } from "@/constants/traces";
 
 export const OTEL_TRACES_TABLE_NAME = "otel_traces";
 export const OTEL_LOGS_TABLE_NAME = "otel_logs";
@@ -62,11 +63,6 @@ export type GPU_TYPE_KEY =
 
 export interface GPUMetricParams extends MetricParams { }
 
-/**
- * Server-side ceiling for direct reads, matching the OpenPlait read path. A
- * caller that gives up cannot stop its query, so without this it keeps running.
- */
-const MAX_READ_EXECUTION_SECONDS = 60;
 /** ClickHouse READONLY error: a readonly=1 user may not change any setting. */
 const CLICKHOUSE_READONLY_ERROR_CODE = "164";
 
@@ -128,7 +124,7 @@ async function collectClickHouseData(
 		if (clientQueryType === "query") {
 			if (!query) return { err: "No query specified!" };
 			const querySettings = {
-				max_execution_time: MAX_READ_EXECUTION_SECONDS,
+				max_execution_time: CLICKHOUSE_READ_MAX_EXECUTION_SECONDS,
 				...(enable_readonly ? { readonly: "1" } : {}),
 				...(clickhouse_settings || {}),
 			};

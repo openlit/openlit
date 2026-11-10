@@ -753,3 +753,15 @@ export const SPAN_KIND: Record<SPAN_KIND_TYPE, SPAN_KIND_TYPE> = {
 };
 
 export const SUPPORTED_EVALUATION_OPERATIONS = ["chat"];
+
+export const SPAN_SEARCH_MAX_LENGTH = 256;
+export const SPAN_SEARCH_MAX_DAYS = 7;
+/**
+ * Server-side ceiling for direct ClickHouse reads, matching the OpenPlait read
+ * path. A caller that gives up cannot stop its query, so without this it keeps
+ * running.
+ */
+export const CLICKHOUSE_READ_MAX_EXECUTION_SECONDS = 60;
+/** Covers the count and list reads, which run in turn, plus a margin. */
+export const SPAN_SEARCH_REQUEST_TIMEOUT_MS =
+	2 * CLICKHOUSE_READ_MAX_EXECUTION_SECONDS * 1000 + 5_000;

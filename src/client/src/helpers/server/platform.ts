@@ -16,10 +16,12 @@ import { parseGenerationHealthChips } from "@/lib/platform/generation-health/cla
 import { generationHealthWhereSql } from "@/lib/platform/generation-health/sql";
 import { hasAgentLoopFilter } from "@/lib/platform/agent-loop/classify";
 import { agentLoopWhereSql } from "@/lib/platform/agent-loop/sql";
-
-function escapeClickHouseString(value: string) {
-	return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
+import { escapeClickHouseString } from "@/lib/clickhouse-escape";
+import {
+	SPAN_SEARCH_MAX_DAYS,
+	SPAN_SEARCH_MAX_LENGTH,
+} from "@/constants/traces";
+import getMessage from "@/constants/messages";
 
 /** Quote a request-supplied value as a ClickHouse string literal. */
 function sqlString(value: unknown) {
@@ -41,6 +43,36 @@ export const EXCLUDE_CODING_AGENT_WHERE = [
 	"(empty(ResourceAttributes['telemetry.distro.name']) OR ResourceAttributes['telemetry.distro.name'] != 'openlit-cli')",
 	"NOT startsWith(SpanName, 'coding_agent.')",
 ].join(" AND ");
+
+const SPAN_SEARCH_JSON_ATTRIBUTES = [
+	"gen_ai.input.messages",
+	"gen_ai.output.messages",
+];
+const SPAN_SEARCH_ATTRIBUTES = [
+	"gen_ai.prompt",
+	"gen_ai.completion",
+	"gen_ai.content.prompt",
+	"gen_ai.content.completion",
+];
+const SPAN_SEARCH_EVENT_ATTRIBUTES = [
+	"gen_ai.prompt",
+	"gen_ai.completion",
+	"exception.message",
+];
+
+/**
+ * How a term can be spelled inside serialised messages: as typed, as
+ * `JSON.stringify` writes it, and as Python's default `json.dumps` writes it,
+ * which also turns non-ASCII into `\uXXXX` (UTF-16 units, so surrogate pairs).
+ */
+function spanSearchJsonForms(text: string): string[] {
+	const json = JSON.stringify(text).slice(1, -1);
+	const ascii = json.replace(
+		/[\u0080-\uffff]/g,
+		(char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`
+	);
+	return Array.from(new Set([text, json, ascii]));
+}
 
 export const validateMetricsRequestType = {
 	// Request
@@ -140,6 +172,11 @@ export function sanitizeMetricsParams(params: Record<string, any>): string | nul
 			...(start ? { start } : {}),
 			...(end ? { end } : {}),
 		};
+	}
+	if (typeof params.selectedConfig?.search === "string") {
+		params.selectedConfig.search = params.selectedConfig.search
+			.trim()
+			.slice(0, SPAN_SEARCH_MAX_LENGTH);
 	}
 	if ("limit" in params && params.limit !== undefined) params.limit = boundedInteger(params.limit, 10, 10_000);
 	if ("offset" in params && params.offset !== undefined) params.offset = boundedInteger(params.offset, 0, 10_000_000);
@@ -490,6 +527,48 @@ export const getFilterWhereCondition = (
 	} catch {}
 	return whereArray.join(" AND ");
 };
+
+/**
+ * Filter for span list and count queries, the only ones that scan content.
+ * Summary, health and loop queries use `getFilterWhereCondition` and skip it.
+ * The term is inlined because `connectorDataCollector` drops `query_params`.
+ */
+export function getSpanListWhereCondition(params: MetricParams): {
+	where: string;
+	err?: string;
+} {
+	const where = getFilterWhereCondition(params, true);
+	const search = params.selectedConfig?.search;
+	const text = typeof search === "string" ? search.trim() : "";
+	const term = escapeClickHouseString(text);
+	if (!term) return { where };
+
+	const { start, end } = params.timeLimit;
+	if (differenceInDays(new Date(end), new Date(start)) > SPAN_SEARCH_MAX_DAYS) {
+		return {
+			where,
+			err: getMessage().OBSERVABILITY_SPAN_SEARCH_RANGE_TOO_WIDE(SPAN_SEARCH_MAX_DAYS),
+		};
+	}
+
+	const matches = (column: string, needle = term) =>
+		`positionCaseInsensitiveUTF8(${column}, '${needle}') > 0`;
+	const eventMatch = SPAN_SEARCH_EVENT_ATTRIBUTES.map((key) =>
+		matches(`attrs['${key}']`)
+	).join(" OR ");
+	const jsonNeedles = spanSearchJsonForms(text).map(escapeClickHouseString);
+	const searchClause = [
+		...SPAN_SEARCH_JSON_ATTRIBUTES.flatMap((key) =>
+			jsonNeedles.map((needle) => matches(`SpanAttributes['${key}']`, needle))
+		),
+		...SPAN_SEARCH_ATTRIBUTES.map((key) => matches(`SpanAttributes['${key}']`)),
+		matches("StatusMessage"),
+		`arrayExists(attrs -> ${eventMatch}, \`Events.Attributes\`)`,
+	].join(" OR ");
+	return {
+		where: [where, `(${searchClause})`].filter(Boolean).join(" AND "),
+	};
+}
 
 export const getFilterPreviousParams = (filter: MetricParams) => {
 	try {

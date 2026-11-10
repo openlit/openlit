@@ -41,11 +41,68 @@ describe('filterStoreSlice actions', () => {
   });
 
   describe('updateFilter', () => {
+    it('clears search when sent an empty string, not undefined', () => {
+      const { updateFilter } = store.getState().filter;
+      updateFilter('selectedConfig', { search: 'refund' });
+      updateFilter('selectedConfig', { search: undefined });
+      expect(store.getState().filter.details.selectedConfig.search).toBe('refund');
+      updateFilter('selectedConfig', { search: '' });
+      expect(store.getState().filter.details.selectedConfig.search).toBe('');
+    });
+
     it('updates limit and resets offset to 0', () => {
       store.getState().filter.updateFilter('offset', 50);
       store.getState().filter.updateFilter('limit', 50);
       expect(store.getState().filter.details.limit).toBe(50);
       expect(store.getState().filter.details.offset).toBe(0);
+    });
+
+    it('keeps the drilled-in groupValue when search changes, and resets offset', () => {
+      const { updateFilter } = store.getState().filter;
+      updateFilter('selectedConfig', { models: ['gpt-4'] });
+      updateFilter('groupBy', 'model');
+      updateFilter('groupValue', 'gpt-4');
+      updateFilter('offset', 25);
+
+      updateFilter('selectedConfig.search', 'refund');
+      let { details } = store.getState().filter;
+      expect(details.groupValue).toBe('gpt-4');
+      expect(details.groupBy).toBe('model');
+      expect(details.offset).toBe(0);
+      expect(details.selectedConfig).toEqual({ models: ['gpt-4'], search: 'refund' });
+
+      updateFilter('selectedConfig.search', '');
+      ({ details } = store.getState().filter);
+      expect(details.groupValue).toBe('gpt-4');
+      expect(details.selectedConfig.search).toBe('');
+    });
+
+    it('clears search when leaving a drill-down for the grouped view', () => {
+      const { updateFilter } = store.getState().filter;
+      updateFilter('selectedConfig', { models: ['gpt-4'] });
+      updateFilter('groupBy', 'model');
+      updateFilter('groupValue', 'gpt-4');
+      updateFilter('selectedConfig.search', 'refund');
+
+      updateFilter('groupValue', 'gpt-4o');
+      expect(store.getState().filter.details.selectedConfig.search).toBe('refund');
+
+      updateFilter('groupValue', null);
+      const { details } = store.getState().filter;
+      expect(details.groupValue).toBeNull();
+      expect(details.selectedConfig).toEqual({ models: ['gpt-4'], search: '' });
+    });
+
+    it('clears search when the grouping changes, and keeps other filters', () => {
+      const { updateFilter } = store.getState().filter;
+      updateFilter('selectedConfig', { models: ['gpt-4'], search: 'refund' });
+
+      updateFilter('groupBy', 'model');
+
+      expect(store.getState().filter.details.selectedConfig).toEqual({
+        models: ['gpt-4'],
+        search: '',
+      });
     });
 
     it('updates selectedConfig and resets offset to 0', () => {

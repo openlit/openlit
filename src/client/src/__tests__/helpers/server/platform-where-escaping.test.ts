@@ -23,6 +23,10 @@ describe("getFilterWhereCondition escaping", () => {
 		}
 	);
 
+	it("strips control characters from filter values", () => {
+		expect(where({ models: ["gpt\n-4\u0000"] })).toContain("'gpt-4'");
+	});
+
 	it("escapes the time range", () => {
 		const sql = getFilterWhereCondition(
 			{ timeLimit: { start: INJECTION, end: "2026-10-02" }, selectedConfig: {} } as any,

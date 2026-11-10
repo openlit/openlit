@@ -8,6 +8,7 @@ type GET_DATA = {
 	method?: "GET" | "POST" | "PUT" | "PATCH";
 	url: string;
 	data?: Record<string, unknown>;
+	timeoutMs?: number;
 };
 
 function getActiveDatabaseConfigId() {
@@ -103,7 +104,7 @@ export function getRequestHeaders(headers?: Record<string, string>) {
 	};
 }
 
-export async function getData({ body, method = "POST", url, data }: GET_DATA) {
+export async function getData({ body, method = "POST", url, data, timeoutMs = 15_000 }: GET_DATA) {
 	const payload = body || (data ? JSON.stringify(data) : undefined);
 	const hasBody = !!payload;
 	const environment = getOpenLitContextHeaders()[OPENLIT_CONTEXT_HEADERS.environment];
@@ -113,7 +114,7 @@ export async function getData({ body, method = "POST", url, data }: GET_DATA) {
 
 	return withTelemetryRequestCache(cacheUrl, payload, async () => {
 		const controller = isCacheableTelemetryUrl(url) ? new AbortController() : undefined;
-		const timeout = controller ? setTimeout(() => controller.abort(), 15_000) : undefined;
+		const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 		try {
 		const res = await fetch(url, {
 			body: payload,
