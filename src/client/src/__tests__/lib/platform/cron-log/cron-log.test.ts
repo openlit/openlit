@@ -130,6 +130,17 @@ describe('getLastRunCronLogByCronId', () => {
     );
   });
 
+  it('selects started_at under the startedAt alias the result is read from', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({
+      data: [{ startedAt: '2024-01-15 10:00:00' }],
+      err: null,
+    });
+    const result = await getLastRunCronLogByCronId('cron-1');
+    const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
+    expect(query).toMatch(/started_at\s+AS\s+startedAt/i);
+    expect(result).toBe('2024-01-15 10:00:00');
+  });
+
   it('returns null when data is null', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ data: null, err: null });
     const result = await getLastRunCronLogByCronId('cron-1');
@@ -138,6 +149,12 @@ describe('getLastRunCronLogByCronId', () => {
 
   it('returns null when error', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ data: null, err: 'err' });
+    const result = await getLastRunCronLogByCronId('cron-1');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when the cron has no successful run yet', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
     const result = await getLastRunCronLogByCronId('cron-1');
     expect(result).toBeNull();
   });
