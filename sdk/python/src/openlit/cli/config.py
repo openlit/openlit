@@ -118,16 +118,16 @@ PARAMETER_CONFIG = {
     "custom_span_attributes": {
         "default": None,
         "env_var": "OPENLIT_CUSTOM_SPAN_ATTRIBUTES",
-        "cli_help": 'Custom span attributes as JSON string (e.g. \'{"team": "ml"}\')',
+        "cli_help": 'Custom span attributes as JSON object (e.g. \'{"team": "ml"}\')',
         "cli_type": str,
-        "parser": "json",
+        "parser": "json_object",  # Must decode to a dict; other shapes are rejected
     },
     "custom_metrics_attributes": {
         "default": None,
         "env_var": "OPENLIT_CUSTOM_METRICS_ATTRIBUTES",
-        "cli_help": 'Custom metrics attributes as JSON string (e.g. \'{"team": "ml"}\')',
+        "cli_help": 'Custom metrics attributes as JSON object (e.g. \'{"team": "ml"}\')',
         "cli_type": str,
-        "parser": "json",
+        "parser": "json_object",  # Must decode to a dict; other shapes are rejected
     },
 }
 
@@ -162,6 +162,30 @@ def parse_env_value(param_name: str, env_value: str) -> Any:
             return json.loads(env_value)
         except (json.JSONDecodeError, ImportError):
             return None
+    elif parser == "json_object":
+        # Values that are consumed as attribute mappings (iterated with
+        # .items()) must decode to a JSON object. Anything else - invalid JSON
+        # or a valid array/string/number/bool/null - is rejected with a warning
+        # instead of being passed through and crashing later.
+        import json
+
+        env_var = config.get("env_var", param_name)
+        try:
+            parsed_value = json.loads(env_value)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "Ignoring %s: value is not valid JSON (%s)", env_var, exc.msg
+            )
+            return None
+        if not isinstance(parsed_value, dict):
+            logger.warning(
+                "Ignoring %s: expected a JSON object such as "
+                '{"key": "value"}, got %s',
+                env_var,
+                type(parsed_value).__name__,
+            )
+            return None
+        return parsed_value
     elif parser == "csv":
         return [item.strip() for item in env_value.split(",") if item.strip()]
     else:
