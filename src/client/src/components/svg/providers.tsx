@@ -412,6 +412,24 @@ export function OrcaRouterSvg({ className }: SvgProps) {
 	);
 }
 
+/**
+ * TypeSafe's published app icon (a self-contained circular mark), embedded as
+ * an image so it stays faithful to their brand and reads in light and dark.
+ */
+export function TypeSafeSvg({ className }: SvgProps) {
+	return (
+		<svg
+			role="img"
+			aria-label="TypeSafe"
+			viewBox="0 0 24 24"
+			xmlns="http://www.w3.org/2000/svg"
+			className={className}
+		>
+			<image href="/images/provider/typesafe.png" width="24" height="24" />
+		</svg>
+	);
+}
+
 const PROVIDER_ICON_MAP: Record<string, React.FC<SvgProps>> = {
 	openai: OpenAISvg,
 	anthropic: AnthropicSvg,
@@ -424,6 +442,7 @@ const PROVIDER_ICON_MAP: Record<string, React.FC<SvgProps>> = {
 	azure_inference: AzureSvg,
 	bedrock: BedrockSvg,
 	deepseek: DeepSeekSvg,
+	typesafe: TypeSafeSvg,
 	together: TogetherSvg,
 	fireworks: FireworksSvg,
 	ollama: OllamaSvg,

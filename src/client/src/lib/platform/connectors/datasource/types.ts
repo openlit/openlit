@@ -44,6 +44,21 @@ export interface NormalizedSpan {
 	events?: NormalizedSpanEvent[];
 	/** Optional pre-resolved cost (USD) applied by cost overlay / vendor. */
 	cost?: number;
+	/**
+	 * Trace-level stats already known to the lister (Jaeger has the tree in
+	 * hand). Absent on search summaries such as Tempo, which do not download
+	 * child spans for the list.
+	 */
+	traceSummary?: {
+		spanCount: number;
+		errorCount: number;
+		/** End-to-end nanoseconds from the earliest start to the latest end. */
+		durationNs?: number;
+		/** ISO start of the earliest span. */
+		start?: string;
+		/** Set when any span in the tree is an error. */
+		statusCode?: string;
+	};
 	/** Stuck-tool loop on this trace/session, attached by the traces facade. */
 	agentLoop?: {
 		toolName: string;
@@ -387,8 +402,12 @@ export interface DataSourceAdapter {
 	// Traces
 	listSpans(query: OpenLITQuery): Promise<DataFrame<NormalizedSpan>>;
 	getSpan(spanId: string): Promise<NormalizedSpan | null>;
-	getTraceSpans(traceId: string): Promise<NormalizedSpan[]>;
-	getSpansBySession(sessionId: string): Promise<NormalizedSpan[]>;
+	/**
+	 * `spanTimestamp` lets the read skip distant partitions, at the cost of
+	 * spans outside a wide window. Omit it when the whole trace is needed.
+	 */
+	getTraceSpans(traceId: string, spanTimestamp?: string): Promise<NormalizedSpan[]>;
+	getSpansBySession(sessionId: string, spanTimestamp?: string): Promise<NormalizedSpan[]>;
 	aggregateSpans(query: OpenLITQuery): Promise<DataFrame>;
 	/** Optional exact matching-span count for paginated list surfaces. */
 	countSpans?(query: OpenLITQuery): Promise<number | null>;

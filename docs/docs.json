@@ -76,7 +76,20 @@
                   "latest/openlit/connectors/overview",
                   "latest/openlit/connectors/datasource",
                   "latest/openlit/connectors/memory",
-                  "latest/openlit/connectors/scanner"
+                  "latest/openlit/connectors/scanner",
+                  "latest/openlit/connectors/notification"
+                ]
+              },
+              {
+                "group": "Enterprise",
+                "icon": "crown",
+                "pages": [
+                  "latest/openlit/enterprise",
+                  "latest/openlit/rbac",
+                  "latest/openlit/audit-logs",
+                  "latest/openlit/instance-admin",
+                  "latest/openlit/alerts",
+                  "latest/openlit/gpus"
                 ]
               }
             ]
@@ -271,6 +284,7 @@
                   "latest/openlit/developer-resources/vault/security"
                 ]
               },
+              "latest/openlit/developer-resources/local-development",
               "latest/openlit/developer-resources/multiple-db",
               "latest/openlit/developer-resources/anonymous-telemetry",
               {
@@ -311,6 +325,7 @@
                     "pages": [
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/create",
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/get",
+                      "latest/openlit/developer-resources/api-reference/endpoint/api-keys/update",
                       "latest/openlit/developer-resources/api-reference/endpoint/api-keys/delete"
                     ]
                   },
@@ -394,6 +409,7 @@
                   "latest/sdk/integrations/elevenlabs",
                   "latest/sdk/integrations/ai21",
                   "latest/sdk/integrations/together",
+                  "latest/sdk/integrations/typesafe",
                   "latest/sdk/integrations/digitalocean",
                   "latest/sdk/integrations/digitalocean-gradient",
                   "latest/sdk/integrations/assemblyai",

@@ -90,9 +90,10 @@ def async_general_wrap(
 
                     # Calculate duration
                     end_time = time.time()
-                    duration_ms = (end_time - start_time) * 1000
+                    duration = end_time - start_time
+                    duration_ms = duration * 1000
                     main_span.set_attribute(
-                        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration_ms
+                        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration
                     )
 
                     # Process response with enhanced details
@@ -118,9 +119,10 @@ def async_general_wrap(
                 except Exception as e:
                     # Calculate duration even for errors
                     end_time = time.time()
-                    duration_ms = (end_time - start_time) * 1000
+                    duration = end_time - start_time
+                    duration_ms = duration * 1000
                     main_span.set_attribute(
-                        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration_ms
+                        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration
                     )
 
                     # Handle and log the exception

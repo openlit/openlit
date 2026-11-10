@@ -4,6 +4,7 @@ import {
 	ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN,
 	ALLOWED_OPENLIT_ROUTE_PREFIXES_WITHOUT_TOKEN,
 	CRON_JOB_ROUTES,
+	ENGINE_INTERNAL_ROUTES,
 } from "@/constants/route";
 
 const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -15,7 +16,8 @@ function isExemptPath(pathname: string) {
 		ALLOWED_OPENLIT_ROUTE_PREFIXES_WITHOUT_TOKEN.some((prefix) =>
 			pathname.startsWith(prefix)
 		) ||
-		CRON_JOB_ROUTES.includes(pathname)
+		CRON_JOB_ROUTES.includes(pathname) ||
+		ENGINE_INTERNAL_ROUTES.includes(pathname)
 	);
 }
 

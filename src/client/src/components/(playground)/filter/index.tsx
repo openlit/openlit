@@ -159,6 +159,7 @@ const Filter = ({
 			</Tabs>
 			{filter.timeLimit.type === "CUSTOM" && (
 				<DatePickerWithRange
+					showTime
 					selectedDate={filter.timeLimit}
 					onCustomDateChange={onCustomDateChange}
 					maxRangeDays={maxTimeRangeDays}

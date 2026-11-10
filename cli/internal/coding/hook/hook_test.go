@@ -62,6 +62,66 @@ func TestIsClaudeCodeVendor(t *testing.T) {
 	}
 }
 
+func TestCanonicalVendorOpenCode(t *testing.T) {
+	for _, input := range []string{"opencode", "OpenCode", "  opencode  "} {
+		if got := canonicalVendor(input); got != "opencode" {
+			t.Fatalf("canonicalVendor(%q) = %q, want opencode", input, got)
+		}
+	}
+}
+
+func TestPickAdapterOpenCode(t *testing.T) {
+	adapter, err := pickAdapter("opencode")
+	if err != nil {
+		t.Fatalf("pickAdapter(opencode): %v", err)
+	}
+	if got := adapter.Vendor(); got != "opencode" {
+		t.Fatalf("adapter vendor = %q, want opencode", got)
+	}
+}
+
+func TestPeekContextOpenCodeEnvelope(t *testing.T) {
+	payload := []byte(`{
+		"event": {
+			"type": "session.created",
+			"properties": {
+				"info": {
+					"id": "ses_123",
+					"directory": "/repo",
+					"parentID": "ses_parent",
+					"mode": "plan",
+					"model": {
+						"providerID": "provider-1",
+						"modelID": "model-1"
+					}
+				}
+			}
+		},
+		"directory": "/repo",
+		"worktree": "/repo"
+	}`)
+
+	got := peekContext(payload)
+	if got.SessionID != "ses_123" {
+		t.Fatalf("SessionID = %q, want ses_123", got.SessionID)
+	}
+	if got.ConversationID != "ses_123" {
+		t.Fatalf("ConversationID = %q, want ses_123", got.ConversationID)
+	}
+	if got.CWD != "/repo" {
+		t.Fatalf("CWD = %q, want /repo", got.CWD)
+	}
+	if got.Model != "model-1" {
+		t.Fatalf("Model = %q, want model-1", got.Model)
+	}
+	if got.ParentConversationID != "ses_parent" {
+		t.Fatalf("ParentConversationID = %q, want ses_parent", got.ParentConversationID)
+	}
+	if got.PermissionMode != "plan" {
+		t.Fatalf("PermissionMode = %q, want plan", got.PermissionMode)
+	}
+}
+
 // TestIsRealClaudeCodeInvocation pins down the rule that drives the
 // host-mismatch guard's right-hand side: only `CLAUDECODE=1` is
 // authoritative. Cursor 3.4+ honours the Claude Code plugin spec and

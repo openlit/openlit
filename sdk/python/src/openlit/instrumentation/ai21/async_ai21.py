@@ -69,13 +69,21 @@ def async_chat(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._streaming_response_processed = False
+            self._stream_error = None
 
         async def __aenter__(self):
             await self.__wrapped__.__aenter__()
             return self
 
         async def __aexit__(self, exc_type, exc_value, traceback):
-            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+            # AsyncStream.__aexit__ awaits close(). Finalize even when the
+            # body raised: a caller abort is incomplete, and a failure
+            # raised by the stream is recorded from __anext__.
+            try:
+                return await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+            finally:
+                self._finalize_streaming_span(ended_cleanly=False)
 
         def __aiter__(self):
             return self
@@ -84,14 +92,49 @@ def async_chat(
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
-        async def __anext__(self):
+        async def close(self):
+            """Close the wrapped stream and finalize the span if it has not ended yet.
+
+            AI21's async stream defines ``async close``, not ``aclose``.
+            Leaving this to ``__getattr__`` closes the socket and skips the span.
+            """
             try:
-                chunk = await self.__wrapped__.__anext__()
-                process_chunk(self, chunk)
-                return chunk
-            except StopAsyncIteration:
-                try:
-                    with self._span:
+                await self.__wrapped__.close()
+            finally:
+                self._finalize_streaming_span(ended_cleanly=False)
+
+        def __del__(self):
+            """End a span abandoned by a bare ``async for`` loop.
+
+            Dealloc cannot await ``close()``. Ending the span here matches
+            the moment the wrapper is released. The HTTP response stays on
+            ``AsyncStream.close``, which ``__aexit__`` and ``close`` call.
+            """
+            try:
+                self._finalize_streaming_span(ended_cleanly=False)
+            except Exception:
+                pass
+
+        def _finalize_streaming_span(self, ended_cleanly):
+            """End the span once.
+
+            ``ended_cleanly`` is True only for StopAsyncIteration. An empty
+            finish reason is otherwise a cancel: the output-message mapper
+            would store it as ``stop``. A failure raised by the wrapped
+            stream is recorded after attributes are set, so partial text
+            stays on the span and the status is ERROR rather than the OK
+            that ``process_streaming_chat_response`` always writes.
+            """
+            if self._streaming_response_processed:
+                return
+            self._streaming_response_processed = True
+            if self._stream_error is not None and not self._finish_reason:
+                self._finish_reason = "error"
+            elif not ended_cleanly and not self._finish_reason:
+                self._finish_reason = "incomplete"
+            try:
+                with self._span:
+                    try:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -103,10 +146,22 @@ def async_chat(
                             version=version,
                             event_provider=event_provider,
                         )
+                    finally:
+                        if self._stream_error is not None:
+                            handle_exception(self._span, self._stream_error)
+            except Exception as e:
+                handle_exception(self._span, e)
 
-                except Exception as e:
-                    handle_exception(self._span, e)
-
+        async def __anext__(self):
+            try:
+                chunk = await self.__wrapped__.__anext__()
+                process_chunk(self, chunk)
+                return chunk
+            except StopAsyncIteration:
+                self._finalize_streaming_span(ended_cleanly=True)
+                raise
+            except Exception as exc:
+                self._stream_error = exc
                 raise
 
     async def wrapper(wrapped, instance, args, kwargs):

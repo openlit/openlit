@@ -47,6 +47,7 @@ The SDK follows and maintains the [OpenTelemetry GenAI Semantic Conventions](htt
 | [✅ Hugging Face](https://docs.openlit.io/latest/sdk/integrations/huggingface) *(Inference API + local Transformers.js)* |
 | [✅ Replicate](https://docs.openlit.io/latest/sdk/integrations/replicate)                  |
 | [✅ Azure OpenAI](https://docs.openlit.io/latest/sdk/integrations/azure-openai) *(via OpenAI SDK)* |
+| [✅ TypeSafe Jev](https://docs.openlit.io/latest/sdk/integrations/typesafe) *(System One `systemOne`)* |
 
 | Audio / Speech                                                                              |
 | ------------------------------------------------------------------------------------------- |
