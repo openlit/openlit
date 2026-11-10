@@ -756,6 +756,25 @@ export const SUPPORTED_EVALUATION_OPERATIONS = ["chat"];
 
 export const SPAN_SEARCH_MAX_LENGTH = 256;
 export const SPAN_SEARCH_MAX_DAYS = 7;
+/** Words beyond this are ignored, so a pasted paragraph stays a bounded scan. */
+export const SPAN_SEARCH_MAX_TERMS = 10;
+/** Serialised message attributes, matched in every JSON spelling of a term. */
+export const SPAN_SEARCH_JSON_ATTRIBUTES = [
+	"gen_ai.input.messages",
+	"gen_ai.output.messages",
+];
+export const SPAN_SEARCH_ATTRIBUTES = [
+	"gen_ai.prompt",
+	"gen_ai.completion",
+	"gen_ai.content.prompt",
+	"gen_ai.content.completion",
+];
+export const SPAN_SEARCH_EVENT_ATTRIBUTES = [
+	"gen_ai.prompt",
+	"gen_ai.completion",
+	"exception.message",
+];
+
 /**
  * Server-side ceiling for direct ClickHouse reads, matching the OpenPlait read
  * path. A caller that gives up cannot stop its query, so without this it keeps

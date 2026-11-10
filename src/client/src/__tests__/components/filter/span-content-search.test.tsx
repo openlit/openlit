@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import SpanContentSearch from "@/components/(playground)/filter/span-content-search";
 import { SPAN_SEARCH_MAX_LENGTH } from "@/constants/traces";
-import { OBSERVABILITY_SPAN_SEARCH_PLACEHOLDER } from "@/constants/messages/en";
+import {
+	OBSERVABILITY_SPAN_SEARCH_INFO_LABEL,
+	OBSERVABILITY_SPAN_SEARCH_PLACEHOLDER,
+} from "@/constants/messages/en";
 
 const input = () => screen.getByLabelText(OBSERVABILITY_SPAN_SEARCH_PLACEHOLDER);
 
@@ -49,5 +52,24 @@ describe("SpanContentSearch", () => {
 		render(<SpanContentSearch value="" onSubmit={jest.fn()} />);
 
 		expect(input()).toHaveAttribute("maxLength", String(SPAN_SEARCH_MAX_LENGTH));
+	});
+
+	it("explains what it searches from an info button", async () => {
+		render(<SpanContentSearch value="" onSubmit={jest.fn()} />);
+
+		const info = screen.getByRole("button", {
+			name: OBSERVABILITY_SPAN_SEARCH_INFO_LABEL,
+		});
+		fireEvent.focus(info);
+
+		const tips = await screen.findAllByText("gen_ai.output.messages");
+		expect(tips.length).toBeGreaterThan(0);
+		expect(screen.getAllByText("exception.message").length).toBeGreaterThan(0);
+	});
+
+	it("does not draw a focus ring", () => {
+		render(<SpanContentSearch value="" onSubmit={jest.fn()} />);
+		expect(input().className).toContain("focus-visible:ring-0");
+		expect(input().className).not.toContain("focus-visible:ring-2");
 	});
 });

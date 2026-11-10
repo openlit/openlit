@@ -492,6 +492,12 @@ export const OBSERVABILITY_LINK_COPIED = "Link copied to clipboard";
 export const OBSERVABILITY_LINK_COPY_FAILED = "Could not copy link";
 export const OBSERVABILITY_COPY_SHARE_LINK = "Copy shareable link";
 export const OBSERVABILITY_SPAN_SEARCH_PLACEHOLDER = "Search span content";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_LABEL = "What span search covers";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_MATCHING =
+	"Every word must appear, in any order, ignoring case. Wrap words in double quotes to match an exact phrase.";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_SPAN_ATTRIBUTES = "Span attributes";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_EVENT_ATTRIBUTES = "Span event attributes";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_STATUS = "Span status message";
 export const OBSERVABILITY_SPAN_SEARCH_RANGE_TOO_WIDE = (days: number) =>
 	`Span content search covers up to ${days} days. Narrow the time range and search again.`;
 export const GENERATION_HEALTH_TRUNCATED = "Truncated";

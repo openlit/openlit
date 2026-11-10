@@ -7,6 +7,7 @@ import {
 import {
 	SPAN_SEARCH_MAX_DAYS,
 	SPAN_SEARCH_MAX_LENGTH,
+	SPAN_SEARCH_MAX_TERMS,
 } from "@/constants/traces";
 import { OBSERVABILITY_SPAN_SEARCH_RANGE_TOO_WIDE } from "@/constants/messages/en";
 
@@ -98,6 +99,45 @@ describe("getSpanListWhereCondition", () => {
 		});
 	});
 
+	describe("multi-word searches", () => {
+		const outputNeedles = (search: string) =>
+			Array.from(
+				getSpanListWhereCondition(params(search)).where.matchAll(
+					/positionCaseInsensitiveUTF8\(SpanAttributes\['gen_ai\.output\.messages'\], '((?:[^'\\]|\\.)*)'\)/g
+				),
+				(match) => match[1]
+			);
+
+		it("requires every word, so markdown between words still matches", () => {
+			const { where } = getSpanListWhereCondition(params("ships tomorrow"));
+			expect(outputNeedles("ships tomorrow")).toEqual(["ships", "tomorrow"]);
+			expect(where).toMatch(/'ships'\) > 0 OR .*\) AND \(.*'tomorrow'\) > 0/);
+			expect(where).not.toContain("'ships tomorrow'");
+		});
+
+		it("keeps a double-quoted phrase as one term", () => {
+			expect(outputNeedles('"ships tomorrow" order')).toEqual([
+				"ships tomorrow",
+				"order",
+			]);
+		});
+
+		it("ignores repeated words and extra spaces", () => {
+			expect(outputNeedles("  refund   REFUND refund ")).toEqual(["refund", "REFUND"]);
+		});
+
+		it("searches an unpaired quote as typed", () => {
+			const needles = outputNeedles('5" screen');
+			expect(needles).toContain('5"');
+			expect(needles).toContain("screen");
+		});
+
+		it("caps the number of words", () => {
+			const words = Array.from({ length: SPAN_SEARCH_MAX_TERMS + 5 }, (_, i) => `w${i}`);
+			expect(outputNeedles(words.join(" "))).toHaveLength(SPAN_SEARCH_MAX_TERMS);
+		});
+	});
+
 	it("never scans whole attribute maps", () => {
 		expect(getSpanListWhereCondition(params("refund")).where).not.toContain("mapValues");
 	});
@@ -111,10 +151,11 @@ describe("getSpanListWhereCondition", () => {
 	});
 
 	it.each([
-		["single quote", "x') OR 1=1 --", "'x\\') OR 1=1 --'"],
-		["backslash before a quote", "a\\' OR 1=1 --", "'a\\\\\\' OR 1=1 --'"],
+		["single quote", "x')OR(1=1)--", "'x\\')OR(1=1)--'"],
+		["single quote in a phrase", '"x\') OR 1=1 --"', "'x\\') OR 1=1 --'"],
+		["backslash before a quote", '"a\\\' OR 1=1 --"', "'a\\\\\\' OR 1=1 --'"],
 		["trailing backslash", "tail\\", "'tail\\\\'"],
-		["control characters", "a\u0000\nb\u007f", "'ab'"],
+		["control characters", "a\u0000b\u007f", "'ab'"],
 	])("escapes %s", (_label, search, expected) => {
 		expect(getSpanListWhereCondition(params(search)).where).toContain(
 			`positionCaseInsensitiveUTF8(StatusMessage, ${expected}) > 0`
@@ -125,6 +166,7 @@ describe("getSpanListWhereCondition", () => {
 		["empty", ""],
 		["whitespace", "   "],
 		["only control characters", "\u0000\u0001"],
+		["control characters between spaces", "\u0000 \u0001"],
 		["a non-string", { $ne: 1 }],
 		["missing", undefined],
 	])("adds no clause when search is %s", (_label, search) => {
