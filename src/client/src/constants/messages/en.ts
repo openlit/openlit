@@ -215,6 +215,7 @@ export const OPENAPI_SPEC_CONTEXT_HEADERS_HINT =
 	"org / project / environment headers required for signal routing";
 export const REQUEST_CURL_EXAMPLE = "Request Curl Example";
 export const COPY_SNIPPET = "Copy Snippet";
+export const COPY_CODE = "Copy code";
 export const COPIED = "Copied";
 export const REQUEST_PAYLOAD_JSON = "Request Payload (JSON)";
 export const RESPONSE_BODY_JSON = "Response Body (JSON)";
@@ -434,6 +435,7 @@ export const OBSERVABILITY_TITLE = "Telemetry";
 export const OBSERVABILITY_TRACE_LOADING = "Loading trace...";
 export const OBSERVABILITY_LOADING = "Loading...";
 export const OBSERVABILITY_TRACE_DETAILS = "Trace Details";
+export const OBSERVABILITY_SPAN_LOAD_FAILED = "Could not load this span";
 export const OBSERVABILITY_TRACES = "Traces";
 export const OBSERVABILITY_EXCEPTIONS = "Exceptions";
 export const OBSERVABILITY_METRICS = "Metrics";
@@ -564,6 +566,7 @@ export const OBSERVABILITY_LOG_ATTRS = "Log Attrs";
 export const OBSERVABILITY_RESOURCE = "Resource";
 export const OBSERVABILITY_SCOPE = "Scope";
 export const OBSERVABILITY_RAW = "Raw";
+export const OBSERVABILITY_FORMATTED = "Formatted";
 export const OBSERVABILITY_AUTO = "Auto";
 export const OBSERVABILITY_METRIC_POINTS = "Metric points";
 export const OBSERVABILITY_LOG_EVENTS = "Log events";
@@ -1675,6 +1678,11 @@ export const DANGER_ZONE = "Danger Zone";
 export const DANGER_ZONE_DESCRIPTION = "Irreversible actions for this organisation";
 export const GENERAL = "General";
 export const DETAILS = "Details";
+export const ORGANISATION_OVERVIEW = "Overview";
+export const ORGANISATION_OVERVIEW_LICENSE_TITLE =
+	"Organisation overview is an enterprise feature";
+export const ORGANISATION_OVERVIEW_LICENSE_DESCRIPTION =
+	"See requests, cost, latency, errors, and tokens across every project in this organisation. Apply an enterprise license to open it.";
 export const PENDING = "Pending";
 export const NAME = "Name";
 export const EMAIL = "Email";
@@ -1904,6 +1912,8 @@ export const TALK_TO_FOUNDER_HINT = "Schedule a 30-minute call";
 export const AUTH_SIGNING_IN = "Signing in...";
 export const AUTH_CONTINUE_WITH_GOOGLE = "Continue with Google";
 export const AUTH_CONTINUE_WITH_GITHUB = "Continue with Github";
+export const AUTH_CONTINUE_WITH_MICROSOFT = "Continue with Microsoft";
+export const AUTH_CONTINUE_WITH_OKTA = "Continue with Okta";
 export const AUTH_OR = "Or";
 export const AUTH_EMAIL = "Email";
 export const AUTH_EMAIL_PLACEHOLDER = "user@openlit.io";
@@ -1925,6 +1935,8 @@ export const AUTH_ERROR_CONFIGURATION = "There is a problem with the server conf
 export const AUTH_ERROR_DEFAULT = "Unable to sign in.";
 export const AUTH_ERROR_GOOGLE = "Failed to sign in with Google";
 export const AUTH_ERROR_GITHUB = "Failed to sign in with Github";
+export const AUTH_ERROR_MICROSOFT = "Failed to sign in with Microsoft";
+export const AUTH_ERROR_OKTA = "Failed to sign in with Okta";
 
 // Founder call sidebar card
 export const FOUNDER_CARD_BADGE = "From the founder";
@@ -3338,6 +3350,8 @@ export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS = "Maximum query window (days
 export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS_PLACEHOLDER = "30";
 export const DATA_SOURCE_MAX_TIME_RANGE_HINT = (days: number) =>
 	`Maximum ${days} day${days === 1 ? "" : "s"} for the selected data source.`;
+export const DATE_RANGE_START_TIME = "Start time";
+export const DATE_RANGE_END_TIME = "End time";
 export const DATA_SOURCE_SECRET_UNAVAILABLE =
 	"The connector credentials could not be loaded from the OpenLIT vault. Check the selected ClickHouse connection and try again.";
 export const DATA_SOURCE_SECRET_NOT_FOUND =
@@ -3388,3 +3402,14 @@ export const API_KEY_FULL_ACCESS_DESCRIPTION =
 	"Can use every feature that accepts API keys.";
 export const API_KEY_DELETE = "Delete API key";
 export const API_KEY_INVALID_JSON = "Request body must be valid JSON.";
+
+// Instance admin
+export const INSTANCE_ADMIN_TITLE = "Instance admin";
+export const INSTANCE_ADMIN_REQUIRED =
+	"Only the instance admin can manage instance settings.";
+export const INSTANCE_ADMIN_BACK_TO_APP = "Back to app";
+export const INSTANCE_ADMIN_SIGNED_IN_AS = "Signed in as";
+export const INSTANCE_ADMIN_NAVIGATION = "Instance settings";
+export const INSTANCE_ADMIN_EMPTY_TITLE = "No instance settings yet";
+export const INSTANCE_ADMIN_EMPTY_DESCRIPTION =
+	"Instance settings are not available in this edition.";

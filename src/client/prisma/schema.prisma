@@ -61,6 +61,8 @@ model User {
   organisations          OrganisationUser[]
   projectMemberships     ProjectUser[]
 
+  // The instance admin is the earliest account; keep that lookup indexed.
+  @@index([createdAt, id])
   @@map("users")
 }
 
