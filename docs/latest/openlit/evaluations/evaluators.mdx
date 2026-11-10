@@ -43,6 +43,24 @@ Legacy URLs `/evaluations/types` and `/evaluations/settings` redirect to the Eva
 - **Offline** - [Programmatic evaluations](/latest/openlit/evaluations/programmatic-evals) via the SDK, typically in CI/CD.
 - **Human** - [Manual Feedback](/latest/openlit/evaluations/manual-feedback) on a trace (Good / Bad / Neutral).
 
+## TypeSafe Jev judge
+
+Select **TypeSafe** as the evaluation provider and a Jev model (`jev-latest`, `jev-1.13.0`, or `jev-preview`). OpenLIT calls the native TypeSafe System One API (`POST /v1/systemone`) with the Vault TypeSafe key. Issue types (hallucination, bias, toxicity, safety, sensitivity) map to **noul**; quality types (relevance, coherence, faithfulness, instruction following, completeness, conciseness) map to **score** questions with a four-level rubric per type, from no problem to severe. The probability-weighted score is normalized to 0 to 1 severity, so a result between two levels is kept rather than rounded. The explanation is the classification (`none`, `minor`, `moderate`, `severe`), the score, and the description of the nearest rubric level. Pin **jev-1.13.0** when calibrating verdict thresholds.
+
+Each Jev result is stored per evaluator with its classification, verdict, score, source, and cost. Open an evaluator to see its executions and expand a row for the explanation. This example shows three runs of the Hallucination evaluator: the answer that contradicts the ground-truth context is classified `detected` and fails, while the other two runs stay below the threshold and pass.
+
+<Frame>
+  <img src="/images/jev-eval-results.png" alt="Hallucination evaluator results from the TypeSafe Jev judge, listing classification, verdict, score, source, span ID, and cost, with the failing run expanded to show its explanation" />
+</Frame>
+
+The **Evaluations** analytics page rolls these up across evaluators, with executions, average pass rate, scores marked as failed, and the cost of the Jev calls (priced from [Manage Models](/latest/openlit/costs/manage-models/providers)).
+
+<Frame>
+  <img src="/images/jev-eval-analytics.png" alt="Evaluations analytics showing executions, total cost, average pass rate, scores marked as failed, and the pass rate per evaluator for Jev results" />
+</Frame>
+
+Vercel AI Gateway `experimental_evaluate` is not used for the in-product judge. Chat playground and OpenGround do not support Jev. Application calls to `system_one` / `systemOne` are auto-instrumented separately: [Monitor TypeSafe Jev](/latest/sdk/integrations/typesafe).
+
 ## Frequently asked questions
 
 <AccordionGroup>

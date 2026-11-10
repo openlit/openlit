@@ -21,6 +21,8 @@ from openlit.__helpers import (
     general_tokens,
     otel_event,
     truncate_message_content,
+    extract_reasoning_tokens,
+    set_reasoning_subset_attributes,
 )
 from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
@@ -350,6 +352,21 @@ def emit_inference_event(
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
+def _reasoning_tokens_from_usage(usage):
+    """Return reasoning tokens (a subset of completion_tokens) from usage.
+
+    None means the provider did not report them, which is not a measured 0.
+    The top-level ``usage.reasoning_tokens`` fallback gets the same numeric
+    check as ``completion_tokens_details``.
+    """
+    reasoning_tokens = extract_reasoning_tokens(usage, "completion_tokens_details")
+    if reasoning_tokens is None:
+        value = usage.get("reasoning_tokens")
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            reasoning_tokens = value
+    return reasoning_tokens
+
+
 def process_chunk(scope, chunk):
     """
     Process a chunk of response data and update state.
@@ -364,6 +381,16 @@ def process_chunk(scope, chunk):
         scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
     chunked = response_as_dict(chunk)
+    # Identity is on every StreamingChatCompletionsUpdate, including deltas
+    # that have not carried usage yet. Non-streaming copies these in
+    # process_chat_response; streaming has to copy them here or exported
+    # spans and metrics keep an empty gen_ai.response.model.
+    response_id = chunked.get("id")
+    if response_id:
+        scope._response_id = response_id
+    response_model = chunked.get("model")
+    if response_model:
+        scope._response_model = response_model
 
     # Collect message IDs and aggregated response from events
     choices = chunked.get("choices", [])
@@ -427,11 +454,7 @@ def process_chunk(scope, chunk):
         scope._cache_creation_input_tokens = (
             usage.get("input_tokens_details") or {}
         ).get("cache_creation_tokens", 0) or 0
-        completion_details = usage.get("completion_tokens_details", {})
-        if "reasoning_tokens" in completion_details:
-            scope._reasoning_tokens = completion_details.get("reasoning_tokens", 0)
-        elif "reasoning_tokens" in usage:
-            scope._reasoning_tokens = usage.get("reasoning_tokens", 0)
+        scope._reasoning_tokens = _reasoning_tokens_from_usage(usage)
 
 
 def common_chat_logic(
@@ -587,14 +610,13 @@ def common_chat_logic(
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
-    # Span Attributes for Reasoning (if present)
-    if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, scope._reasoning_tokens
-        )
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
-            input_tokens + output_tokens + scope._reasoning_tokens,
+    # Reasoning tokens (OTel: gen_ai.usage.reasoning.output_tokens is a subset
+    # of gen_ai.usage.output_tokens above, so it is recorded separately and
+    # never added on top of the output total / gen_ai.client.token.usage).
+    # Missing details surface as unknown (marker false), never as a guessed 0.
+    if hasattr(scope, "_reasoning_tokens"):
+        set_reasoning_subset_attributes(
+            scope._span, output_tokens, scope._reasoning_tokens
         )
 
     # OTel cached token attributes (set even when 0)
@@ -699,7 +721,11 @@ def common_chat_logic(
         except Exception as e:
             logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
-    scope._span.set_status(Status(StatusCode.OK))
+    # OK is sticky in the OTel SDK: set_status(ERROR) after OK is ignored.
+    # Leave the status unset when the stream already failed so the caller
+    # can record ERROR while the span is still recording.
+    if getattr(scope, "_stream_error", None) is None:
+        scope._span.set_status(Status(StatusCode.OK))
 
     # Metrics
     if not disable_metrics:
@@ -709,6 +735,8 @@ def common_chat_logic(
                 scope._timestamps[i] - scope._timestamps[i - 1]
                 for i in range(1, len(scope._timestamps))
             ]
+        stream_error = getattr(scope, "_stream_error", None)
+        error_type = type(stream_error).__name__ if stream_error is not None else None
         record_completion_metrics(
             metrics,
             SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -726,6 +754,7 @@ def common_chat_logic(
             cost,
             scope._tbt,
             scope._ttft,
+            error_type=error_type,
             is_stream=is_stream,
             time_per_chunk_observations=inter_chunk_durations,
         )
@@ -811,13 +840,7 @@ def process_chat_response(
     scope._cache_creation_input_tokens = (usage.get("input_tokens_details") or {}).get(
         "cache_creation_tokens", 0
     ) or 0
-    completion_details = usage.get("completion_tokens_details", {})
-    if "reasoning_tokens" in completion_details:
-        scope._reasoning_tokens = completion_details.get("reasoning_tokens", 0)
-    elif "reasoning_tokens" in response_dict.get("usage", {}):
-        scope._reasoning_tokens = response_dict.get("usage").get("reasoning_tokens", 0)
-    else:
-        scope._reasoning_tokens = 0
+    scope._reasoning_tokens = _reasoning_tokens_from_usage(usage)
     scope._response_id = response_dict.get("id")
     scope._response_model = response_dict.get("model")
     scope._finish_reason = str(

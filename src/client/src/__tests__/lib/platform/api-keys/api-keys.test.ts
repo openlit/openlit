@@ -25,6 +25,9 @@ jest.mock('@/lib/organisation', () => ({
 jest.mock('@/lib/billing/usage-recorder', () => ({
   recordOrganisationUsageEvent: jest.fn(),
 }));
+jest.mock('@/lib/platform/api-key-access/server', () => ({
+  getApiKeyScopesByIds: jest.fn(async () => ({})),
+}));
 jest.mock('@/utils/asaw', () => jest.fn());
 jest.mock('@/utils/error', () => ({
   throwIfError: jest.fn((condition: boolean, msg: string) => {
@@ -135,7 +138,7 @@ describe('getAllAPIKeys', () => {
     const result = await getAllAPIKeys();
     expect(prisma.aPIKeys.findMany).toHaveBeenCalledTimes(1);
     expect(result).toEqual([
-      { name: 'key1', apiKeyPreview: 'openlit-abcd…yyyyyy' },
+      { name: 'key1', apiKeyPreview: 'openlit-abcd…yyyyyy', scopes: null },
     ]);
     expect(result[0].apiKey).toBeUndefined();
   });

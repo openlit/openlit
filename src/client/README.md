@@ -81,52 +81,41 @@ You can also use the [OpenLIT Helm Chart](https://github.com/openlit/helm/tree/m
 
 ### Manual Setup (Development)
 
-1. **Clone the openlit repository**
+To run every service from source (UI with hot reload, OTLP receiver, realtime engine, and NATS), use the dev script from the repository root. You need Node.js 20+, Go 1.25+, Docker with Compose v2.24+, `curl`, `openssl`, and `lsof`.
+
+1. **Clone the repository and install the dependencies**
     ```sh
     git clone https://github.com/openlit/openlit.git
-    ```
-2. **Navigate to the client folder**
-    ```sh
     cd openlit/src/client
-    ```
-3. **Install the dependencies**
-    ```sh
     npm install
     ```
-4. **Configure Environment Variables**
-
-    Below are the commands to set environment variables if needed during manual setup. Replace `<value>` with your actual configuration:
+2. **Create `src/client/.env`**
     ```sh
-    export INIT_DB_HOST=<value>
-    export INIT_DB_PORT=<value>
-    export INIT_DB_DATABASE=<value>
-    export INIT_DB_USERNAME=<value>
-    export INIT_DB_PASSWORD=<value>
-    export SQLITE_DATABASE_URL=<value>
+    cp .env.example .env
     ```
-    
-5. **Apply the migrations**
-    
-    This creates your SQLite database schema.
+    Set `NEXTAUTH_SECRET` (for example `openssl rand -base64 32`), `NEXTAUTH_URL=http://localhost:3000/`, and `SQLITE_DATABASE_URL=file:./data.db`.
+3. **Start everything**
     ```sh
-    npx prisma migrate deploy
-    npx prisma generate
+    cd ../..
+    SEED=1 scripts/dev-realtime.sh   # first run: also creates the default user
+    scripts/dev-realtime.sh          # later runs
     ```
-6. **(Optional) Seed the database**
-    
-    If desired, seed the database to create a default user (`user@openlit.io` with the password `openlituser`) and database configuration.
-    ```sh
-    npx prisma db seed
-    ```
-    Ensure the database is empty before running this command.
-
-7. **Start the development server**
-    ```sh
-    npm run dev
-    ```
-8. Login to OpenLIT at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
+    The script applies the Prisma migrations, starts ClickHouse in Docker if none is running, and stops every service on `Ctrl+C`.
+4. Login to OpenLIT at `127.0.0.1:3000` using the default credentials
     - Email as `user@openlit.io`
     - Password as `openlituser`
+
+To run only the UI against ClickHouse, without the realtime services:
+
+```sh
+docker compose -f ../dev-docker-compose.yml up -d clickhouse
+export INIT_DB_HOST=127.0.0.1 INIT_DB_PORT=8123 INIT_DB_USERNAME=default INIT_DB_PASSWORD=OPENLIT INIT_DB_DATABASE=openlit
+npx prisma migrate deploy && npx prisma generate
+npx prisma db seed   # first run only
+npm run dev
+```
+
+See [Local development](https://docs.openlit.io/latest/openlit/developer-resources/local-development) for all options and troubleshooting.
 
 ## Configuration
 

@@ -1,6 +1,7 @@
 ---
-title: "Overview"
-description: "Rule Engine is a rules engine for conditional AI resource retrieval - define matching conditions once, and let your application or OpenLIT ask what applies right now"
+title: "Rule Engine for Conditional Prompt & Context Retrieval"
+sidebarTitle: "Overview"
+description: 'Rule Engine is a rules engine for conditional AI resource retrieval — define matching conditions once and ask what applies at runtime.'
 ---
 
 Rule Engine lets you define matching conditions once, instead of hardcoding lookup logic like "if model is X, use prompt Y" throughout your application. A rule pairs a set of conditions on runtime fields - like the model being called, the deployment environment, or the cost of a request - with the resources that should come back when those conditions are met. Your application calls a single API to ask "what applies right now?", and OpenLIT itself uses the same mechanism when retrieving a [Context](/latest/openlit/prompts-experiments/context/overview) or [Prompt](/latest/openlit/prompts-experiments/prompt-hub/overview) that's linked to a matching rule.

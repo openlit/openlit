@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -17,6 +18,9 @@ import (
 // don't find the CLI" failures.
 func patchManifestBytes(_ string, body []byte, openlitBin string) []byte {
 	s := string(body)
+	if strings.Contains(s, "__OPENLIT_BIN_JSON__") {
+		s = strings.ReplaceAll(s, "__OPENLIT_BIN_JSON__", strconv.Quote(openlitBin))
+	}
 	if strings.Contains(s, "__OPENLIT_BIN__") {
 		s = strings.ReplaceAll(s, "__OPENLIT_BIN__", openlitBin)
 	}

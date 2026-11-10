@@ -97,4 +97,8 @@ describe('SUPPORTED_EVALUATION_OPERATIONS', () => {
   it('includes "chat"', () => {
     expect(SUPPORTED_EVALUATION_OPERATIONS).toContain('chat');
   });
+
+  it('does not include decision — Jev spans are not auto-evaluated as chat', () => {
+    expect(SUPPORTED_EVALUATION_OPERATIONS).not.toContain('decision');
+  });
 });

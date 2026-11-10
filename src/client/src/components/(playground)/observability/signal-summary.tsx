@@ -55,13 +55,17 @@ export default function SignalSummary({
 }) {
 	const buckets = data?.buckets || [];
 	const metricLabel =
-		config.key === "metrics"
-			? m.OBSERVABILITY_METRIC_POINTS
-			: config.key === "logs"
-				? m.OBSERVABILITY_LOG_EVENTS
-				: config.key === "exceptions"
-					? m.OBSERVABILITY_EXCEPTIONS
-					: m.OBSERVABILITY_TRACES;
+		config.key === "traces"
+			? m.OBSERVABILITY_TRACES
+			: config.key === "spans"
+				? m.OBSERVABILITY_SPANS
+				: config.key === "metrics"
+					? m.OBSERVABILITY_METRIC_POINTS
+					: config.key === "logs"
+						? m.OBSERVABILITY_LOG_EVENTS
+						: config.key === "exceptions"
+							? m.OBSERVABILITY_EXCEPTIONS
+							: m.OBSERVABILITY_TRACES;
 	const freshness = freshnessLabel(data?.freshness);
 
 	return (

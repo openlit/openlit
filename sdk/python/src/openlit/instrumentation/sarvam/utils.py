@@ -24,6 +24,7 @@ from openlit.__helpers import (
     get_audio_model_cost,
     record_audio_metrics,
     truncate_message_content,
+    truncate_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -215,12 +216,13 @@ def process_chunk(scope, chunk):
         chunk: Individual chunk from the streaming response.
     """
     current_time = time.time()
-
-    # Calculate TTFT for the first chunk
-    if len(scope._timestamps) == 0:
-        scope._ttft = calculate_ttft(scope._start_time, current_time)
-
     scope._timestamps.append(current_time)
+
+    # Calculate TTFT for the first chunk (timestamps first, start time second,
+    # matching calculate_ttft's signature; every other instrumentor calls it
+    # in this order — the reversed call crashed on every chunk).
+    if len(scope._timestamps) == 1:
+        scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
     # Extract and accumulate response data from chunk
     if hasattr(chunk, "choices") and len(chunk.choices) > 0:
@@ -503,7 +505,11 @@ def common_chat_logic(
             **extra,
         )
 
-    scope._span.set_status(Status(StatusCode.OK))
+    # OK is sticky in the OTel SDK: a later set_status(ERROR) is ignored.
+    # Stream failures set scope._stream_error before this runs, then
+    # handle_exception records ERROR once these attributes are written.
+    if getattr(scope, "_stream_error", None) is None:
+        scope._span.set_status(Status(StatusCode.OK))
 
     # Span status and metrics
     if not disable_metrics:
@@ -1015,9 +1021,10 @@ def process_text_to_speech_response(
     )
 
     # Text-to-speech specific attributes (using Sarvam API defaults)
+    # sarvamai >= 0.1.29 takes language_code; older releases took target_language_code
     span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_TTS_TARGET_LANGUAGE_CODE,
-        kwargs.get("target_language_code", ""),
+        kwargs.get("language_code", kwargs.get("target_language_code", "")),
     )
     span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_TTS_SPEAKER,
@@ -1053,7 +1060,8 @@ def process_text_to_speech_response(
     # Set content attributes if capture is enabled
     if capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("inputs", "")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES,
+            truncate_content(kwargs.get("text", "")),
         )
 
     span.set_status(Status(StatusCode.OK))
@@ -1061,7 +1069,7 @@ def process_text_to_speech_response(
     # Record metrics for text-to-speech
     if not disable_metrics:
         # Calculate cost based on input text for audio operations
-        input_text = kwargs.get("inputs", "")
+        input_text = kwargs.get("text", "")
         cost = get_audio_model_cost(request_model, pricing_info, input_text)
 
         record_audio_metrics(
