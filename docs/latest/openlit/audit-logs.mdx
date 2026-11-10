@@ -74,6 +74,7 @@ OpenLIT records an event when a privileged request **succeeds**. Failed or denie
 | Members and invitations | `member.invited`, `member.invitation_cancelled`, `member.invitation_declined`, `member.invitation_accepted`, `member.role_changed`, `member.permissions_updated`, `member.project_access_updated`, `member.ownership_transferred`, `member.removed` |
 | Roles | `role.created`, `role.updated`, `role.deleted` |
 | Licenses and entitlements | `license.applied`, `license.revoked`, `entitlement.granted`, `entitlement.revoked` |
+| Instance admin¹ | `instance_auth.updated`, `instance_admin.added`, `instance_admin.removed` |
 | Projects | `project.created`, `project.updated`, `project.deleted`, `project.selected`, `project.environment_created` |
 | Database configs | `db_config.created`, `db_config.updated`, `db_config.deleted`, `db_config.selected`, `db_config.shared` |
 | API keys | `api_key.created`, `api_key.deleted`, `api_key.access_updated` |
@@ -92,6 +93,8 @@ OpenLIT records an event when a privileged request **succeeds**. Failed or denie
 | Memory | `memory.memory_created`, `memory.memory_updated`, `memory.memory_deleted`, `memory.memory_feedback`, `memory.memory_copied`, `memory.memory_extracted`, `memory.memory_imported`, `memory.config_updated` |
 | GPUs | `gpu.price_created`, `gpu.price_updated`, `gpu.price_deleted`, `gpu.recommendation_dismissed`, `gpu.recommendation_reopened` |
 | Governance | `governance.report_viewed`, `governance.passport_exported` |
+
+¹ [Instance admin](/latest/openlit/instance-admin) changes apply to the whole instance. They're recorded against the acting admin's current organisation. `instance_auth.updated` lists only the changed variable names, never their values.
 
 Each event stores the organisation, the project and database config when known, the actor, the action, the target type and ID, the metadata, and the time.
 

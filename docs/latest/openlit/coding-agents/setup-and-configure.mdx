@@ -57,7 +57,8 @@ description: "Install the openlit CLI, wire each vendor's hooks, then configure 
     export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
     export OTEL_EXPORTER_OTLP_ENDPOINT=$OPENLIT_OTLP_ENDPOINT
     export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $OPENLIT_API_KEY"
-    # Optional: also enable traces (beta - gives per-tool / per-LLM-turn spans)
+    # Traces (beta): per-tool and per-LLM-turn spans. Needed for the session to
+    # appear on the Sessions and Users pages without the plugin.
     export CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1
     export OTEL_TRACES_EXPORTER=otlp
     ```
