@@ -295,11 +295,10 @@ def _response_mapping(response):
     to_dict = getattr(response, "to_dict", None)
     if not callable(to_dict):
         return {}
-    try:
-        parsed = to_dict()
-    except Exception:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
+    parsed = to_dict()
+    if not isinstance(parsed, dict):
+        raise TypeError("PremAI response to_dict() must return a dict")
+    return parsed
 
 
 def process_chunk(scope, chunk):
@@ -633,7 +632,11 @@ def common_embedding_logic(
 
     request_model = scope._kwargs.get("model", "text-embedding-ada-002")
 
-    cost = get_embed_model_cost(request_model, pricing_info, scope._input_tokens)
+    cost = (
+        get_embed_model_cost(request_model, pricing_info, scope._input_tokens)
+        if scope._input_tokens is not None
+        else None
+    )
 
     # Common Span Attributes
     common_span_attributes(
@@ -660,13 +663,14 @@ def common_embedding_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_USER, scope._kwargs.get("user", "")
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens
-    )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+    if scope._input_tokens is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens
+        )
+        scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Content
     if capture_message_content:
@@ -683,8 +687,15 @@ def common_embedding_logic(
 
     # Metrics
     if not disable_metrics:
+        # Keep duration telemetry when usage is unknown. The shared helper
+        # skips absent tokens but records cost whenever its instrument is present.
+        embedding_metrics = (
+            metrics
+            if cost is not None
+            else {key: value for key, value in metrics.items() if key != "genai_cost"}
+        )
         record_embedding_metrics(
-            metrics,
+            embedding_metrics,
             SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
             SemanticConvention.GEN_AI_SYSTEM_PREMAI,
             scope._server_address,
@@ -828,7 +839,7 @@ def process_embedding_response(
     scope._end_time = time.time()
     scope._span = span
     scope._response_model = response_dict.get("model")
-    scope._input_tokens = usage.get("prompt_tokens", 0)
+    scope._input_tokens = usage.get("prompt_tokens")
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
