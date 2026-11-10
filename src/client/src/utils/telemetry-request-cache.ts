@@ -122,8 +122,11 @@ export async function withTelemetryRequestCache<T>(
 	const promise = (async () => {
 		try {
 			const value = await loader();
-			store.set(key, { value, expiresAt: Date.now() + ttlMs });
-			prune(Date.now());
+			// Routes can report failure as a 200 `{ err }`; retries must reach the server.
+			if (!(value as { err?: unknown } | null)?.err) {
+				store.set(key, { value, expiresAt: Date.now() + ttlMs });
+				prune(Date.now());
+			}
 			return value;
 		} finally {
 			inFlight.delete(key);

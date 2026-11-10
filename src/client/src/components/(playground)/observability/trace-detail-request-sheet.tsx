@@ -65,11 +65,12 @@ export default function TraceDetailRequestSheet() {
 		updateRequest(null);
 	};
 
-	const updateSpanSelection = (nextSpanId: string) => {
+	const updateSpanSelection = (nextSpanId: string, nextTraceId?: string) => {
 		setActiveSpanId(nextSpanId);
 		updateRequest({
 			...(request || {}),
 			spanId: nextSpanId,
+			id: nextTraceId,
 		});
 	};
 

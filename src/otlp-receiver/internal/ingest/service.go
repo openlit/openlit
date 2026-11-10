@@ -1,0 +1,103 @@
+package ingest
+
+import (
+	"context"
+	"errors"
+
+	colllog "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	collmetric "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
+	colltrace "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	logspb "go.opentelemetry.io/proto/otlp/logs/v1"
+	metricspb "go.opentelemetry.io/proto/otlp/metrics/v1"
+	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
+
+	"github.com/openlit/openlit/otlp-receiver/internal/chwrite"
+	"github.com/openlit/openlit/otlp-receiver/internal/otlpconv"
+	"github.com/openlit/openlit/otlp-receiver/internal/tenant"
+)
+
+// TraceFanout receives rows only after they are durably written to ClickHouse.
+type TraceFanout interface {
+	PublishTraces(t tenant.Tenant, rows []otlpconv.TraceRow)
+}
+
+type Service struct {
+	Tenants *tenant.Store
+	Writer  *chwrite.Writer
+	Fanout  TraceFanout
+	// Limiter slows clients that keep sending rejected API keys. Nil disables it.
+	Limiter *tenant.FailLimiter
+}
+
+// resolve authenticates the request, charging clientIP for rejected keys.
+func (s *Service) resolve(ctx context.Context, clientIP, authorization string) (tenant.Tenant, error) {
+	if !s.Limiter.Allow(clientIP) {
+		return tenant.Tenant{}, tenant.ErrRateLimited
+	}
+	resolved, err := s.Tenants.Resolve(ctx, authorization)
+	if errors.Is(err, tenant.ErrUnauthorized) && tenant.BearerToken(authorization) != "" {
+		s.Limiter.Fail(clientIP)
+	}
+	return resolved, err
+}
+
+func (s *Service) Traces(ctx context.Context, clientIP, authorization string, req *colltrace.ExportTraceServiceRequest) error {
+	resolved, err := s.resolve(ctx, clientIP, authorization)
+	if err != nil {
+		return err
+	}
+	rows := otlpconv.Traces(&tracepb.TracesData{ResourceSpans: req.GetResourceSpans()})
+	otlpconv.StampTraces(rows, resolved.Resource())
+	if err := s.Writer.InsertTraces(ctx, resolved.ClickHouse, rows); err != nil {
+		return err
+	}
+	if s.Fanout != nil {
+		s.Fanout.PublishTraces(resolved, rows)
+	}
+	return nil
+}
+
+func (s *Service) Logs(ctx context.Context, clientIP, authorization string, req *colllog.ExportLogsServiceRequest) error {
+	resolved, err := s.resolve(ctx, clientIP, authorization)
+	if err != nil {
+		return err
+	}
+	rows := otlpconv.Logs(&logspb.LogsData{ResourceLogs: req.GetResourceLogs()})
+	otlpconv.StampLogs(rows, resolved.Resource())
+	return s.Writer.InsertLogs(ctx, resolved.ClickHouse, rows)
+}
+
+func (s *Service) Metrics(ctx context.Context, clientIP, authorization string, req *collmetric.ExportMetricsServiceRequest) error {
+	resolved, err := s.resolve(ctx, clientIP, authorization)
+	if err != nil {
+		return err
+	}
+	metrics := otlpconv.Metrics(&metricspb.MetricsData{ResourceMetrics: req.GetResourceMetrics()})
+	otlpconv.StampMetrics(&metrics, resolved.Resource())
+	if err := s.Writer.InsertGauges(ctx, resolved.ClickHouse, metrics.Gauges); err != nil {
+		return err
+	}
+	if err := s.Writer.InsertSums(ctx, resolved.ClickHouse, metrics.Sums); err != nil {
+		return err
+	}
+	if err := s.Writer.InsertHistograms(ctx, resolved.ClickHouse, metrics.Histograms); err != nil {
+		return err
+	}
+	if err := s.Writer.InsertSummaries(ctx, resolved.ClickHouse, metrics.Summaries); err != nil {
+		return err
+	}
+	return s.Writer.InsertExpHistograms(ctx, resolved.ClickHouse, metrics.ExpHistograms)
+}
+
+func HTTPStatus(err error) int {
+	if err == nil {
+		return 200
+	}
+	if errors.Is(err, tenant.ErrUnauthorized) || errors.Is(err, tenant.ErrNoTenant) {
+		return 401
+	}
+	if errors.Is(err, tenant.ErrRateLimited) {
+		return 429
+	}
+	return 503
+}

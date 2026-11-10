@@ -6,9 +6,10 @@ const mockResolveDescriptor = jest.fn();
 const mockGetAdapter = jest.fn();
 
 const mockGetRequestsConfig = jest.fn();
-const mockGetGroupedRequests = jest.fn();
 const mockGetAttributeKeys = jest.fn();
 const mockGetSignalSummary = jest.fn();
+const mockGetTraceSummaries = jest.fn();
+const mockGetTraceSummarySeries = jest.fn();
 
 jest.mock("@/lib/platform/request", () => ({
 	getRequests: (...a: unknown[]) => mockGetRequests(...a),
@@ -16,12 +17,13 @@ jest.mock("@/lib/platform/request", () => ({
 	getRequestViaTraceId: (...a: unknown[]) => mockGetRequestViaTraceId(...a),
 	getHeirarchyViaSpanId: (...a: unknown[]) => mockGetHeirarchyViaSpanId(...a),
 	getRequestsConfig: (...a: unknown[]) => mockGetRequestsConfig(...a),
-	getGroupedRequests: (...a: unknown[]) => mockGetGroupedRequests(...a),
 	getAttributeKeys: (...a: unknown[]) => mockGetAttributeKeys(...a),
 	getTotalRequests: jest.fn(),
 	getRequestPerTime: jest.fn(),
 	getAverageRequestDuration: jest.fn(),
 	getRequestExist: jest.fn(),
+	getTraceSummaries: (...a: unknown[]) => mockGetTraceSummaries(...a),
+	getTraceSummarySeries: (...a: unknown[]) => mockGetTraceSummarySeries(...a),
 }));
 
 jest.mock("@/helpers/server/platform", () => ({
@@ -84,6 +86,7 @@ import {
 	getTraceSpanRecord,
 	getTraceTotalRequests,
 	listTraceRecords,
+	listTraceSummaries,
 } from "@/lib/platform/traces/read";
 import { AdapterError } from "@openplait/adapter-sdk";
 import { UnsupportedCapabilityError } from "@/lib/platform/connectors/datasource/types";
@@ -122,6 +125,95 @@ const params = {
 
 beforeEach(() => {
 	jest.clearAllMocks();
+});
+
+describe("listTraceSummaries", () => {
+	it("uses the selected ClickHouse source for trace-level SQL", async () => {
+		mockResolveDescriptor.mockResolvedValue(builtin);
+		mockGetAdapter.mockResolvedValue({});
+		mockGetTraceSummaries.mockResolvedValue({ err: null, records: [], total: 0 });
+
+		await listTraceSummaries(params as any);
+
+		expect(mockGetTraceSummaries).toHaveBeenCalledWith(
+			expect.objectContaining({ databaseConfigId: "db-1" })
+		);
+	});
+
+	it("uses a listed trace summary and does not download the tree", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const getTraceSpans = jest.fn();
+		mockGetAdapter.mockResolvedValue({
+			listSpans: jest.fn().mockResolvedValue({
+				rows: [{
+					traceId: "trace-1",
+					spanId: "trace-1",
+					parentSpanId: "",
+					name: "request",
+					serviceName: "api",
+					timestamp: "2026-07-01T00:00:00.000Z",
+					durationNs: 1_000_000_000,
+					statusCode: "",
+					spanAttributes: {},
+					resourceAttributes: {},
+					traceSummary: {
+						spanCount: 4,
+						errorCount: 1,
+						durationNs: 2_500_000_000,
+						start: "2026-07-01T00:00:00.000Z",
+						statusCode: "STATUS_CODE_ERROR",
+					},
+				}],
+			}),
+			countTraces: jest.fn().mockResolvedValue({ total: 1, truncated: false }),
+			getTraceSpans,
+		});
+
+		const result = await listTraceSummaries(params as any);
+
+		expect(getTraceSpans).not.toHaveBeenCalled();
+		expect(result).toMatchObject({
+			total: 1,
+			records: [expect.objectContaining({
+				TraceId: "trace-1",
+				SpanId: "trace-1",
+				SpanCount: 4,
+				ErrorCount: 1,
+				Duration: "2500000000",
+				StatusCode: "STATUS_CODE_ERROR",
+			})],
+		});
+	});
+
+	it("keeps a Tempo search summary without inventing a span count", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const getTraceSpans = jest.fn();
+		mockGetAdapter.mockResolvedValue({
+			listSpans: jest.fn().mockResolvedValue({
+				rows: [{
+					traceId: "trace-1",
+					spanId: "trace-1",
+					parentSpanId: "",
+					name: "request",
+					serviceName: "api",
+					timestamp: "2026-07-01T00:00:00.000Z",
+					durationNs: 1_000_000_000,
+					statusCode: "",
+					spanAttributes: {},
+					resourceAttributes: {},
+				}],
+			}),
+			countTraces: jest.fn().mockResolvedValue({ total: 1, truncated: false }),
+			getTraceSpans,
+		});
+
+		const result = await listTraceSummaries(params as any);
+
+		expect(getTraceSpans).not.toHaveBeenCalled();
+		const record = ((result.records || []) as Record<string, unknown>[])[0];
+		expect(record).toMatchObject({ TraceId: "trace-1", SpanId: "trace-1" });
+		expect(record).not.toHaveProperty("SpanCount");
+	});
 });
 
 describe("listTraceRecords", () => {
@@ -840,6 +932,32 @@ describe("getTraceHierarchy", () => {
 });
 
 describe("dashboard graph facades", () => {
+	it("uses span volume for the separate spans view", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const traceTimeSeries = jest.fn();
+		const spanTimeSeries = jest.fn().mockResolvedValue({ rows: [{ label: "00:00", count: 3 }] });
+		mockGetAdapter.mockResolvedValue({ traceTimeSeries, spanTimeSeries });
+
+		const result = await getTraceSummary(params as any, "traces", false);
+
+		expect(spanTimeSeries).toHaveBeenCalledTimes(1);
+		expect(traceTimeSeries).not.toHaveBeenCalled();
+		expect(result.total).toBe(3);
+	});
+
+	it("uses qualified ClickHouse trace counts for the traces view", async () => {
+		mockResolveDescriptor.mockResolvedValue(builtin);
+		mockGetAdapter.mockResolvedValue({});
+		mockGetTraceSummarySeries.mockResolvedValue({ total: 2, buckets: [], err: null });
+
+		const result = await getTraceSummary(params as any, "traces", true);
+
+		expect(mockGetTraceSummarySeries).toHaveBeenCalledWith(
+			expect.objectContaining({ databaseConfigId: "db-1" })
+		);
+		expect(result.total).toBe(2);
+	});
+
 	it("uses a backend trace-summary series for the external trace volume", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		const traceTimeSeries = jest.fn().mockResolvedValue({
@@ -1277,7 +1395,7 @@ describe("getTraceFilterConfig span-name fallback", () => {
 			durationNs: 1,
 			statusCode: "OK",
 			spanAttributes: {},
-			resourceAttributes: {},
+			resourceAttributes: { "deployment.environment": "staging" },
 		};
 		mockGetAdapter.mockResolvedValue({
 			capabilities: () => ({}),
@@ -1287,7 +1405,10 @@ describe("getTraceFilterConfig span-name fallback", () => {
 		});
 
 		const res = await getTraceFilterConfig(params as never);
-		expect(res.data?.[0]).toMatchObject({ spanNames: ["chat-completion"] });
+		expect(res.data?.[0]).toMatchObject({
+			spanNames: ["chat-completion"],
+			environments: ["staging"],
+		});
 	});
 });
 
@@ -1506,7 +1627,11 @@ describe("getTraceFilterConfig", () => {
 					},
 				}),
 			]),
-			distinctValues: jest.fn().mockResolvedValue(["chat", "embeddings"]),
+			distinctValues: jest.fn(async (key: string) => {
+				if (key === "SpanName") return ["chat", "embeddings"];
+				if (key === "deployment.environment") return ["staging"];
+				return [];
+			}),
 			sampleCacheKey: "tempo-filter-config",
 		});
 
@@ -1519,6 +1644,7 @@ describe("getTraceFilterConfig", () => {
 			spanNames: ["chat", "embeddings"],
 			applicationNames: ["api"],
 			traceTypes: ["chat"],
+			environments: ["staging"],
 		});
 	});
 
@@ -1616,6 +1742,55 @@ describe("getTraceGrouped", () => {
 		]);
 	});
 
+	it("orders groups by count, highest first", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		mockGetAdapter.mockResolvedValue({
+			aggregateSpans: jest.fn().mockResolvedValue({
+				rows: [
+					{ group_value: "rare", count: "2" },
+					{ group_value: "common", count: "30" },
+					{ group_value: "middling", count: "4" },
+				],
+			}),
+		});
+
+		const res = await getTraceGrouped(params as never, "spanName");
+
+		expect(res.data.map((row) => row.group_value)).toEqual([
+			"common",
+			"middling",
+			"rare",
+		]);
+	});
+
+	it("keeps the agent scope on the grouped query", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const aggregateSpans = jest.fn().mockResolvedValue({ rows: [] });
+		mockGetAdapter.mockResolvedValue({ aggregateSpans });
+
+		await getTraceGrouped(
+			{
+				...params,
+				selectedConfig: {
+					serviceNames: ["support-agent"],
+					versionFilter: { versionHash: "abc123" },
+				},
+			} as never,
+			"spanName"
+		);
+
+		const { filters } = aggregateSpans.mock.calls[0][0];
+		expect(filters).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ value: ["support-agent"] }),
+				expect.objectContaining({
+					key: "openlit.agent.version_hash",
+					value: "abc123",
+				}),
+			])
+		);
+	});
+
 	it("passes through a scoped groupBy key that has no friendly mapping", async () => {
 		mockResolveDescriptor.mockResolvedValue(tempo);
 		const aggregateSpans = jest.fn().mockResolvedValue({ rows: [] });
@@ -1626,6 +1801,24 @@ describe("getTraceGrouped", () => {
 		expect(aggregateSpans).toHaveBeenCalledWith(
 			expect.objectContaining({ groupBy: ["attribute.key"] })
 		);
+	});
+
+	it("keeps the resource scope on a custom ResourceAttributes groupBy", async () => {
+		mockResolveDescriptor.mockResolvedValue(tempo);
+		const aggregateSpans = jest.fn().mockResolvedValue({
+			rows: [{ group_value: "eu-west-1", count: "3" }],
+		});
+		mockGetAdapter.mockResolvedValue({ aggregateSpans });
+
+		const res = await getTraceGrouped(
+			params as never,
+			"ResourceAttributes:cloud.region"
+		);
+
+		expect(aggregateSpans).toHaveBeenCalledWith(
+			expect.objectContaining({ groupBy: ["resource:cloud.region"] })
+		);
+		expect(res.data[0].group_value).toBe("eu-west-1");
 	});
 
 	it("passes through a plain groupBy key without a colon", async () => {

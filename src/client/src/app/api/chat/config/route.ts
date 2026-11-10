@@ -2,6 +2,7 @@ import { getChatConfig, upsertChatConfig } from "@/lib/platform/chat/config";
 import { resolveRequestAuth } from "@/helpers/server/auth";
 import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
+import getMessage from "@/constants/messages";
 
 export async function GET(request: NextRequest) {
 	const [authErr, auth] = await resolveRequestAuth(request);
@@ -24,15 +25,20 @@ export async function POST(request: NextRequest) {
 		return Response.json("Unauthorized", { status: 401 });
 	}
 
-	const formData = await request.json();
+	let formData: Record<string, any>;
+	try {
+		formData = await request.json();
+	} catch {
+		return Response.json(getMessage().MALFORMED_INPUTS, { status: 400 });
+	}
 
-	if (!formData.provider || !formData.model || !formData.vaultId) {
+	if (!formData?.provider || !formData.model || !formData.vaultId) {
 		return Response.json("Missing required fields: provider, model, vaultId", {
 			status: 400,
 		});
 	}
 
-	const [err, data] = await asaw(
+	const [thrown, result] = await asaw(
 		upsertChatConfig(
 			{
 				provider: formData.provider,
@@ -44,9 +50,11 @@ export async function POST(request: NextRequest) {
 		)
 	);
 
+	// upsertChatConfig reports failures as `{ err }` rather than throwing.
+	const err = thrown || (result as { err?: unknown } | null)?.err;
 	if (err) {
 		return Response.json(err, { status: 400 });
 	}
 
-	return Response.json(data);
+	return Response.json(result);
 }

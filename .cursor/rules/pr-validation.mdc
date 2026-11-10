@@ -1,0 +1,6 @@
+---
+description: PR validation workflow (security, functionality and shortcomings, scale testing with mock data, hard-coded strings, CE/EE docs and code separation, reusable components, design principles, cross-agent verification). Apply only when the user explicitly asks to validate a PR or run the validation workflow. When a PR looks ready, ask "Your PR looks ready. Should I run the validation workflow?" instead of starting it.
+alwaysApply: false
+---
+
+@agent-guides/pr-validation.md

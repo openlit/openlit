@@ -114,7 +114,7 @@ function buildWhere(params: MetricParams, table: FilterTable) {
 	const { start, end } = params.timeLimit || {};
 	if (start && end) {
 		where.push(
-			`${timeColumn} >= parseDateTimeBestEffort('${start}') AND ${timeColumn} <= parseDateTimeBestEffort('${end}')`
+			`${timeColumn} >= parseDateTimeBestEffort('${escapeClickHouseString(String(start))}') AND ${timeColumn} <= parseDateTimeBestEffort('${escapeClickHouseString(String(end))}')`
 		);
 	}
 
@@ -268,7 +268,8 @@ export async function getLogs(params: MetricParams) {
 
 export async function getSignalSummary(
 	params: MetricParams,
-	signal: SummarySignal
+	signal: SummarySignal,
+	aggregateTraces = false
 ) {
 	const bucket = getSummaryBucket(params);
 	const labelFormat = bucketLabelFormat(bucket);
@@ -282,10 +283,14 @@ export async function getSignalSummary(
 				: {}),
 		};
 		const where = getFilterWhereCondition(traceParams, true);
+		const countExpression =
+			signal === "traces" && aggregateTraces
+				? "uniqExact(TraceId)"
+				: "COUNT(*)";
 		query = `
 			SELECT
 				formatDateTime(DATE_TRUNC('${bucket}', Timestamp), '${labelFormat}') AS label,
-				CAST(COUNT(*) AS INTEGER) AS count,
+				CAST(${countExpression} AS INTEGER) AS count,
 				CAST(avg(Duration) * 1e-9 AS FLOAT) AS avgDuration,
 				CAST(SUM(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost'])) AS FLOAT) AS cost,
 				CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS tokens

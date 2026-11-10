@@ -10,7 +10,7 @@ A complete local Kubernetes setup with all OpenLIT components and sample LLM app
 │                                                                     │
 │  ┌──────────────┐   ┌─────────────────────────┐                    │
 │  │  ClickHouse  │◄──│  OpenLIT Dashboard       │                   │
-│  │ (StatefulSet) │   │  + bundled OTEL Collector│                   │
+│  │ (StatefulSet) │   │  + OTLP receiver         │                   │
 │  └──────────────┘   │  (port 3000, 4317, 4318) │                   │
 │                      └────────────┬─────────────┘                   │
 │                                   │                                 │
@@ -33,7 +33,7 @@ A complete local Kubernetes setup with all OpenLIT components and sample LLM app
 | Component | Kind | Notes |
 |---|---|---|
 | ClickHouse | StatefulSet | `clickhouse/clickhouse-server:24.4.1` |
-| OpenLIT Dashboard | Deployment | Built locally as `openlit:local` — includes bundled OTEL Collector |
+| OpenLIT Dashboard | Deployment | Built locally as `openlit:local` — includes the first-party OTLP receiver |
 | OpenLIT Controller | DaemonSet | Built locally as `openlit-controller:local` — 1 per node |
 | gemini-app | naked Pod | Gemini client (tests naked Pod discovery) |
 | crewai-agent-app | Deployment (2 replicas) | CrewAI agent using OpenAI (spread across nodes) |
@@ -60,7 +60,7 @@ This will:
 3. Build the OpenLIT Dashboard and Controller images locally
 4. Build sample app images (gemini, crewai, bedrock)
 5. Load all images into the k3d cluster
-6. Deploy infrastructure (ClickHouse, Dashboard with bundled OTEL Collector)
+6. Deploy infrastructure (ClickHouse, Dashboard with OTLP receiver)
 7. Deploy sample apps and wait for them to start making LLM calls
 8. Deploy the controller last (to test discovery of already-running apps)
 
