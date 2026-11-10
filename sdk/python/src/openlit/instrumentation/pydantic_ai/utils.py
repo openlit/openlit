@@ -43,6 +43,24 @@ _sync_agent_run_instance = contextvars.ContextVar(
 )
 
 
+def _system_prompt_text(system_prompts) -> Optional[str]:
+    """
+    Join Pydantic AI static system prompts into plain text.
+
+    ``Agent(system_prompt=...)`` accepts a string or a sequence of strings and
+    the agent stores them as a tuple, so ``str()`` would record the tuple repr.
+    Returns None when there is no system prompt text.
+    """
+    if isinstance(system_prompts, str):
+        return system_prompts or None
+    if isinstance(system_prompts, (list, tuple)):
+        text = "\n".join(
+            prompt for prompt in system_prompts if isinstance(prompt, str) and prompt
+        )
+        return text or None
+    return None
+
+
 class PydanticAIInstrumentationContext:
     """
     Context object to hold common instrumentation data and reduce repeated extraction.
@@ -126,13 +144,11 @@ class PydanticAIInstrumentationContext:
                     messages.append({"role": "user", "content": user_message})
 
             # Extract system prompt if available
-            if (
-                hasattr(self.instance, "_system_prompts")
-                and self.instance._system_prompts
-            ):
-                system_prompt = str(self.instance._system_prompts)
-                if system_prompt:
-                    messages.insert(0, {"role": "system", "content": system_prompt})
+            system_prompt = _system_prompt_text(
+                getattr(self.instance, "_system_prompts", None)
+            )
+            if system_prompt:
+                messages.insert(0, {"role": "system", "content": system_prompt})
 
             # Extract additional context from kwargs
             if "message_history" in self.kwargs:
@@ -237,7 +253,8 @@ def set_span_attributes(
     # Set additional attributes
     if additional_attrs:
         for key, value in additional_attrs.items():
-            span.set_attribute(key, value)
+            if value is not None:
+                span.set_attribute(key, value)
 
     _apply_custom_span_attributes(span)
 
@@ -519,8 +536,8 @@ def common_agent_run(
             ctx=ctx,
             lifecycle_phase=SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE_EXECUTE,
             additional_attrs={
-                SemanticConvention.GEN_AI_AGENT_DESCRIPTION: str(
-                    getattr(instance, "_system_prompts", "")
+                SemanticConvention.GEN_AI_AGENT_DESCRIPTION: _system_prompt_text(
+                    getattr(instance, "_system_prompts", None)
                 ),
                 SemanticConvention.GEN_AI_RESPONSE_MODEL: ctx.model_name,
             },
@@ -603,8 +620,8 @@ async def common_agent_run_async(
             ctx=ctx,
             lifecycle_phase=SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE_EXECUTE,
             additional_attrs={
-                SemanticConvention.GEN_AI_AGENT_DESCRIPTION: str(
-                    getattr(instance, "_system_prompts", "")
+                SemanticConvention.GEN_AI_AGENT_DESCRIPTION: _system_prompt_text(
+                    getattr(instance, "_system_prompts", None)
                 ),
                 SemanticConvention.GEN_AI_RESPONSE_MODEL: ctx.model_name,
             },
@@ -706,8 +723,8 @@ def common_agent_create(
             ctx=ctx,
             lifecycle_phase=SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE_CREATE,
             additional_attrs={
-                SemanticConvention.GEN_AI_AGENT_DESCRIPTION: str(
-                    kwargs.get("system_prompt", "")
+                SemanticConvention.GEN_AI_AGENT_DESCRIPTION: _system_prompt_text(
+                    kwargs.get("system_prompt")
                 ),
                 SemanticConvention.GEN_AI_RESPONSE_MODEL: model_name_str,
             },
@@ -759,8 +776,8 @@ def common_graph_execution(
             ctx=ctx,
             lifecycle_phase=SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE_GRAPH_EXECUTION,
             additional_attrs={
-                SemanticConvention.GEN_AI_AGENT_DESCRIPTION: str(
-                    getattr(instance, "_system_prompts", "")
+                SemanticConvention.GEN_AI_AGENT_DESCRIPTION: _system_prompt_text(
+                    getattr(instance, "_system_prompts", None)
                 ),
             },
         )
