@@ -220,6 +220,7 @@ def async_send_message(
                         disable_metrics=disable_metrics,
                         version=version,
                         event_provider=event_provider,
+                        request_args=args,
                         **kwargs,
                     )
 

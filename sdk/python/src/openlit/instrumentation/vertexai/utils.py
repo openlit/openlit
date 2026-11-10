@@ -26,42 +26,76 @@ from openlit.semcov import SemanticConvention
 logger = logging.getLogger(__name__)
 
 
+_PART_FIELDS = (
+    "text",
+    "video_metadata",
+    "thought",
+    "code_execution_result",
+    "executable_code",
+    "file_data",
+    "function_call",
+    "function_response",
+    "inline_data",
+)
+
+
+def _field(obj, name):
+    """Read ``name`` from an SDK object or its dict form, or None if absent."""
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name, None)
+
+
+def _is_content(item):
+    """True for a Content (object or dict); False for a str, Part or Image."""
+    return not isinstance(item, str) and _field(item, "parts") is not None
+
+
+def _group_contents(contents):
+    """
+    Yield ``(role, parts)`` per message, the way the Vertex AI SDK reads
+    ``contents``: a single item counts as a one-item list, Content items are
+    messages, and each run of other items (strings, Parts, Images) is the
+    parts of one user message.
+    """
+    if not contents:
+        return
+    if not isinstance(contents, (list, tuple)):
+        contents = [contents]
+    loose_parts = []
+    for item in contents:
+        if not _is_content(item):
+            loose_parts.append(item)
+            continue
+        if loose_parts:
+            yield "user", loose_parts
+            loose_parts = []
+        yield _field(item, "role") or "user", list(_field(item, "parts") or [])
+    if loose_parts:
+        yield "user", loose_parts
+
+
 def format_content(contents):
     """
     Format the VertexAI contents into a string for span events.
     """
 
-    if not contents:
-        return ""
-    # A single string or Content is accepted in place of a list
-    if not isinstance(contents, (list, tuple)):
-        contents = [contents]
-
     formatted_messages = []
-    for content in contents:
-        if isinstance(content, str):
-            formatted_messages.append(f"user: {content}")
-            continue
-        role = getattr(content, "role", "user")
+    for role, parts in _group_contents(contents):
         content_str = []
-
-        for part in getattr(content, "parts", None) or []:
+        for part in parts:
+            if isinstance(part, str):
+                content_str.append(f"text: {part}")
+                continue
             # vertexai's Part exposes only some of these fields, so read each
-            # with getattr instead of assuming it exists.
-            for field in (
-                "text",
-                "video_metadata",
-                "thought",
-                "code_execution_result",
-                "executable_code",
-                "file_data",
-                "function_call",
-                "function_response",
-                "inline_data",
-            ):
-                value = getattr(part, field, None)
-                if value:
-                    content_str.append(f"{field}: {value}")
+            # one without assuming it exists.
+            fields = [
+                f"{field}: {value}"
+                for field in _PART_FIELDS
+                if (value := _field(part, field))
+            ]
+            # An Image or other object with none of these fields
+            content_str.extend(fields or [f"[{type(part).__name__}]"])
 
         formatted_messages.append(f"{role}: {', '.join(content_str)}")
 
@@ -73,56 +107,31 @@ def build_input_messages(contents):
     Convert Vertex AI request contents to OTel input message structure.
     Follows gen-ai-input-messages schema.
     """
-    if not contents:
-        return []
-    # A single string or Content is accepted in place of a list
-    if not isinstance(contents, (list, tuple)):
-        contents = [contents]
     otel_messages = []
-    # The SDK sends consecutive strings as the parts of one user message
-    text_parts = []
-    for content in contents:
-        if isinstance(content, str):
-            text_parts.append({"type": "text", "content": content})
-            continue
-        if text_parts:
-            otel_messages.append({"role": "user", "parts": text_parts})
-            text_parts = []
+    for role, parts in _group_contents(contents):
         try:
-            role = (
-                getattr(content, "role", "user")
-                if not isinstance(content, dict)
-                else content.get("role", "user")
-            )
-            parts_attr = (
-                getattr(content, "parts", [])
-                if not isinstance(content, dict)
-                else content.get("parts", [])
-            )
-            parts_list = list(parts_attr) if parts_attr else []
             otel_parts = []
-            for part in parts_list:
-                text = (
-                    getattr(part, "text", None)
-                    if not isinstance(part, dict)
-                    else part.get("text")
-                )
+            for part in parts:
+                if isinstance(part, str):
+                    otel_parts.append({"type": "text", "content": part})
+                    continue
+                text = _field(part, "text")
                 if text:
                     otel_parts.append({"type": "text", "content": str(text)})
-                inline_data = (
-                    getattr(part, "inline_data", None)
-                    if not isinstance(part, dict)
-                    else part.get("inline_data")
-                )
-                if inline_data and not text:
+                elif _field(part, "inline_data"):
                     otel_parts.append({"type": "text", "content": "[inline_data]"})
+                elif _field(part, "file_data"):
+                    otel_parts.append({"type": "text", "content": "[file_data]"})
+                elif not any(_field(part, field) for field in _PART_FIELDS):
+                    # An Image or other object the SDK turns into a Part
+                    otel_parts.append(
+                        {"type": "text", "content": f"[{type(part).__name__}]"}
+                    )
             if otel_parts:
                 otel_messages.append({"role": role, "parts": otel_parts})
         except Exception as e:
             logger.warning("Failed to process input content: %s", e, exc_info=True)
             continue
-    if text_parts:
-        otel_messages.append({"role": "user", "parts": text_parts})
     return otel_messages
 
 
@@ -332,8 +341,7 @@ def common_chat_logic(
     contents = scope._kwargs.get("contents", []) or (
         scope._args[0] if scope._args else []
     )
-    formatted_messages = format_content(contents)
-    prompt = formatted_messages or (str(contents[0]) if contents else "")
+    prompt = format_content(contents)
 
     if (
         hasattr(scope, "_input_tokens")
@@ -663,10 +671,13 @@ def process_chat_response(
     disable_metrics=False,
     version="1.0.0",
     event_provider=None,
+    request_args=(),
     **kwargs,
 ):
     """
     Process non-streaming chat response and generate telemetry.
+    ``request_args`` are the call's positional arguments, where
+    ``generate_content("prompt")`` passes ``contents``.
     """
 
     scope = type("GenericScope", (), {})()
@@ -702,7 +713,7 @@ def process_chat_response(
     scope._request_model = request_model
     scope._response_model = request_model
     scope._kwargs = kwargs
-    scope._args = [kwargs.get("contents", [])]
+    scope._args = list(request_args)
     candidates = getattr(response, "candidates", None) or []
     first_candidate = candidates[0] if candidates else None
     scope._finish_reason = (
