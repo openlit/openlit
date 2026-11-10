@@ -279,27 +279,26 @@ def emit_inference_event(
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
-def _chunk_mapping(chunk):
-    """Return a dict for one premai stream chunk.
+def _response_mapping(response):
+    """Return a dict for one premai response or stream chunk.
 
-    0.3 streams yield attrs objects. ``response_as_dict`` returns those
-    unchanged, and this reader only understands dicts. ``to_dict`` on the
-    chunk already recurses into choices and usage. Dict chunks pass through.
-    This stays in the premai package: ``response_as_dict`` is shared by every
-    provider.
+    0.3 returns attrs objects for responses and stream chunks.
+    ``response_as_dict`` returns those unchanged, and these readers only
+    understand dicts. ``to_dict`` already recurses into choices and usage.
+    Dicts pass through. This stays in the premai package:
+    ``response_as_dict`` is shared by every provider.
     """
 
-    parsed = response_as_dict(chunk)
+    parsed = response_as_dict(response)
     if isinstance(parsed, dict):
         return parsed
-    to_dict = getattr(chunk, "to_dict", None)
+    to_dict = getattr(response, "to_dict", None)
     if not callable(to_dict):
         return {}
-    try:
-        parsed = to_dict()
-    except Exception:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
+    parsed = to_dict()
+    if not isinstance(parsed, dict):
+        raise TypeError("PremAI response to_dict() must return a dict")
+    return parsed
 
 
 def process_chunk(scope, chunk):
@@ -313,7 +312,12 @@ def process_chunk(scope, chunk):
     if len(scope._timestamps) == 1:
         scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
-    chunked = _chunk_mapping(chunk)
+    try:
+        chunked = _response_mapping(chunk)
+    except Exception as exc:
+        # Finalization records the telemetry error without withholding SDK chunks.
+        scope._stream_error = exc
+        return
     choices = chunked.get("choices", []) if isinstance(chunked, dict) else []
     if choices:
         first_choice = choices[0] if isinstance(choices[0], dict) else {}
@@ -585,7 +589,7 @@ def common_chat_logic(
             logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     # Span status and metrics. OTel drops set_status(ERROR) once status is
-    # OK, and a stream failure records ERROR after this returns.
+    # OK, and a stream or chunk conversion failure records ERROR after this returns.
     if getattr(scope, "_stream_error", None) is None:
         scope._span.set_status(Status(StatusCode.OK))
     if not disable_metrics:
@@ -633,7 +637,11 @@ def common_embedding_logic(
 
     request_model = scope._kwargs.get("model", "text-embedding-ada-002")
 
-    cost = get_embed_model_cost(request_model, pricing_info, scope._input_tokens)
+    cost = (
+        get_embed_model_cost(request_model, pricing_info, scope._input_tokens)
+        if scope._input_tokens is not None
+        else None
+    )
 
     # Common Span Attributes
     common_span_attributes(
@@ -660,13 +668,14 @@ def common_embedding_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_USER, scope._kwargs.get("user", "")
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens
-    )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+    if scope._input_tokens is not None:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens
+        )
+        scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Content
     if capture_message_content:
@@ -683,8 +692,15 @@ def common_embedding_logic(
 
     # Metrics
     if not disable_metrics:
+        # Keep duration telemetry when usage is unknown. The shared helper
+        # skips absent tokens but records cost whenever its instrument is present.
+        embedding_metrics = (
+            metrics
+            if cost is not None
+            else {key: value for key, value in metrics.items() if key != "genai_cost"}
+        )
         record_embedding_metrics(
-            metrics,
+            embedding_metrics,
             SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
             SemanticConvention.GEN_AI_SYSTEM_PREMAI,
             scope._server_address,
@@ -750,7 +766,7 @@ def process_chat_response(
     """
 
     scope = type("GenericScope", (), {})()
-    response_dict = response_as_dict(response)
+    response_dict = _response_mapping(response)
     choices = response_dict.get("choices", [])
     first_choice = choices[0] if choices else {}
     message = first_choice.get("message") or {}
@@ -760,7 +776,9 @@ def process_chat_response(
     scope._end_time = time.time()
     scope._span = span
     scope._llmresponse = str(message.get("content", ""))
-    scope._response_id = response_dict.get("additional_properties", {}).get("id")
+    scope._response_id = response_dict.get("id") or (
+        response_dict.get("additional_properties") or {}
+    ).get("id")
     scope._response_model = response_dict.get("model")
     scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._output_tokens = usage.get("completion_tokens", 0)
@@ -819,13 +837,14 @@ def process_embedding_response(
     """
 
     scope = type("GenericScope", (), {})()
-    response_dict = response_as_dict(response)
+    response_dict = _response_mapping(response)
+    usage = response_dict.get("usage") or {}
 
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
     scope._response_model = response_dict.get("model")
-    scope._input_tokens = response_dict.get("usage").get("prompt_tokens")
+    scope._input_tokens = usage.get("prompt_tokens")
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
