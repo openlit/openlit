@@ -133,6 +133,10 @@ export default class SemanticConvention {
   static OPENAI_RESPONSE_SERVICE_TIER = 'openai.response.service_tier';
   static OPENAI_RESPONSE_SYSTEM_FINGERPRINT = 'openai.response.system_fingerprint';
   static OPENAI_API_TYPE = 'openai.api.type';
+  static TYPESAFE_API_TYPE = 'typesafe.api.type';
+  static TYPESAFE_QUESTION_COUNT = 'typesafe.question.count';
+  static TYPESAFE_QUESTION_IDS = 'typesafe.question.ids';
+  static TYPESAFE_QUESTION_TYPES = 'typesafe.question.types';
 
   /** @deprecated Use OPENAI_RESPONSE_SYSTEM_FINGERPRINT for OpenAI */
   static GEN_AI_RESPONSE_SYSTEM_FINGERPRINT = 'gen_ai.response.system_fingerprint';
@@ -265,6 +269,7 @@ export default class SemanticConvention {
 
   static GEN_AI_OPERATION_TYPE_TEXT_COMPLETION = 'text_completion';
   static GEN_AI_OPERATION_TYPE_CHAT = 'chat';
+  static GEN_AI_OPERATION_TYPE_DECISION = 'decision';
   static GEN_AI_OPERATION_TYPE_EMBEDDING = 'embeddings';
   static GEN_AI_OPERATION_TYPE_IMAGE = 'image';
   static GEN_AI_OPERATION_TYPE_AUDIO = 'audio';
@@ -312,6 +317,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_AZURE_AI_INFERENCE = 'azure.ai.inference';
   static GEN_AI_SYSTEM_LLAMAINDEX = 'llamaindex';
   static GEN_AI_SYSTEM_TOGETHER = 'together';
+  static GEN_AI_SYSTEM_TYPESAFE = 'typesafe';
   static GEN_AI_SYSTEM_LANGGRAPH = 'langgraph';
   static GEN_AI_SYSTEM_OPENAI_AGENTS = 'openai_agents';
   static GEN_AI_SYSTEM_MASTRA = 'mastra';

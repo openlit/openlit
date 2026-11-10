@@ -76,9 +76,7 @@ describe("fetchLoopHitsByTraceIds", () => {
 		await fetchLoopHitsByTraceIds("1 = 1", [" t1 ", "t1", "t2"]);
 
 		const { query } = mockDataCollector.mock.calls[0][0];
-		expect(query).toContain("'t1'");
-		expect(query).toContain("'t2'");
-		expect(query.match(/'t1'/g)?.length).toBe(1);
+		expect(query).toContain("TraceId IN ('t1', 't2')");
 	});
 });
 

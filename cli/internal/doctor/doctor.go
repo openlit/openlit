@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openlit/openlit/cli/internal/coding/opencodeconfig"
 	"github.com/openlit/openlit/cli/internal/config"
 	"github.com/openlit/openlit/cli/internal/version"
 	"github.com/spf13/cobra"
@@ -104,7 +105,7 @@ func run(cmd *cobra.Command, _ []string) error {
 	plugins := detectInstalledPlugins()
 	if len(plugins) == 0 {
 		fmt.Fprintln(out, "  WARN: no vendor plugin install marker found.")
-		fmt.Fprintln(out, "        Run `openlit coding install --vendor=cursor` (or claude-code / codex).")
+		fmt.Fprintln(out, "        Run `openlit coding install --vendor=cursor` (or claude-code / codex / opencode).")
 		warnings++
 	}
 	for _, p := range plugins {
@@ -185,11 +186,21 @@ type installedPlugin struct {
 //   - codex:       ~/.local/share/openlit/codex-marketplace/, the local
 //     marketplace tree that `openlit coding install --vendor=codex`
 //     materializes and registers with codex.
+//   - opencode:    ~/.config/opencode/plugins/openlit.ts containing the
+//     OpenLit hook marker.
 func detectInstalledPlugins() []installedPlugin {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return nil
 	}
+	return detectInstalledPluginsAtConfig(home, os.Getenv("XDG_CONFIG_HOME"))
+}
+
+func detectInstalledPluginsAt(home string) []installedPlugin {
+	return detectInstalledPluginsAtConfig(home, "")
+}
+
+func detectInstalledPluginsAtConfig(home, xdgConfigHome string) []installedPlugin {
 	candidates := []struct {
 		vendor string
 		path   string
@@ -214,6 +225,16 @@ func detectInstalledPlugins() []installedPlugin {
 		{
 			vendor: "codex",
 			path:   filepath.Join(home, ".local", "share", "openlit", "codex-marketplace"),
+		},
+		{
+			vendor: "opencode",
+			path:   opencodeconfig.PluginPathAt(home, xdgConfigHome),
+			verify: func(b []byte) bool {
+				body := string(b)
+				return strings.Contains(body, "coding") &&
+					strings.Contains(body, "hook") &&
+					strings.Contains(body, "--vendor=opencode")
+			},
 		},
 	}
 	var out []installedPlugin

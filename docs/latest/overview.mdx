@@ -66,14 +66,14 @@ See the [Concepts glossary](/latest/concepts/glossary) for short definitions of 
       controls
       className="w-full aspect-video rounded-xl"
       src="/images/coding-agents-overview.mp4"
-      alt="Demo of coding agent observability for Claude Code, Cursor, and Codex"
+      alt="Demo of coding agent observability for Claude Code, Cursor, Codex, and OpenCode"
     >
     </video>
 
-    Coding agent observability for Claude Code, Cursor, and Codex. Understand token consumption, AI spend, and developer productivity across your entire engineering team:
+    Coding agent observability for Claude Code, Cursor, Codex, and OpenCode. Understand token consumption, AI spend, and developer productivity across your entire engineering team:
     - [One-command setup](/latest/openlit/coding-agents/setup-and-configure) - Install the `openlit` CLI and wire any vendor in under a minute. No SDK, no code changes in your repos.
     - **Session monitoring** - Track cost per session, token usage, lines added and removed, model acceptance rate, commits, and PRs per user and per team.
-    - **AI spend visibility** - See exactly how much each developer, team, and project spends on AI coding tools. Break down cost by model and vendor across Claude Code, Cursor, and Codex in one place.
+    - **AI spend visibility** - See exactly how much each developer, team, and project spends on AI coding tools. Break down cost by model and vendor across Claude Code, Cursor, Codex, and OpenCode in one place.
     - **Privacy controls** - Automatic secret redaction, usage breakdowns by repo, and cohort-floor anonymization so individual data stays protected.
   </Tab>
 
@@ -90,7 +90,7 @@ See the [Concepts glossary](/latest/concepts/glossary) for short definitions of 
     </video>
 
     LLM evaluation in production and development using the same evaluators. Close the loop between what you ship and what you measure:
-    - **Online LLM evaluation** - [LLM-as-a-judge](/latest/openlit/evaluations/llm-as-a-judge) runs automatically on your live traces in production. Create custom evaluators with your own scoring criteria and quality gates. No setup required.
+    - **Online LLM evaluation** - [LLM-as-a-judge](/latest/openlit/evaluations/llm-as-a-judge) runs automatically on your live traces in production. Use a chat model or [TypeSafe Jev](/latest/openlit/evaluations/evaluators#typesafe-jev-judge) as the judge. Create custom evaluators with your own scoring criteria and quality gates.
     - **Offline evaluation and CI/CD testing** - Use the same evaluators via the [programmatic evaluations API](/latest/openlit/evaluations/programmatic-evals) for regression testing in CI pipelines and local development. Catch quality regressions before they reach production.
     - **Traceability** - Every evaluation score is linked back to the exact prompt version, model, and trace that produced it so you know what changed and why quality shifted.
   </Tab>

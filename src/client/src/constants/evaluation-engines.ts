@@ -11,6 +11,14 @@ export const EVALUATION_ENGINES = [
 		requiresModel: true,
 		requiresApiKey: true,
 	},
+	{
+		id: "typesafe",
+		label: "TypeSafe Jev",
+		description:
+			"Native TypeSafe System One judge. Explanations use the noul/score classification. Pin jev-1.13.0 when calibrating thresholds.",
+		requiresModel: true,
+		requiresApiKey: true,
+	},
 ] as const;
 
 export type EvaluationEngineId = (typeof EVALUATION_ENGINES)[number]["id"];

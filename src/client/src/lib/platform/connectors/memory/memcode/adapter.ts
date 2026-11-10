@@ -22,6 +22,7 @@ import { BaseMemoryAdapter } from "../base-adapter";
 import { memoryHttpVendorFields, memoryPageFilters } from "../config-fields";
 import { memoryBaseUrl, memoryRequest } from "../http";
 import { classifyMemoryKind } from "../graph";
+import { asRecord, stringValue } from "../values";
 import type {
 	MemoryGraphEdge,
 	MemoryGraphModel,
@@ -82,18 +83,6 @@ const MEMCODE_CAPABILITIES: MemoryCapabilities = {
 	delete: false,
 	feedback: false,
 };
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
-
-function stringValue(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const trimmed = value.trim();
-	return trimmed || undefined;
-}
 
 function numberValue(value: unknown): number | undefined {
 	return typeof value === "number" && Number.isFinite(value) ? value : undefined;

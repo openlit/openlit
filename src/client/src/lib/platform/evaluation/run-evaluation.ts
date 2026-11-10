@@ -8,7 +8,10 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createMistral } from "@ai-sdk/mistral";
 import { createCohere } from "@ai-sdk/cohere";
+import getMessage from "@/constants/messages";
 import { Evaluation } from "@/types/evaluation";
+import { TYPESAFE_PROVIDER_ID, type EvaluationTypeForJev } from "./jev-mapper";
+import { runJevEvaluation } from "./run-jev-evaluation";
 
 const PROVIDER_MAP: Record<string, string> = {
 	gemini: "google",
@@ -133,6 +136,7 @@ export interface RunEvaluationParams {
 	contexts?: string;
 	response?: string;
 	thresholdScore?: number;
+	evaluationTypes?: EvaluationTypeForJev[];
 }
 
 export interface RunEvaluationResult {
@@ -140,6 +144,7 @@ export interface RunEvaluationResult {
 	result?: Evaluation[];
 	usage?: { promptTokens: number; completionTokens: number };
 	error?: string;
+	extraMeta?: Record<string, string>;
 }
 
 export async function runEvaluation(
@@ -153,10 +158,23 @@ export async function runEvaluation(
 		contexts = "",
 		response = "",
 		thresholdScore = 0.5,
+		evaluationTypes,
 	} = params;
 
 	if (!apiKey || !provider || !model) {
-		return { success: false, result: DEFAULT_RESULT, error: "Missing apiKey, provider, or model" };
+		return { success: false, result: DEFAULT_RESULT, error: getMessage().EVALUATION_ERROR_MISSING_CONFIG };
+	}
+
+	if (provider.toLowerCase() === TYPESAFE_PROVIDER_ID) {
+		return runJevEvaluation({
+			apiKey,
+			model,
+			prompt,
+			contexts,
+			response,
+			thresholdScore,
+			evaluationTypes,
+		});
 	}
 
 	try {
@@ -177,7 +195,7 @@ export async function runEvaluation(
 		const parsed = JSON.parse(text) as { success?: boolean; result?: Evaluation[] };
 		const result = parsed?.result;
 		if (!Array.isArray(result) || result.length === 0) {
-			return { success: false, result: DEFAULT_RESULT, error: "Invalid response format" };
+			return { success: false, result: DEFAULT_RESULT, error: getMessage().EVALUATION_ERROR_INVALID_RESPONSE };
 		}
 		const promptTokens = usage?.inputTokens ?? (usage as any)?.promptTokens;
 		const completionTokens = usage?.outputTokens ?? (usage as any)?.completionTokens;

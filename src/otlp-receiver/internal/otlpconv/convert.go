@@ -591,10 +591,24 @@ type ResourceTenant struct {
 	Environment    string
 }
 
+// TenantResourceKeys are the resource attributes the UI reads to scope rows
+// to a project and environment. Only the authenticated tenant may set them.
+var TenantResourceKeys = []string{
+	"openlit.organisation.id",
+	"openlit.project.id",
+	"organisation.environment.name",
+}
+
+// StampResource replaces any client-supplied tenant keys with the resolved
+// tenant. Keys are always removed first, so an unauthenticated or unscoped
+// sender can never claim another project's rows; they stay unstamped instead.
 func StampResource(attrs map[string]string, tenant ResourceTenant) map[string]string {
-	out := make(map[string]string, len(attrs))
+	out := make(map[string]string, len(attrs)+len(TenantResourceKeys))
 	for k, v := range attrs {
 		out[k] = v
+	}
+	for _, k := range TenantResourceKeys {
+		delete(out, k)
 	}
 	if tenant.Environment != "" {
 		out["organisation.environment.name"] = tenant.Environment

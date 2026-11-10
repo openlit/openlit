@@ -1,3 +1,4 @@
+import { getVerifiedApiKeyDatabaseConfigId } from "@/helpers/server/api-key-binding";
 import { withAudit } from "@/lib/audit/route";
 import {
 	requireCurrentOrganisationPermission,
@@ -12,7 +13,6 @@ import asaw from "@/utils/asaw";
 import { DatabaseConfig } from "@prisma/client";
 import { errorResponse } from "@/utils/api-response";
 import { createProjectEnvironment } from "@/lib/project-environment";
-import { MIDDLEWARE_DATABASE_CONFIG_HEADER } from "@/constants/openlit-context";
 
 function stripSensitiveDbFields(config: any) {
 	if (!config) return config;
@@ -22,9 +22,7 @@ function stripSensitiveDbFields(config: any) {
 }
 
 async function GETHandler(request: Request) {
-	const apiKeyDatabaseConfigId =
-		request.headers?.get?.(MIDDLEWARE_DATABASE_CONFIG_HEADER)?.trim() ||
-		undefined;
+	const apiKeyDatabaseConfigId = await getVerifiedApiKeyDatabaseConfigId(request);
 
 	if (apiKeyDatabaseConfigId) {
 		const [err, config]: any = await asaw(
@@ -50,9 +48,7 @@ async function GETHandler(request: Request) {
 async function POSTHandler(request: Request) {
 	const formData = await request.json();
 	const id = formData.id;
-	const apiKeyDatabaseConfigId =
-		request.headers?.get?.(MIDDLEWARE_DATABASE_CONFIG_HEADER)?.trim() ||
-		undefined;
+	const apiKeyDatabaseConfigId = await getVerifiedApiKeyDatabaseConfigId(request);
 
 	if (!apiKeyDatabaseConfigId) {
 		const requiredPermission = id ? "db_config:update" : "db_config:create";
