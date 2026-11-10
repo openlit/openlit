@@ -201,6 +201,7 @@ export class ClickHouseAdapter implements DataSourceAdapter {
 			distinctValues: true,
 			crossTraceSession: true,
 			rawQuery: true,
+			contentSearch: true,
 		};
 	}
 
@@ -675,6 +676,7 @@ export const clickHouseAdapterFactory = {
 			distinctValues: true,
 			crossTraceSession: true,
 			rawQuery: true,
+			contentSearch: true,
 		},
 		correlation: {
 			crossSignal: true,

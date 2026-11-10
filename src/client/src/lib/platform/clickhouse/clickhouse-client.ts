@@ -3,12 +3,21 @@ import { ClickHouseClient, createClient } from "@clickhouse/client";
 import { DatabaseConfig } from "@prisma/client";
 import { createPool, Pool } from "generic-pool";
 import { tenantReadFilterSettings } from "./tenant-read-filter";
+import { CLICKHOUSE_READ_MAX_EXECUTION_SECONDS } from "@/constants/traces";
+
+/**
+ * Client-wide: the library has no per-query override. Above the server
+ * ceiling so ClickHouse's timeout error arrives before the client gives up.
+ */
+const CLICKHOUSE_REQUEST_TIMEOUT_MS =
+	(CLICKHOUSE_READ_MAX_EXECUTION_SECONDS + 5) * 1000;
 
 interface ClickHouseConnectionInfo {
 	username: string;
 	password: string;
 	url: string;
 	database: string;
+	request_timeout: number;
 	http_headers: Record<string, string>;
 	clickhouse_settings?: Record<string, string>;
 }
@@ -44,6 +53,7 @@ export default function createClickhousePool(
 		password: dbConfig.password || "",
 		url: constructURL(dbConfig.host, dbConfig.port),
 		database: dbConfig.database,
+		request_timeout: CLICKHOUSE_REQUEST_TIMEOUT_MS,
 		http_headers: parseQueryStringToObject(dbConfig.query || ""),
 		...(tenantSettings ? { clickhouse_settings: tenantSettings } : {}),
 	};

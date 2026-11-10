@@ -18,6 +18,7 @@ export interface ResolvedSignalCapability {
 		maxLookbackMs?: number;
 		maxTimeRangeMs?: number;
 		rawQuery?: boolean;
+		contentSearch?: boolean;
 	} | null;
 }
 

@@ -185,6 +185,8 @@ export interface OpenLITQuery {
 	generationHealth?: import("@/lib/platform/generation-health/classify").GenerationHealthChip[];
 	/** When true, keep traces that contain a stuck-tool loop. */
 	agentLoop?: boolean;
+	/** Span content text match. Sources without `contentSearch` ignore it. */
+	search?: string;
 	/**
 	 * Optional time-bucket size for time-series requests, e.g. "1m", "1h".
 	 * Adapters map this to their native bucketing.
@@ -255,6 +257,8 @@ export interface SourceCapabilities {
 	maxTimeRangeMs?: number;
 	/** Whether raw vendor-native query strings are supported (CH only). */
 	rawQuery: boolean;
+	/** Can match text inside span prompts, completions and errors. */
+	contentSearch?: boolean;
 }
 
 /**

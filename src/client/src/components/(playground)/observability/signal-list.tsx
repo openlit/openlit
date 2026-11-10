@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Maximize2, X } from "lucide-react";
 import getMessage from "@/constants/messages";
+import { SPAN_SEARCH_REQUEST_TIMEOUT_MS } from "@/constants/traces";
 import { clientFetchErrorMessage } from "@/utils/api";
 import { prepareObservabilitySignalChange } from "@/helpers/client/observability";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
@@ -184,6 +185,9 @@ export default function ObservabilitySignalList({
 			body: JSON.stringify(requestFilter),
 			requestType: "POST",
 			url: config.listUrl,
+			timeoutMs: requestFilter.selectedConfig?.search
+				? SPAN_SEARCH_REQUEST_TIMEOUT_MS
+				: undefined,
 			failureCb: (err?: string) => {
 				toast.error(err || m.OBSERVABILITY_NO_SERVER_CONNECTION, {
 					id: `observability-${config.key}`,
@@ -482,6 +486,7 @@ export default function ObservabilitySignalList({
 				customAttributeTypes={config.customAttributeTypes}
 				filterStorageScope={config.key}
 				showGroupBy={!!config.supportGrouping}
+				supportContentSearch={!!config.supportContentSearch && showFlatList}
 				showVisibilityColumns
 				extraControls={toolbarExtraControls}
 				signal={
