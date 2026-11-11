@@ -567,6 +567,29 @@ describe("queryProjectMemories", () => {
 		expect(second.graph).toEqual({ nodes: [], edges: [] });
 	});
 
+	it("passes the session filter to the adapter graph so dataset-scoped graphs resolve", async () => {
+		const graph = jest.fn().mockResolvedValue({ nodes: [], edges: [], kind: "knowledge" });
+		mockListMemoryConnectors.mockResolvedValue([connector]);
+		mockGetMemoryRuntime.mockResolvedValue({
+			connector,
+			adapter: {
+				capabilities: () => ({
+					add: false,
+					search: false,
+					get: false,
+					list: true,
+					update: false,
+					delete: false,
+				}),
+				list: jest.fn().mockResolvedValue([]),
+				graph,
+			},
+		});
+
+		await queryProjectMemories({ userId: "u1", sessionId: "dataset-1" });
+		expect(graph).toHaveBeenCalledWith({ userId: "u1", sessionId: "dataset-1" });
+	});
+
 	it("counts connections from real graph edges, not user/session pairs", async () => {
 		mockListMemoryConnectors.mockResolvedValue([connector]);
 		mockGetMemoryRuntime.mockResolvedValue({

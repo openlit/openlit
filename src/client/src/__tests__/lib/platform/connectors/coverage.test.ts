@@ -41,11 +41,15 @@ describe("connector coverage", () => {
 		expect(hasMemoryAdapterFactory("mem0")).toBe(true);
 		expect(hasMemoryAdapterFactory("memcode")).toBe(true);
 		expect(hasMemoryAdapterFactory("zep")).toBe(true);
+		expect(hasMemoryAdapterFactory("cognee")).toBe(true);
+		expect(hasMemoryAdapterFactory("supermemory")).toBe(true);
 		expect(listConnectorTypes("memory").map((item) => item.type).sort()).toEqual([
 			"claude",
+			"cognee",
 			"langgraph",
 			"mem0",
 			"memcode",
+			"supermemory",
 			"zep",
 		]);
 	});
@@ -56,5 +60,7 @@ describe("connector coverage", () => {
 		expect(connectorIconPath("mem0")).toBe("/images/connectors/mem0.svg");
 		expect(connectorIconPath("memcode")).toBe("/images/connectors/memcode.png");
 		expect(connectorIconPath("zep")).toBe("/images/connectors/zep.svg");
+		expect(connectorIconPath("cognee")).toBe("/images/connectors/cognee.svg");
+		expect(connectorIconPath("supermemory")).toBe("/images/connectors/supermemory.svg");
 	});
 });

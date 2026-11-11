@@ -9,6 +9,8 @@ const CONNECTOR_DESCRIPTIONS: Record<string, string> = {
 	memcode: "Long-term agent memory from MemCode.",
 	zep: "Session and graph memory from Zep.",
 	langgraph: "Long-term agent memory from a LangGraph Store.",
+	cognee: "Documents and knowledge-graph memory from Cognee.",
+	supermemory: "Long-term agent memory from Supermemory.",
 	trustabl: "Agent SDK and MCP reliability scans from Trustabl.",
 };
 
