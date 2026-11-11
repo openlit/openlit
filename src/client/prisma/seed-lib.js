@@ -33,6 +33,31 @@ async function ensureProjectEnvironment(prisma, projectId, name = DEFAULT_ENVIRO
 	});
 }
 
+// Runs on every container start. Demoting or removing the seed user is legal
+// once another owner exists, so ownership is only restored to an ownerless
+// organisation.
+async function seedDefaultOrganisationMembership(
+	prisma,
+	{ organisationId, userId, projectId }
+) {
+	const ownerCount = await prisma.organisationUser.count({
+		where: { organisationId, role: "owner" },
+	});
+
+	if (ownerCount === 0) {
+		await prisma.organisationUser.upsert({
+			where: { organisationId_userId: { organisationId, userId } },
+			update: { role: "owner", isCurrent: true },
+			create: { organisationId, userId, role: "owner", isCurrent: true },
+		});
+	}
+
+	await prisma.organisationUser.updateMany({
+		where: { organisationId, userId, currentProjectId: null },
+		data: { currentProjectId: projectId },
+	});
+}
+
 async function ensureEnvironmentDatabaseBindings(
 	prisma,
 	projectId,
@@ -341,6 +366,7 @@ module.exports = {
 	databaseConnectorId,
 	readInitDbConfig,
 	hasInitDb,
+	seedDefaultOrganisationMembership,
 	ensureProjectEnvironment,
 	ensureEnvironmentDatabaseBindings,
 	syncDatabaseConfigConnector,

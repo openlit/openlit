@@ -22,8 +22,8 @@ export async function PATCH(
 	{ params }: { params: Promise<{ id: string; userId: string }> }
 ) {
 	const { id, userId } = await params;
-	const body = await request.json();
-	const { role } = body;
+	const body = await request.json().catch(() => null);
+	const { role } = body ?? {};
 
 	if (!role) {
 		return Response.json({ error: "Role is required" }, { status: 400 });

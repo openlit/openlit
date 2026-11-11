@@ -18,6 +18,7 @@ const {
 	migrateOrphanedDefaultDb,
 	upsertDefaultDatabaseConfig,
 	migrateExistingData,
+	seedDefaultOrganisationMembership,
 } = require("../../../prisma/seed-lib");
 
 function createPrismaMock() {
@@ -48,8 +49,11 @@ function createPrismaMock() {
 		organisationUser: {
 			findUnique: jest.fn().mockResolvedValue(null),
 			findFirst: jest.fn().mockResolvedValue(null),
+			count: jest.fn().mockResolvedValue(0),
 			create: jest.fn(),
 			update: jest.fn(),
+			updateMany: jest.fn(),
+			upsert: jest.fn(),
 		},
 		user: {
 			update: jest.fn(),
@@ -320,6 +324,58 @@ describe("backward compatibility / upgrade volume", () => {
 		expect(prisma.databaseConfig.update).toHaveBeenCalledWith({
 			where: { id: "orphan-2" },
 			data: { projectId: "project-1", environment: "production" },
+		});
+	});
+});
+
+describe("seedDefaultOrganisationMembership", () => {
+	const input = { organisationId: "org-1", userId: "seed-user", projectId: "project-1" };
+
+	it("makes the seed user the owner when the organisation has no owner", async () => {
+		const prisma = createPrismaMock();
+
+		await seedDefaultOrganisationMembership(prisma, input);
+
+		expect(prisma.organisationUser.count).toHaveBeenCalledWith({
+			where: { organisationId: "org-1", role: "owner" },
+		});
+		expect(prisma.organisationUser.upsert).toHaveBeenCalledWith({
+			where: {
+				organisationId_userId: { organisationId: "org-1", userId: "seed-user" },
+			},
+			update: { role: "owner", isCurrent: true },
+			create: {
+				organisationId: "org-1",
+				userId: "seed-user",
+				role: "owner",
+				isCurrent: true,
+			},
+		});
+	});
+
+	it("leaves a demoted or removed seed user alone once an owner exists", async () => {
+		const prisma = createPrismaMock();
+		prisma.organisationUser.count.mockResolvedValue(1);
+
+		await seedDefaultOrganisationMembership(prisma, input);
+
+		expect(prisma.organisationUser.upsert).not.toHaveBeenCalled();
+	});
+
+	it("only fills in a missing project, so an absent membership cannot throw", async () => {
+		const prisma = createPrismaMock();
+		prisma.organisationUser.count.mockResolvedValue(1);
+
+		await seedDefaultOrganisationMembership(prisma, input);
+
+		expect(prisma.organisationUser.update).not.toHaveBeenCalled();
+		expect(prisma.organisationUser.updateMany).toHaveBeenCalledWith({
+			where: {
+				organisationId: "org-1",
+				userId: "seed-user",
+				currentProjectId: null,
+			},
+			data: { currentProjectId: "project-1" },
 		});
 	});
 });
