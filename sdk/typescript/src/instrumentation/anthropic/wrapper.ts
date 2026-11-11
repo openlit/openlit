@@ -6,7 +6,7 @@ import OpenLitHelper, {
   getCurrentAgentVersion,
 } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import BaseWrapper from '../base-wrapper';
+import BaseWrapper, { observeApiPromise } from '../base-wrapper';
 
 const FINISH_REASON_MAP: Record<string, string> = {
   end_turn: 'stop',
@@ -17,6 +17,29 @@ const FINISH_REASON_MAP: Record<string, string> = {
 
 function mapFinishReason(reason: string): string {
   return FINISH_REASON_MAP[reason] || reason || 'stop';
+}
+
+/**
+ * The model that served the response when the request named fallbacks. A
+ * `fallback_message` entry in `usage.iterations` is the API's signal for this;
+ * its `model` field holds the fallback that ran.
+ */
+function fallbackModel(usage: any): string | undefined {
+  const iterations = Array.isArray(usage?.iterations) ? usage.iterations : [];
+  const fallbacks = iterations.filter((i: any) => i?.type === 'fallback_message' && i?.model);
+  return fallbacks.length > 0 ? String(fallbacks[fallbacks.length - 1].model) : undefined;
+}
+
+/**
+ * Recent SDK versions emit their own `gen_ai.*` call span on the global tracer
+ * provider, which is OpenLIT's. Left on, every call would appear twice and its
+ * tokens would be counted twice. The SDK reads `_tracer` per call and treats an
+ * unset value as tracing off. A client given its own `tracerProvider` sends those
+ * spans somewhere the application chose, so it keeps them.
+ */
+function disableNativeCallSpan(resource: any): void {
+  const client = resource?._client;
+  if (client?._tracer && !client.openTelemetry?.tracerProvider) client._tracer = undefined;
 }
 
 function spanCreationAttrs(
@@ -37,11 +60,20 @@ export default class AnthropicWrapper extends BaseWrapper {
   static serverAddress = 'api.anthropic.com';
   static serverPort = 443;
 
-  static _patchMessageCreate(tracer: Tracer): any {
-    const genAIEndpoint = 'anthropic.resources.messages';
+  /**
+   * Patch a `create` method. Runs in sync so the SDK's `APIPromise` reaches the
+   * caller: `messages.stream()`, `beta.messages.stream()` and application code
+   * call `.withResponse()` / `.asResponse()` on the value returned here, and a
+   * plain Promise has neither.
+   */
+  static _patchMessageCreate(
+    tracer: Tracer,
+    genAIEndpoint: string = 'anthropic.resources.messages'
+  ): any {
     return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
+      return function (this: any, ...args: any[]) {
         if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
+        disableNativeCallSpan(this);
         const requestModel = args[0]?.model || 'claude-3-5-sonnet-latest';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
         const effectiveCtx = getFrameworkParentContext() ?? context.active();
@@ -49,40 +81,72 @@ export default class AnthropicWrapper extends BaseWrapper {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
         }, effectiveCtx);
-        return context
-          .with(trace.setSpan(effectiveCtx, span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((response: any) => {
-            const { stream = false } = args[0];
 
-            if (stream) {
-              return OpenLitHelper.createStreamProxy(
+        const onResult = (response: any) => {
+          const { stream = false } = args[0];
+
+          if (stream) {
+            return OpenLitHelper.createStreamProxy(
+              response,
+              AnthropicWrapper._messageCreateGenerator({
+                args,
+                genAIEndpoint,
                 response,
-                AnthropicWrapper._messageCreateGenerator({
-                  args,
-                  genAIEndpoint,
-                  response,
-                  span,
-                })
-              );
-            }
+                span,
+              })
+            );
+          }
 
-            return AnthropicWrapper._messageCreate({ args, genAIEndpoint, response, span });
-          })
-          .catch((e: any) => {
-            OpenLitHelper.handleException(span, e);
-            BaseWrapper.recordMetrics(span, {
+          return AnthropicWrapper._messageCreate({ args, genAIEndpoint, response, span });
+        };
+
+        const onError = (e: any) => {
+          OpenLitHelper.handleException(span, e);
+          BaseWrapper.recordMetrics(span, {
+            genAIEndpoint,
+            model: requestModel,
+            aiSystem: AnthropicWrapper.aiSystem,
+            serverAddress: AnthropicWrapper.serverAddress,
+            serverPort: AnthropicWrapper.serverPort,
+            errorType: e?.constructor?.name || '_OTHER',
+          });
+          span.end();
+        };
+
+        let pending: any;
+        try {
+          pending = context.with(trace.setSpan(effectiveCtx, span), () =>
+            originalMethod.apply(this, args)
+          );
+        } catch (e: any) {
+          onError(e);
+          return Promise.reject(e);
+        }
+
+        return observeApiPromise(pending, {
+          onResult,
+          onError,
+          onRawResponse: () => {
+            // The caller took the raw HTTP response, so the body is theirs.
+            AnthropicWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
               model: requestModel,
               aiSystem: AnthropicWrapper.aiSystem,
               serverAddress: AnthropicWrapper.serverAddress,
               serverPort: AnthropicWrapper.serverPort,
-              errorType: e?.constructor?.name || '_OTHER',
             });
             span.end();
-            throw e;
-          });
+          },
+        });
+      };
+    };
+  }
+
+  static _patchMessageStream(): any {
+    return (originalMethod: (...args: any[]) => any) => {
+      return function (this: any, ...args: any[]) {
+        disableNativeCallSpan(this);
+        return originalMethod.apply(this, args);
       };
     };
   }
@@ -144,7 +208,7 @@ export default class AnthropicWrapper extends BaseWrapper {
           output_tokens: 0,
           cache_creation_input_tokens: 0,
           cache_read_input_tokens: 0,
-        },
+        } as Record<string, any>,
       };
 
       let llmResponse = '';
@@ -167,6 +231,12 @@ export default class AnthropicWrapper extends BaseWrapper {
               result.usage.cache_read_input_tokens =
                 Number(chunk.message.usage?.cache_read_input_tokens) || 0;
               result.stop_reason = chunk.message.stop_reason || '';
+              if (chunk.message.usage?.server_tool_use) {
+                result.usage.server_tool_use = chunk.message.usage.server_tool_use;
+              }
+              if (chunk.message.usage?.iterations) {
+                result.usage.iterations = chunk.message.usage.iterations;
+              }
             }
             break;
 
@@ -206,6 +276,12 @@ export default class AnthropicWrapper extends BaseWrapper {
             if (chunk.usage?.cache_read_input_tokens != null) {
               result.usage.cache_read_input_tokens =
                 Number(chunk.usage.cache_read_input_tokens) || 0;
+            }
+            if (chunk.usage?.server_tool_use) {
+              result.usage.server_tool_use = chunk.usage.server_tool_use;
+            }
+            if (chunk.usage?.iterations) {
+              result.usage.iterations = chunk.usage.iterations;
             }
             break;
 
@@ -319,13 +395,14 @@ export default class AnthropicWrapper extends BaseWrapper {
 
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
 
-    const responseModel = result.model || requestModel;
+    const servedByFallback = fallbackModel(result.usage);
+    const responseModel = servedByFallback || result.model || requestModel;
 
     const pricingInfo = OpenlitConfig.pricingInfo || {};
     // Anthropic reports input_tokens exclusive of cache read / creation tokens,
     // so cache tokens are added on top (promptTokensIncludeCache stays false).
     const cost = OpenLitHelper.getChatModelCost(
-      requestModel,
+      servedByFallback || requestModel,
       pricingInfo,
       result.usage.input_tokens,
       result.usage.output_tokens,
@@ -361,6 +438,23 @@ export default class AnthropicWrapper extends BaseWrapper {
         SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
         result.usage.cache_read_input_tokens
       );
+    }
+
+    const serverTools = result.usage.server_tool_use;
+    if (serverTools?.web_search_requests) {
+      span.setAttribute(
+        SemanticConvention.ANTHROPIC_USAGE_WEB_SEARCH_REQUESTS,
+        serverTools.web_search_requests
+      );
+    }
+    if (serverTools?.web_fetch_requests) {
+      span.setAttribute(
+        SemanticConvention.ANTHROPIC_USAGE_WEB_FETCH_REQUESTS,
+        serverTools.web_fetch_requests
+      );
+    }
+    if (servedByFallback) {
+      span.setAttribute(SemanticConvention.ANTHROPIC_RESPONSE_FALLBACK_MODEL, servedByFallback);
     }
 
     if (ttft > 0) {

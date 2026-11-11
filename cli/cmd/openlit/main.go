@@ -11,11 +11,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/openlit/openlit/cli/internal/coding"
+	"github.com/openlit/openlit/cli/internal/coding/agentexec"
 	"github.com/openlit/openlit/cli/internal/configure"
 	"github.com/openlit/openlit/cli/internal/doctor"
 	"github.com/openlit/openlit/cli/internal/version"
@@ -23,8 +25,8 @@ import (
 )
 
 func main() {
-	if execute(os.Args[1:], os.Stdout, os.Stderr) != 0 {
-		os.Exit(1)
+	if code := execute(os.Args[1:], os.Stdout, os.Stderr); code != 0 {
+		os.Exit(code)
 	}
 }
 
@@ -34,6 +36,11 @@ func execute(args []string, stdout, stderr io.Writer) int {
 	root.SetOut(stdout)
 	root.SetErr(stderr)
 	if err := root.Execute(); err != nil {
+		// A wrapped agent's own failure is its output, not ours to report.
+		var agent *agentexec.ExitError
+		if errors.As(err, &agent) {
+			return agent.Code
+		}
 		fmt.Fprintf(stderr, "openlit: %v\n", err)
 		return 1
 	}
@@ -51,6 +58,7 @@ v1 ships the 'coding' subcommand group for AI-coding-agent observability:
   openlit coding install --vendor=all
   openlit coding launch claude
   openlit coding launch opencode
+  openlit coding exec --vendor=claude-code -- claude -p "..."
   openlit coding hook --vendor=cc --event=SessionStart
 
 Run 'openlit doctor' to diagnose configuration, OTLP reachability,

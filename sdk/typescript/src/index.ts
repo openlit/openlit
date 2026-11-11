@@ -11,6 +11,7 @@ import OpenLitHelper from './helpers';
 import {
   usingAttributes,
   injectAdditionalAttributes,
+  withTags,
   setAgentVersion,
   resetAgentVersion,
   runWithAgentVersion,
@@ -19,10 +20,17 @@ import {
 import { runEval, runEvalBatch, fetchEvalTypes } from './evals';
 import { logScore } from './score';
 import { TracedSpan, startTrace, trace as traceManual } from './manual-trace';
+import { LlmSpan, llm } from './llm-call';
+import { instrument } from './instrument-client';
+import { instrumentFetch } from './instrumentation/fetch';
+import { extract, inject, recordSpan, traceContextFrom, withParent } from './trace-context';
+import { createLambdaWrapper, createWorkerWrapper, withinBudget } from './runtime-wrappers';
+import { codingAgentEnv } from './coding-agent';
+import { IS_EDGE_BUILD, pricingSnapshot } from './platform';
 import Metrics from './otel/metrics';
 import GpuMetricsCollector from './instrumentation/gpu';
 import SemanticConvention from './semantic-convention';
-import { parseBoolEnv } from './otel/utils';
+import { parseBoolEnv, parseOtlpHeaders } from './otel/utils';
 import { setupAutoGuards } from './guard/integration';
 import { PII } from './guard/pii';
 import { PromptInjection } from './guard/prompt-injection';
@@ -62,18 +70,7 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
     ? rawEndpoint.replace(/\/v1\/traces$/, '')
     : undefined;
 
-  let otlpHeaders = o.otlpHeaders ?? undefined;
-  if (!otlpHeaders && process.env.OTEL_EXPORTER_OTLP_HEADERS) {
-    otlpHeaders = process.env.OTEL_EXPORTER_OTLP_HEADERS.split(',').reduce(
-      (acc: Record<string, string>, item: string) => {
-        const keyVal = item.split('=');
-        acc[keyVal[0]] = keyVal[1];
-        return acc;
-      },
-      {} as Record<string, string>
-    );
-  }
-  if (!otlpHeaders) otlpHeaders = {};
+  const otlpHeaders = o.otlpHeaders ?? parseOtlpHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS) ?? {};
 
   let disableBatch = o.disableBatch ?? undefined;
   const envDisableBatch = parseBoolEnv('OPENLIT_DISABLE_BATCH');
@@ -128,12 +125,18 @@ function resolveOptions(options?: OpenlitOptions): ResolvedOptions {
     guards: o.guards,
     guardFailOpen: o.guardFailOpen ?? true,
     collectGpuStats,
+    trustIncomingTraceparent: o.trustIncomingTraceparent ?? false,
   };
 }
+
+const PRICING_BUDGET_MS = 2000;
 
 class Openlit extends BaseOpenlit {
   static resource: ReturnType<typeof resourceFromAttributes>;
   static options: ResolvedOptions;
+  private static initArguments?: OpenlitOptions;
+  /** Edge only: a pricing URL still to fetch from inside a request. */
+  private static pendingPricingUrl?: string;
 
   // Top-level guard class exports
   static PII = PII;
@@ -178,19 +181,131 @@ class Openlit extends BaseOpenlit {
 
   static startTrace = startTrace;
   static trace = traceManual;
+  static llm = llm;
+  static instrument = instrument;
+  static instrumentFetch = instrumentFetch;
+  static withTags = withTags;
+
+  static traceContextFrom = traceContextFrom;
+  static withParent = withParent;
+  static recordSpan = recordSpan;
+  static inject = inject;
+  static extract = extract;
+
+  static codingAgent = { env: codingAgentEnv };
+
+  /**
+   * Send everything buffered. Resolves once the exporters finish, and never
+   * rejects, because a telemetry failure must not fail the caller's request. Call
+   * it before a short-lived process exits.
+   */
+  static flush = async (): Promise<void> => {
+    await Openlit.ensurePricing();
+    await Openlit.settle([Tracing.forceFlush(), Events.forceFlush(), Metrics.forceFlush()]);
+  };
+
+  /** Spans lost to the bounded edge buffer so far. Always 0 on Node. */
+  static droppedSpans = (): number => Tracing.droppedSpans;
+
+  /** Flush, then stop the exporters. Nothing is sent after this. */
+  static shutdown = async (): Promise<void> => {
+    await Openlit.settle([Tracing.shutdown(), Events.shutdown(), Metrics.shutdown()]);
+  };
+
+  private static async settle(work: Promise<unknown>[]): Promise<void> {
+    for (const result of await Promise.allSettled(work)) {
+      if (result.status === 'rejected') diag.warn(`OpenLIT: flush failed: ${result.reason}`);
+    }
+  }
+
+  private static lifecycle = {
+    flush: () => Openlit.flush(),
+    applyRuntimeOptions: (bindings: OpenlitOptions, configured?: OpenlitOptions) =>
+      Openlit.applyRuntimeOptions(bindings, configured),
+    ensurePricing: () => Openlit.ensurePricing(),
+  };
+
+  static withWorker = createWorkerWrapper(Openlit.lifecycle);
+  static withLambda = createLambdaWrapper(Openlit.lifecycle);
+
+  /** Merge settings that only exist once a request arrives, such as Worker bindings. */
+  private static applyRuntimeOptions(bindings: OpenlitOptions, configured?: OpenlitOptions) {
+    const merged = { ...bindings, ...this.initArguments, ...configured };
+    if (!this.options) {
+      this.init(merged);
+      return;
+    }
+    const resolved = resolveOptions(merged);
+    this.options = resolved;
+    this.resource = this.buildResource(resolved);
+    Tracing.reconfigure({ ...resolved, resource: this.resource });
+    OpenlitConfig.openlitApiKey = resolved.openlitApiKey;
+    OpenlitConfig.openlitUrl = resolved.openlitUrl;
+    OpenlitConfig.tokenCounter = merged.tokenCounter;
+    OpenlitConfig.trustIncomingTraceparent = resolved.trustIncomingTraceparent;
+    this.loadPricing(resolved.pricingJson);
+
+    // `init()` already ran at module scope, so settings that only `init()` acts
+    // on are applied here when the Worker's own settings bring them.
+    const initial = this.initArguments ?? {};
+    const guardsChanged = merged.guards !== initial.guards || merged.guardFailOpen !== initial.guardFailOpen;
+    if (resolved.guards?.length && guardsChanged) {
+      setupAutoGuards(resolved.guards, resolved.guardFailOpen, resolved.instrumentations);
+    }
+    if (merged.fetchAdapters?.length && !initial.fetchAdapters?.length) {
+      instrumentFetch(merged.fetchAdapters);
+    }
+  }
+
+  private static buildResource(resolved: ResolvedOptions) {
+    return resourceFromAttributes({
+      [ATTR_SERVICE_NAME]: resolved.applicationName,
+      [SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT]: resolved.environment,
+      [ATTR_TELEMETRY_SDK_NAME]: SDK_NAME,
+    });
+  }
+
+  /**
+   * Node fetches pricing in the background from `init()`. Module scope on the
+   * edge allows no I/O, so the edge starts from a bundled snapshot, and a custom
+   * URL is fetched by `ensurePricing()` once a request is running.
+   */
+  private static loadPricing(pricingJson: ResolvedOptions['pricingJson']) {
+    if (IS_EDGE_BUILD && (!pricingJson || OpenLitHelper.isPricingUrl(pricingJson))) {
+      OpenlitConfig.pricingInfo = pricingSnapshot() ?? {};
+      this.pendingPricingUrl = pricingJson as string | undefined;
+      return;
+    }
+    OpenLitHelper.fetchPricingInfo(pricingJson).then(
+      (info) => { OpenlitConfig.pricingInfo = info; },
+      () => { OpenlitConfig.pricingInfo = {}; }
+    );
+  }
+
+  /** Replaces the snapshot if it can, within a budget. Never fails the caller. */
+  private static async ensurePricing(): Promise<void> {
+    const url = this.pendingPricingUrl;
+    if (!url) return;
+    this.pendingPricingUrl = undefined;
+    try {
+      const info = await withinBudget(OpenLitHelper.fetchPricingInfo(url), PRICING_BUDGET_MS);
+      if (info && Object.keys(info).length > 0) OpenlitConfig.pricingInfo = info;
+    } catch (error) {
+      diag.warn(`OpenLIT: keeping bundled pricing, could not load ${url}: ${error}`);
+    }
+  }
 
   static init(options?: OpenlitOptions) {
     try {
       diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN);
 
+      this.initArguments = options;
+      OpenlitConfig.tokenCounter = options?.tokenCounter;
+      OpenlitConfig.trustIncomingTraceparent = options?.trustIncomingTraceparent ?? false;
       const resolved = resolveOptions(options);
       this.options = resolved;
 
-      this.resource = resourceFromAttributes({
-        [ATTR_SERVICE_NAME]: resolved.applicationName,
-        [SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT]: resolved.environment,
-        [ATTR_TELEMETRY_SDK_NAME]: SDK_NAME,
-      });
+      this.resource = this.buildResource(resolved);
 
       const setupBase = {
         ...resolved,
@@ -230,13 +345,14 @@ class Openlit extends BaseOpenlit {
       OpenlitConfig.openlitApiKey = resolved.openlitApiKey;
       OpenlitConfig.openlitUrl = resolved.openlitUrl;
 
-      OpenLitHelper.fetchPricingInfo(resolved.pricingJson).then(
-        (info) => { OpenlitConfig.pricingInfo = info; },
-        () => { OpenlitConfig.pricingInfo = {}; }
-      );
+      this.loadPricing(resolved.pricingJson);
+
+      if (options?.fetchAdapters?.length) {
+        instrumentFetch(options.fetchAdapters);
+      }
 
       if (resolved.guards && resolved.guards.length > 0) {
-        setupAutoGuards(resolved.guards, resolved.guardFailOpen);
+        setupAutoGuards(resolved.guards, resolved.guardFailOpen, resolved.instrumentations);
       }
     } catch (e) {
       console.error('OpenLIT initialization failed:', e);
@@ -250,11 +366,20 @@ const openlit = Openlit as typeof Openlit & {
 };
 
 (openlit as any).usingAttributes = usingAttributes;
+// ESM callers used to reach the class as `openlit.default`; that still works now
+// that `dist/index.mjs` gives them the class directly.
+(openlit as any).default = openlit;
 (openlit as any).injectAdditionalAttributes = injectAdditionalAttributes;
 
 export default openlit;
-export { Openlit, usingAttributes, injectAdditionalAttributes, logScore };
-export { TracedSpan, startTrace, traceManual as trace };
+export { Openlit, usingAttributes, injectAdditionalAttributes, withTags, logScore };
+export { TracedSpan, startTrace, traceManual as trace, LlmSpan, llm };
+export { instrument, instrumentFetch, traceContextFrom, withParent, recordSpan, inject, extract };
+export type { LlmCallOptions, LlmResponse, LlmUsage } from './llm-call';
+export type { RecordSpanOptions, RunTraceContext } from './trace-context';
+export type { CodingAgentEnvOptions } from './coding-agent';
+export type { CallTags } from './helpers';
+export type { TokenCounter } from './platform/types';
 export type { OpenlitOptions } from './types';
 export type { LogScoreOptions } from './score';
 

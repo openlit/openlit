@@ -1,0 +1,259 @@
+---
+title: "Edge, serverless and bundled code"
+sidebarTitle: "Edge & serverless"
+description: "Trace LLM apps on Cloudflare Workers, Vercel Edge, Deno, Lambda and in bundled code with the OpenLIT TypeScript SDK"
+icon: "bolt"
+---
+
+The OpenLIT TypeScript SDK runs wherever JavaScript runs, from a long-lived Node.js server to a Worker that lives for one request. This page covers what differs outside Node.js, and how to trace calls the SDK can't patch.
+
+## How the SDK picks a build
+
+Install `openlit` as usual. Runtimes and bundlers choose the build through package export conditions, so your import doesn't change:
+
+| Runtime | Build | Sends |
+| --- | --- | --- |
+| Node.js, Bun | Node | Traces, metrics, events |
+| Cloudflare Workers (`workerd`) | Edge | Traces |
+| Vercel and Netlify Edge (`edge-light`, `deno`) | Edge | Traces |
+| Deno, Deno Deploy (`deno`) | Edge | Traces |
+
+Browser-targeted bundles get the edge build too. To force it elsewhere, import `openlit/core`.
+
+The edge build differs from Node in these ways:
+
+- **Traces only.** Metrics and events need long-lived timers. Spans still carry tokens, cost and duration.
+- **Module-load instrumentation is off.** Bundling removes the module loading it depends on. See [Instrument bundled code](#instrument-bundled-code).
+- **Guards apply only to what you pass in.** See [Guards in bundled code](#guards-in-bundled-code).
+- **Pricing comes from a snapshot** built into the package, so cost works without a network call. Pass `pricingJson` as an object to replace it. A URL is fetched in the background during `flush()`, and applies to spans after that; it never holds a request.
+- **Tokens are estimated** at four characters per token when a provider doesn't report usage, because the tiktoken tables are too large to bundle. Pass `tokenCounter` to `init()` to use your own.
+- **`disableBatch` has no effect.** Spans send on `flush()`.
+- **`setAgentVersion` has no effect**, because these runtimes can't set context for the rest of a request. Use `withAgentVersion(label, fn)`.
+
+## Cloudflare Workers
+
+Wrap your handler with `withWorker`. It traces each request and sends the spans in `ctx.waitUntil`.
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import openlit from "openlit";
+
+openlit.init({ instrumentations: { anthropic: Anthropic } });
+
+export default openlit.withWorker({
+  async fetch(request, env, ctx) {
+    const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 100,
+      messages: [{ role: "user", content: "Hello" }],
+    });
+    return Response.json(message);
+  },
+});
+```
+
+`openlit.init()` is safe at the top of a module: it does no I/O and starts no timers.
+
+Workers bindings aren't available at module scope, so `withWorker` reads these on the first request:
+
+| Binding | Sets |
+| --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `otlpEndpoint` |
+| `OTEL_EXPORTER_OTLP_HEADERS` | `otlpHeaders` |
+| `OTEL_SERVICE_NAME` | `applicationName` |
+| `OTEL_DEPLOYMENT_ENVIRONMENT` | `environment` |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | `captureMessageContent` |
+| `OPENLIT_TRUST_INCOMING_TRACEPARENT` | `trustIncomingTraceparent` |
+| `OPENLIT_API_KEY`, `OPENLIT_URL` | `openlitApiKey`, `openlitUrl` |
+
+Values passed to `init()` take priority over bindings. To override both, pass a second argument:
+
+```typescript
+export default openlit.withWorker<Env>(handler, (env) => ({ applicationName: env.APP_NAME }));
+```
+
+`withWorker` also takes a class, such as a `WorkerEntrypoint` or `DurableObject`, and traces `scheduled` and `queue` handlers. A class must have `env` and `ctx` on the instance, which both of those do.
+
+Spans are sent once the response body ends, including when it fails or the client cancels it, and once each promise passed to the handler's `ctx.waitUntil` settles. In a class, `this.ctx.waitUntil` work isn't tracked, so call `this.ctx.waitUntil(openlit.flush())` after it.
+
+<Warning>
+Enable the `nodejs_compat` compatibility flag. Without it the SDK still loads and sends spans, but Workers has no `AsyncLocalStorage`, so a span started after an `await` loses its parent. In that mode, pass parents with [`withParent`](#follow-a-run-across-invocations).
+</Warning>
+
+## Lambda, CLI scripts and cron jobs
+
+A short-lived process can end before the batch timer fires, which loses the spans. Wrap Lambda handlers with `withLambda`, which flushes before returning, or call `flush()` yourself. `withLambda` gives the flush at most 2 seconds, less if the invocation is close to its timeout, so a collector that's down costs you those spans instead of the invocation:
+
+```typescript
+export const handler = openlit.withLambda(async (event) => {
+  /* ... */
+});
+```
+
+```typescript
+await runJob();
+await openlit.flush(); // send everything buffered
+await openlit.shutdown(); // flush, then stop the exporters
+```
+
+`flush()` and `shutdown()` never reject, because a telemetry failure shouldn't fail your work.
+
+`openlit.flush()` alone has no time limit of that kind: with a hung collector it waits for the exporter's 10-second timeout. On Vercel Edge and other runtimes without a wrapper, pass it to the platform's `waitUntil` instead of awaiting it before returning.
+
+On the edge, spans that can't be sent yet, because the collector is down, timed out or asked for a retry, stay in a buffer of 2,048 for the next flush, and the oldest go first when it fills. A span the collector rejects as bad input is dropped by itself, without holding up the others. A refusal that applies to every span, such as a `401` for a wrong key or a `404` for a wrong URL, drops that batch at once. `openlit.droppedSpans()` returns how many have been lost.
+
+On Node, including Lambda, spans go through the standard OpenTelemetry batch processor, which has its own limits, and `openlit.droppedSpans()` returns `0`.
+
+## Instrument bundled code
+
+esbuild, wrangler, webpack and Next.js remove the module loading that automatic instrumentation relies on, so the app runs with no LLM spans. Pass the module you imported:
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
+
+openlit.init({ instrumentations: { anthropic: Anthropic, openai: OpenAI } });
+```
+
+Or patch one client, which works for Anthropic and OpenAI clients:
+
+```typescript
+const client = openlit.instrument(new Anthropic());
+```
+
+An unknown key in `instrumentations` logs a warning and the rest still apply.
+
+### Guards in bundled code
+
+A client wrapped with `openlit.instrument()` uses the guards from `init()` at the time of each call, so it can be wrapped before `init()` runs, and guards returned from the `withWorker` settings callback apply too.
+
+A denied call rejects with `GuardDeniedError`. The clients' own stream helpers, such as `messages.stream()`, wrap errors they didn't raise, so a denied stream rejects with the client's error and the `GuardDeniedError` as its `cause`:
+
+```typescript
+const isDenied = (error: unknown) =>
+  error instanceof openlit.GuardDeniedError || (error as any)?.cause instanceof openlit.GuardDeniedError;
+```
+
+
+On Node, `init({ guards })` finds installed providers by itself. Bundled code has nothing to find them with, so guards apply only to modules you pass to `instrumentations` and clients wrapped with `openlit.instrument()`:
+
+```typescript
+openlit.init({
+  guards: [new openlit.PII({ action: "deny" })],
+  instrumentations: { anthropic: Anthropic },
+});
+```
+
+<Warning>
+A client that reaches a provider any other way isn't guarded. If no provider is guarded at all, `init()` logs a warning to the console, and it can't warn about a `fetch` call you make yourself. For those, run the guard yourself with `openlit.Pipeline`.
+</Warning>
+
+## Trace calls the SDK can't patch
+
+For raw HTTP calls and private models, `openlit.llm` creates a span with the same attributes, event and pricing as a patched provider. Only tool details are missing, since those come from a provider's request:
+
+```typescript
+const label = await openlit.llm(
+  { provider: "acme", model: "acme-large", serverAddress: "models.acme.internal" },
+  async (span) => {
+    span.setInput(prompt); // honours captureMessageContent
+    const response = await fetch(url, { method: "POST", body });
+    const result = await response.json();
+    span.setUsage({ inputTokens: result.in, outputTokens: result.out }); // cost from pricing
+    span.setResponse({ id: result.id, finishReason: result.stop });
+    span.setOutput(result.text);
+    return result.text;
+  },
+);
+```
+
+If a model isn't in the pricing data, add it through `pricingJson`, or pass `cost` to `setUsage`.
+
+| Method | Sets |
+| --- | --- |
+| `setInput(input, system?)` | Input messages and system instructions. `input` is a string, a message array or any JSON value. |
+| `setOutput(output)` | Output messages. |
+| `setUsage({ inputTokens, outputTokens, cacheReadTokens?, cacheCreationTokens?, cost? })` | Tokens and cost. |
+| `setResponse({ id?, model?, finishReason? })` | Response ID, the model that answered, and the finish reason. |
+| `setAttributes(attributes)` | Any other span attributes. |
+
+Besides `provider` and `model`, the first argument takes `operation`, `serverAddress`, `serverPort`, `temperature`, `topP` and `maxTokens`.
+
+To trace direct HTTP calls to the TypeSafe API without changing them, set `fetchAdapters: ["typesafe"]` in `init()`, or call `openlit.instrumentFetch(["typesafe"])`, which returns a function that restores `fetch`. Other requests pass through untouched.
+
+## Follow a run across invocations
+
+Durable workflows, queue consumers and resumed jobs run across many invocations. Derive the trace from a stable run ID, so every step joins one trace:
+
+```typescript
+const run = openlit.traceContextFrom(event.runId);
+
+await openlit.withParent(run, () => doStep()); // a child of the run's root span
+
+// Once the run ends, write the root span
+openlit.recordSpan({ name: "workflow run", ...run, start: startedAt, end: Date.now() });
+```
+
+Steps appear without a parent until the root span is written. If a run never finishes, its trace has no root.
+
+`recordSpan` also takes `parentSpanId`, `kind`, `attributes` and `error`, and `start` and `end` can be numbers, `Date` objects or ISO 8601 strings. It logs a warning and writes nothing for invalid IDs or times.
+
+`recordSpan` needs the tracer provider OpenLIT creates, so it logs a warning and writes nothing if you passed your own `tracer`, or another OpenTelemetry provider is in use.
+
+To continue a trace in another service:
+
+```typescript
+const traceparent = openlit.inject();
+if (traceparent) headers.traceparent = traceparent;
+
+// In the other service
+openlit.withParent(openlit.extract(request.headers), handle);
+```
+
+`withWorker` doesn't continue an incoming `traceparent` by default. It starts a new trace and keeps the incoming context as a span link, because anyone can send that header to a public Worker to choose a trace ID, or to drop their request from telemetry with an unsampled flag. If your Worker sits behind something that sets or strips the header, set `trustIncomingTraceparent: true`.
+
+## Tag calls by purpose
+
+Tag model calls so that calls to one model can be told apart:
+
+```typescript
+await openlit.withTags({ purpose: "classification", route: "gateway" }, () => classify(text));
+```
+
+In the Python SDK, use `with openlit.with_tags(purpose="classification", route="gateway"):`.
+
+This sets `openlit.request.purpose` and `openlit.route` on each model span. To filter on them, open the filters on the traces page, and add a custom attribute filter on either key.
+
+## Headless coding agents
+
+Hooks and plugins may be off in CI and restricted modes. `openlit.codingAgent.env` switches on an agent's own telemetry instead, and connects it to your trace:
+
+```typescript
+import { spawn } from "node:child_process";
+
+spawn("claude", ["-p", prompt], {
+  env: openlit.codingAgent.env({ vendor: "claude-code", serviceName: "my-app" }),
+});
+```
+
+The child reports under its own `service.name`, which the Agents hub uses to recognise it, so an inherited `OTEL_SERVICE_NAME` is removed. Your service appears as `openlit.caller.service`, and your trace as `openlit.parent.trace_id`. `TRACEPARENT` is also set, for agents that read it. Prompts and tool details are sent only with `captureContent: true`. Every inherited `OTEL_LOG_*` content flag, such as `OTEL_LOG_RAW_API_BODIES`, is removed from the child, while `OTEL_LOG_LEVEL` is kept.
+
+The result includes your whole environment, as `spawn` expects, and the OTLP headers, so the agent and any tool it runs can read them. Use a key scoped to ingest for CI. The options are `vendor`, `serviceName`, `otlpEndpoint`, `otlpHeaders`, `captureContent`, `resourceAttributes` and `parent`.
+
+<Note>
+Native telemetry appears in the trace view and counts on the Agents hub tile, but it doesn't create rows on the Sessions and Users pages, which are built from hook spans. For those pages, use hooks where you can.
+</Note>
+
+From a shell or CI job, use [`openlit coding exec`](/latest/cli/commands#openlit-coding-exec).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="sliders" href="/latest/sdk/configuration">
+    All SDK options
+  </Card>
+  <Card title="Instrumentation methods" icon="wand-magic-sparkles" href="/latest/sdk/instrumentation-methods">
+    Zero-code and manual setup
+  </Card>
+</CardGroup>

@@ -3,7 +3,7 @@ import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import OpenlitConfig from './config';
 import SemanticConvention from './semantic-convention';
 
-function getTracer() {
+export function getTracer() {
   const provider = OpenlitConfig.tracer as any;
   return provider?.getTracer?.('openlit') ?? otelTrace.getTracer('openlit');
 }

@@ -1,8 +1,6 @@
-import { encodingForModel, TiktokenModel } from 'js-tiktoken';
-import { createHash } from 'crypto';
 import { Attributes, Context, Span, SpanStatusCode, context as otelContext, trace } from '@opentelemetry/api';
 import { SeverityNumber } from '@opentelemetry/api-logs';
-import { AsyncLocalStorage } from 'async_hooks';
+import { countTokens, createContextStore, sha1Hex } from './platform';
 import SemanticConvention from './semantic-convention';
 import Events from './otel/events';
 import OpenlitConfig from './config';
@@ -12,13 +10,13 @@ import OpenlitConfig from './config';
  * Mirrors Python's ContextVar _custom_span_attributes, used by
  * usingAttributes() and injectAdditionalAttributes().
  */
-const _customSpanAttributes = new AsyncLocalStorage<Record<string, any>>();
+const _customSpanAttributes = createContextStore<Record<string, any>>();
 
 // ---------------------------------------------------------------------------
 // Framework LLM span suppression flags (mirrors Python SDK ContextVars)
 // ---------------------------------------------------------------------------
 
-const _frameworkLlmActive = new AsyncLocalStorage<boolean>();
+const _frameworkLlmActive = createContextStore<boolean>();
 
 /**
  * Returns true when a framework instrumentor (LangChain, LiteLLM, etc.)
@@ -59,7 +57,7 @@ export function resetFrameworkLlmActive(): void {
 // User-supplied agent version label (mirrors Python's _current_agent_version)
 // ---------------------------------------------------------------------------
 
-const _currentAgentVersion = new AsyncLocalStorage<string>();
+const _currentAgentVersion = createContextStore<string>();
 
 /**
  * Returns the user-supplied agent version label set via
@@ -71,6 +69,21 @@ const _currentAgentVersion = new AsyncLocalStorage<string>();
  */
 export function getCurrentAgentVersion(): string | undefined {
   return _currentAgentVersion.getStore();
+}
+
+/**
+ * Remember the call's tags and agent version now, and restore them for a
+ * callback that runs later, outside the caller's async context. A client may
+ * resolve a call lazily, after `withTags(tags, () => client.create(p))` has
+ * already returned.
+ */
+export function captureCallContext(): <R>(fn: () => R) => R {
+  const attributes = _customSpanAttributes.getStore();
+  const agentVersion = _currentAgentVersion.getStore();
+  return (fn) => {
+    const withVersion = agentVersion === undefined ? fn : () => _currentAgentVersion.run(agentVersion, fn);
+    return attributes === undefined ? withVersion() : _customSpanAttributes.run(attributes, withVersion);
+  };
 }
 
 /**
@@ -120,7 +133,7 @@ export function runWithAgentVersion<T>(version: string, fn: () => T): T {
   return _currentAgentVersion.run(version, fn);
 }
 
-const _langGraphActive = new AsyncLocalStorage<boolean>();
+const _langGraphActive = createContextStore<boolean>();
 
 /**
  * Returns true when a LangGraph wrapper is controlling execution.
@@ -134,7 +147,7 @@ export function runWithLangGraph<T>(fn: () => T): T {
   return _langGraphActive.run(true, fn);
 }
 
-const _createAgentActive = new AsyncLocalStorage<boolean>();
+const _createAgentActive = createContextStore<boolean>();
 
 /**
  * Returns true when a create_agent span is already being handled
@@ -148,7 +161,7 @@ export function runWithCreateAgent<T>(fn: () => T): T {
   return _createAgentActive.run(true, fn);
 }
 
-const _langGraphConversationId = new AsyncLocalStorage<string>();
+const _langGraphConversationId = createContextStore<string>();
 
 /**
  * Propagate conversation ID from invoke_workflow to child node spans.
@@ -166,7 +179,7 @@ export function runWithLangGraphConversationId<T>(conversationId: string, fn: ()
 // Framework parent context propagation (mirrors Python context_api.attach)
 // ---------------------------------------------------------------------------
 
-const _frameworkParentContext = new AsyncLocalStorage<Context>();
+const _frameworkParentContext = createContextStore<Context>();
 
 /**
  * Returns the OTel context set by a framework processor (OpenAI Agents, etc.)
@@ -306,21 +319,43 @@ export function usingAttributes<T>(attributes: Record<string, any>, fn: () => T)
   return _customSpanAttributes.run(attributes, fn);
 }
 
+export type CallTags = { purpose?: string; route?: string };
+
+/**
+ * Tag every model call inside `fn` with its business purpose and route, for
+ * example `{ purpose: 'classification', route: 'gateway' }`, so calls to one
+ * model can be told apart in the UI.
+ */
+export function withTags<T>({ purpose, route }: CallTags, fn: () => T): T {
+  return usingAttributes(
+    {
+      ..._customSpanAttributes.getStore(),
+      ...(purpose ? { [SemanticConvention.OPENLIT_REQUEST_PURPOSE]: purpose } : {}),
+      ...(route ? { [SemanticConvention.OPENLIT_ROUTE]: route } : {}),
+    },
+    fn
+  );
+}
+
 export default class OpenLitHelper {
   static readonly PROMPT_TOKEN_FACTOR = 1000;
 
   static openaiTokens(text: string, model: string): number {
     try {
-      const encoding = encodingForModel(model as TiktokenModel);
-      return encoding.encode(text).length;
+      return OpenlitConfig.tokenCounter?.(text, model) ?? countTokens(text, model);
     } catch {
       return OpenLitHelper.generalTokens(text);
     }
   }
 
   static generalTokens(text: string): number {
-    const encoding = encodingForModel('gpt2');
-    return encoding.encode(text).length;
+    try {
+      const counted = OpenlitConfig.tokenCounter?.(text);
+      if (counted !== undefined) return counted;
+    } catch {
+      // A custom counter must not fail the caller's request.
+    }
+    return countTokens(text, 'gpt2');
   }
 
   /**
@@ -443,17 +478,19 @@ export default class OpenLitHelper {
     }
   }
 
+  static isPricingUrl(pricingJson: unknown): pricingJson is string {
+    if (typeof pricingJson !== 'string') return false;
+    try {
+      return !!new URL(pricingJson);
+    } catch {
+      return false;
+    }
+  }
+
   static async fetchPricingInfo(pricingJson: any) {
     let pricingUrl = 'https://raw.githubusercontent.com/openlit/openlit/main/assets/pricing.json';
     if (pricingJson) {
-      let isUrl = false;
-      try {
-        isUrl = !!new URL(pricingJson);
-      } catch {
-        isUrl = false;
-      }
-
-      if (isUrl) {
+      if (OpenLitHelper.isPricingUrl(pricingJson)) {
         pricingUrl = pricingJson;
       } else {
         try {
@@ -473,7 +510,7 @@ export default class OpenLitHelper {
     try {
       const response = await fetch(pricingUrl);
       if (response.ok) {
-        return response.json();
+        return await response.json();
       } else {
         throw new Error(`HTTP error occurred while fetching pricing info: ${response.status}`);
       }
@@ -780,10 +817,7 @@ export default class OpenLitHelper {
         },
       });
 
-      const result = createHash('sha1')
-        .update(JSON.stringify(payload))
-        .digest('hex')
-        .slice(0, 16);
+      const result = sha1Hex(JSON.stringify(payload)).slice(0, 16);
 
       if (cacheKey) {
         OpenLitHelper._versionHashCache.set(cacheKey, result);
