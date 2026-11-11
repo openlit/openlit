@@ -2,6 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const {
 	readInitDbConfig,
 	hasInitDb,
+	seedDefaultOrganisationMembership,
 	ensureProjectEnvironment,
 	upsertDefaultDatabaseConfig,
 	migrateExistingData,
@@ -36,25 +37,6 @@ async function main() {
 		},
 	});
 
-	await prisma.organisationUser.upsert({
-		where: {
-			organisationId_userId: {
-				organisationId: defaultOrg.id,
-				userId: user.id,
-			},
-		},
-		update: {
-			role: "owner",
-			isCurrent: true,
-		},
-		create: {
-			organisationId: defaultOrg.id,
-			userId: user.id,
-			role: "owner",
-			isCurrent: true,
-		},
-	});
-
 	const defaultProject = await prisma.project.upsert({
 		where: {
 			organisationId_slug: {
@@ -73,16 +55,10 @@ async function main() {
 		},
 	});
 
-	await prisma.organisationUser.update({
-		where: {
-			organisationId_userId: {
-				organisationId: defaultOrg.id,
-				userId: user.id,
-			},
-		},
-		data: {
-			currentProjectId: defaultProject.id,
-		},
+	await seedDefaultOrganisationMembership(prisma, {
+		organisationId: defaultOrg.id,
+		userId: user.id,
+		projectId: defaultProject.id,
 	});
 
 	// Fresh and upgraded installs always get a production environment row so
