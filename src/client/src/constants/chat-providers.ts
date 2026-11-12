@@ -19,6 +19,7 @@ export const CHAT_PROVIDER_IDS = [
 	"replicate",
 	"minimax",
 	"orcarouter",
+	"runcrate",
 ] as const;
 
 export type ChatProviderId = (typeof CHAT_PROVIDER_IDS)[number];

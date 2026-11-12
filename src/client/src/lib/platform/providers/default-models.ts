@@ -152,6 +152,14 @@ export const DEFAULT_PROVIDERS: DefaultProviderEntry[] = [
 		},
 	},
 	{
+		providerId: "runcrate", displayName: "Runcrate", description: "OpenAI-compatible inference for open-weight models", requiresVault: true,
+		configSchema: {
+			temperature: { min: 0, max: 2, step: 0.1, default: 1, description: "Sampling temperature" },
+			maxTokens: { min: 1, max: 32768, step: 1, default: 1000, description: "Maximum tokens to generate" },
+			topP: { min: 0, max: 1, step: 0.1, default: 1, description: "Nucleus sampling threshold" },
+		},
+	},
+	{
 		providerId: "typesafe", displayName: "TypeSafe", description: "Jev System One decision model for structured LLM evaluation", requiresVault: true,
 		configSchema: {},
 	},
@@ -1159,6 +1167,43 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			cacheReadPricePerMToken: 0.03,
 			cacheCreationPricePerMToken: 0.3,
 			capabilities: ["function-calling", "vision", "streaming", "thinking"],
+		},
+	],
+	// Runcrate model IDs are Hugging Face style (`org/model`). Context windows
+	// and per-token prices from GET https://api.runcrate.ai/v1/models,
+	// converted to USD per million tokens.
+	runcrate: [
+		{
+			id: "openai/gpt-oss-120b",
+			displayName: "gpt-oss-120b",
+			contextWindow: 131072,
+			inputPricePerMToken: 0.03885,
+			outputPricePerMToken: 0.1785,
+			capabilities: ["function-calling", "streaming", "thinking"],
+		},
+		{
+			id: "deepseek-ai/DeepSeek-V3.2",
+			displayName: "DeepSeek V3.2",
+			contextWindow: 163840,
+			inputPricePerMToken: 0.273,
+			outputPricePerMToken: 0.399,
+			capabilities: ["function-calling", "streaming", "thinking"],
+		},
+		{
+			id: "Qwen/Qwen3-235B-A22B-Instruct-2507",
+			displayName: "Qwen3 235B A22B Instruct 2507",
+			contextWindow: 262144,
+			inputPricePerMToken: 0.0945,
+			outputPricePerMToken: 0.5775,
+			capabilities: ["function-calling", "streaming"],
+		},
+		{
+			id: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+			displayName: "Llama 3.3 70B Instruct Turbo",
+			contextWindow: 131072,
+			inputPricePerMToken: 0.105,
+			outputPricePerMToken: 0.336,
+			capabilities: ["function-calling", "streaming"],
 		},
 	],
 	// TypeSafe Jev — native System One decision model. Prices from

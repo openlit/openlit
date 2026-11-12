@@ -46,6 +46,7 @@ const providerFactories: Record<string, ProviderFactory> = {
 	replicate: (apiKey) => createOpenAI({ baseURL: "https://openai-proxy.replicate.com/v1", apiKey }),
 	minimax: (apiKey) => createOpenAI({ baseURL: "https://api.minimax.io/v1", apiKey }),
 	orcarouter: (apiKey) => createOpenAI({ baseURL: "https://api.orcarouter.ai/v1", apiKey }),
+	runcrate: (apiKey) => createOpenAI({ baseURL: "https://api.runcrate.ai/v1", apiKey }),
 };
 
 const VALID_PROVIDERS = CHAT_PROVIDER_IDS as readonly string[];

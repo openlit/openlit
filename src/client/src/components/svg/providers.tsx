@@ -430,6 +430,24 @@ export function TypeSafeSvg({ className }: SvgProps) {
 	);
 }
 
+/**
+ * Runcrate's published app icon, embedded as an image so it stays faithful to
+ * the brand and reads in light and dark.
+ */
+export function RuncrateSvg({ className }: SvgProps) {
+	return (
+		<svg
+			role="img"
+			aria-label="Runcrate"
+			viewBox="0 0 24 24"
+			xmlns="http://www.w3.org/2000/svg"
+			className={className}
+		>
+			<image href="/images/provider/runcrate.png" width="24" height="24" />
+		</svg>
+	);
+}
+
 const PROVIDER_ICON_MAP: Record<string, React.FC<SvgProps>> = {
 	openai: OpenAISvg,
 	anthropic: AnthropicSvg,
@@ -438,6 +456,7 @@ const PROVIDER_ICON_MAP: Record<string, React.FC<SvgProps>> = {
 	mistral: MistralSvg,
 	groq: GroqSvg,
 	orcarouter: OrcaRouterSvg,
+	runcrate: RuncrateSvg,
 	azure_openai: AzureSvg,
 	azure_inference: AzureSvg,
 	bedrock: BedrockSvg,

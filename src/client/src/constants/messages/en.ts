@@ -1370,6 +1370,7 @@ export const AGENTS_PROVIDER_DEEPSEEK = "DeepSeek";
 export const AGENTS_PROVIDER_TOGETHER = "Together AI";
 export const AGENTS_PROVIDER_FIREWORKS = "Fireworks AI";
 export const AGENTS_PROVIDER_ORCAROUTER = "OrcaRouter";
+export const AGENTS_PROVIDER_RUNCRATE = "Runcrate";
 export const AGENTS_PROVIDER_VERCEL_AI = "Vercel AI Gateway";
 export const AGENTS_PROVIDER_VERTEX_AI = "Vertex AI";
 export const AGENTS_PROVIDER_AZURE_INFERENCE = "Azure AI Inference";

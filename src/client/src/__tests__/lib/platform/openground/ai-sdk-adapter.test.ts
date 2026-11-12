@@ -30,3 +30,24 @@ it('attributes Perplexity requests to OpenLIT', async () => {
     headers: { 'X-Pplx-Integration': 'openlit' },
   });
 });
+
+it('routes Runcrate through the OpenAI-compatible endpoint', async () => {
+  const model = {};
+  (createOpenAI as jest.Mock).mockReturnValue(() => model);
+  (generateText as jest.Mock).mockResolvedValue({
+    text: 'response',
+    usage: { inputTokens: 1, outputTokens: 1 },
+    finishReason: 'stop',
+  });
+
+  await AISdkAdapter.generateCompletion({
+    provider: 'runcrate',
+    model: 'openai/gpt-oss-120b',
+    apiKey: 'key',
+  });
+
+  expect(createOpenAI).toHaveBeenCalledWith({
+    baseURL: 'https://api.runcrate.ai/v1',
+    apiKey: 'key',
+  });
+});

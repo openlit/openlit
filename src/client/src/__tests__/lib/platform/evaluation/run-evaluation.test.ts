@@ -128,6 +128,11 @@ describe('runEvaluation — provider routing', () => {
     expect(createOpenAI).toHaveBeenCalledWith(expect.objectContaining({ baseURL: 'https://api.orcarouter.ai/v1' }));
   });
 
+  it('creates OpenAI-compatible model for provider=runcrate', async () => {
+    await runEvaluation({ ...BASE_PARAMS, provider: 'runcrate' });
+    expect(createOpenAI).toHaveBeenCalledWith(expect.objectContaining({ baseURL: 'https://api.runcrate.ai/v1' }));
+  });
+
   it('maps gemini provider alias to google', async () => {
     await runEvaluation({ ...BASE_PARAMS, provider: 'gemini' });
     expect(createGoogleGenerativeAI).toHaveBeenCalled();
