@@ -2,6 +2,7 @@
 Utilities for Qdrant instrumentation.
 """
 
+import inspect
 import time
 from urllib.parse import urlparse
 from opentelemetry.trace import Status, StatusCode
@@ -38,6 +39,27 @@ DB_OPERATION_MAP = {
     "qdrant.query_points_groups": SemanticConvention.DB_OPERATION_QUERY,
     "qdrant.create_payload_index": SemanticConvention.DB_OPERATION_CREATE_INDEX,
 }
+
+
+def get_qdrant_request_params(wrapped, args, kwargs):
+    """Normalize parameters for telemetry without changing the original call."""
+    params = dict(kwargs)
+    if not args:
+        return params
+    try:
+        signature = inspect.signature(wrapped)
+        bound = signature.bind_partial(*args, **kwargs)
+    except (TypeError, ValueError):
+        # An unavailable signature or an invalid call must not replace the
+        # original callable's behavior with an instrumentation error.
+        return params
+    for name, value in bound.arguments.items():
+        kind = signature.parameters[name].kind
+        if kind == inspect.Parameter.VAR_KEYWORD:
+            params.update(value)
+        elif kind != inspect.Parameter.VAR_POSITIONAL:
+            params[name] = value
+    return params
 
 
 def object_count(obj):
