@@ -89,6 +89,21 @@ LITELLM_PROVIDER_HOSTS = {
 }
 
 
+# Leading positional parameters of litellm.completion/acompletion and
+# litellm.embedding/aembedding, in signature order.
+CHAT_POSITIONAL_PARAMS = ("model", "messages")
+EMBEDDING_POSITIONAL_PARAMS = ("model", "input")
+
+
+def merge_positional_args(args, kwargs, param_names):
+    """
+    Return the call's keyword arguments with leading positional arguments
+    mapped to their parameter names, e.g. ``completion(model, messages)``.
+    Explicit keyword arguments take precedence. The inputs are not modified.
+    """
+    return {**dict(zip(param_names, args)), **kwargs}
+
+
 def get_litellm_server_address(instance, kwargs):
     """
     Resolve server address and port for LiteLLM calls.
