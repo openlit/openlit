@@ -22,6 +22,12 @@ import {
 	getSpanCostFormatted,
 } from "@/helpers/client/trace";
 import {
+	extractTextMessages,
+	normalizeRole,
+	tryPrettyJson,
+} from "@/helpers/client/span-messages";
+import Markdown from "@/components/common/markdown";
+import {
 	ArrowRight,
 	Bot,
 	Brain,
@@ -113,130 +119,6 @@ function parseTimestampMs(ts?: string): number {
 	if (!Number.isNaN(ms)) return ms;
 	const fallback = new Date(ts).getTime();
 	return Number.isNaN(fallback) ? 0 : fallback;
-}
-
-function tryParseJson(raw: unknown): any[] | null {
-	if (raw == null) return null;
-	try {
-		const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-		return Array.isArray(parsed) ? parsed : null;
-	} catch {
-		return null;
-	}
-}
-
-/**
- * True when the string looks like it was meant to be JSON (starts
- * with `[` or `{`, optionally after whitespace). Used by
- * `extractTextMessages` to suppress the raw-string fallback when
- * the value was clearly a serialised messages envelope that simply
- * failed to parse — usually because it was truncated mid-token at
- * the OTLP attribute-size cap. Without this guard, the truncated
- * blob renders as a "user" bubble with the full raw JSON inside,
- * which is how Claude Code traces ended up showing tool_result
- * contents as user messages.
- */
-function looksLikeJson(raw: string): boolean {
-	const trimmed = raw.trimStart();
-	return trimmed.startsWith("[") || trimmed.startsWith("{");
-}
-
-function extractTextMessages(
-	raw: unknown,
-	defaultRole: "user" | "assistant" = "user"
-): { role: string; content: string }[] {
-	if (raw == null) return [];
-	// The CLI emits `gen_ai.{input,output}.messages` per the OTel
-	// GenAI semantic convention (https://github.com/open-telemetry/
-	// semantic-conventions-genai → docs/gen-ai/gen-ai-spans.md):
-	//   [{ role, parts: [{ type: "text", content: "..." }],
-	//      finish_reason? }]
-	// Tool-call / tool-call-response parts are intentionally NOT
-	// stamped onto LLM-turn messages by the CLI — the canonical
-	// source for tool data is the matching `coding_agent.tool.call`
-	// span. See cli/internal/otlp/attrs.go for the rationale.
-	//
-	// Legacy paths fall back to a plain string body and to OpenAI's
-	// `content: "..."` / `content: [{type:"text", text:"..."}]` so
-	// vendors mid-migration still render.
-	const arr = tryParseJson(raw);
-	if (!arr) {
-		if (typeof raw === "string" && raw.trim()) {
-			// Drop unparseable strings that look like JSON — they're
-			// almost always a truncated messages envelope, and
-			// rendering them verbatim creates the "tool_result JSON
-			// appears as a user bubble" failure mode.
-			if (looksLikeJson(raw)) return [];
-			return [{ role: defaultRole, content: raw }];
-		}
-		return [];
-	}
-
-	const result: { role: string; content: string }[] = [];
-	for (const msg of arr) {
-		if (!msg) continue;
-		const role = msg.role || "unknown";
-
-		if (Array.isArray(msg.parts)) {
-			const lines: string[] = [];
-			for (const p of msg.parts) {
-				if (!p?.type) continue;
-				if (p.type === "text") {
-					// OTel canonical uses `content`; legacy emitters
-					// may use `text` — accept both for resilience.
-					const t =
-						(typeof p.content === "string" && p.content) ||
-						(typeof p.text === "string" && p.text) ||
-						"";
-					if (t) lines.push(t);
-				}
-				// `tool_call` / `tool_call_response` parts are
-				// intentionally ignored here. Tool data lives on
-				// `coding_agent.tool.call` spans (rendered by
-				// `ToolIndicator` below); duplicating it inside a
-				// chat bubble produces redundant "Tool Result" /
-				// "🛠 tool_call" lines that clutter the conversation.
-			}
-			if (lines.length > 0) {
-				result.push({ role, content: lines.join("\n\n") });
-			}
-			continue;
-		}
-
-		if (typeof msg.content === "string" && msg.content.trim()) {
-			result.push({ role, content: msg.content });
-			continue;
-		}
-
-		if (Array.isArray(msg.content)) {
-			const texts: string[] = [];
-			for (const part of msg.content) {
-				if (part?.type === "text" && typeof part.text === "string") {
-					texts.push(part.text);
-				}
-			}
-			if (texts.length > 0) {
-				result.push({ role, content: texts.join("\n") });
-			}
-		}
-	}
-	return result;
-}
-
-function normalizeRole(role: string): "user" | "assistant" | "system" | "tool" {
-	if (role === "assistant") return "assistant";
-	if (role === "system") return "system";
-	if (role === "tool" || role === "function") return "tool";
-	return "user";
-}
-
-function tryPrettyJson(raw: string): string | null {
-	try {
-		const parsed = JSON.parse(raw);
-		return JSON.stringify(parsed, null, 2);
-	} catch {
-		return null;
-	}
 }
 
 // ─── Item extraction ─────────────────────────────────────────────────────────
@@ -685,9 +567,10 @@ function ThoughtIndicator({
 							</span>
 						)}
 					</div>
-					<pre className="mt-1 whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-stone-700 dark:text-stone-300">
-						{expanded || !showToggle ? text : preview}
-					</pre>
+					<Markdown
+						className="mt-1 text-[12px] leading-relaxed text-stone-700 dark:text-stone-300"
+						content={expanded || !showToggle ? text : preview}
+					/>
 					{showToggle && (
 						<button
 							className="mt-0.5 text-[10px] text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
@@ -785,9 +668,10 @@ function SubagentIndicator({
 						</span>
 					</div>
 					{item.content && (
-						<p className="mt-1 line-clamp-2 whitespace-pre-wrap text-[12px] leading-relaxed text-stone-700 dark:text-stone-300">
-							{item.content}
-						</p>
+						<Markdown
+							className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-stone-700 dark:text-stone-300"
+							content={item.content}
+						/>
 					)}
 					{item.details && (
 						<>
@@ -806,9 +690,10 @@ function SubagentIndicator({
 								Summary
 							</button>
 							{expanded && (
-								<pre className="mt-1 whitespace-pre-wrap break-words font-sans text-[11px] leading-relaxed text-stone-600 dark:text-stone-400">
-									{item.details}
-								</pre>
+								<Markdown
+									className="mt-1 text-[11px] leading-relaxed text-stone-600 dark:text-stone-400"
+									content={item.details}
+								/>
 							)}
 						</>
 					)}
@@ -1255,7 +1140,7 @@ export default function ChatView({
 						</div>
 
 						<div
-							className={`max-w-[92%] cursor-pointer whitespace-pre-wrap break-words px-2.5 py-2 text-[12px] leading-relaxed transition-colors ${
+							className={`max-w-[92%] cursor-pointer break-words px-2.5 py-2 text-[12px] leading-relaxed transition-colors ${
 								config.bubble
 							} ${
 								isSelected
@@ -1266,7 +1151,7 @@ export default function ChatView({
 								updateRequest({ spanId: item.span.SpanId })
 							}
 						>
-							{item.content}
+							<Markdown content={item.content || ""} />
 						</div>
 
 						{role === "assistant" && (

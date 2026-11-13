@@ -215,6 +215,7 @@ export const OPENAPI_SPEC_CONTEXT_HEADERS_HINT =
 	"org / project / environment headers required for signal routing";
 export const REQUEST_CURL_EXAMPLE = "Request Curl Example";
 export const COPY_SNIPPET = "Copy Snippet";
+export const COPY_CODE = "Copy code";
 export const COPIED = "Copied";
 export const REQUEST_PAYLOAD_JSON = "Request Payload (JSON)";
 export const RESPONSE_BODY_JSON = "Response Body (JSON)";
@@ -434,6 +435,7 @@ export const OBSERVABILITY_TITLE = "Telemetry";
 export const OBSERVABILITY_TRACE_LOADING = "Loading trace...";
 export const OBSERVABILITY_LOADING = "Loading...";
 export const OBSERVABILITY_TRACE_DETAILS = "Trace Details";
+export const OBSERVABILITY_SPAN_LOAD_FAILED = "Could not load this span";
 export const OBSERVABILITY_TRACES = "Traces";
 export const OBSERVABILITY_EXCEPTIONS = "Exceptions";
 export const OBSERVABILITY_METRICS = "Metrics";
@@ -489,6 +491,15 @@ export const OBSERVABILITY_COPY_UNSUPPORTED =
 export const OBSERVABILITY_LINK_COPIED = "Link copied to clipboard";
 export const OBSERVABILITY_LINK_COPY_FAILED = "Could not copy link";
 export const OBSERVABILITY_COPY_SHARE_LINK = "Copy shareable link";
+export const OBSERVABILITY_SPAN_SEARCH_PLACEHOLDER = "Search span content";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_LABEL = "What span search covers";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_MATCHING =
+	"Every word must appear, in any order, ignoring case. Wrap words in double quotes to match an exact phrase.";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_SPAN_ATTRIBUTES = "Span attributes";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_EVENT_ATTRIBUTES = "Span event attributes";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_STATUS = "Span status message";
+export const OBSERVABILITY_SPAN_SEARCH_RANGE_TOO_WIDE = (days: number) =>
+	`Span content search covers up to ${days} days. Narrow the time range and search again.`;
 export const GENERATION_HEALTH_TRUNCATED = "Truncated";
 export const GENERATION_HEALTH_FILTERED = "Filtered";
 export const GENERATION_HEALTH_EMPTY = "Empty";
@@ -564,6 +575,7 @@ export const OBSERVABILITY_LOG_ATTRS = "Log Attrs";
 export const OBSERVABILITY_RESOURCE = "Resource";
 export const OBSERVABILITY_SCOPE = "Scope";
 export const OBSERVABILITY_RAW = "Raw";
+export const OBSERVABILITY_FORMATTED = "Formatted";
 export const OBSERVABILITY_AUTO = "Auto";
 export const OBSERVABILITY_METRIC_POINTS = "Metric points";
 export const OBSERVABILITY_LOG_EVENTS = "Log events";
@@ -1541,6 +1553,7 @@ export const DB_CONFIG_FIELD_USERNAME = "Username";
 export const DB_CONFIG_FIELD_PASSWORD = "Password";
 export const DB_CONFIG_FIELD_HOST = "Host";
 export const DB_CONFIG_FIELD_PORT = "Port";
+export const DB_CONFIG_INVALID_PORT = "Port must be a number between 1 and 65535";
 export const DB_CONFIG_FIELD_DATABASE = "Database";
 export const DB_CONFIG_FIELD_QUERY_PARAMS = "Query params";
 export const UPDATE_DB_CONFIG = "Update Database config";
@@ -3347,6 +3360,8 @@ export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS = "Maximum query window (days
 export const DATA_SOURCE_FIELD_MAX_TIME_RANGE_DAYS_PLACEHOLDER = "30";
 export const DATA_SOURCE_MAX_TIME_RANGE_HINT = (days: number) =>
 	`Maximum ${days} day${days === 1 ? "" : "s"} for the selected data source.`;
+export const DATE_RANGE_START_TIME = "Start time";
+export const DATE_RANGE_END_TIME = "End time";
 export const DATA_SOURCE_SECRET_UNAVAILABLE =
 	"The connector credentials could not be loaded from the OpenLIT vault. Check the selected ClickHouse connection and try again.";
 export const DATA_SOURCE_SECRET_NOT_FOUND =

@@ -12,6 +12,7 @@ import {
 	dateTruncGroupingLogic,
 	getFilterPreviousParams,
 	getFilterWhereCondition,
+	getSpanListWhereCondition,
 	getTimeRangeWhereCondition,
 } from "@/helpers/server/platform";
 import { hasGenerationHealthFilter } from "@/lib/platform/generation-health/classify";
@@ -20,55 +21,6 @@ import {
 	escapeClickHouseString,
 	buildRequestsOrderByClause,
 } from "@/lib/clickhouse-escape";
-
-const PREDEFINED_GROUP_BY: Record<string, string> = {
-	model: `SpanAttributes['gen_ai.request.model']`,
-	// OTel GenAI renamed gen_ai.system -> gen_ai.provider.name (1.30+). The
-	// current SDK emits provider.name. This must stay a single-attribute
-	// expression so the drill-down customFilter in grouped-table.tsx
-	// (SpanAttributes['gen_ai.provider.name'] = <value>) matches the exact
-	// same rows this GROUP BY produces.
-	provider: `SpanAttributes['gen_ai.provider.name']`,
-	spanName: `SpanName`,
-	applicationName: `ResourceAttributes['service.name']`,
-};
-
-const ALLOWED_FIELD_GROUP_BY = new Set([
-	"TraceId",
-	"ParentSpanId",
-	"TraceState",
-	"SpanId",
-	"SpanName",
-	"SpanKind",
-	"ServiceName",
-	"ScopeName",
-	"ScopeVersion",
-	"Timestamp",
-	"Duration",
-	"StatusCode",
-	"StatusMessage",
-]);
-
-export function getGroupByExpression(groupBy: string): string | null {
-	if (groupBy in PREDEFINED_GROUP_BY) return PREDEFINED_GROUP_BY[groupBy];
-	const sep = groupBy.indexOf(":");
-	if (sep === -1) {
-		const sanitized = escapeClickHouseString(groupBy).trim();
-		if (!sanitized) return null;
-		return `SpanAttributes['${sanitized}']`;
-	}
-	const attrType = groupBy.slice(0, sep);
-	const key = escapeClickHouseString(groupBy.slice(sep + 1)).trim();
-	if (!key) return null;
-	if (attrType === "ResourceAttributes") return `ResourceAttributes['${key}']`;
-	if (attrType === "Field") {
-		const field = key.replace(/[^A-Za-z0-9_.]/g, "");
-		if (!field || !ALLOWED_FIELD_GROUP_BY.has(field)) return null;
-		return field;
-	}
-	if (attrType === "SpanAttributes") return `SpanAttributes['${key}']`;
-	return `SpanAttributes['${key}']`;
-}
 
 export async function getRequestPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
@@ -236,6 +188,8 @@ export async function getRequestsConfig(params: MetricParams) {
 }
 
 export async function getRequests(params: MetricParams) {
+	const { where, err: whereErr } = getSpanListWhereCondition(params);
+	if (whereErr) return { err: whereErr };
 	const table = await tracesTableRef(params.databaseConfigId);
 	const { limit = 10, offset = 0 } = params;
 	const oneRowPerTrace =
@@ -246,7 +200,7 @@ export async function getRequests(params: MetricParams) {
 		: "CAST(COUNT(*) AS INTEGER)";
 
 	const countQuery = `SELECT ${totalExpr} AS total	FROM ${table}
-		WHERE ${getFilterWhereCondition(params, true)}`;
+		WHERE ${where}`;
 
 	const { data: dataTotal, err: errTotal } = await queryTracesSql(
 		countQuery,
@@ -258,15 +212,29 @@ export async function getRequests(params: MetricParams) {
 		};
 	}
 
-	const query = `SELECT *	FROM ${table}
-		WHERE ${getFilterWhereCondition(params, true)}
-		${params.sorting && params.sorting.type && params.sorting.direction
+	const orderBy =
+		params.sorting && params.sorting.type && params.sorting.direction
 			? buildRequestsOrderByClause(params.sorting.type, params.sorting.direction)
-			: `ORDER BY Timestamp desc `
-		}
-		${oneRowPerTrace ? "LIMIT 1 BY TraceId" : ""}
-		LIMIT ${limit}
-		OFFSET ${offset}`;
+			: `ORDER BY Timestamp desc `;
+	const limitBy = oneRowPerTrace ? "LIMIT 1 BY TraceId" : "";
+
+	// Page on span identity first so the sort only touches the sort column,
+	// then read full rows (heavy map columns) for that page alone. The row read
+	// takes no LIMIT: the ids already bound it, and exact duplicate spans match
+	// the same id, so a LIMIT would push the page's last row off every page.
+	const query = `SELECT *	FROM ${table}
+		WHERE ${getTimeRangeWhereCondition(params) || "1"}
+		AND (Timestamp, TraceId, SpanId) IN (
+			SELECT Timestamp, TraceId, SpanId
+			FROM ${table}
+			WHERE ${where}
+			${orderBy}
+			${limitBy}
+			LIMIT ${limit}
+			OFFSET ${offset}
+		)
+		${orderBy}
+		${limitBy}`;
 
 	const { data, err } = await queryTracesSql(query, params.databaseConfigId);
 	return {
@@ -302,7 +270,9 @@ export async function getTraceSummaries(params: MetricParams) {
 	const limit = Math.max(1, boundedInteger(params.limit, 10, 500));
 	const offset = boundedInteger(params.offset, 0, 1_000_000);
 	const direction = traceSummaryDirection(params.sorting);
-	const where = getFilterWhereCondition(params, true) || "1";
+	const { where: listWhere, err: whereErr } = getSpanListWhereCondition(params);
+	if (whereErr) return { err: whereErr };
+	const where = listWhere || "1";
 	const timeWhere =
 		getTimeRangeWhereCondition(params).replaceAll("Timestamp", "t.Timestamp") || "1";
 	// Same root rule as pickRootSpan: empty parent, or the 16-zero placeholder.
@@ -318,17 +288,23 @@ export async function getTraceSummaries(params: MetricParams) {
 	const { data: dataTotal, err: errTotal } = await queryTracesSql(countQuery, params.databaseConfigId);
 	if (errTotal) return { err: errTotal };
 
-	const query = `WITH page AS (
-		SELECT
-			TraceId,
-			min(Timestamp) AS TraceStart
-		FROM ${table}
-		WHERE ${where}
-		GROUP BY TraceId
-		ORDER BY TraceStart ${direction}
-		LIMIT ${limit}
-		OFFSET ${offset}
-	)
+	// The page's trace ids, in page order, as one scalar subquery: a CTE would
+	// run its filters (a content search scans the window) once per reference.
+	// The IN keeps heavy map columns to the page's traces and uses the TraceId
+	// index; ClickHouse 24.4 rejects `has(page_ids, …)` here.
+	const query = `WITH (
+		SELECT groupArray(TraceId) FROM (
+			SELECT
+				TraceId,
+				min(Timestamp) AS TraceStart
+			FROM ${table}
+			WHERE ${where}
+			GROUP BY TraceId
+			ORDER BY TraceStart ${direction}, TraceId
+			LIMIT ${limit}
+			OFFSET ${offset}
+		)
+	) AS page_ids
 	SELECT
 		t.TraceId AS TraceId,
 		argMin(t.SpanId, ${rootOrder}) AS SpanId,
@@ -354,10 +330,9 @@ export async function getTraceSummaries(params: MetricParams) {
 		CAST(count() AS INTEGER) AS SpanCount,
 		CAST(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) AS INTEGER) AS ErrorCount
 	FROM ${table} AS t
-	INNER JOIN page AS p ON t.TraceId = p.TraceId
-	WHERE ${timeWhere}
-	GROUP BY t.TraceId, p.TraceStart
-	ORDER BY p.TraceStart ${direction}`;
+	WHERE ${timeWhere} AND t.TraceId IN (SELECT arrayJoin(page_ids))
+	GROUP BY t.TraceId
+	ORDER BY indexOf(page_ids, t.TraceId)`;
 
 	const { data, err } = await queryTracesSql(query, params.databaseConfigId);
 	return {
@@ -702,28 +677,4 @@ export async function getAttributeKeys(params: MetricParams) {
 		spanAttributeKeys: (spanResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
 		resourceAttributeKeys: (resourceResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
 	};
-}
-
-export async function getGroupedRequests(params: MetricParams, groupBy: string) {
-	const table = await tracesTableRef(params.databaseConfigId);
-	const expr = getGroupByExpression(groupBy);
-	if (!expr) {
-		return {
-			err: "Invalid groupBy value",
-			data: [],
-		};
-	}
-	const query = `
-		SELECT
-			${expr} AS group_value,
-			CAST(COUNT(*) AS INTEGER) AS count,
-			CAST(SUM(toFloat64OrZero(SpanAttributes['gen_ai.usage.cost'])) AS FLOAT) AS total_cost,
-			CAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS total_tokens,
-			CAST(AVG(Duration) * 1e-9 AS FLOAT) AS avg_duration_seconds
-		FROM ${table}
-		WHERE ${getFilterWhereCondition(params, true)}
-		GROUP BY group_value
-		ORDER BY count DESC
-	`;
-	return queryTracesSql(query, params.databaseConfigId);
 }

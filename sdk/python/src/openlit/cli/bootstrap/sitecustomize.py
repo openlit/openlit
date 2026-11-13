@@ -42,6 +42,7 @@ except ImportError:
                 "OPENLIT_CAPTURE_DB_PARAMETERS": "capture_db_parameters",
                 "OPENLIT_MAX_CONTENT_LENGTH": "max_content_length",
                 "OPENLIT_CUSTOM_SPAN_ATTRIBUTES": "custom_span_attributes",
+                "OPENLIT_CUSTOM_METRICS_ATTRIBUTES": "custom_metrics_attributes",
             }
 
             for env_var, param_name in env_mappings.items():
@@ -67,11 +68,25 @@ except ImportError:
                     elif env_var in [
                         "OTEL_EXPORTER_OTLP_HEADERS",
                         "OPENLIT_CUSTOM_SPAN_ATTRIBUTES",
+                        "OPENLIT_CUSTOM_METRICS_ATTRIBUTES",
                     ]:
                         try:
                             import json
 
-                            config[param_name] = json.loads(env_value)
+                            parsed_value = json.loads(env_value)
+                            # Attribute mappings must be JSON objects; other
+                            # shapes would break .items() later. Mirrors the
+                            # "json_object" parser in openlit.cli.config.
+                            if env_var.startswith(
+                                "OPENLIT_CUSTOM_"
+                            ) and not isinstance(parsed_value, dict):
+                                logger.warning(
+                                    "Ignoring %s: expected a JSON object, got %s",
+                                    env_var,
+                                    type(parsed_value).__name__,
+                                )
+                            else:
+                                config[param_name] = parsed_value
                         except (json.JSONDecodeError, ImportError):
                             pass
                     # Handle integer values

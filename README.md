@@ -2,7 +2,7 @@
 
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT logo" width="30%">
 
-# OpenLIT: the open-source agent harness engineering platform
+# Same Agent, Smaller Bill!
 
 **Trace, evaluate, guard, and improve AI agents and coding agents with OpenTelemetry.**
 Agent observability · Evals · Guardrails · Prompt management · Cost & GPU monitoring · Self-host free (Apache 2.0)
