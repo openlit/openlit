@@ -151,6 +151,7 @@ def async_chat_completions(
 
         if streaming:
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            start_time = time.time()
             set_openai_request_span_attributes(
                 span,
                 SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -167,7 +168,28 @@ def async_chat_completions(
             try:
                 awaited_wrapped = await wrapped(*args, **kwargs)
             except Exception as e:
-                handle_exception(span, e)
+                err_type = set_span_error_type(span, e)
+                set_openai_request_params(span, kwargs)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        kwargs.get("model", "unknown"),
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=err_type,
+                    )
                 context_api.detach(token)
                 span.end()
                 raise
@@ -401,6 +423,7 @@ def async_responses(
 
         if streaming:
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            start_time = time.time()
             set_openai_request_span_attributes(
                 span,
                 SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -417,7 +440,28 @@ def async_responses(
             try:
                 awaited_wrapped = await wrapped(*args, **kwargs)
             except Exception as e:
-                handle_exception(span, e)
+                err_type = set_span_error_type(span, e)
+                set_openai_request_params(span, kwargs)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        kwargs.get("model", "unknown"),
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=err_type,
+                    )
                 context_api.detach(token)
                 span.end()
                 raise

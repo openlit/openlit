@@ -60,8 +60,9 @@ def _wrapper_kwargs(tracer, metrics):
     }
 
 
-def _messages_kwargs():
+def _messages_kwargs(stream=False):
     return {
+        "stream": stream,
         "model": "claude-3-5-sonnet-latest",
         "messages": [{"role": "user", "content": "ping"}],
         "temperature": 0.3,
@@ -78,7 +79,7 @@ def _transport():
     )
 
 
-def _assert_failed_messages_span(exporter, metrics):
+def _assert_failed_messages_span(exporter, metrics, *, is_stream=False):
     spans = exporter.get_finished_spans()
     assert len(spans) == 1
     span = spans[0]
@@ -91,7 +92,7 @@ def _assert_failed_messages_span(exporter, metrics):
         SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC
     )
     assert attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "claude-3-5-sonnet-latest"
-    assert attrs[SemanticConvention.GEN_AI_REQUEST_IS_STREAM] is False
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_IS_STREAM] is is_stream
     assert attrs[SemanticConvention.ERROR_TYPE] == "BadRequestError"
     assert attrs[SemanticConvention.GEN_AI_REQUEST_TEMPERATURE] == 0.3
     assert attrs[SemanticConvention.GEN_AI_REQUEST_TOP_P] == 0.8
@@ -105,7 +106,8 @@ def _assert_failed_messages_span(exporter, metrics):
     assert points[0][1][SemanticConvention.ERROR_TYPE] == "BadRequestError"
 
 
-def test_sync_messages_error_keeps_request_span_attributes():
+@pytest.mark.parametrize("stream", [False, True])
+def test_sync_messages_error_keeps_request_span_attributes(stream):
     """Verify sync messages errors keep request span attributes and duration."""
 
     tracer, exporter = _tracer_and_exporter()
@@ -116,13 +118,14 @@ def test_sync_messages_error_keeps_request_span_attributes():
     )
 
     with pytest.raises(anthropic.BadRequestError):
-        wrapper(client.messages.create, client.messages, [], _messages_kwargs())
+        wrapper(client.messages.create, client.messages, [], _messages_kwargs(stream))
 
-    _assert_failed_messages_span(exporter, metrics)
+    _assert_failed_messages_span(exporter, metrics, is_stream=stream)
 
 
 @pytest.mark.asyncio
-async def test_async_messages_error_keeps_request_span_attributes():
+@pytest.mark.parametrize("stream", [False, True])
+async def test_async_messages_error_keeps_request_span_attributes(stream):
     """Verify async messages errors keep request span attributes and duration."""
 
     tracer, exporter = _tracer_and_exporter()
@@ -135,6 +138,8 @@ async def test_async_messages_error_keeps_request_span_attributes():
     )
 
     with pytest.raises(anthropic.BadRequestError):
-        await wrapper(client.messages.create, client.messages, [], _messages_kwargs())
+        await wrapper(
+            client.messages.create, client.messages, [], _messages_kwargs(stream)
+        )
 
-    _assert_failed_messages_span(exporter, metrics)
+    _assert_failed_messages_span(exporter, metrics, is_stream=stream)

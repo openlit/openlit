@@ -157,6 +157,18 @@ def async_messages(
         # pylint: disable=no-else-return
         if streaming:
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+            start_time = time.time()
+            set_anthropic_request_span_attributes(
+                span,
+                server_address,
+                server_port,
+                request_model,
+                environment,
+                application_name,
+                True,
+                version,
+                kwargs,
+            )
             ctx = trace_api.set_span_in_context(span)
             token = context_api.attach(ctx)
             attaching_task = asyncio.current_task()
@@ -164,6 +176,26 @@ def async_messages(
                 awaited_wrapped = await wrapped(*args, **kwargs)
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
                 safe_detach(token, attaching_task)
                 span.end()
                 raise

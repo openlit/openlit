@@ -1,3 +1,4 @@
+# pylint: disable=missing-function-docstring
 """Tests for OpenAI span attributes on provider call failures."""
 
 from types import SimpleNamespace
@@ -13,6 +14,32 @@ from openlit.instrumentation.openai.async_openai import async_chat_completions
 from openlit.instrumentation.openai.openai import chat_completions, responses
 from openlit._config import OpenlitConfig
 from openlit.semcov import SemanticConvention
+
+
+class _Recorder:
+    def __init__(self):
+        self.points = []
+
+    def record(self, value, attributes=None):
+        self.points.append((value, attributes))
+
+    def add(self, value, attributes=None):
+        self.points.append((value, attributes))
+
+
+class _Metrics(dict):
+    def __init__(self):
+        super().__init__(genai_client_operation_duration=_Recorder())
+
+    def __missing__(self, key):
+        self[key] = _Recorder()
+        return self[key]
+
+
+def _assert_failed_duration_point(metrics):
+    points = metrics["genai_client_operation_duration"].points
+    assert len(points) == 1
+    assert points[0][1][SemanticConvention.ERROR_TYPE] == "APITimeoutError"
 
 
 def _tracer_and_exporter():
@@ -60,18 +87,15 @@ def _assert_failed_chat_span(span, *, is_stream=False):
     assert attrs[SemanticConvention.GEN_AI_REQUEST_IS_STREAM] is is_stream
     assert attrs[SemanticConvention.ERROR_TYPE] == "APITimeoutError"
 
-    if not is_stream:
-        assert attrs[SemanticConvention.GEN_AI_REQUEST_TEMPERATURE] == 0.3
-        assert attrs[SemanticConvention.GEN_AI_REQUEST_TOP_P] == 0.8
-        assert attrs[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] == 64
-        assert attrs[SemanticConvention.GEN_AI_REQUEST_SEED] == 7
-        assert tuple(attrs[SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES]) == (
-            "END",
-        )
-        assert SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY not in attrs
-        assert SemanticConvention.GEN_AI_REQUEST_USER not in attrs
-        assert SemanticConvention.OPENAI_REQUEST_SERVICE_TIER not in attrs
-        assert SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT not in attrs
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_TEMPERATURE] == 0.3
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_TOP_P] == 0.8
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] == 64
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_SEED] == 7
+    assert tuple(attrs[SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES]) == ("END",)
+    assert SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY not in attrs
+    assert SemanticConvention.GEN_AI_REQUEST_USER not in attrs
+    assert SemanticConvention.OPENAI_REQUEST_SERVICE_TIER not in attrs
+    assert SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT not in attrs
 
     assert sum(event.name == "exception" for event in span.events) == 1
 
@@ -106,6 +130,7 @@ def test_sync_streaming_chat_completion_error_keeps_request_span_attributes():
     """Verify sync streaming setup errors keep request-known span attributes."""
 
     tracer, exporter = _tracer_and_exporter()
+    metrics = _Metrics()
     wrapper = chat_completions(
         version="test-version",
         environment="test-env",
@@ -113,8 +138,8 @@ def test_sync_streaming_chat_completion_error_keeps_request_span_attributes():
         tracer=tracer,
         pricing_info={},
         capture_message_content=False,
-        metrics=None,
-        disable_metrics=True,
+        metrics=metrics,
+        disable_metrics=False,
     )
 
     def raise_timeout(*_args, **_kwargs):
@@ -126,6 +151,7 @@ def test_sync_streaming_chat_completion_error_keeps_request_span_attributes():
     spans = exporter.get_finished_spans()
     assert len(spans) == 1
     _assert_failed_chat_span(spans[0], is_stream=True)
+    _assert_failed_duration_point(metrics)
 
 
 @pytest.mark.asyncio
@@ -160,6 +186,7 @@ async def test_async_streaming_chat_completion_error_keeps_request_span_attribut
     """Verify async streaming setup errors keep request-known span attributes."""
 
     tracer, exporter = _tracer_and_exporter()
+    metrics = _Metrics()
     wrapper = async_chat_completions(
         version="test-version",
         environment="test-env",
@@ -167,8 +194,8 @@ async def test_async_streaming_chat_completion_error_keeps_request_span_attribut
         tracer=tracer,
         pricing_info={},
         capture_message_content=False,
-        metrics=None,
-        disable_metrics=True,
+        metrics=metrics,
+        disable_metrics=False,
     )
 
     async def raise_timeout(*_args, **_kwargs):
@@ -180,6 +207,7 @@ async def test_async_streaming_chat_completion_error_keeps_request_span_attribut
     spans = exporter.get_finished_spans()
     assert len(spans) == 1
     _assert_failed_chat_span(spans[0], is_stream=True)
+    _assert_failed_duration_point(metrics)
 
 
 def test_sync_responses_error_keeps_request_params():
@@ -301,3 +329,49 @@ def test_sync_responses_error_keeps_reasoning_effort_and_options():
     assert attrs[SemanticConvention.OPENAI_REQUEST_SERVICE_TIER] == "priority"
     assert attrs[SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT] == 2
     assert SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS not in attrs
+
+
+def test_sync_streaming_responses_error_keeps_request_params_and_duration():
+    """Verify a rejected streaming Responses call keeps params and records duration."""
+
+    tracer, exporter = _tracer_and_exporter()
+    metrics = _Metrics()
+    wrapper = responses(
+        version="test-version",
+        environment="test-env",
+        application_name="test-app",
+        tracer=tracer,
+        pricing_info={},
+        capture_message_content=False,
+        metrics=metrics,
+        disable_metrics=False,
+    )
+
+    def raise_timeout(*_args, **_kwargs):
+        raise _openai_timeout_error()
+
+    with pytest.raises(APITimeoutError):
+        wrapper(
+            raise_timeout,
+            _openai_instance(),
+            [],
+            {
+                "model": "ministral-3:3b",
+                "input": "ping",
+                "stream": True,
+                "temperature": 0.3,
+                "top_p": 0.8,
+                "max_output_tokens": 64,
+            },
+        )
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    attrs = spans[0].attributes
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_IS_STREAM] is True
+    assert attrs[SemanticConvention.ERROR_TYPE] == "APITimeoutError"
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_TEMPERATURE] == 0.3
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_TOP_P] == 0.8
+    assert attrs[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] == 64
+    assert sum(event.name == "exception" for event in spans[0].events) == 1
+    _assert_failed_duration_point(metrics)
