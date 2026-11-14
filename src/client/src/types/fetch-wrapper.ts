@@ -5,4 +5,5 @@ export type FetchWrapperProps = {
 	requestType: "GET" | "POST" | "DELETE" | "PUT" | "PATCH";
 	responseDataKey?: string;
 	successCb?: (res?: any) => void;
+	timeoutMs?: number;
 };

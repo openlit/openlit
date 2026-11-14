@@ -491,6 +491,15 @@ export const OBSERVABILITY_COPY_UNSUPPORTED =
 export const OBSERVABILITY_LINK_COPIED = "Link copied to clipboard";
 export const OBSERVABILITY_LINK_COPY_FAILED = "Could not copy link";
 export const OBSERVABILITY_COPY_SHARE_LINK = "Copy shareable link";
+export const OBSERVABILITY_SPAN_SEARCH_PLACEHOLDER = "Search span content";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_LABEL = "What span search covers";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_MATCHING =
+	"Every word must appear, in any order, ignoring case. Wrap words in double quotes to match an exact phrase.";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_SPAN_ATTRIBUTES = "Span attributes";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_EVENT_ATTRIBUTES = "Span event attributes";
+export const OBSERVABILITY_SPAN_SEARCH_INFO_STATUS = "Span status message";
+export const OBSERVABILITY_SPAN_SEARCH_RANGE_TOO_WIDE = (days: number) =>
+	`Span content search covers up to ${days} days. Narrow the time range and search again.`;
 export const GENERATION_HEALTH_TRUNCATED = "Truncated";
 export const GENERATION_HEALTH_FILTERED = "Filtered";
 export const GENERATION_HEALTH_EMPTY = "Empty";
@@ -1544,6 +1553,7 @@ export const DB_CONFIG_FIELD_USERNAME = "Username";
 export const DB_CONFIG_FIELD_PASSWORD = "Password";
 export const DB_CONFIG_FIELD_HOST = "Host";
 export const DB_CONFIG_FIELD_PORT = "Port";
+export const DB_CONFIG_INVALID_PORT = "Port must be a number between 1 and 65535";
 export const DB_CONFIG_FIELD_DATABASE = "Database";
 export const DB_CONFIG_FIELD_QUERY_PARAMS = "Query params";
 export const UPDATE_DB_CONFIG = "Update Database config";
