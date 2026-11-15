@@ -44,8 +44,20 @@ describe('POST /api/chat/config', () => {
 		const res = await POST(req({ provider: 'openai-compatible', model: 'llama3', vaultId: 'victim' }));
 		expect(res.status).toBe(403);
 		expect(await res.json()).toBe(getMessage().VAULT_SECRET_NOT_OWNED);
-		expect(isOwnSecret).toHaveBeenCalledWith('victim', 'db-1');
+		expect(isOwnSecret).toHaveBeenCalledWith('victim', 'db-1', undefined);
 		expect(upsertChatConfig).not.toHaveBeenCalled();
+	});
+
+	it('checks ownership as the API key creator for Bearer requests', async () => {
+		(resolveRequestAuth as jest.Mock).mockResolvedValue([
+			null,
+			{ databaseConfigId: 'db-1', userId: 'key-owner', via: 'apiKey' },
+		]);
+		(isOwnSecret as jest.Mock).mockResolvedValue(true);
+		(upsertChatConfig as jest.Mock).mockResolvedValue({ data: 'ok' });
+		const res = await POST(req({ provider: 'openai-compatible', model: 'llama3', vaultId: 'mine' }));
+		expect(res.status).toBe(200);
+		expect(isOwnSecret).toHaveBeenCalledWith('mine', 'db-1', 'key-owner');
 	});
 
 	it('accepts a secret the caller owns', async () => {

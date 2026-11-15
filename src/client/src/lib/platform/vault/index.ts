@@ -338,10 +338,32 @@ export async function getSecretsFromDatabaseId(
  * user's id. Requests without a session are refused because `getSecretById`
  * does not scope those by owner.
  */
-export async function isOwnSecret(id: string, databaseConfigId?: string) {
-	const user = await getCurrentUser();
-	if (!user) return false;
-	const { data } = await getSecretById(id, databaseConfigId);
+/**
+ * Whether the caller created this secret. API-key requests have no session,
+ * so they pass the key creator's `userId`; a key without a creator owns nothing.
+ */
+export async function isOwnSecret(
+	id: string,
+	databaseConfigId?: string,
+	userId?: string
+) {
+	const user =
+		(await getCurrentUser()) ??
+		(userId
+			? await prisma.user.findUnique({
+					where: { id: userId },
+					select: { email: true },
+				})
+			: null);
+	if (!user?.email) return false;
+	const safeId = escapeClickHouseString(Sanitizer.sanitizeValue(id));
+	const { data } = await dataCollector(
+		{
+			query: `SELECT id FROM ${OPENLIT_VAULT_TABLE_NAME} v WHERE v.id = '${safeId}' AND ${getOwnerEmailCondition(user, "v")};`,
+		},
+		"query",
+		databaseConfigId
+	);
 	return ((data as unknown[]) || []).length > 0;
 }
 

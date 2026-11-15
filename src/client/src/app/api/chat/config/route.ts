@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 	if (
 		!keyRequired &&
 		formData.vaultId &&
-		!(await isOwnSecret(formData.vaultId, auth.databaseConfigId))
+		!(await isOwnSecret(formData.vaultId, auth.databaseConfigId, auth.userId))
 	) {
 		return Response.json(getMessage().VAULT_SECRET_NOT_OWNED, { status: 403 });
 	}
