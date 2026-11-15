@@ -65,6 +65,7 @@ describe('OpenAI-compatible endpoint', () => {
 
   afterEach(() => {
     delete process.env[ENV_KEY];
+    delete process.env.OPENLIT_MODEL_ENDPOINT_TIMEOUT_MS;
     if (originalOpenAiKey === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = originalOpenAiKey;
   });
@@ -163,6 +164,56 @@ describe('OpenAI-compatible endpoint', () => {
       })
     ).rejects.toMatchObject({ name: 'AbortError' });
     await closed;
+  });
+
+  it('fails a call when the server never answers', async () => {
+    process.env[ENV_KEY] = 'true';
+    process.env.OPENLIT_MODEL_ENDPOINT_TIMEOUT_MS = '200';
+    const stalled: http.ServerResponse[] = [];
+    respond = (res) => {
+      stalled.push(res);
+    };
+    try {
+      await expect(run('')).rejects.toThrow(getMessage().MODEL_ENDPOINT_TIMED_OUT);
+    } finally {
+      stalled.forEach((res) => res.destroy());
+    }
+  });
+
+  it('fails a stream that stops sending mid-body', async () => {
+    process.env[ENV_KEY] = 'true';
+    process.env.OPENLIT_MODEL_ENDPOINT_TIMEOUT_MS = '200';
+    const stalled: http.ServerResponse[] = [];
+    respond = (res) => {
+      stalled.push(res);
+      res.setHeader('content-type', 'text/event-stream');
+      res.write(
+        `data: ${JSON.stringify({
+          id: 'c1',
+          object: 'chat.completion.chunk',
+          created: 1,
+          model: 'llama3',
+          choices: [{ index: 0, delta: { role: 'assistant', content: 'he' }, finish_reason: null }],
+        })}\n\n`
+      );
+    };
+    let text = '';
+    try {
+      const result = streamText({
+        model: createModel(OPENAI_COMPATIBLE_PROVIDER_ID, '', 'llama3', baseUrl),
+        prompt: 'hi',
+        maxRetries: 0,
+        onError: () => {},
+      });
+      await expect(
+        (async () => {
+          for await (const delta of result.textStream) text += delta;
+        })()
+      ).rejects.toThrow(getMessage().MODEL_ENDPOINT_TIMED_OUT);
+      expect(text).toBe('he');
+    } finally {
+      stalled.forEach((res) => res.destroy());
+    }
   });
 
   it('returns a status Response cannot represent as a failed call, not a crash', async () => {

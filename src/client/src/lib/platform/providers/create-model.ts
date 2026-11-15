@@ -54,6 +54,20 @@ const providerFactories: Record<string, ProviderFactory> = {
 
 const NULL_BODY_STATUSES = new Set([204, 205, 304]);
 
+/**
+ * Socket idle limit, by default global fetch's 5 minute headers timeout. It
+ * applies while connecting, waiting for headers and reading the body, so a
+ * server that stops sending fails the call instead of holding it open.
+ */
+const DEFAULT_MODEL_ENDPOINT_TIMEOUT_MS = 300_000;
+
+function modelEndpointTimeoutMs() {
+	const configured = Number(process.env.OPENLIT_MODEL_ENDPOINT_TIMEOUT_MS);
+	return Number.isFinite(configured) && configured > 0
+		? configured
+		: DEFAULT_MODEL_ENDPOINT_TIMEOUT_MS;
+}
+
 const modelEndpointNetwork = () =>
 	selfHostedNetworkOptions({
 		allowPrivateNetwork: process.env.OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS,
@@ -104,6 +118,7 @@ const guardedLookup: LookupFunction = (hostname, options, callback) => {
 function requestModelEndpoint(url: URL, init: RequestInit = {}): Promise<Response> {
 	const { request } = url.protocol === "https:" ? https : http;
 	return new Promise((resolve, reject) => {
+		let response: http.IncomingMessage | undefined;
 		const req = request(
 			url,
 			{
@@ -112,8 +127,10 @@ function requestModelEndpoint(url: URL, init: RequestInit = {}): Promise<Respons
 				method: init.method,
 				headers: Object.fromEntries(new Headers(init.headers)),
 				signal: init.signal ?? undefined,
+				timeout: modelEndpointTimeoutMs(),
 			},
 			(res) => {
+				response = res;
 				try {
 					const status = res.statusCode!;
 					const body = NULL_BODY_STATUSES.has(status)
@@ -132,6 +149,13 @@ function requestModelEndpoint(url: URL, init: RequestInit = {}): Promise<Respons
 				}
 			}
 		);
+		// Fail a body that is mid-read with the same error, so the SDK reports
+		// the timeout rather than a bare "aborted".
+		req.on("timeout", () => {
+			const error = new Error(getMessage().MODEL_ENDPOINT_TIMED_OUT);
+			response?.destroy(error);
+			req.destroy(error);
+		});
 		req.on("error", reject);
 		req.end(init.body as string | undefined);
 	});
