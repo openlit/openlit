@@ -1,3 +1,10 @@
+jest.mock("@/lib/platform/pricing/model-cost", () => ({
+	getModelCostCalculator: jest.fn(
+		async () =>
+			({ promptTokens, completionTokens }: { promptTokens: number; completionTokens: number }) =>
+				promptTokens * 1e-6 + completionTokens * 2e-6
+	),
+}));
 jest.mock("ai", () => ({ streamText: jest.fn() }));
 import { TextDecoder, TextEncoder } from "util";
 import { ReadableStream } from "stream/web";

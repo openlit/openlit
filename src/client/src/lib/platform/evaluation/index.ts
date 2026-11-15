@@ -46,7 +46,7 @@ import { CronType, CronRunStatus, CronLogData } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
 import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
-import { getChatModelCostPerM } from "@/lib/platform/pricing/chat-cost";
+import { getModelCostCalculator } from "@/lib/platform/pricing/model-cost";
 
 export type EvaluationTraceLookupOptions = {
 	traceId?: string;
@@ -64,36 +64,10 @@ async function estimateEvaluationCost(
 	completionTokens: number,
 	databaseConfigId: string
 ): Promise<number> {
-	if (!provider || !model || !databaseConfigId) return 0;
+	if (!databaseConfigId) return 0;
 	if (promptTokens === 0 && completionTokens === 0) return 0;
-
-	try {
-		const modelMeta = await ProviderRegistry.getModel(
-			provider,
-			model,
-			databaseConfigId
-		);
-		if (!modelMeta) {
-			consoleLog(
-				`Evaluation cost: model '${model}' not found under provider '${provider}' in Manage Models`
-			);
-			return 0;
-		}
-
-		return getChatModelCostPerM(
-			{
-				inputPricePerMToken: modelMeta.inputPricePerMToken,
-				outputPricePerMToken: modelMeta.outputPricePerMToken,
-				cacheReadPricePerMToken: modelMeta.cacheReadPricePerMToken,
-				cacheCreationPricePerMToken: modelMeta.cacheCreationPricePerMToken,
-			},
-			{ promptTokens, completionTokens },
-			{ promptTokensIncludeCache: true }
-		);
-	} catch (e) {
-		consoleLog("Evaluation cost lookup failed:", e);
-		return 0;
-	}
+	const costOf = await getModelCostCalculator(provider, model, databaseConfigId);
+	return costOf({ promptTokens, completionTokens });
 }
 
 /** Span ids already handled by auto-eval (evaluated or sampling-skipped). */

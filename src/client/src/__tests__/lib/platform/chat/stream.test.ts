@@ -1,3 +1,10 @@
+jest.mock("@/lib/platform/pricing/model-cost", () => ({
+	getModelCostCalculator: jest.fn(
+		async () =>
+			({ promptTokens, completionTokens }: { promptTokens: number; completionTokens: number }) =>
+				promptTokens * 1e-6 + completionTokens * 2e-6
+	),
+}));
 // Mock ai package before anything else
 jest.mock('ai', () => ({
   streamText: jest.fn(),
@@ -7,6 +14,7 @@ jest.mock('ai', () => ({
   jsonSchema: jest.fn((s: any) => s),
 }));
 
+import { getModelCostCalculator } from '@/lib/platform/pricing/model-cost';
 import { formatStreamError, buildConversationMessages, streamChatMessage } from '@/lib/platform/chat/stream';
 
 // Mock external dependencies
@@ -212,6 +220,7 @@ describe('streamChatMessage', () => {
     });
 
     expect(result.streamError).toBeNull();
+    expect(getModelCostCalculator).toHaveBeenCalledWith('openai', 'gpt-4o', 'db1');
     expect(result.responseText).toContain('```query-result');
     expect(result.responseText).toContain('"one":1');
     expect(dataCollector).toHaveBeenCalledWith(
@@ -225,7 +234,7 @@ describe('streamChatMessage', () => {
     expect(updateConversation).toHaveBeenCalledWith('c1', {
       addPromptTokens: 100,
       addCompletionTokens: 20,
-      addCost: 0.0006,
+      addCost: 0.00014,
       incrementMessages: true,
     });
     expect(addMessage).toHaveBeenLastCalledWith({
@@ -234,7 +243,7 @@ describe('streamChatMessage', () => {
       content: expect.stringContaining('```query-result'),
       promptTokens: 100,
       completionTokens: 20,
-      cost: 0.0006,
+      cost: 0.00014,
       provider: 'openai',
       model: 'gpt-4o',
     });

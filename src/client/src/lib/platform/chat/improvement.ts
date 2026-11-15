@@ -1,3 +1,7 @@
+import {
+	getModelCostCalculator,
+	type ModelCostCalculator,
+} from "@/lib/platform/pricing/model-cost";
 import { streamText } from "ai";
 import { createHash, randomUUID } from "crypto";
 import { getChatConfigWithApiKey } from "./config";
@@ -1148,10 +1152,6 @@ ${JSON.stringify(selectTraceAnalysisSpan(summary, dimension), null, 2)}
 Return the improved final JSON only: {"summary": string, "findings": Finding[]}.`;
 }
 
-function estimateCost(promptTokens: number, completionTokens: number) {
-	return (promptTokens * 0.003 + completionTokens * 0.015) / 1000;
-}
-
 function calculateTotals(root: TraceHeirarchySpan) {
 	const spans = collectSpanIds(root);
 	let totalTokens = 0;
@@ -1279,12 +1279,14 @@ async function streamJsonText({
 	system,
 	prompt,
 	maxOutputTokens,
+	costOf,
 	onUsage,
 }: {
 	model: Parameters<typeof streamText>[0]["model"];
 	system: string;
 	prompt: string;
 	maxOutputTokens: number;
+	costOf: ModelCostCalculator;
 	onUsage: (stats: DimensionGenerationStats) => void;
 }) {
 	let text = "";
@@ -1305,7 +1307,7 @@ async function streamJsonText({
 			onUsage({
 				promptTokens,
 				completionTokens,
-				cost: estimateCost(promptTokens, completionTokens),
+				cost: costOf({ promptTokens, completionTokens }),
 			});
 			finishResolve!();
 		},
@@ -1508,6 +1510,11 @@ export async function streamTraceImprovementAnalysis(
 		ruleContextChars: JSON.stringify(ruleContext).length,
 	});
 	const modelInstance = createModel(config.provider, config.apiKey, config.model, config.baseUrl);
+	const costOf = await getModelCostCalculator(
+		config.provider,
+		config.model,
+		databaseConfigId
+	);
 	const encoder = new TextEncoder();
 
 	const stream = new ReadableStream<Uint8Array>({
@@ -1602,6 +1609,7 @@ export async function streamTraceImprovementAnalysis(
 						}),
 						maxOutputTokens: DIMENSION_MAX_OUTPUT_TOKENS,
 						model: modelInstance,
+						costOf,
 						onUsage: (stats) => {
 							dimensionStats = stats;
 							addFinishStats(stats);
@@ -1651,6 +1659,7 @@ export async function streamTraceImprovementAnalysis(
 					try {
 						graderText = await streamJsonText({
 							model: modelInstance,
+							costOf,
 							system: buildDimensionGraderSystemPrompt(dimension),
 							prompt: buildDimensionGraderUserPrompt({
 								spanId,

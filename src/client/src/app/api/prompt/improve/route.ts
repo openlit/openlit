@@ -1,3 +1,4 @@
+import { getModelCostCalculator } from "@/lib/platform/pricing/model-cost";
 import { generateText } from "ai";
 import { SERVER_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
@@ -60,10 +61,6 @@ function parseSuggestions(text: string): PromptImprovementSuggestion[] {
 	}
 }
 
-function estimateCost(promptTokens: number, completionTokens: number) {
-	return (promptTokens * 0.003 + completionTokens * 0.015) / 1000;
-}
-
 export async function POST(request: Request) {
 	const startTimestamp = Date.now();
 	const [authErr, auth] = await resolveRequestAuth(request);
@@ -108,6 +105,11 @@ export async function POST(request: Request) {
 
 	try {
 		const model = createModel(config.provider, config.apiKey, config.model, config.baseUrl);
+		const costOf = await getModelCostCalculator(
+			config.provider,
+			config.model,
+			databaseConfigId
+		);
 		let usageStats = { promptTokens: 0, completionTokens: 0, cost: 0 };
 		const result = await generateText({
 			model,
@@ -147,7 +149,7 @@ ${prompt}`,
 		usageStats = {
 			promptTokens,
 			completionTokens,
-			cost: estimateCost(promptTokens, completionTokens),
+			cost: costOf({ promptTokens, completionTokens }),
 		};
 
 		const suggestions = parseSuggestions(result.text).filter((suggestion) =>

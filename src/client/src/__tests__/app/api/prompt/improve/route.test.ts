@@ -1,3 +1,10 @@
+jest.mock("@/lib/platform/pricing/model-cost", () => ({
+	getModelCostCalculator: jest.fn(
+		async () =>
+			({ promptTokens, completionTokens }: { promptTokens: number; completionTokens: number }) =>
+				promptTokens * 1e-6 + completionTokens * 2e-6
+	),
+}));
 jest.mock("ai", () => ({ generateText: jest.fn() }));
 jest.mock("@/lib/db-config", () => ({ getDBConfigByUser: jest.fn() }));
 jest.mock("@/lib/platform/chat/config", () => ({ getChatConfigWithApiKey: jest.fn() }));
@@ -16,6 +23,7 @@ jest.mock("@/utils/asaw", () =>
 	})
 );
 
+import { getModelCostCalculator } from "@/lib/platform/pricing/model-cost";
 import { generateText } from "ai";
 import { POST } from "@/app/api/prompt/improve/route";
 import { getDBConfigByUser } from "@/lib/db-config";
@@ -113,8 +121,9 @@ describe("POST /api/prompt/improve", () => {
 		expect(body.data.usage).toEqual({
 			promptTokens: 100,
 			completionTokens: 25,
-			cost: 0.000675,
+			cost: 0.00015,
 		});
+		expect(getModelCostCalculator).toHaveBeenCalledWith("openai", "gpt-4o", expect.any(String));
 		expect(saveOtterRun).toHaveBeenCalledWith(
 			expect.objectContaining({
 				runType: "prompt_improvement",

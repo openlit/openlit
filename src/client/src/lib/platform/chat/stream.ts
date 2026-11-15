@@ -1,3 +1,4 @@
+import { getModelCostCalculator } from "@/lib/platform/pricing/model-cost";
 import { streamText, generateText, stepCountIs } from "ai";
 import { getChatSystemPrompt } from "./schema-context";
 import { validateSQL, extractSQLFromResponse } from "./sql-validator";
@@ -104,6 +105,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 	// Create model instance
 	onStep?.("Preparing model and tools", "active", `${provider} / ${model}`);
 	const modelInstance = createModel(provider, apiKey, model, baseUrl);
+	const costOf = await getModelCostCalculator(provider, model, dbConfigId);
 
 	const isFirstMessage = messages.filter((m) => m.role === "user").length === 1;
 	const tools = getChatTools(userId, dbConfigId, environment);
@@ -129,7 +131,7 @@ export async function streamChatMessage(params: StreamChatParams): Promise<Strea
 		onFinish: async ({ text, usage, steps }) => {
 			const promptTokens = usage?.inputTokens ?? 0;
 			const completionTokens = usage?.outputTokens ?? 0;
-			const cost = (promptTokens * 0.003 + completionTokens * 0.015) / 1000;
+			const cost = costOf({ promptTokens, completionTokens });
 
 			// Store stats so the main flow can use them when saving the message
 			finishStats = { promptTokens, completionTokens, cost };
