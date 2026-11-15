@@ -2,14 +2,15 @@ jest.mock('@/lib/prisma', () => ({
 	__esModule: true,
 	default: {
 		databaseConfigUser: { findUnique: jest.fn() },
-		organisationUser: { findUnique: jest.fn() },
 	},
 }));
 jest.mock('@/lib/instance-admin', () => ({ isInstanceAdminUser: jest.fn() }));
+jest.mock('@/lib/organisation-roles', () => ({ hasAdminOrOwnerRole: jest.fn() }));
 
 import prisma from '@/lib/prisma';
 import { isInstanceAdminUser } from '@/lib/instance-admin';
 import { canConfigureModelEndpoint } from '@/lib/access/model-endpoint-route';
+import { hasAdminOrOwnerRole } from '@/lib/organisation-roles';
 
 const configAccess = (canEdit: boolean, organisationId: string | null = 'org-1') =>
 	(prisma.databaseConfigUser.findUnique as jest.Mock).mockResolvedValue({
@@ -17,11 +18,8 @@ const configAccess = (canEdit: boolean, organisationId: string | null = 'org-1')
 		databaseConfig: { project: organisationId ? { organisationId } : null },
 	});
 
-const membership = (role: string, createdByUserId = 'someone-else') =>
-	(prisma.organisationUser.findUnique as jest.Mock).mockResolvedValue({
-		role,
-		organisation: { createdByUserId },
-	});
+const canManage = (allowed: boolean) =>
+	(hasAdminOrOwnerRole as jest.Mock).mockResolvedValue(allowed);
 
 beforeEach(() => {
 	jest.resetAllMocks();
@@ -35,9 +33,9 @@ describe('canConfigureModelEndpoint', () => {
 		expect(prisma.databaseConfigUser.findUnique).not.toHaveBeenCalled();
 	});
 
-	it.each(['owner', 'admin'])('allows an organisation %s who can edit the configuration', async (role) => {
+	it('allows someone who can edit the configuration and manage its organisation', async () => {
 		configAccess(true);
-		membership(role);
+		canManage(true);
 		await expect(canConfigureModelEndpoint('u1', 'db-1')).resolves.toBe(true);
 		expect(prisma.databaseConfigUser.findUnique).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -46,49 +44,34 @@ describe('canConfigureModelEndpoint', () => {
 		);
 	});
 
-	it("checks the role in the configuration's organisation, not the current one", async () => {
+	it("uses CE's organisation rule for the configuration's organisation, not the current one", async () => {
 		configAccess(true, 'org-of-config');
-		membership('owner');
+		canManage(true);
 		await canConfigureModelEndpoint('u1', 'db-1');
-		expect(prisma.organisationUser.findUnique).toHaveBeenCalledWith(
-			expect.objectContaining({
-				where: { organisationId_userId: { organisationId: 'org-of-config', userId: 'u1' } },
-			})
-		);
+		expect(hasAdminOrOwnerRole).toHaveBeenCalledWith('org-of-config', 'u1', 'organisation.update');
 	});
 
-	it('denies an owner who can only view the configuration', async () => {
-		configAccess(false);
-		membership('owner');
+	it('denies someone who cannot manage the organisation', async () => {
+		configAccess(true);
+		canManage(false);
 		await expect(canConfigureModelEndpoint('u1', 'db-1')).resolves.toBe(false);
+	});
+
+	it('denies an organisation manager who can only view the configuration', async () => {
+		configAccess(false);
+		canManage(true);
+		await expect(canConfigureModelEndpoint('u1', 'db-1')).resolves.toBe(false);
+		expect(hasAdminOrOwnerRole).not.toHaveBeenCalled();
 	});
 
 	it('denies a user with no access to the configuration', async () => {
 		(prisma.databaseConfigUser.findUnique as jest.Mock).mockResolvedValue(null);
 		await expect(canConfigureModelEndpoint('u1', 'db-1')).resolves.toBe(false);
-		expect(prisma.organisationUser.findUnique).not.toHaveBeenCalled();
+		expect(hasAdminOrOwnerRole).not.toHaveBeenCalled();
 	});
 
 	it('denies a configuration that belongs to no project', async () => {
 		configAccess(true, null);
-		await expect(canConfigureModelEndpoint('u1', 'db-1')).resolves.toBe(false);
-	});
-
-	it('denies someone outside the configuration organisation', async () => {
-		configAccess(true);
-		(prisma.organisationUser.findUnique as jest.Mock).mockResolvedValue(null);
-		await expect(canConfigureModelEndpoint('u1', 'db-1')).resolves.toBe(false);
-	});
-
-	it('allows the organisation creator who can edit the configuration', async () => {
-		configAccess(true);
-		membership('member', 'u1');
-		await expect(canConfigureModelEndpoint('u1', 'db-1')).resolves.toBe(true);
-	});
-
-	it('denies a regular member who can edit the configuration', async () => {
-		configAccess(true);
-		membership('member');
 		await expect(canConfigureModelEndpoint('u1', 'db-1')).resolves.toBe(false);
 	});
 });
