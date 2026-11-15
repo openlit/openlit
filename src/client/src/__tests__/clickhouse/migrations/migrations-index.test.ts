@@ -28,6 +28,7 @@ const MIGRATION_MODULES = [
   "@/clickhouse/migrations/drop-legacy-openground-tables-migration",
   "@/clickhouse/migrations/seed-orcarouter-provider-migration",
   "@/clickhouse/migrations/seed-typesafe-provider-migration",
+  "@/clickhouse/migrations/seed-atlascloud-provider-migration",
   "@/clickhouse/migrations/encrypt-vault-values-migration",
   "@/clickhouse/migrations/add-chat-conversation-type-migration",
   "@/clickhouse/migrations/add-chat-message-model-attribution-migration",
@@ -124,5 +125,22 @@ describe("ClickHouse migration orchestration", () => {
       'ClickHouse migration "seed-typesafe-provider" failed: seed failed',
     );
     expect(mockMigration).toHaveBeenCalledTimes(27);
+  });
+
+  it("rejects when the Atlas Cloud seed fails and does not continue", async () => {
+    let callCount = 0;
+    mockMigration.mockImplementation(async () => {
+      callCount += 1;
+      // Same prefix as TypeSafe seed, then seed-atlascloud-provider.
+      if (callCount === 28) return { err: "seed failed" };
+      return { migrationExist: true };
+    });
+
+    const { default: migrations } = await import("@/clickhouse/migrations");
+
+    await expect(migrations("db-1")).rejects.toThrow(
+      'ClickHouse migration "seed-atlascloud-provider" failed: seed failed',
+    );
+    expect(mockMigration).toHaveBeenCalledTimes(28);
   });
 });

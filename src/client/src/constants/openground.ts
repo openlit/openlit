@@ -84,6 +84,93 @@ export const providersConfig: Record<Providers, ProviderType> = {
 			},
 		],
 	},
+	atlascloud: {
+		key: "atlascloud",
+		title: "Atlas Cloud",
+		subTitle: "Chat completions",
+		logoDark: "/images/provider/atlascloud.png",
+		logo: "/images/provider/atlascloud-white.png",
+		config: [
+			{
+				key: "type",
+				label: "Type",
+				type: "hidden",
+				defaultValue: "chat",
+			},
+			{
+				key: "api_key",
+				label: "API Key",
+				type: "input",
+				placeholder: "ATLASCLOUD_API_KEY",
+			},
+			{
+				key: "model",
+				label: "Model",
+				type: "select",
+				placeholder: "select a model",
+				defaultValue: "openai/gpt-4.1-mini",
+				options: [
+					{
+						label: "GPT-4.1 Mini",
+						value: "openai/gpt-4.1-mini",
+					},
+					{
+						label: "GPT-5.4 Mini",
+						value: "openai/gpt-5.4-mini",
+					},
+					{
+						label: "Claude Sonnet 4.6",
+						value: "anthropic/claude-sonnet-4.6",
+					},
+					{
+						label: "DeepSeek V3.2",
+						value: "deepseek-ai/deepseek-v3.2",
+					},
+					{
+						label: "Qwen3 235B Instruct",
+						value: "Qwen/Qwen3-235B-A22B-Instruct-2507",
+					},
+					{
+						label: "Qwen3.5 35B A3B",
+						value: "qwen/qwen3.5-35b-a3b",
+					},
+					{
+						label: "GLM-4.6",
+						value: "zai-org/GLM-4.6",
+					},
+					{
+						label: "Kimi K2.5",
+						value: "moonshotai/kimi-k2.5",
+					},
+					{
+						label: "MiniMax M2.5",
+						value: "minimaxai/minimax-m2.5",
+					},
+				],
+			},
+			{
+				key: "temperature",
+				label: "Temperature",
+				type: "slider",
+				limits: { min: 0, max: 2, step: 0.1 },
+				defaultValue: 1,
+			},
+			{
+				key: "max_tokens",
+				label: "Max tokens",
+				type: "slider",
+				limits: { min: 0, max: 4000, step: 1 },
+				defaultValue: 100,
+			},
+			{
+				key: "top_p",
+				label: "Top P",
+				type: "slider",
+				limits: { min: 0, max: 1, step: 0.1 },
+				defaultValue: 0.5,
+			},
+		],
+	},
 	anthropic: {
 		key: "anthropic",
 		title: "Anthropic",

@@ -152,6 +152,14 @@ export const DEFAULT_PROVIDERS: DefaultProviderEntry[] = [
 		},
 	},
 	{
+		providerId: "atlascloud", displayName: "Atlas Cloud", description: "OpenAI-compatible gateway to 100+ LLMs from a single endpoint", requiresVault: true,
+		configSchema: {
+			temperature: { min: 0, max: 2, step: 0.1, default: 1, description: "Sampling temperature" },
+			maxTokens: { min: 1, max: 32768, step: 1, default: 1000, description: "Maximum tokens to generate" },
+			topP: { min: 0, max: 1, step: 0.1, default: 1, description: "Nucleus sampling threshold" },
+		},
+	},
+	{
 		providerId: "typesafe", displayName: "TypeSafe", description: "Jev System One decision model for structured LLM evaluation", requiresVault: true,
 		configSchema: {},
 	},
@@ -1190,6 +1198,37 @@ export const DEFAULT_MODELS_BY_PROVIDER: Record<string, DefaultModelEntry[]> = {
 			inputPricePerMToken: 0.042,
 			outputPricePerMToken: 0,
 			capabilities: [],
+		},
+	],
+	// Atlas Cloud model IDs are vendor-prefixed (`openai/…`, `anthropic/…`).
+	// Prices from https://api.atlascloud.ai/v1/models.
+	atlascloud: [
+		{
+			id: "openai/gpt-4.1-mini",
+			displayName: "GPT-4.1 Mini",
+			contextWindow: 1047576,
+			inputPricePerMToken: 0.4,
+			outputPricePerMToken: 1.6,
+			cacheReadPricePerMToken: 0.1,
+			capabilities: ["function-calling", "vision", "streaming"],
+		},
+		{
+			id: "anthropic/claude-sonnet-4.6",
+			displayName: "Claude Sonnet 4.6",
+			contextWindow: 200000,
+			inputPricePerMToken: 3.0,
+			outputPricePerMToken: 15.0,
+			cacheReadPricePerMToken: 0.3,
+			capabilities: ["function-calling", "vision", "streaming", "thinking"],
+		},
+		{
+			id: "deepseek-ai/deepseek-v3.2",
+			displayName: "DeepSeek V3.2",
+			contextWindow: 163840,
+			inputPricePerMToken: 0.26,
+			outputPricePerMToken: 0.38,
+			cacheReadPricePerMToken: 0.13,
+			capabilities: ["function-calling", "streaming"],
 		},
 	],
 };

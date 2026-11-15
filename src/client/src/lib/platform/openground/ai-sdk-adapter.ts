@@ -83,13 +83,17 @@ export class AISdkAdapter {
 			baseURL: 'https://api.orcarouter.ai/v1',
 			apiKey
 		}),
+		atlascloud: (apiKey: string) => createOpenAI({
+			baseURL: 'https://api.atlascloud.ai/v1',
+			apiKey
+		}),
 	};
 
 	private static readonly SUPPORTED_PROVIDERS = [
 		'openai', 'anthropic', 'google', 'mistral', 'cohere',
 		'groq', 'perplexity', 'azure', 'together', 'fireworks',
 		'deepseek', 'xai', 'huggingface', 'replicate', 'minimax',
-		'orcarouter',
+		'orcarouter', 'atlascloud',
 	];
 
 	/**
