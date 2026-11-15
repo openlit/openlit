@@ -310,9 +310,9 @@ export const OPENAI_COMPATIBLE_ENDPOINT_HINT = (baseUrl?: string) =>
 		? `Requests and the selected API key go to ${baseUrl}.`
 		: "No base URL is set for this provider yet.";
 export const MODEL_ENDPOINT_ADMIN_REQUIRED =
-	"Only an organisation owner or admin can change the base URL.";
+	"Only an organisation owner or admin who can edit this database configuration can change the base URL.";
 export const MODEL_ENDPOINT_DELETE_ADMIN_REQUIRED =
-	"Only an organisation owner or admin can remove the OpenAI-compatible provider.";
+	"Only an organisation owner or admin who can edit this database configuration can remove the OpenAI-compatible provider.";
 export const MODEL_ENDPOINT_TIMED_OUT =
 	"The model endpoint stopped responding, so the request was cancelled. Raise OPENLIT_MODEL_ENDPOINT_TIMEOUT_MS for slow models.";
 export const MODEL_ENDPOINT_NOT_ALLOWED =

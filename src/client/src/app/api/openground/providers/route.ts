@@ -243,7 +243,7 @@ async function PUTHandler(request: NextRequest) {
 		if (providerId === OPENAI_COMPATIBLE_PROVIDER_ID && baseUrl !== undefined) {
 			nextBaseUrl = String(baseUrl).trim() || null;
 			if (nextBaseUrl !== (existing.base_url || null)) {
-				if (!(await canConfigureModelEndpoint(user.id))) {
+				if (!(await canConfigureModelEndpoint(user.id, dbConfig.id))) {
 					return NextResponse.json(
 						{ error: getMessage().MODEL_ENDPOINT_ADMIN_REQUIRED },
 						{ status: 403 }
@@ -343,7 +343,7 @@ async function DELETEHandler(request: NextRequest) {
 		// Removing the endpoint disables it for everyone, so it needs the same
 		// right as changing it, and saved key references must not outlive it.
 		if (providerId === OPENAI_COMPATIBLE_PROVIDER_ID) {
-			if (!(await canConfigureModelEndpoint(user.id))) {
+			if (!(await canConfigureModelEndpoint(user.id, dbConfig.id))) {
 				return NextResponse.json(
 					{ error: getMessage().MODEL_ENDPOINT_DELETE_ADMIN_REQUIRED },
 					{ status: 403 }

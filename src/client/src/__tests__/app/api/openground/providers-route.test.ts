@@ -94,9 +94,9 @@ describe('PUT /api/openground/providers base URL', () => {
 		(canConfigureModelEndpoint as jest.Mock).mockResolvedValue(false);
 		const res = await put({ providerId: 'openai-compatible', baseUrl: 'https://attacker.example.com/v1' });
 		expect(res).toEqual({ status: 403, body: { error: getMessage().MODEL_ENDPOINT_ADMIN_REQUIRED } });
-		expect(canConfigureModelEndpoint).toHaveBeenCalledWith('user-1');
 		expect(insertedRow()).toBeUndefined();
 		expect(clearOpenAICompatibleKeys).not.toHaveBeenCalled();
+		expect(canConfigureModelEndpoint).toHaveBeenCalledWith('user-1', 'db-1');
 	});
 
 	it('lets anyone edit other fields when the form resends the same URL', async () => {
@@ -173,6 +173,7 @@ describe('DELETE /api/openground/providers', () => {
 	it('refuses to remove the OpenAI-compatible provider without endpoint rights', async () => {
 		(canConfigureModelEndpoint as jest.Mock).mockResolvedValue(false);
 		const res = await del('openai-compatible');
+		expect(canConfigureModelEndpoint).toHaveBeenCalledWith('user-1', 'db-1');
 		expect(res).toEqual({
 			status: 403,
 			body: { error: getMessage().MODEL_ENDPOINT_DELETE_ADMIN_REQUIRED },
