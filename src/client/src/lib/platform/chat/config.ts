@@ -52,18 +52,24 @@ export async function getChatConfig(
 export async function getChatConfigWithApiKey(
 	databaseConfigId?: string
 ): Promise<{ data?: ChatConfigWithApiKey; err?: unknown }> {
+	// Read the endpoint before the key reference. A base URL change clears
+	// the reference before it stores the new URL, so a reference read after
+	// this URL was chosen for this URL, and an old key never meets a new host.
+	const [baseUrlErr, compatibleBaseUrl] = await asaw(
+		ProviderRegistry.getBaseUrl(OPENAI_COMPATIBLE_PROVIDER_ID, databaseConfigId)
+	);
+	if (baseUrlErr) {
+		return { err: baseUrlErr };
+	}
+
 	const { data: config, err } = await getChatConfig(databaseConfigId);
 
 	if (err || !config) {
 		return { err: err || "Chat configuration not found. Please configure your AI provider in Chat Settings." };
 	}
 
-	const [baseUrlErr, baseUrl] = await asaw(
-		ProviderRegistry.getBaseUrl(config.provider, databaseConfigId)
-	);
-	if (baseUrlErr) {
-		return { err: baseUrlErr };
-	}
+	const baseUrl =
+		config.provider === OPENAI_COMPATIBLE_PROVIDER_ID ? compatibleBaseUrl : undefined;
 
 	if (config.provider === OPENAI_COMPATIBLE_PROVIDER_ID) {
 		if (!baseUrl) {

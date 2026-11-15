@@ -313,6 +313,8 @@ export const MODEL_ENDPOINT_ADMIN_REQUIRED =
 	"Only an organisation owner or admin who can edit this database configuration can change the base URL.";
 export const MODEL_ENDPOINT_DELETE_ADMIN_REQUIRED =
 	"Only an organisation owner or admin who can edit this database configuration can remove the OpenAI-compatible provider.";
+export const MODEL_ENDPOINT_KEY_CLEARED =
+	"The base URL changed while this request was starting, so its API key was not sent. Select the API key again.";
 export const MODEL_ENDPOINT_TIMED_OUT =
 	"The model endpoint stopped responding, so the request was cancelled. Raise OPENLIT_MODEL_ENDPOINT_TIMEOUT_MS for slow models.";
 export const MODEL_ENDPOINT_NOT_ALLOWED =

@@ -111,6 +111,11 @@ async function evaluateProvider(
 	const startTime = Date.now();
 
 	try {
+		// Read the endpoint before the key reference: a base URL change clears
+		// references before storing the new URL, so a reference read after
+		// this belongs to this URL.
+		const baseUrl = await ProviderRegistry.getBaseUrl(provider, databaseConfigId);
+
 		// Get API key from Vault via config
 		const { data: configWithSecret, err: configErr } =
 			await getOpenGroundConfigWithSecret(provider, userId, databaseConfigId);
@@ -137,7 +142,7 @@ async function evaluateProvider(
 			provider,
 			model,
 			apiKey: configWithSecret.apiKey,
-			baseUrl: await ProviderRegistry.getBaseUrl(provider, databaseConfigId),
+			baseUrl,
 			systemPrompt: prompt,
 			temperature: config.temperature,
 			maxTokens: config.maxTokens,
