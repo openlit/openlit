@@ -311,6 +311,8 @@ export const OPENAI_COMPATIBLE_ENDPOINT_HINT = (baseUrl?: string) =>
 		: "No base URL is set for this provider yet.";
 export const MODEL_ENDPOINT_ADMIN_REQUIRED =
 	"Only an organisation owner or admin can change the base URL.";
+export const MODEL_ENDPOINT_DELETE_ADMIN_REQUIRED =
+	"Only an organisation owner or admin can remove the OpenAI-compatible provider.";
 export const MODEL_ENDPOINT_NOT_ALLOWED =
 	"This base URL cannot be used. It must be a resolvable http(s) address without embedded credentials. Private and localhost addresses need OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS=true on the server, and cloud metadata addresses are always blocked.";
 export const EVALUATION_ENGINE_LABEL = "Engine";
@@ -886,6 +888,8 @@ export const MANAGE_PROVIDERS_DELETE_CONFIRM =
 export const MANAGE_PROVIDERS_SAVED = "Provider saved";
 export const MANAGE_PROVIDERS_DELETED = "Provider deleted";
 export const MANAGE_PROVIDERS_SAVE_FAILED = "Failed to save provider";
+export const MANAGE_PROVIDERS_ID_TAKEN =
+	"A provider with this ID already exists. Edit it instead.";
 export const MANAGE_PROVIDERS_DELETE_FAILED = "Failed to delete provider";
 export const MANAGE_PROVIDERS_ID_LABEL = "Provider ID";
 export const MANAGE_PROVIDERS_ID_HINT =

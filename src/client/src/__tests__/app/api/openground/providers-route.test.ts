@@ -25,7 +25,7 @@ jest.mock('next/server', () => ({
 	},
 }));
 
-import { PUT } from '@/app/api/openground/providers/route';
+import { DELETE, POST, PUT } from '@/app/api/openground/providers/route';
 import { getCurrentUser } from '@/lib/session';
 import { getDBConfigByUser } from '@/lib/db-config';
 import { dataCollector } from '@/lib/platform/common';
@@ -139,5 +139,67 @@ describe('PUT /api/openground/providers base URL', () => {
 		await put({ providerId: 'openai', baseUrl: 'https://attacker.example.com/v1' });
 		expect(insertedRow().base_url).toBeNull();
 		expect(assertModelEndpointAllowed).not.toHaveBeenCalled();
+	});
+});
+
+const post = (body: unknown) =>
+	POST({ json: async () => body } as any) as unknown as Promise<{ status: number; body: any }>;
+const del = (provider: string) =>
+	DELETE({ url: `http://localhost/api/openground/providers?provider=${provider}` } as any) as unknown as Promise<{
+		status: number;
+		body: any;
+	}>;
+const execQueries = () =>
+	(dataCollector as jest.Mock).mock.calls.filter((c) => c[1] === 'exec').map((c) => c[0].query);
+
+describe('POST /api/openground/providers', () => {
+	it('refuses an ID that already exists, so the stored base URL survives', async () => {
+		const res = await post({ providerId: 'openai-compatible', displayName: 'Mine' });
+		expect(res).toEqual({ status: 409, body: { error: getMessage().MANAGE_PROVIDERS_ID_TAKEN } });
+		expect(insertedRow()).toBeUndefined();
+	});
+
+	it('creates a provider with a new ID', async () => {
+		(dataCollector as jest.Mock).mockImplementation(async (_p: unknown, type: string) =>
+			type === 'query' ? { data: [] } : {}
+		);
+		const res = await post({ providerId: 'my-provider', displayName: 'Mine' });
+		expect(res.status).toBe(200);
+		expect(insertedRow()).toMatchObject({ provider_id: 'my-provider', is_default: false });
+	});
+});
+
+describe('DELETE /api/openground/providers', () => {
+	it('refuses to remove the OpenAI-compatible provider without endpoint rights', async () => {
+		(canConfigureModelEndpoint as jest.Mock).mockResolvedValue(false);
+		const res = await del('openai-compatible');
+		expect(res).toEqual({
+			status: 403,
+			body: { error: getMessage().MODEL_ENDPOINT_DELETE_ADMIN_REQUIRED },
+		});
+		expect(execQueries()).toHaveLength(0);
+		expect(clearOpenAICompatibleKeys).not.toHaveBeenCalled();
+	});
+
+	it('clears saved keys before removing the OpenAI-compatible provider', async () => {
+		const res = await del('openai-compatible');
+		expect(res.status).toBe(200);
+		expect(clearOpenAICompatibleKeys).toHaveBeenCalledWith('db-1');
+		expect(execQueries()).toHaveLength(2);
+	});
+
+	it('keeps the provider when saved keys cannot be cleared', async () => {
+		(clearOpenAICompatibleKeys as jest.Mock).mockResolvedValue({ err: 'boom' });
+		const res = await del('openai-compatible');
+		expect(res.status).toBe(500);
+		expect(execQueries()).toHaveLength(0);
+	});
+
+	it('removes a vendor provider without the endpoint check', async () => {
+		(canConfigureModelEndpoint as jest.Mock).mockResolvedValue(false);
+		const res = await del('my-provider');
+		expect(res.status).toBe(200);
+		expect(canConfigureModelEndpoint).not.toHaveBeenCalled();
+		expect(execQueries()).toHaveLength(2);
 	});
 });
