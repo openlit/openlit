@@ -43,6 +43,24 @@ describe("isCloudMetadataAddress", () => {
 		expect(isCloudMetadataAddress("8.8.8.8")).toBe(false);
 	});
 
+	it.each([
+		"100.100.100.200",
+		"168.63.129.16",
+		"fd00:ec2::254",
+		"fd20:ce::254",
+		"::ffff:100.100.100.200",
+		"fe80::1",
+		"febf:ffff::1",
+	])("flags %s, a metadata or link-local address outside 169.254/16", (ip) => {
+		expect(isCloudMetadataAddress(ip)).toBe(true);
+	});
+
+	it("leaves neighbouring addresses alone", () => {
+		expect(isCloudMetadataAddress("100.100.100.201")).toBe(false);
+		expect(isCloudMetadataAddress("fd00:ec2::1")).toBe(false);
+		expect(isCloudMetadataAddress("fec0::1")).toBe(false);
+	});
+
 	it("flags the IPv4-mapped IPv6 form of a metadata address", () => {
 		expect(isCloudMetadataAddress("::ffff:169.254.169.254")).toBe(true);
 		expect(isCloudMetadataAddress("2606:4700:4700::1111")).toBe(false);
@@ -103,6 +121,35 @@ describe("assertPublicUrl", () => {
 			allowPrivateNetwork: true,
 		});
 		expect(url.hostname).toBe("localhost");
+	});
+
+	it.each([
+		"http://[fd00:ec2::254]/",
+		"http://[FD00:0EC2:0:0:0:0:0:254]/",
+		"http://[fd20:ce::254]/",
+		"http://100.100.100.200/",
+		"http://[fe80::1]/",
+		"http://[febf::1]/",
+	])("blocks %s even with allowPrivateNetwork", async (url) => {
+		await expect(
+			assertPublicUrl(url, { allowHttp: true, allowPrivateNetwork: true })
+		).rejects.toBeInstanceOf(SsrfError);
+	});
+
+	it("blocks a hostname resolving to an IPv6 metadata address with allowPrivateNetwork", async () => {
+		await expect(
+			assertPublicUrl("http://imds.internal/", {
+				allowHttp: true,
+				allowPrivateNetwork: true,
+				lookup: async () => [{ address: "fd00:ec2::254" }],
+			})
+		).rejects.toBeInstanceOf(SsrfError);
+	});
+
+	it("still allows other ULA and CGNAT addresses with allowPrivateNetwork", async () => {
+		const options = { allowHttp: true, allowPrivateNetwork: true };
+		await expect(assertPublicUrl("http://[fd00::10]/", options)).resolves.toBeInstanceOf(URL);
+		await expect(assertPublicUrl("http://100.64.0.5/", options)).resolves.toBeInstanceOf(URL);
 	});
 
 	it("still blocks cloud metadata even with allowPrivateNetwork", async () => {

@@ -14,6 +14,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import getMessage from "@/constants/messages";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 
@@ -22,6 +23,7 @@ export interface ProviderFormData {
 	displayName: string;
 	description: string;
 	requiresVault: boolean;
+	baseUrl?: string;
 }
 
 interface ProviderEditorDialogProps {
@@ -149,6 +151,23 @@ export default function ProviderEditorDialog({
 							}
 						/>
 					</div>
+
+					{formData.providerId === OPENAI_COMPATIBLE_PROVIDER_ID && (
+						<div className="space-y-2">
+							<Label htmlFor="base-url">{m.MANAGE_PROVIDERS_BASE_URL}</Label>
+							<Input
+								id="base-url"
+								placeholder={m.MANAGE_PROVIDERS_BASE_URL_PLACEHOLDER}
+								value={formData.baseUrl || ""}
+								onChange={(e) =>
+									setFormData({ ...formData, baseUrl: e.target.value })
+								}
+							/>
+							<p className="text-xs text-stone-500 dark:text-stone-400">
+								{m.MANAGE_PROVIDERS_BASE_URL_HINT}
+							</p>
+						</div>
+					)}
 
 					<div className="flex items-center justify-between rounded-lg border border-stone-200 dark:border-stone-700 p-4">
 						<div className="space-y-0.5">

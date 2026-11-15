@@ -2,10 +2,8 @@ import prisma from "./prisma";
 import { getCurrentUser } from "./session";
 import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
-import {
-	OrganisationAccessAction,
-	canManageOrganisation,
-} from "@/features/organisation-access";
+import { canManageOrganisation } from "@/features/organisation-access";
+import { hasAdminOrOwnerRole } from "@/lib/organisation-roles";
 
 /**
  * Generate a URL-safe slug from a name
@@ -46,37 +44,6 @@ async function generateUniqueOrganisationSlug(
 	throw new Error(
 		"Unable to generate a unique organisation slug. Please try again or use a different name."
 	);
-}
-
-/**
- * Check if a user has admin or owner role in an organisation
- */
-async function hasAdminOrOwnerRole(
-	organisationId: string,
-	userId: string,
-	action: OrganisationAccessAction
-): Promise<boolean> {
-	const extensionDecision = await canManageOrganisation({
-		organisationId,
-		userId,
-		action,
-	});
-	if (typeof extensionDecision === "boolean") return extensionDecision;
-
-	const membership = await prisma.organisationUser.findUnique({
-		where: {
-			organisationId_userId: {
-				organisationId,
-				userId,
-			},
-		},
-		select: { role: true },
-	});
-
-	if (!membership) return false;
-
-	// Owner or admin have elevated permissions
-	return membership.role === "owner" || membership.role === "admin";
 }
 
 /**

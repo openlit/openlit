@@ -1,6 +1,17 @@
-jest.mock('@/lib/platform/common', () => ({
-  dataCollector: jest.fn(),
+jest.mock('@/lib/platform/common', () => {
+  const collector = jest.fn();
+  return { dataCollector: collector, intelligenceDataCollector: collector };
+});
+jest.mock('@/lib/session', () => ({ getCurrentUser: jest.fn() }));
+jest.mock('@/lib/prisma', () => ({
+  __esModule: true,
+  default: { evaluationConfigs: { updateMany: jest.fn() } },
 }));
+jest.mock('@/lib/platform/alerts/signals', () => ({ emitManagementAlertSignalSafe: jest.fn() }));
+jest.mock('@/lib/platform/connectors/datasource/http/secret', () => ({
+  invalidateSourceSecretCache: jest.fn(),
+}));
+jest.mock('@/lib/platform/providers/provider-registry', () => ({ ProviderRegistry: {} }));
 jest.mock('@/utils/sanitizer', () => ({
   __esModule: true,
   default: { sanitizeValue: jest.fn((v: string) => v) },
@@ -20,8 +31,11 @@ import {
   deleteOpenGroundConfig,
   toggleOpenGroundConfigStatus,
   getActiveProviders,
+  clearOpenAICompatibleKeys,
 } from '@/lib/platform/providers/config';
 import { dataCollector } from '@/lib/platform/common';
+import { getCurrentUser } from '@/lib/session';
+import prisma from '@/lib/prisma';
 import getMessage from '@/constants/messages';
 
 const Sanitizer = require('@/utils/sanitizer').default;
@@ -45,6 +59,7 @@ beforeEach(() => {
   (getMessage as jest.Mock).mockReturnValue({
     OPERATION_FAILED: 'Operation failed',
   });
+  (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1', email: 'owner@example.com' });
 });
 
 describe('getOpenGroundConfigs', () => {
@@ -373,5 +388,96 @@ describe('getActiveProviders', () => {
     const result = await getActiveProviders('user-1', 'db-1');
 
     expect(result.err).toBe('Operation failed');
+  });
+});
+
+describe('getOpenGroundConfigWithSecret vault ownership', () => {
+  // A vault that only returns the row when the query filters on its owner, or
+  // does not filter at all, as ClickHouse would.
+  function vaultOwnedBy(owner: string) {
+    (dataCollector as jest.Mock).mockImplementation(async ({ query }: { query: string }) => {
+      if (query.includes('openlit_providers')) {
+        return { data: [{ ...mockConfig, provider: 'openai-compatible', vaultId: 'victim-secret' }] };
+      }
+      const filter = query.match(/created_by = '([^']+)'/)?.[1];
+      return { data: !filter || filter === owner ? [{ id: 'victim-secret', ...mockVaultRecord }] : [] };
+    });
+  }
+
+  it("refuses another user's secret saved on the caller's config", async () => {
+    vaultOwnedBy('victim@example.com');
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'user-1', email: 'attacker@example.com' });
+
+    const { data, err } = await getOpenGroundConfigWithSecret('openai-compatible', 'user-1', 'db-1');
+
+    expect(data).toBeUndefined();
+    expect(err).toContain('API key not found');
+  });
+
+  it("returns the caller's own secret", async () => {
+    vaultOwnedBy('owner@example.com');
+
+    const { data } = await getOpenGroundConfigWithSecret('openai-compatible', 'user-1', 'db-1');
+
+    expect(data?.apiKey).toBe('sk-xxx');
+  });
+});
+
+describe('clearOpenAICompatibleKeys', () => {
+  beforeEach(() => {
+    (dataCollector as jest.Mock).mockResolvedValue({});
+    (prisma.evaluationConfigs.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+  });
+
+  it('clears the selected key from OpenGround, Chat and Evaluations', async () => {
+    const { err } = await clearOpenAICompatibleKeys('db-1');
+
+    expect(err).toBeUndefined();
+    const queries = (dataCollector as jest.Mock).mock.calls.map(([params]) => params.query);
+    for (const table of ['openlit_providers', 'openlit_chat_config']) {
+      const query = queries.find((q: string) => q.includes(table));
+      expect(query).toContain("UPDATE vault_id = ''");
+      expect(query).toContain("provider = 'openai-compatible'");
+      expect(query).toContain('mutations_sync');
+    }
+    expect(prisma.evaluationConfigs.updateMany).toHaveBeenCalledWith({
+      where: { databaseConfigId: 'db-1', provider: 'openai-compatible' },
+      data: { vaultId: '' },
+    });
+  });
+
+  it('stops and reports a failure', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({ err: 'boom' });
+
+    expect(await clearOpenAICompatibleKeys('db-1')).toEqual({ err: 'boom' });
+    expect(prisma.evaluationConfigs.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed evaluation update', async () => {
+    (prisma.evaluationConfigs.updateMany as jest.Mock).mockRejectedValue(new Error('db down'));
+
+    const { err } = await clearOpenAICompatibleKeys('db-1');
+
+    expect(err).toBeTruthy();
+  });
+});
+
+describe('getOpenGroundConfigWithSecret key handling', () => {
+  it('needs no vault record for the OpenAI-compatible provider', async () => {
+    (dataCollector as jest.Mock).mockResolvedValueOnce({
+      data: [{ ...mockConfig, provider: 'openai-compatible', vaultId: '' }],
+    });
+    const { data, err } = await getOpenGroundConfigWithSecret('openai-compatible', 'user-1', 'db-1');
+    expect(err).toBeUndefined();
+    expect(data?.apiKey).toBe('');
+    expect(dataCollector).toHaveBeenCalledTimes(1);
+  });
+
+  it('still fails for another provider with no vault record', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ ...mockConfig, vaultId: '' }] })
+      .mockResolvedValueOnce({ data: [] });
+    const { err } = await getOpenGroundConfigWithSecret('openai', 'user-1', 'db-1');
+    expect(err).toContain('API key not found');
   });
 });

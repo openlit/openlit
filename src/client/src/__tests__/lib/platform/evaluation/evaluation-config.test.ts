@@ -36,6 +36,7 @@ jest.mock('@/utils/error', () => ({
 }));
 jest.mock('@/lib/platform/vault', () => ({
   getSecretById: jest.fn(),
+  isOwnSecret: jest.fn(),
 }));
 jest.mock('@/helpers/server/cron', () => {
   return {
@@ -71,7 +72,7 @@ import { getDBConfigByUser } from '@/lib/db-config';
 import prisma from '@/lib/prisma';
 import asaw from '@/utils/asaw';
 import { throwIfError } from '@/utils/error';
-import { getSecretById } from '@/lib/platform/vault';
+import { getSecretById, isOwnSecret } from '@/lib/platform/vault';
 import Cron from '@/helpers/server/cron';
 import getMessage from '@/constants/messages';
 import { randomUUID } from 'crypto';
@@ -81,7 +82,7 @@ const mockDBConfig = { id: 'db-1', name: 'test-db' };
 
 // Factory function to always get a fresh copy, preventing cross-test mutation
 // (the source mutates updatedConfig.vaultId directly on the object reference)
-const makeMockEvalConfig = () => ({
+const makeMockEvalConfig = (overrides: Record<string, unknown> = {}) => ({
   id: 'eval-cfg-1',
   vaultId: 'vault-1',
   databaseConfigId: 'db-1',
@@ -90,6 +91,7 @@ const makeMockEvalConfig = () => ({
   meta: '{}',
   provider: 'openai',
   model: 'gpt-4',
+  ...overrides,
 });
 
 const mockSecret = { id: 'secret-1', key: 'OPENAI_API_KEY', value: 'sk-xxx' };
@@ -181,6 +183,17 @@ describe('getEvaluationConfig', () => {
     );
   });
 
+  it('does not require a vault secret for the OpenAI-compatible provider', async () => {
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, makeMockEvalConfig({ provider: 'openai-compatible', vaultId: '' })]);
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [] });
+
+    const result = await getEvaluationConfig(undefined, false, true);
+    expect(result.provider).toBe('openai-compatible');
+    expect(result.secret).toEqual({});
+  });
+
   it('returns config with empty vaultId when secret not found and validateVaultId=false', async () => {
     (asaw as jest.Mock)
       .mockResolvedValueOnce([null, mockDBConfig])
@@ -243,6 +256,71 @@ describe('getEvaluationConfig', () => {
 // ---------------------------------------------------------------------------
 // setEvaluationConfig
 // ---------------------------------------------------------------------------
+
+describe('setEvaluationConfig key ownership', () => {
+  beforeEach(() => {
+    (getMessage as jest.Mock).mockReturnValue({ VAULT_SECRET_NOT_OWNED: 'Not your secret' });
+  });
+
+  it("refuses to create an OpenAI-compatible config with another user's secret", async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, mockDBConfig]);
+    (isOwnSecret as jest.Mock).mockResolvedValue(false);
+
+    await expect(
+      setEvaluationConfig(
+        { provider: 'openai-compatible', vaultId: 'victim', auto: false, recurringTime: '', meta: '{}' } as any,
+        'http://api.example.com'
+      )
+    ).rejects.toThrow('Not your secret');
+
+    expect(isOwnSecret).toHaveBeenCalledWith('victim', 'db-1');
+    expect(prisma.evaluationConfigs.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses a provider switch that inherits the previous secret', async () => {
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, makeMockEvalConfig({ provider: 'openai', vaultId: 'victim' })]);
+    (isOwnSecret as jest.Mock).mockResolvedValue(false);
+
+    await expect(
+      setEvaluationConfig(
+        { id: 'eval-cfg-1', provider: 'openai-compatible', auto: false, recurringTime: '', meta: '{}' } as any,
+        'http://api.example.com'
+      )
+    ).rejects.toThrow('Not your secret');
+
+    expect(isOwnSecret).toHaveBeenCalledWith('victim', 'db-1');
+    expect(prisma.evaluationConfigs.update).not.toHaveBeenCalled();
+  });
+
+  it('saves without a key', async () => {
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, { id: 'new' }]);
+
+    await setEvaluationConfig(
+      { provider: 'openai-compatible', vaultId: '', auto: false, recurringTime: '', meta: '{}' } as any,
+      'http://api.example.com'
+    );
+
+    expect(isOwnSecret).not.toHaveBeenCalled();
+    expect(prisma.evaluationConfigs.create).toHaveBeenCalled();
+  });
+
+  it('does not check vendor providers', async () => {
+    (asaw as jest.Mock)
+      .mockResolvedValueOnce([null, mockDBConfig])
+      .mockResolvedValueOnce([null, { id: 'new' }]);
+
+    await setEvaluationConfig(
+      { provider: 'openai', vaultId: 'shared', auto: false, recurringTime: '', meta: '{}' } as any,
+      'http://api.example.com'
+    );
+
+    expect(isOwnSecret).not.toHaveBeenCalled();
+  });
+});
 
 describe('setEvaluationConfig', () => {
   it('throws DATABASE_CONFIG_NOT_FOUND when dbConfig not found', async () => {
@@ -607,6 +685,14 @@ describe('getEvaluationConfigByDbConfigId', () => {
     await expect(getEvaluationConfigByDbConfigId('db-1')).rejects.toThrow(
       'Vault secret not found'
     );
+  });
+
+  it('does not require a vault secret for the OpenAI-compatible provider', async () => {
+    (asaw as jest.Mock).mockResolvedValueOnce([null, makeMockEvalConfig({ provider: 'openai-compatible', vaultId: '' })]);
+    (getSecretById as jest.Mock).mockResolvedValue({ data: [] });
+
+    const result = await getEvaluationConfigByDbConfigId('db-1');
+    expect(result.provider).toBe('openai-compatible');
   });
 
   it('returns full config with secret and evaluationTypes when found', async () => {

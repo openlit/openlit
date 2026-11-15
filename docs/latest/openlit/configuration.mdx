@@ -450,6 +450,24 @@ OpenLIT enables stricter API protections by default, including security response
   ```
 </ResponseField>
 
+<ResponseField name="OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS">
+  Set to `true` to let the [OpenAI-compatible provider](/latest/openlit/costs/manage-models/providers#self-hosted-and-local-models) call private and localhost addresses. Off by default. Enable it only when everyone who can configure providers is trusted to reach your internal network from the OpenLIT server. Cloud metadata addresses stay blocked either way.
+
+  **Example**:
+  ```yaml
+  export OPENLIT_ALLOW_PRIVATE_MODEL_ENDPOINTS=true
+  ```
+</ResponseField>
+
+<ResponseField name="OPENLIT_MODEL_ENDPOINT_TIMEOUT_MS">
+  How long, in milliseconds, a call to the [OpenAI-compatible provider](/latest/openlit/costs/manage-models/providers#self-hosted-and-local-models) can go without receiving data before OpenLIT cancels it. Defaults to `300000` (5 minutes). The limit covers connecting, waiting for the first byte and each pause in a streamed answer, so raise it for models that take longer than that to start answering.
+
+  **Example**:
+  ```yaml
+  export OPENLIT_MODEL_ENDPOINT_TIMEOUT_MS=600000
+  ```
+</ResponseField>
+
 <ResponseField name="OPENLIT_ALLOWED_CORS_ORIGINS">
   Comma-separated list of browser origins that are allowed to call API-key authenticated Vault secret retrieval from another domain.
 

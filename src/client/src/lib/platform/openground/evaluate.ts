@@ -1,7 +1,7 @@
 import { AISdkAdapter } from "./ai-sdk-adapter";
 import { getOpenGroundConfigWithSecret } from "@/lib/platform/providers/config";
 import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
-import { getChatModelCostPerM } from "@/lib/platform/pricing/chat-cost";
+import { getModelCostCalculator } from "@/lib/platform/pricing/model-cost";
 import { createOpengroundEvaluation } from "@/lib/platform/openground-clickhouse";
 import type { ProviderResult } from "@/lib/platform/openground-clickhouse";
 import { getSpecificPrompt } from "@/lib/platform/prompt";
@@ -88,35 +88,13 @@ async function calculateCost(
 	cacheReadTokens: number = 0,
 	cacheCreationTokens: number = 0
 ): Promise<number> {
-	// Look up the model directly from the openlit_provider_models table
-	const modelMetadata = await ProviderRegistry.getModel(
-		provider,
-		model,
-		databaseConfigId
-	);
-	if (!modelMetadata) {
-		// Use separate parameters to prevent log injection
-		console.warn('Model metadata not found for:', provider, '/', model);
-		return 0;
-	}
-
-	return getChatModelCostPerM(
-		{
-			inputPricePerMToken: modelMetadata.inputPricePerMToken,
-			outputPricePerMToken: modelMetadata.outputPricePerMToken,
-			cacheReadPricePerMToken: modelMetadata.cacheReadPricePerMToken,
-			cacheCreationPricePerMToken: modelMetadata.cacheCreationPricePerMToken,
-		},
-		{
-			promptTokens,
-			completionTokens,
-			cacheReadTokens,
-			cacheCreationTokens,
-		},
-		{
-			promptTokensIncludeCache: true,
-		}
-	);
+	const costOf = await getModelCostCalculator(provider, model, databaseConfigId);
+	return costOf({
+		promptTokens,
+		completionTokens,
+		cacheReadTokens,
+		cacheCreationTokens,
+	});
 }
 
 /**
@@ -133,6 +111,11 @@ async function evaluateProvider(
 	const startTime = Date.now();
 
 	try {
+		// Read the endpoint before the key reference: a base URL change clears
+		// references before storing the new URL, so a reference read after
+		// this belongs to this URL.
+		const baseUrl = await ProviderRegistry.getBaseUrl(provider, databaseConfigId);
+
 		// Get API key from Vault via config
 		const { data: configWithSecret, err: configErr } =
 			await getOpenGroundConfigWithSecret(provider, userId, databaseConfigId);
@@ -159,6 +142,7 @@ async function evaluateProvider(
 			provider,
 			model,
 			apiKey: configWithSecret.apiKey,
+			baseUrl,
 			systemPrompt: prompt,
 			temperature: config.temperature,
 			maxTokens: config.maxTokens,
