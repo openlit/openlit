@@ -22,7 +22,8 @@ const {
 } = require("../../../prisma/seed-lib");
 
 function createPrismaMock() {
-	return {
+	const prisma: any = {
+		$transaction: jest.fn((run: (tx: unknown) => unknown) => run(prisma)),
 		databaseConfig: {
 			findMany: jest.fn().mockResolvedValue([]),
 			findUnique: jest.fn().mockResolvedValue(null),
@@ -59,6 +60,7 @@ function createPrismaMock() {
 			update: jest.fn(),
 		},
 	};
+	return prisma;
 }
 
 describe("seed-lib INIT_DB helpers", () => {
@@ -349,8 +351,22 @@ describe("seedDefaultOrganisationMembership", () => {
 				userId: "seed-user",
 				role: "owner",
 				isCurrent: true,
+				currentProjectId: "project-1",
 			},
 		});
+	});
+
+	it("takes the write lock before counting owners, all in one transaction", async () => {
+		const prisma = createPrismaMock();
+
+		await seedDefaultOrganisationMembership(prisma, input);
+
+		expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+		const [write] = prisma.organisationUser.updateMany.mock.invocationCallOrder;
+		const [count] = prisma.organisationUser.count.mock.invocationCallOrder;
+		const [promote] = prisma.organisationUser.upsert.mock.invocationCallOrder;
+		expect(write).toBeLessThan(count);
+		expect(count).toBeLessThan(promote);
 	});
 
 	it("leaves a demoted or removed seed user alone once an owner exists", async () => {

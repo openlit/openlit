@@ -35,26 +35,36 @@ async function ensureProjectEnvironment(prisma, projectId, name = DEFAULT_ENVIRO
 
 // Runs on every container start. Demoting or removing the seed user is legal
 // once another owner exists, so ownership is only restored to an ownerless
-// organisation.
+// organisation. The check and the write share one transaction that starts
+// with a write: SQLite takes its write lock on that first statement, so no
+// other owner change can land between counting owners and promoting the seed
+// user.
 async function seedDefaultOrganisationMembership(
 	prisma,
 	{ organisationId, userId, projectId }
 ) {
-	const ownerCount = await prisma.organisationUser.count({
-		where: { organisationId, role: "owner" },
-	});
+	await prisma.$transaction(async (tx) => {
+		await tx.organisationUser.updateMany({
+			where: { organisationId, userId, currentProjectId: null },
+			data: { currentProjectId: projectId },
+		});
 
-	if (ownerCount === 0) {
-		await prisma.organisationUser.upsert({
+		const ownerCount = await tx.organisationUser.count({
+			where: { organisationId, role: "owner" },
+		});
+		if (ownerCount > 0) return;
+
+		await tx.organisationUser.upsert({
 			where: { organisationId_userId: { organisationId, userId } },
 			update: { role: "owner", isCurrent: true },
-			create: { organisationId, userId, role: "owner", isCurrent: true },
+			create: {
+				organisationId,
+				userId,
+				role: "owner",
+				isCurrent: true,
+				currentProjectId: projectId,
+			},
 		});
-	}
-
-	await prisma.organisationUser.updateMany({
-		where: { organisationId, userId, currentProjectId: null },
-		data: { currentProjectId: projectId },
 	});
 }
 
