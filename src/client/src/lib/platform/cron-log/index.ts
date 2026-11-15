@@ -123,7 +123,7 @@ export async function getLastRunCronLogByCronId(
 	databaseConfigId?: string
 ) {
 	const query = `
-		SELECT * FROM ${OPENLIT_CRON_LOG_TABLE_NAME} WHERE cron_id = '${cronId}' AND run_status = '${CronRunStatus.SUCCESS}'
+		SELECT * FROM ${OPENLIT_CRON_LOG_TABLE_NAME} WHERE cron_id = '${escapeClickHouseString(cronId)}' AND run_status = '${CronRunStatus.SUCCESS}'
 		ORDER BY started_at DESC
 		LIMIT 1
 	`;
@@ -138,7 +138,8 @@ export async function getLastRunCronLogByCronId(
 		return null;
 	}
 
-	return (data as CronLogData[])[0].startedAt;
+	// A cron's first run has no successful run before it.
+	return (data as CronLogData[])[0]?.startedAt ?? null;
 }
 
 export async function getLastFailureCronLogBySpanId(spanId: string) {

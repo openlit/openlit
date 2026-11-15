@@ -116,6 +116,17 @@ describe('getCronLogs', () => {
 });
 
 describe('getLastRunCronLogByCronId', () => {
+  it('returns null on a cron\'s first run, when no successful run exists', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+    await expect(getLastRunCronLogByCronId('new-cron', 'db-1')).resolves.toBeNull();
+  });
+
+  it('escapes the cron id in the query', async () => {
+    await getLastRunCronLogByCronId("x' OR '1'='1", 'db-1');
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain("cron_id = 'x\\' OR \\'1\\'=\\'1'");
+  });
+
   it('returns startedAt when a successful run exists', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({
       data: [{ startedAt: new Date('2024-01-15') }],
