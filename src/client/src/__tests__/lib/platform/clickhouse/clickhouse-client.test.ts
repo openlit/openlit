@@ -7,6 +7,10 @@ jest.mock("@clickhouse/client", () => ({
 
 import createClickhousePool from "@/lib/platform/clickhouse/clickhouse-client";
 import { tenantReadFilterSettings } from "@/lib/platform/clickhouse/tenant-read-filter";
+import {
+	CLICKHOUSE_READ_MAX_EXECUTION_SECONDS,
+	SPAN_SEARCH_REQUEST_TIMEOUT_MS,
+} from "@/constants/traces";
 
 const baseConfig = {
 	id: "db-1",
@@ -42,6 +46,15 @@ describe("createClickhousePool", () => {
 		const pool = createClickhousePool({ ...baseConfig, id: "lazy" });
 		await flush();
 		expect(pool.size).toBe(0);
+	});
+
+	it("waits past the server ceiling, and the browser waits for two such reads", () => {
+		createClickhousePool({ ...baseConfig, id: "timeout" });
+		const { request_timeout } = mockCreateClient.mock.calls[0][0];
+		expect(request_timeout).toBeGreaterThan(CLICKHOUSE_READ_MAX_EXECUTION_SECONDS * 1000);
+		expect(SPAN_SEARCH_REQUEST_TIMEOUT_MS).toBeGreaterThan(
+			2 * CLICKHOUSE_READ_MAX_EXECUTION_SECONDS * 1000
+		);
 	});
 
 	it("closes the client that checks the config", async () => {

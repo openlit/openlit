@@ -126,8 +126,16 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 				// Changing groupBy always resets the drilled-in groupValue so stale
 				// drill-down filters don't bleed into the new group selection.
 				set(object, "groupValue", null);
+				// Grouped views hide the search box and their counts ignore search.
+				if (key === "groupBy") set(object, "selectedConfig.search", "");
 				break;
 			case "groupValue":
+				set(object, "offset", 0);
+				// Leaving a drill-down returns to the grouped view, which hides search.
+				if (!value) set(object, "selectedConfig.search", "");
+				break;
+			// Search filters the drilled-in list, so it must leave groupValue alone.
+			case "selectedConfig.search":
 				set(object, "offset", 0);
 				break;
 			case "offset":

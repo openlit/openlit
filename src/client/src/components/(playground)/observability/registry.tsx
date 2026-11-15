@@ -63,6 +63,8 @@ export type ObservabilitySignalConfig = {
 	pageName: PAGE;
 	visibilityPage: PAGE;
 	supportGrouping?: boolean;
+	/** List route applies `selectedConfig.search` on sources that can. */
+	supportContentSearch?: boolean;
 	groupedUrl?: string;
 	includeOnlySorting?: string[];
 	// Aggregation-level sort options (e.g. "cost", "tokens",
@@ -86,6 +88,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		summary: m.OBSERVABILITY_TRACE_SUMMARY,
 		icon: GitBranch,
 		listUrl: "/api/telemetry/trace?view=traces",
+		supportContentSearch: true,
 		summaryUrl: "/api/telemetry/summary/traces?view=traces",
 		configUrl: "/api/metrics/request/config",
 		attributeKeysUrl: "/api/metrics/request/attribute-keys",
@@ -115,6 +118,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		summary: m.OBSERVABILITY_SPAN_SUMMARY,
 		icon: Activity,
 		listUrl: "/api/telemetry/trace",
+		supportContentSearch: true,
 		summaryUrl: "/api/telemetry/summary/traces",
 		configUrl: "/api/telemetry/request/config",
 		attributeKeysUrl: "/api/telemetry/request/attribute-keys",
@@ -137,6 +141,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		summary: m.OBSERVABILITY_EXCEPTION_SUMMARY,
 		icon: ShieldAlert,
 		listUrl: "/api/telemetry/exception",
+		supportContentSearch: true,
 		summaryUrl: "/api/telemetry/summary/exceptions",
 		configUrl: "/api/telemetry/request/config",
 		attributeKeysUrl: "/api/telemetry/request/attribute-keys",

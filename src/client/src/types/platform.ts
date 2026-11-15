@@ -48,6 +48,8 @@ export type FilterWhereConditionType = {
 		 * same classifier.
 		 */
 		agentLoop: boolean;
+		/** Span content search. Only list and count queries apply it. */
+		search: string;
 		/**
 		 * Version filter for agent-scoped views. When set, queries are scoped
 		 * to spans matching the version's hash attribute and/or the version's

@@ -100,6 +100,7 @@ describe("ClickHouseAdapter", () => {
 			distinctValues: true,
 			crossTraceSession: true,
 			rawQuery: true,
+			contentSearch: true,
 		});
 	});
 
@@ -1085,6 +1086,7 @@ describe("clickHouseAdapterFactory", () => {
 				distinctValues: true,
 				crossTraceSession: true,
 				rawQuery: true,
+				contentSearch: true,
 			},
 			correlation: {
 				crossSignal: true,

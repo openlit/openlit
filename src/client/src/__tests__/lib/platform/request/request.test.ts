@@ -318,12 +318,14 @@ describe('getTraceSummaries', () => {
     const countQuery = (dataCollector as jest.Mock).mock.calls[0][0].query;
     const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
     expect(countQuery).toContain('uniqExact(TraceId)');
-    expect(listQuery).toContain('WITH page AS');
-    expect(listQuery).toContain('INNER JOIN page AS p ON t.TraceId = p.TraceId');
+    // The page is one scalar subquery, so its filters scan the window once.
+    expect(listQuery).toContain(') AS page_ids');
+    expect(listQuery).not.toContain('JOIN');
     // Heavy map columns are read for the page's traces, not the whole window.
-    expect(listQuery).toMatch(/WHERE t\.Timestamp >= .* AND t\.TraceId IN \(SELECT TraceId FROM page\)/);
-    // `page` is evaluated by the join and by the IN: ties must resolve the same way.
+    expect(listQuery).toMatch(/WHERE t\.Timestamp >= .* AND t\.TraceId IN \(SELECT arrayJoin\(page_ids\)\)/);
+    // Rows come back in page order, with TraceId settling ties.
     expect(listQuery).toContain('ORDER BY TraceStart DESC, TraceId');
+    expect(listQuery).toContain('ORDER BY indexOf(page_ids, t.TraceId)');
     expect(listQuery).toContain("t.ParentSpanId = '0000000000000000'");
     expect(listQuery).toContain('t.SpanId');
     expect(listQuery).toContain('t.Timestamp >= parseDateTimeBestEffort');
@@ -334,7 +336,7 @@ describe('getTraceSummaries', () => {
     expect(listQuery).not.toContain('argMin(Links');
     expect(listQuery).toContain('AS SpanCount');
     expect(listQuery).toContain('AS ErrorCount');
-    expect(listQuery).toContain('ORDER BY p.TraceStart DESC');
+    expect(listQuery).toContain('ORDER BY indexOf(page_ids, t.TraceId)');
   });
 
   it('honors an ascending timestamp sort on the paged trace ids', async () => {
@@ -351,7 +353,7 @@ describe('getTraceSummaries', () => {
 
     const listQuery = (dataCollector as jest.Mock).mock.calls[1][0].query as string;
     expect(listQuery).toContain('ORDER BY TraceStart ASC');
-    expect(listQuery).toContain('ORDER BY p.TraceStart ASC');
+    expect(listQuery).toContain('ORDER BY indexOf(page_ids, t.TraceId)');
   });
 
   it('returns the count error without running the list query', async () => {
@@ -376,6 +378,64 @@ it('counts unique trace IDs in the ClickHouse trace volume series', async () => 
   const query = (dataCollector as jest.Mock).mock.calls[0][0].query as string;
   expect(query).toContain('uniqExact(TraceId)');
   expect(query).toContain('FROM');
+});
+
+describe('span content search', () => {
+  const searchParams = {
+    timeLimit: {
+      start: new Date('2024-01-01'),
+      end: new Date('2024-01-02'),
+      type: 'CUSTOM',
+    },
+    selectedConfig: { search: 'refund' },
+  };
+  const wideSearchParams = { ...searchParams, timeLimit: baseParams.timeLimit };
+  const queries = () =>
+    (dataCollector as jest.Mock).mock.calls.map(([{ query }]) => query as string);
+
+  it('applies search to the span list and its count', async () => {
+    await getRequests(searchParams);
+    expect(queries()).toHaveLength(2);
+    queries().forEach((query) =>
+      expect(query).toContain("positionCaseInsensitiveUTF8(StatusMessage, 'refund')")
+    );
+  });
+
+  it('applies search to the trace page and its count', async () => {
+    await getTraceSummaries(searchParams);
+    expect(queries()).toHaveLength(2);
+    queries().forEach((query) =>
+      expect(query).toContain("positionCaseInsensitiveUTF8(StatusMessage, 'refund')")
+    );
+  });
+
+  it('scans span content once per list read', async () => {
+    const searchMatch = "positionCaseInsensitiveUTF8(StatusMessage, 'refund')";
+    await getRequests(searchParams);
+    const spanRead = queries()[1];
+    expect(spanRead.split(searchMatch)).toHaveLength(2);
+    // The search runs in the id page; the row read is bounded by time and ids.
+    const [outer] = spanRead.split('SELECT Timestamp, TraceId, SpanId');
+    expect(outer).not.toContain(searchMatch);
+
+    (dataCollector as jest.Mock).mockClear();
+    await getTraceSummaries(searchParams);
+    expect(queries()[1].split(searchMatch)).toHaveLength(2);
+  });
+
+  it('does not apply search to the summary series', async () => {
+    await getTraceSummarySeries(searchParams);
+    expect(queries()[0]).not.toContain('positionCaseInsensitiveUTF8');
+  });
+
+  it.each([
+    ['getRequests', getRequests],
+    ['getTraceSummaries', getTraceSummaries],
+  ])('%s returns the range error without querying', async (_name, read) => {
+    const result = await read(wideSearchParams);
+    expect(result.err).toContain('Narrow the time range');
+    expect(dataCollector).not.toHaveBeenCalled();
+  });
 });
 
 describe('getRequestViaSpanId', () => {

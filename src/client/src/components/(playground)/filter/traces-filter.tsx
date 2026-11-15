@@ -11,6 +11,7 @@ import {
 } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import Sorting, { type SortOption } from "./sorting";
+import SpanContentSearch from "./span-content-search";
 import ComboDropdown from "./combo-dropdown";
 import SlideWithValue from "./slider-with-value";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,8 @@ import {
 	FILTER_PARAM_KEYS,
 	getFilterStorageKey,
 } from "@/helpers/client/filter-persistence";
-import type { Signal } from "@/utils/hooks/useSignalCapabilities";
+import { useSignalCapabilities, type Signal } from "@/utils/hooks/useSignalCapabilities";
+import { getCurrentProjectEnvironment } from "@/selectors/project";
 import { GENERATION_HEALTH_CHIPS, parseGenerationHealthChips } from "@/lib/platform/generation-health/classify";
 import { generationHealthChipLabel } from "@/lib/platform/generation-health/format";
 
@@ -154,7 +156,7 @@ const Combobox = ({
 // Separator used inside a single custom-filter param value: type|key|value
 const CF_SEP = "|";
 
-function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) {
+export function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) {
 	params.delete("models");
 	params.delete("providers");
 	params.delete("traceTypes");
@@ -170,6 +172,7 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	params.delete("cf");
 	params.delete("gh");
 	params.delete("al");
+	params.delete("search");
 
 	if (config.models?.length) params.set("models", config.models.join(","));
 	if (config.providers?.length) params.set("providers", config.providers.join(","));
@@ -191,9 +194,10 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 		params.set("gh", config.generationHealth.join(","));
 	}
 	if (config.agentLoop) params.set("al", "1");
+	if (config.search) params.set("search", config.search);
 }
 
-function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
+export function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
 	const config: Partial<FilterConfig> = {};
 	const models = params.get("models");
 	if (models) config.models = models.split(",").filter(Boolean);
@@ -233,6 +237,8 @@ function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
 		config.generationHealth = parseGenerationHealthChips(gh.split(","));
 	}
 	if (params.get("al") === "1") config.agentLoop = true;
+	const search = params.get("search");
+	if (search) config.search = search;
 	return config;
 }
 
@@ -1041,6 +1047,8 @@ function applyStoredFilter(
 		}
 	}
 	if (saved.limit) updateFilter("limit", saved.limit);
+	// groupBy clears search, so it must come before selectedConfig.
+	if (saved.groupBy) updateFilter("groupBy", saved.groupBy);
 	if (saved.selectedConfig && hasActiveConfig(saved.selectedConfig)) {
 		// Strip ephemeral scope fields defensively — older saves may still
 		// contain serviceNames from before the strip-on-save fix.
@@ -1050,7 +1058,6 @@ function applyStoredFilter(
 		updateFilter("selectedConfig", persistableConfig);
 	}
 	if (saved.sorting?.type) updateFilter("sorting", saved.sorting);
-	if (saved.groupBy) updateFilter("groupBy", saved.groupBy);
 	if (saved.groupValue) updateFilter("groupValue", saved.groupValue);
 }
 
@@ -1058,7 +1065,7 @@ function applyStoredFilter(
 
 const VALID_TIME_RANGES = new Set(["24H", "7D", "1M", "3M", "CUSTOM"]);
 
-function useFilterUrlSync(
+export function useFilterUrlSync(
 	filter: FilterType,
 	updateFilter: (key: string, value: any, extraParams?: any) => void,
 	storageScope?: string
@@ -1111,10 +1118,11 @@ function useFilterUrlSync(
 				const parsed = parseInt(offsetParam, 10);
 				if (!isNaN(parsed) && parsed >= 0) updateFilter("offset", parsed);
 			}
-			const config = paramsToConfig(params);
-			if (hasActiveConfig(config)) updateFilter("selectedConfig", config);
+			// groupBy clears search, so it must come before selectedConfig.
 			const gb = params.get("gb");
 			if (gb) updateFilter("groupBy", gb);
+			const config = paramsToConfig(params);
+			if (hasActiveConfig(config)) updateFilter("selectedConfig", config);
 			const gbv = params.get("gbv");
 			if (gbv) updateFilter("groupValue", gbv);
 		} else {
@@ -1192,6 +1200,7 @@ export default function TracesFilter({
 	filterStorageScope,
 	extraControls,
 	signal,
+	supportContentSearch = false,
 }: {
 	total?: number;
 	supportDynamicFilters?: boolean;
@@ -1217,11 +1226,19 @@ export default function TracesFilter({
 	extraControls?: React.ReactNode;
 	/** Datasource signal whose capability limits drive the time selector. */
 	signal?: Signal;
+	/** The page's list route applies `selectedConfig.search`. */
+	supportContentSearch?: boolean;
 }) {
 	const [isVisibleFilters, setIsVisibileFilters] = useState<boolean>(false);
 	const filter = useRootStore(getFilterDetails);
 	const filterConfig = useRootStore(getFilterConfig);
 	const updateFilter = useRootStore(getUpdateFilter);
+	const environment = useRootStore(getCurrentProjectEnvironment);
+	const { capabilities } = useSignalCapabilities(environment || undefined);
+	const showContentSearch =
+		supportContentSearch &&
+		!!signal &&
+		!!capabilities?.[signal]?.capabilities?.contentSearch;
 
 	useEffect(() => {
 		if ((filter.selectedConfig.customFilters?.length || 0) > 0) {
@@ -1278,7 +1295,10 @@ export default function TracesFilter({
 			}
 			if (typeof filter.selectedConfig[key] === "number") {
 				return (filter.selectedConfig[key] as number) > 0;
-			} else if (typeof filter.selectedConfig[key] === "boolean") {
+			} else if (
+				typeof filter.selectedConfig[key] === "boolean" ||
+				typeof filter.selectedConfig[key] === "string"
+			) {
 				return Boolean(filter.selectedConfig[key]);
 			} else if (
 				typeof filter.selectedConfig[key] === "object" &&
@@ -1300,6 +1320,12 @@ export default function TracesFilter({
 			<div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
 				<Filter className="min-w-0 shrink-0" signal={signal} />
 				<div className="ml-auto flex shrink-0 items-center gap-2">
+					{showContentSearch && (
+						<SpanContentSearch
+							value={filter.selectedConfig.search || ""}
+							onSubmit={(search) => updateFilter("selectedConfig.search", search)}
+						/>
+					)}
 					{filterConfig && !!total && total > 0 && (
 						<TracesPagination
 							currentPage={filter.offset / filter.limit + 1}

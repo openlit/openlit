@@ -202,6 +202,43 @@ describe('getData', () => {
   });
 });
 
+describe('getData timeout', () => {
+  const abortedAfter = async (timeoutMs?: number) => {
+    __clearTelemetryRequestCache();
+    (global.fetch as jest.Mock).mockReturnValue(new Promise(() => {}));
+    const request = getData({ url: '/api/telemetry/trace', data: { a: timeoutMs ?? 0 }, timeoutMs });
+    request.catch(() => {});
+    await Promise.resolve();
+    const [, options] = (global.fetch as jest.Mock).mock.calls.at(-1);
+    return options.signal as AbortSignal;
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    global.fetch = jest.fn();
+    mockEmptyScope();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    __clearTelemetryRequestCache();
+  });
+
+  it('aborts telemetry reads after 15 seconds by default', async () => {
+    const signal = await abortedAfter();
+    jest.advanceTimersByTime(15_000);
+    expect(signal.aborted).toBe(true);
+  });
+
+  it('honours a longer timeout', async () => {
+    const signal = await abortedAfter(60_000);
+    jest.advanceTimersByTime(59_999);
+    expect(signal.aborted).toBe(false);
+    jest.advanceTimersByTime(1);
+    expect(signal.aborted).toBe(true);
+  });
+});
+
 describe('postData', () => {
   beforeEach(() => {
     global.fetch = jest.fn();

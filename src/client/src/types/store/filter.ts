@@ -73,6 +73,8 @@ export interface FilterConfig {
 	generationHealth?: GenerationHealthChip[];
 	/** Stuck-tool loop chip on traces (same tool + args ≥ N times). */
 	agentLoop?: boolean;
+	/** Case-insensitive text match on span content. An empty string clears it. */
+	search?: string;
 	/** Locked agent version scope used by the agent detail page. */
 	versionFilter?: VersionFilter;
 }
