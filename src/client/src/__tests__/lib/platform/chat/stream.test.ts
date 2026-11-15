@@ -1,3 +1,10 @@
+jest.mock("@/lib/platform/pricing/model-cost", () => ({
+	getModelCostCalculator: jest.fn(
+		async () =>
+			({ promptTokens, completionTokens }: { promptTokens: number; completionTokens: number }) =>
+				promptTokens * 1e-6 + completionTokens * 2e-6
+	),
+}));
 // Mock ai package before anything else
 jest.mock('ai', () => ({
   streamText: jest.fn(),
@@ -7,8 +14,8 @@ jest.mock('ai', () => ({
   jsonSchema: jest.fn((s: any) => s),
 }));
 
-import { getModelInstance, formatStreamError, buildConversationMessages, streamChatMessage } from '@/lib/platform/chat/stream';
-import { CHAT_PROVIDER_IDS } from '@/constants/chat-providers';
+import { getModelCostCalculator } from '@/lib/platform/pricing/model-cost';
+import { formatStreamError, buildConversationMessages, streamChatMessage } from '@/lib/platform/chat/stream';
 
 // Mock external dependencies
 jest.mock('@ai-sdk/openai', () => ({
@@ -18,7 +25,7 @@ jest.mock('@ai-sdk/anthropic', () => ({
   createAnthropic: jest.fn(() => (model: string) => ({ model, provider: 'anthropic' })),
 }));
 jest.mock('@ai-sdk/google', () => ({
-  google: (model: string) => ({ model, provider: 'google' }),
+  createGoogleGenerativeAI: jest.fn(() => (model: string) => ({ model, provider: 'google' })),
 }));
 jest.mock('@ai-sdk/mistral', () => ({
   createMistral: jest.fn(() => (model: string) => ({ model, provider: 'mistral' })),
@@ -64,8 +71,9 @@ jest.mock('@/lib/platform/chat/telemetry-sql-routing', () => ({
 }));
 
 import { streamText, generateText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
 import { dataCollector } from '@/lib/platform/common';
+import { getModelInstance } from '@/lib/platform/chat/stream';
+import { createModel } from '@/lib/platform/providers/create-model';
 import { addMessage, getConversationMessages, updateConversation } from '@/lib/platform/chat/conversation';
 import { extractSQLFromResponse, validateSQL } from '@/lib/platform/chat/sql-validator';
 import { authorizeTelemetrySQLRouting } from '@/lib/platform/chat/telemetry-sql-routing';
@@ -78,77 +86,8 @@ async function* streamParts(parts: any[]) {
 }
 
 describe('getModelInstance', () => {
-  it('creates OpenAI model instance', () => {
-    const instance = getModelInstance('openai', 'sk-test', 'gpt-4o');
-    expect(instance).toEqual({ model: 'gpt-4o', provider: 'openai' });
-  });
-
-  it('creates Anthropic model instance', () => {
-    const instance = getModelInstance('anthropic', 'sk-test', 'claude-3');
-    expect(instance).toEqual({ model: 'claude-3', provider: 'anthropic' });
-  });
-
-  it('creates Google model instance', () => {
-    const instance = getModelInstance('google', 'key', 'gemini-pro');
-    expect(instance).toEqual({ model: 'gemini-pro', provider: 'google' });
-  });
-
-  it('throws for unsupported provider', () => {
-    expect(() => getModelInstance('nonexistent', 'key', 'model')).toThrow('not supported');
-  });
-
-  it('supports groq via OpenAI-compatible endpoint', () => {
-    const instance = getModelInstance('groq', 'key', 'llama-3');
-    expect(instance).toBeDefined();
-  });
-
-  it('attributes Perplexity requests to OpenLIT', () => {
-    getModelInstance('perplexity', 'key', 'sonar');
-    expect(createOpenAI).toHaveBeenCalledWith({
-      baseURL: 'https://api.perplexity.ai',
-      apiKey: 'key',
-      headers: { 'X-Pplx-Integration': 'openlit' },
-    });
-  });
-
-  it('supports all built-in providers including MiniMax', () => {
-    for (const p of CHAT_PROVIDER_IDS) {
-      expect(() => getModelInstance(p, 'key', 'model')).not.toThrow();
-    }
-  });
-
-  it('supports MiniMax via the OpenAI-compatible endpoint', () => {
-    const instance = getModelInstance('minimax', 'key', 'MiniMax-M3');
-    expect(instance).toBeDefined();
-    expect(createOpenAI).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: 'https://api.minimax.io/v1' })
-    );
-  });
-
-  it('supports OrcaRouter via the OpenAI-compatible endpoint', () => {
-    const instance = getModelInstance('orcarouter', 'sk-orca-test', 'orcarouter/auto');
-    expect(instance).toBeDefined();
-    expect(createOpenAI).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: 'https://api.orcarouter.ai/v1' })
-    );
-  });
-
-  it('does not support TypeSafe Jev as a chat provider', () => {
-    expect(() => getModelInstance('typesafe', 'key', 'jev-latest')).toThrow(
-      'Provider typesafe not supported'
-    );
-  });
-
-  it('throws when a provider factory returns a non-callable object instance', () => {
-    (createOpenAI as jest.Mock).mockReturnValueOnce({ notAFunction: true });
-    expect(() => getModelInstance('openai', 'key', 'model')).toThrow();
-  });
-
-  it('throws a descriptive error when a provider factory returns neither a function nor an object', () => {
-    (createOpenAI as jest.Mock).mockReturnValueOnce(undefined);
-    expect(() => getModelInstance('openai', 'key', 'model')).toThrow(
-      'Invalid provider instance for openai'
-    );
+  it('stays importable from this module as the shared model factory', () => {
+    expect(getModelInstance).toBe(createModel);
   });
 });
 
@@ -281,6 +220,7 @@ describe('streamChatMessage', () => {
     });
 
     expect(result.streamError).toBeNull();
+    expect(getModelCostCalculator).toHaveBeenCalledWith('openai', 'gpt-4o', 'db1');
     expect(result.responseText).toContain('```query-result');
     expect(result.responseText).toContain('"one":1');
     expect(dataCollector).toHaveBeenCalledWith(
@@ -294,7 +234,7 @@ describe('streamChatMessage', () => {
     expect(updateConversation).toHaveBeenCalledWith('c1', {
       addPromptTokens: 100,
       addCompletionTokens: 20,
-      addCost: 0.0006,
+      addCost: 0.00014,
       incrementMessages: true,
     });
     expect(addMessage).toHaveBeenLastCalledWith({
@@ -303,7 +243,7 @@ describe('streamChatMessage', () => {
       content: expect.stringContaining('```query-result'),
       promptTokens: 100,
       completionTokens: 20,
-      cost: 0.0006,
+      cost: 0.00014,
       provider: 'openai',
       model: 'gpt-4o',
     });

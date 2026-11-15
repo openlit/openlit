@@ -7,6 +7,10 @@ jest.mock('@/lib/platform/common', () => ({
   dataCollector: jest.fn(),
   OTEL_TRACES_TABLE_NAME: 'otel_traces',
 }));
+jest.mock('@/lib/prisma', () => ({
+  __esModule: true,
+  default: { evaluationConfigs: { findUnique: jest.fn() } },
+}));
 jest.mock('@/lib/platform/evaluation/table-details', () => ({
   OPENLIT_EVALUATION_TABLE_NAME: 'openlit_evaluation',
 }));
@@ -34,6 +38,7 @@ jest.mock('@/constants/messages', () => ({
     DATABASE_CONFIG_NOT_FOUND: 'DB config not found',
     TRACE_FETCHING_ERROR: 'Trace fetch error',
     EVALUATION_ERROR_UNKNOWN_TYPES: 'Unknown eval types',
+    MODEL_ENDPOINT_KEY_CLEARED: 'Key cleared by a base URL change',
   })),
 }));
 jest.mock('@/lib/platform/evaluation/config', () => ({
@@ -1438,6 +1443,55 @@ describe('extractEvalPromptCompletion (attribute-first extraction)', () => {
       prompt: '',
       response: '',
     });
+  });
+});
+
+describe('runOfflineEvaluation with a self-hosted endpoint', () => {
+  const prisma = () => require('@/lib/prisma').default;
+  const { ProviderRegistry } = require('@/lib/platform/providers/provider-registry');
+  const compatibleConfig = {
+    id: 'eval-1',
+    provider: 'openai-compatible',
+    model: 'llama3',
+    vaultId: 'v1',
+    secret: { value: 'local-key' },
+    evaluationTypes: [{ id: 'hallucination', enabled: true, defaultPrompt: 'Check' }],
+  };
+  const input = { prompt: 'What is 2+2?', response: '4' };
+
+  beforeEach(() => {
+    (runEvaluation as jest.Mock).mockResolvedValue({ success: true, result: [] });
+    (evaluateRules as jest.Mock).mockResolvedValue({ matchingRuleIds: [], entities: [] });
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
+    jest.spyOn(ProviderRegistry, 'getBaseUrl').mockResolvedValue('http://llm.internal/v1');
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('sends the key to the URL when its selection is unchanged', async () => {
+    prisma().evaluationConfigs.findUnique.mockResolvedValue({ vaultId: 'v1' });
+    const result = await runOfflineEvaluation(input, compatibleConfig as any, 'db-1');
+    expect(result.success).toBe(true);
+    expect(runEvaluation).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: 'local-key', baseUrl: 'http://llm.internal/v1' })
+    );
+  });
+
+  it('withholds the key when a base URL change cleared it after the config was read', async () => {
+    prisma().evaluationConfigs.findUnique.mockResolvedValue({ vaultId: '' });
+    const result = await runOfflineEvaluation(input, compatibleConfig as any, 'db-1');
+    expect(result).toMatchObject({ success: false, error: 'Key cleared by a base URL change' });
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it('skips the re-check for a keyless endpoint', async () => {
+    const result = await runOfflineEvaluation(
+      input,
+      { ...compatibleConfig, vaultId: '', secret: {} } as any,
+      'db-1'
+    );
+    expect(result.success).toBe(true);
+    expect(prisma().evaluationConfigs.findUnique).not.toHaveBeenCalled();
   });
 });
 
