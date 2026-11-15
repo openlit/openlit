@@ -1023,7 +1023,7 @@ export async function getOrganisationMembers(organisationId: string) {
 		name: member.user.name,
 		image: member.user.image,
 		isCreator: member.user.id === organisation!.createdByUserId,
-		role: member.user.id === organisation!.createdByUserId ? "owner" : member.role,
+		role: member.role,
 		joinedAt: member.createdAt,
 	}));
 }
