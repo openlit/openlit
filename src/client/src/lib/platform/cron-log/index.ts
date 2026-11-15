@@ -118,12 +118,28 @@ export async function getCronLogs({
 	};
 }
 
+/**
+ * Spans can land after the run that would have covered them, so the next run
+ * looks back this far before the previous run started. Callers skip spans
+ * they already handled, so the overlap does not repeat work.
+ */
+export const CRON_LAST_RUN_LOOKBACK_MS = 60 * 60 * 1000;
+
+/**
+ * Where the next run of a cron should start scanning: the start of its last
+ * successful run minus `CRON_LAST_RUN_LOOKBACK_MS`, as a UTC ISO string, or
+ * null when it has never succeeded.
+ */
 export async function getLastRunCronLogByCronId(
 	cronId: string,
 	databaseConfigId?: string
-) {
+): Promise<string | null> {
+	// Formatted in UTC so the value means the same instant in ClickHouse and
+	// in Node, whatever either server's time zone is.
 	const query = `
-		SELECT * FROM ${OPENLIT_CRON_LOG_TABLE_NAME} WHERE cron_id = '${escapeClickHouseString(cronId)}' AND run_status = '${CronRunStatus.SUCCESS}'
+		SELECT formatDateTime(started_at, '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS startedAt
+		FROM ${OPENLIT_CRON_LOG_TABLE_NAME}
+		WHERE cron_id = '${escapeClickHouseString(cronId)}' AND run_status = '${CronRunStatus.SUCCESS}'
 		ORDER BY started_at DESC
 		LIMIT 1
 	`;
@@ -139,7 +155,10 @@ export async function getLastRunCronLogByCronId(
 	}
 
 	// A cron's first run has no successful run before it.
-	return (data as CronLogData[])[0]?.startedAt ?? null;
+	const startedAt = (data as Array<{ startedAt?: string }>)[0]?.startedAt;
+	const time = startedAt ? Date.parse(startedAt) : NaN;
+	if (Number.isNaN(time)) return null;
+	return new Date(time - CRON_LAST_RUN_LOOKBACK_MS).toISOString();
 }
 
 export async function getLastFailureCronLogBySpanId(spanId: string) {
