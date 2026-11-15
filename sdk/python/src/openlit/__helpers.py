@@ -9,6 +9,7 @@ import inspect
 import os
 import json
 import logging
+import ntpath
 from collections import OrderedDict
 from contextvars import ContextVar
 from urllib.parse import urlparse
@@ -521,7 +522,10 @@ def fetch_pricing_info(pricing_json=None):
     """
 
     if pricing_json:
-        is_url = urlparse(pricing_json).scheme != ""
+        is_url = (
+            bool(urlparse(pricing_json).scheme)
+            and not ntpath.splitdrive(pricing_json)[0]
+        )
         if is_url:
             pricing_url = pricing_json
         else:
