@@ -14,6 +14,8 @@ export interface ScannerProcessRunInput {
 	env: NodeJS.ProcessEnv;
 	timeoutMs: number;
 	cwd?: string;
+	/** Aborting kills the child process; the run rejects with an `AbortError`. */
+	signal?: AbortSignal;
 }
 
 export interface ScannerProcessRunner {
@@ -102,6 +104,7 @@ export const defaultScannerProcessRunner: ScannerProcessRunner = {
 					cwd,
 					env,
 					timeout: input.timeoutMs,
+					signal: input.signal,
 					maxBuffer: DEFAULT_MAX_BUFFER,
 					windowsHide: true,
 					shell: false,

@@ -1,0 +1,31 @@
+{
+  "scan_id": "scan_908e237a5f28857a",
+  "repo": "repo",
+  "rules_version": "b55cbae4eb9f36ab3db73783061b9ad5d083e7b5ef80d0df9ef202432b874c7f",
+  "findings": [
+    {
+      "rule_id": "CSDK-101",
+      "category": "claude_sdk",
+      "scope": "agent",
+      "severity": "high",
+      "tool_name": "data-analyst",
+      "file_path": "agent/agent.py",
+      "start_line": 4,
+      "end_line": 9,
+      "title": "Claude subagent is granted the Bash tool",
+      "explanation": "This AgentDefinition grants the built-in Bash tool, giving the subagent arbitrary shell-command execution. Subagents are dispatched autonomously by a lead agent in response to model-generated task descriptions, so a prompt-injected or mis-scoped task can reach the shell with no human in the loop. This is acute when the surrounding ClaudeAgentOptions sets permission_mode=\"bypassPermissions\", which removes the SDK's interactive approval gate entirely.\n",
+      "suggested_fix": "Remove \"Bash\" from this subagent's tools list unless shell execution is essential to its job. If it is essential, gate it with a PreToolUse hook that allowlists the specific commands the subagent may run, and do not pair it with permission_mode=\"bypassPermissions\" at the ClaudeAgentOptions level.\n",
+      "confidence": 0.8,
+      "ai_explanation": "The data-analyst subagent lists Bash, so any delegated task can run shell commands.",
+      "ai_fix": "Removed Bash from the data-analyst tools list.",
+      "code_snippet": "  from claude_agent_sdk import AgentDefinition, ClaudeAgentOptions\n  \n  agents = {\n→     \"data-analyst\": AgentDefinition(\n          description=\"Analyses data and renders charts.\",\n          tools=[\"Glob\", \"Read\", \"Bash\", \"Write\"],\n          prompt=\"You analyse data.\",\n          model=\"haiku\",\n      ),\n",
+      "line_start": 6,
+      "line_end": 6,
+      "replacement": "        tools=[\"Glob\", \"Read\", \"Write\"],",
+      "diff": "--- a/agent/agent.py\n+++ b/agent/agent.py\n@@ -4,5 +4,5 @@\n     \"data-analyst\": AgentDefinition(\n         description=\"Analyses data and renders charts.\",\n-        tools=[\"Glob\", \"Read\", \"Bash\", \"Write\"],\n+        tools=[\"Glob\", \"Read\", \"Write\"],\n         prompt=\"You analyse data.\",\n         model=\"haiku\",\n",
+      "enriched": true,
+      "applied": true
+    }
+  ],
+  "enriched_at": 1794413801888
+}

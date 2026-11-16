@@ -10,6 +10,8 @@ import {
 	UnsupportedScannerCapabilityError,
 	type ScannerAdapter,
 	type ScannerCapabilities,
+	type ScannerEnrichRequest,
+	type ScannerEnrichRun,
 	type ScannerJob,
 	type ScannerRuntimeInfo,
 	type ScannerScanInput,
@@ -37,5 +39,9 @@ export abstract class BaseScannerAdapter implements ScannerAdapter {
 
 	async scan(_input?: ScannerScanInput): Promise<ScannerJob> {
 		this.unsupported("scan");
+	}
+
+	async enrich(_request: ScannerEnrichRequest): Promise<Partial<ScannerEnrichRun>> {
+		this.unsupported("enrich");
 	}
 }
