@@ -57,4 +57,11 @@ describe("scanner job repo grouping", () => {
 			},
 		]);
 	});
+
+	it("includes repositories that only have forge runs", () => {
+		const groups = groupScannerJobsByRepo([], undefined, ["https://github.com/a/b"]);
+		expect(groups).toEqual([
+			{ repoKey: "github.com/a/b", label: "a/b", target: "https://github.com/a/b", jobs: [] },
+		]);
+	});
 });

@@ -1,0 +1,48 @@
+Generate a combined pre-coding SKILL.md from the detection rules for the SDKs
+found in a target repository.
+
+[target] is an optional local path (directory or file). Defaults to the current
+working directory. Trustabl scans the target's dependency manifests
+(pyproject.toml, package.json, go.mod, etc.) to determine which SDK policy
+packs to include.
+
+Use --policy to add categories on top of auto-detected ones — useful when a
+new SDK is being introduced to a repo before its first dependency declaration.
+
+The output is a SKILL.md written to stdout (or --output) containing one
+section per detected SDK, with rules ordered by severity.
+
+Usage:
+  trustabl forge [target] [flags]
+  trustabl forge [command]
+
+Examples:
+  # Auto-detect SDKs from current directory
+  trustabl forge
+
+  # Auto-detect from a specific repo path
+  trustabl forge /path/to/repo
+
+  # Always include openai_sdk on top of whatever is detected
+  trustabl forge --policy openai_sdk
+
+  # Multiple explicit additions
+  trustabl forge --policy openai_sdk,mcp --output pre-coding.md
+
+  # Generate only for claude_skill (backward-compatible)
+  trustabl forge --policy claude_skill
+
+Available Commands:
+  check       Check whether a forge-generated SKILL.md is current with the latest rules
+
+Flags:
+  -h, --help               help for forge
+  -o, --output string      write the generated SKILL.md to this path (default: stdout)
+      --policy strings     policy categories to include (e.g. openai_sdk,mcp); additive on top of auto-detected SDKs
+      --rules-ref string   pin the trustabl-rules branch or tag (default: latest cached)
+
+Global Flags:
+      --debug     debug diagnostics on stderr: everything --verbose shows plus per-phase timing and per-entity/per-finding detail (implies --verbose)
+  -v, --verbose   verbose diagnostics on stderr: rule provenance, discovery counts, phase summaries
+
+Use "trustabl forge [command] --help" for more information about a command.

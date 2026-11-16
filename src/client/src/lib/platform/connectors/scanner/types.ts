@@ -9,12 +9,14 @@
 
 import type { ConnectorHealthResult, ConnectorRuntime } from "../types";
 import type { AuthStyle, FieldDef } from "../datasource/types";
-import type { ScannerCliSchema } from "./cli-schema";
+import type { ScannerCliSchema, ScannerForgeSchema } from "./cli-schema";
 
 export interface ScannerCapabilities {
 	install: boolean;
 	scan: boolean;
 	listFindings: boolean;
+	/** Generates a pre-coding skill (Trustabl Forge). */
+	forge?: boolean;
 }
 
 export type ScannerJobStatus =
@@ -140,6 +142,84 @@ export interface ScannerRuntimeInfo {
 	latestVersion?: string;
 	upgradeAvailable?: boolean;
 	schema?: ScannerCliSchema;
+	/** Forge flags and accepted policies; absent when the CLI has no forge command. */
+	forge?: ScannerForgeSchema;
+}
+
+export type ScannerForgeStatus = "running" | "succeeded" | "failed" | "runtime-missing";
+
+/** Where a forge run's policies came from. */
+export interface ScannerForgePolicySource {
+	kind: "analyzer" | "manual";
+	jobId?: string;
+	scannedAt?: string;
+}
+
+/** Resolved `trustabl forge` flags persisted on the run (no secrets). */
+export interface ScannerForgeParams {
+	policies: string[];
+	rulesRef?: string;
+	/** Display and download name; forge itself writes to stdout. */
+	fileName: string;
+	extras?: Record<string, string | boolean>;
+}
+
+/** Per-run input. Missing fields fall back to connector settings or the latest Analyzer scan. */
+export interface ScannerForgeRunInput extends Partial<ScannerForgeParams> {
+	target?: string;
+	sourceJobId?: string;
+}
+
+export interface ScannerForgeSkillSection {
+	title: string;
+	ruleCount: number;
+	groups: { title: string; ruleCount: number }[];
+}
+
+/** Stats read from a generated SKILL.md. */
+export interface ScannerForgeSkillSummary {
+	name?: string;
+	description?: string;
+	stamp?: {
+		generated?: string;
+		rulesSha?: string;
+		schema?: string;
+		sdks?: string[];
+	};
+	ruleCount: number;
+	severityCounts: { critical: number; high: number; medium: number; low: number };
+	sections: ScannerForgeSkillSection[];
+	lineCount: number;
+	byteLength: number;
+}
+
+export interface ScannerForgeRun {
+	id: string;
+	status: ScannerForgeStatus;
+	target: string;
+	policies: string[];
+	policySource: ScannerForgePolicySource;
+	rulesRef?: string;
+	fileName: string;
+	extras?: Record<string, string | boolean>;
+	startedAt: string;
+	finishedAt?: string;
+	durationMs?: number;
+	exitCode?: number;
+	error?: string;
+	cliVersion?: string;
+	/** Command OpenLIT ran, for display. */
+	command?: string;
+	summary?: ScannerForgeSkillSummary;
+	/** SKILL.md body. Only returned by the single-run endpoint. */
+	content?: string;
+}
+
+/** Result of `trustabl forge check` for a stored run. */
+export interface ScannerForgeCheck {
+	status: "current" | "stale" | "error";
+	message: string;
+	checkedAt: string;
 }
 
 export interface ScannerSourceDescriptor {
@@ -172,6 +252,14 @@ export interface ScannerAdapter extends ConnectorRuntime {
 	healthCheck(): Promise<ConnectorHealthResult>;
 	ensureRuntime(input?: { upgrade?: boolean }): Promise<ScannerRuntimeInfo>;
 	scan(input?: ScannerScanInput): Promise<ScannerJob>;
+	forge?(input: ScannerForgeAdapterInput): Promise<ScannerForgeRun>;
+	checkForge?(content: string, rulesRef?: string): Promise<ScannerForgeCheck>;
+}
+
+/** Fully resolved forge input handed to an adapter. */
+export interface ScannerForgeAdapterInput extends ScannerForgeParams {
+	target: string;
+	policySource: ScannerForgePolicySource;
 }
 
 export interface ScannerAdapterFactory {

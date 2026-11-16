@@ -26,7 +26,13 @@ import {
 	hasScannerAdapterFactory,
 	listScannerTypeDescriptors,
 } from "./registry";
-import type { ScannerJob, ScannerScanInput, ScannerSourceDescriptor } from "./types";
+import type {
+	ScannerCapabilities,
+	ScannerForgeRun,
+	ScannerJob,
+	ScannerScanInput,
+	ScannerSourceDescriptor,
+} from "./types";
 import { connectorDescription } from "../descriptions";
 import { connectorIconPath } from "../icons";
 import {
@@ -43,6 +49,7 @@ import {
 	TELEMETRY_SOURCE_INVALID_SETTINGS,
 } from "@/constants/messages/en";
 import { hasRunningScannerJob, jobsFromMetadata, prependScannerJob } from "./jobs";
+import { forgeRunsFromMetadata, summarizeForgeRun } from "./forge-runs";
 import {
 	normalizeScannerDetectors,
 	normalizeScannerRef,
@@ -95,6 +102,8 @@ export type ScannerConnectorPublic = {
 	signals: string;
 	isDefault: boolean;
 	jobs: ScannerJob[];
+	forgeRuns: ScannerForgeRun[];
+	capabilities?: ScannerCapabilities;
 };
 
 function publicConnectorMetadata(raw: string): string {
@@ -110,6 +119,7 @@ function publicConnectorMetadata(raw: string): string {
 		return {};
 	})();
 	delete parsed.jobs;
+	delete parsed.forgeRuns;
 	return JSON.stringify(parsed);
 }
 
@@ -145,6 +155,8 @@ function sanitize(row: {
 		signals: "",
 		isDefault: false,
 		jobs: jobsFromMetadata(row.metadata || "{}"),
+		forgeRuns: forgeRunsFromMetadata(row.metadata || "{}").map((run) => summarizeForgeRun(run)),
+		capabilities: getScannerTypeDescriptor(row.type)?.capabilities,
 	};
 }
 
@@ -317,7 +329,7 @@ export function availableScannerTypeDescriptors() {
 	}));
 }
 
-function parseSettings(settings: string): Record<string, unknown> {
+export function parseScannerSettings(settings: string): Record<string, unknown> {
 	try {
 		const parsed = JSON.parse(settings || "{}");
 		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -341,7 +353,7 @@ function toRuntimeDescriptor(row: {
 	return {
 		type: row.type,
 		id: row.id,
-		settings: parseSettings(row.settings),
+		settings: parseScannerSettings(row.settings),
 		secretRef: row.secretRef,
 		projectId: row.projectId ?? null,
 		name: row.name,
@@ -358,7 +370,7 @@ export async function createScannerConnector(input: ScannerConnectorInput) {
 	const environment = normalizeEnvironment(input.environment);
 	await createProjectEnvironment(environment);
 	const settings = normalizeSettings(input.settings);
-	const parsedSettings = parseSettings(settings);
+	const parsedSettings = parseScannerSettings(settings);
 	if (type === "trustabl") normalizeScannerTarget(parsedSettings.target);
 	const credentialSecretRef = credentialsToSecretRef(input.credentials);
 	const secretRef =
@@ -537,7 +549,7 @@ export async function runScannerJob(id: string, input: ScannerScanInput = {}) {
 	if (hasRunningScannerJob(row.metadata || "{}")) {
 		throw new Error(SCANNER_JOB_RUNNING);
 	}
-	const settings = parseSettings(row.settings);
+	const settings = parseScannerSettings(row.settings);
 	const running: ScannerJob = {
 		id: newScannerJobId(),
 		status: "running",

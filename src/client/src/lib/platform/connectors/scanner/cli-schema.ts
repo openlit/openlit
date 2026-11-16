@@ -24,6 +24,13 @@ export interface ScannerCliSchema {
 	flags: ScannerCliFlag[];
 }
 
+/** `trustabl forge --help` flags plus the policy ids the CLI accepts. */
+export interface ScannerForgeSchema {
+	version?: string;
+	flags: ScannerCliFlag[];
+	policies: string[];
+}
+
 const VALUE_TYPES = new Set([
 	"string",
 	"strings",
@@ -65,6 +72,12 @@ export const BLOCKED_SCAN_FLAGS = new Set([
 	"attest-no-tlog",
 	"debug",
 ]);
+
+/**
+ * Forge flags OpenLIT always controls. `policy` is rendered as chips, and
+ * forge writes to stdout so the generated file never touches a host path.
+ */
+export const BLOCKED_FORGE_FLAGS = new Set(["help", "output", "policy", "verbose", "debug"]);
 
 /** Deprecated aliases hidden when the replacement flag exists. */
 const HIDDEN_SCAN_FLAGS = new Set(["channel"]);
@@ -200,6 +213,31 @@ export function scannerCliSchemaFromHelp(text: string, version?: string): Scanne
 	return {
 		version,
 		flags: parseTrustablScanHelp(text),
+	};
+}
+
+const ACCEPTED_POLICIES = /accepted (?:values|categories):\s*\[([^\]]*)\]/i;
+const POLICY_ID = /^[a-z][a-z0-9_]{0,62}$/;
+
+/** Read the policy ids from forge's "accepted categories: [a b c]" error text. */
+export function parseForgeAcceptedPolicies(text: string): string[] {
+	const match = String(text || "").match(ACCEPTED_POLICIES);
+	if (!match) return [];
+	return match[1]
+		.split(/[\s,]+/)
+		.map((item) => item.trim())
+		.filter((item) => POLICY_ID.test(item));
+}
+
+export function forgeCliSchemaFromHelp(
+	help: string,
+	policies: string[],
+	version?: string
+): ScannerForgeSchema {
+	return {
+		version,
+		flags: parseTrustablScanHelp(help).filter((item) => !BLOCKED_FORGE_FLAGS.has(item.flag)),
+		policies,
 	};
 }
 
