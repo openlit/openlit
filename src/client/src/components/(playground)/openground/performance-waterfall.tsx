@@ -11,37 +11,36 @@ interface PerformanceWaterfallProps {
 }
 
 export default function PerformanceWaterfall({ data }: PerformanceWaterfallProps) {
+	const m = getMessage();
 	const maxTime = Math.max(...data.map((p) => p.responseTime));
 
 	// Sort by response time (fastest first)
 	const sortedData = [...data].sort((a, b) => a.responseTime - b.responseTime);
 
 	const getBarColor = (index: number, hasError: boolean) => {
-		if (hasError) return "bg-red-500/80";
-		if (index === 0) return "bg-green-500/80"; // Fastest
-		if (index === 1) return "bg-blue-500/80"; // Second fastest
-		return "bg-yellow-500/80"; // Others
+		if (hasError) return "bg-rose-500/70";
+		if (index === 0) return "bg-emerald-500/80"; // Fastest
+		return "bg-primary/70";
 	};
 
 	const getTextColor = (index: number, hasError: boolean) => {
-		if (hasError) return "text-red-700 dark:text-red-300";
-		if (index === 0) return "text-green-700 dark:text-green-300";
-		if (index === 1) return "text-blue-700 dark:text-blue-300";
-		return "text-yellow-700 dark:text-yellow-300";
+		if (hasError) return "text-rose-600 dark:text-rose-400";
+		if (index === 0) return "text-emerald-600 dark:text-emerald-400";
+		return "text-stone-600 dark:text-stone-300";
 	};
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle className="text-lg flex items-center gap-2">
-					<TimerIcon className="h-5 w-5" />
-					{getMessage().OPENGROUND_RESPONSE_TIME_COMPARISON}
+		<Card className="border border-stone-200 dark:border-stone-800">
+			<CardHeader className="p-4 pb-2">
+				<CardTitle className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+					<TimerIcon className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+					{m.OPENGROUND_RESPONSE_TIME_COMPARISON}
 				</CardTitle>
-				<CardDescription>
-					{getMessage().OPENGROUND_RESPONSE_TIME_COMPARISON_DESCRIPTION}
+				<CardDescription className="text-xs">
+					{m.OPENGROUND_RESPONSE_TIME_COMPARISON_DESCRIPTION}
 				</CardDescription>
 			</CardHeader>
-			<CardContent>
+			<CardContent className="p-4 pt-2">
 				<div className="space-y-3">
 					{sortedData.map((result, index) => {
 						const hasError = !!result.error;
@@ -49,24 +48,27 @@ export default function PerformanceWaterfall({ data }: PerformanceWaterfallProps
 
 						return (
 							<div key={index} className="space-y-1">
-								<div className="flex items-center justify-between text-sm">
-									<div className="flex items-center gap-2">
-										<span className="font-medium text-stone-700 dark:text-stone-300">
+								<div className="flex items-center justify-between gap-2 text-sm">
+									<div className="flex min-w-0 items-center gap-2">
+										<span className="truncate font-medium text-stone-700 dark:text-stone-300">
 											{result.provider}/{result.model}
 										</span>
 										{index === 0 && !hasError && (
-											<Badge variant="outline" className="text-xs bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-300 border-green-200 dark:border-green-800">
-												{getMessage().FASTEST}
+											<Badge
+												variant="outline"
+												className="shrink-0 border-emerald-200 bg-emerald-50 text-xs text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300"
+											>
+												{m.FASTEST}
 											</Badge>
 										)}
 									</div>
-									<span className={`text-sm font-mono ${getTextColor(index, hasError)}`}>
-										{hasError ? getMessage().ERROR : `${result.responseTime.toFixed(2)}s`}
+									<span className={`shrink-0 font-mono text-sm ${getTextColor(index, hasError)}`}>
+										{hasError ? m.ERROR : `${result.responseTime.toFixed(2)}s`}
 									</span>
 								</div>
-								<div className="relative h-8 bg-stone-100 dark:bg-stone-900 rounded-md overflow-hidden">
+								<div className="relative h-6 overflow-hidden rounded-md bg-stone-100 dark:bg-stone-900">
 									<div
-										className={`h-full ${getBarColor(index, hasError)} transition-all duration-500 flex items-center px-3`}
+										className={`flex h-full items-center px-3 transition-all duration-500 ${getBarColor(index, hasError)}`}
 										style={{ width: `${Math.max(percentage, 2)}%` }}
 									>
 										{!hasError && percentage > 20 && (
@@ -77,7 +79,7 @@ export default function PerformanceWaterfall({ data }: PerformanceWaterfallProps
 									</div>
 									{hasError && (
 										<div className="absolute inset-0 flex items-center px-3">
-											<span className="text-xs text-red-600 dark:text-red-400">
+											<span className="truncate text-xs text-rose-600 dark:text-rose-400">
 												{result.error}
 											</span>
 										</div>
@@ -87,26 +89,26 @@ export default function PerformanceWaterfall({ data }: PerformanceWaterfallProps
 						);
 					})}
 				</div>
-				<div className="mt-4 pt-4 border-t border-stone-200 dark:border-stone-800">
+				<div className="mt-4 border-t border-stone-200 pt-4 dark:border-stone-800">
 					<div className="grid grid-cols-3 gap-4 text-center">
 						<div>
-							<p className="text-2xl font-bold text-green-600 dark:text-green-400">
+							<p className="font-mono text-lg font-semibold text-emerald-600 dark:text-emerald-400">
 								{sortedData.find((p) => !p.error)?.responseTime.toFixed(2) || "—"}s
 							</p>
-							<p className="text-xs text-stone-500 dark:text-stone-400">{getMessage().FASTEST}</p>
+							<p className="text-xs text-stone-500 dark:text-stone-400">{m.FASTEST}</p>
 						</div>
 						<div>
-							<p className="text-2xl font-bold text-stone-700 dark:text-stone-300">
+							<p className="font-mono text-lg font-semibold text-stone-700 dark:text-stone-300">
 								{(data.filter((p) => !p.error).reduce((sum, p) => sum + p.responseTime, 0) /
 									data.filter((p) => !p.error).length || 0).toFixed(2)}s
 							</p>
-							<p className="text-xs text-stone-500 dark:text-stone-400">{getMessage().AVERAGE}</p>
+							<p className="text-xs text-stone-500 dark:text-stone-400">{m.AVERAGE}</p>
 						</div>
 						<div>
-							<p className="text-2xl font-bold text-red-600 dark:text-red-400">
+							<p className="font-mono text-lg font-semibold text-stone-700 dark:text-stone-300">
 								{sortedData[sortedData.length - 1]?.error ? "—" : sortedData[sortedData.length - 1]?.responseTime.toFixed(2)}s
 							</p>
-							<p className="text-xs text-stone-500 dark:text-stone-400">{getMessage().SLOWEST}</p>
+							<p className="text-xs text-stone-500 dark:text-stone-400">{m.SLOWEST}</p>
 						</div>
 					</div>
 				</div>

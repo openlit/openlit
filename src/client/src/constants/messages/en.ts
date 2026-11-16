@@ -405,6 +405,68 @@ export const EVALUATION_TABLE_PASS_RATE = "Pass rate";
 export const EVALUATION_TABLE_PASS_RATE_TREND = "Pass rate trend";
 export const EVALUATION_TABLE_EMPTY = "No evaluation results in this time range.";
 export const EVALUATION_TABLE_EVALUATORS_TITLE = "Evaluators";
+// Evaluation type create/detail pages
+export const EVALUATION_TYPE_CREATE_TITLE = "Create Custom Evaluation Type";
+export const EVALUATION_TYPE_CREATE_ACTION = "Create Evaluation Type";
+export const EVALUATION_TYPE_DETAILS_TITLE = "Type Details";
+export const EVALUATION_TYPE_ID_LABEL = "Type ID";
+export const EVALUATION_TYPE_ID_PLACEHOLDER = "e.g. domain_accuracy";
+export const EVALUATION_TYPE_ID_HELP =
+	"Lowercase letters, numbers, and underscores only. Used as the internal identifier.";
+export const EVALUATION_TYPE_LABEL_LABEL = "Label";
+export const EVALUATION_TYPE_LABEL_PLACEHOLDER = "e.g. Domain Accuracy";
+export const EVALUATION_TYPE_DESCRIPTION_PLACEHOLDER =
+	"e.g. Evaluates responses against domain-specific knowledge";
+export const EVALUATION_TYPE_PROMPT_TITLE = "Evaluation Prompt";
+export const EVALUATION_TYPE_PROMPT_HELP =
+	"The LLM judge uses this prompt to evaluate each trace. Start with a [Label evaluation context] header.";
+export const EVALUATION_TYPE_PROMPT_PLACEHOLDER =
+	"[Domain Accuracy evaluation context]\nConsider: whether the response aligns with domain-specific knowledge and terminology.\nLook for incorrect use of domain terms, inaccurate domain-specific claims, and deviations from established domain practices.";
+export const EVALUATION_TYPE_CUSTOM_DEFAULT_DESCRIPTION = "Custom evaluation type";
+export const EVALUATION_TYPE_HOW_IT_WORKS_TITLE = "How it works";
+export const EVALUATION_TYPE_HOW_IT_WORKS_BUILT_IN =
+	"Custom types run alongside built-in evaluations (hallucination, bias, toxicity, etc.). The LLM judge produces a score, classification, and explanation for each type.";
+export const EVALUATION_TYPE_HOW_IT_WORKS_RULES =
+	"After creating, you can link Rule Engine rules to conditionally apply this evaluation based on trace attributes.";
+export const EVALUATION_TYPE_ID_REQUIRED = "Type ID is required";
+export const EVALUATION_TYPE_LABEL_REQUIRED = "Label is required";
+export const EVALUATION_TYPE_PROMPT_REQUIRED = "Evaluation prompt is required";
+export const EVALUATION_TYPE_ID_EXISTS =
+	"An evaluation type with this ID already exists";
+export const EVALUATION_TYPE_CREATED = (label: string) =>
+	`Custom evaluation type "${label}" created`;
+export const EVALUATION_TYPE_CREATE_FAILED = "Failed to create custom type";
+export const EVALUATION_TYPE_LOAD_EXISTING_FAILED = "Failed to load existing types";
+export const EVALUATION_TYPE_UPDATED = "Evaluation type updated";
+export const EVALUATION_TYPE_SAVE_FAILED = "Failed to save";
+export const EVALUATION_TYPE_DELETED = "Custom evaluation type deleted";
+export const EVALUATION_TYPE_DELETE_FAILED = "Failed to delete";
+export const EVALUATION_TYPE_DELETE_CUSTOM = "Delete Custom Type";
+export const EVALUATION_TYPE_DELETING = "Deleting...";
+export const EVALUATION_TYPE_DELETE_CONFIRM = (label: string) =>
+	`Delete custom evaluation type "${label}"? This cannot be undone.`;
+export const EVALUATION_TYPE_PURPOSE_TITLE = "Purpose";
+export const EVALUATION_TYPE_PROMPT_CONTEXT_TITLE = "Prompt / Context";
+export const EVALUATION_TYPE_PROMPT_CONTEXT_HELP =
+	"Appended to rule-engine context when evaluating. Override the default to customize.";
+export const EVALUATION_TYPE_PROMPT_CONTEXT_PLACEHOLDER =
+	"Custom prompt for this evaluation type...";
+export const EVALUATION_TYPE_ENABLED_HELP =
+	"When enabled, this type runs in auto and manual evaluations.";
+export const EVALUATION_TYPE_RULES_TITLE = "Rules (priority order)";
+export const EVALUATION_TYPE_ADD_RULE = "Add rule";
+export const EVALUATION_TYPE_REMOVE_RULE = "Remove rule";
+export const EVALUATION_TYPE_NO_RULES =
+	"No rules. Add rules to provide context for evaluation.";
+export const EVALUATION_TYPE_SELECT_RULE = "Select rule";
+export const EVALUATION_TYPE_PRIORITY_OPTION = (priority: number) =>
+	`P${priority}`;
+export const EVALUATION_TYPE_LINKED_RULES_TITLE = "Linked from rules";
+export const EVALUATION_TYPE_LINKED_RULES_DESCRIPTION =
+	"Rules that link to this type from the rule engine detail page";
+export const EVALUATION_TYPES_MORE_RULES = (count: number) => `+${count} more`;
+export const EVALUATION_MODEL_PRICE_PER_M_TOKENS = (price: number | string) =>
+	`$${price}/M`;
 export const EVALUATION_DETAIL_CONFIGURE = "Configure";
 export const EVALUATION_DETAIL_ENABLED = "Enabled";
 export const EVALUATION_DETAIL_DISABLED = "Disabled";
@@ -412,6 +474,7 @@ export const EVALUATION_DETAIL_RESULTS = "Results";
 export const EVALUATION_DETAIL_RESULTS_DESCRIPTION =
 	"Evaluation results for this evaluator, including pass rates and recent runs.";
 export const EVALUATION_DETAIL_NO_RESULTS = "No recent results for this evaluator.";
+export const EVALUATION_DETAIL_RECENT_RESULTS = "Recent results";
 export const EVALUATION_DETAIL_PASS_RATE_BY_EVALUATOR = "Pass rate";
 export const EVALUATION_DETAIL_SAMPLE_META = "sample";
 export const EVALUATION_DETAIL_PASS = "Pass";
@@ -767,6 +830,13 @@ export const OPENGROUND_EVALUATION_SUCCESS = "Evaluation completed successfully!
 export const OPENGROUND_EVALUATION_FAILED = "Evaluation failed";
 export const OPENGROUND_RESET_SUCCESS = "Reset complete. Ready for a new evaluation.";
 export const OPENGROUND_EVALUATION_LOADED = "Evaluation loaded. Configure providers and run again.";
+export const OPENGROUND_LIST_BEST_COST = "Best Cost";
+export const OPENGROUND_LIST_BEST_SPEED = "Best Speed";
+export const OPENGROUND_LIST_TOKENS_SUFFIX = "tokens";
+export const OPENGROUND_LIST_VIEW_RUN = "View run";
+export const OPENGROUND_LIST_RERUN = "Run again";
+export const OPENGROUND_LIST_SUCCEEDED_PROVIDERS = "Succeeded";
+export const OPENGROUND_LIST_FAILED_PROVIDERS = "Failed";
 export const OPENGROUND_SELECT_PROVIDERS_BEGIN = "Select providers above to begin";
 export const OPENGROUND_EVALUATION_COMPLETE = "Evaluation complete";
 export const OPENGROUND_READY_TO_EVALUATE = "Ready to evaluate";
@@ -1530,6 +1600,28 @@ export const SAVING = "Saving...";
 export const UPDATING = "Updating...";
 export const CONFIGURATION_STORED_SECURELY = "Configuration stored securely";
 export const BEST_EFFICIENCY = "Best Efficiency";
+export const OPENGROUND_READY_TO_EVALUATE_PROVIDERS = (count: number) =>
+	`Ready to evaluate ${count} ${count === 1 ? "provider" : "providers"}`;
+export const OPENGROUND_PROVIDERS_SELECTED = (count: number) =>
+	`${count} ${count === 1 ? "provider" : "providers"} selected`;
+export const OPENGROUND_MODEL_COUNT = (count: number) =>
+	`${count} ${count === 1 ? "model" : "models"}`;
+export const OPENGROUND_CONTEXT_TOKENS = (count: string) => `${count} tokens`;
+export const OPENGROUND_PRICE_PER_M_INPUT = (price: number | string) => `$${price}/M in`;
+export const OPENGROUND_PRICE_PER_M_OUTPUT = (price: number | string) => `$${price}/M out`;
+export const OPENGROUND_PRICE_PER_M = (price: number | string) => `$${price}/M`;
+export const OPENGROUND_REMOVE_PROVIDER = "Remove provider";
+export const OPENGROUND_EDIT_PROVIDER_CONFIG = "Edit provider configuration";
+export const OPENGROUND_MODEL_ID_AND_NAME_REQUIRED = "Model ID and Display Name are required";
+export const OPENGROUND_MODEL_ID_PLACEHOLDER = "gpt-4o-custom";
+export const OPENGROUND_MODEL_DISPLAY_NAME_PLACEHOLDER = "GPT-4o Custom";
+export const OPENGROUND_MODEL_CAPABILITIES_PLACEHOLDER = "function-calling, vision, streaming";
+export const OPENGROUND_RUN_NOT_FOUND = "Run not found";
+export const OPENGROUND_RUN_NOT_FOUND_DESCRIPTION =
+	"This Openground run does not exist in the current project, or it may have been deleted.";
+export const OPENGROUND_BACK_TO_LIST = "Back to Openground";
+export const OPENGROUND_OPEN_IN_PROMPT_HUB = "Open in Prompt Hub";
+export const OPENGROUND_PROMPT_VERSION = (version: number | string) => `v${version}`;
 export const SOME_ERROR_OCCURRED = "Some error occurred while performing the operation";
 export const RESET = "Reset";
 export const ERROR = "Error";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { round } from "lodash";
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -10,8 +10,9 @@ import { getPingStatus } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 import getMessage from "@/constants/messages";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Columns } from "@/components/data-table/columns";
+import DataTable from "@/components/data-table/table";
+import IntermediateState from "@/components/(playground)/intermediate-state";
 import EvaluationOnboarding from "./evaluation-onboarding";
 import EvaluationsDashboard from "@/app/(playground)/dashboard/evaluations";
 import type {
@@ -46,6 +47,85 @@ type MergedTypeRow = {
 	executions: number;
 	passRate: number;
 	previousPassRate: number;
+};
+
+type EvaluatorRow = MergedTypeRow & { matcher: string; trend: number };
+
+const evaluatorColumns: Columns<string, EvaluatorRow> = {
+	evaluation: {
+		header: () => getMessage().EVALUATION_TABLE_EVALUATION,
+		width: "minmax(12rem, 1.6fr)",
+		cell: ({ row }) => (
+			<span className="inline-flex min-w-0 items-center gap-2 font-medium text-stone-900 dark:text-stone-100">
+				<span
+					className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
+						row.enabled ? "bg-emerald-500" : "bg-stone-400"
+					}`}
+				/>
+				<span className="truncate">{row.label}</span>
+			</span>
+		),
+	},
+	matcher: {
+		header: () => getMessage().EVALUATION_TABLE_MATCHER,
+		cell: ({ row }) => (
+			<span className="block truncate font-mono text-xs text-stone-500 dark:text-stone-400">
+				{row.matcher}
+			</span>
+		),
+	},
+	executions: {
+		header: () => getMessage().EVALUATION_TABLE_EXECUTIONS,
+		className: "text-right",
+		cell: ({ row }) => (
+			<span className="tabular-nums">{row.executions.toLocaleString()}</span>
+		),
+	},
+	passRate: {
+		header: () => getMessage().EVALUATION_TABLE_PASS_RATE,
+		className: "text-right",
+		cell: ({ row }) => (
+			row.executions === 0 ? (
+				<span className="text-stone-500 dark:text-stone-400">—</span>
+			) : (
+				<span className={`font-medium tabular-nums ${passRateClass(row.passRate)}`}>
+					{round(row.passRate, 0)}%
+				</span>
+			)
+		),
+	},
+	trend: {
+		header: () => getMessage().EVALUATION_TABLE_PASS_RATE_TREND,
+		className: "text-right",
+		cell: ({ row }) => (
+			<span
+				className={`inline-flex items-center gap-0.5 text-xs tabular-nums ${
+					row.trend === 0
+						? "text-stone-500 dark:text-stone-400"
+						: row.trend > 0
+							? "text-emerald-600 dark:text-emerald-400"
+							: "text-rose-600 dark:text-rose-400"
+				}`}
+			>
+				{row.trend === 0 ? (
+					<Minus className="h-3 w-3" />
+				) : row.trend > 0 ? (
+					<TrendingUp className="h-3 w-3" />
+				) : (
+					<TrendingDown className="h-3 w-3" />
+				)}
+				{row.trend === 0 ? "0%" : `${row.trend > 0 ? "+" : ""}${row.trend}%`}
+			</span>
+		),
+	},
+};
+
+const EVALUATOR_VISIBLE_COLUMNS = {
+	evaluation: true,
+	matcher: true,
+	executions: true,
+	passRate: true,
+	trend: true,
 };
 
 /**
@@ -122,6 +202,7 @@ export default function EvaluationAnalytics({
 	onConfigure: () => void;
 }) {
 	const m = getMessage();
+	const router = useRouter();
 	const filter = useRootStore(getFilterDetails);
 	const pingStatus = useRootStore(getPingStatus);
 	const { data, isLoading, isFetched, fireRequest } =
@@ -196,138 +277,57 @@ export default function EvaluationAnalytics({
 		return map;
 	}, [evalEntities]);
 
-	const loading = isLoading || !isFetched || pingStatus === "pending";
-
 	if (isFetched && data && !data.configured) {
 		return <EvaluationOnboarding onConfigure={onConfigure} />;
 	}
 
-	const byType = buildEvaluatorRows(
+	// Only build rows once analytics have loaded; otherwise configured-but-unloaded
+	// evaluators render as misleading "0 / 0%" rows next to the skeleton.
+	const byType: EvaluatorRow[] = !data
+		? []
+		: buildEvaluatorRows(
 		(data?.byType || []) as EvaluationAnalyticsByTypeRow[],
 		configuredTypes
-	);
+	).map((row) => {
+		const ruleIds = matcherByType[row.id] || [];
+		const matcher =
+			ruleIds.length === 0
+				? m.EVALUATION_TABLE_MATCHER_DEFAULT
+				: ruleIds
+						.slice(0, 2)
+						.map((rid) => {
+							const rule = (rules || []).find((r) => r.id === rid);
+							return rule?.name || rid.slice(0, 8);
+						})
+						.join(", ") +
+					(ruleIds.length > 2 ? ` +${ruleIds.length - 2}` : "");
+		return {
+			...row,
+			matcher,
+			trend: changePercent(row.passRate, row.previousPassRate),
+		};
+	});
 
 	return (
-		<div className="flex flex-col gap-4 w-full">
+		<div className="flex w-full flex-col gap-4">
 			<EvaluationsDashboard />
 
-			<Card className="overflow-hidden border-stone-200 shadow-sm dark:border-stone-800">
-				<CardContent className="p-0">
-					{loading ? (
-						<div className="p-4">
-							<Skeleton className="h-24 w-full" />
-						</div>
-					) : byType.length === 0 ? (
-						<div className="px-4 py-8 text-center text-sm text-stone-500 dark:text-stone-400">
-							{m.EVALUATION_TABLE_EMPTY}
-						</div>
-					) : (
-						<div className="overflow-x-auto">
-							<table className="w-full text-sm">
-								<thead>
-									<tr className="border-y border-stone-200 text-left text-[11px] uppercase tracking-wide text-stone-500 dark:border-stone-800 dark:text-stone-400">
-										<th className="px-4 py-2 font-medium">
-											{m.EVALUATION_TABLE_EVALUATION}
-										</th>
-										<th className="px-4 py-2 font-medium">
-											{m.EVALUATION_TABLE_MATCHER}
-										</th>
-										<th className="px-4 py-2 font-medium text-right">
-											{m.EVALUATION_TABLE_EXECUTIONS}
-										</th>
-										<th className="px-4 py-2 font-medium text-right">
-											{m.EVALUATION_TABLE_PASS_RATE}
-										</th>
-										<th className="px-4 py-2 font-medium text-right">
-											{m.EVALUATION_TABLE_PASS_RATE_TREND}
-										</th>
-									</tr>
-								</thead>
-								<tbody>
-									{byType.map((row) => {
-										const ruleIds = matcherByType[row.id] || [];
-										const matcher =
-											ruleIds.length === 0
-												? m.EVALUATION_TABLE_MATCHER_DEFAULT
-												: ruleIds
-														.slice(0, 2)
-														.map((rid) => {
-															const rule = (rules || []).find(
-																(r) => r.id === rid
-															);
-															return rule?.name || rid.slice(0, 8);
-														})
-														.join(", ") +
-													(ruleIds.length > 2
-														? ` +${ruleIds.length - 2}`
-														: "");
-										const trend = changePercent(
-											row.passRate,
-											row.previousPassRate
-										);
-
-										return (
-											<tr
-												key={row.key}
-												className="border-b border-stone-100 hover:bg-stone-50 dark:border-stone-900 dark:hover:bg-stone-900/50"
-											>
-												<td className="px-4 py-2.5">
-													<Link
-														href={`/evaluations/evaluators/${encodeURIComponent(row.id)}`}
-														className="inline-flex items-center gap-2 font-medium text-primary hover:underline"
-													>
-														<span
-															className={`inline-block h-1.5 w-1.5 rounded-full ${
-																row.enabled
-																	? "bg-emerald-500"
-																	: "bg-stone-400"
-															}`}
-														/>
-														{row.label}
-													</Link>
-												</td>
-												<td className="px-4 py-2.5 font-mono text-xs text-stone-500 dark:text-stone-400">
-													{matcher}
-												</td>
-												<td className="px-4 py-2.5 text-right tabular-nums text-stone-800 dark:text-stone-200">
-													{row.executions.toLocaleString()}
-												</td>
-												<td
-													className={`px-4 py-2.5 text-right tabular-nums font-medium ${passRateClass(row.passRate)}`}
-												>
-													{round(row.passRate, 0)}%
-												</td>
-												<td className="px-4 py-2.5 text-right">
-													<span
-														className={`inline-flex items-center gap-0.5 text-xs ${
-															trend === 0
-																? "text-stone-500"
-																: trend > 0
-																	? "text-emerald-600 dark:text-emerald-400"
-																	: "text-rose-600 dark:text-rose-400"
-														}`}
-													>
-														{trend === 0 ? (
-															<Minus className="h-3 w-3" />
-														) : trend > 0 ? (
-															<TrendingUp className="h-3 w-3" />
-														) : (
-															<TrendingDown className="h-3 w-3" />
-														)}
-														{trend === 0
-															? "0%"
-															: `${trend > 0 ? "+" : ""}${trend}%`}
-													</span>
-												</td>
-											</tr>
-										);
-									})}
-								</tbody>
-							</table>
-						</div>
-					)}
-				</CardContent>
-			</Card>
+			<DataTable
+				columns={evaluatorColumns}
+				data={byType}
+				isFetched={isFetched && pingStatus !== "pending"}
+				isLoading={isLoading}
+				visibilityColumns={EVALUATOR_VISIBLE_COLUMNS}
+				getRowKey={(row: EvaluatorRow) => row.key}
+				onClick={(row: EvaluatorRow) =>
+					router.push(`/evaluations/evaluators/${encodeURIComponent(row.id)}`)
+				}
+				emptyState={
+					<IntermediateState type="nodata">
+						{m.EVALUATION_TABLE_EMPTY}
+					</IntermediateState>
+				}
+			/>
 		</div>
 	);
 }

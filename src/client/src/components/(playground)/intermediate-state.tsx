@@ -27,7 +27,7 @@ export default function IntermediateState(props: IntermediateState) {
 					props.classNames || ""
 				}`}
 			>
-				No data to display
+				{props.children ?? "No data to display"}
 			</div>
 		);
 
