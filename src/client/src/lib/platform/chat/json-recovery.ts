@@ -49,36 +49,68 @@ function tryParse(text: string): unknown | null {
 	}
 }
 
-const FENCED_BLOCK = /```[a-z]*[ \t]*\r?\n?([\s\S]*?)```/i;
+export type ParsedModelJson = {
+	value: unknown;
+	/** True when the value was salvaged from cut-off (truncated) output. */
+	recovered: boolean;
+};
 
-/**
- * Pulls the JSON payload out of a model response that may wrap it in a code
- * fence and/or surround it with prose (e.g. a "**Rationale:**" paragraph after
- * the closing fence). Returns the first complete fenced block, otherwise the
- * first balanced top-level object/array. When the JSON is cut off (no balanced
- * end), returns everything from its opening bracket so
- * `recoverTruncatedJson` can still salvage it.
- */
-export function extractJsonText(raw: string): string {
-	const text = raw.trim();
-	if (tryParse(text) !== null) return text;
-
-	const fenced = text.match(FENCED_BLOCK);
-	if (fenced && fenced[1].trim()) return fenced[1].trim();
-
-	const start = text.search(/[{[]/);
-	if (start < 0) return text;
-	const body = text.slice(start);
-	const end = balancedEnd(body);
-	return end < 0 ? body.replace(/\s*```\s*$/, "") : body.slice(0, end);
+/** Accepts any JSON object or array. */
+export function isJsonContainer(value: unknown): boolean {
+	return typeof value === "object" && value !== null;
 }
 
-/** Index just past the bracket that closes the value opening at `text[0]`, or -1. */
-function balancedEnd(text: string): number {
+/** Bounds the scan so a pathological response can't make parsing quadratic. */
+const MAX_CANDIDATE_STARTS = 400;
+
+/**
+ * Finds the JSON payload in a model response that may wrap it in code fences
+ * and/or surround it with prose, notes or example snippets.
+ *
+ * Scans for complete JSON values with a string-aware bracket matcher (so
+ * backticks or brackets inside JSON strings are ignored), skips fragments
+ * that don't parse (e.g. a "[Label evaluation context]" aside), and returns
+ * the first value `accept` recognises as the payload, so an earlier example
+ * or unrelated object is passed over. If no complete value qualifies, falls
+ * back to `recoverTruncatedJson` for cut-off output and marks the result
+ * `recovered`.
+ */
+export function parseModelJson(
+	raw: string,
+	accept: (value: unknown) => boolean = isJsonContainer
+): ParsedModelJson | null {
+	const text = raw.trim();
+	const whole = tryParse(text);
+	if (whole !== null && accept(whole)) return { value: whole, recovered: false };
+
+	let attempts = 0;
+	for (let i = 0; i < text.length && attempts < MAX_CANDIDATE_STARTS; i++) {
+		const ch = text[i];
+		if (ch !== "{" && ch !== "[") continue;
+		attempts++;
+		const end = balancedEnd(text, i);
+		if (end < 0) {
+			// Never closes: cut-off output (or a stray bracket in prose). Salvage
+			// it here, before any complete value nested inside it can win.
+			const body = text.slice(i).replace(/\s*```\s*$/, "");
+			const value = recoverTruncatedJson(body);
+			if (value !== null && accept(value)) return { value, recovered: true };
+			continue;
+		}
+		const value = tryParse(text.slice(i, end));
+		if (value === null) continue; // prose fragment; look inside/after it
+		if (accept(value)) return { value, recovered: false };
+		i = end - 1; // a complete but unrelated value: skip past it
+	}
+	return null;
+}
+
+/** Index just past the bracket closing the value that opens at `text[start]`, or -1. */
+function balancedEnd(text: string, start: number): number {
 	const stack: string[] = [];
 	let inString = false;
 	let escaped = false;
-	for (let i = 0; i < text.length; i++) {
+	for (let i = start; i < text.length; i++) {
 		const ch = text[i];
 		if (inString) {
 			if (escaped) escaped = false;
@@ -94,10 +126,4 @@ function balancedEnd(text: string): number {
 		}
 	}
 	return -1;
-}
-
-/** Parses model output as JSON, tolerating fences, surrounding prose and truncation. */
-export function parseModelJson(raw: string): unknown | null {
-	const jsonText = extractJsonText(raw);
-	return tryParse(jsonText) ?? recoverTruncatedJson(jsonText);
 }

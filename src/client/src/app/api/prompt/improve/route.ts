@@ -8,7 +8,7 @@ import { getChatConfigWithApiKey } from "@/lib/platform/chat/config";
 import { saveOtterRun } from "@/lib/platform/chat/otter-runs";
 import { createModel } from "@/lib/platform/providers/create-model";
 import { samplingFor } from "@/lib/platform/providers/sampling";
-import { extractJsonText } from "@/lib/platform/chat/json-recovery";
+import { parseModelJson } from "@/lib/platform/chat/json-recovery";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
@@ -39,7 +39,11 @@ async function resolveDatabaseConfigId(authDatabaseConfigId?: string) {
 
 function parseSuggestions(text: string): PromptImprovementSuggestion[] {
 	try {
-		const parsed = JSON.parse(extractJsonText(text));
+		// Truncated output keeps whatever suggestions were complete.
+		const parsed = parseModelJson(
+			text,
+			(value: any) => Array.isArray(value) || Array.isArray(value?.suggestions)
+		)?.value as any;
 		const suggestions = Array.isArray(parsed) ? parsed : parsed?.suggestions;
 		if (!Array.isArray(suggestions)) return [];
 		return suggestions

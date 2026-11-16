@@ -112,6 +112,20 @@ describe("POST /api/prompt/improve", () => {
 		expect(generateText).not.toHaveBeenCalled();
 	});
 
+	it("keeps complete suggestions from a truncated, fenced response", async () => {
+		(generateText as jest.Mock).mockResolvedValueOnce({
+			text:
+				'```json\n{"suggestions": [{"id": "tighten-role", "dimension": "Clarity", "rationale": "Clearer.", "original": "Write a summary", "replacement": "Write a concise summary"}, {"id": "cut", "rationale": "Trunc',
+			usage: { inputTokens: 100, outputTokens: 25 },
+		});
+
+		const response = await POST(makeRequest({ prompt: "Write a summary" }));
+		const body = await response.json() as any;
+
+		expect(response.status).toBe(200);
+		expect(body.data.suggestions.map((s: any) => s.id)).toEqual(["tighten-role"]);
+	});
+
 	it("saves usage for an unsaved prompt improvement without attaching a prompt id", async () => {
 		const response = await POST(makeRequest({ prompt: "Write a summary" }));
 		const body = await response.json() as any;

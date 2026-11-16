@@ -14,6 +14,12 @@ describe("supportsSamplingParams", () => {
 		"anthropic.claude-opus-5-5",
 		"us.anthropic.claude-sonnet-5-5",
 		"claude-some-future-model",
+		"anthropic/claude-opus-4.7",
+		"claude-opus-4.8",
+		"claude-sonnet-5.5",
+		"claude-5-sonnet",
+		"claude-5-5-sonnet",
+		"claude-4-7-opus",
 	])("rejects sampling for %s", (model) => {
 		expect(supportsSamplingParams(model)).toBe(false);
 	});
@@ -30,6 +36,12 @@ describe("supportsSamplingParams", () => {
 		"claude-3-opus-20240229",
 		"claude-2.1",
 		"claude-instant-1.2",
+		"claude-v2",
+		"claude-v1",
+		"anthropic.claude-v2:1",
+		"anthropic/claude-sonnet-4.5",
+		"claude-4-6-sonnet",
+		"anthropic.claude-sonnet-4-5-20250929-v1:0",
 	])("keeps sampling for %s", (model) => {
 		expect(supportsSamplingParams(model)).toBe(true);
 	});

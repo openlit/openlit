@@ -146,7 +146,12 @@ export async function runEvaluation(
 			...samplingFor(modelInstance, { temperature: 0 }),
 		});
 
-		const parsed = parseModelJson(text) as {
+		const extracted = parseModelJson(text, (value: any) =>
+			Array.isArray(value?.result)
+		);
+		// Salvaged (truncated) output may be missing requested evaluation types,
+		// so it is not reported as a successful evaluation.
+		const parsed = (extracted && !extracted.recovered ? extracted.value : null) as {
 			success?: boolean;
 			result?: Evaluation[];
 		} | null;

@@ -53,4 +53,22 @@ describe('OpenGround evaluate', () => {
 			expect.objectContaining({ apiKey: 'local-key', baseUrl: 'http://llm.internal/v1' })
 		);
 	});
+
+	it('reports the sampling settings actually sent for models that reject them', async () => {
+		const run = async (model: string) =>
+			evaluate({
+				promptSource: { type: 'custom', content: 'hello' },
+				providers: [
+					{ provider: 'anthropic', model, config: { temperature: 0.2, topP: 0.9, maxTokens: 50 } } as any,
+				],
+				userId: 'u1',
+				databaseConfigId: 'db-1',
+			});
+
+		const newer = await run('claude-haiku-5-5');
+		expect(newer.data?.[0].config).toEqual({ maxTokens: 50 });
+
+		const older = await run('claude-sonnet-4-5');
+		expect(older.data?.[0].config).toEqual({ temperature: 0.2, topP: 0.9, maxTokens: 50 });
+	});
 });

@@ -1,5 +1,7 @@
 import { AISdkAdapter } from "./ai-sdk-adapter";
 import { getOpenGroundConfigWithSecret } from "@/lib/platform/providers/config";
+import { supportsSamplingParams } from "@/lib/platform/providers/sampling";
+import { omit } from "lodash";
 import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
 import { getModelCostCalculator } from "@/lib/platform/pricing/model-cost";
 import { createOpengroundEvaluation } from "@/lib/platform/openground-clickhouse";
@@ -109,6 +111,11 @@ async function evaluateProvider(
 	databaseConfigId: string
 ): Promise<ProviderResult> {
 	const startTime = Date.now();
+	// Report the settings actually sent: models that reject sampling
+	// parameters have them stripped before the request (see samplingFor).
+	const effectiveConfig = supportsSamplingParams(model)
+		? config
+		: omit(config, ["temperature", "topP", "topK"]);
 
 	try {
 		// Read the endpoint before the key reference: a base URL change clears
@@ -124,7 +131,7 @@ async function evaluateProvider(
 			return {
 				provider,
 				model,
-				config,
+				config: effectiveConfig,
 				response: "",
 				error: configErr || "Provider not configured",
 				cost: 0,
@@ -163,7 +170,7 @@ async function evaluateProvider(
 		return {
 			provider,
 			model,
-			config,
+			config: effectiveConfig,
 			response: result.text,
 			error: "",
 			cost,
@@ -182,7 +189,7 @@ async function evaluateProvider(
 		return {
 			provider,
 			model,
-			config,
+			config: effectiveConfig,
 			response: "",
 			error: error.message || String(error),
 			cost: 0,

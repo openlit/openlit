@@ -1,8 +1,4 @@
-import {
-	extractJsonText,
-	parseModelJson,
-	recoverTruncatedJson,
-} from "@/lib/platform/chat/json-recovery";
+import { parseModelJson, recoverTruncatedJson } from "@/lib/platform/chat/json-recovery";
 
 const full = JSON.stringify({
 	summary: "Two findings",
@@ -50,35 +46,59 @@ describe("recoverTruncatedJson", () => {
 	});
 });
 
-describe("extractJsonText / parseModelJson", () => {
+describe("parseModelJson", () => {
 	const empty = { summary: "No concrete findings for this dimension.", findings: [] };
+	const hasFindings = (v: any) => Array.isArray(v?.findings);
+	const value = (raw: string, accept?: (v: unknown) => boolean) =>
+		parseModelJson(raw, accept)?.value;
 
 	it("ignores prose after a fenced block (trace analysis regression)", () => {
 		const raw =
 			'```json { "summary": "No concrete findings for this dimension.", "findings": [] } ``` **Rationale:** The trace contains a single LLM call (span `038160a0b6eddfc1`) with no tool calls.';
-		expect(JSON.parse(extractJsonText(raw))).toEqual(empty);
-		expect(parseModelJson(raw)).toEqual(empty);
+		expect(parseModelJson(raw)).toEqual({ value: empty, recovered: false });
 	});
 
 	it("handles a multi-line fence with a preamble", () => {
 		const raw = `Here is the analysis:\n\n\`\`\`json\n${full}\n\`\`\`\n\nLet me know if you need more.`;
-		expect(parseModelJson(raw)).toEqual(JSON.parse(full));
+		expect(value(raw)).toEqual(JSON.parse(full));
 	});
 
 	it("extracts the first balanced object from unfenced prose", () => {
 		const raw = `Result: ${full} -- note: braces like { in prose after are ignored`;
-		expect(parseModelJson(raw)).toEqual(JSON.parse(full));
+		expect(value(raw)).toEqual(JSON.parse(full));
 	});
 
 	it("returns plain JSON unchanged", () => {
-		expect(extractJsonText(`  ${full}  `)).toBe(full);
+		expect(parseModelJson(`  ${full}  `)).toEqual({ value: JSON.parse(full), recovered: false });
 	});
 
-	it("still recovers a truncated fenced response", () => {
+	it("keeps a code fence that appears inside a JSON string", () => {
+		const payload = { summary: "Use a fence", findings: [{ detail: "Wrap it:\n```js\nrun()\n```" }] };
+		const raw = "```json\n" + JSON.stringify(payload, null, 2) + "\n```\nDone.";
+		expect(value(raw, hasFindings)).toEqual(payload);
+	});
+
+	it("skips an earlier fenced example that is not the payload", () => {
+		const raw =
+			'For reference, a span looks like:\n```json\n{"spanId": "abc"}\n```\nAnalysis:\n```json\n' +
+			full +
+			"\n```";
+		expect(value(raw, hasFindings)).toEqual(JSON.parse(full));
+	});
+
+	it("skips bracketed prose before the payload", () => {
+		const raw = `[Hallucination evaluation context] considered. ${full}`;
+		expect(value(raw)).toEqual(JSON.parse(full));
+	});
+
+	it("recovers a truncated fenced response and flags it", () => {
 		const raw = "```json\n" + full.slice(0, full.indexOf("Second") - 20);
-		expect(parseModelJson(raw)).toEqual({
-			summary: "Two findings",
-			findings: [{ severity: "major", summary: "First", span_refs: ["a", "b"] }],
+		expect(parseModelJson(raw, hasFindings)).toEqual({
+			value: {
+				summary: "Two findings",
+				findings: [{ severity: "major", summary: "First", span_refs: ["a", "b"] }],
+			},
+			recovered: true,
 		});
 	});
 
