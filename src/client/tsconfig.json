@@ -32,6 +32,6 @@
       "@/middleware/*": ["./src/middleware/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "prisma/seed.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next-e2e/types/**/*.ts", "prisma/seed.js"],
   "exclude": ["node_modules"]
 }

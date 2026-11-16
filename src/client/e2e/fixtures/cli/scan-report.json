@@ -1,0 +1,36 @@
+{
+  "scan_id": "e2e-scan",
+  "repo": "https://github.com/anthropics/claude-agent-sdk-demos",
+  "overall_score": 0.62,
+  "rules_source": "signed",
+  "rules_version": "9eca09df82f84b232638a08a68eb20d6cda4f864",
+  "languages": ["python", "typescript"],
+  "sdks": ["claude_agent_sdk"],
+  "tools": [{ "name": "fetch_url" }],
+  "agents": [{ "name": "research-agent" }],
+  "mcp_servers": [{ "name": "filesystem" }],
+  "coverage": { "files_parsed": 12, "files_skipped": 0 },
+  "findings": [
+    {
+      "rule_id": "CSDK-101",
+      "title": "Claude subagent is granted the Bash tool",
+      "severity": "high",
+      "file_path": "research-agent/research_agent/agent.py",
+      "start_line": 42
+    },
+    {
+      "rule_id": "CSDK-102",
+      "title": "Claude subagent is granted the WebSearch tool",
+      "severity": "medium",
+      "file_path": "research-agent/research_agent/agent.py",
+      "start_line": 51
+    },
+    {
+      "rule_id": "CSDK-012",
+      "title": "TypeScript Claude SDK tool writes to the filesystem",
+      "severity": "low",
+      "file_path": "email-agent/ccsdk/custom-tools.ts",
+      "start_line": 18
+    }
+  ]
+}
