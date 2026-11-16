@@ -31,6 +31,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Columns } from "@/components/data-table/columns";
+import TraceDetailRequestSheet from "@/components/(playground)/observability/trace-detail-request-sheet";
+import {
+	RequestProvider,
+	useRequest,
+} from "@/components/(playground)/request/request-context";
 import DataTable from "@/components/data-table/table";
 import getMessage from "@/constants/messages";
 import { COLORS } from "../../../../../../styles/colors";
@@ -69,7 +74,17 @@ function severityScoreClass(score: number) {
 	return "text-amber-600 dark:text-amber-400";
 }
 
+/** Span ids open the same trace sheet as Telemetry, in place. */
 export default function EvaluationEvaluatorDetailPage() {
+	return (
+		<RequestProvider syncUrl={false}>
+			<EvaluatorDetail />
+			<TraceDetailRequestSheet />
+		</RequestProvider>
+	);
+}
+
+function EvaluatorDetail() {
 	const m = getMessage();
 	const params = useParams();
 	const evaluatorId = decodeURIComponent(String(params.id || ""));
@@ -77,6 +92,7 @@ export default function EvaluationEvaluatorDetailPage() {
 	const pingStatus = useRootStore(getPingStatus);
 	const [chartMode, setChartMode] = useState<ChartMode>("passRate");
 	const [expandedKey, setExpandedKey] = useState<string | null>(null);
+	const [, updateRequest] = useRequest();
 	const expandedRowRef = useRef<HTMLDivElement | null>(null);
 
 	const { data, isLoading, isFetched, fireRequest, error } =
@@ -211,14 +227,18 @@ export default function EvaluationEvaluatorDetailPage() {
 				header: () => m.OBSERVABILITY_SPAN_ID,
 				cell: ({ row }) =>
 					row.spanId ? (
-						<Link
-							href={`/telemetry?traceId=${encodeURIComponent(row.spanId)}`}
+						<button
+							type="button"
 							className="font-mono text-xs text-primary hover:underline"
-							onClick={(e) => e.stopPropagation()}
+							title={row.spanId}
+							onClick={(e) => {
+								e.stopPropagation();
+								updateRequest({ spanId: row.spanId });
+							}}
 						>
 							{row.spanId.slice(0, 12)}
 							{row.spanId.length > 12 ? "…" : ""}
-						</Link>
+						</button>
 					) : (
 						<span className="font-mono text-xs">—</span>
 					),
@@ -234,7 +254,7 @@ export default function EvaluationEvaluatorDetailPage() {
 				),
 			},
 		}),
-		[expandedKey, m]
+		[expandedKey, m, updateRequest]
 	);
 	const loading = isLoading || !isFetched || pingStatus === "pending";
 	const notFound = isFetched && (error || (data && !data.found));
