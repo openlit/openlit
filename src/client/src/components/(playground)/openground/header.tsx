@@ -6,6 +6,7 @@ import { ArrowLeftIcon, MonitorPlay, SettingsIcon } from "lucide-react";
 import getMessage from "@/constants/messages";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 
 export function OpengroundActions({
 	className = "flex items-center justify-end gap-2",
@@ -58,13 +59,15 @@ export default function OpengroundHeader({
 	validateResponse = true,
 	title,
 	extraButton,
+	leading,
 }: {
 	validateResponse?: boolean;
 	title?: string;
 	extraButton?: JSX.Element;
+	leading?: ReactNode;
 }) {
 	const messages = getMessage();
-	const pageHeaderTitle = title || messages.FEATURE_OPENGROUND
+	const pageHeaderTitle = title || messages.FEATURE_OPENGROUND;
 
 	return (
 		<FeaturePageHeader
@@ -72,6 +75,7 @@ export default function OpengroundHeader({
 			title={pageHeaderTitle}
 			icon={<MonitorPlay className="size-4" />}
 			tone="border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/70 dark:bg-indigo-950/40 dark:text-indigo-300"
+			leading={leading}
 			actions={
 				<OpengroundActions validateResponse={validateResponse} extraButton={extraButton} />
 			}

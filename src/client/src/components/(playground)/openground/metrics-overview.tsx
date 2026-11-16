@@ -1,7 +1,6 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
 	TrendingDownIcon,
 	ZapIcon,
@@ -42,72 +41,73 @@ export default function MetricsOverview({ data }: MetricsOverviewProps) {
 		p.completionTokens < min.completionTokens ? p : min
 		, successfulProviders[0] || { completionTokens: 0, provider: "", model: "" });
 
+	const m = getMessage();
+	const successRateClass =
+		successRate === 100
+			? "text-emerald-600 dark:text-emerald-400"
+			: successRate >= 50
+				? "text-amber-600 dark:text-amber-400"
+				: "text-rose-600 dark:text-rose-400";
+
 	const stats = [
 		{
-			title: getMessage().OPENGROUND_FASTEST_RESPONSE,
+			title: m.OPENGROUND_FASTEST_RESPONSE,
 			value: `${fastest.responseTime.toFixed(2)}s`,
-			subtitle: fastest.provider ? `${fastest.provider}/${fastest.model}` : '',
+			subtitle: fastest.provider ? `${fastest.provider}/${fastest.model}` : "",
 			icon: ZapIcon,
-			iconColor: "text-yellow-500",
-			bgColor: "bg-yellow-50 dark:bg-yellow-950/20",
+			valueClass: "text-primary",
 		},
 		{
-			title: getMessage().OPENGROUND_LOWEST_COST,
+			title: m.OPENGROUND_LOWEST_COST,
 			value: `$${cheapest.cost.toFixed(4)}`,
-			subtitle: cheapest.provider ? `${cheapest.provider}/${cheapest.model}` : '',
+			subtitle: cheapest.provider ? `${cheapest.provider}/${cheapest.model}` : "",
 			icon: CoinsIcon,
-			iconColor: "text-green-500",
-			bgColor: "bg-green-50 dark:bg-green-950/20",
+			valueClass: "text-primary",
 		},
 		{
-			title: getMessage().OPENGROUND_MOST_EFFICIENT,
-			value: `${mostEfficient.completionTokens} tokens`,
-			subtitle: mostEfficient.provider ? `${mostEfficient.provider}/${mostEfficient.model}` : '',
+			title: m.OPENGROUND_MOST_EFFICIENT,
+			value: `${mostEfficient.completionTokens.toLocaleString()} ${m.OPENGROUND_LIST_TOKENS_SUFFIX}`,
+			subtitle: mostEfficient.provider ? `${mostEfficient.provider}/${mostEfficient.model}` : "",
 			icon: TrendingDownIcon,
-			iconColor: "text-blue-500",
-			bgColor: "bg-blue-50 dark:bg-blue-950/20",
+			valueClass: "text-primary",
 		},
 		{
-			title: getMessage().OPENGROUND_SUCCESS_RATE,
+			title: m.OPENGROUND_SUCCESS_RATE,
 			value: `${successRate}%`,
-			subtitle: `${successfulProviders.length}/${totalProviders} ${getMessage().PROVIDERS}`,
+			subtitle: `${successfulProviders.length}/${totalProviders} ${m.PROVIDERS}`,
 			icon: CheckCircle2Icon,
-			iconColor:
-				successRate === 100
-					? "text-green-500"
-					: successRate >= 50
-						? "text-yellow-500"
-						: "text-red-500",
-			bgColor:
-				successRate === 100
-					? "bg-green-50 dark:bg-green-950/20"
-					: successRate >= 50
-						? "bg-yellow-50 dark:bg-yellow-950/20"
-						: "bg-red-50 dark:bg-red-950/20",
+			valueClass: successRateClass,
 		},
 	];
 
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+		<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
 			{stats.map((stat) => {
 				const Icon = stat.icon;
 				return (
 					<Card
 						key={stat.title}
+						className="relative overflow-hidden border border-stone-200 dark:border-stone-800"
 					>
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="text-sm font-medium text-stone-600 dark:text-stone-400">
+							<CardTitle className="text-sm font-medium text-stone-950 dark:text-white">
 								{stat.title}
 							</CardTitle>
-							<div className={`p-2 rounded-lg ${stat.bgColor}`}>
-								<Icon className={`h-4 w-4 ${stat.iconColor}`} />
-							</div>
+							<span className="absolute -right-2 -top-2 rounded-bl-3xl bg-stone-200 p-3 dark:bg-stone-800">
+								<Icon className="h-6 w-6 text-stone-500 dark:text-stone-100" />
+							</span>
 						</CardHeader>
 						<CardContent>
-							<div className="text-2xl font-bold text-stone-900 dark:text-stone-100">
+							<div
+								className={`max-w-full truncate text-3xl font-semibold ${stat.valueClass}`}
+								title={stat.value}
+							>
 								{stat.value}
 							</div>
-							<p className="text-xs text-stone-500 dark:text-stone-400 mt-1 truncate">
+							<p
+								className="mt-1 truncate text-xs text-stone-500 dark:text-stone-400"
+								title={stat.subtitle}
+							>
 								{stat.subtitle}
 							</p>
 						</CardContent>

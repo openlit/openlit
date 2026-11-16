@@ -38,13 +38,13 @@ export default function VariableEditor({ promptText }: VariableEditorProps) {
 	return (
 		<div className="space-y-3 pt-4 border-t border-stone-200 dark:border-stone-800">
 			<div className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
-				<Code2Icon className="h-4 w-4" />
+				<Code2Icon className="h-4 w-4 text-stone-500 dark:text-stone-400" />
 				{getMessage().VARIABLES}
 			</div>
 			<div className="grid gap-3">
 				{variables.map((variable) => (
 					<div key={variable} className="space-y-1.5">
-						<Label htmlFor={`var-${variable}`} className="text-sm">
+						<Label htmlFor={`var-${variable}`} className="text-xs text-stone-700 dark:text-stone-300">
 							{variable}
 						</Label>
 						<Input
