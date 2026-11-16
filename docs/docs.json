@@ -335,7 +335,12 @@
                     "pages": [
                       "latest/openlit/developer-resources/api-reference/endpoint/scanners/scan",
                       "latest/openlit/developer-resources/api-reference/endpoint/scanners/list",
-                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/findings"
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/findings",
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/enrich-providers",
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/enrich",
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/enrich-run",
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/enrich-cancel",
+                      "latest/openlit/developer-resources/api-reference/endpoint/scanners/enrich-discard"
                     ]
                   }
                 ]

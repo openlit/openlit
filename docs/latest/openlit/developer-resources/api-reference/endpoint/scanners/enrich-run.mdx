@@ -1,0 +1,10 @@
+---
+title: 'Get Enrich run'
+openapi: 'GET /api/scanners/{id}/enrich/{runId}'
+---
+
+Return one Enrich run with its **steps**, **log**, and **diff**. Poll it while `status` is `running`.
+
+To find the latest run for a finding without its id, call `GET /api/scanners/{id}/enrich?jobId=<job>&alertNumber=<n>`. It returns `{ run }`, or a null run when the finding has none.
+
+See [Scanner connectors](/latest/openlit/connectors/scanner#enrich-a-finding) for setup.

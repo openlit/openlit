@@ -1608,6 +1608,185 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
+  /api/scanners/{id}/enrich/providers:
+    get:
+      tags:
+        - Scanner
+      summary: List Enrich LLM providers
+      description: |
+        Return the LLM providers Trustabl Enrich supports and whether Vault holds a key
+        for each (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`). Key values
+        are never returned.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - $ref: '#/components/parameters/ScannerConnectorId'
+      responses:
+        '200':
+          description: Providers with Vault key presence and suggested models.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerEnrichProvidersResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/scanners/{id}/enrich:
+    get:
+      tags:
+        - Scanner
+      summary: Get the latest Enrich run for a finding
+      description: Return the most recent Enrich run for one finding of a scan job, or `null`.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - $ref: '#/components/parameters/ScannerConnectorId'
+        - name: jobId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: alertNumber
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: The latest run, or a null run when the finding has none.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerEnrichRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      tags:
+        - Scanner
+      summary: Enrich a finding
+      description: |
+        Start Trustabl Enrich on one finding. OpenLIT downloads the repository on the
+        server, runs `trustabl enrich --apply --diff` on that finding with the provider
+        key from Vault, re-checks the rule on the patched copy, and stores the diff for
+        review. Nothing is pushed.
+
+        Returns immediately with a `running` run; poll
+        `GET /api/scanners/{id}/enrich/{runId}`. One run at a time per connector.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - $ref: '#/components/parameters/ScannerConnectorId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScannerEnrichRequest'
+      responses:
+        '200':
+          description: The started run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerEnrichRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/scanners/{id}/enrich/{runId}:
+    get:
+      tags:
+        - Scanner
+      summary: Get an Enrich run
+      description: Return one Enrich run with its steps, log, and diff.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - $ref: '#/components/parameters/ScannerConnectorId'
+        - $ref: '#/components/parameters/ScannerEnrichRunId'
+      responses:
+        '200':
+          description: The run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerEnrichRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    delete:
+      tags:
+        - Scanner
+      summary: Discard an Enrich run
+      description: Remove a finished run. A running run must be cancelled first.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - $ref: '#/components/parameters/ScannerConnectorId'
+        - $ref: '#/components/parameters/ScannerEnrichRunId'
+      responses:
+        '200':
+          description: The run was removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/scanners/{id}/enrich/{runId}/cancel:
+    post:
+      tags:
+        - Scanner
+      summary: Cancel an Enrich run
+      description: Stop a running run. The CLI process is killed and the working copy is removed.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OpenLitOrganisationId'
+        - $ref: '#/components/parameters/OpenLitProjectId'
+        - $ref: '#/components/parameters/OpenLitEnvironment'
+        - $ref: '#/components/parameters/ScannerConnectorId'
+        - $ref: '#/components/parameters/ScannerEnrichRunId'
+      responses:
+        '200':
+          description: The run; its status becomes `cancelled` once the process stops.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerEnrichRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
 components:
   parameters:
     OpenLitOrganisationId:
@@ -1673,6 +1852,22 @@ components:
       schema:
         type: string
         example: dbcfg_01HXYZ
+    ScannerConnectorId:
+      name: id
+      in: path
+      required: true
+      description: Scanner connector ID (`scanner:<uuid>`).
+      schema:
+        type: string
+        example: scanner:3f1c9a2b-4d6e-4a11-9c8f-1b2a3c4d5e6f
+    ScannerEnrichRunId:
+      name: runId
+      in: path
+      required: true
+      description: Enrich run ID (`enrich:<uuid>`).
+      schema:
+        type: string
+        example: enrich:5b0c1e9e-7d1f-4a43-9a51-0d8f0c1b2e3a
   securitySchemes:
     ApiKeyAuth:
       type: http
@@ -2243,6 +2438,164 @@ components:
           type: string
           description: Scanner workspace deep link (`/scanner?connectorId=&jobId=`).
           example: /scanner?connectorId=scanner%3Aabc&jobId=job%3A1
+
+    ScannerEnrichRequest:
+      type: object
+      required: [jobId, alertNumber, provider]
+      properties:
+        jobId:
+          type: string
+          example: job:7bf4b416-308c-47cc-873a-dc4c20d2b4e9
+        alertNumber:
+          type: integer
+          minimum: 1
+          description: 1-based finding number in the job (`#4` on the Scanner page).
+          example: 4
+        provider:
+          type: string
+          enum: [anthropic, openai, google]
+          description: LLM provider. Its key is read from Vault (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY`).
+        model:
+          type: string
+          description: Sent as `TRUSTABL_LLM_MODEL`. Omit to use the Trustabl default for the provider.
+          example: claude-sonnet-4-5
+        attempts:
+          type: integer
+          minimum: 1
+          maximum: 2
+          default: 1
+          description: Runs enrich again when the re-check still detects the rule.
+        recheck:
+          type: boolean
+          default: true
+          description: Re-run the rule on the patched copy.
+        baseRef:
+          type: string
+          description: Branch, tag, or commit to download. Defaults to the repository's default branch.
+          example: main
+
+    ScannerEnrichStep:
+      type: object
+      properties:
+        key:
+          type: string
+          enum: [clone, enrich, recheck, diff]
+        status:
+          type: string
+          enum: [pending, running, done, failed, skipped]
+        detail:
+          type: string
+        durationMs:
+          type: integer
+
+    ScannerEnrichRun:
+      type: object
+      properties:
+        id:
+          type: string
+          example: enrich:5b0c1e9e-7d1f-4a43-9a51-0d8f0c1b2e3a
+        status:
+          type: string
+          enum: [running, succeeded, failed, cancelled]
+        failure:
+          type: string
+          enum: [provider, not-applied, still-detected, not-found, clone, interrupted, error]
+        jobId:
+          type: string
+        alertNumber:
+          type: integer
+        ruleId:
+          type: string
+        path:
+          type: string
+        line:
+          type: integer
+        endLine:
+          type: integer
+        target:
+          type: string
+        baseRef:
+          type: string
+        commitSha:
+          type: string
+        provider:
+          type: string
+          enum: [anthropic, openai, google]
+        model:
+          type: string
+        attempts:
+          type: integer
+        attempt:
+          type: integer
+        recheck:
+          type: boolean
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScannerEnrichStep'
+        explanation:
+          type: string
+        fixSummary:
+          type: string
+        diff:
+          type: string
+          description: Unified diff of the fix. Present when the run succeeded.
+        partialDiff:
+          type: string
+          description: Last diff of a run whose re-check still detected the rule.
+        additions:
+          type: integer
+        deletions:
+          type: integer
+        resolved:
+          type: boolean
+        newFindings:
+          type: integer
+        log:
+          type: array
+          items:
+            type: string
+          description: Last 200 CLI log lines, with keys redacted.
+        error:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        durationMs:
+          type: integer
+
+    ScannerEnrichRunResponse:
+      type: object
+      properties:
+        run:
+          $ref: '#/components/schemas/ScannerEnrichRun'
+
+    ScannerEnrichProvidersResponse:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                enum: [anthropic, openai, google]
+              label:
+                type: string
+              envKey:
+                type: string
+                example: ANTHROPIC_API_KEY
+              hasKey:
+                type: boolean
+                description: Whether Vault holds a secret with this key name. The value is never returned.
+              models:
+                type: array
+                items:
+                  type: string
 
   responses:
     UnauthorizedError:

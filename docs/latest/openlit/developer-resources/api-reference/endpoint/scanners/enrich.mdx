@@ -1,0 +1,10 @@
+---
+title: 'Enrich a finding'
+openapi: 'POST /api/scanners/{id}/enrich'
+---
+
+Start a Trustabl Enrich run on one finding of a scan job. OpenLIT downloads the repository on the server, runs `trustabl enrich --apply --diff` with the provider key from Vault, re-checks the rule, and stores the diff for review. The response returns the **running** run at once; poll [Get Enrich run](/latest/openlit/developer-resources/api-reference/endpoint/scanners/enrich-run) until it finishes.
+
+Do not send a provider key in the body — the key is read from Vault. Nothing is committed or pushed. One run per connector can be active at a time, and a run stops after 10 minutes.
+
+See [Scanner connectors](/latest/openlit/connectors/scanner#enrich-a-finding) for setup.

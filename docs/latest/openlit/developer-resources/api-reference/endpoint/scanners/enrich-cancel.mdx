@@ -1,0 +1,8 @@
+---
+title: 'Cancel Enrich run'
+openapi: 'POST /api/scanners/{id}/enrich/{runId}/cancel'
+---
+
+Stop a running Enrich run. The Trustabl process is stopped and the temporary copy of the repository is deleted. The run keeps its log with status `cancelled`.
+
+See [Scanner connectors](/latest/openlit/connectors/scanner#enrich-a-finding) for setup.
