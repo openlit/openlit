@@ -8,7 +8,8 @@ import { getChatConfigWithApiKey } from "./config";
 import { OPENLIT_TRACE_ANALYSIS_TABLE } from "./table-details";
 import { intelligenceDataCollector } from "../common";
 import { createModel } from "@/lib/platform/providers/create-model";
-import { recoverTruncatedJson } from "./json-recovery";
+import { parseModelJson } from "./json-recovery";
+import { samplingFor } from "@/lib/platform/providers/sampling";
 import { getTraceHierarchy } from "../traces/read";
 import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
 import { TraceHeirarchySpan, TraceRow } from "@/types/trace";
@@ -1217,25 +1218,25 @@ function parseDimensionAnalysis(
 	dimension: TraceAnalysisDimension,
 	root: TraceHeirarchySpan
 ): { summary: string; findings: TraceAnalysisFinding[] } {
-	const jsonText = rawText
-		.trim()
-		.replace(/^```json\s*/i, "")
-		.replace(/^```\s*/i, "")
-		.replace(/```$/i, "")
-		.trim();
 	try {
-		let parsed: any;
-		try {
-			parsed = JSON.parse(jsonText);
-		} catch (error) {
-			parsed = recoverTruncatedJson(jsonText);
-			if (parsed === null) throw error;
+		// The analysis object, not one of its findings (which also has a summary).
+		const extracted = parseModelJson(rawText, (value: any) =>
+			Array.isArray(value) ||
+			(typeof value === "object" &&
+				value !== null &&
+				(Array.isArray(value.findings) ||
+					Array.isArray(value[dimension]) ||
+					(typeof value.summary === "string" && !("severity" in value))))
+		);
+		if (!extracted) throw new Error("No analysis JSON found in the model response");
+		if (extracted.recovered) {
 			logTraceAnalysis("dimension_parse_recovered", {
 				dimension,
 				rootSpanId: root.SpanId,
 				rawChars: rawText.length,
 			});
 		}
+		const parsed: any = extracted.value;
 		const findingsSource = Array.isArray(parsed)
 			? parsed
 			: Array.isArray(parsed?.findings)
@@ -1300,7 +1301,7 @@ async function streamJsonText({
 		system,
 		prompt,
 		maxOutputTokens,
-		temperature: 0,
+		...samplingFor(model, { temperature: 0 }),
 		onFinish: ({ usage }) => {
 			const promptTokens = usage?.inputTokens ?? 0;
 			const completionTokens = usage?.outputTokens ?? 0;

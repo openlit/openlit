@@ -6,6 +6,8 @@ import { generateText } from "ai";
 import getMessage from "@/constants/messages";
 import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
 import { createModel } from "@/lib/platform/providers/create-model";
+import { samplingFor } from "@/lib/platform/providers/sampling";
+import { parseModelJson } from "@/lib/platform/chat/json-recovery";
 import { Evaluation } from "@/types/evaluation";
 import { TYPESAFE_PROVIDER_ID, type EvaluationTypeForJev } from "./jev-mapper";
 import { runJevEvaluation } from "./run-jev-evaluation";
@@ -141,10 +143,18 @@ export async function runEvaluation(
 		const { text, usage } = await generateText({
 			model: modelInstance,
 			prompt: systemPrompt,
-			temperature: 0,
+			...samplingFor(modelInstance, { temperature: 0 }),
 		});
 
-		const parsed = JSON.parse(text) as { success?: boolean; result?: Evaluation[] };
+		const extracted = parseModelJson(text, (value: any) =>
+			Array.isArray(value?.result)
+		);
+		// Salvaged (truncated) output may be missing requested evaluation types,
+		// so it is not reported as a successful evaluation.
+		const parsed = (extracted && !extracted.recovered ? extracted.value : null) as {
+			success?: boolean;
+			result?: Evaluation[];
+		} | null;
 		const result = parsed?.result;
 		if (!Array.isArray(result) || result.length === 0) {
 			return { success: false, result: DEFAULT_RESULT, error: getMessage().EVALUATION_ERROR_INVALID_RESPONSE };
@@ -156,7 +166,7 @@ export async function runEvaluation(
 				? { promptTokens, completionTokens }
 				: undefined;
 		return {
-			success: parsed.success !== false,
+			success: parsed?.success !== false,
 			result,
 			usage: usageData,
 		};
