@@ -2,6 +2,8 @@
 
 import os
 
+import pytest
+
 from openlit.cli.main import parse_arguments, set_environment_from_cli_args
 
 CAPTURE_ENV_VAR = "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
@@ -45,6 +47,29 @@ class TestBooleanFlags:
         args, _ = parse(monkeypatch, ["python", "app.py"])
         set_environment_from_cli_args(args)
         assert "OPENLIT_DISABLE_BATCH" not in os.environ
+
+    def test_conflicting_flags_rejected(self, monkeypatch):
+        """Specifying both positive and negative forms must be rejected."""
+        with pytest.raises(SystemExit):
+            parse(
+                monkeypatch,
+                [
+                    "--capture_message_content",
+                    "--no_capture_message_content",
+                    "python",
+                    "app.py",
+                ],
+            )
+        with pytest.raises(SystemExit):
+            parse(
+                monkeypatch,
+                [
+                    "--no_capture_message_content",
+                    "--capture_message_content",
+                    "python",
+                    "app.py",
+                ],
+            )
 
     def test_env_var_takes_precedence_over_cli(self, monkeypatch):
         monkeypatch.setenv(CAPTURE_ENV_VAR, "true")

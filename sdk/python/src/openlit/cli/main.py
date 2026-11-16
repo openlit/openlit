@@ -66,16 +66,24 @@ Environment Variables (take precedence over CLI arguments):
         if cli_type == bool:
             # default=None (instead of store_true's implicit False) so that an
             # unset flag is distinguishable from an explicit False.
-            parser.add_argument(
-                cli_arg, action="store_true", default=None, help=cli_help
-            )
             if config.get("has_negation"):
-                parser.add_argument(
+                # Mutually exclusive group: specifying both the positive and
+                # negative form is rejected instead of silently keeping the
+                # last one.
+                group = parser.add_mutually_exclusive_group()
+                group.add_argument(
+                    cli_arg, action="store_true", default=None, help=cli_help
+                )
+                group.add_argument(
                     f"--no_{param_name}",
                     dest=param_name,
                     action="store_false",
                     default=None,
                     help=f"Disable: {cli_help}",
+                )
+            else:
+                parser.add_argument(
+                    cli_arg, action="store_true", default=None, help=cli_help
                 )
         else:
             parser.add_argument(cli_arg, help=cli_help)
