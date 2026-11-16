@@ -318,6 +318,33 @@ export default function EvaluationAnalytics({
 		<div className="flex w-full flex-col gap-4">
 			<EvaluationsDashboard />
 
+			{/* Shown even when earlier rows are still on screen, so a failed
+			    refresh is visible and can be retried. */}
+			{error ? (
+				<div
+					role="alert"
+					className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm dark:border-rose-900/70 dark:bg-rose-950/30"
+				>
+					<div className="min-w-0">
+						<p className="font-medium text-rose-700 dark:text-rose-300">
+							{m.EVALUATION_ANALYTICS_LOAD_FAILED}
+						</p>
+						<p className="truncate text-xs text-stone-600 dark:text-stone-400">
+							{String(error)}
+						</p>
+					</div>
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-7 shrink-0"
+						onClick={fetchAnalytics}
+						disabled={isLoading}
+					>
+						{m.RETRY}
+					</Button>
+				</div>
+			) : null}
+
 			<DataTable
 				columns={evaluatorColumns}
 				data={byType}
@@ -329,17 +356,7 @@ export default function EvaluationAnalytics({
 					router.push(`/evaluations/evaluators/${encodeURIComponent(row.id)}`)
 				}
 				emptyState={
-					error ? (
-						<div className="flex w-full flex-col items-center justify-center gap-2 p-3 text-center text-sm">
-							<p className="text-rose-600 dark:text-rose-400">
-								{m.EVALUATION_ANALYTICS_LOAD_FAILED}
-							</p>
-							<p className="text-xs text-stone-500 dark:text-stone-400">{String(error)}</p>
-							<Button variant="outline" size="sm" className="h-7" onClick={fetchAnalytics}>
-								{m.RETRY}
-							</Button>
-						</div>
-					) : (
+					error ? null : (
 						<IntermediateState type="nodata">
 							{m.EVALUATION_TABLE_EMPTY}
 						</IntermediateState>
