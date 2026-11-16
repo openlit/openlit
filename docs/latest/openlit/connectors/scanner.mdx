@@ -1,11 +1,11 @@
 ---
 title: 'Scanner connectors'
 sidebarTitle: 'Scanners'
-description: 'Connect Trustabl to scan GitHub repositories for agent SDK, MCP, and policy findings — then review jobs from Scanner and Otter'
+description: 'Connect Trustabl to scan GitHub repositories for agent SDK, MCP, and policy findings, forge a pre-coding skill for coding agents, and review jobs from Scanner and Otter'
 icon: 'magnifying-glass'
 ---
 
-**Scanner connectors** attach OpenLIT to job-based code scanners. Use them to scan a GitHub repository, collect findings with severity and path, and join those results to coding-agent traces.
+**Scanner connectors** attach OpenLIT to job-based code scanners. Use them to scan a GitHub repository, collect findings with severity and path, join those results to coding-agent traces, and generate a pre-coding skill that helps coding agents avoid the same findings.
 
 Add scanner connectors from **Configuration → Connectors** (`/connectors`) under the **Scanners** category, or from the **Scanner** page (`/scanner`) when no connector exists yet. Connectors are scoped to the current [project](/latest/openlit/organisation/projects) and [environment](/latest/openlit/organisation/environments).
 
@@ -25,11 +25,12 @@ flowchart LR
   SC --> ScanPage[Scanner page]
   SC --> Otter[Otter get_scanner_findings]
   ScanPage --> Jobs[Jobs and findings]
+  ScanPage --> Skill[Forge skill]
 ```
 
 - **Atomic connectors** — one Trustabl scanner per connector instance, with its own target, defaults, and token.
 - **GitHub URL target** — v1 scans `https://github.com/owner/repo` only. Local filesystem paths are rejected.
-- **On-demand CLI** — OpenLIT installs a checksum-verified Trustabl release onto the server, then runs `trustabl scan`.
+- **On-demand CLI** — OpenLIT installs a checksum-verified Trustabl release onto the server, then runs `trustabl scan` (Analyzer) and `trustabl forge` (Forge).
 - **Environment-scoped jobs** — jobs and findings stay on the connector for the selected environment.
 
 ## Supported scanner connectors
@@ -54,7 +55,7 @@ flowchart LR
     Enter an `https://github.com/owner/repo` URL. Add `/tree/branch` to pin a branch, or set **Ref** separately. Add a GitHub token for private repositories.
   </Step>
   <Step title="Install the CLI and run a scan">
-    On the Scanner page, install the Trustabl CLI onto the OpenLIT server, then **Run scan**. Findings appear on the same page.
+    On the Scanner page, install the Trustabl CLI onto the OpenLIT server, then **Run Analyzer**. Findings appear on the same page.
   </Step>
 </Steps>
 
@@ -70,13 +71,15 @@ Once a connector is configured, **Scanner** (`/scanner`) provides:
 | --- | --- |
 | **Connector selector** | Switch between scanner connectors in the current environment |
 | **CLI runtime** | Install or upgrade the Trustabl CLI on the OpenLIT server |
-| **Run scan** | Run with connector defaults, or override flags for one job |
+| **Run Analyzer** | Run with connector defaults, or override flags for one job |
+| **Run Forge** | Generate a pre-coding `SKILL.md` for the repository's SDKs (see [Forge skill](#forge-skill)) |
 | **Jobs** | Recent scans with status, score, duration, and error |
-| **Findings** | Severity, rule, path, and suggested fix for the selected job |
+| **Analyzer findings** | Severity, rule, path, and suggested fix for the selected job |
+| **Forge skill** | Generated skill with preview, raw view, copy, download, regenerate, and run history |
 
 ## Scan parameters
 
-Connector defaults apply when you run with defaults. Override them for one job from **Run with new parameters**.
+Connector defaults apply when you run with defaults. Override them for one job from **Run Analyzer with new parameters**.
 
 | Setting | Purpose |
 | --- | --- |
@@ -87,6 +90,29 @@ Connector defaults apply when you run with defaults. Override them for one job f
 | **Secret / vuln / license scan** | Extra Trustabl scans on repository files and dependencies |
 | **Rules source** | Follow environment, or pin Production (signed), Staging (signed), or Git (unsigned) |
 | **GitHub token** | Stored on the connector. Never sent in the scan request body. |
+
+## Forge skill
+
+**Trustabl Forge** turns the detection rules for a repository's SDKs into a pre-coding `SKILL.md`. Coding agents read it before writing agent code, so they avoid the issues the Analyzer would flag.
+
+<Steps>
+  <Step title="Run the Analyzer once">
+    Forge reads policies, not code. OpenLIT takes them from the latest succeeded Analyzer scan of the repository: detected SDKs (for example `claude_agent_sdk` → `claude_sdk`), `mcp` when MCP servers were found, and `claude_skill` when skills were found.
+  </Step>
+  <Step title="Run Forge">
+    Open the **Run Analyzer** menu and choose **Run Forge**, or **Run Forge with new parameters** to pick policies, an output file name, and a rules ref. Without an Analyzer scan, pick the policies yourself.
+  </Step>
+  <Step title="Use the skill">
+    The **Forge skill** tab shows the outline, rule counts, and the rendered or raw `SKILL.md`. **Copy** or **Download** it into your repository, for example as `.claude/skills/trustabl-pre-coding/SKILL.md`.
+  </Step>
+</Steps>
+
+| Behaviour | Detail |
+| --- | --- |
+| **No clone** | Forge runs in an empty temporary directory on the OpenLIT server with explicit `--policy` values. The repository is not cloned and no GitHub token is used. |
+| **Parameters** | The dialog shows the policies and flags the installed CLI reports (`trustabl forge --help`), such as `--rules-ref`. |
+| **Current or stale** | OpenLIT runs `trustabl forge check` on the selected skill. **Stale** means the rules changed after the skill was generated; use **Regenerate**. |
+| **History** | The last 10 forge runs per connector are kept. Skills larger than 512 KB are not stored. |
 
 ## Coding agents and Otter
 
@@ -104,8 +130,11 @@ Authenticate with an OpenLIT API key and send organisation, project, and environ
 | `POST` | `/api/scanners/{id}/scan` | Run a scan. Optional JSON body overrides connector defaults. Returns `{ connector, job }` with findings. |
 | `GET` | `/api/scanners` | List connectors in this environment, including recent jobs and findings. |
 | `GET` | `/api/scanners/findings?repoUrl=` | Latest succeeded scan for a GitHub repository URL. |
+| `POST` | `/api/scanners/{id}/forge` | Run Trustabl Forge. Omit `policies` to use the latest Analyzer scan. Returns `{ connector, run }` without the skill content. |
+| `GET` | `/api/scanners/{id}/forge/{runId}` | One forge run, including the generated `SKILL.md`. |
+| `GET` | `/api/scanners/{id}/forge/{runId}/check` | Whether the skill is `current` or `stale` against the current rules. |
 
-`POST /api/scanners/{id}/scan` can take several minutes (up to 300 seconds). A second scan is rejected while one is already running on the same connector.
+`POST /api/scanners/{id}/scan` can take several minutes (up to 300 seconds). A second scan is rejected while one is already running on the same connector. The same applies to `POST /api/scanners/{id}/forge`, which usually finishes in a few seconds.
 
 ## Security
 

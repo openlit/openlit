@@ -1,0 +1,6 @@
+---
+title: 'Check forge skill'
+openapi: 'GET /api/scanners/{id}/forge/{runId}/check'
+---
+
+Run `trustabl forge check` on a stored skill. `current` means it matches the current rules, `stale` means the rules changed and the skill should be regenerated, and `error` means the check could not run.

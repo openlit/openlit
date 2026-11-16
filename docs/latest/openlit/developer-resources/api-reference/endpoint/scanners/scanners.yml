@@ -207,8 +207,219 @@ paths:
           description: repoUrl is missing.
         '401':
           description: Unauthorized.
+  /api/scanners/{id}/forge:
+    post:
+      summary: Run Trustabl Forge
+      description: Generate a pre-coding SKILL.md from the Trustabl rules for the selected policies. Omit policies to use the latest succeeded Analyzer scan of the repository. The repository is not cloned. Returns the run without its content.
+      operationId: runScannerForge
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Scanner connector ID (`scanner:<uuid>`).
+        - name: x-openlit-organisation-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: x-openlit-project-id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: x-openlit-environment
+          in: header
+          required: true
+          schema:
+            type: string
+            example: production
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                target:
+                  type: string
+                  example: https://github.com/acme/checkout-agent
+                policies:
+                  type: array
+                  items:
+                    type: string
+                  example: [claude_sdk, mcp]
+                rulesRef:
+                  type: string
+                fileName:
+                  type: string
+                  example: SKILL.md
+                sourceJobId:
+                  type: string
+      responses:
+        '200':
+          description: Forge run result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run:
+                    $ref: '#/components/schemas/ScannerForgeRun'
+        '400':
+          description: Invalid JSON, policies, or file name; no policies; or a forge run is already running.
+        '401':
+          description: Unauthorized.
+  /api/scanners/{id}/forge/{runId}:
+    get:
+      summary: Get a Forge run with its skill
+      description: Return one forge run, including the generated SKILL.md in `content`.
+      operationId: getScannerForgeRun
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Scanner connector ID (`scanner:<uuid>`).
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^forge:[A-Za-z0-9_-]+$'
+          description: Forge run ID (`forge:<uuid>`).
+        - name: x-openlit-organisation-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: x-openlit-project-id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: x-openlit-environment
+          in: header
+          required: true
+          schema:
+            type: string
+            example: production
+      responses:
+        '200':
+          description: Forge run with content.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run:
+                    $ref: '#/components/schemas/ScannerForgeRun'
+        '400':
+          description: Invalid run ID or run not found.
+        '401':
+          description: Unauthorized.
+  /api/scanners/{id}/forge/{runId}/check:
+    get:
+      summary: Check whether a Forge skill is current
+      description: Run `trustabl forge check` on the stored skill. Returns current, stale, or error.
+      operationId: checkScannerForgeRun
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Scanner connector ID (`scanner:<uuid>`).
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^forge:[A-Za-z0-9_-]+$'
+          description: Forge run ID (`forge:<uuid>`).
+        - name: x-openlit-organisation-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: x-openlit-project-id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: x-openlit-environment
+          in: header
+          required: true
+          schema:
+            type: string
+            example: production
+      responses:
+        '200':
+          description: Check result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  check:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [current, stale, error]
+                      message:
+                        type: string
+                      checkedAt:
+                        type: string
+                        format: date-time
+        '400':
+          description: Invalid run ID, run not found, or the run has no skill.
+        '401':
+          description: Unauthorized.
 components:
   schemas:
+    ScannerForgeRun:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [running, succeeded, failed, runtime-missing]
+        target:
+          type: string
+        policies:
+          type: array
+          items:
+            type: string
+        policySource:
+          type: object
+          properties:
+            kind:
+              type: string
+              enum: [analyzer, manual]
+            jobId:
+              type: string
+        fileName:
+          type: string
+        cliVersion:
+          type: string
+        command:
+          type: string
+          example: trustabl forge --policy claude_sdk,mcp
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        error:
+          type: string
+        content:
+          type: string
+          description: Generated SKILL.md. Only returned by the single-run endpoint.
     ScannerJob:
       type: object
       properties:
