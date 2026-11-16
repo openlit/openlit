@@ -3,12 +3,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { ChevronDown, Cable, ExternalLink, GitBranch, ListChecks, Play, RefreshCw, ScanSearch, Settings2 } from "lucide-react";
+import {
+	ChevronDown,
+	Cable,
+	ExternalLink,
+	FileCode2,
+	GitBranch,
+	Hammer,
+	ListChecks,
+	Play,
+	RefreshCw,
+	ScanSearch,
+	Settings2,
+	ShieldCheck,
+} from "lucide-react";
 import { toast } from "sonner";
 import FeatureAccess from "@/components/rbac/feature-access";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
 import ScannerRuntimePanel from "@/components/(playground)/scanner/scanner-runtime-panel";
 import ScannerFindingSheet from "@/components/(playground)/scanner/scanner-finding-sheet";
+import ScannerForgePanel, {
+	useScannerForgeRun,
+	type ScannerForgeInFlight,
+} from "@/components/(playground)/scanner/scanner-forge-panel";
+import ScannerForgeParamsDialog, {
+	type ScannerForgeDefaults,
+} from "@/components/(playground)/scanner/scanner-forge-params-dialog";
+import { ScannerForgeStatusBadge } from "@/components/(playground)/scanner/scanner-forge-skill-view";
 import ScannerRunParamsDialog, {
 	emptyScannerRunDefaults,
 	type ScannerRunDefaults,
@@ -24,6 +45,8 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -33,6 +56,7 @@ import {
 	SelectTrigger,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import getMessage from "@/constants/messages";
 import DOCUMENTATION_LINKS from "@/constants/documentation-links";
 import { getCurrentProject, getCurrentProjectEnvironment } from "@/selectors/project";
@@ -40,9 +64,33 @@ import { useRootStore } from "@/store";
 import { getRequestHeaders } from "@/utils/api";
 import { connectorIconPath } from "@/lib/platform/connectors/icons";
 import { trustablRunParamFields } from "@/lib/platform/connectors/scanner/config-fields";
-import type { ScannerCliSchema } from "@/lib/platform/connectors/scanner/cli-schema";
+import type { ScannerCliSchema, ScannerForgeSchema } from "@/lib/platform/connectors/scanner/cli-schema";
+import {
+	buildScannerForgeArgv,
+	FORGE_DEFAULT_FILE_NAME,
+	forgeCommandPreview,
+} from "@/lib/platform/connectors/scanner/forge-params";
+import {
+	FALLBACK_FORGE_POLICIES,
+	forgePoliciesFromJob,
+	latestAnalyzerJobForRepo,
+} from "@/lib/platform/connectors/scanner/forge-policies";
 import { groupScannerJobsByRepo, scannerJobRepoKey } from "@/lib/platform/connectors/scanner/job-repos";
-import type { ScannerFinding, ScannerJob, ScannerScanInput, ScannerRuntimeInfo } from "@/lib/platform/connectors/scanner/types";
+import { scannerRepoKey } from "@/lib/platform/connectors/scanner/target";
+import type {
+	ScannerCapabilities,
+	ScannerFinding,
+	ScannerForgeRun,
+	ScannerForgeRunInput,
+	ScannerJob,
+	ScannerScanInput,
+	ScannerRuntimeInfo,
+} from "@/lib/platform/connectors/scanner/types";
+
+type ScannerView = "analyzer" | "forge";
+
+/** How often to re-read a forge run that is still going on the server. */
+const FORGE_REFRESH_MS = 3000;
 
 type ScannerConnector = {
 	id: string;
@@ -51,7 +99,13 @@ type ScannerConnector = {
 	environment?: string;
 	settings?: string;
 	jobs?: ScannerJob[];
+	forgeRuns?: ScannerForgeRun[];
+	capabilities?: ScannerCapabilities;
 };
+
+function forgeRunTargets(connector?: ScannerConnector): string[] {
+	return (connector?.forgeRuns || []).map((run) => run.target);
+}
 
 function parseSettings(settings?: string): Record<string, unknown> {
 	try {
@@ -85,6 +139,9 @@ function connectorRunDefaults(
 	}
 	return next;
 }
+
+const scannerTabClass =
+	"h-9 gap-1.5 rounded-none border-b-2 border-transparent bg-transparent px-2.5 text-xs shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-stone-900 data-[state=active]:shadow-none dark:data-[state=active]:text-stone-50";
 
 const toolbarSelectTriggerClass =
 	"h-9 w-fit max-w-[20rem] shrink-0 gap-2 bg-white px-2 text-left text-xs dark:bg-stone-950 [&>span]:line-clamp-none [&>span]:flex [&>span]:w-max [&>span]:max-w-full [&>svg]:ml-0 [&>svg]:size-3.5 [&>svg]:shrink-0";
@@ -149,10 +206,19 @@ export default function ScannerPage() {
 	const [alertNumber, setAlertNumber] = useState<number | undefined>();
 	const [descriptors, setDescriptors] = useState<TypeDescriptor[]>([]);
 	const [cliSchema, setCliSchema] = useState<ScannerCliSchema | undefined>();
+	const [forgeSchema, setForgeSchema] = useState<ScannerForgeSchema | undefined>();
+	const [view, setView] = useState<ScannerView>("analyzer");
+	const [forgeParamsOpen, setForgeParamsOpen] = useState(false);
+	const [forging, setForging] = useState<ScannerForgeInFlight | undefined>();
+	const [forgeRunId, setForgeRunId] = useState("");
+	const forgeAbortRef = useRef<AbortController | null>(null);
 	const jobIdRef = useRef(jobId);
 	jobIdRef.current = jobId;
+	const repoKeyRef = useRef(repoKey);
+	repoKeyRef.current = repoKey;
 	const handleRuntimeChange = useCallback((runtime: ScannerRuntimeInfo | null) => {
 		setCliSchema(runtime?.schema);
+		setForgeSchema(runtime?.forge);
 	}, []);
 
 	const emptySteps = [
@@ -187,9 +253,11 @@ export default function ScannerPage() {
 		const target = parseSettings(selected?.settings).target;
 		return typeof target === "string" ? target : "";
 	}, [selected?.settings]);
+	const forgeRuns = useMemo(() => selected?.forgeRuns || [], [selected?.forgeRuns]);
+	const forgeEnabled = Boolean(selected?.capabilities?.forge);
 	const repoGroups = useMemo(
-		() => groupScannerJobsByRepo(jobs, defaultTarget),
-		[defaultTarget, jobs]
+		() => groupScannerJobsByRepo(jobs, defaultTarget, forgeRuns.map((run) => run.target)),
+		[defaultTarget, forgeRuns, jobs]
 	);
 	const selectedRepo = useMemo(
 		() => repoGroups.find((group) => group.repoKey === repoKey) || repoGroups[0],
@@ -205,17 +273,55 @@ export default function ScannerPage() {
 		const index = repoJobs.findIndex((job) => job.id === selectedJob.id);
 		return index >= 0 ? repoJobs[index + 1] : undefined;
 	}, [repoJobs, selectedJob]);
+	const repoForgeRuns = useMemo(
+		() =>
+			selectedRepo
+				? forgeRuns.filter((run) => (scannerRepoKey(run.target) || run.target) === selectedRepo.repoKey)
+				: [],
+		[forgeRuns, selectedRepo]
+	);
+	const selectedForgeRun = useMemo(
+		() => repoForgeRuns.find((run) => run.id === forgeRunId) || repoForgeRuns[0],
+		[forgeRunId, repoForgeRuns]
+	);
+	const forgeRun = useScannerForgeRun(selected?.id, selectedForgeRun);
+	const forgePrefill = useMemo(() => {
+		const job = selectedRepo?.target ? latestAnalyzerJobForRepo(jobs, selectedRepo.target) : undefined;
+		const accepted = forgeSchema?.policies.length ? forgeSchema.policies : FALLBACK_FORGE_POLICIES;
+		const policies = forgePoliciesFromJob(job, accepted);
+		return job && policies.length ? { job, policies } : undefined;
+	}, [forgeSchema, jobs, selectedRepo?.target]);
+	const forgeDefaults = useMemo<ScannerForgeDefaults>(
+		() => ({
+			target: selectedRepo?.target || defaultTarget,
+			fileName: FORGE_DEFAULT_FILE_NAME,
+			rulesRef: "",
+			policies: forgePrefill?.policies || [],
+			extras: {},
+		}),
+		[defaultTarget, forgePrefill?.policies, selectedRepo?.target]
+	);
+	const forgeStatus = forging || selectedForgeRun?.status === "running"
+		? "running"
+		: selectedForgeRun && selectedForgeRun.status !== "succeeded"
+			? "failed"
+			: forgeRun.check?.status === "stale"
+				? "stale"
+				: forgeRun.check?.status === "current"
+					? "current"
+					: undefined;
 	const runDefaults = useMemo(() => {
 		const next = connectorRunDefaults(selected?.settings, trustablRunParamFields(cliSchema));
 		if (selectedRepo?.target) next.target = selectedRepo.target;
 		return next;
 	}, [cliSchema, selected?.settings, selectedRepo?.target]);
 
-	const load = useCallback(async () => {
+	// Quiet reloads keep the current view on screen instead of the page skeleton.
+	const load = useCallback(async ({ quiet = false }: { quiet?: boolean } = {}) => {
 		if (!project?.id) {
 			return;
 		}
-		setLoading(true);
+		if (!quiet) setLoading(true);
 		setLoadError(null);
 		try {
 			const [scannerRes, typeRes] = await Promise.all([
@@ -241,21 +347,33 @@ export default function ScannerPage() {
 				typeof parseSettings(resolved?.settings).target === "string"
 					? String(parseSettings(resolved?.settings).target)
 					: "";
-			const groups = groupScannerJobsByRepo(nextJobs, nextDefault);
+			const groups = groupScannerJobsByRepo(nextJobs, nextDefault, forgeRunTargets(resolved));
 			const preferredJob = jobIdRef.current || queryJobId;
-			const resolvedJob = nextJobs.find((job) => job.id === preferredJob) || groups[0]?.jobs[0];
+			const matchedJob = nextJobs.find((job) => job.id === preferredJob);
+			const repo =
+				groups.find((group) => group.repoKey === repoKeyRef.current) ||
+				groups.find((group) => matchedJob && group.repoKey === scannerJobRepoKey(matchedJob)) ||
+				groups[0];
+			const resolvedJob = repo?.jobs.find((job) => job.id === preferredJob) || repo?.jobs[0];
 			setJobId(resolvedJob?.id || "");
-			setRepoKey(resolvedJob ? scannerJobRepoKey(resolvedJob) : groups[0]?.repoKey || "");
+			setRepoKey(repo?.repoKey || "");
 		} catch (error) {
 			setLoadError(error instanceof Error ? error.message : messages.SCANNER_LOAD_FAILED);
 		} finally {
-			setLoading(false);
+			if (!quiet) setLoading(false);
 		}
 	}, [connectorId, messages.SCANNER_LOAD_FAILED, project?.id, queryConnectorId, queryJobId]);
 
 	useEffect(() => {
 		void load();
 	}, [load, environment, project?.id]);
+
+	const forgeRunPending = !forging && selectedForgeRun?.status === "running";
+	useEffect(() => {
+		if (!forgeRunPending) return;
+		const timer = window.setTimeout(() => void load({ quiet: true }), FORGE_REFRESH_MS);
+		return () => window.clearTimeout(timer);
+	}, [forgeRunPending, load, connectors]);
 
 	const runScan = async (input: ScannerScanInput = {}) => {
 		if (!selected?.id) return;
@@ -289,6 +407,97 @@ export default function ScannerPage() {
 		} finally {
 			setRunning(false);
 		}
+	};
+
+	const runForge = async (input: ScannerForgeRunInput = {}) => {
+		if (!selected?.id || forging) return;
+		const payload: ScannerForgeRunInput = { ...input };
+		if (!payload.target && selectedRepo?.target) payload.target = selectedRepo.target;
+		if (!payload.policies?.length) {
+			if (!forgePrefill) {
+				setForgeParamsOpen(true);
+				return;
+			}
+			payload.policies = forgePrefill.policies;
+			payload.sourceJobId = forgePrefill.job.id;
+		}
+		const policies = payload.policies || [];
+		const sourceJob = payload.sourceJobId
+			? jobs.find((job) => job.id === payload.sourceJobId)
+			: undefined;
+		const controller = new AbortController();
+		forgeAbortRef.current = controller;
+		setForgeParamsOpen(false);
+		setView("forge");
+		setForging({
+			startedAt: Date.now(),
+			policies,
+			policySource: sourceJob
+				? { kind: "analyzer", jobId: sourceJob.id, scannedAt: sourceJob.startedAt }
+				: { kind: "manual" },
+			rulesRef: payload.rulesRef,
+			command: forgeCommandPreview(
+				buildScannerForgeArgv(
+					{
+						policies,
+						rulesRef: payload.rulesRef,
+						fileName: payload.fileName || FORGE_DEFAULT_FILE_NAME,
+						extras: payload.extras,
+					},
+					forgeSchema
+				)
+			),
+		});
+		try {
+			const response = await fetch(`/api/scanners/${encodeURIComponent(selected.id)}/forge`, {
+				method: "POST",
+				headers: getRequestHeaders({ "Content-Type": "application/json" }),
+				body: JSON.stringify(payload),
+				signal: controller.signal,
+			});
+			const body = await response.json();
+			if (!response.ok) {
+				throw new Error(typeof body === "string" ? body : body?.err || messages.SCANNER_FORGE_FAILED);
+			}
+			const run = body?.run as ScannerForgeRun | undefined;
+			if (run?.id) {
+				setForgeRunId(run.id);
+				if (run.target) {
+					// Set the ref too: the reload below must not wait for a render to see it.
+					repoKeyRef.current = scannerRepoKey(run.target) || run.target;
+					setRepoKey(repoKeyRef.current);
+				}
+			}
+			if (run?.status === "succeeded") toast.success(messages.SCANNER_FORGE_DONE, { id: "scanner-forge" });
+			else toast.error(run?.error || messages.SCANNER_FORGE_FAILED, { id: "scanner-forge" });
+		} catch (error) {
+			if (controller.signal.aborted) {
+				toast.info(messages.SCANNER_FORGE_CANCELLED, { id: "scanner-forge" });
+			} else {
+				toast.error(error instanceof Error ? error.message : messages.SCANNER_FORGE_FAILED, {
+					id: "scanner-forge",
+				});
+			}
+		} finally {
+			if (forgeAbortRef.current === controller) forgeAbortRef.current = null;
+			setForging(undefined);
+			await load({ quiet: true });
+		}
+	};
+
+	const cancelForge = () => {
+		forgeAbortRef.current?.abort();
+	};
+
+	const regenerateForge = (run: ScannerForgeRun) => {
+		void runForge({
+			target: run.target,
+			policies: run.policies,
+			rulesRef: run.rulesRef,
+			fileName: run.fileName,
+			extras: run.extras,
+			sourceJobId: run.policySource.jobId,
+		});
 	};
 
 	return (
@@ -334,13 +543,46 @@ export default function ScannerPage() {
 											<ChevronDown className="size-3.5" />
 										</Button>
 									</DropdownMenuTrigger>
-									<DropdownMenuContent align="end" className="w-56">
+									<DropdownMenuContent align="end" className="w-72">
+										{forgeEnabled ? (
+											<DropdownMenuLabel className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
+												<Play className="size-3" />
+												{messages.SCANNER_MENU_ANALYZER}
+											</DropdownMenuLabel>
+										) : null}
 										<DropdownMenuItem onSelect={() => void runScan()}>
 											{messages.SCANNER_RUN_DEFAULTS}
 										</DropdownMenuItem>
 										<DropdownMenuItem onSelect={() => setParamsOpen(true)}>
 											{messages.SCANNER_RUN_PARAMS}
 										</DropdownMenuItem>
+										{forgeEnabled ? (
+											<>
+												<DropdownMenuSeparator />
+												<DropdownMenuLabel className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-stone-400">
+													<Hammer className="size-3" />
+													{messages.SCANNER_MENU_FORGE}
+												</DropdownMenuLabel>
+												<DropdownMenuItem
+													className="flex-col items-start gap-0.5"
+													disabled={Boolean(forging)}
+													onSelect={() => void runForge()}
+												>
+													<span>{messages.SCANNER_FORGE_RUN}</span>
+													<span className="text-[10px] text-muted-foreground">
+														{forgePrefill
+															? messages.SCANNER_FORGE_RUN_HINT(forgePrefill.policies.join(", "))
+															: messages.SCANNER_FORGE_RUN_HINT_EMPTY}
+													</span>
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													disabled={Boolean(forging)}
+													onSelect={() => setForgeParamsOpen(true)}
+												>
+													{messages.SCANNER_FORGE_RUN_PARAMS}
+												</DropdownMenuItem>
+											</>
+										) : null}
 									</DropdownMenuContent>
 								</DropdownMenu>
 							</div>
@@ -373,9 +615,15 @@ export default function ScannerPage() {
 										typeof parseSettings(connector?.settings).target === "string"
 											? String(parseSettings(connector?.settings).target)
 											: "";
-									const groups = groupScannerJobsByRepo(nextJobs, nextDefault);
+									const groups = groupScannerJobsByRepo(
+										nextJobs,
+										nextDefault,
+										forgeRunTargets(connector)
+									);
 									setRepoKey(groups[0]?.repoKey || "");
 									setJobId(groups[0]?.jobs[0]?.id || "");
+									setForgeRunId("");
+									if (!connector?.capabilities?.forge) setView("analyzer");
 									setFinding(null);
 									setAlertNumber(undefined);
 								}}
@@ -409,6 +657,7 @@ export default function ScannerPage() {
 										const group = repoGroups.find((item) => item.repoKey === next);
 										setRepoKey(next);
 										setJobId(group?.jobs[0]?.id || "");
+										setForgeRunId("");
 										setFinding(null);
 										setAlertNumber(undefined);
 									}}
@@ -557,23 +806,59 @@ export default function ScannerPage() {
 						</div>
 					) : (
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-							<ScannerWorkspace
-								key={selectedRepo?.repoKey || "empty"}
-								connectorId={selected?.id}
-								repoLabel={selectedRepo?.label}
-								jobs={repoJobs}
-								selectedJob={selectedJob}
-								previousJob={previousJob}
-								onSelectJob={(next) => {
-									setJobId(next);
-									setFinding(null);
-									setAlertNumber(undefined);
-								}}
-								onOpenFinding={(item, number) => {
-									setFinding(item);
-									setAlertNumber(number);
-								}}
-							/>
+							{forgeEnabled ? (
+								<Tabs value={view} onValueChange={(next) => setView(next as ScannerView)}>
+									<TabsList className="h-9 w-full justify-start gap-1 rounded-none border-b border-stone-200 bg-transparent px-3 py-0 dark:border-stone-800">
+										<TabsTrigger value="analyzer" className={scannerTabClass}>
+											<ShieldCheck className="size-3.5" />
+											{messages.SCANNER_TAB_ANALYZER}
+											<span className="rounded bg-stone-100 px-1 font-mono text-[10px] tabular-nums text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+												{selectedJob?.findingCount ?? selectedJob?.findings?.length ?? 0}
+											</span>
+										</TabsTrigger>
+										<TabsTrigger value="forge" className={scannerTabClass}>
+											<FileCode2 className="size-3.5" />
+											{messages.SCANNER_TAB_FORGE}
+											{forgeStatus ? <ScannerForgeStatusBadge status={forgeStatus} /> : null}
+										</TabsTrigger>
+									</TabsList>
+								</Tabs>
+							) : null}
+							{forgeEnabled && view === "forge" ? (
+								<ScannerForgePanel
+									key={`forge-${selectedRepo?.repoKey || "empty"}`}
+									runs={repoForgeRuns}
+									selectedRun={selectedForgeRun}
+									onSelectRun={setForgeRunId}
+									forging={forging}
+									onCancel={cancelForge}
+									prefillPolicies={forgePrefill?.policies || []}
+									onRunForge={() => void runForge()}
+									onRegenerate={regenerateForge}
+									detail={forgeRun.detail}
+									check={forgeRun.check}
+									loadingDetail={forgeRun.loading}
+									loadError={forgeRun.error}
+								/>
+							) : (
+								<ScannerWorkspace
+									key={selectedRepo?.repoKey || "empty"}
+									connectorId={selected?.id}
+									repoLabel={selectedRepo?.label}
+									jobs={repoJobs}
+									selectedJob={selectedJob}
+									previousJob={previousJob}
+									onSelectJob={(next) => {
+										setJobId(next);
+										setFinding(null);
+										setAlertNumber(undefined);
+									}}
+									onOpenFinding={(item, number) => {
+										setFinding(item);
+										setAlertNumber(number);
+									}}
+								/>
+							)}
 						</div>
 					)}
 				</div>
@@ -586,6 +871,16 @@ export default function ScannerPage() {
 					schema={cliSchema}
 					onClose={() => setParamsOpen(false)}
 					onRun={(input) => void runScan(input)}
+				/>
+			) : null}
+			{forgeParamsOpen ? (
+				<ScannerForgeParamsDialog
+					open={forgeParamsOpen}
+					defaults={forgeDefaults}
+					prefill={forgePrefill}
+					schema={forgeSchema}
+					onClose={() => setForgeParamsOpen(false)}
+					onRun={(input) => void runForge(input)}
 				/>
 			) : null}
 			<ScannerFindingSheet

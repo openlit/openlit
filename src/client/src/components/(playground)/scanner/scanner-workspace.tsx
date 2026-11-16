@@ -29,7 +29,7 @@ import {
 	type ScannerFindingSeverityFilter,
 } from "@/lib/platform/connectors/scanner/job-findings";
 
-function formatDuration(durationMs?: number): string {
+export function formatDuration(durationMs?: number): string {
 	if (!durationMs || durationMs <= 0) return "—";
 	if (durationMs < 1000) return `${Math.round(durationMs)}ms`;
 	const sec = durationMs / 1000;
@@ -55,7 +55,7 @@ function mediumPlusCount(job?: ScannerJob | null): number {
 	).length;
 }
 
-function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; value?: string; hint?: string }) {
+export function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; value?: string; hint?: string }) {
 	return (
 		<div className="rounded-md bg-stone-100 px-2 py-1 dark:bg-stone-900">
 			<div className="flex items-center gap-1 text-[10px] text-stone-500 dark:text-stone-400">

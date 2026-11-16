@@ -254,7 +254,7 @@ export default function ScannerRunParamsDialog({
 	);
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+export function Section({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<section className="space-y-2.5">
 			<p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
@@ -270,7 +270,7 @@ function FieldDescription({ text }: { text?: string }) {
 	return <p className="text-[11px] leading-4 text-stone-500 dark:text-stone-400">{text}</p>;
 }
 
-function TextField({
+export function TextField({
 	field,
 	value,
 	required,
@@ -316,7 +316,7 @@ function TextField({
 	);
 }
 
-function SwitchGrid({
+export function SwitchGrid({
 	fields,
 	values,
 	onChange,
