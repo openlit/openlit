@@ -18,121 +18,146 @@ import { useRootStore } from "@/store";
 import { useRouter } from "next/navigation";
 import getMessage from "@/constants/messages";
 
+function BestValue({ value, provider }: { value?: string; provider?: string }) {
+	if (value === undefined || !provider) {
+		return <span className="text-xs text-stone-500 dark:text-stone-400">—</span>;
+	}
+	return (
+		<div className="flex min-w-0 flex-col">
+			<span className="text-sm font-medium tabular-nums text-stone-900 dark:text-stone-100">
+				{value}
+			</span>
+			<span className="truncate text-xs text-stone-500 dark:text-stone-400">
+				{provider}
+			</span>
+		</div>
+	);
+}
+
 const columns: Columns<string, OpengroundRecord> = {
 	prompt: {
-		header: () => "Prompt",
-		cell: ({ row }) => {
-			return (
-				<div className="max-w-md">
-					<p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">
-						{row.promptSource === "prompt-hub" && (
-							<Component className="w-3 h-3 inline mr-2" />
-						)}
-						{row.prompt}
-					</p>
-				</div>
-			);
-		},
+		header: () => getMessage().PROMPT,
+		width: "minmax(14rem, 2.2fr)",
+		cell: ({ row }) => (
+			<p className="flex min-w-0 items-center gap-2 text-sm font-medium text-stone-900 dark:text-stone-100">
+				{row.promptSource === "prompt-hub" && (
+					<Component
+						className="size-3.5 shrink-0 text-stone-500 dark:text-stone-400"
+						aria-label={getMessage().PROMPT_HUB}
+					/>
+				)}
+				<span className="truncate">{row.prompt}</span>
+			</p>
+		),
 	},
 	providers: {
-		header: () => "Providers",
+		header: () => getMessage().PROVIDERS,
+		width: "minmax(6rem, 0.7fr)",
 		cell: ({ row }) => {
+			const failed = row.errors?.length || 0;
+			const succeeded = row.totalProviders - failed;
 			return (
-				<div className="flex gap-1 items-center ">
-					<span className="text-green-500">{row.totalProviders - (row.errors?.length || 0)}</span>
-					<div className="bg-stone-200 dark:bg-stone-800 h-3 w-0.5 shrink-0" />
-					<span className="text-red-500">{(row.errors?.length || 0)}</span>
+				<div className="flex items-center gap-1.5 tabular-nums">
+					<span
+						className="text-emerald-600 dark:text-emerald-400"
+						title={getMessage().OPENGROUND_LIST_SUCCEEDED_PROVIDERS}
+					>
+						{succeeded}
+					</span>
+					<span className="h-3 w-px shrink-0 bg-stone-300 dark:bg-stone-700" />
+					<span
+						className={
+							failed
+								? "text-rose-600 dark:text-rose-400"
+								: "text-stone-500 dark:text-stone-400"
+						}
+						title={getMessage().OPENGROUND_LIST_FAILED_PROVIDERS}
+					>
+						{failed}
+					</span>
 				</div>
 			);
 		},
 	},
 	bestCost: {
-		header: () => "Best Cost",
-		cell: ({ row }) => {
-			return row.minCostProvider !== undefined ? (
-				<div className="flex flex-col">
-					<span className="text-sm font-medium text-green-600 dark:text-green-400">
-						${row.minCost.toFixed(6)}
-					</span>
-					<span className="text-xs text-stone-500 dark:text-stone-400">
-						{row.minCostProvider}
-					</span>
-				</div>
-			) : (
-				<span className="text-xs text-stone-400">-</span>
-			);
-		},
+		header: () => getMessage().OPENGROUND_LIST_BEST_COST,
+		cell: ({ row }) => (
+			<BestValue
+				value={row.minCostProvider !== undefined ? `$${row.minCost.toFixed(6)}` : undefined}
+				provider={row.minCostProvider}
+			/>
+		),
 	},
 	bestSpeed: {
-		header: () => "Best Speed",
-		cell: ({ row }) => {
-			return row.minResponseTimeProvider !== undefined ? (
-				<div className="flex flex-col">
-					<span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-						{row.minResponseTime.toFixed(2)}s
-					</span>
-					<span className="text-xs text-stone-500 dark:text-stone-400">
-						{row.minResponseTimeProvider}
-					</span>
-				</div>
-			) : (
-				<span className="text-xs text-stone-400">-</span>
-			);
-		},
+		header: () => getMessage().OPENGROUND_LIST_BEST_SPEED,
+		cell: ({ row }) => (
+			<BestValue
+				value={
+					row.minResponseTimeProvider !== undefined
+						? `${row.minResponseTime.toFixed(2)}s`
+						: undefined
+				}
+				provider={row.minResponseTimeProvider}
+			/>
+		),
 	},
 	bestEfficiency: {
 		header: () => getMessage().BEST_EFFICIENCY,
-		cell: ({ row }) => {
-			return row.minCompletionTokensProvider !== undefined ? (
-				<div className="flex flex-col">
-					<span className="text-sm font-medium text-purple-600 dark:text-purple-400">
-						{row.minCompletionTokens} tokens
-					</span>
-					<span className="text-xs text-stone-500 dark:text-stone-400">
-						{row.minCompletionTokensProvider}
-					</span>
-				</div>
-			) : (
-				<span className="text-xs text-stone-400">-</span>
-			);
-		},
+		cell: ({ row }) => (
+			<BestValue
+				value={
+					row.minCompletionTokensProvider !== undefined
+						? `${row.minCompletionTokens} ${getMessage().OPENGROUND_LIST_TOKENS_SUFFIX}`
+						: undefined
+				}
+				provider={row.minCompletionTokensProvider}
+			/>
+		),
 	},
 	createdAt: {
-		header: () => "Created",
-		cell: ({ row }) => {
-			return (
-				<span className="text-sm text-stone-600 dark:text-stone-400">
-					{format(new Date(row.createdAt), "MMM d, y HH:mm")}
-				</span>
-			);
-		},
+		header: () => getMessage().CREATED_AT,
+		cell: ({ row }) => (
+			<span className="text-sm text-stone-500 dark:text-stone-400">
+				{format(new Date(row.createdAt), "MMM do, y HH:mm")}
+			</span>
+		),
 	},
 	actions: {
-		header: () => "Actions",
-		cell: ({ row, extraFunctions }) => {
-			return (
-				<div
-					className="flex items-center gap-2"
-					onClick={(e) => e.stopPropagation()}
+		header: () => getMessage().ACTIONS,
+		width: "6rem",
+		cell: ({ row, extraFunctions }) => (
+			<div
+				className="flex items-center gap-1"
+				onClick={(e) => e.stopPropagation()}
+			>
+				<Button
+					asChild
+					variant="ghost"
+					size="icon"
+					className="h-7 w-7 text-stone-500 dark:text-stone-400"
 				>
-					<Link href={`/openground/${row.id}`}>
-						<Button variant="ghost" size="icon" className="h-8 w-8">
-							<EyeIcon className="h-4 w-4" />
-						</Button>
-					</Link>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="h-8 w-8"
-						onClick={() => extraFunctions?.handleRerun(row)}
+					<Link
+						href={`/openground/${row.id}`}
+						title={getMessage().OPENGROUND_LIST_VIEW_RUN}
+						aria-label={getMessage().OPENGROUND_LIST_VIEW_RUN}
 					>
-						<PlayIcon className="h-4 w-4" />
-					</Button>
-				</div>
-			);
-		},
+						<EyeIcon className="size-4" />
+					</Link>
+				</Button>
+				<Button
+					variant="ghost"
+					size="icon"
+					className="h-7 w-7 text-stone-500 dark:text-stone-400"
+					title={getMessage().OPENGROUND_LIST_RERUN}
+					aria-label={getMessage().OPENGROUND_LIST_RERUN}
+					onClick={() => extraFunctions?.handleRerun(row)}
+				>
+					<PlayIcon className="size-4" />
+				</Button>
+			</div>
+		),
 	},
-}
+};
 
 export default function Openground() {
 	const posthog = usePostHog();

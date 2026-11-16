@@ -9,6 +9,8 @@ export type Columns<T extends string, TransformedT> = Partial<
 			enableHiding?: boolean;
 			/** Optional CSS grid track size (e.g. `2.75rem` or `minmax(10rem, 1.4fr)`). */
 			width?: string;
+			/** Extra classes applied to both the header and body cell (e.g. `justify-end text-right`). */
+			className?: string;
 		}
 	>
 >;

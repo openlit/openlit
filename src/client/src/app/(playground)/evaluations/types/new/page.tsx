@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles, Info } from "lucide-react";
 import Link from "next/link";
@@ -36,15 +37,15 @@ export default function CreateCustomEvaluationTypePage() {
 	const handleCreate = async () => {
 		const id = typeId.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
 		if (!id) {
-			toast.error("Type ID is required");
+			toast.error(m.EVALUATION_TYPE_ID_REQUIRED);
 			return;
 		}
 		if (!label.trim()) {
-			toast.error("Label is required");
+			toast.error(m.EVALUATION_TYPE_LABEL_REQUIRED);
 			return;
 		}
 		if (!prompt.trim()) {
-			toast.error("Evaluation prompt is required");
+			toast.error(m.EVALUATION_TYPE_PROMPT_REQUIRED);
 			return;
 		}
 
@@ -56,7 +57,7 @@ export default function CreateCustomEvaluationTypePage() {
 			successCb: (existing: any) => {
 				const existingTypes = Array.isArray(existing) ? existing : [];
 				if (existingTypes.some((t: any) => t.id === id)) {
-					toast.error("An evaluation type with this ID already exists");
+					toast.error(m.EVALUATION_TYPE_ID_EXISTS);
 					return;
 				}
 
@@ -79,7 +80,7 @@ export default function CreateCustomEvaluationTypePage() {
 						enabled: true,
 						isCustom: true,
 						label: label.trim(),
-						description: description.trim() || "Custom evaluation type",
+						description: description.trim() || m.EVALUATION_TYPE_CUSTOM_DEFAULT_DESCRIPTION,
 						prompt: prompt.trim(),
 						rules: [],
 					},
@@ -91,15 +92,15 @@ export default function CreateCustomEvaluationTypePage() {
 					body: JSON.stringify({ types: updatedTypes }),
 					responseDataKey: "data",
 					successCb: () => {
-						toast.success(`Custom evaluation type "${label.trim()}" created`);
+						toast.success(m.EVALUATION_TYPE_CREATED(label.trim()));
 						router.push(`/evaluations/types/${id}`);
 					},
 					failureCb: (err?: string) =>
-						toast.error(err || "Failed to create custom type"),
+						toast.error(err || m.EVALUATION_TYPE_CREATE_FAILED),
 				});
 			},
 			failureCb: (err?: string) =>
-				toast.error(err || "Failed to load existing types"),
+				toast.error(err || m.EVALUATION_TYPE_LOAD_EXISTING_FAILED),
 		});
 	};
 
@@ -107,7 +108,7 @@ export default function CreateCustomEvaluationTypePage() {
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			<FeaturePageHeader
 				eyebrow={m.FEATURE_EVALS}
-				title="Create Custom Evaluation Type"
+				title={m.EVALUATION_TYPE_CREATE_TITLE}
 				icon={<Sparkles className="h-4 w-4" />}
 				tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
 				leading={
@@ -115,7 +116,7 @@ export default function CreateCustomEvaluationTypePage() {
 						asChild
 						variant="outline"
 						size="sm"
-						className="h-7 w-7 shrink-0 p-0"
+						className="h-8 w-8 shrink-0 p-0"
 					>
 						<Link
 							href={EVALUATORS_HREF}
@@ -126,21 +127,35 @@ export default function CreateCustomEvaluationTypePage() {
 						</Link>
 					</Button>
 				}
+				actions={
+					<Button
+						onClick={handleCreate}
+						disabled={isSaving}
+						size="sm"
+						className={`h-8 ${isSaving ? "animate-pulse" : ""}`}
+					>
+						{isSaving ? m.CREATING : m.EVALUATION_TYPE_CREATE_ACTION}
+					</Button>
+				}
 			/>
 
-			<div className="grid flex-1 grid-cols-3 gap-4 overflow-auto p-4">
-				<div className="col-span-2 space-y-4">
+			<div className="grid flex-1 grid-cols-1 content-start gap-4 overflow-auto p-4 lg:grid-cols-3">
+				<div className="flex flex-col gap-4 lg:col-span-2">
 					{/* Type ID & Label */}
-					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-						<CardHeader className="pb-2">
-							<CardTitle className="text-base text-stone-900 dark:text-stone-100">Type Details</CardTitle>
+					<Card className="border border-stone-200 dark:border-stone-800">
+						<CardHeader className="p-4 pb-2">
+							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
+								{m.EVALUATION_TYPE_DETAILS_TITLE}
+							</CardTitle>
 						</CardHeader>
-						<CardContent className="space-y-4">
+						<CardContent className="flex flex-col gap-4 p-4 pt-0">
 							<div className="grid gap-2">
-								<Label htmlFor="type-id" className="text-stone-700 dark:text-stone-300">Type ID</Label>
+								<Label htmlFor="type-id" className="text-stone-700 dark:text-stone-300">
+									{m.EVALUATION_TYPE_ID_LABEL}
+								</Label>
 								<Input
 									id="type-id"
-									placeholder="e.g. domain_accuracy"
+									placeholder={m.EVALUATION_TYPE_ID_PLACEHOLDER}
 									value={typeId}
 									onChange={(e) =>
 										setTypeId(
@@ -151,23 +166,27 @@ export default function CreateCustomEvaluationTypePage() {
 									}
 								/>
 								<p className="text-xs text-stone-500 dark:text-stone-400">
-									Lowercase letters, numbers, and underscores only. Used as the internal identifier.
+									{m.EVALUATION_TYPE_ID_HELP}
 								</p>
 							</div>
 							<div className="grid gap-2">
-								<Label htmlFor="type-label" className="text-stone-700 dark:text-stone-300">Label</Label>
+								<Label htmlFor="type-label" className="text-stone-700 dark:text-stone-300">
+									{m.EVALUATION_TYPE_LABEL_LABEL}
+								</Label>
 								<Input
 									id="type-label"
-									placeholder="e.g. Domain Accuracy"
+									placeholder={m.EVALUATION_TYPE_LABEL_PLACEHOLDER}
 									value={label}
 									onChange={(e) => setLabel(e.target.value)}
 								/>
 							</div>
 							<div className="grid gap-2">
-								<Label htmlFor="type-description" className="text-stone-700 dark:text-stone-300">Description</Label>
+								<Label htmlFor="type-description" className="text-stone-700 dark:text-stone-300">
+									{m.DESCRIPTION}
+								</Label>
 								<Input
 									id="type-description"
-									placeholder="e.g. Evaluates responses against domain-specific knowledge"
+									placeholder={m.EVALUATION_TYPE_DESCRIPTION_PLACEHOLDER}
 									value={description}
 									onChange={(e) => setDescription(e.target.value)}
 								/>
@@ -176,18 +195,21 @@ export default function CreateCustomEvaluationTypePage() {
 					</Card>
 
 					{/* Evaluation Prompt */}
-					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-						<CardHeader className="pb-2">
-							<CardTitle className="text-base text-stone-900 dark:text-stone-100">Evaluation Prompt</CardTitle>
-							<p className="text-xs text-stone-500 dark:text-stone-400 font-normal">
-								The LLM judge uses this prompt to evaluate each trace. Start with a [Label evaluation context] header.
+					<Card className="border border-stone-200 dark:border-stone-800">
+						<CardHeader className="p-4 pb-2">
+							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
+								{m.EVALUATION_TYPE_PROMPT_TITLE}
+							</CardTitle>
+							<p className="text-xs font-normal text-stone-500 dark:text-stone-400">
+								{m.EVALUATION_TYPE_PROMPT_HELP}
 							</p>
 						</CardHeader>
-						<CardContent>
-							<textarea
+						<CardContent className="p-4 pt-0">
+							<Textarea
 								id="type-prompt"
-								className="w-full min-h-[200px] text-sm bg-stone-50 dark:bg-stone-900/50 text-stone-900 dark:text-stone-100 p-3 rounded-lg border border-stone-200 dark:border-stone-700 font-mono resize-y placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-								placeholder={`[Domain Accuracy evaluation context]\nConsider: whether the response aligns with domain-specific knowledge and terminology.\nLook for incorrect use of domain terms, inaccurate domain-specific claims, and deviations from established domain practices.`}
+								aria-label={m.EVALUATION_TYPE_PROMPT_TITLE}
+								className="min-h-[200px] resize-y font-mono"
+								placeholder={m.EVALUATION_TYPE_PROMPT_PLACEHOLDER}
 								value={prompt}
 								onChange={(e) => setPrompt(e.target.value)}
 							/>
@@ -196,29 +218,17 @@ export default function CreateCustomEvaluationTypePage() {
 				</div>
 
 				{/* Sidebar */}
-				<div className="space-y-4">
-					<Button
-						onClick={handleCreate}
-						disabled={isSaving}
-						className="w-full bg-primary dark:bg-primary text-white dark:text-white hover:bg-primary/90 dark:hover:bg-primary/90"
-					>
-						{isSaving ? "Creating..." : "Create Evaluation Type"}
-					</Button>
-
-					<Card className="border-blue-200 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-950/20 shadow-sm">
-						<CardContent className="pt-4">
-							<div className="flex gap-2">
-								<Info className="size-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-								<div className="text-xs text-blue-900 dark:text-blue-100 space-y-2">
-									<p className="font-medium">How it works</p>
-									<p className="text-blue-700 dark:text-blue-300">
-										Custom types run alongside built-in evaluations (hallucination, bias, toxicity, etc.). The LLM judge produces a score, classification, and explanation for each type.
-									</p>
-									<p className="text-blue-700 dark:text-blue-300">
-										After creating, you can link Rule Engine rules to conditionally apply this evaluation based on trace attributes.
-									</p>
-								</div>
-							</div>
+				<div className="flex flex-col gap-4">
+					<Card className="border border-stone-200 dark:border-stone-800">
+						<CardHeader className="p-4 pb-2">
+							<CardTitle className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+								<Info className="size-4 shrink-0 text-stone-500 dark:text-stone-400" />
+								{m.EVALUATION_TYPE_HOW_IT_WORKS_TITLE}
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="flex flex-col gap-2 p-4 pt-0 text-xs text-stone-500 dark:text-stone-400">
+							<p>{m.EVALUATION_TYPE_HOW_IT_WORKS_BUILT_IN}</p>
+							<p>{m.EVALUATION_TYPE_HOW_IT_WORKS_RULES}</p>
 						</CardContent>
 					</Card>
 				</div>

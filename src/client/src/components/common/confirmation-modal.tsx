@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import getMessage from "@/constants/messages";
 import {
 	Dialog,
 	DialogClose,
@@ -17,6 +18,9 @@ type ConfirmationModalProps = {
 	handleYes: (p?: any) => void;
 	handleNo?: () => void;
 	params?: any;
+	/** Defaults to the shared confirm/cancel messages. */
+	confirmLabel?: string;
+	cancelLabel?: string;
 };
 
 export default function ConfirmationModal(props: ConfirmationModalProps) {
@@ -31,7 +35,7 @@ export default function ConfirmationModal(props: ConfirmationModalProps) {
 				<DialogFooter className="justify-end">
 					<DialogClose asChild>
 						<Button variant="secondary" onClick={props.handleNo}>
-							No, cancel
+							{props.cancelLabel ?? getMessage().CONFIRMATION_CANCEL}
 						</Button>
 					</DialogClose>
 
@@ -40,7 +44,7 @@ export default function ConfirmationModal(props: ConfirmationModalProps) {
 							variant="default"
 							onClick={() => props.handleYes(props.params)}
 						>
-							Yes, I&apos;m sure
+							{props.confirmLabel ?? getMessage().CONFIRMATION_CONFIRM}
 						</Button>
 					</DialogClose>
 				</DialogFooter>

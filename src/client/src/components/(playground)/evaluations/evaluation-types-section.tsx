@@ -12,6 +12,7 @@ import { Layers, CheckCircle2, ChevronRight, Plus, Sparkles } from "lucide-react
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import getMessage from "@/constants/messages";
+import IntermediateState from "@/components/(playground)/intermediate-state";
 
 interface EvaluationTypeDisplay {
 	id: string;
@@ -27,7 +28,11 @@ interface EvaluationTypeDisplay {
 export default function EvaluationTypesSection() {
 	const m = getMessage();
 	const posthog = usePostHog();
-	const { fireRequest: getTypes, data: typesResponse } = useFetchWrapper<
+	const {
+		fireRequest: getTypes,
+		data: typesResponse,
+		isFetched: typesFetched,
+	} = useFetchWrapper<
 		EvaluationTypeDisplay[] | { data: any[] }
 	>();
 	const { fireRequest: getRules, data: rules } = useFetchWrapper<Rule[]>();
@@ -93,18 +98,18 @@ export default function EvaluationTypesSection() {
 			(type.rules?.length ?? 0) > 0 ||
 			(rulesLinkedToType[type.id]?.length ?? 0) > 0;
 		return (
-			<Link key={type.id} href={`/evaluations/types/${type.id}`}>
+			<Link key={type.id} href={`/evaluations/types/${type.id}`} className="block h-full">
 				<Card
-					className={`shadow-sm overflow-hidden transition-colors cursor-pointer ${
+					className={`h-full overflow-hidden border transition-colors cursor-pointer ${
 						isCustomType
 							? "border-primary/20 dark:border-primary/15 hover:border-primary/40 dark:hover:border-primary/30"
 							: "border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700"
 					}`}
 				>
-					<CardHeader className="pb-3">
+					<CardHeader className="p-4">
 						<div className="flex items-start justify-between gap-4">
 							<div className="flex-1 min-w-0">
-								<CardTitle className="text-base flex items-center gap-2 flex-wrap text-stone-900 dark:text-stone-100">
+								<CardTitle className="flex flex-wrap items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
 									{type.label}
 									{isCustomType && (
 										<Badge
@@ -125,7 +130,7 @@ export default function EvaluationTypesSection() {
 										</Badge>
 									)}
 								</CardTitle>
-								<p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
+								<p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
 									{type.description}
 								</p>
 								{(rulesLinkedToType[type.id]?.length ?? 0) > 0 && (
@@ -146,7 +151,9 @@ export default function EvaluationTypesSection() {
 										})}
 										{rulesLinkedToType[type.id].length > 3 && (
 											<span className="text-xs text-stone-500 dark:text-stone-400">
-												+{rulesLinkedToType[type.id].length - 3} more
+												{m.EVALUATION_TYPES_MORE_RULES(
+													rulesLinkedToType[type.id].length - 3
+												)}
 											</span>
 										)}
 									</div>
@@ -171,11 +178,11 @@ export default function EvaluationTypesSection() {
 		<div className="w-full space-y-4">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="min-w-0">
-					<h3 className="text-base font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-						<Layers className="size-4" />
+					<h3 className="flex items-center gap-2 text-sm font-semibold text-stone-900 dark:text-stone-100">
+						<Layers className="size-4 text-stone-500 dark:text-stone-400" />
 						{m.EVALUATION_TYPES_SECTION_TITLE}
 					</h3>
-					<p className="text-sm text-stone-500 dark:text-stone-400 mt-0.5">
+					<p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
 						{m.EVALUATION_TYPES_SECTION_DESCRIPTION}
 					</p>
 				</div>
@@ -187,11 +194,15 @@ export default function EvaluationTypesSection() {
 				</Button>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-				{displayBuiltIn.map((et) => renderTypeCard(et, false))}
-			</div>
+			{!typesFetched ? (
+				<IntermediateState type="loading" classNames="py-8" />
+			) : (
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					{displayBuiltIn.map((et) => renderTypeCard(et, false))}
+				</div>
+			)}
 
-			{customTypes.length > 0 && (
+			{typesFetched && customTypes.length > 0 && (
 				<>
 					<div className="flex items-center gap-2 pt-2">
 						<Sparkles className="size-4 text-primary" />
