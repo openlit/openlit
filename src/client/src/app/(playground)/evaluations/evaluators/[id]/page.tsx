@@ -153,16 +153,22 @@ function EvaluatorDetail() {
 				cell: ({ row }) => {
 					const isOpen = expandedKey === row.rowKey;
 					return (
-						<span
-							className="inline-flex h-5 w-5 items-center justify-center text-stone-500 dark:text-stone-400"
-							aria-hidden
+						<button
+							type="button"
+							className="inline-flex h-6 w-6 items-center justify-center rounded text-stone-500 hover:bg-stone-200 hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-stone-400 dark:hover:bg-stone-700 dark:hover:text-stone-200"
+							aria-expanded={isOpen}
+							aria-label={m.EVALUATION_EXPLANATION}
+							onClick={(e) => {
+								e.stopPropagation();
+								setExpandedKey(isOpen ? null : row.rowKey);
+							}}
 						>
 							{isOpen ? (
 								<ChevronDown className="h-3.5 w-3.5" />
 							) : (
 								<ChevronRight className="h-3.5 w-3.5" />
 							)}
-						</span>
+						</button>
 					);
 				},
 			},

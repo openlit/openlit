@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { round } from "lodash";
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
@@ -13,6 +14,7 @@ import getMessage from "@/constants/messages";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import IntermediateState from "@/components/(playground)/intermediate-state";
+import { Button } from "@/components/ui/button";
 import EvaluationOnboarding from "./evaluation-onboarding";
 import EvaluationsDashboard from "@/app/(playground)/dashboard/evaluations";
 import type {
@@ -56,14 +58,18 @@ const evaluatorColumns: Columns<string, EvaluatorRow> = {
 		header: () => getMessage().EVALUATION_TABLE_EVALUATION,
 		width: "minmax(12rem, 1.6fr)",
 		cell: ({ row }) => (
-			<span className="inline-flex min-w-0 items-center gap-2 font-medium text-stone-900 dark:text-stone-100">
+			<Link
+				href={`/evaluations/evaluators/${encodeURIComponent(row.id)}`}
+				className="inline-flex min-w-0 items-center gap-2 rounded font-medium text-stone-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-stone-100"
+				onClick={(e) => e.stopPropagation()}
+			>
 				<span
 					className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
 						row.enabled ? "bg-emerald-500" : "bg-stone-400"
 					}`}
 				/>
 				<span className="truncate">{row.label}</span>
-			</span>
+			</Link>
 		),
 	},
 	matcher: {
@@ -205,7 +211,7 @@ export default function EvaluationAnalytics({
 	const router = useRouter();
 	const filter = useRootStore(getFilterDetails);
 	const pingStatus = useRootStore(getPingStatus);
-	const { data, isLoading, isFetched, fireRequest } =
+	const { data, isLoading, isFetched, fireRequest, error } =
 		useFetchWrapper<EvaluationAnalyticsResponse>();
 	const { data: typesResponse, fireRequest: getTypes } = useFetchWrapper<
 		ConfiguredType[] | { data?: ConfiguredType[] }
@@ -323,9 +329,21 @@ export default function EvaluationAnalytics({
 					router.push(`/evaluations/evaluators/${encodeURIComponent(row.id)}`)
 				}
 				emptyState={
-					<IntermediateState type="nodata">
-						{m.EVALUATION_TABLE_EMPTY}
-					</IntermediateState>
+					error ? (
+						<div className="flex w-full flex-col items-center justify-center gap-2 p-3 text-center text-sm">
+							<p className="text-rose-600 dark:text-rose-400">
+								{m.EVALUATION_ANALYTICS_LOAD_FAILED}
+							</p>
+							<p className="text-xs text-stone-500 dark:text-stone-400">{String(error)}</p>
+							<Button variant="outline" size="sm" className="h-7" onClick={fetchAnalytics}>
+								{m.RETRY}
+							</Button>
+						</div>
+					) : (
+						<IntermediateState type="nodata">
+							{m.EVALUATION_TABLE_EMPTY}
+						</IntermediateState>
+					)
 				}
 			/>
 		</div>

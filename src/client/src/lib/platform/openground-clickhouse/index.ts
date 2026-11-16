@@ -291,9 +291,12 @@ export async function getOpengroundEvaluationById(
 		databaseConfigId
 	);
 
-	if (mainErr || !(mainData as any[])?.length) {
+	if (mainErr) {
 		console.error("Error fetching OpenGround evaluation:", mainErr);
 		return { err: getMessage().OPENGROUND_FETCH_FAILED };
+	}
+	if (!(mainData as any[])?.length) {
+		return { err: getMessage().OPENGROUND_RUN_NOT_FOUND, notFound: true as const };
 	}
 
 	const record = (mainData as any[])[0];

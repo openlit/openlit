@@ -95,7 +95,7 @@ export default function ProviderResultCard({ result }: ProviderResultCardProps) 
 
 				{showJson && (
 					<div className="overflow-auto border-t border-stone-200 bg-stone-50 p-4 text-xs dark:border-stone-800 dark:bg-stone-900">
-						<JSONViewer value={result} />
+						<JSONViewer value={result} defaultInspectDepth={1} />
 					</div>
 				)}
 			</div>

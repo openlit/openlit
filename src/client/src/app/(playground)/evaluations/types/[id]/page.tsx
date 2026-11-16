@@ -58,7 +58,14 @@ export default function EvaluationTypeDetailPage() {
 
 	const [config, setConfig] = useState<EvaluationTypeConfig | null>(null);
 	const [notFound, setNotFound] = useState(false);
-	const { fireRequest: getType, data: typeResponse, error: typeError, isFetched: typeFetched } =
+	/** Type id whose GET has completed; guards against stale responses. */
+	const [loadedTypeId, setLoadedTypeId] = useState<string | null>(null);
+	const {
+		fireRequest: getType,
+		data: typeResponse,
+		error: typeError,
+		isLoading: typeLoading,
+	} =
 		useFetchWrapper<{
 			data?: EvaluationTypeConfig;
 		}>();
@@ -83,6 +90,8 @@ export default function EvaluationTypeDetailPage() {
 			requestType: "GET",
 			url: `/api/evaluation/types/${encodeURIComponent(typeId)}`,
 			responseDataKey: "data",
+			successCb: () => setLoadedTypeId(typeId),
+			failureCb: () => setLoadedTypeId(typeId),
 		});
 		getRules({ requestType: "GET", url: "/api/rule-engine/rules" });
 		getEvalEntities({
@@ -93,7 +102,10 @@ export default function EvaluationTypeDetailPage() {
 
 	useEffect(() => {
 		const res = typeResponse as { data?: EvaluationTypeConfig } | undefined;
-		const data = res?.data ?? (typeResponse as EvaluationTypeConfig | undefined);
+		const response = res?.data ?? (typeResponse as EvaluationTypeConfig | undefined);
+		// Ignore a response left over from the previously viewed type: saving
+		// it would PATCH this type with another type's settings.
+		const data = response?.id === typeId ? response : undefined;
 		if (data?.id) {
 			setNotFound(false);
 			setConfig({
@@ -123,10 +135,10 @@ export default function EvaluationTypeDetailPage() {
 			return;
 		}
 
-		if (typeFetched && (typeError || !data?.id)) {
+		if (loadedTypeId === typeId && (typeError || !data?.id)) {
 			setNotFound(true);
 		}
-	}, [typeResponse, et, typeFetched, typeError]);
+	}, [typeResponse, et, loadedTypeId, typeError, typeId]);
 
 	const handleToggle = (enabled: boolean) => {
 		setConfig((prev) => (prev ? { ...prev, enabled } : null));
@@ -221,7 +233,8 @@ export default function EvaluationTypeDetailPage() {
 	const isCustom = !et && config?.isCustom;
 	const displayLabel = et?.label || config?.label || typeId;
 	const displayDescription = et?.description || config?.description || "";
-	const canEdit = Boolean(config) && !notFound;
+	const canEdit =
+		config?.id === typeId && !notFound && loadedTypeId === typeId && !typeLoading;
 
 	const backLabel = m.EVALUATION_BACK_TO_TYPES;
 

@@ -51,6 +51,7 @@ export default function JSONViewer(props: JsonViewerProps) {
 			rootName={props.rootName || false}
 			valueTypes={[integerType, objectType, booleanType]}
 			maxDisplayLength={20}
+			defaultInspectDepth={props.defaultInspectDepth}
 			theme={theme}
 		/>
 	);

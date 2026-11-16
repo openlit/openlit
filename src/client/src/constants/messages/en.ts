@@ -475,6 +475,7 @@ export const EVALUATION_DETAIL_RESULTS_DESCRIPTION =
 	"Evaluation results for this evaluator, including pass rates and recent runs.";
 export const EVALUATION_DETAIL_NO_RESULTS = "No recent results for this evaluator.";
 export const EVALUATION_DETAIL_RECENT_RESULTS = "Recent results";
+export const EVALUATION_ANALYTICS_LOAD_FAILED = "Could not load evaluation results.";
 export const EVALUATION_DETAIL_PASS_RATE_BY_EVALUATOR = "Pass rate";
 export const EVALUATION_DETAIL_SAMPLE_META = "sample";
 export const EVALUATION_DETAIL_PASS = "Pass";
@@ -1585,6 +1586,11 @@ export const GET_STARTED_WITH_TRACING_FEATURE_DETAILS = [
 
 // Generic texts
 export const LOADING = "Loading";
+export const LOADING_ELLIPSIS = "Loading...";
+export const NO_DATA_TO_DISPLAY = "No data to display";
+export const RETRY = "Retry";
+export const CONFIRMATION_CANCEL = "No, cancel";
+export const CONFIRMATION_CONFIRM = "Yes, I'm sure";
 export const CREATED_AT = "Created At";
 export const VARIABLES = "Variables";
 export const PROMPT = "Prompt";
@@ -1617,6 +1623,7 @@ export const OPENGROUND_MODEL_ID_PLACEHOLDER = "gpt-4o-custom";
 export const OPENGROUND_MODEL_DISPLAY_NAME_PLACEHOLDER = "GPT-4o Custom";
 export const OPENGROUND_MODEL_CAPABILITIES_PLACEHOLDER = "function-calling, vision, streaming";
 export const OPENGROUND_RUN_NOT_FOUND = "Run not found";
+export const OPENGROUND_RUN_LOAD_FAILED = "Could not load this run";
 export const OPENGROUND_RUN_NOT_FOUND_DESCRIPTION =
 	"This Openground run does not exist in the current project, or it may have been deleted.";
 export const OPENGROUND_BACK_TO_LIST = "Back to Openground";

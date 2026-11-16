@@ -24,7 +24,8 @@ export default function OpengroundRequest({
 	params: { id: string };
 }) {
 	const posthog = usePostHog();
-	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<OpengroundRecord>();
+	const { data, fireRequest, isFetched, isLoading, error } =
+		useFetchWrapper<OpengroundRecord>();
 
 	const fetchData = useCallback(async () => {
 		fireRequest({
@@ -71,6 +72,31 @@ export default function OpengroundRequest({
 				{header}
 				<div className="flex flex-1 items-center justify-center">
 					<IntermediateState type="loading" />
+				</div>
+			</div>
+		);
+
+	// A missing run comes back as a 404 with the not-found message; anything
+	// else is a failed request and gets a retry instead of "not found".
+	if (!data && error && String(error) !== m.OPENGROUND_RUN_NOT_FOUND)
+		return (
+			<div className="flex h-full w-full flex-col overflow-hidden">
+				{header}
+				<div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center">
+					<p className="text-base font-medium text-stone-800 dark:text-stone-200">
+						{m.OPENGROUND_RUN_LOAD_FAILED}
+					</p>
+					<p className="max-w-md text-sm text-stone-500 dark:text-stone-400">
+						{String(error)}
+					</p>
+					<div className="flex items-center gap-2">
+						<Button variant="outline" size="sm" className="h-8" onClick={fetchData}>
+							{m.RETRY}
+						</Button>
+						<Button asChild variant="outline" size="sm" className="h-8">
+							<Link href="/openground">{backLabel}</Link>
+						</Button>
+					</div>
 				</div>
 			</div>
 		);
