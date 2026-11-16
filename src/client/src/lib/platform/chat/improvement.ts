@@ -8,7 +8,8 @@ import { getChatConfigWithApiKey } from "./config";
 import { OPENLIT_TRACE_ANALYSIS_TABLE } from "./table-details";
 import { intelligenceDataCollector } from "../common";
 import { createModel } from "@/lib/platform/providers/create-model";
-import { recoverTruncatedJson } from "./json-recovery";
+import { extractJsonText, recoverTruncatedJson } from "./json-recovery";
+import { samplingFor } from "@/lib/platform/providers/sampling";
 import { getTraceHierarchy } from "../traces/read";
 import { isNativeSqlChatAvailable } from "@/lib/telemetry-source";
 import { TraceHeirarchySpan, TraceRow } from "@/types/trace";
@@ -1217,12 +1218,7 @@ function parseDimensionAnalysis(
 	dimension: TraceAnalysisDimension,
 	root: TraceHeirarchySpan
 ): { summary: string; findings: TraceAnalysisFinding[] } {
-	const jsonText = rawText
-		.trim()
-		.replace(/^```json\s*/i, "")
-		.replace(/^```\s*/i, "")
-		.replace(/```$/i, "")
-		.trim();
+	const jsonText = extractJsonText(rawText);
 	try {
 		let parsed: any;
 		try {
@@ -1300,7 +1296,7 @@ async function streamJsonText({
 		system,
 		prompt,
 		maxOutputTokens,
-		temperature: 0,
+		...samplingFor(model, { temperature: 0 }),
 		onFinish: ({ usage }) => {
 			const promptTokens = usage?.inputTokens ?? 0;
 			const completionTokens = usage?.outputTokens ?? 0;

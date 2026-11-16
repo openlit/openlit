@@ -279,6 +279,15 @@ describe('runEvaluation — generateText and response parsing', () => {
     expect(callArgs.temperature).toBe(0);
   });
 
+  it('omits temperature for Claude models that reject sampling params', async () => {
+    (createAnthropic as jest.Mock).mockReturnValue(
+      jest.fn().mockReturnValue({ modelId: 'claude-haiku-5-5' })
+    );
+    await runEvaluation({ ...BASE_PARAMS, provider: 'anthropic', model: 'claude-haiku-5-5' });
+    const [callArgs] = (generateText as jest.Mock).mock.calls[0];
+    expect(callArgs).not.toHaveProperty('temperature');
+  });
+
   it('system prompt uses placeholder evaluation names, not TypeA/TypeB or hardcoded types', async () => {
     await runEvaluation(BASE_PARAMS);
     const [{ prompt }] = (generateText as jest.Mock).mock.calls[0];

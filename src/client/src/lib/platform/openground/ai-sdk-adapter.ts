@@ -1,5 +1,6 @@
 import { generateText } from "ai";
 import { createModel } from "@/lib/platform/providers/create-model";
+import { samplingFor } from "@/lib/platform/providers/sampling";
 
 export interface ProviderConfig {
 	provider: string;
@@ -53,14 +54,15 @@ export class AISdkAdapter {
 			prompt: config.systemPrompt || "",
 		};
 
-		if (config.temperature !== undefined) {
-			options.temperature = config.temperature;
-		}
+		Object.assign(
+			options,
+			samplingFor(modelInstance, {
+				temperature: config.temperature,
+				topP: config.topP,
+			})
+		);
 		if (config.maxTokens !== undefined) {
 			options.maxTokens = config.maxTokens;
-		}
-		if (config.topP !== undefined) {
-			options.topP = config.topP;
 		}
 
 		const result = await generateText(options);
