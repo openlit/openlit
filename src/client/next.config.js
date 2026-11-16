@@ -15,6 +15,9 @@ const contentSecurityPolicy = [
 
 const nextConfig = {
 	output: "standalone",
+	// The e2e suite runs its own dev server, so it needs a build directory that
+	// does not collide with a developer's running `next dev`.
+	distDir: process.env.OPENLIT_NEXT_DIST_DIR || ".next",
 	poweredByHeader: false,
 	transpilePackages: [
 		"@openplait/adapter-clickhouse",

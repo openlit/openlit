@@ -1,0 +1,177 @@
+#!/usr/bin/env node
+/**
+ * Hermetic stand-in for the Trustabl CLI used by the e2e suite. Help and
+ * version text are recorded from Trustabl 0.1.8.
+ *
+ * `scan <url>` reads the fixture repository and `scan <dir>` the downloaded
+ * copy, so a fixed file stops being reported. `enrich` follows the mode in
+ * `<state>/enrich-mode` (fix | noop | provider-error) and waits
+ * `<state>/enrich-delay-ms`. Enrich runs with a minimal environment, so the
+ * state directory falls back to `src/client/.e2e-state`.
+ */
+const { existsSync, readFileSync, writeFileSync } = require("fs");
+const { join } = require("path");
+
+const CLI = join(__dirname, "..", "cli");
+const FIXTURE_REPO = join(__dirname, "..", "repo");
+const STATE = process.env.E2E_STATE_DIR || join(__dirname, "..", "..", "..", ".e2e-state");
+const AGENT_FILE = "research-agent/research_agent/agent.py";
+
+const fixture = (name) => readFileSync(join(CLI, name), "utf8");
+
+function state(name) {
+	const file = join(STATE, name);
+	return existsSync(file) ? readFileSync(file, "utf8").trim() : "";
+}
+
+/** 1-based line range of the AgentDefinition that starts with `marker`. */
+function agentRange(lines, marker) {
+	const start = lines.findIndex((line) => line.includes(marker));
+	if (start < 0) return null;
+	let end = start;
+	while (end < lines.length && lines[end].trim() !== "),") end += 1;
+	return { start: start + 1, end: end + 1, body: lines.slice(start, end + 1).join("\n") };
+}
+
+function scanReport(root) {
+	const source = readFileSync(join(root, AGENT_FILE), "utf8");
+	const lines = source.split("\n");
+	const findings = [];
+	const analyst = agentRange(lines, '"data-analyst"');
+	if (analyst && analyst.body.includes('"Bash"')) {
+		findings.push({
+			rule_id: "CSDK-101",
+			category: "claude_sdk",
+			scope: "agent",
+			severity: "high",
+			tool_name: "data-analyst",
+			file_path: AGENT_FILE,
+			start_line: analyst.start,
+			end_line: analyst.end,
+			title: "Claude subagent is granted the Bash tool",
+			explanation:
+				"This AgentDefinition grants the built-in Bash tool, giving the subagent arbitrary shell-command execution. Subagents are dispatched autonomously by a lead agent, so a prompt-injected or mis-scoped task can reach the shell with no human in the loop.",
+			suggested_fix:
+				'Remove "Bash" from this subagent\'s tools list unless shell execution is essential to its job. If it is essential, gate it with a PreToolUse hook that allowlists the specific commands the subagent may run.',
+			confidence: 0.8,
+		});
+	}
+	const researcher = agentRange(lines, '"researcher"');
+	if (researcher && researcher.body.includes('"WebSearch"')) {
+		findings.push({
+			rule_id: "CSDK-102",
+			category: "claude_sdk",
+			scope: "agent",
+			severity: "medium",
+			tool_name: "researcher",
+			file_path: AGENT_FILE,
+			start_line: researcher.start,
+			end_line: researcher.end,
+			title: "Claude subagent is granted the WebSearch tool",
+			explanation: "This subagent can fetch arbitrary web content, which can carry prompt injection.",
+			confidence: 0.7,
+		});
+	}
+	return {
+		scan_id: "e2e-scan",
+		repo: "https://github.com/anthropics/claude-agent-sdk-demos",
+		rules_source: "signed",
+		rules_version: "9eca09df82f84b232638a08a68eb20d6cda4f864",
+		languages: ["python"],
+		sdks: ["claude_agent_sdk"],
+		findings,
+	};
+}
+
+/** Unified diff of a one-line change with three lines of context. */
+function unifiedDiff(path, before, after, index) {
+	const from = Math.max(0, index - 3);
+	const to = Math.min(before.length, index + 4);
+	const body = [];
+	for (let line = from; line < to; line += 1) {
+		if (line === index) body.push(`-${before[line]}`, `+${after[line]}`);
+		else body.push(` ${before[line]}`);
+	}
+	const count = to - from;
+	return [`--- a/${path}`, `+++ b/${path}`, `@@ -${from + 1},${count} +${from + 1},${count} @@`, ...body, ""].join("\n");
+}
+
+function enrich(args) {
+	const input = JSON.parse(readFileSync(args[args.indexOf("--input") + 1], "utf8"));
+	const repo = args[args.indexOf("--repo") + 1];
+	const row = input.findings[0];
+	const file = join(repo, row.file_path);
+	const mode = state("enrich-mode") || "fix";
+	const header = "enriching 1/1 findings (grouped by file)\n";
+	if (mode === "provider-error") {
+		return {
+			stdout: JSON.stringify({ ...input, findings: [{ ...row, enriched: false }] }),
+			stderr: `${header}warn: llm enrich ${row.file_path}: claude api: 401 Unauthorized (invalid x-api-key)\n`,
+		};
+	}
+	const source = readFileSync(file, "utf8");
+	const before = source.split("\n");
+	const after = [...before];
+	const range = { from: row.start_line - 1, to: row.end_line - 1 };
+	const target = before.findIndex(
+		(line, index) =>
+			index >= range.from &&
+			index <= range.to &&
+			(mode === "fix" ? line.includes('"Bash", ') : line.includes("description="))
+	);
+	after[target] =
+		mode === "fix"
+			? before[target].replace('"Bash", ', "")
+			: before[target].replace("Analyses research notes and renders charts.", "Analyses research notes and summarises them.");
+	writeFileSync(`${file}.trustabl.bak`, source);
+	writeFileSync(file, after.join("\n"));
+	const diff = unifiedDiff(row.file_path, before, after, target);
+	const explanation =
+		mode === "fix"
+			? "Removed Bash from the data-analyst tools list, so delegated tasks can no longer run shell commands."
+			: "Reworded the data-analyst description to drop the chart rendering it no longer needs.";
+	return {
+		stdout: JSON.stringify({
+			...input,
+			findings: [
+				{
+					...row,
+					ai_explanation: explanation,
+					ai_fix: explanation,
+					line_start: target + 1,
+					line_end: target + 1,
+					replacement: after[target],
+					diff,
+					enriched: true,
+					applied: true,
+				},
+			],
+		}),
+		stderr: `${header}applied 1 fix(es) to ${row.file_path} (backup: ${row.file_path}.trustabl.bak)\n${diff}`,
+	};
+}
+
+function respond(args) {
+	const [command, sub] = args;
+	if (command === "version") return { stdout: fixture("version.txt") };
+	if ((command === "scan" && args.includes("--help")) || (command === "help" && sub === "scan")) {
+		return { stdout: fixture("scan-help.txt") };
+	}
+	if (command === "scan") {
+		const root = /^https?:\/\//.test(sub) ? FIXTURE_REPO : join(process.cwd(), sub);
+		const report = scanReport(root);
+		return { stdout: JSON.stringify(report), code: report.findings.length ? 1 : 0 };
+	}
+	if (command === "enrich") return enrich(args);
+	return { stderr: `trustabl: unknown command ${JSON.stringify(args.join(" "))}\n`, code: 2 };
+}
+
+const args = process.argv.slice(2);
+const { stdout = "", stderr = "", code = 0 } = respond(args);
+// Optional pause so screenshots can catch the running state.
+const delay = args[0] === "enrich" ? Number(state("enrich-delay-ms")) || 0 : 0;
+setTimeout(() => {
+	process.exitCode = code;
+	process.stderr.write(stderr);
+	process.stdout.write(stdout);
+}, delay);

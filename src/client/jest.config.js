@@ -71,6 +71,7 @@ const config = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/.next/',
+    '/e2e/',
   ],
 };
 
