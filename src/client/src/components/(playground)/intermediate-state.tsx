@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
+import getMessage from "@/constants/messages";
 
 export type IntermediateState = {
 	type: "loading" | "nodata";
@@ -17,7 +18,7 @@ export default function IntermediateState(props: IntermediateState) {
 				}`}
 			>
 				<Loader2 className="h-4 w-4 animate-spin shrink-0" />
-				Loading...
+				{getMessage().LOADING_ELLIPSIS}
 			</div>
 		);
 	if (props.type === "nodata")
@@ -27,7 +28,7 @@ export default function IntermediateState(props: IntermediateState) {
 					props.classNames || ""
 				}`}
 			>
-				No data to display
+				{props.children ?? getMessage().NO_DATA_TO_DISPLAY}
 			</div>
 		);
 

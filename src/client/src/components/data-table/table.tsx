@@ -1,9 +1,8 @@
 import IntermediateState from "@/components/(playground)/intermediate-state";
-import { CSSProperties, ReactNode } from "react";
+import { CSSProperties, Fragment, KeyboardEvent, ReactNode } from "react";
 import { fill } from "lodash";
 import { objectEntries } from "@/utils/object";
 import { Columns } from "./columns";
-import { noop } from "@/utils/noop";
 import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 
 const RowWrapper = ({
@@ -11,16 +10,45 @@ const RowWrapper = ({
 	className = "",
 	onClick,
 	style,
+	expanded,
 }: {
 	children: ReactNode;
 	className?: string;
-	onClick?: (item: any) => void;
+	onClick?: () => void;
 	style?: CSSProperties;
-}) => (
-	<div className={`grid w-full ${className}`} onClick={onClick} style={style}>
-		{children}
-	</div>
-);
+	/** Set for rows that toggle an expanded section. */
+	expanded?: boolean;
+}) => {
+	const interactive = typeof onClick === "function";
+	return (
+		<div
+			className={`grid w-full ${className} ${
+				interactive
+					? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+					: ""
+			}`}
+			onClick={onClick}
+			style={style}
+			role={interactive ? "button" : undefined}
+			tabIndex={interactive ? 0 : undefined}
+			aria-expanded={interactive ? expanded : undefined}
+			onKeyDown={
+				interactive
+					? (event: KeyboardEvent<HTMLDivElement>) => {
+							// Keys pressed on buttons/links inside the row are theirs.
+							if (event.target !== event.currentTarget) return;
+							if (event.key === "Enter" || event.key === " ") {
+								event.preventDefault();
+								onClick();
+							}
+						}
+					: undefined
+			}
+		>
+			{children}
+		</div>
+	);
+};
 
 const ColumnRowItem = ({
 	children,
@@ -73,6 +101,9 @@ export default function DataTable({
 	visibilityColumns,
 	onClick,
 	extraFunctions = {},
+	getRowKey,
+	renderExpandedRow,
+	emptyState,
 }: {
 	columns: Columns<any, any>;
 	data: any[];
@@ -81,11 +112,18 @@ export default function DataTable({
 	visibilityColumns: Record<string, boolean>;
 	onClick?: (item: any) => void;
 	extraFunctions?: Record<string, any>;
+	/** Stable row key; falls back to the row index. */
+	getRowKey?: (item: any, index: number) => string;
+	/** Optional full-width content rendered below a row (return null to hide). */
+	renderExpandedRow?: (item: any) => ReactNode;
+	/** Overrides the default "no data" state. */
+	emptyState?: ReactNode;
 }) {
 	const visibleColumns = objectEntries(visibilityColumns)
 		.filter(([key, value]) => value && columns[key])
 		.map(([keys]) => keys);
-	const noData = !data?.length && !isLoading;
+	// Only after a completed fetch; before that the skeleton is showing.
+	const noData = isFetched && !isLoading && !data?.length;
 
 	const style: CSSProperties = {
 		gridTemplateColumns: visibleColumns
@@ -93,8 +131,7 @@ export default function DataTable({
 			.join(" "),
 	};
 
-	const onClickHandler = (rowItem: any) =>
-		typeof onClick === "function" ? onClick(rowItem) : noop();
+
 
 	return (
 		<div className={`flex flex-col w-full overflow-auto scrollbar-hidden border dark:border-stone-800 rounded-md grow ${PRIMARY_BACKGROUND}`}>
@@ -102,7 +139,7 @@ export default function DataTable({
 				{visibleColumns.map((column) => (
 					<ColumnRowItem
 						key={column}
-						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-400 text-sm whitespace-nowrap`}
+						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-400 text-sm whitespace-nowrap ${columns[column]?.className || ""}`}
 					>
 						{columns[column]?.header()}
 					</ColumnRowItem>
@@ -113,32 +150,43 @@ export default function DataTable({
 					isFetched && isLoading ? "animate-pulse" : ""
 				}`}
 			>
-				{(!isFetched || (isLoading && !data?.length)) && (
+				{(!isFetched || isLoading) && !data?.length && (
 					<RenderLoader columns={visibleColumns} style={style} />
 				)}
 				{data?.map((rowItem, index) => {
+					const rowKey = getRowKey ? getRowKey(rowItem, index) : `row-${index}`;
+					const expanded = renderExpandedRow ? renderExpandedRow(rowItem) : null;
 					return (
-						<RowWrapper
-							key={`row-${index}`}
-							className={`group text-sm text-stone-700 dark:text-stone-300`}
-							onClick={() => onClickHandler(rowItem)}
-							style={style}
-						>
-							{visibleColumns.map((column, cIdx) => (
-								<ColumnRowItem
-									key={`row-${index}-column-${cIdx}`}
-									className={`group-hover:text-stone-700 group-hover:bg-stone-100 dark:group-hover:text-stone-300  dark:group-hover:bg-stone-800 cursor-pointer hover:[&_svg]:text-stone-950 dark:hover:[&_svg]:text-stone-100`}
-								>
-									{columns[column]?.cell({
-										row: rowItem,
-										extraFunctions,
-									})}
-								</ColumnRowItem>
-							))}
-						</RowWrapper>
+						<Fragment key={rowKey}>
+							<RowWrapper
+								className={`group text-sm text-stone-700 dark:text-stone-300`}
+								onClick={
+									typeof onClick === "function" ? () => onClick(rowItem) : undefined
+								}
+								expanded={renderExpandedRow ? Boolean(expanded) : undefined}
+								style={style}
+							>
+								{visibleColumns.map((column, cIdx) => (
+									<ColumnRowItem
+										key={`${rowKey}-column-${cIdx}`}
+										className={`group-hover:text-stone-700 group-hover:bg-stone-100 dark:group-hover:text-stone-300  dark:group-hover:bg-stone-800 ${typeof onClick === "function" ? "cursor-pointer" : ""} hover:[&_svg]:text-stone-950 dark:hover:[&_svg]:text-stone-100 ${columns[column]?.className || ""}`}
+									>
+										{columns[column]?.cell({
+											row: rowItem,
+											extraFunctions,
+										})}
+									</ColumnRowItem>
+								))}
+							</RowWrapper>
+							{expanded ? (
+								<div className="w-full border-b bg-stone-50 px-3 py-3 text-sm text-stone-600 dark:border-stone-800 dark:bg-stone-900/50 dark:text-stone-300">
+									{expanded}
+								</div>
+							) : null}
+						</Fragment>
 					);
 				})}
-				{noData && <IntermediateState type="nodata" />}
+				{noData && (emptyState ?? <IntermediateState type="nodata" />)}
 			</div>
 		</div>
 	);

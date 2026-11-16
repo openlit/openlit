@@ -59,14 +59,14 @@ export default function ProviderSettingsPanel() {
 	};
 
 	return (
-		<Card className="border-stone-200 dark:border-stone-800">
-			<CardHeader className="pb-3">
-				<CardTitle className="text-lg flex items-center gap-2">
-					<Settings2Icon className="h-5 w-5" />
+		<Card className="border border-stone-200 dark:border-stone-800">
+			<CardHeader className="p-4 pb-2">
+				<CardTitle className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+					<Settings2Icon className="h-4 w-4 text-stone-500 dark:text-stone-400" />
 					{getMessage().OPENGROUND_PROVIDER_SETTINGS} ({selectedProvidersNew.length})
 				</CardTitle>
 			</CardHeader>
-			<CardContent className="space-y-4">
+			<CardContent className="divide-y divide-stone-200 p-4 pt-0 dark:divide-stone-800">
 				{selectedProvidersNew.map((selectedProvider, index) => {
 					const provider = availableProviders.find(
 						(p) => p.providerId === selectedProvider.provider
@@ -75,10 +75,10 @@ export default function ProviderSettingsPanel() {
 					if (!provider) return null;
 
 					return (
-						<Card key={index} className="border-stone-200 dark:border-stone-700">
-							<CardHeader className="pb-3 flex-row items-center justify-between space-y-0">
+						<div key={index} className="space-y-4 py-4 first:pt-2 last:pb-0">
+							<div className="flex flex-row items-center justify-between">
 								<div className="flex items-center gap-2">
-									<div className="w-8 h-8 rounded bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-sm font-bold text-stone-600 dark:text-stone-400">
+									<div className="flex h-8 w-8 items-center justify-center rounded-md bg-stone-100 text-sm font-semibold text-stone-600 dark:bg-stone-800 dark:text-stone-300">
 										{provider.displayName.charAt(0)}
 									</div>
 									<div>
@@ -93,13 +93,15 @@ export default function ProviderSettingsPanel() {
 								<Button
 									variant="ghost"
 									size="icon"
-									className="h-8 w-8"
+									className="h-8 w-8 text-stone-500 dark:text-stone-400"
 									onClick={() => removeProviderNew(index)}
+									title={getMessage().OPENGROUND_REMOVE_PROVIDER}
+									aria-label={getMessage().OPENGROUND_REMOVE_PROVIDER}
 								>
 									<XIcon className="h-4 w-4" />
 								</Button>
-							</CardHeader>
-							<CardContent className="space-y-4 pt-0">
+							</div>
+							<div className="space-y-4">
 								{/* Model Selection */}
 								<div className="space-y-2">
 									<div className="flex items-center justify-between">
@@ -148,12 +150,12 @@ export default function ProviderSettingsPanel() {
 													<SelectItem key={model.id} value={model.id}>
 														<div className="flex flex-col items-start gap-0.5">
 															<span className="text-sm">{model.displayName}</span>
-															<div className="flex gap-1.5 text-xs text-stone-500">
+															<div className="flex gap-1.5 text-xs text-stone-500 dark:text-stone-400">
 																<Badge variant="secondary" className="text-xs h-4 px-1">
 																	{model.contextWindow.toLocaleString()}
 																</Badge>
 																<Badge variant="outline" className="text-xs h-4 px-1">
-																	${model.inputPricePerMToken}/M
+																	{getMessage().OPENGROUND_PRICE_PER_M(model.inputPricePerMToken)}
 																</Badge>
 															</div>
 														</div>
@@ -238,8 +240,8 @@ export default function ProviderSettingsPanel() {
 										{getMessage().OPENGROUND_TOP_P_DESCRIPTION}
 									</p>
 								</div>
-							</CardContent>
-						</Card>
+							</div>
+						</div>
 					);
 				})}
 			</CardContent>
