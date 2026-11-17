@@ -2924,7 +2924,9 @@ export const SCANNER_ENRICH_NOT_DETECTED = (ref: string) =>
 	`The finding is no longer detected at ${ref}. Run the Analyzer again to refresh the findings.`;
 export const SCANNER_ENRICH_NOT_APPLIED =
 	"Trustabl LLM did not produce a change that could be applied to the flagged lines.";
-export const SCANNER_ENRICH_STILL_DETECTED = (ruleId: string, attempts: number) =>
+export const SCANNER_ENRICH_APPLIED_BY_OPENLIT = (location: string) =>
+	`Trustabl CLI declined --apply for ${location}; OpenLIT applied the model's change to the review copy and re-checked it.`;
+export const SCANNER_ENRICH_STILL_DETECTED =(ruleId: string, attempts: number) =>
 	`${ruleId} is still detected after ${attempts === 1 ? "1 attempt" : `${attempts} attempts`}.`;
 export const SCANNER_ENRICH_PROVIDER_FAILED = "The LLM provider rejected the request.";
 export const SCANNER_ENRICH_INTERRUPTED =

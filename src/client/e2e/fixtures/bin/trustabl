@@ -5,7 +5,7 @@
  *
  * `scan <url>` reads the fixture repository and `scan <dir>` the downloaded
  * copy, so a fixed file stops being reported. `enrich` follows the mode in
- * `<state>/enrich-mode` (fix | noop | provider-error) and waits
+ * `<state>/enrich-mode` (fix | noop | provider-error | declined) and waits
  * `<state>/enrich-delay-ms`. Enrich runs with a minimal environment, so the
  * state directory falls back to `src/client/.e2e-state`.
  */
@@ -109,6 +109,9 @@ function enrich(args) {
 			stderr: `${header}warn: llm enrich ${row.file_path}: claude api: 401 Unauthorized (invalid x-api-key)\n`,
 		};
 	}
+	// `declined` proposes the real fix but, like the CLI when its content
+	// anchor check fails, does not write it.
+	const fix = mode === "fix" || mode === "declined";
 	const source = readFileSync(file, "utf8");
 	const before = source.split("\n");
 	const after = [...before];
@@ -117,19 +120,37 @@ function enrich(args) {
 		(line, index) =>
 			index >= range.from &&
 			index <= range.to &&
-			(mode === "fix" ? line.includes('"Bash", ') : line.includes("description="))
+			(fix ? line.includes('"Bash", ') : line.includes("description="))
 	);
-	after[target] =
-		mode === "fix"
-			? before[target].replace('"Bash", ', "")
-			: before[target].replace("Analyses research notes and renders charts.", "Analyses research notes and summarises them.");
+	after[target] = fix
+		? before[target].replace('"Bash", ', "")
+		: before[target].replace("Analyses research notes and renders charts.", "Analyses research notes and summarises them.");
+	const diff = unifiedDiff(row.file_path, before, after, target);
+	const explanation = fix
+		? "Removed Bash from the data-analyst tools list, so delegated tasks can no longer run shell commands."
+		: "Reworded the data-analyst description to drop the chart rendering it no longer needs.";
+	if (mode === "declined") {
+		return {
+			stdout: JSON.stringify({
+				...input,
+				findings: [
+					{
+						...row,
+						ai_explanation: explanation,
+						ai_fix: explanation,
+						line_start: target + 1,
+						line_end: target + 1,
+						replacement: after[target],
+						diff,
+						enriched: true,
+					},
+				],
+			}),
+			stderr: `${header}warn: skipping --apply fix for ${row.file_path} lines ${target + 1}-${target + 1} (${row.rule_id}): the file no longer matches what the model reviewed (changed since the scan?); left unchanged\n${diff}`,
+		};
+	}
 	writeFileSync(`${file}.trustabl.bak`, source);
 	writeFileSync(file, after.join("\n"));
-	const diff = unifiedDiff(row.file_path, before, after, target);
-	const explanation =
-		mode === "fix"
-			? "Removed Bash from the data-analyst tools list, so delegated tasks can no longer run shell commands."
-			: "Reworded the data-analyst description to drop the chart rendering it no longer needs.";
 	return {
 		stdout: JSON.stringify({
 			...input,

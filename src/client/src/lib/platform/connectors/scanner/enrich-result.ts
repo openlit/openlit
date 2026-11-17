@@ -80,6 +80,11 @@ export interface ScannerEnrichOutput {
 	fixSummary?: string;
 	diff?: string;
 	providerError?: string;
+	/** The model's proposed range and text, returned even when the CLI did not apply them. */
+	lineStart?: number;
+	lineEnd?: number;
+	replacement?: string;
+	falsePositive?: boolean;
 }
 
 function providerError(stderr: string): string | undefined {
@@ -110,6 +115,10 @@ export function parseEnrichOutput(stdout: string, stderr: string): ScannerEnrich
 		if (explanation) output.explanation = explanation;
 		if (fixSummary) output.fixSummary = fixSummary;
 		if (diff) output.diff = diff;
+		if (Number.isInteger(row.line_start)) output.lineStart = row.line_start as number;
+		if (Number.isInteger(row.line_end)) output.lineEnd = row.line_end as number;
+		if (typeof row.replacement === "string" && row.replacement) output.replacement = row.replacement;
+		if (row.false_positive === true) output.falsePositive = true;
 	}
 	const error = providerError(stderr);
 	if (error) output.providerError = error;
@@ -136,6 +145,82 @@ export function compareRecheck(
 		else newFindings += 1;
 	}
 	return { resolved, newFindings };
+}
+
+function trailingBlankLines(lines: string[]): number {
+	let count = 0;
+	for (let index = lines.length - 1; index >= 0 && !lines[index].trim(); index -= 1) count += 1;
+	return count;
+}
+
+/**
+ * Splices the model's replacement over lines lineStart..lineEnd (1-based), as
+ * `trustabl enrich --apply` would. Blank lines that close the range and are
+ * missing from the replacement are kept, and a CRLF range stays CRLF. Returns
+ * null when the range or replacement is unusable or nothing would change.
+ */
+export function applyEnrichReplacement(
+	content: string,
+	lineStart: number,
+	lineEnd: number,
+	replacement: string
+): string | null {
+	const lines = content.split("\n");
+	if (
+		!Number.isInteger(lineStart) ||
+		!Number.isInteger(lineEnd) ||
+		lineStart < 1 ||
+		lineStart > lineEnd ||
+		lineEnd > lines.length
+	) {
+		return null;
+	}
+	const text = replacement.replace(/\n+$/, "");
+	if (!text) return null;
+	const range = lines.slice(lineStart - 1, lineEnd);
+	let next = text.split("\n");
+	if (range.every((line) => line.endsWith("\r"))) {
+		next = next.map((line) => (line.endsWith("\r") ? line : `${line}\r`));
+	}
+	const kept = Math.min(Math.max(0, trailingBlankLines(range) - trailingBlankLines(next)), lineEnd - lineStart);
+	const result = [...lines.slice(0, lineStart - 1), ...next, ...lines.slice(lineEnd - kept)].join("\n");
+	return result === content ? null : result;
+}
+
+/** One-hunk unified diff of a single contiguous change, with three lines of context. */
+export function unifiedLineDiff(path: string, before: string, after: string): string {
+	const context = 3;
+	const a = before.split("\n");
+	const b = after.split("\n");
+	// A final newline splits into a trailing "" that is not a line of its own.
+	if (a[a.length - 1] === "") a.pop();
+	if (b[b.length - 1] === "") b.pop();
+	let prefix = 0;
+	while (prefix < a.length && prefix < b.length && a[prefix] === b[prefix]) prefix += 1;
+	let suffix = 0;
+	while (
+		suffix < a.length - prefix &&
+		suffix < b.length - prefix &&
+		a[a.length - 1 - suffix] === b[b.length - 1 - suffix]
+	) {
+		suffix += 1;
+	}
+	const removed = a.slice(prefix, a.length - suffix);
+	const added = b.slice(prefix, b.length - suffix);
+	if (!removed.length && !added.length) return "";
+	const leading = a.slice(Math.max(0, prefix - context), prefix);
+	const trailing = a.slice(a.length - suffix, a.length - suffix + context);
+	const start = prefix - leading.length + 1;
+	return [
+		`--- a/${path}`,
+		`+++ b/${path}`,
+		`@@ -${start},${leading.length + removed.length + trailing.length} +${start},${leading.length + added.length + trailing.length} @@`,
+		...leading.map((line) => ` ${line}`),
+		...removed.map((line) => `-${line}`),
+		...added.map((line) => `+${line}`),
+		...trailing.map((line) => ` ${line}`),
+		"",
+	].join("\n");
 }
 
 export function diffStats(diff: string): { additions: number; deletions: number } {

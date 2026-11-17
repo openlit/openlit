@@ -11,6 +11,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+	SCANNER_ENRICH_APPLIED_BY_OPENLIT,
 	SCANNER_ENRICH_CANCELLED,
 	SCANNER_ENRICH_MODEL_DEFAULT,
 	SCANNER_ENRICH_NOT_APPLIED,
@@ -26,6 +27,7 @@ import {
 } from "@/constants/messages/en";
 import type { ScannerCliSchema } from "../cli-schema";
 import {
+	applyEnrichReplacement,
 	compareRecheck,
 	diffStats,
 	locateRawFinding,
@@ -33,6 +35,8 @@ import {
 	redactEnrichText,
 	scannerFindingKey,
 	singleFindingReport,
+	unifiedLineDiff,
+	type ScannerEnrichOutput,
 } from "../enrich-result";
 import { ENRICH_RUN_TIMEOUT_MS, scannerEnrichProviderEnvKey } from "../enrich-params";
 import { createEnrichWorkspace, removeEnrichWorkspace, resolveInsideWorkspace } from "../enrich-workspace";
@@ -99,6 +103,25 @@ function isAbort(error: unknown): boolean {
 function location(path: string | undefined, line?: number, endLine?: number): string {
 	if (!line) return path || "";
 	return `${path}:${line}${endLine && endLine !== line ? `-${endLine}` : ""}`;
+}
+
+/**
+ * The file with the model's fix spliced in when `--apply` declined it (its
+ * exact-echo anchor failed) but the fix is usable and touches the finding's
+ * lines. The re-check still decides whether the run succeeds.
+ */
+function declinedFixContent(
+	output: ScannerEnrichOutput,
+	original: string,
+	row: Record<string, unknown>
+): string | null {
+	const { lineStart, lineEnd, replacement } = output;
+	if (!output.enriched || output.applied || output.falsePositive) return null;
+	if (!replacement || !lineStart || !lineEnd) return null;
+	const findingStart = Number(row.start_line) || 0;
+	const findingEnd = Number(row.end_line) || findingStart;
+	if (!findingStart || lineStart > findingEnd || lineEnd < findingStart) return null;
+	return applyEnrichReplacement(original, lineStart, lineEnd, replacement);
 }
 
 export async function runTrustablEnrich(
@@ -237,6 +260,14 @@ export async function runTrustablEnrich(
 					"provider",
 					output.providerError ? redact(output.providerError) : SCANNER_ENRICH_PROVIDER_FAILED
 				);
+			}
+			const fallback = declinedFixContent(output, original.toString("utf8"), row);
+			if (fallback !== null) {
+				const path = String(row.file_path);
+				await writeFile(file, fallback);
+				output.applied = true;
+				output.diff = unifiedLineDiff(path, original.toString("utf8"), fallback);
+				log(SCANNER_ENRICH_APPLIED_BY_OPENLIT(location(path, output.lineStart, output.lineEnd)));
 			}
 			if (!output.applied || !output.diff) {
 				failure = new EnrichFailure("not-applied", SCANNER_ENRICH_NOT_APPLIED);

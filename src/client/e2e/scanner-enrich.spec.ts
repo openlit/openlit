@@ -24,7 +24,7 @@ async function capture(page: Page, name: string) {
 }
 
 /** Mode and delay for the fake CLI's `enrich` (see e2e/fixtures/bin/trustabl). */
-function enrichBehaviour(mode: "fix" | "noop" | "provider-error", delayMs = 0) {
+function enrichBehaviour(mode: "fix" | "noop" | "provider-error" | "declined", delayMs = 0) {
 	mkdirSync(STATE_DIR, { recursive: true });
 	writeFileSync(join(STATE_DIR, "enrich-mode"), mode);
 	writeFileSync(join(STATE_DIR, "enrich-delay-ms"), String(delayMs));
@@ -152,4 +152,22 @@ test("enriches a finding, reviews the diff and handles a failed re-check", async
 	enrichBehaviour("fix");
 	await page.getByRole("button", { name: "Retry" }).click();
 	await expect(page.getByText("Enrich ready for review")).toBeVisible();
+
+	// The CLI declines --apply (content anchor); OpenLIT applies the fix and re-checks it.
+	await page.getByRole("button", { name: "Discard" }).click();
+	await expect(page.getByText("Enrich ready for review")).toBeHidden();
+	enrichBehaviour("declined", 2000);
+	const settled = page.waitForResponse(async (response) => {
+		if (!/\/enrich\/enrich(%3A|:)[^/]+$/.test(new URL(response.url()).pathname)) return false;
+		const body = await response.json().catch(() => null);
+		return body?.run?.status === "succeeded";
+	});
+	await page.getByRole("button", { name: "Enrich", exact: true }).click();
+	await dialog.getByRole("button", { name: "Enrich", exact: true }).click();
+	await expect(page.getByText("Enrich ready for review")).toBeVisible();
+	await expect(page.getByText("CSDK-101 resolved · 0 new findings")).toBeVisible();
+	await expect(page.getByText(REMOVED_LINE)).toBeVisible();
+	// The success panel has no log view; the run record carries the explanation.
+	const { run } = await (await settled).json();
+	expect(run.log.join("\n")).toContain("OpenLIT applied the model's change to the review copy");
 });

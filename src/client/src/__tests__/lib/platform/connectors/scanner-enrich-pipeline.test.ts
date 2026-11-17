@@ -26,6 +26,7 @@ import type {
 	ScannerFinding,
 } from "@/lib/platform/connectors/scanner/types";
 import {
+	SCANNER_ENRICH_APPLIED_BY_OPENLIT,
 	SCANNER_ENRICH_NOT_DETECTED,
 	SCANNER_ENRICH_PATH_OUTSIDE,
 	SCANNER_ENRICH_STILL_DETECTED,
@@ -51,7 +52,29 @@ const finding: ScannerFinding = {
 	title: "Claude subagent is granted the Bash tool",
 };
 
-type EnrichMode = "fix" | "noop" | "provider-error" | "echo-key" | "not-applied" | "hang";
+type EnrichMode =
+	| "fix"
+	| "noop"
+	| "provider-error"
+	| "echo-key"
+	| "not-applied"
+	| "hang"
+	| "declined"
+	| "declined-elsewhere"
+	| "declined-false-positive"
+	| "declined-noop";
+
+const FIXED_TOOLS = '        tools=["Glob", "Read", "Write"],';
+
+/** What the CLI returns when its content anchor check skips --apply. */
+function declined(row: Record<string, unknown>, fields: Record<string, unknown>) {
+	const line = Number(fields.line_start);
+	return Promise.resolve({
+		exitCode: 0,
+		stdout: JSON.stringify({ findings: [{ ...row, enriched: true, ...fields }] }),
+		stderr: `enriching 1/1 findings (grouped by file)\nwarn: skipping --apply fix for agent/agent.py lines ${line}-${line} (CSDK-101): the file no longer matches what the model reviewed (changed since the scan?); left unchanged\n`,
+	});
+}
 
 let root: string;
 let calls: ScannerProcessRunInput[];
@@ -97,6 +120,18 @@ function fakeTrustabl(input: ScannerProcessRunInput) {
 			exitCode: 0,
 			stdout: JSON.stringify({ findings: [{ ...row, enriched: true, applied: false }] }),
 			stderr: "enriching 1/1 findings (grouped by file)\n",
+		});
+	}
+	if (mode === "declined") return declined(row, { line_start: 6, line_end: 6, replacement: FIXED_TOOLS });
+	if (mode === "declined-elsewhere") return declined(row, { line_start: 1, line_end: 1, replacement: "import os" });
+	if (mode === "declined-false-positive") {
+		return declined(row, { line_start: 6, line_end: 6, replacement: FIXED_TOOLS, false_positive: true });
+	}
+	if (mode === "declined-noop") {
+		return declined(row, {
+			line_start: 5,
+			line_end: 5,
+			replacement: '        description="Analyses data and summarises it.",',
 		});
 	}
 	writeFileSync(`${file}.trustabl.bak`, readFileSync(file));
@@ -256,6 +291,40 @@ describe("runTrustablEnrich", () => {
 		modes = ["not-applied"];
 		const result = await run(request());
 		expect(result).toMatchObject({ status: "failed", failure: "not-applied" });
+	});
+
+	it("applies a declined fix itself and re-checks it", async () => {
+		modes = ["declined"];
+		const result = await run(request());
+		expect(result).toMatchObject({ status: "succeeded", resolved: true, newFindings: 0 });
+		expect(result.diff).toContain('-        tools=["Glob", "Read", "Bash", "Write"],');
+		expect(result.diff).toContain(`+${FIXED_TOOLS}`);
+		expect(result.log).toContain(SCANNER_ENRICH_APPLIED_BY_OPENLIT("agent/agent.py:6"));
+		expect(calls.filter((call) => call.argv[0] === "scan")).toHaveLength(2);
+	});
+
+	it("does not apply a declined fix outside the finding", async () => {
+		modes = ["declined-elsewhere"];
+		const result = await run(request());
+		expect(result).toMatchObject({ status: "failed", failure: "not-applied" });
+		// No change was written, so there was nothing to re-check.
+		expect(calls.filter((call) => call.argv[0] === "scan")).toHaveLength(1);
+	});
+
+	it("does not apply a declined fix the model marks a false positive", async () => {
+		modes = ["declined-false-positive"];
+		const result = await run(request());
+		expect(result).toMatchObject({ status: "failed", failure: "not-applied" });
+		expect(calls.filter((call) => call.argv[0] === "scan")).toHaveLength(1);
+	});
+
+	it("retries a fallback fix from the original file", async () => {
+		modes = ["declined-noop", "declined"];
+		const result = await run(request({ params: { provider: "anthropic", attempts: 2, recheck: true, baseRef: "main" } }));
+		expect(result).toMatchObject({ status: "succeeded", attempt: 2, resolved: true });
+		expect(calls.filter((call) => call.argv[0] === "enrich")).toHaveLength(2);
+		// Attempt 2's change is diffed against the original, not attempt 1's edit.
+		expect(result.diff).not.toContain("summarises");
 	});
 
 	it("fails when the finding is no longer detected", async () => {

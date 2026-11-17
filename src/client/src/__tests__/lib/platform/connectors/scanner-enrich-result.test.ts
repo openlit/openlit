@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+	applyEnrichReplacement,
 	compareRecheck,
 	diffStats,
 	locateRawFinding,
@@ -9,6 +10,7 @@ import {
 	redactEnrichText,
 	scannerFindingKey,
 	singleFindingReport,
+	unifiedLineDiff,
 } from "@/lib/platform/connectors/scanner/enrich-result";
 import type { ScannerFinding } from "@/lib/platform/connectors/scanner/types";
 
@@ -130,5 +132,80 @@ describe("redactEnrichText", () => {
 			"a sk-ant-api03-abcdefghijk b sk-proj-abcdefghijklmnopqrst c AIzaSyA1234567890abcdefghij d ghp_abcdefghijklmnopqrstuvwxyz0123"
 		);
 		expect(text).toBe("a [redacted] b [redacted] c [redacted] d [redacted]");
+	});
+});
+
+describe("parseEnrichOutput replacement fields", () => {
+	it("reads the proposed range and replacement when the CLI did not apply", () => {
+		const replacement = '        tools=["Glob", "Read", "Write"],';
+		const stdout = JSON.stringify({
+			findings: [
+				{
+					rule_id: "CSDK-101",
+					enriched: true,
+					line_start: 6,
+					line_end: 6,
+					replacement,
+					false_positive: true,
+				},
+			],
+		});
+		expect(parseEnrichOutput(stdout, "")).toMatchObject({
+			enriched: true,
+			applied: false,
+			lineStart: 6,
+			lineEnd: 6,
+			replacement,
+			falsePositive: true,
+		});
+	});
+});
+
+describe("applyEnrichReplacement", () => {
+	it("replaces one line", () => {
+		expect(applyEnrichReplacement("a\nb\nc\n", 2, 2, "B")).toBe("a\nB\nc\n");
+	});
+
+	it("keeps a trailing blank line the model left out of its replacement", () => {
+		const content = "---\nname: pdf\ndescription: x\nlicense: y\n---\n\n# PDF\n";
+		const replacement = "---\nname: pdf\ndescription: x z\nlicense: y\n---";
+		expect(applyEnrichReplacement(content, 1, 6, replacement)).toBe(
+			"---\nname: pdf\ndescription: x z\nlicense: y\n---\n\n# PDF\n"
+		);
+	});
+
+	it("strips a trailing newline in the replacement", () => {
+		expect(applyEnrichReplacement("a\nb\nc", 2, 2, "B\n")).toBe("a\nB\nc");
+	});
+
+	it("keeps CRLF line endings", () => {
+		expect(applyEnrichReplacement("a\r\nb\r\nc\r\n", 2, 2, "B")).toBe("a\r\nB\r\nc\r\n");
+	});
+
+	it("keeps the final newline", () => {
+		expect(applyEnrichReplacement("a\nb\n", 2, 2, "B")).toBe("a\nB\n");
+	});
+
+	it("returns null for an unusable range, an empty replacement or no change", () => {
+		const content = "a\nb\nc\n";
+		expect(applyEnrichReplacement(content, 0, 1, "x")).toBeNull();
+		expect(applyEnrichReplacement(content, 3, 2, "x")).toBeNull();
+		expect(applyEnrichReplacement(content, 1, 99, "x")).toBeNull();
+		expect(applyEnrichReplacement(content, 1, 1, "\n")).toBeNull();
+		expect(applyEnrichReplacement(content, 2, 2, "b")).toBeNull();
+	});
+});
+
+describe("unifiedLineDiff", () => {
+	it("trims unchanged lines to three lines of context", () => {
+		const before = "1\n2\n3\n4\n5\n6\n7\n8\n9\n";
+		const after = "1\n2\n3\n4\nX\n6\n7\n8\n9\n";
+		expect(unifiedLineDiff("f.py", before, after)).toBe(
+			"--- a/f.py\n+++ b/f.py\n@@ -2,7 +2,7 @@\n 2\n 3\n 4\n-5\n+X\n 6\n 7\n 8\n"
+		);
+	});
+
+	it("is empty when nothing changed", () => {
+		expect(unifiedLineDiff("f.py", "a\n", "a\n")).toBe("");
 	});
 });
