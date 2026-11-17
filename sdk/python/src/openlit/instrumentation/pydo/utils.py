@@ -1315,7 +1315,6 @@ def process_async_invoke_response(
         0,
         0,
         version,
-        cost=cost,
     )
 
     request_id = response_dict.get("request_id")

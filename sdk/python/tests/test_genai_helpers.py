@@ -463,8 +463,9 @@ class TestSpanCostAndCurrencyHelpers:
             self.attributes[key] = value
 
     class MockScope:
-        def __init__(self, span=None):
+        def __init__(self, span=None, cost=None):
             self._span = span or TestSpanCostAndCurrencyHelpers.MockSpan()
+            self._cost = cost
 
     def test_set_span_cost_on_span(self):
         span = self.MockSpan()

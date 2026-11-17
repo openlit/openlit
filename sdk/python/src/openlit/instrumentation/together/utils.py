@@ -5,15 +5,9 @@ Together AI OpenTelemetry instrumentation utility functions
 import json
 import time
 
-from opentelemetry.sdk.resources import (
-    SERVICE_NAME,
-    TELEMETRY_SDK_NAME,
-    DEPLOYMENT_ENVIRONMENT,
-)
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
-    _apply_custom_span_attributes,
     apply_agent_version_attributes,
     build_system_instructions_from_messages,
     build_tool_definitions,

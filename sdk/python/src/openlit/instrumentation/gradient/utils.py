@@ -1026,7 +1026,6 @@ def process_retrieve_response(
         0,
         0,
         version,
-        cost=cost,
     )
     if kb_id:
         span.set_attribute(SemanticConvention.GEN_AI_DATA_SOURCE_ID, kb_id)
