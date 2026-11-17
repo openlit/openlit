@@ -48,7 +48,25 @@ def generate(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            try:
+                response = wrapped(*args, **kwargs)
+            except Exception as e:
+                handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    try:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO,
+                            server_address, server_port, request_model,
+                            "unknown", environment, application_name,
+                            start_time, time.time(),
+                            0, 0, 0, None, None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
+                    except Exception:
+                        pass
+                raise
 
             try:
                 response = process_chat_response(
@@ -253,10 +271,26 @@ def generate_stream(
         span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
         ctx = trace_api.set_span_in_context(span)
         token = context_api.attach(ctx)
+        start_time = time.time()
         try:
             awaited_wrapped = wrapped(*args, **kwargs)
         except Exception as e:
             handle_exception(span, e)
+            if not disable_metrics and metrics:
+                try:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        SemanticConvention.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO,
+                        server_address, server_port, request_model,
+                        "unknown", environment, application_name,
+                        start_time, time.time(),
+                        0, 0, 0, None, None,
+                        error_type=type(e).__name__ or "_OTHER",
+                        is_stream=True,
+                    )
+                except Exception:
+                    pass
             safe_detach(token)
             span.end()
             raise
