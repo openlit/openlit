@@ -306,6 +306,7 @@ class VertexAIWrapper extends BaseWrapper {
           totalTokenCount: 0,
           cachedContentTokenCount: 0,
           cacheCreationInputTokens: 0,
+          thoughtsTokenCount: 0,
         },
         functionCall: null as any,
       };
@@ -346,6 +347,7 @@ class VertexAIWrapper extends BaseWrapper {
             totalTokenCount: u.totalTokenCount || accumulated.usageMetadata.totalTokenCount,
             cachedContentTokenCount: u.cachedContentTokenCount || accumulated.usageMetadata.cachedContentTokenCount,
             cacheCreationInputTokens: u.cacheCreationInputTokens || accumulated.usageMetadata.cacheCreationInputTokens,
+            thoughtsTokenCount: u.thoughtsTokenCount || accumulated.usageMetadata.thoughtsTokenCount,
           };
         }
 
@@ -478,6 +480,11 @@ class VertexAIWrapper extends BaseWrapper {
 
     if (cacheReadTokens) span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, cacheReadTokens);
     if (cacheCreationTokens) span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS, cacheCreationTokens);
+
+    const reasoningTokens = usageMetadata?.thoughtsTokenCount || 0;
+    if (reasoningTokens > 0) {
+      span.setAttribute(SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, reasoningTokens);
+    }
 
     if (ttft > 0) span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
     if (tbt > 0) span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
