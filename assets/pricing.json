@@ -412,6 +412,12 @@
             "cacheReadPrice": 0.0002,
             "cacheCreationPrice": 0.005
         },
+        "claude-sonnet-5-5": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.01,
+            "cacheReadPrice": 0.0002,
+            "cacheCreationPrice": 0.0025
+        },
         "gpt-5": {
             "promptPrice": 0.00125,
             "completionPrice": 0.01,
