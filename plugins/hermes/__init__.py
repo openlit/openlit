@@ -106,19 +106,58 @@ def _tool_call_parts(tool_calls: Any) -> list[dict[str, Any]]:
     return parts
 
 
+def _block_text(content: Any) -> str:
+    """Text of a string or a list of content blocks, such as a tool result's content."""
+    if not isinstance(content, list):
+        return str(content or "")
+    return "\n".join(
+        block.get("text") or "" if isinstance(block, dict) else str(block) for block in content
+    )
+
+
+def _content_parts(content: Any) -> list[dict[str, Any]]:
+    """OTel GenAI parts from message content: a string, or Anthropic/OpenAI content blocks."""
+    if not isinstance(content, list):
+        return [{"type": "text", "content": truncate_content(str(content))}] if content else []
+    parts = []
+    for block in content:
+        if not isinstance(block, dict):
+            parts.append({"type": "text", "content": truncate_content(str(block))})
+            continue
+        kind = block.get("type") or ""
+        if kind in ("text", "input_text", "output_text"):
+            parts.append({"type": "text", "content": truncate_content(block.get("text") or "")})
+        elif kind == "thinking":
+            parts.append({"type": "reasoning", "content": truncate_content(block.get("thinking") or "")})
+        elif kind == "tool_use":
+            parts.append({
+                "type": "tool_call",
+                "id": block.get("id") or "",
+                "name": block.get("name") or "",
+                "arguments": block.get("input") or {},
+            })
+        elif kind == "tool_result":
+            parts.append({
+                "type": "tool_call_response",
+                "id": block.get("tool_use_id") or "",
+                "response": truncate_content(_block_text(block.get("content"))),
+            })
+        else:
+            # Images, documents and the like: note the block without copying its data.
+            parts.append({"type": kind or "unknown"})
+    return parts
+
+
 def _message(role: str, content: Any, tool_calls: Any = None) -> dict[str, Any]:
-    """One OTel GenAI message: its text, then any tool calls it requests."""
+    """One OTel GenAI message: its content parts, then any tool calls it requests."""
     if role == "tool":
         return {"role": role, "parts": [{
             "type": "tool_call_response",
             "id": "",
-            "response": truncate_content(str(content or "")),
+            "response": truncate_content(_block_text(content)),
         }]}
-    tool_parts = _tool_call_parts(tool_calls)
-    if not tool_parts:
-        return format_input_message(role, content or "")
-    text = [{"type": "text", "content": truncate_content(str(content))}] if content else []
-    return {"role": role, "parts": text + tool_parts}
+    parts = _content_parts(content) + _tool_call_parts(tool_calls)
+    return {"role": role, "parts": parts} if parts else format_input_message(role, "")
 
 
 def _input_messages(request: Any) -> list[dict[str, Any]]:

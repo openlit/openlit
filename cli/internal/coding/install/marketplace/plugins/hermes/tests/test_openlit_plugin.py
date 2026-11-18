@@ -466,6 +466,39 @@ def test_input_messages_keep_tool_calls_and_tool_results():
     ]}
 
 
+def test_anthropic_content_blocks_become_message_parts():
+    # The request shape Hermes sends to Anthropic: content blocks, tool results as user blocks.
+    observer, exporter = make_observer(capture_content=True)
+    request = {"method": "POST", "body": {"messages": [
+        {"role": "user", "content": [
+            {"type": "text", "text": "read it", "cache_control": {"type": "ephemeral"}},
+            {"type": "image", "source": {"type": "base64", "data": "aGVsbG8="}},
+        ]},
+        {"role": "assistant", "content": [
+            {"type": "thinking", "thinking": "need the file", "signature": "sig"},
+            {"type": "tool_use", "id": "toolu_1", "name": "read_file", "input": {"path": "a.txt"}},
+        ]},
+        {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "toolu_1",
+             "content": [{"type": "text", "text": "file body"}]},
+        ]},
+    ]}}
+    observer.llm_call(**llm_payload(request=request))
+
+    messages = json.loads(by_name(exporter)["chat gpt-5"].attributes[SC.GEN_AI_INPUT_MESSAGES])
+    assert messages == [
+        {"role": "user", "parts": [{"type": "text", "content": "read it"}, {"type": "image"}]},
+        {"role": "assistant", "parts": [
+            {"type": "reasoning", "content": "need the file"},
+            {"type": "tool_call", "id": "toolu_1", "name": "read_file",
+             "arguments": {"path": "a.txt"}},
+        ]},
+        {"role": "user", "parts": [
+            {"type": "tool_call_response", "id": "toolu_1", "response": "file body"},
+        ]},
+    ]
+
+
 def test_subagent_turn_joins_the_parent_trace():
     observer, exporter = make_observer()
     observer.turn_start(session_id="parent", turn_id="t1")
