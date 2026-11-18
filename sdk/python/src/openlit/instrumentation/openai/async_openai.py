@@ -92,6 +92,11 @@ def async_chat_completions(
         def __aiter__(self):
             return self
 
+        @property
+        def __class__(self):
+            """Preserve isinstance(response, openai.AsyncStream) checks (#1704)."""
+            return type(self.__wrapped__)
+
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
@@ -335,6 +340,11 @@ def async_responses(
 
         def __aiter__(self):
             return self
+
+        @property
+        def __class__(self):
+            """Preserve isinstance(response, openai.AsyncStream) checks (#1704)."""
+            return type(self.__wrapped__)
 
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
