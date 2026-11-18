@@ -56,6 +56,7 @@ These are the data-source connectors available in open-source OpenLIT. OpenPlait
 | **Grafana Loki** | `@openplait/adapter-loki` | logs | LogQL logs; correlate by trace id / service |
 | **Prometheus** | `@openplait/adapter-prometheus` | metrics | PromQL HTTP API (also works with Prometheus-compatible endpoints such as Mimir when you point at their query URL) |
 | **Jaeger** | `@openplait/adapter-jaeger` | traces | Jaeger Query HTTP API; sampled in-process aggregates |
+| **SigNoz** | native adapter (no OpenPlait package) | traces, logs | SigNoz v5 query API (`/api/v5/query_range`), SigNoz v0.92.0 or later |
 
 <Tip>
 Prometheus-compatible APIs (for example Grafana Mimir's PromQL endpoint) use the **Prometheus** connector — there is no separate Mimir connector type in open-source OpenLIT.
@@ -70,6 +71,7 @@ Prometheus-compatible APIs (for example Grafana Mimir's PromQL endpoint) use the
 | Loki | logs | — | — | No | No | trace id, service |
 | Prometheus | metrics | — | — | Yes | No | — |
 | Jaeger | traces | Yes | Yes | No* | No | trace / span / service |
+| SigNoz | traces, logs | Yes | No | Yes | No | trace / span / service |
 
 \* Aggregate graphs are reconstructed in-process from a bounded sample of full traces when the backend cannot aggregate server-side.
 
@@ -142,6 +144,30 @@ Both connectors support the trace tree and server-side aggregation, and correlat
 <Tip>
 Local demo credentials for seeded installs: email `user@openlit.io`, password `openlituser`. Jaeger all-in-one + seed script live in the OpenPlait `adapter-jaeger` integration folder.
 </Tip>
+
+## Add a SigNoz connector
+
+<Steps>
+  <Step title="Select project and environment">
+    Use the header selectors to pick the [project](/latest/openlit/organisation/projects) and [environment](/latest/openlit/organisation/environments).
+  </Step>
+  <Step title="Open Connectors">
+    Go to **Configuration -> Connectors** and choose **Add connector** / **Add source**.
+  </Step>
+  <Step title="Pick SigNoz">
+    Select **SigNoz** from the data-source connector list.
+  </Step>
+  <Step title="Configure endpoint and API key">
+    Set the SigNoz URL (self-hosted: `http://localhost:8080`) and an API key from **Settings > API Keys** in SigNoz (viewer access is enough). The connector talks to the v5 query API, so SigNoz v0.92.0 or later is required.
+  </Step>
+  <Step title="Bind traces and logs">
+    Bind **traces** and **logs** to the connector under [signal routing](/latest/openlit/organisation/signal-routing).
+  </Step>
+</Steps>
+
+<Note>
+Metrics are not served by the SigNoz connector yet; surfaces that need metrics show an honest "not supported by this data source" state.
+</Note>
 
 ## Actions you can take on a connector
 
