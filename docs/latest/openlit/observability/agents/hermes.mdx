@@ -73,6 +73,8 @@ Each user turn is one trace. Delegated subagent turns are nested inside the trac
 
 Auxiliary LLM calls, such as title generation and compression, are `chat` spans with `hermes.auxiliary_task` set. A call that runs outside a turn gets its own trace.
 
+When Hermes stops a turn early, for example on an API error it won't retry, it doesn't report the turn's end. The plugin closes that turn when the next turn in the session starts, when the session ends, or when Hermes exits. The span ends at the turn's last activity, `hermes.turn.exit_reason` is `abandoned`, and the turn is marked failed if its last LLM call failed. On a gateway, such a turn appears once the session receives another message or ends.
+
 Cost is calculated in `gen_ai.usage.cost` from OpenLIT's pricing data. It is `0` for models that aren't in that data, such as self-hosted models. Set `OPENLIT_PRICING_JSON` to price them.
 
 ## Content capture
@@ -83,7 +85,7 @@ Prompts, responses, tool arguments, and tool results aren't exported by default.
 OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true
 ```
 
-This sets `gen_ai.input.messages` and `gen_ai.output.messages` on turn and LLM spans, and `gen_ai.tool.call.arguments` and `gen_ai.tool.call.result` on tool spans. Auxiliary LLM spans include the output only.
+This sets `gen_ai.input.messages` and `gen_ai.output.messages` on turn and LLM spans, including the tool calls a model requests and the tool results it receives, and `gen_ai.tool.call.arguments` and `gen_ai.tool.call.result` on tool spans. Auxiliary LLM spans include the output only.
 
 <Warning>
 Captured content can include system prompts, file contents, and command output. Tool arguments and results are exported as Hermes reports them, without redaction. Turn this on only when your OpenLIT deployment is approved to store that data.

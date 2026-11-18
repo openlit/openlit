@@ -1,7 +1,7 @@
 name: CI / CLI
 
-# Runs go-test, the installer release-resolution check, and the
-# plugin-tree drift check for the openlit CLI.
+# Runs go-test, the installer release-resolution check, the Hermes
+# plugin tests, and the plugin-tree drift check for the openlit CLI.
 # Splits out from release-cli.yml so test failures don't have to wait
 # for a tag push: every PR that touches cli/ or plugins/ gets the
 # same signal the release workflow would.
@@ -90,6 +90,27 @@ jobs:
         # We don't ship these here — just confirm the build tags
         # (flock_windows.go, etc.) keep cross-compile green.
         run: go build -trimpath -o /dev/null ./cmd/openlit
+
+  hermes-plugin:
+    name: Test / Hermes plugin
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Users install the released SDK, so test the plugin.yaml floor as
+        # well as the SDK in this commit.
+        sdk: ["openlit==1.45.0", "./sdk/python"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install "${{ matrix.sdk }}" pytest
+      - name: pytest
+        run: pytest -q plugins/hermes/tests
 
   plugin-sync:
     name: Validate / Plugin sync

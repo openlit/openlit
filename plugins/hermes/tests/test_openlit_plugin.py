@@ -267,6 +267,142 @@ def test_failed_and_interrupted_turns_still_end():
     assert interrupted.attributes["hermes.turn.interrupted"] is True
 
 
+def failed_api_call(**overrides):
+    return llm_payload(
+        usage=None,
+        response=None,
+        finish_reason=None,
+        status_code=401,
+        retryable=False,
+        reason="auth",
+        error={"type": "AuthenticationError", "message": "secret provider body"},
+        **overrides,
+    )
+
+
+def test_turn_hermes_never_ends_closes_as_failed_when_the_next_turn_starts():
+    # Hermes skips on_session_end when it stops on an API error it won't retry.
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call())
+    assert [span.name for span in exporter.get_finished_spans()] == ["chat gpt-5"]
+
+    observer.turn_start(session_id="s1", turn_id="t2")
+
+    failed = by_name(exporter)["invoke_agent hermes"]
+    assert failed.status.status_code == StatusCode.ERROR
+    assert failed.attributes[SC.ERROR_TYPE] == "AuthenticationError"
+    assert failed.attributes["hermes.turn.exit_reason"] == "abandoned"
+    assert failed.end_time == int(1002.5 * 1e9)
+    assert list(observer.turns) == ["t2"]
+
+
+def test_a_new_turn_leaves_other_sessions_open():
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.turn_start(session_id="s2", turn_id="t2")
+
+    assert exporter.get_finished_spans() == ()
+    assert set(observer.turns) == {"t1", "t2"}
+
+
+def test_session_finalize_closes_its_open_turns():
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.turn_start(session_id="s2", turn_id="t2")
+
+    observer.session_finalize(session_id="s1", platform="cli", reason="shutdown")
+
+    (closed,) = exporter.get_finished_spans()
+    assert closed.attributes[SC.GEN_AI_CONVERSATION_ID] == "s1"
+    assert closed.attributes["hermes.turn.exit_reason"] == "abandoned"
+    assert closed.status.status_code == StatusCode.UNSET
+    assert list(observer.turns) == ["t2"]
+
+
+def test_a_successful_fallback_call_clears_the_turn_error():
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call())
+    observer.llm_call(**llm_payload(api_request_id="r2", model="fallback-model"))
+
+    observer.session_finalize(session_id="s1")
+
+    assert by_name(exporter)["invoke_agent hermes"].status.status_code == StatusCode.UNSET
+
+
+def test_close_all_ends_every_open_turn_and_flushes():
+    observer, exporter = make_observer()
+    flushed = []
+    observer.flush = lambda: flushed.append(True)
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call())
+
+    observer.close_all()
+
+    assert by_name(exporter)["invoke_agent hermes"].status.status_code == StatusCode.ERROR
+    assert observer.turns == {}
+    assert flushed == [True]
+
+
+def test_close_all_without_open_turns_skips_the_flush():
+    observer, _ = make_observer()
+    observer.flush = lambda: pytest.fail("nothing to flush")
+    observer.close_all()
+
+
+def test_on_session_end_after_an_abandoned_close_is_a_no_op():
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.session_finalize(session_id="s1")
+    observer.turn_end(turn_id="t1", failed=True, turn_exit_reason="late")
+
+    (turn,) = exporter.get_finished_spans()
+    assert turn.attributes["hermes.turn.exit_reason"] == "abandoned"
+
+
+def test_tool_call_only_response_records_the_requested_calls():
+    observer, exporter = make_observer(capture_content=True)
+    tool_call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "read_file", "arguments": '{"path": "notes.txt"}'},
+    }
+    observer.llm_call(**llm_payload(
+        finish_reason="tool_calls",
+        response={"assistant_message": {"role": "assistant", "content": None,
+                                        "tool_calls": [tool_call]}},
+    ))
+
+    output = json.loads(by_name(exporter)["chat gpt-5"].attributes[SC.GEN_AI_OUTPUT_MESSAGES])
+    assert output == [{
+        "role": "assistant",
+        "parts": [{"type": "tool_call", "id": "call_1", "name": "read_file",
+                   "arguments": {"path": "notes.txt"}}],
+        "finish_reason": "tool_calls",
+    }]
+
+
+def test_input_messages_keep_tool_calls_and_tool_results():
+    observer, exporter = make_observer(capture_content=True)
+    request = {"method": "POST", "body": {"messages": [
+        {"role": "user", "content": "read it"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"id": "call_1", "function": {"name": "read_file", "arguments": "not json"}},
+        ]},
+        {"role": "tool", "tool_call_id": "call_1", "content": "file body"},
+    ]}}
+    observer.llm_call(**llm_payload(request=request))
+
+    messages = json.loads(by_name(exporter)["chat gpt-5"].attributes[SC.GEN_AI_INPUT_MESSAGES])
+    assert messages[0] == {"role": "user", "parts": [{"type": "text", "content": "read it"}]}
+    assert messages[1]["parts"] == [{"type": "tool_call", "id": "call_1", "name": "read_file",
+                                     "arguments": {"raw": "not json"}}]
+    assert messages[2] == {"role": "tool", "parts": [
+        {"type": "tool_call_response", "id": "call_1", "response": "file body"}
+    ]}
+
+
 def test_subagent_turn_joins_the_parent_trace():
     observer, exporter = make_observer()
     observer.turn_start(session_id="parent", turn_id="t1")
@@ -416,7 +552,14 @@ def clean_env(monkeypatch):
 
 
 @pytest.fixture
-def setup_calls(clean_env):
+def exit_handlers(clean_env):
+    handlers = []
+    clean_env.setattr(plugin.atexit, "register", handlers.append)
+    return handlers
+
+
+@pytest.fixture
+def setup_calls(clean_env, exit_handlers):
     calls = []
     tracer_stub = TracerProvider().get_tracer("test")
 
@@ -451,6 +594,17 @@ def test_register_uses_otlp_env_with_batching(setup_calls, clean_env):
     assert "post_tool_call" in ctx.hooks
     assert "pre_tool_call" not in ctx.hooks
     assert "pre_api_request" not in ctx.hooks
+
+
+def test_register_closes_open_turns_at_exit(setup_calls, exit_handlers, clean_env):
+    clean_env.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318")
+    ctx = FakeContext()
+    plugin.register(ctx)
+
+    assert "on_session_finalize" in ctx.hooks
+    # Last registered, so it runs before the tracer provider's own shutdown.
+    assert exit_handlers[-1].__name__ == "close_all"
+    assert exit_handlers[-1]() is None
 
 
 def test_register_falls_back_to_openlit_env(setup_calls, clean_env):

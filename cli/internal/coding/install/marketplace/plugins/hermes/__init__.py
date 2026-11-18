@@ -9,10 +9,15 @@ parents are passed explicitly, and shared state lives in dicts touched only by a
 get/set/pop calls. LLM and tool spans are created when the call ends, from the timings in the
 payload, which is why the plugin never registers ``pre_tool_call``: a slow or failing callback
 there blocks the tool.
+
+Hermes skips ``on_session_end`` when a turn stops early, for example on an API error it won't
+retry. Such a turn is closed when the next turn in its session starts, when the session is
+finalized, or when the process exits, and is marked failed if its last model call failed.
 """
 
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 import os
@@ -29,6 +34,7 @@ from openlit.__helpers import (
     format_input_message,
     format_output_message,
     get_chat_model_cost,
+    truncate_content,
 )
 from openlit.otel.tracing import setup_tracing
 from openlit.semcov import SemanticConvention as SC
@@ -75,15 +81,58 @@ def _set_error(span: Span, error_type: str | None) -> None:
         span.set_attribute(SC.ERROR_TYPE, error_type)
 
 
+def _tool_call_parts(tool_calls: Any) -> list[dict[str, Any]]:
+    """OTel GenAI ``tool_call`` parts from OpenAI-style tool calls."""
+    parts = []
+    for call in tool_calls if isinstance(tool_calls, list) else []:
+        if not isinstance(call, dict):
+            continue
+        function = call.get("function") if isinstance(call.get("function"), dict) else {}
+        arguments = function.get("arguments", call.get("arguments"))
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except ValueError:
+                arguments = {"raw": truncate_content(arguments)}
+        parts.append({
+            "type": "tool_call",
+            "id": call.get("id") or "",
+            "name": function.get("name") or call.get("name") or "",
+            "arguments": arguments or {},
+        })
+    return parts
+
+
+def _message(role: str, content: Any, tool_calls: Any = None) -> dict[str, Any]:
+    """One OTel GenAI message: its text, then any tool calls it requests."""
+    if role == "tool":
+        return {"role": role, "parts": [{
+            "type": "tool_call_response",
+            "id": "",
+            "response": truncate_content(str(content or "")),
+        }]}
+    tool_parts = _tool_call_parts(tool_calls)
+    if not tool_parts:
+        return format_input_message(role, content or "")
+    text = [{"type": "text", "content": truncate_content(str(content))}] if content else []
+    return {"role": role, "parts": text + tool_parts}
+
+
 def _input_messages(request: Any) -> list[dict[str, Any]]:
     """OTel GenAI messages from Hermes's sanitized provider request."""
     body = (request or {}).get("body") or {}
     messages = body.get("messages") or body.get("input") or []
-    return [
-        format_input_message(message.get("role") or "user", message.get("content") or "")
-        for message in messages
-        if isinstance(message, dict)
-    ]
+    formatted = []
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        item = _message(
+            message.get("role") or "user", message.get("content"), message.get("tool_calls")
+        )
+        if item["role"] == "tool":
+            item["parts"][0]["id"] = message.get("tool_call_id") or ""
+        formatted.append(item)
+    return formatted
 
 
 @dataclass
@@ -92,7 +141,12 @@ class Turn:
 
     span: Span
     context: Context
+    session_id: str = ""
     requests: dict[str, Any] = field(default_factory=dict)
+    # When the turn last did something, and the error of its last model call, if that failed:
+    # what a turn Hermes never ends is closed with.
+    last_activity_ns: int = field(default_factory=time.time_ns)
+    error_type: str | None = None
 
 
 class Observer:
@@ -113,6 +167,7 @@ class Observer:
         hooks = {
             "pre_llm_call": self.turn_start,
             "on_session_end": self.turn_end,
+            "on_session_finalize": self.session_finalize,
             "post_api_request": self.llm_call,
             "api_request_error": self.llm_call,
             "post_auxiliary_call": self.llm_call,
@@ -132,6 +187,8 @@ class Observer:
 
     def turn_start(self, **kwargs: Any) -> None:
         session_id = kwargs.get("session_id")
+        # A session runs one turn at a time, so a turn still open here was abandoned.
+        self._close_turns(lambda turn: turn.session_id == (session_id or ""))
         span = self.tracer.start_span(
             f"{SC.GEN_AI_OPERATION_TYPE_AGENT} {AGENT_NAME}",
             context=self.subagent_parents.get(session_id or "", Context()),
@@ -148,7 +205,7 @@ class Observer:
             message = format_input_message("user", kwargs.get("user_message") or "")
             span.set_attribute(SC.GEN_AI_INPUT_MESSAGES, _to_json([message]))
         context = trace.set_span_in_context(span, Context())
-        self.turns[kwargs.get("turn_id") or ""] = Turn(span, context)
+        self.turns[kwargs.get("turn_id") or ""] = Turn(span, context, session_id or "")
 
     def turn_output(self, **kwargs: Any) -> None:
         turn = self.turns.get(kwargs.get("turn_id") or "")
@@ -167,6 +224,34 @@ class Observer:
         if kwargs.get("failed"):
             _set_error(turn.span, exit_reason)
         turn.span.end()
+        self._flush_soon()
+
+    def session_finalize(self, **kwargs: Any) -> None:
+        """Session over (expired, reset, or the process shutting down): close its open turns."""
+        session_id = kwargs.get("session_id") or ""
+        self._close_turns(lambda turn: turn.session_id == session_id)
+
+    def close_all(self) -> None:
+        """At exit: close every open turn and ship it."""
+        if self._close_turns(lambda turn: True, flush=False):
+            self.flush()
+
+    def _close_turns(self, matches: Callable[[Turn], bool], flush: bool = True) -> int:
+        """End open turns Hermes never ended, at their last activity."""
+        closed = 0
+        for turn_id, turn in list(self.turns.items()):
+            if not matches(turn) or self.turns.pop(turn_id, None) is None:
+                continue
+            turn.span.set_attribute("hermes.turn.exit_reason", "abandoned")
+            if turn.error_type:
+                _set_error(turn.span, turn.error_type)
+            turn.span.end(end_time=turn.last_activity_ns)
+            closed += 1
+        if closed and flush:
+            self._flush_soon()
+        return closed
+
+    def _flush_soon(self) -> None:
         # A gateway stopped inside the batch delay exits without flushing, so ship the turn now.
         threading.Thread(target=fail_open(self.flush), name="openlit-flush", daemon=True).start()
 
@@ -223,11 +308,18 @@ class Observer:
         if self.capture_content:
             self._set_llm_content(span, turn_id, kwargs)
         error = kwargs.get("error")
+        error_type = None
         if error:
             # A post_auxiliary_call error is a string beside error_type; api_request_error's is a dict.
             nested_type = error.get("type") if isinstance(error, dict) else None
-            _set_error(span, kwargs.get("error_type") or nested_type or kwargs.get("reason"))
-        span.end(end_time=_to_ns(kwargs.get("ended_at")))
+            error_type = kwargs.get("error_type") or nested_type or kwargs.get("reason")
+            _set_error(span, error_type)
+        end_ns = _to_ns(kwargs.get("ended_at"))
+        span.end(end_time=end_ns)
+        turn = self.turns.get(turn_id or "")
+        if turn and not kwargs.get("aux_task"):
+            turn.last_activity_ns = end_ns
+            turn.error_type = (error_type or "error") if error else None
 
     def _set_llm_content(self, span: Span, turn_id: str | None, kwargs: dict[str, Any]) -> None:
         turn = self.turns.get(turn_id or "")
@@ -235,9 +327,12 @@ class Observer:
         messages = _input_messages(pending or kwargs.get("request"))
         if messages:
             span.set_attribute(SC.GEN_AI_INPUT_MESSAGES, _to_json(messages))
-        content = ((kwargs.get("response") or {}).get("assistant_message") or {}).get("content")
-        if content:
-            message = format_output_message(content, kwargs.get("finish_reason"))
+        assistant = (kwargs.get("response") or {}).get("assistant_message") or {}
+        content, tool_calls = assistant.get("content"), assistant.get("tool_calls")
+        if content or tool_calls:
+            message = _message("assistant", content, tool_calls)
+            if kwargs.get("finish_reason"):
+                message["finish_reason"] = kwargs["finish_reason"]
             span.set_attribute(SC.GEN_AI_OUTPUT_MESSAGES, _to_json([message]))
 
     def tool_call(self, **kwargs: Any) -> None:
@@ -263,6 +358,9 @@ class Observer:
         if status == "error":
             _set_error(span, kwargs.get("error_type"))
         span.end(end_time=end_ns)
+        turn = self.turns.get(kwargs.get("turn_id") or "")
+        if turn:
+            turn.last_activity_ns = end_ns
 
     def subagent_start(self, **kwargs: Any) -> None:
         child_session_id = kwargs.get("child_session_id")
@@ -305,3 +403,5 @@ def register(ctx: Any) -> None:
     threading.Thread(target=observer.load_pricing, name="openlit-pricing", daemon=True).start()
     for name, callback in observer.hooks().items():
         ctx.register_hook(name, fail_open(callback))
+    # Registered after the tracer provider's own exit handler, so it runs first.
+    atexit.register(fail_open(observer.close_all))
