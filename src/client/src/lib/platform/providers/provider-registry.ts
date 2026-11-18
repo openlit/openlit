@@ -1,4 +1,5 @@
 import { ProviderMetadata, ModelMetadata, ConfigField } from "@/types/openground";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
 import { dataCollector } from "@/lib/platform/common";
 import Sanitizer from "@/utils/sanitizer";
 import {
@@ -15,6 +16,7 @@ type ProviderMetadataRow = {
 	description: string;
 	requires_vault: boolean;
 	config_schema: string;
+	base_url: string | null;
 	is_default: boolean;
 };
 
@@ -31,6 +33,7 @@ function parseProviderRow(row: ProviderMetadataRow): Omit<ProviderMetadata, "sup
 		description: row.description || "",
 		requiresVault: !!row.requires_vault,
 		configSchema,
+		baseUrl: row.base_url || undefined,
 	};
 }
 
@@ -50,6 +53,7 @@ async function loadAllProvidersFromDb(
 			description,
 			requires_vault,
 			config_schema,
+			base_url,
 			is_default
 		FROM ${OPENLIT_PROVIDER_METADATA_TABLE_NAME} FINAL
 		ORDER BY is_default DESC, display_name ASC
@@ -62,7 +66,7 @@ async function loadAllProvidersFromDb(
 
 async function loadProviderFromDb(
 	providerId: string,
-	databaseConfigId: string
+	databaseConfigId?: string
 ): Promise<Omit<ProviderMetadata, "supportedModels"> | null> {
 	const query = `
 		SELECT
@@ -71,6 +75,7 @@ async function loadProviderFromDb(
 			description,
 			requires_vault,
 			config_schema,
+			base_url,
 			is_default
 		FROM ${OPENLIT_PROVIDER_METADATA_TABLE_NAME} FINAL
 		WHERE provider_id = '${Sanitizer.sanitizeValue(providerId)}'
@@ -193,6 +198,19 @@ export class ProviderRegistry {
 
 		const models = await loadProviderModelsFromDb(providerId, databaseConfigId);
 		return { ...provider, supportedModels: models };
+	}
+
+	/**
+	 * Base URL requests to this provider should use, for providers with a
+	 * configurable endpoint.
+	 */
+	static async getBaseUrl(
+		providerId: string,
+		databaseConfigId?: string
+	): Promise<string | undefined> {
+		if (providerId !== OPENAI_COMPATIBLE_PROVIDER_ID) return undefined;
+		const provider = await loadProviderFromDb(providerId, databaseConfigId);
+		return provider?.baseUrl;
 	}
 
 	/**

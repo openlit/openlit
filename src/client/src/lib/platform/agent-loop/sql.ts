@@ -117,6 +117,10 @@ export function agentLoopHitsByTraceSql(
 	threshold: number = AGENT_LOOP_THRESHOLD
 ): string {
 	const idList = traceIds.map((id) => `'${id.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`).join(", ");
+	const pageWhere = `${baseWhere} AND TraceId IN (${idList})`;
+	// A group can span traces outside this page and repeat_count must keep
+	// counting them, so the page picks which groups run, not which rows they see.
+	const pageGroupsWhere = `${baseWhere} AND ${GROUP_KEY_SQL} IN (SELECT ${GROUP_KEY_SQL} FROM ${table} WHERE ${pageWhere})`;
 	return `
 		SELECT
 			TraceId,
@@ -131,12 +135,11 @@ export function agentLoopHitsByTraceSql(
 				loops.repeat_count AS repeat_count,
 				loops.wasted_tokens AS wasted_tokens,
 				loops.wasted_cost AS wasted_cost
-			FROM (${agentLoopToolRowsSql(table, baseWhere)}) AS tool_rows
-			INNER JOIN (${agentLoopGroupsSql(table, baseWhere, threshold)}) AS loops
+			FROM (${agentLoopToolRowsSql(table, pageWhere)}) AS tool_rows
+			INNER JOIN (${agentLoopGroupsSql(table, pageGroupsWhere, threshold)}) AS loops
 				ON tool_rows.group_key = loops.group_key
 				AND tool_rows.tool_name = loops.tool_name
 				AND tool_rows.args_fp = loops.args_fp
-			WHERE tool_rows.TraceId IN (${idList})
 		)
 		GROUP BY TraceId
 	`;

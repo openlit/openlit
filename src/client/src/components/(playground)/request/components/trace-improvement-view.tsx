@@ -18,7 +18,7 @@ import {
 	TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ReactMarkdown from "react-markdown";
+import Markdown from "@/components/common/markdown";
 import { toast } from "sonner";
 import { getRequestHeaders } from "@/utils/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -171,36 +171,8 @@ function AnalysisProgress({
 	);
 }
 
-function MarkdownText({ content }: { content: string }) {
-	return (
-		<div className="chat-markdown">
-			<ReactMarkdown
-				components={{
-					p({ children }) {
-						return <p className="my-1.5 text-sm leading-relaxed text-stone-800 dark:text-stone-100 whitespace-pre-wrap">{children}</p>;
-					},
-					ul({ children }) {
-						return <ul className="my-1.5 list-disc space-y-1 pl-5 text-sm text-stone-800 dark:text-stone-100">{children}</ul>;
-					},
-					ol({ children }) {
-						return <ol className="my-1.5 list-decimal space-y-1 pl-5 text-sm text-stone-800 dark:text-stone-100">{children}</ol>;
-					},
-					li({ children }) {
-						return <li className="text-sm leading-relaxed text-stone-800 dark:text-stone-100">{children}</li>;
-					},
-					strong({ children }) {
-						return <strong className="font-semibold text-stone-900 dark:text-stone-300">{children}</strong>;
-					},
-					code({ children }) {
-						return <code className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[14px] text-stone-900 dark:bg-stone-700 dark:text-stone-300">{children}</code>;
-					},
-				}}
-			>
-				{content}
-			</ReactMarkdown>
-		</div>
-	);
-}
+const FINDING_MARKDOWN_CLASS =
+	"text-sm leading-relaxed text-stone-800 dark:text-stone-100";
 
 function parseAnalysisMessage(content?: string): TraceAnalysis | null {
 	if (!content) return null;
@@ -409,7 +381,7 @@ function FindingCard({
 						{m.TRACE_AI_DETAILS}
 					</AccordionTrigger>
 					<AccordionContent className="pb-0">
-						<MarkdownText content={finding.detail} />
+						<Markdown className={FINDING_MARKDOWN_CLASS} content={finding.detail} />
 						{finding.suggested_fix && (
 							<div className="mt-2 rounded bg-white p-2 dark:bg-stone-950">
 								<div className="mb-1 flex items-center justify-between gap-2">
@@ -444,7 +416,7 @@ function FindingCard({
 										</button>
 									</div>
 								</div>
-								<MarkdownText content={finding.suggested_fix} />
+								<Markdown className={FINDING_MARKDOWN_CLASS} content={finding.suggested_fix} />
 								{showDiff && hasPatches && (
 									<DiffView patches={finding.suggested_fix_patches!} />
 								)}

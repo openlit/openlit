@@ -824,7 +824,7 @@ export default function OrganisationSettingsPage() {
 												</div>
 											</TableCell>
 											<TableCell className="py-2">
-												{member.isCreator ? (
+												{member.role === "owner" ? (
 													<Badge
 														variant="secondary"
 														className="text-xs h-5 px-2"
@@ -832,7 +832,7 @@ export default function OrganisationSettingsPage() {
 														<Crown className="h-3 w-3 mr-1" />
 														{messages.OWNER}
 													</Badge>
-												) : hasAdminPermissions ? (
+												) : hasAdminPermissions && !member.isCreator ? (
 													<Select
 														value={member.role}
 														onValueChange={(value) =>

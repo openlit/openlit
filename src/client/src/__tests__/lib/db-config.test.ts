@@ -58,6 +58,7 @@ jest.mock('@/constants/messages', () => ({
   __esModule: true,
   default: jest.fn(() => ({
     UNAUTHORIZED_USER: 'Unauthorized',
+    DB_CONFIG_INVALID_PORT: 'Port must be a number between 1 and 65535',
     DB_CONFIG_NOT_IN_CURRENT_PROJECT: "Database config doesn't exist in current project",
     CURRENT_DB_CONFIG_SET_SUCCESS: 'Current DB config set successfully!',
   })),
@@ -347,6 +348,15 @@ describe('upsertDBConfig', () => {
       upsertDBConfig({ name: 'a', username: 'b', host: 'c', database: 'd' })
     ).rejects.toThrow('No port provided');
   });
+
+  it.each(['99999', '0', 'abc', '1e3', ' 8123'])(
+    'rejects the unusable port %j',
+    async (port) => {
+      await expect(upsertDBConfig({ ...validConfig, port })).rejects.toThrow(
+        'Port must be a number between 1 and 65535'
+      );
+    }
+  );
 
   it('throws when database is missing', async () => {
     await expect(

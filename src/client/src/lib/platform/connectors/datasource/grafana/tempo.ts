@@ -560,7 +560,8 @@ export function tempoAISelectorQuery(
 
 /** Map an OpenLIT numeric field to a scoped TraceQL attribute reference. */
 function metricAttrRef(field?: string): string {
-	const raw = (field || "").trim();
+	// Accept the planner's `span:` / `resource:` scoped form as well as TraceQL's.
+	const raw = (field || "").trim().replace(/^(span|resource):/, "$1.");
 	if (!raw) return "";
 	if (raw === "duration" || raw === "Duration" || raw === "durationNs") return "duration";
 	if (raw.startsWith("span.") || raw.startsWith("resource.")) {

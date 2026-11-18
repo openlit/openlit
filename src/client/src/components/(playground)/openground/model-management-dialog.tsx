@@ -14,9 +14,9 @@ import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { PlusIcon, PencilIcon, Trash2Icon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import getMessage from "@/constants/messages";
+import IntermediateState from "@/components/(playground)/intermediate-state";
 import { ModelMetadata } from "@/types/openground";
 import {
 	Table,
@@ -80,7 +80,7 @@ export default function ModelManagementDialog({
 
 	const handleSave = () => {
 		if (!formData.id || !formData.displayName) {
-			toast.error(getMessage().OPENGROUND_MODEL_ID + " and " + getMessage().OPENGROUND_MODEL_DISPLAY_NAME + " are required");
+			toast.error(getMessage().OPENGROUND_MODEL_ID_AND_NAME_REQUIRED);
 			return;
 		}
 
@@ -184,13 +184,13 @@ export default function ModelManagementDialog({
 
 				<div className="space-y-6 py-4">
 					{/* Form Section */}
-					<div className="space-y-4 p-4 border rounded-lg bg-stone-50 dark:bg-stone-900">
+					<div className="space-y-4 rounded-md border border-stone-200 bg-stone-50 p-4 dark:border-stone-800 dark:bg-stone-900">
 						<div className="grid grid-cols-2 gap-4">
 							<div className="space-y-2">
 								<Label htmlFor="model-id">{getMessage().OPENGROUND_MODEL_ID}*</Label>
 								<Input
 									id="model-id"
-									placeholder="gpt-4o-custom"
+									placeholder={getMessage().OPENGROUND_MODEL_ID_PLACEHOLDER}
 									value={formData.id}
 									onChange={(e) => setFormData({ ...formData, id: e.target.value })}
 									disabled={isEditing}
@@ -200,7 +200,7 @@ export default function ModelManagementDialog({
 								<Label htmlFor="model-display-name">{getMessage().OPENGROUND_MODEL_DISPLAY_NAME}*</Label>
 								<Input
 									id="model-display-name"
-									placeholder="GPT-4o Custom"
+									placeholder={getMessage().OPENGROUND_MODEL_DISPLAY_NAME_PLACEHOLDER}
 									value={formData.displayName}
 									onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
 								/>
@@ -284,7 +284,7 @@ export default function ModelManagementDialog({
 							<Label htmlFor="capabilities">{getMessage().OPENGROUND_MODEL_CAPABILITIES}</Label>
 							<Input
 								id="capabilities"
-								placeholder="function-calling, vision, streaming"
+								placeholder={getMessage().OPENGROUND_MODEL_CAPABILITIES_PLACEHOLDER}
 								value={Array.isArray(formData.capabilities) ? formData.capabilities.join(", ") : ""}
 								onChange={(e) => {
 									const caps = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
@@ -307,11 +307,11 @@ export default function ModelManagementDialog({
 
 					{/* Existing Custom Models List */}
 					<div className="space-y-2">
-						<h4 className="font-medium text-sm">{getMessage().OPENGROUND_CUSTOM_MODEL}s</h4>
+						<h4 className="text-sm font-medium text-stone-700 dark:text-stone-300">
+							{getMessage().OPENGROUND_CUSTOM_MODELS}
+						</h4>
 						{loadingModels ? (
-							<div className="text-center py-4 text-sm text-stone-500">
-								{getMessage().LOADING}...
-							</div>
+							<IntermediateState type="loading" classNames="py-4" />
 						) : customModels && customModels.length > 0 ? (
 							<Table>
 								<TableHeader>
@@ -339,14 +339,18 @@ export default function ModelManagementDialog({
 														size="icon"
 														className="h-8 w-8"
 														onClick={() => handleEdit(model)}
+														title={getMessage().EDIT}
+														aria-label={getMessage().EDIT}
 													>
 														<PencilIcon className="h-4 w-4" />
 													</Button>
 													<Button
 														variant="ghost"
 														size="icon"
-														className="h-8 w-8 text-red-600 hover:text-red-700"
+														className="h-8 w-8 text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
 														onClick={() => handleDelete(model)}
+														title={getMessage().DELETE}
+														aria-label={getMessage().DELETE}
 														disabled={deleting}
 													>
 														<Trash2Icon className="h-4 w-4" />
@@ -358,7 +362,7 @@ export default function ModelManagementDialog({
 								</TableBody>
 							</Table>
 						) : (
-							<div className="text-center py-8 text-sm text-stone-500 border rounded-lg">
+							<div className="rounded-md border border-dashed border-stone-200 py-8 text-center text-sm text-stone-500 dark:border-stone-800 dark:text-stone-400">
 								{getMessage().OPENGROUND_NO_CUSTOM_MODELS_YET}
 							</div>
 						)}

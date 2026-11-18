@@ -6,6 +6,7 @@ import {
 	TraceRow,
 	TraceHeirarchySpan,
 } from "@/types/trace";
+import { extractTextMessages } from "@/helpers/client/span-messages";
 import { objectKeys } from "@/utils/object";
 import { format } from "date-fns";
 import { find, get, round } from "lodash";
@@ -42,27 +43,12 @@ export const integerParser = (value: string, offset?: number) =>
 export const floatParser = (value: string, offset?: number) =>
 	parseFloat((value || "0") as string) * (offset || 1);
 
-/** Extract readable text from gen_ai.input.messages / gen_ai.output.messages JSON */
-function extractTextFromMessages(raw: unknown): string | undefined {
-	if (raw == null) return undefined;
-	let arr: Array<{ role?: string; parts?: Array<{ type?: string; content?: string }> }>;
-	try {
-		arr = typeof raw === "string" ? JSON.parse(raw) : raw;
-	} catch {
-		return undefined;
-	}
-	if (!Array.isArray(arr)) return undefined;
-	const texts: string[] = [];
-	for (const msg of arr) {
-		const parts = msg?.parts;
-		if (!Array.isArray(parts)) continue;
-		for (const p of parts) {
-			if (p?.type === "text" && typeof p.content === "string") {
-				texts.push(p.content);
-			}
-		}
-	}
-	return texts.length > 0 ? texts.join("\n\n") : undefined;
+/** Extract readable text from gen_ai.input.messages / gen_ai.output.messages */
+function extractMessageText(raw: unknown): string | undefined {
+	const text = extractTextMessages(raw)
+		.map((message) => message.content)
+		.join("\n\n");
+	return text || undefined;
 }
 
 export const getNormalizedTraceAttribute = (
@@ -120,12 +106,12 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 					value =
 						spanAttrs["gen_ai.content.prompt"] ??
 						spanAttrs["gen_ai.request.input"] ??
-						extractTextFromMessages(spanAttrs["gen_ai.input.messages"]);
+						extractMessageText(spanAttrs["gen_ai.input.messages"]);
 				} else if (value == null && traceKey === "response") {
 					value =
 						spanAttrs["gen_ai.content.completion"] ??
 						spanAttrs["gen_ai.response.output"] ??
-						extractTextFromMessages(spanAttrs["gen_ai.output.messages"]);
+						extractMessageText(spanAttrs["gen_ai.output.messages"]);
 				} else if (value == null && traceKey === "revisedPrompt") {
 					value = spanAttrs["gen_ai.content.revised_prompt"];
 				}

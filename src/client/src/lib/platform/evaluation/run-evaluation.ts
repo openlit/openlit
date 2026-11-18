@@ -3,12 +3,11 @@
  * Replaces the Python/LiteLLM evaluation script.
  */
 import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createMistral } from "@ai-sdk/mistral";
-import { createCohere } from "@ai-sdk/cohere";
 import getMessage from "@/constants/messages";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
+import { createModel } from "@/lib/platform/providers/create-model";
+import { samplingFor } from "@/lib/platform/providers/sampling";
+import { parseModelJson } from "@/lib/platform/chat/json-recovery";
 import { Evaluation } from "@/types/evaluation";
 import { TYPESAFE_PROVIDER_ID, type EvaluationTypeForJev } from "./jev-mapper";
 import { runJevEvaluation } from "./run-jev-evaluation";
@@ -68,60 +67,6 @@ Expectations:
 `;
 }
 
-function getModel(provider: string, model: string, apiKey: string) {
-	const mappedProvider = PROVIDER_MAP[provider.toLowerCase()] || provider.toLowerCase();
-	switch (mappedProvider) {
-		case "openai":
-			return createOpenAI({ apiKey })(model);
-		case "anthropic":
-			return createAnthropic({ apiKey })(model);
-		case "google":
-			return createGoogleGenerativeAI({ apiKey })(model);
-		case "mistral":
-			return createMistral({ apiKey })(model);
-		case "cohere":
-			return createCohere({ apiKey })(model);
-		case "groq":
-			return createOpenAI({
-				baseURL: "https://api.groq.com/openai/v1",
-				apiKey,
-			})(model);
-		case "perplexity":
-			return createOpenAI({
-				baseURL: "https://api.perplexity.ai",
-				apiKey,
-				headers: { "X-Pplx-Integration": "openlit" },
-			})(model);
-		case "deepseek":
-			return createOpenAI({
-				baseURL: "https://api.deepseek.com",
-				apiKey,
-			})(model);
-		case "xai":
-			return createOpenAI({
-				baseURL: "https://api.x.ai/v1",
-				apiKey,
-			})(model);
-		case "together":
-			return createOpenAI({
-				baseURL: "https://api.together.xyz/v1",
-				apiKey,
-			})(model);
-		case "fireworks":
-			return createOpenAI({
-				baseURL: "https://api.fireworks.ai/inference/v1",
-				apiKey,
-			})(model);
-		case "orcarouter":
-			return createOpenAI({
-				baseURL: "https://api.orcarouter.ai/v1",
-				apiKey,
-			})(model);
-		default:
-			throw new Error(`Provider ${provider} not supported for evaluation`);
-	}
-}
-
 const DEFAULT_RESULT: Evaluation[] = [
 	{ score: 0, evaluation: "Hallucination", classification: "none", explanation: "No Hallucination detected", verdict: "no" },
 	{ score: 0, evaluation: "Bias", classification: "none", explanation: "No Bias is detected", verdict: "no" },
@@ -132,6 +77,7 @@ export interface RunEvaluationParams {
 	provider: string;
 	model: string;
 	apiKey: string;
+	baseUrl?: string;
 	prompt?: string;
 	contexts?: string;
 	response?: string;
@@ -154,6 +100,7 @@ export async function runEvaluation(
 		provider,
 		model,
 		apiKey,
+		baseUrl,
 		prompt = "",
 		contexts = "",
 		response = "",
@@ -161,7 +108,8 @@ export async function runEvaluation(
 		evaluationTypes,
 	} = params;
 
-	if (!apiKey || !provider || !model) {
+	const keyRequired = provider !== OPENAI_COMPATIBLE_PROVIDER_ID;
+	if ((keyRequired && !apiKey) || !provider || !model) {
 		return { success: false, result: DEFAULT_RESULT, error: getMessage().EVALUATION_ERROR_MISSING_CONFIG };
 	}
 
@@ -178,7 +126,13 @@ export async function runEvaluation(
 	}
 
 	try {
-		const modelInstance = getModel(provider, model, apiKey);
+		const normalizedProvider = provider.toLowerCase();
+		const modelInstance = createModel(
+			PROVIDER_MAP[normalizedProvider] || normalizedProvider,
+			apiKey,
+			model,
+			baseUrl
+		);
 		const systemPrompt = getSystemPrompt(
 			thresholdScore,
 			prompt,
@@ -189,10 +143,18 @@ export async function runEvaluation(
 		const { text, usage } = await generateText({
 			model: modelInstance,
 			prompt: systemPrompt,
-			temperature: 0,
+			...samplingFor(modelInstance, { temperature: 0 }),
 		});
 
-		const parsed = JSON.parse(text) as { success?: boolean; result?: Evaluation[] };
+		const extracted = parseModelJson(text, (value: any) =>
+			Array.isArray(value?.result)
+		);
+		// Salvaged (truncated) output may be missing requested evaluation types,
+		// so it is not reported as a successful evaluation.
+		const parsed = (extracted && !extracted.recovered ? extracted.value : null) as {
+			success?: boolean;
+			result?: Evaluation[];
+		} | null;
 		const result = parsed?.result;
 		if (!Array.isArray(result) || result.length === 0) {
 			return { success: false, result: DEFAULT_RESULT, error: getMessage().EVALUATION_ERROR_INVALID_RESPONSE };
@@ -204,7 +166,7 @@ export async function runEvaluation(
 				? { promptTokens, completionTokens }
 				: undefined;
 		return {
-			success: parsed.success !== false,
+			success: parsed?.success !== false,
 			result,
 			usage: usageData,
 		};

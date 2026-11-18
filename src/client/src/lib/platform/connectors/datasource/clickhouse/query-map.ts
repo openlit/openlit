@@ -127,6 +127,9 @@ export function toMetricParams(
 	if (query.agentLoop) {
 		selectedConfig.agentLoop = true;
 	}
+	if (query.search) {
+		selectedConfig.search = query.search;
+	}
 	return {
 		timeLimit: toTimeLimit(query),
 		limit: query.limit,
@@ -567,5 +570,9 @@ export function metricParamsToOpenLITQuery(
 		maxDataPoints: opts.maxDataPoints,
 		generationHealth: parseGenerationHealthChips(cfg.generationHealth),
 		agentLoop: hasAgentLoopFilter(cfg.agentLoop),
+		search:
+			signal === "traces" && typeof cfg.search === "string" && cfg.search
+				? cfg.search
+				: undefined,
 	};
 }

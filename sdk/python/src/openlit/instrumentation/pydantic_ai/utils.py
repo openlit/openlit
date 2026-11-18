@@ -3,6 +3,7 @@ Optimized Pydantic AI OpenTelemetry instrumentation utility functions
 This version reduces code duplication and improves performance while maintaining all data.
 """
 
+import contextvars
 import logging
 import json
 from typing import Dict, Any, Optional, List, Tuple
@@ -33,6 +34,13 @@ logger = logging.getLogger(__name__)
 
 # Constants for common node names to avoid hardcoding
 INTERNAL_NODE_NAMES = {"tool_calls_node", "model_request_node", "user_prompt_node"}
+
+# Agent.run_sync is implemented on top of Agent.run. Holds the agent whose
+# run_sync span is active so the inner Agent.run call does not open a second,
+# duplicate agent span (and report the run's token usage twice).
+_sync_agent_run_instance = contextvars.ContextVar(
+    "openlit_pydantic_ai_sync_agent_run_instance", default=None
+)
 
 
 class PydanticAIInstrumentationContext:
@@ -507,7 +515,7 @@ def common_agent_run(
         # Set common attributes
         set_span_attributes(
             span=span,
-            operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
+            operation_name=operation_type,
             ctx=ctx,
             lifecycle_phase=SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE_EXECUTE,
             additional_attrs={
@@ -533,10 +541,14 @@ def common_agent_run(
                 json.dumps(ctx.model_params),
             )
 
-        # Execute with error handling
-        response = execute_with_error_handling(
-            span, wrapped, args, kwargs, capture_completion=False
-        )
+        # Execute with error handling; the inner Agent.run call reuses this span
+        token = _sync_agent_run_instance.set(instance)
+        try:
+            response = execute_with_error_handling(
+                span, wrapped, args, kwargs, capture_completion=False
+            )
+        finally:
+            _sync_agent_run_instance.reset(token)
 
         # Add business intelligence
         add_business_intelligence_attributes(
@@ -565,20 +577,29 @@ async def common_agent_run_async(
     if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
         return await wrapped(*args, **kwargs)
 
+    # Called from this agent's run_sync, which already holds the agent span.
+    # Clear the marker so agents invoked during the run still get their spans.
+    if _sync_agent_run_instance.get() is instance:
+        token = _sync_agent_run_instance.set(None)
+        try:
+            return await wrapped(*args, **kwargs)
+        finally:
+            _sync_agent_run_instance.reset(token)
+
     # Create cached context
     ctx = PydanticAIInstrumentationContext(
         instance, args, kwargs, version, environment, application_name
     )
 
     # Determine span name
-    operation_type = SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK
+    operation_type = SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
     span_name = f"{operation_type} {ctx.agent_name}"
 
     with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
         # Set common attributes
         set_span_attributes(
             span=span,
-            operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
+            operation_name=operation_type,
             ctx=ctx,
             lifecycle_phase=SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE_EXECUTE,
             additional_attrs={

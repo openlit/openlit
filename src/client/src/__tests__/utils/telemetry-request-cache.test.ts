@@ -231,6 +231,90 @@ describe("telemetry-request-cache", () => {
 		).toEqual({ tag: "fresh" });
 	});
 
+	it("does not cache a 200 response that carries an err", async () => {
+		const loader = jest
+			.fn()
+			.mockResolvedValueOnce({ err: "Span not found" })
+			.mockResolvedValueOnce({ err: null, record: { spanId: "s1" } });
+
+		await expect(
+			withTelemetryRequestCache("/api/telemetry/request/span/s1", undefined, loader)
+		).resolves.toEqual({ err: "Span not found" });
+		expect(
+			peekTelemetryRequestCache("/api/telemetry/request/span/s1", undefined)
+		).toBeNull();
+
+		const result = await withTelemetryRequestCache(
+			"/api/telemetry/request/span/s1",
+			undefined,
+			loader
+		);
+		expect(result).toEqual({ err: null, record: { spanId: "s1" } });
+		expect(loader).toHaveBeenCalledTimes(2);
+	});
+
+	describe("relative windows and the default 1m poll", () => {
+		const url = "/api/telemetry/request";
+		const bodyAt = (end: string, start = "2026-07-10T00:00:00.000Z") =>
+			JSON.stringify({ timeLimit: { type: "24H", start, end } });
+
+		beforeEach(() => jest.useFakeTimers());
+		afterEach(() => jest.useRealTimers());
+
+		it("reuses a window's response for a remount between polls", async () => {
+			jest.setSystemTime(new Date("2026-07-11T00:00:00.000Z"));
+			const body = bodyAt("2026-07-11T00:00:00.000Z");
+			const loader = jest.fn().mockResolvedValue({ rows: 1 });
+
+			await withTelemetryRequestCache(url, body, loader);
+			jest.advanceTimersByTime(44_000);
+			await withTelemetryRequestCache(url, body, loader);
+
+			expect(loader).toHaveBeenCalledTimes(1);
+		});
+
+		it("fetches fresh data on the next poll of a fixed range", async () => {
+			jest.setSystemTime(new Date("2026-07-11T00:00:00.000Z"));
+			const body = JSON.stringify({
+				timeLimit: {
+					type: "CUSTOM",
+					start: "2026-07-10T00:00:00.000Z",
+					end: "2026-07-11T00:00:00.000Z",
+				},
+			});
+			// The entry's lifetime starts when the load ends, after the poll fired.
+			const loader = jest.fn(async () => {
+				jest.advanceTimersByTime(500);
+				return { rows: 1 };
+			});
+
+			await withTelemetryRequestCache(url, body, loader);
+			jest.advanceTimersByTime(59_500);
+			await withTelemetryRequestCache(url, body, loader);
+
+			expect(loader).toHaveBeenCalledTimes(2);
+		});
+
+		it("fetches fresh data when a poll moves the window", async () => {
+			jest.setSystemTime(new Date("2026-07-11T00:00:00.000Z"));
+			const loader = jest.fn().mockResolvedValue({ rows: 1 });
+
+			await withTelemetryRequestCache(
+				url,
+				bodyAt("2026-07-11T00:00:00.000Z", "2026-07-10T00:00:00.000Z"),
+				loader
+			);
+			jest.advanceTimersByTime(60_000);
+			await withTelemetryRequestCache(
+				url,
+				bodyAt("2026-07-11T00:01:00.000Z", "2026-07-10T00:01:00.000Z"),
+				loader
+			);
+
+			expect(loader).toHaveBeenCalledTimes(2);
+		});
+	});
+
 	it("propagates loader rejections without caching the failure", async () => {
 		const loader = jest
 			.fn()

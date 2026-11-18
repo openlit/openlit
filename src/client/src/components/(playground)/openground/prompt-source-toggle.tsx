@@ -9,9 +9,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRootStore } from "@/store";
-import { Component, FileTextIcon, LibraryIcon } from "lucide-react";
+import { Component, FileTextIcon, Loader2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import VariableEditor from "./variable-editor";
@@ -116,13 +116,13 @@ export default function PromptSourceToggle() {
 	};
 
 	return (
-		<Card>
-			<CardHeader className="pb-4">
-				<CardTitle className="text-lg flex items-center gap-2">
+		<Card className="border border-stone-200 dark:border-stone-800">
+			<CardHeader className="p-4 pb-2">
+				<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
 					{getMessage().OPENGROUND_PROMPT_CONFIGURATION}
 				</CardTitle>
 			</CardHeader>
-			<CardContent className="space-y-4">
+			<CardContent className="space-y-4 p-4 pt-0">
 				<Tabs
 					value={promptSource.type}
 					onValueChange={handleTabChange}
@@ -192,10 +192,10 @@ export default function PromptSourceToggle() {
 											{getMessage().PROMPT_PREVIEW}
 										</span>
 										<Badge variant="secondary" className="text-xs">
-											v{promptSource.version}
+											{getMessage().OPENGROUND_PROMPT_VERSION(promptSource.version ?? "")}
 										</Badge>
 									</div>
-									<div className="p-4 bg-stone-50 dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-800">
+									<div className="rounded-md border border-stone-200 bg-stone-50 p-4 dark:border-stone-800 dark:bg-stone-900">
 										<p className="text-sm font-mono text-stone-700 dark:text-stone-300 whitespace-pre-wrap leading-relaxed">
 											{promptSource.content}
 										</p>
@@ -208,8 +208,8 @@ export default function PromptSourceToggle() {
 						{loadingDetail && (
 							<div className="flex items-center justify-center py-8">
 								<div className="flex flex-col items-center gap-2">
-									<div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-300 border-t-blue-600" />
-									<span className="text-sm text-stone-600 dark:text-stone-400">
+									<Loader2Icon className="h-6 w-6 animate-spin text-primary" />
+									<span className="text-sm text-stone-500 dark:text-stone-400">
 										{getMessage().OPENGROUND_LOADING_PROMPT_DETAILS}
 									</span>
 								</div>

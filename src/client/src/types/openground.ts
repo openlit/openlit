@@ -61,6 +61,7 @@ export interface ProviderMetadata {
 		topP?: ConfigField;
 	};
 	requiresVault: boolean;
+	baseUrl?: string;
 	logoUrl?: string;
 }
 

@@ -5,19 +5,20 @@ VertexAI OpenTelemetry instrumentation utility functions
 import json
 import logging
 import time
+from collections.abc import Mapping, Sequence
 
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
     apply_agent_version_attributes,
     build_tool_definitions,
-    calculate_ttft,
     calculate_tbt,
+    calculate_ttft,
+    common_span_attributes,
     general_tokens,
     get_chat_model_cost,
-    record_completion_metrics,
-    common_span_attributes,
     otel_event,
+    record_completion_metrics,
     truncate_message_content,
 )
 from openlit._config import OpenlitConfig
@@ -26,42 +27,93 @@ from openlit.semcov import SemanticConvention
 logger = logging.getLogger(__name__)
 
 
+_PART_FIELDS = (
+    "text",
+    "video_metadata",
+    "thought",
+    "code_execution_result",
+    "executable_code",
+    "file_data",
+    "function_call",
+    "function_response",
+    "inline_data",
+)
+
+
+def _field(obj, name):
+    """Read ``name`` from an SDK object or its dict form, or None if absent."""
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name, None)
+
+
+def _plain(value):
+    """Turn proto maps and repeated fields (FunctionCall.args) into JSON-safe values."""
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, Mapping) or hasattr(value, "items"):
+        try:
+            return {str(k): _plain(v) for k, v in value.items()}
+        except Exception:  # pylint: disable=broad-exception-caught
+            return str(value)
+    if isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
+        return [_plain(v) for v in value]
+    return str(value)
+
+
+def _is_content(item):
+    """True for a Content (object or dict); False for a str, Part or Image."""
+    return not isinstance(item, str) and _field(item, "parts") is not None
+
+
+def _group_contents(contents):
+    """
+    Yield ``(role, parts)`` per message, the way the Vertex AI SDK reads
+    ``contents``: a single item counts as a one-item list, Content items are
+    messages, and each run of other items (strings, Parts, Images) is the
+    parts of one user message.
+    """
+    if not contents:
+        return
+    # Any sequence is a list of items (UserList, a proto RepeatedComposite);
+    # anything else is one item. Generators are left alone: the SDK rejects
+    # them, and reading one here would consume the caller's prompt.
+    if isinstance(contents, (str, bytes)) or not isinstance(contents, Sequence):
+        contents = [contents]
+    loose_parts = []
+    for item in contents:
+        if not _is_content(item):
+            loose_parts.append(item)
+            continue
+        if loose_parts:
+            yield "user", loose_parts
+            loose_parts = []
+        yield _field(item, "role") or "user", list(_field(item, "parts") or [])
+    if loose_parts:
+        yield "user", loose_parts
+
+
 def format_content(contents):
     """
     Format the VertexAI contents into a string for span events.
     """
 
-    if not contents:
-        return ""
-
     formatted_messages = []
-    for content in contents:
-        role = content.role
-        parts = content.parts
+    for role, parts in _group_contents(contents):
         content_str = []
-
         for part in parts:
-            # Collect relevant fields and handle each type of data that Part could contain
-            if part.text:
-                content_str.append(f"text: {part.text}")
-            if part.video_metadata:
-                content_str.append(f"video_metadata: {part.video_metadata}")
-            if part.thought:
-                content_str.append(f"thought: {part.thought}")
-            if part.code_execution_result:
-                content_str.append(
-                    f"code_execution_result: {part.code_execution_result}"
-                )
-            if part.executable_code:
-                content_str.append(f"executable_code: {part.executable_code}")
-            if part.file_data:
-                content_str.append(f"file_data: {part.file_data}")
-            if part.function_call:
-                content_str.append(f"function_call: {part.function_call}")
-            if part.function_response:
-                content_str.append(f"function_response: {part.function_response}")
-            if part.inline_data:
-                content_str.append(f"inline_data: {part.inline_data}")
+            if isinstance(part, str):
+                content_str.append(f"text: {part}")
+                continue
+            # vertexai's Part exposes only some of these fields, so read each
+            # one without assuming it exists.
+            fields = [
+                f"{field}: {value}"
+                for field in _PART_FIELDS
+                if (value := _field(part, field))
+            ]
+            # An Image or other object with none of these fields
+            content_str.extend(fields or [f"[{type(part).__name__}]"])
 
         formatted_messages.append(f"{role}: {', '.join(content_str)}")
 
@@ -73,38 +125,45 @@ def build_input_messages(contents):
     Convert Vertex AI request contents to OTel input message structure.
     Follows gen-ai-input-messages schema.
     """
-    if not contents:
-        return []
     otel_messages = []
-    for content in contents:
+    for role, parts in _group_contents(contents):
         try:
-            role = (
-                getattr(content, "role", "user")
-                if not isinstance(content, dict)
-                else content.get("role", "user")
-            )
-            parts_attr = (
-                getattr(content, "parts", [])
-                if not isinstance(content, dict)
-                else content.get("parts", [])
-            )
-            parts_list = list(parts_attr) if parts_attr else []
             otel_parts = []
-            for part in parts_list:
-                text = (
-                    getattr(part, "text", None)
-                    if not isinstance(part, dict)
-                    else part.get("text")
-                )
+            for part in parts:
+                if isinstance(part, str):
+                    otel_parts.append({"type": "text", "content": part})
+                    continue
+                text = _field(part, "text")
                 if text:
                     otel_parts.append({"type": "text", "content": str(text)})
-                inline_data = (
-                    getattr(part, "inline_data", None)
-                    if not isinstance(part, dict)
-                    else part.get("inline_data")
-                )
-                if inline_data and not text:
+                elif _field(part, "inline_data"):
                     otel_parts.append({"type": "text", "content": "[inline_data]"})
+                elif _field(part, "file_data"):
+                    otel_parts.append({"type": "text", "content": "[file_data]"})
+                elif function_call := _field(part, "function_call"):
+                    otel_parts.append(
+                        {
+                            "type": "tool_call",
+                            "id": _field(function_call, "id"),
+                            "name": _field(function_call, "name"),
+                            "arguments": _plain(_field(function_call, "args")),
+                        }
+                    )
+                elif function_response := _field(part, "function_response"):
+                    otel_parts.append(
+                        {
+                            "type": "tool_call_response",
+                            "id": _field(function_response, "id"),
+                            "response": _plain(_field(function_response, "response")),
+                        }
+                    )
+                else:
+                    # Another recognized field (executable_code, thought, ...),
+                    # or an Image or other object the SDK turns into a Part
+                    field = next((f for f in _PART_FIELDS if _field(part, f)), None)
+                    otel_parts.append(
+                        {"type": "text", "content": f"[{field or type(part).__name__}]"}
+                    )
             if otel_parts:
                 otel_messages.append({"role": role, "parts": otel_parts})
         except Exception as e:
@@ -319,8 +378,7 @@ def common_chat_logic(
     contents = scope._kwargs.get("contents", []) or (
         scope._args[0] if scope._args else []
     )
-    formatted_messages = format_content(contents)
-    prompt = formatted_messages or (str(contents[0]) if contents else "")
+    prompt = format_content(contents)
 
     if (
         hasattr(scope, "_input_tokens")
@@ -339,7 +397,7 @@ def common_chat_logic(
         scope._request_model,
         pricing_info,
         input_tokens,
-        output_tokens,
+        output_tokens + (getattr(scope, "_reasoning_tokens", 0) or 0),
         cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
         cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
         prompt_tokens_include_cache=True,
@@ -650,10 +708,13 @@ def process_chat_response(
     disable_metrics=False,
     version="1.0.0",
     event_provider=None,
+    request_args=(),
     **kwargs,
 ):
     """
     Process non-streaming chat response and generate telemetry.
+    ``request_args`` are the call's positional arguments, where
+    ``generate_content("prompt")`` passes ``contents``.
     """
 
     scope = type("GenericScope", (), {})()
@@ -689,7 +750,7 @@ def process_chat_response(
     scope._request_model = request_model
     scope._response_model = request_model
     scope._kwargs = kwargs
-    scope._args = [kwargs.get("contents", [])]
+    scope._args = list(request_args)
     candidates = getattr(response, "candidates", None) or []
     first_candidate = candidates[0] if candidates else None
     scope._finish_reason = (

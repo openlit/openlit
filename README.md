@@ -31,7 +31,7 @@ Agent observability · Evals · Guardrails · Prompt management · Cost & GPU mo
 
 ## What is OpenLIT?
 
-**OpenLIT is an open-source agent harness engineering platform.** It gives teams OpenTelemetry-native tracing, evaluations, guardrails, prompt and context management, and cost and GPU monitoring for the *harness* around their AI agents and coding agents, so every agent failure can be traced, scored, and turned into a harness fix. OpenLIT is free to self-host under Apache 2.0 and works with any model, framework, or harness: Claude Code, Codex, Cursor, OpenAI Agents SDK, LangGraph, CrewAI, and 70+ more integrations.
+**OpenLIT is an open-source** intelligence layer for AI ROI. It gives teams OpenTelemetry-native tracing, evaluations, guardrails, prompt and context management, and cost and GPU monitoring for the *harness* around their AI agents and coding agents, so every agent failure can be traced, scored, and turned into a harness fix. OpenLIT is free to self-host under Apache 2.0 and works with any model, framework, or harness: Claude Code, Codex, Cursor, OpenAI Agents SDK, LangGraph, CrewAI, and 70+ more integrations.
 
 ### What is agent harness engineering?
 

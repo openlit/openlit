@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ProviderResult } from "@/lib/platform/openground-clickhouse";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { useState } from "react";
-import { JsonViewer } from "@textea/json-viewer";
+import JSONViewer from "@/components/common/json-viewer";
 import getMessage from "@/constants/messages";
 
 interface ProviderResultCardProps {
@@ -14,43 +14,49 @@ interface ProviderResultCardProps {
 	index: number;
 }
 
-export default function ProviderResultCard({ result, index }: ProviderResultCardProps) {
+export default function ProviderResultCard({ result }: ProviderResultCardProps) {
+	const m = getMessage();
 	const [showJson, setShowJson] = useState(false);
 
 	return (
 		<Card
-			className={`border-2 ${
+			className={`overflow-hidden border ${
 				result.error
-					? "border-red-200 dark:border-red-800"
+					? "border-rose-200 dark:border-rose-900/70"
 					: "border-stone-200 dark:border-stone-800"
 			}`}
 		>
 			{/* Header */}
-			<div className="p-4 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900">
-				<div className="flex items-center justify-between">
-					<div className="flex items-center gap-3">
-						<div className="w-10 h-10 rounded-lg bg-stone-200 dark:bg-stone-700 flex items-center justify-center text-lg font-bold">
+			<div className="border-b border-stone-200 bg-stone-50 px-4 py-3 dark:border-stone-800 dark:bg-stone-900">
+				<div className="flex items-center justify-between gap-3">
+					<div className="flex min-w-0 items-center gap-3">
+						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-stone-200 text-sm font-semibold text-stone-600 dark:bg-stone-800 dark:text-stone-300">
 							{result.provider.charAt(0).toUpperCase()}
 						</div>
-						<div>
-							<p className="font-semibold text-stone-900 dark:text-stone-100">
+						<div className="min-w-0">
+							<p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">
 								{result.provider}/{result.model}
 							</p>
 							<p className="text-xs text-stone-500 dark:text-stone-400">
 								{result.responseTime.toFixed(2)}s •{" "}
-								{result.totalTokens.toLocaleString()} tokens •
+								{result.totalTokens.toLocaleString()} {m.OPENGROUND_LIST_TOKENS_SUFFIX} •{" "}
 								${result.cost.toFixed(6)}
 							</p>
 						</div>
 					</div>
 					{result.error ? (
-						<Badge variant="destructive">{getMessage().ERROR}</Badge>
+						<Badge
+							variant="outline"
+							className="shrink-0 border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/40 dark:text-rose-300"
+						>
+							{m.ERROR}
+						</Badge>
 					) : (
 						<Badge
 							variant="outline"
-							className="bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-300 border-green-200 dark:border-green-800"
+							className="shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300"
 						>
-							{getMessage().SUCCESS}
+							{m.SUCCESS}
 						</Badge>
 					)}
 				</div>
@@ -59,15 +65,13 @@ export default function ProviderResultCard({ result, index }: ProviderResultCard
 			{/* Response/Error Content */}
 			<div className="p-4">
 				{result.error ? (
-					<div className="text-red-600 dark:text-red-400 text-sm font-mono whitespace-pre-wrap break-all">
+					<div className="whitespace-pre-wrap break-all font-mono text-sm text-rose-600 dark:text-rose-400">
 						{result.error}
 					</div>
 				) : (
-					<div className="prose dark:prose-invert max-w-none">
-						<p className="text-stone-700 dark:text-stone-300 whitespace-pre-wrap">
-							{result.response}
-						</p>
-					</div>
+					<p className="whitespace-pre-wrap text-sm text-stone-700 dark:text-stone-300">
+						{result.response}
+					</p>
 				)}
 			</div>
 
@@ -76,10 +80,11 @@ export default function ProviderResultCard({ result, index }: ProviderResultCard
 				<Button
 					variant="ghost"
 					onClick={() => setShowJson(!showJson)}
-					className="w-full justify-between rounded-none hover:bg-stone-50 dark:hover:bg-stone-900"
+					className="h-9 w-full justify-between rounded-none hover:bg-stone-50 dark:hover:bg-stone-900"
+					aria-expanded={showJson}
 				>
 					<span className="text-xs font-medium text-stone-600 dark:text-stone-400">
-						{showJson ? getMessage().HIDE : getMessage().SHOW} {getMessage().OPENGROUND_RAW_RESPONSE_DATA}
+						{showJson ? m.HIDE : m.SHOW} {m.OPENGROUND_RAW_RESPONSE_DATA}
 					</span>
 					{showJson ? (
 						<ChevronUpIcon className="h-4 w-4" />
@@ -89,16 +94,8 @@ export default function ProviderResultCard({ result, index }: ProviderResultCard
 				</Button>
 
 				{showJson && (
-					<div className="p-4 bg-stone-50 dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800">
-						<JsonViewer
-							value={result}
-							className="rounded-lg"
-							theme="dark"
-							enableClipboard
-							displayDataTypes={false}
-							displaySize={false}
-							defaultInspectDepth={1}
-						/>
+					<div className="overflow-auto border-t border-stone-200 bg-stone-50 p-4 text-xs dark:border-stone-800 dark:bg-stone-900">
+						<JSONViewer value={result} defaultInspectDepth={1} />
 					</div>
 				)}
 			</div>

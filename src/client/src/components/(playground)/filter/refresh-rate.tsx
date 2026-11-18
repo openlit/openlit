@@ -58,11 +58,10 @@ const RefreshRate = () => {
 		};
 	}, [filter.refreshRate]);
 
-	const updateEndTime = () => {
-		const timeLimit = getTimeLimitObject(filter.timeLimit.type, "") as {
-			end: Date;
-		};
-		updateFilter("timeLimit.end", timeLimit.end);
+	// Relative presets slide both bounds so the window keeps its size. CUSTOM
+	// resolves to no bounds here, which leaves the chosen range as it is.
+	const slideTimeLimit = () => {
+		updateFilter("timeLimit", getTimeLimitObject(filter.timeLimit.type, ""));
 	};
 
 	const isRefreshRateEnabled =
@@ -70,12 +69,12 @@ const RefreshRate = () => {
 
 	useEffect(() => {
 		if (isRefreshRateEnabled) {
-			document.addEventListener(REFRESH_RATE_EVENT, updateEndTime);
+			document.addEventListener(REFRESH_RATE_EVENT, slideTimeLimit);
 		}
 		return () => {
-			document.removeEventListener(REFRESH_RATE_EVENT, updateEndTime);
+			document.removeEventListener(REFRESH_RATE_EVENT, slideTimeLimit);
 		};
-	}, [pathname]);
+	}, [pathname, filter.timeLimit.type]);
 
 	if (!isRefreshRateEnabled) return null;
 

@@ -307,6 +307,14 @@ model = coalesce(
 
 Native always wins when present. Anthropic counts tokens authoritatively from the API response; our hook estimates from a bounded transcript tail. Both estimates may exist for the same session — `coalesce(native, hook)` picks the truthful one.
 
+How the query layer (`src/client/src/lib/platform/coding-agents/queries.ts`) reads the native side today:
+
+- **Scope:** `whereScope` admits the native span names (`claude_code.interaction`, `claude_code.llm_request`, `claude_code.tool`, `claude_code.tool.execution`, `claude_code.tool.blocked_on_user`) when they carry `session.id`, next to the `coding_agent.*` spans keyed by `coding_agent.session.id`.
+- **Tokens:** summed from the `input_tokens` / `output_tokens` attributes of `claude_code.llm_request` spans.
+- **Cost:** native spans carry none. It is summed from `cost_usd` on `api_request` log events in `otel_logs`, read by a follow-up query that leaves the rows unchanged if the table doesn't exist yet. The `claude_code.cost.usage` metric carries the same figure.
+- **Tool calls:** coalesced by `gen_ai.tool.call.id` across `coding_agent.tool.call` and `claude_code.tool` spans, as below. Spans without an id count one each.
+- **Failures:** a missing `otel_logs` table is expected and stays quiet; any other cost-lookup failure is logged as `coding_agent.native_cost.lookup_failed`.
+
 ### Identity (user, cwd, repo)
 
 Hook always wins. The native path doesn't see the developer's repo or cwd; it only sees what Claude Code chose to expose. Our hook stamps `code.cwd`, `vcs.repository.url.full`, `vcs.ref.head.name` as resource attributes from `git.Snapshot(cwd)`.

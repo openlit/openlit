@@ -209,6 +209,10 @@ export const upsertDBConfig = async (
 	if (typeof dbConfig.port !== "string") {
 		dbConfig.port = String(dbConfig.port);
 	}
+	const port = Number(dbConfig.port);
+	if (!/^\d+$/.test(dbConfig.port) || port < 1 || port > 65535) {
+		throw new Error(getMessage().DB_CONFIG_INVALID_PORT);
+	}
 
 	const user = await getCurrentUser();
 

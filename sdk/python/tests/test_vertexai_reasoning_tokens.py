@@ -57,6 +57,10 @@ def _candidate(finish_reason="STOP"):
     return SimpleNamespace(finish_reason=finish_reason)
 
 
+def _pricing():
+    return {"chat": {"gemini-2.5-pro": {"promptPrice": 1.0, "completionPrice": 2.0}}}
+
+
 def _response(usage, text="hello"):
     return SimpleNamespace(
         text=text,
@@ -124,7 +128,7 @@ def test_non_streaming_records_thoughts_separately_from_candidates():
         vertexai_utils.process_chat_response(
             response=response,
             request_model="gemini-2.5-pro",
-            pricing_info={},
+            pricing_info=_pricing(),
             server_port=443,
             server_address="us-central1-aiplatform.googleapis.com",
             environment="test",
@@ -139,6 +143,7 @@ def test_non_streaming_records_thoughts_separately_from_candidates():
         )
     attrs = exporter.get_finished_spans()[0].attributes
     _assert_thoughts_not_folded_into_output(attrs)
+    assert attrs[SemanticConvention.GEN_AI_USAGE_COST] == 0.25
 
 
 def test_streaming_last_chunk_usage_records_thoughts():
@@ -157,7 +162,7 @@ def test_streaming_last_chunk_usage_records_thoughts():
         )
         vertexai_utils.process_streaming_chat_response(
             scope,
-            pricing_info={},
+            pricing_info=_pricing(),
             environment="test",
             application_name="test",
             metrics=None,
@@ -167,6 +172,7 @@ def test_streaming_last_chunk_usage_records_thoughts():
         )
     attrs = exporter.get_finished_spans()[0].attributes
     _assert_thoughts_not_folded_into_output(attrs)
+    assert attrs[SemanticConvention.GEN_AI_USAGE_COST] == 0.25
 
 
 def test_missing_thoughts_does_not_emit_reasoning_attribute():
@@ -176,7 +182,7 @@ def test_missing_thoughts_does_not_emit_reasoning_attribute():
         vertexai_utils.process_chat_response(
             response=response,
             request_model="gemini-2.5-pro",
-            pricing_info={},
+            pricing_info=_pricing(),
             server_port=443,
             server_address="us-central1-aiplatform.googleapis.com",
             environment="test",
@@ -201,7 +207,7 @@ def test_zero_thoughts_does_not_emit_reasoning_attribute():
         vertexai_utils.process_chat_response(
             response=response,
             request_model="gemini-2.5-pro",
-            pricing_info={},
+            pricing_info=_pricing(),
             server_port=443,
             server_address="us-central1-aiplatform.googleapis.com",
             environment="test",
@@ -226,7 +232,7 @@ def test_inference_event_includes_reasoning_tokens():
         vertexai_utils.process_chat_response(
             response=response,
             request_model="gemini-2.5-pro",
-            pricing_info={},
+            pricing_info=_pricing(),
             server_port=443,
             server_address="us-central1-aiplatform.googleapis.com",
             environment="test",

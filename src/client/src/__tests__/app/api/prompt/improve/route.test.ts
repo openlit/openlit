@@ -1,8 +1,15 @@
+jest.mock("@/lib/platform/pricing/model-cost", () => ({
+	getModelCostCalculator: jest.fn(
+		async () =>
+			({ promptTokens, completionTokens }: { promptTokens: number; completionTokens: number }) =>
+				promptTokens * 1e-6 + completionTokens * 2e-6
+	),
+}));
 jest.mock("ai", () => ({ generateText: jest.fn() }));
 jest.mock("@/lib/db-config", () => ({ getDBConfigByUser: jest.fn() }));
 jest.mock("@/lib/platform/chat/config", () => ({ getChatConfigWithApiKey: jest.fn() }));
 jest.mock("@/lib/platform/chat/otter-runs", () => ({ saveOtterRun: jest.fn() }));
-jest.mock("@/lib/platform/chat/stream", () => ({ getModelInstance: jest.fn() }));
+jest.mock("@/lib/platform/providers/create-model", () => ({ createModel: jest.fn() }));
 jest.mock("@/lib/session", () => ({ getCurrentUser: jest.fn() }));
 jest.mock("@/lib/platform/api-keys", () => ({ getAPIKeyInfo: jest.fn() }));
 jest.mock("@/utils/asaw", () =>
@@ -16,12 +23,13 @@ jest.mock("@/utils/asaw", () =>
 	})
 );
 
+import { getModelCostCalculator } from "@/lib/platform/pricing/model-cost";
 import { generateText } from "ai";
 import { POST } from "@/app/api/prompt/improve/route";
 import { getDBConfigByUser } from "@/lib/db-config";
 import { getChatConfigWithApiKey } from "@/lib/platform/chat/config";
 import { saveOtterRun } from "@/lib/platform/chat/otter-runs";
-import { getModelInstance } from "@/lib/platform/chat/stream";
+import { createModel } from "@/lib/platform/providers/create-model";
 import { getCurrentUser } from "@/lib/session";
 
 class TestResponse {
@@ -61,7 +69,7 @@ describe("POST /api/prompt/improve", () => {
 		(getChatConfigWithApiKey as jest.Mock).mockResolvedValue({
 			data: { provider: "openai", model: "gpt-4o", apiKey: "sk-test" },
 		});
-		(getModelInstance as jest.Mock).mockReturnValue({ provider: "openai", model: "gpt-4o" });
+		(createModel as jest.Mock).mockReturnValue({ provider: "openai", model: "gpt-4o" });
 		(saveOtterRun as jest.Mock).mockResolvedValue({ data: "run-1" });
 		(generateText as jest.Mock).mockResolvedValue({
 			text: JSON.stringify({
@@ -104,6 +112,20 @@ describe("POST /api/prompt/improve", () => {
 		expect(generateText).not.toHaveBeenCalled();
 	});
 
+	it("keeps complete suggestions from a truncated, fenced response", async () => {
+		(generateText as jest.Mock).mockResolvedValueOnce({
+			text:
+				'```json\n{"suggestions": [{"id": "tighten-role", "dimension": "Clarity", "rationale": "Clearer.", "original": "Write a summary", "replacement": "Write a concise summary"}, {"id": "cut", "rationale": "Trunc',
+			usage: { inputTokens: 100, outputTokens: 25 },
+		});
+
+		const response = await POST(makeRequest({ prompt: "Write a summary" }));
+		const body = await response.json() as any;
+
+		expect(response.status).toBe(200);
+		expect(body.data.suggestions.map((s: any) => s.id)).toEqual(["tighten-role"]);
+	});
+
 	it("saves usage for an unsaved prompt improvement without attaching a prompt id", async () => {
 		const response = await POST(makeRequest({ prompt: "Write a summary" }));
 		const body = await response.json() as any;
@@ -113,8 +135,9 @@ describe("POST /api/prompt/improve", () => {
 		expect(body.data.usage).toEqual({
 			promptTokens: 100,
 			completionTokens: 25,
-			cost: 0.000675,
+			cost: 0.00015,
 		});
+		expect(getModelCostCalculator).toHaveBeenCalledWith("openai", "gpt-4o", expect.any(String));
 		expect(saveOtterRun).toHaveBeenCalledWith(
 			expect.objectContaining({
 				runType: "prompt_improvement",

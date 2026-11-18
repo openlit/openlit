@@ -39,6 +39,7 @@ export default function useFetchWrapper<T>() {
 			requestType,
 			responseDataKey = "",
 			successCb,
+			timeoutMs,
 		}: FetchWrapperProps) => {
 			const requestId = ++requestIdRef.current;
 			const isCurrent = () => requestId === requestIdRef.current;
@@ -74,6 +75,7 @@ export default function useFetchWrapper<T>() {
 						body,
 						url,
 						method: requestType,
+						timeoutMs,
 					});
 				} else if (requestType === "DELETE") {
 					response = await deleteData({

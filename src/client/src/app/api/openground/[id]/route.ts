@@ -19,13 +19,15 @@ async function GETHandler(_: Request, { params }: { params: { id: string } }) {
 		);
 	}
 
-	const { data, err } = await getOpengroundEvaluationById(params.id, dbConfig.id);
+	const result = await getOpengroundEvaluationById(params.id, dbConfig.id);
 
-	if (err) {
-		return Response.json({ error: err }, { status: 404 });
+	if (result.err) {
+		// A missing run is a 404; a failed query is a server error.
+		const status = "notFound" in result && result.notFound ? 404 : 500;
+		return Response.json({ error: result.err }, { status });
 	}
 
-	return Response.json(data);
+	return Response.json(result.data);
 }
 
 export const GET = withCurrentOrganisationPermission("openground:read", GETHandler);

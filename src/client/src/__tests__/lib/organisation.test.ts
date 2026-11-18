@@ -1303,6 +1303,25 @@ describe('getOrganisationMembers role mapping', () => {
     expect(result[0].isCreator).toBe(false);
     expect(result[0].role).toBe('member');
   });
+
+  it('reports the creator by their membership role, not as an owner', async () => {
+    (prisma.organisationUser.findUnique as jest.Mock).mockResolvedValue({ id: 'ou1' });
+    (prisma.organisationUser.findMany as jest.Mock).mockResolvedValue([
+      {
+        user: { id: 'u1', email: 'creator@example.com', name: 'Creator', image: null },
+        role: 'member',
+        createdAt: new Date(),
+      },
+    ]);
+    (prisma.organisation.findUnique as jest.Mock).mockResolvedValue({
+      id: 'org1',
+      createdByUserId: 'u1',
+    });
+
+    const result = await getOrganisationMembers('org1');
+    expect(result[0].isCreator).toBe(true);
+    expect(result[0].role).toBe('member');
+  });
 });
 
 describe('assignUserToAllOrganisationProjects (via acceptInvitation)', () => {

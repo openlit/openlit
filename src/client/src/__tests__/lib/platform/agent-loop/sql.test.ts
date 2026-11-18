@@ -96,8 +96,23 @@ describe("agentLoopStatsSql", () => {
 describe("agentLoopHitsByTraceSql", () => {
 	it("filters by the provided trace ids and escapes quotes/backslashes", () => {
 		const sql = agentLoopHitsByTraceSql("otel_traces", "1=1", ["t-1", "t'2", "t\\3"]);
-		expect(sql).toContain("WHERE tool_rows.TraceId IN ('t-1', 't\\'2', 't\\\\3')");
+		expect(sql).toContain("TraceId IN ('t-1', 't\\'2', 't\\\\3')");
 		expect(sql).toContain("GROUP BY TraceId");
+	});
+
+	it("reads tool rows only for the page's trace ids", () => {
+		const sql = agentLoopHitsByTraceSql("otel_traces", "w=1", ["t-1"]);
+		const toolRows = sql.slice(0, sql.indexOf("AS tool_rows"));
+		expect(toolRows).toContain("WHERE w=1 AND TraceId IN ('t-1')");
+	});
+
+	it("limits loop groups to the page's groups without narrowing their rows to the page", () => {
+		const sql = agentLoopHitsByTraceSql("otel_traces", "w=1", ["t-1"]);
+		const loops = sql.slice(sql.indexOf("INNER JOIN"), sql.indexOf("AS loops"));
+		// A group can span traces on other pages; its repeat_count must still
+		// see those rows, so the page bound applies to group_key only.
+		expect(loops).toContain(`${GROUP_KEY_SQL} IN (SELECT ${GROUP_KEY_SQL} FROM otel_traces WHERE w=1 AND TraceId IN ('t-1'))`);
+		expect(loops).toContain(`WHERE w=1 AND ${GROUP_KEY_SQL} IN`);
 	});
 
 	it("honors a custom threshold", () => {
@@ -107,7 +122,7 @@ describe("agentLoopHitsByTraceSql", () => {
 
 	it("produces an empty id list for an empty trace id array", () => {
 		const sql = agentLoopHitsByTraceSql("otel_traces", "1=1", []);
-		expect(sql).toContain("WHERE tool_rows.TraceId IN ()");
+		expect(sql).toContain("TraceId IN ()");
 	});
 });
 

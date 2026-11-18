@@ -853,3 +853,36 @@ describe("denormalizeMetricPointsToListRows", () => {
 		});
 	});
 });
+
+describe("span content search mapping", () => {
+	const timeLimit = {
+		start: new Date("2026-07-01T00:00:00.000Z"),
+		end: new Date("2026-07-01T01:00:00.000Z"),
+		type: "CUSTOM",
+	};
+
+	it("carries search through both directions for traces", () => {
+		const query = metricParamsToOpenLITQuery({
+			timeLimit,
+			selectedConfig: { search: "refund" },
+		});
+
+		expect(query.search).toBe("refund");
+		expect(toMetricParams(query).selectedConfig.search).toBe("refund");
+	});
+
+	it("drops an empty search and leaves other signals alone", () => {
+		const empty = metricParamsToOpenLITQuery({
+			timeLimit,
+			selectedConfig: { search: "" },
+		});
+		const logs = metricParamsToOpenLITQuery(
+			{ timeLimit, selectedConfig: { search: "refund" } },
+			"logs"
+		);
+
+		expect(empty.search).toBeUndefined();
+		expect(toMetricParams(empty).selectedConfig.search).toBeUndefined();
+		expect(logs.search).toBeUndefined();
+	});
+});

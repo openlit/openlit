@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { round } from "lodash";
@@ -30,16 +30,39 @@ import StatCard from "@/components/(playground)/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Columns } from "@/components/data-table/columns";
+import TraceDetailRequestSheet from "@/components/(playground)/observability/trace-detail-request-sheet";
+import {
+	RequestProvider,
+	useRequest,
+} from "@/components/(playground)/request/request-context";
+import DataTable from "@/components/data-table/table";
 import getMessage from "@/constants/messages";
 import { COLORS } from "../../../../../../styles/colors";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 import { getPingStatus } from "@/selectors/database-config";
 import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
-import type { EvaluationEvaluatorAnalyticsResponse } from "@/types/evaluation";
+import type {
+	EvaluationAnalyticsRecentResult,
+	EvaluationEvaluatorAnalyticsResponse,
+} from "@/types/evaluation";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 
 type ChartMode = "passRate" | "executions";
+
+type RecentResultRow = EvaluationAnalyticsRecentResult & { rowKey: string };
+
+const RESULT_VISIBLE_COLUMNS = {
+	expand: true,
+	time: true,
+	classification: true,
+	verdict: true,
+	score: true,
+	source: true,
+	spanId: true,
+	cost: true,
+};
 
 const HEADER_TONE =
 	"border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300";
@@ -51,7 +74,17 @@ function severityScoreClass(score: number) {
 	return "text-amber-600 dark:text-amber-400";
 }
 
+/** Span ids open the same trace sheet as Telemetry, in place. */
 export default function EvaluationEvaluatorDetailPage() {
+	return (
+		<RequestProvider syncUrl={false}>
+			<EvaluatorDetail />
+			<TraceDetailRequestSheet />
+		</RequestProvider>
+	);
+}
+
+function EvaluatorDetail() {
 	const m = getMessage();
 	const params = useParams();
 	const evaluatorId = decodeURIComponent(String(params.id || ""));
@@ -59,7 +92,8 @@ export default function EvaluationEvaluatorDetailPage() {
 	const pingStatus = useRootStore(getPingStatus);
 	const [chartMode, setChartMode] = useState<ChartMode>("passRate");
 	const [expandedKey, setExpandedKey] = useState<string | null>(null);
-	const expandedRowRef = useRef<HTMLTableRowElement | null>(null);
+	const [, updateRequest] = useRequest();
+	const expandedRowRef = useRef<HTMLDivElement | null>(null);
 
 	const { data, isLoading, isFetched, fireRequest, error } =
 		useFetchWrapper<EvaluationEvaluatorAnalyticsResponse>();
@@ -102,7 +136,132 @@ export default function EvaluationEvaluatorDetailPage() {
 		[data?.timeseries]
 	);
 
-	const recentResults = data?.recentResults || [];
+	const recentResults: RecentResultRow[] = useMemo(
+		() =>
+			(data?.recentResults || []).map((result, index) => ({
+				...result,
+				rowKey: `${result.id}-${result.spanId}-${result.createdAt}-${index}`,
+			})),
+		[data?.recentResults]
+	);
+
+	const resultColumns: Columns<string, RecentResultRow> = useMemo(
+		() => ({
+			expand: {
+				header: () => <span className="sr-only">{m.EVALUATION_EXPLANATION}</span>,
+				width: "2.75rem",
+				cell: ({ row }) => {
+					const isOpen = expandedKey === row.rowKey;
+					return (
+						<button
+							type="button"
+							className="inline-flex h-6 w-6 items-center justify-center rounded text-stone-500 hover:bg-stone-200 hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-stone-400 dark:hover:bg-stone-700 dark:hover:text-stone-200"
+							aria-expanded={isOpen}
+							aria-label={m.EVALUATION_EXPLANATION}
+							onClick={(e) => {
+								e.stopPropagation();
+								setExpandedKey(isOpen ? null : row.rowKey);
+							}}
+						>
+							{isOpen ? (
+								<ChevronDown className="h-3.5 w-3.5" />
+							) : (
+								<ChevronRight className="h-3.5 w-3.5" />
+							)}
+						</button>
+					);
+				},
+			},
+			time: {
+				header: () => m.OBSERVABILITY_TIME,
+				width: "minmax(10rem, 1.2fr)",
+				cell: ({ row }) => (
+					<span className="whitespace-nowrap tabular-nums text-stone-600 dark:text-stone-300">
+						{row.createdAt}
+					</span>
+				),
+			},
+			classification: {
+				header: () => m.EVALUATION_CLASSIFICATION,
+				cell: ({ row }) => (
+					<span className="block truncate font-medium text-stone-900 dark:text-stone-100">
+						{row.classification || "—"}
+					</span>
+				),
+			},
+			verdict: {
+				header: () => m.EVALUATION_VERDICT,
+				width: "minmax(5rem, 0.6fr)",
+				cell: ({ row }) => {
+					const passed = row.verdict !== "yes";
+					return (
+						<span
+							className={`font-medium ${
+								passed
+									? "text-emerald-600 dark:text-emerald-400"
+									: "text-amber-600 dark:text-amber-400"
+							}`}
+						>
+							{passed ? m.EVALUATION_DETAIL_PASS : m.EVALUATION_DETAIL_FAIL}
+						</span>
+					);
+				},
+			},
+			score: {
+				header: () => m.EVALUATION_SCORE,
+				width: "minmax(5rem, 0.6fr)",
+				className: "text-right",
+				cell: ({ row }) => (
+					<span
+						className={`font-medium tabular-nums ${severityScoreClass(
+							Number(row.score) || 0
+						)}`}
+					>
+						{round(row.score, 2)}
+					</span>
+				),
+			},
+			source: {
+				header: () => m.EVALUATION_SOURCE,
+				cell: ({ row }) => (
+					<span className="block truncate text-stone-600 dark:text-stone-300">
+						{row.source || "—"}
+					</span>
+				),
+			},
+			spanId: {
+				header: () => m.OBSERVABILITY_SPAN_ID,
+				cell: ({ row }) =>
+					row.spanId ? (
+						<button
+							type="button"
+							className="font-mono text-xs text-primary hover:underline"
+							title={row.spanId}
+							onClick={(e) => {
+								e.stopPropagation();
+								updateRequest({ spanId: row.spanId });
+							}}
+						>
+							{row.spanId.slice(0, 12)}
+							{row.spanId.length > 12 ? "…" : ""}
+						</button>
+					) : (
+						<span className="font-mono text-xs">—</span>
+					),
+			},
+			cost: {
+				header: () => m.COST,
+				width: "minmax(6rem, 0.7fr)",
+				className: "text-right",
+				cell: ({ row }) => (
+					<span className="tabular-nums text-stone-600 dark:text-stone-300">
+						{row.cost ? `$${round(row.cost, 6)}` : "—"}
+					</span>
+				),
+			},
+		}),
+		[expandedKey, m, updateRequest]
+	);
 	const loading = isLoading || !isFetched || pingStatus === "pending";
 	const notFound = isFetched && (error || (data && !data.found));
 	const backLabel = m.EVALUATION_BACK_TO_ANALYTICS;
@@ -210,7 +369,7 @@ export default function EvaluationEvaluatorDetailPage() {
 					/>
 				</div>
 
-				<Card className="border-stone-200 shadow-sm dark:border-stone-800">
+				<Card className="border border-stone-200 dark:border-stone-800">
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<div className="flex items-center gap-2">
 							<button
@@ -276,147 +435,39 @@ export default function EvaluationEvaluatorDetailPage() {
 					</CardContent>
 				</Card>
 
-				<Card className="overflow-hidden border-stone-200 shadow-sm dark:border-stone-800">
-					<CardContent className="p-0">
-						{loading ? (
-							<div className="p-4">
-								<IntermediateState type="loading" classNames="h-24" />
-							</div>
-						) : recentResults.length === 0 ? (
-							<p className="px-4 py-8 text-center text-sm text-stone-500 dark:text-stone-400">
+				<div className="flex shrink-0 flex-col gap-2">
+					<h2 className="text-sm font-medium text-stone-700 dark:text-stone-300">
+						{m.EVALUATION_DETAIL_RECENT_RESULTS}
+					</h2>
+					<DataTable
+						columns={resultColumns}
+						data={recentResults}
+						isFetched={isFetched && pingStatus !== "pending"}
+						isLoading={isLoading}
+						visibilityColumns={RESULT_VISIBLE_COLUMNS}
+						getRowKey={(row: RecentResultRow) => row.rowKey}
+						onClick={(row: RecentResultRow) =>
+							setExpandedKey(expandedKey === row.rowKey ? null : row.rowKey)
+						}
+						renderExpandedRow={(row: RecentResultRow) =>
+							expandedKey === row.rowKey ? (
+								<div ref={expandedRowRef}>
+									<p className="mb-1 text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
+										{m.EVALUATION_EXPLANATION}
+									</p>
+									<p className="whitespace-pre-wrap break-words">
+										{row.explanation?.trim() ? row.explanation : "—"}
+									</p>
+								</div>
+							) : null
+						}
+						emptyState={
+							<IntermediateState type="nodata">
 								{m.EVALUATION_DETAIL_NO_RESULTS}
-							</p>
-						) : (
-							<div className="overflow-x-auto">
-								<table className="w-full text-sm">
-									<thead>
-										<tr className="border-y border-stone-200 text-left text-[11px] uppercase tracking-wide text-stone-500 dark:border-stone-800 dark:text-stone-400">
-											<th className="w-8 px-3 py-2 font-medium" />
-											<th className="px-4 py-2 font-medium">
-												{m.OBSERVABILITY_TIME}
-											</th>
-											<th className="px-4 py-2 font-medium">
-												{m.EVALUATION_CLASSIFICATION}
-											</th>
-											<th className="px-4 py-2 font-medium">
-												{m.EVALUATION_VERDICT}
-											</th>
-											<th className="px-4 py-2 font-medium text-right">
-												{m.EVALUATION_SCORE}
-											</th>
-											<th className="px-4 py-2 font-medium">
-												{m.EVALUATION_SOURCE}
-											</th>
-											<th className="px-4 py-2 font-medium">
-												{m.OBSERVABILITY_SPAN_ID}
-											</th>
-											<th className="px-4 py-2 font-medium text-right">
-												{m.COST}
-											</th>
-										</tr>
-									</thead>
-									<tbody>
-										{recentResults.map((result, index) => {
-											const rowKey = `${result.id}-${result.spanId}-${result.createdAt}-${index}`;
-											const isOpen = expandedKey === rowKey;
-											const passed = result.verdict !== "yes";
-											return (
-												<Fragment key={rowKey}>
-													<tr className="border-b border-stone-100 hover:bg-stone-50 dark:border-stone-900 dark:hover:bg-stone-900/50">
-														<td className="px-3 py-2.5">
-															<button
-																type="button"
-																className="inline-flex h-6 w-6 items-center justify-center rounded text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800 dark:hover:text-stone-300"
-																aria-expanded={isOpen}
-																aria-label={m.EVALUATION_EXPLANATION}
-																onClick={() =>
-																	setExpandedKey(isOpen ? null : rowKey)
-																}
-															>
-																{isOpen ? (
-																	<ChevronDown className="h-3.5 w-3.5" />
-																) : (
-																	<ChevronRight className="h-3.5 w-3.5" />
-																)}
-															</button>
-														</td>
-														<td className="whitespace-nowrap px-4 py-2.5 tabular-nums text-stone-600 dark:text-stone-300">
-															{result.createdAt}
-														</td>
-														<td className="max-w-[14rem] truncate px-4 py-2.5 font-medium text-stone-900 dark:text-stone-100">
-															{result.classification || "—"}
-														</td>
-														<td className="px-4 py-2.5">
-															<span
-																className={`font-medium ${
-																	passed
-																		? "text-emerald-600 dark:text-emerald-400"
-																		: "text-amber-600 dark:text-amber-400"
-																}`}
-															>
-																{passed
-																	? m.EVALUATION_DETAIL_PASS
-																	: m.EVALUATION_DETAIL_FAIL}
-															</span>
-														</td>
-														<td
-															className={`px-4 py-2.5 text-right tabular-nums font-medium ${severityScoreClass(
-																Number(result.score) || 0
-															)}`}
-														>
-															{round(result.score, 2)}
-														</td>
-														<td className="px-4 py-2.5 text-stone-600 dark:text-stone-300">
-															{result.source || "—"}
-														</td>
-														<td className="px-4 py-2.5 font-mono text-xs">
-															{result.spanId ? (
-																<Link
-																	href={`/telemetry?traceId=${encodeURIComponent(result.spanId)}`}
-																	className="text-primary hover:underline"
-																>
-																	{result.spanId.slice(0, 12)}
-																	{result.spanId.length > 12 ? "…" : ""}
-																</Link>
-															) : (
-																"—"
-															)}
-														</td>
-														<td className="px-4 py-2.5 text-right tabular-nums text-stone-600 dark:text-stone-300">
-															{result.cost
-																? `$${round(result.cost, 6)}`
-																: "—"}
-														</td>
-													</tr>
-													{isOpen ? (
-														<tr
-															ref={expandedRowRef}
-															className="border-b border-stone-100 bg-stone-50 dark:border-stone-900 dark:bg-stone-900/50"
-														>
-															<td
-																colSpan={8}
-																className="px-4 py-3 text-sm text-stone-600 dark:text-stone-300"
-															>
-																<p className="mb-1 text-[11px] uppercase tracking-wide text-stone-500 dark:text-stone-400">
-																	{m.EVALUATION_EXPLANATION}
-																</p>
-																<p className="whitespace-pre-wrap break-words">
-																	{result.explanation?.trim()
-																		? result.explanation
-																		: "—"}
-																</p>
-															</td>
-														</tr>
-													) : null}
-												</Fragment>
-											);
-										})}
-									</tbody>
-								</table>
-							</div>
-						)}
-					</CardContent>
-				</Card>
+							</IntermediateState>
+						}
+					/>
+				</div>
 			</div>
 		</div>
 	);

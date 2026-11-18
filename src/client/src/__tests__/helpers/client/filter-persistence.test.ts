@@ -26,6 +26,7 @@ describe("filter persistence helpers", () => {
 			tr: "7D",
 			gb: "serviceName",
 			gh: "truncated",
+			search: "refund",
 			limit: "50",
 		});
 
@@ -38,6 +39,7 @@ describe("filter persistence helpers", () => {
 		expect(params.has("tr")).toBe(false);
 		expect(params.has("gb")).toBe(false);
 		expect(params.has("gh")).toBe(false);
+		expect(params.has("search")).toBe(false);
 		expect(params.has("limit")).toBe(false);
 	});
 });

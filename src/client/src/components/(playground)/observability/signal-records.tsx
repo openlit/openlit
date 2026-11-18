@@ -159,6 +159,50 @@ function HealthBadge({
 	);
 }
 
+// A div rather than a native button, because browsers do not let you drag-select
+// text inside a button and rows carry ids people need to copy.
+function RecordRow({
+	row,
+	onOpen,
+	disabled,
+	className,
+	children,
+}: {
+	row: any;
+	onOpen: (row: any) => void;
+	disabled?: boolean;
+	className: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<div
+			role="button"
+			tabIndex={disabled ? undefined : 0}
+			aria-disabled={disabled}
+			onClick={(event) => {
+				const selection = window.getSelection();
+				// Either end can be in the row: a shift-click extends a selection
+				// that started elsewhere.
+				const isSelectingText =
+					selection &&
+					!selection.isCollapsed &&
+					(event.currentTarget.contains(selection.anchorNode) ||
+						event.currentTarget.contains(selection.focusNode));
+				if (!disabled && !isSelectingText) onOpen(row);
+			}}
+			onKeyDown={(event) => {
+				if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
+				event.preventDefault();
+				// Holding the key down should open the row once, not on every repeat.
+				if (!event.repeat) onOpen(row);
+			}}
+			className={`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-950 dark:focus-visible:ring-stone-300 ${className}`}
+		>
+			{children}
+		</div>
+	);
+}
+
 function TraceRecord({
 	row,
 	config,
@@ -192,9 +236,9 @@ function TraceRecord({
 			})
 		: undefined;
 	return (
-		<button
-			type="button"
-			onClick={() => onOpen(row)}
+		<RecordRow
+			row={row}
+			onOpen={onOpen}
 			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
 					? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/20 dark:border-primary dark:bg-primary/15"
@@ -238,7 +282,7 @@ function TraceRecord({
 					{show("model") && <MiniMeta icon={<Hash className="h-3.5 w-3.5" />} label="model" value={row.model || row.system} />}
 				</div>
 			</div>
-		</button>
+		</RecordRow>
 	);
 }
 
@@ -285,9 +329,9 @@ function LogRecord({
 	const fallbackPairs = topAttributePairs([logAttrs, resourceAttrs, row.ScopeAttributes], 3);
 
 	return (
-		<button
-			type="button"
-			onClick={() => onOpen(row)}
+		<RecordRow
+			row={row}
+			onOpen={onOpen}
 			className={`w-full rounded-md border bg-white font-mono text-left transition dark:bg-stone-950 ${
 				isSelected
 					? "border-amber-500 bg-amber-50 shadow-sm ring-1 ring-amber-200 dark:border-amber-500 dark:bg-amber-950/20 dark:ring-amber-900"
@@ -325,7 +369,7 @@ function LogRecord({
 				))}
 				<span>attrs:{logAttrCount}/{resourceAttrCount}/{scopeAttrCount}</span>
 			</div>
-		</button>
+		</RecordRow>
 	);
 }
 
@@ -350,9 +394,9 @@ function MetricRecord({
 	const unit = row.metricUnit || "unitless";
 
 	return (
-		<button
-			type="button"
-			onClick={() => onOpen(row)}
+		<RecordRow
+			row={row}
+			onOpen={onOpen}
 			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
 					? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/20 dark:border-primary dark:bg-primary/15"
@@ -431,7 +475,7 @@ function MetricRecord({
 					</div>
 				</div>
 			</div>
-		</button>
+		</RecordRow>
 	);
 }
 
@@ -488,9 +532,9 @@ function CodingUserRecord({
 	);
 	const workPct = (Number(row.classification_work || 0) / total) * 100;
 	return (
-		<button
-			type="button"
-			onClick={() => !masked && onOpen(row)}
+		<RecordRow
+			row={row}
+			onOpen={onOpen}
 			disabled={masked}
 			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
@@ -562,7 +606,7 @@ function CodingUserRecord({
 					)}
 				</div>
 			</div>
-		</button>
+		</RecordRow>
 	);
 }
 
@@ -597,9 +641,9 @@ function SessionRecord({
 	const folderLabel = (row.working_dir_label || "").trim();
 	const loopHit = asAgentLoopHit(row.agentLoop);
 	return (
-		<button
-			type="button"
-			onClick={() => onOpen(row)}
+		<RecordRow
+			row={row}
+			onOpen={onOpen}
 			className={`group w-full rounded-md border p-3 text-left transition ${
 				isSelected
 					? "border-violet-500 bg-violet-50 shadow-sm ring-1 ring-violet-200 dark:border-violet-500 dark:bg-violet-950/30 dark:ring-violet-900"
@@ -750,7 +794,7 @@ function SessionRecord({
 					)}
 				</div>
 			</div>
-		</button>
+		</RecordRow>
 	);
 }
 

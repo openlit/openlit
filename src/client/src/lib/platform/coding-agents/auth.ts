@@ -68,38 +68,22 @@ export async function requireCodingAgentAuth(): Promise<CodingAgentAuth> {
 		);
 	}
 
-	const [membership, organisation] = await Promise.all([
-		prisma.organisationUser.findUnique({
-			where: {
-				organisationId_userId: {
-					organisationId: org.id,
-					userId: user.id,
-				},
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId: org.id,
+				userId: user.id,
 			},
-			select: { role: true },
-		}),
-		prisma.organisation.findUnique({
-			where: { id: org.id },
-			select: { createdByUserId: true },
-		}),
-	]);
+		},
+		select: { role: true },
+	});
 
 	if (!membership) {
 		throw new CodingAgentUnauthorizedError();
 	}
 
-	// Promote the org creator to admin even if their membership row
-	// says `member`. Older deployments seeded the creator without an
-	// explicit role; a one-line migration backfilled the column but
-	// the seed itself didn't, so a fresh setup ended up locking the
-	// owner out of admin-only views (incl. the cohort-floor bypass for
-	// coding-agents). Re-deriving from createdByUserId here makes the
-	// auth check resilient to data drift.
-	const isCreator = organisation?.createdByUserId === user.id;
 	const role: CodingAgentRole =
-		isCreator ||
-		membership.role === "owner" ||
-		membership.role === "admin"
+		membership.role === "owner" || membership.role === "admin"
 			? "admin"
 			: "viewer";
 
@@ -107,6 +91,6 @@ export async function requireCodingAgentAuth(): Promise<CodingAgentAuth> {
 		userId: user.id,
 		organizationId: org.id,
 		role,
-		rawRole: isCreator && membership.role === "member" ? "owner" : membership.role,
+		rawRole: membership.role,
 	};
 }

@@ -37,8 +37,15 @@ const maxTranscriptScan = 32 * 1024 * 1024
 
 // maxLineLen is the per-line scanner buffer ceiling. Codex's
 // `response_item` records that wrap large tool outputs can be hundreds
-// of KiB; 1 MiB is a comfortable safety margin.
-const maxLineLen = 1 * 1024 * 1024
+// of KiB, and a single record holding a whole tool result can pass a
+// megabyte. A line over this ceiling stops the scan with
+// `bufio.ErrTooLong` rather than being skipped, so every later record
+// in the rollout becomes unreadable and the turn loses its token usage
+// entirely. Tie it to the transcript budget: any record we would have
+// accepted within `maxTranscriptScan` is readable on its own too. The
+// scanner starts at 64 KiB and only grows to what a line actually
+// needs, so this raises the ceiling, not the usual allocation.
+const maxLineLen = maxTranscriptScan
 
 // codexLine is the outer JSON envelope every line in a rollout
 // transcript shares.
