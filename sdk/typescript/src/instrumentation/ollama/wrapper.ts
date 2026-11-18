@@ -188,6 +188,7 @@ export default class OllamaWrapper extends BaseWrapper {
           result.done_reason = chunk.done_reason || '';
           result.prompt_eval_count = chunk.prompt_eval_count || 0;
           result.eval_count = chunk.eval_count || 0;
+          result.prompt_eval_cached_count = chunk.prompt_eval_cached_count;
         }
         yield chunk;
       }
@@ -278,9 +279,20 @@ export default class OllamaWrapper extends BaseWrapper {
 
     const responseModel = result.model || requestModel;
     const pricingInfo = OpenlitConfig.pricingInfo || {};
+    // prompt_eval_count includes the prompt tokens served from the KV cache,
+    // which Ollama v0.33.3+ reports as prompt_eval_cached_count.
     const inputTokens = result.prompt_eval_count || 0;
     const outputTokens = result.eval_count || 0;
-    const cost = OpenLitHelper.getChatModelCost(requestModel, pricingInfo, inputTokens, outputTokens);
+    const cacheReadTokens = Number(result.prompt_eval_cached_count) || 0;
+    const cost = OpenLitHelper.getChatModelCost(
+      requestModel,
+      pricingInfo,
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      0,
+      true
+    );
 
     OllamaWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,
@@ -294,6 +306,9 @@ export default class OllamaWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
+    if (cacheReadTokens) {
+      span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, cacheReadTokens);
+    }
 
     if (ttft > 0) {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
@@ -503,6 +518,7 @@ export default class OllamaWrapper extends BaseWrapper {
           result.done_reason = chunk.done_reason || '';
           result.prompt_eval_count = chunk.prompt_eval_count || 0;
           result.eval_count = chunk.eval_count || 0;
+          result.prompt_eval_cached_count = chunk.prompt_eval_cached_count;
         }
         yield chunk;
       }
@@ -590,9 +606,20 @@ export default class OllamaWrapper extends BaseWrapper {
 
     const responseModel = result.model || requestModel;
     const pricingInfo = OpenlitConfig.pricingInfo || {};
+    // prompt_eval_count includes the prompt tokens served from the KV cache,
+    // which Ollama v0.33.3+ reports as prompt_eval_cached_count.
     const inputTokens = result.prompt_eval_count || 0;
     const outputTokens = result.eval_count || 0;
-    const cost = OpenLitHelper.getChatModelCost(requestModel, pricingInfo, inputTokens, outputTokens);
+    const cacheReadTokens = Number(result.prompt_eval_cached_count) || 0;
+    const cost = OpenLitHelper.getChatModelCost(
+      requestModel,
+      pricingInfo,
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      0,
+      true
+    );
 
     OllamaWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,
@@ -606,6 +633,9 @@ export default class OllamaWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, outputTokens);
+    if (cacheReadTokens) {
+      span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, cacheReadTokens);
+    }
 
     if (ttft > 0) {
       span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
