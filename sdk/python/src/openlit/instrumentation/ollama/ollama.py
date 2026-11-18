@@ -200,7 +200,34 @@ def chat(
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.monotonic()
 
-                response = wrapped(*args, **kwargs)
+                try:
+                    response = wrapped(*args, **kwargs)
+                except Exception as e:
+                    if not disable_metrics and metrics:
+                        try:
+                            record_completion_metrics(
+                                metrics,
+                                SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                                SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+                                server_address,
+                                server_port,
+                                request_model or "unknown",
+                                "unknown",
+                                environment,
+                                application_name,
+                                start_time,
+                                time.monotonic(),
+                                0,
+                                0,
+                                0,
+                                None,
+                                None,
+                                error_type=type(e).__name__ or "_OTHER",
+                            )
+                        except Exception:
+                            # Preserve the provider error; recording may have partially succeeded.
+                            pass
+                    raise
 
                 try:
                     response = process_chat_response(
@@ -426,7 +453,34 @@ def generate(
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.monotonic()
 
-                response = wrapped(*args, **kwargs)
+                try:
+                    response = wrapped(*args, **kwargs)
+                except Exception as e:
+                    if not disable_metrics and metrics:
+                        try:
+                            record_completion_metrics(
+                                metrics,
+                                SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_COMPLETION,
+                                SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+                                server_address,
+                                server_port,
+                                request_model or "unknown",
+                                "unknown",
+                                environment,
+                                application_name,
+                                start_time,
+                                time.monotonic(),
+                                0,
+                                0,
+                                0,
+                                None,
+                                None,
+                                error_type=type(e).__name__ or "_OTHER",
+                            )
+                        except Exception:
+                            # Preserve the provider error; recording may have partially succeeded.
+                            pass
+                    raise
 
                 try:
                     response = process_generate_response(
