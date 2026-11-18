@@ -11,8 +11,10 @@ payload, which is why the plugin never registers ``pre_tool_call``: a slow or fa
 there blocks the tool.
 
 Hermes skips ``on_session_end`` when a turn stops early, for example on an API error it won't
-retry. Such a turn is closed when the next turn in its session starts, when the session is
-finalized, or when the process exits, and is marked failed if its last model call failed.
+retry, and a gateway may fire no other hook for that session. Such a turn is closed when the
+next turn in its session starts, when the session is finalized, when the process exits, or
+``ABANDON_AFTER_S`` after a non-retryable API error with nothing since (a fallback model call
+in that window keeps the turn open). It is marked failed if its last model call failed.
 """
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ logger = logging.getLogger(__name__)
 AGENT_NAME = "hermes"
 DEFAULT_SERVICE_NAME = "hermes-agent"
 FLUSH_TIMEOUT_MS = 5000
+ABANDON_AFTER_S = 60.0
 
 
 def fail_open(callback: Callable[..., None]) -> Callable[..., None]:
@@ -159,6 +162,13 @@ class Observer:
         self.pricing: dict[str, Any] = {}
         self.turns: dict[str, Turn] = {}
         self.subagent_parents: dict[str, Context] = {}
+        self.abandon_after_s = ABANDON_AFTER_S
+
+    def schedule(self, delay_s: float, callback: Callable[..., None], **kwargs: Any) -> None:
+        timer = threading.Timer(delay_s, fail_open(callback), kwargs=kwargs)
+        timer.name = "openlit-abandon"
+        timer.daemon = True
+        timer.start()
 
     def load_pricing(self) -> None:
         self.pricing = fetch_pricing_info(os.getenv("OPENLIT_PRICING_JSON"))
@@ -320,6 +330,16 @@ class Observer:
         if turn and not kwargs.get("aux_task"):
             turn.last_activity_ns = end_ns
             turn.error_type = (error_type or "error") if error else None
+            if error and kwargs.get("retryable") is False:
+                self.schedule(
+                    self.abandon_after_s, self.close_if_idle, turn_id=turn_id, since_ns=end_ns
+                )
+
+    def close_if_idle(self, **kwargs: Any) -> None:
+        """Close a turn that has done nothing since its non-retryable API error."""
+        turn = self.turns.get(kwargs.get("turn_id") or "")
+        if turn and turn.error_type and turn.last_activity_ns == kwargs.get("since_ns"):
+            self._close_turns(lambda candidate: candidate is turn)
 
     def _set_llm_content(self, span: Span, turn_id: str | None, kwargs: dict[str, Any]) -> None:
         turn = self.turns.get(turn_id or "")

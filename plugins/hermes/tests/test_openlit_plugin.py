@@ -55,7 +55,17 @@ def make_observer(capture_content=False):
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
-    return plugin.Observer(provider, capture_content), exporter
+    observer = plugin.Observer(provider, capture_content)
+    observer.scheduled = []
+    observer.schedule = lambda delay_s, callback, **kwargs: observer.scheduled.append(
+        (delay_s, callback, kwargs)
+    )
+    return observer, exporter
+
+
+def run_scheduled(observer):
+    for _, callback, kwargs in observer.scheduled:
+        callback(**kwargs)
 
 
 def llm_payload(**overrides):
@@ -268,16 +278,16 @@ def test_failed_and_interrupted_turns_still_end():
 
 
 def failed_api_call(**overrides):
-    return llm_payload(
-        usage=None,
-        response=None,
-        finish_reason=None,
-        status_code=401,
-        retryable=False,
-        reason="auth",
-        error={"type": "AuthenticationError", "message": "secret provider body"},
+    return llm_payload(**{
+        "usage": None,
+        "response": None,
+        "finish_reason": None,
+        "status_code": 401,
+        "retryable": False,
+        "reason": "auth",
+        "error": {"type": "AuthenticationError", "message": "secret provider body"},
         **overrides,
-    )
+    })
 
 
 def test_turn_hermes_never_ends_closes_as_failed_when_the_next_turn_starts():
@@ -297,7 +307,60 @@ def test_turn_hermes_never_ends_closes_as_failed_when_the_next_turn_starts():
     assert list(observer.turns) == ["t2"]
 
 
-def test_a_new_turn_leaves_other_sessions_open():
+def test_non_retryable_error_closes_an_idle_turn_after_the_delay():
+    # A gateway fires no session hook for such a turn, so a timer is the only signal.
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call())
+
+    ((delay_s, _, _),) = observer.scheduled
+    assert delay_s == plugin.ABANDON_AFTER_S
+    run_scheduled(observer)
+
+    turn = by_name(exporter)["invoke_agent hermes"]
+    assert turn.status.status_code == StatusCode.ERROR
+    assert turn.attributes["hermes.turn.exit_reason"] == "abandoned"
+    assert observer.turns == {}
+
+
+def test_a_fallback_call_before_the_delay_keeps_the_turn_open():
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call())
+    observer.llm_call(**llm_payload(api_request_id="r2", ended_at=1003.0))
+
+    run_scheduled(observer)
+
+    assert "invoke_agent hermes" not in by_name(exporter)
+    observer.turn_end(turn_id="t1", turn_exit_reason="done")
+    assert by_name(exporter)["invoke_agent hermes"].status.status_code == StatusCode.UNSET
+
+
+def test_retryable_errors_schedule_nothing():
+    observer, _ = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call(retryable=True))
+
+    assert observer.scheduled == []
+
+
+def test_the_real_timer_closes_the_turn():
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    observer = plugin.Observer(provider)
+    observer.abandon_after_s = 0.01
+    observer.flush = lambda: None
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call())
+
+    for thread in threading.enumerate():
+        if thread.name == "openlit-abandon":
+            thread.join(timeout=2)
+    assert [span.name for span in exporter.get_finished_spans()][-1] == "invoke_agent hermes"
+
+
+
     observer, exporter = make_observer()
     observer.turn_start(session_id="s1", turn_id="t1")
     observer.turn_start(session_id="s2", turn_id="t2")
