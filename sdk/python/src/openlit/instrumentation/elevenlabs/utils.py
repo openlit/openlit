@@ -5,12 +5,14 @@ ElevenLabs OpenTelemetry instrumentation utility functions
 import json
 import logging
 import time
+from contextlib import contextmanager
 
-from opentelemetry.trace import Status, StatusCode
+from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from openlit.__helpers import (
     common_span_attributes,
     get_audio_model_cost,
+    handle_exception,
     record_audio_metrics,
     otel_event,
     truncate_message_content,
@@ -366,3 +368,72 @@ def process_audio_response(
     )
 
     return response
+
+
+@contextmanager
+def trace_audio_request(
+    tracer,
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    event_provider,
+    args,
+    kwargs,
+):
+    """
+    Keep a span open around one text_to_speech.convert stream.
+
+    The stream ending normally records the request as OK, and so does the
+    consumer closing it early (GeneratorExit), since the request was already
+    sent. Anything else that interrupts it, CancelledError and
+    KeyboardInterrupt included, marks the span ERROR and propagates.
+    """
+    server_address, server_port = "api.elevenlabs.io", 443
+    request_model = kwargs.get(
+        "model", kwargs.get("model_id", "eleven_multilingual_v2")
+    )
+    span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}"
+
+    span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+    start_time = time.time()
+    error = None
+    try:
+        yield
+    except GeneratorExit:
+        raise
+    except BaseException as e:
+        error = e
+        raise
+    finally:
+        try:
+            if error is not None:
+                handle_exception(span, error)
+            else:
+                try:
+                    process_audio_response(
+                        response=None,
+                        gen_ai_endpoint=gen_ai_endpoint,
+                        pricing_info=pricing_info,
+                        server_port=server_port,
+                        server_address=server_address,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        start_time=start_time,
+                        span=span,
+                        args=args,
+                        kwargs=kwargs,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        event_provider=event_provider,
+                    )
+                except Exception as e:
+                    handle_exception(span, e)
+        finally:
+            span.end()
