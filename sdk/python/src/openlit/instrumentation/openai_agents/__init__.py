@@ -177,6 +177,8 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
             agent_creation_registry=agent_registry,
         )
 
+        self._processor = processor
+
         # Integrate with OpenAI Agents' native tracing system
         try:
             from agents import set_trace_processors
@@ -192,8 +194,25 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
 
     def _uninstrument(self, **kwargs):
         try:
-            from agents import set_trace_processors
+            from opentelemetry.instrumentation.utils import unwrap
 
-            set_trace_processors([])
+            unwrap("agents.Agent", "__init__")
         except ImportError:
             pass
+
+        processor = getattr(self, "_processor", None)
+        if processor is None:
+            return
+        self._processor = None
+        try:
+            from agents import set_trace_processors
+            from agents.tracing import get_trace_provider
+
+            # The SDK has no public remove call, so rebuild the list without
+            # ours and keep the processors the application registered.
+            current = get_trace_provider()._multi_processor._processors
+            set_trace_processors([p for p in current if p is not processor])
+        except (ImportError, AttributeError):
+            pass
+        # Ends the spans of runs still in flight so they get exported.
+        processor.shutdown()
