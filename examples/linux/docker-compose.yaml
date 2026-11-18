@@ -1,6 +1,6 @@
 services:
   clickhouse:
-    image: clickhouse/clickhouse-server:24.4.1
+    image: clickhouse/clickhouse-server:26.8.36
     container_name: clickhouse
     environment:
       CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
