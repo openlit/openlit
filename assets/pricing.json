@@ -418,6 +418,12 @@
             "cacheReadPrice": 0.0002,
             "cacheCreationPrice": 0.0025
         },
+        "claude-haiku-5-5": {
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0005,
+            "cacheReadPrice": 0.00001,
+            "cacheCreationPrice": 0.000125
+        },
         "gpt-5": {
             "promptPrice": 0.00125,
             "completionPrice": 0.01,

@@ -12,6 +12,10 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useSignalCapabilities } from "@/utils/hooks/useSignalCapabilities";
 import { TraceHeirarchySpan } from "@/types/trace";
 import {
+	getHierarchyUsageTotals,
+	HierarchyUsageTotals,
+} from "@/helpers/client/trace";
+import {
 	RequestProvider,
 	useRequest,
 } from "@/components/(playground)/request/request-context";
@@ -50,14 +54,6 @@ const VIEW_MODES: { key: ViewMode; labelKey: ViewModeLabelKey; icon: ReactNode }
 	{ key: "graph", labelKey: "OBSERVABILITY_GRAPH", icon: <Network className="h-3.5 w-3.5" /> },
 ];
 
-function sumCostRecursive(span: TraceHeirarchySpan): number {
-	const cost = span.Cost != null && span.Cost > 0 ? span.Cost : 0;
-	const childrenCost = (span.children || []).reduce(
-		(acc, child) => acc + sumCostRecursive(child),
-		0
-	);
-	return cost + childrenCost;
-}
 
 function countSpans(span?: TraceHeirarchySpan): number {
 	if (!span) return 0;
@@ -163,12 +159,14 @@ function SpanHierarchyExplorerInner({
 	selectedSpanId,
 	traceId,
 	onSelectSpan,
+	onUsageTotals,
 	fill = false,
 }: {
 	hierarchySpanId: string;
 	selectedSpanId: string;
 	traceId?: string;
 	onSelectSpan?: (spanId: string) => void;
+	onUsageTotals?: (rootSpanId: string, totals: HierarchyUsageTotals) => void;
 	fill?: boolean;
 }) {
 	const m = getMessage();
@@ -213,10 +211,14 @@ function SpanHierarchyExplorerInner({
 
 	const typedData = (data as { record?: TraceHeirarchySpan; err?: string }) || {};
 	const record = typedData.record;
-	const aggregateCost = useMemo(
-		() => (record ? sumCostRecursive(record) : 0),
+	const usageTotals = useMemo(
+		() => (record ? getHierarchyUsageTotals(record) : null),
 		[record]
 	);
+	const aggregateCost = usageTotals?.cost ?? 0;
+	useEffect(() => {
+		if (record && usageTotals) onUsageTotals?.(record.SpanId, usageTotals);
+	}, [onUsageTotals, record, usageTotals]);
 	const spanCount = useMemo(() => countSpans(record), [record]);
 	const isCodingAgent = useMemo(() => isCodingAgentTree(record), [record]);
 
@@ -377,12 +379,14 @@ export default function SpanHierarchyExplorer({
 	selectedSpanId,
 	traceId,
 	onSelectSpan,
+	onUsageTotals,
 	fill,
 }: {
 	hierarchySpanId: string;
 	selectedSpanId: string;
 	traceId?: string;
 	onSelectSpan?: (spanId: string) => void;
+	onUsageTotals?: (rootSpanId: string, totals: HierarchyUsageTotals) => void;
 	fill?: boolean;
 }) {
 	return (
@@ -392,6 +396,7 @@ export default function SpanHierarchyExplorer({
 				selectedSpanId={selectedSpanId}
 				traceId={traceId}
 				onSelectSpan={onSelectSpan}
+				onUsageTotals={onUsageTotals}
 				fill={fill}
 			/>
 		</RequestProvider>

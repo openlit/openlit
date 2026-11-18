@@ -11,6 +11,10 @@ const SPANS: Record<string, { traceId: string; name: string }> = {
 const PAIR_ERROR = "Span not found in the selected trace and telemetry source";
 
 let mockSearchParams = new URLSearchParams();
+let mockHierarchyUsage: {
+	rootSpanId: string;
+	totals: { tokens: number; cost: number };
+} | null = null;
 const mockRouter = { push: jest.fn(), replace: jest.fn() };
 
 jest.mock("next/navigation", () => ({
@@ -33,9 +37,21 @@ jest.mock(
 	"@/components/(playground)/observability/span-hierarchy-explorer",
 	() => ({
 		__esModule: true,
-		default: ({ traceId }: { traceId?: string }) => (
-			<div data-testid="hierarchy">{traceId}</div>
-		),
+		default: function MockHierarchy({
+			traceId,
+			onUsageTotals,
+		}: {
+			traceId?: string;
+			onUsageTotals?: (rootSpanId: string, totals: unknown) => void;
+		}) {
+			const { useEffect } = jest.requireActual("react");
+			useEffect(() => {
+				if (mockHierarchyUsage) {
+					onUsageTotals?.(mockHierarchyUsage.rootSpanId, mockHierarchyUsage.totals);
+				}
+			}, [onUsageTotals]);
+			return <div data-testid="hierarchy">{traceId}</div>;
+		},
 	})
 );
 jest.mock("@/components/(playground)/observability/detail-object-tabs", () => ({
@@ -175,5 +191,32 @@ describe("TraceDetailView arrow navigation", () => {
 
 		await screen.findByRole("heading", { name: "third span" });
 		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	});
+});
+
+describe("TraceDetailView header usage", () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+		answerLikeTheServer();
+		mockHierarchyUsage = null;
+	});
+	afterAll(() => {
+		mockHierarchyUsage = null;
+	});
+
+	it("shows the trace's totals for a root span that reports no usage", async () => {
+		mockHierarchyUsage = { rootSpanId: "span-1", totals: { tokens: 28546, cost: 0.0117 } };
+		await renderSheet();
+
+		expect(await screen.findByText((28546).toLocaleString())).toBeInTheDocument();
+		expect(screen.getByText("$0.011700")).toBeInTheDocument();
+	});
+
+	it("keeps a child span's own empty usage instead of the trace totals", async () => {
+		mockHierarchyUsage = { rootSpanId: "root-span", totals: { tokens: 28546, cost: 0.0117 } };
+		await renderSheet();
+
+		expect(screen.queryByText((28546).toLocaleString())).not.toBeInTheDocument();
+		expect(screen.queryByText("$0.011700")).not.toBeInTheDocument();
 	});
 });

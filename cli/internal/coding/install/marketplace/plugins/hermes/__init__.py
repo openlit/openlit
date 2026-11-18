@@ -13,8 +13,10 @@ there blocks the tool.
 Hermes skips ``on_session_end`` when a turn stops early, for example on an API error it won't
 retry, and a gateway may fire no other hook for that session. Such a turn is closed when the
 next turn in its session starts, when the session is finalized, when the process exits, or
-``ABANDON_AFTER_S`` after a non-retryable API error with nothing since (a fallback model call
-in that window keeps the turn open). It is marked failed if its last model call failed.
+after a model call's last attempt failed with nothing since: ``ABANDON_AFTER_S`` after an error
+Hermes won't retry, ``ABANDON_AFTER_RETRIES_S`` after the final retry, since Hermes may still
+wait up to 120 s and try again (``agent.auto_recovery_cycles``). Any later model call, such as a
+fallback, keeps the turn open. It is marked failed if its last model call failed.
 """
 
 from __future__ import annotations
@@ -50,6 +52,7 @@ AGENT_NAME = "hermes"
 DEFAULT_SERVICE_NAME = "hermes-agent"
 FLUSH_TIMEOUT_MS = 5000
 ABANDON_AFTER_S = 60.0
+ABANDON_AFTER_RETRIES_S = 180.0
 
 
 def fail_open(callback: Callable[..., None]) -> Callable[..., None]:
@@ -82,6 +85,15 @@ def _set_error(span: Span, error_type: str | None) -> None:
     span.set_status(Status(StatusCode.ERROR, error_type))
     if error_type:
         span.set_attribute(SC.ERROR_TYPE, error_type)
+
+
+def _final_retry(kwargs: dict[str, Any]) -> bool:
+    """Whether this failed attempt was the model call's last retry. ``retry_count`` counts the
+    earlier retries."""
+    retry_count, max_retries = kwargs.get("retry_count"), kwargs.get("max_retries")
+    if not isinstance(retry_count, int) or not isinstance(max_retries, int):
+        return False
+    return retry_count + 1 >= max_retries
 
 
 def _tool_call_parts(tool_calls: Any) -> list[dict[str, Any]]:
@@ -212,6 +224,7 @@ class Observer:
         self.turns: dict[str, Turn] = {}
         self.subagent_parents: dict[str, Context] = {}
         self.abandon_after_s = ABANDON_AFTER_S
+        self.abandon_after_retries_s = ABANDON_AFTER_RETRIES_S
 
     def schedule(self, delay_s: float, callback: Callable[..., None], **kwargs: Any) -> None:
         timer = threading.Timer(delay_s, fail_open(callback), kwargs=kwargs)
@@ -379,13 +392,21 @@ class Observer:
         if turn and not kwargs.get("aux_task"):
             turn.last_activity_ns = end_ns
             turn.error_type = (error_type or "error") if error else None
-            if error and kwargs.get("retryable") is False:
-                self.schedule(
-                    self.abandon_after_s, self.close_if_idle, turn_id=turn_id, since_ns=end_ns
-                )
+            delay_s = self._abandon_delay(kwargs) if error else None
+            if delay_s is not None:
+                self.schedule(delay_s, self.close_if_idle, turn_id=turn_id, since_ns=end_ns)
+
+    def _abandon_delay(self, kwargs: dict[str, Any]) -> float | None:
+        """How long a turn may stay idle after this failed attempt before it counts as abandoned,
+        or None while Hermes still has retries left."""
+        if kwargs.get("retryable") is False:
+            return self.abandon_after_s
+        if _final_retry(kwargs):
+            return self.abandon_after_retries_s
+        return None
 
     def close_if_idle(self, **kwargs: Any) -> None:
-        """Close a turn that has done nothing since its non-retryable API error."""
+        """Close a turn that has done nothing since its model call finally failed."""
         turn = self.turns.get(kwargs.get("turn_id") or "")
         if turn and turn.error_type and turn.last_activity_ns == kwargs.get("since_ns"):
             self._close_turns(lambda candidate: candidate is turn)

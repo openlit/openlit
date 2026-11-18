@@ -340,12 +340,47 @@ def test_a_fallback_call_before_the_delay_keeps_the_turn_open():
     assert by_name(exporter)["invoke_agent hermes"].status.status_code == StatusCode.UNSET
 
 
-def test_retryable_errors_schedule_nothing():
+@pytest.mark.parametrize(
+    "retries", [{}, {"retry_count": 0, "max_retries": 3}, {"retry_count": 1, "max_retries": 3}]
+)
+def test_retryable_errors_with_retries_left_schedule_nothing(retries):
     observer, _ = make_observer()
     observer.turn_start(session_id="s1", turn_id="t1")
-    observer.llm_call(**failed_api_call(retryable=True))
+    observer.llm_call(**failed_api_call(retryable=True, **retries))
 
     assert observer.scheduled == []
+
+
+def test_the_last_retry_failing_closes_an_idle_turn_after_the_longer_delay():
+    # retry_count counts earlier retries: 2 of 3 means this was the last attempt. Hermes may
+    # still wait up to 120 s and retry, so the turn gets longer than after a non-retryable error.
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call(
+        retryable=True, retry_count=2, max_retries=3, status_code=503, reason="server_error",
+        error={"type": "InternalServerError", "message": "overloaded"},
+    ))
+
+    ((delay_s, _, _),) = observer.scheduled
+    assert delay_s == plugin.ABANDON_AFTER_RETRIES_S > 120
+    run_scheduled(observer)
+
+    turn = by_name(exporter)["invoke_agent hermes"]
+    assert turn.status.status_code == StatusCode.ERROR
+    assert turn.attributes[SC.ERROR_TYPE] == "InternalServerError"
+    assert turn.attributes["hermes.turn.exit_reason"] == "abandoned"
+
+
+def test_an_auto_recovery_attempt_after_the_last_retry_keeps_the_turn_open():
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call(retryable=True, retry_count=2, max_retries=3))
+    observer.llm_call(**llm_payload(api_request_id="r2", ended_at=1100.0))
+
+    run_scheduled(observer)
+
+    assert "invoke_agent hermes" not in by_name(exporter)
+    assert list(observer.turns) == ["t1"]
 
 
 def test_the_real_timer_closes_the_turn():

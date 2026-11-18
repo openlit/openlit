@@ -347,6 +347,38 @@ export function getSpanCostFormatted(
 	return `$${Number(span.Cost).toFixed(precision)}`;
 }
 
+export interface HierarchyUsageTotals {
+	tokens: number;
+	cost: number;
+}
+
+/**
+ * Tokens and cost summed over a span and all its descendants. A span's
+ * tokens are its total, else prompt plus completion, matching the trace
+ * list's TraceTokens.
+ */
+export function getHierarchyUsageTotals(
+	span: TraceHeirarchySpan
+): HierarchyUsageTotals {
+	const attributes = { SpanAttributes: span.SpanAttributes };
+	const total = getNumberOrNull(getTraceMappingValue(attributes, "totalTokens"));
+	const tokens =
+		total !== null && total > 0
+			? total
+			: (getNumberOrNull(getTraceMappingValue(attributes, "promptTokens")) ?? 0) +
+				(getNumberOrNull(getTraceMappingValue(attributes, "completionTokens")) ?? 0);
+	return (span.children || []).reduce(
+		(acc, child) => {
+			const childTotals = getHierarchyUsageTotals(child);
+			return {
+				tokens: acc.tokens + childTotals.tokens,
+				cost: acc.cost + childTotals.cost,
+			};
+		},
+		{ tokens, cost: span.Cost != null && span.Cost > 0 ? span.Cost : 0 }
+	);
+}
+
 /**
  * Get tooltip text for a hierarchy span (name, duration, cost).
  */
