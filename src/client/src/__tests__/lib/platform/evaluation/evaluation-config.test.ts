@@ -1131,7 +1131,7 @@ describe('restoreEvaluationCronJobs', () => {
     (prisma.evaluationConfigs.findMany as jest.Mock).mockResolvedValue([]);
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-    await restoreEvaluationCronJobs('http://localhost:3000');
+    await expect(restoreEvaluationCronJobs('http://localhost:3000')).resolves.toBe(true);
 
     expect(prisma.evaluationConfigs.findMany).toHaveBeenCalledWith({ where: { auto: true } });
     expect(consoleSpy).toHaveBeenCalledWith('No auto-evaluation configs to restore');
@@ -1165,7 +1165,7 @@ describe('restoreEvaluationCronJobs', () => {
     ]);
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-    await restoreEvaluationCronJobs('http://localhost:3000');
+    await expect(restoreEvaluationCronJobs('http://localhost:3000')).resolves.toBe(true);
 
     expect(mockUpdateCrontab).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1197,7 +1197,8 @@ describe('restoreEvaluationCronJobs', () => {
       },
     ]);
 
-    await restoreEvaluationCronJobs('http://localhost:3000');
+    // A config with nothing to schedule is skipped, not a failure.
+    await expect(restoreEvaluationCronJobs('http://localhost:3000')).resolves.toBe(true);
 
     expect(mockUpdateCrontab).not.toHaveBeenCalled();
   });
@@ -1241,7 +1242,7 @@ describe('restoreEvaluationCronJobs', () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation();
     const logSpy = jest.spyOn(console, 'log').mockImplementation();
 
-    await restoreEvaluationCronJobs('http://localhost:3000');
+    await expect(restoreEvaluationCronJobs('http://localhost:3000')).resolves.toBe(false);
 
     expect(errorSpy).toHaveBeenCalledWith('Failed to restore cron job for config cfg-a:', expect.any(Error));
     expect(logSpy).toHaveBeenCalledWith('Restored cron job for evaluation config cfg-b');
@@ -1253,7 +1254,7 @@ describe('restoreEvaluationCronJobs', () => {
     (prisma.evaluationConfigs.findMany as jest.Mock).mockRejectedValue(new Error('DB down'));
     const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-    await restoreEvaluationCronJobs('http://localhost:3000');
+    await expect(restoreEvaluationCronJobs('http://localhost:3000')).resolves.toBe(false);
 
     expect(errorSpy).toHaveBeenCalledWith('Failed to restore evaluation cron jobs:', expect.any(Error));
     errorSpy.mockRestore();

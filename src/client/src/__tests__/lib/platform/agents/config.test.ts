@@ -29,7 +29,9 @@ describe("restoreAgentsMaterializeCron", () => {
 	it("installs the agents materializer cron with defaults", async () => {
 		const logSpy = jest.spyOn(console, "log").mockImplementation();
 
-		await restoreAgentsMaterializeCron("https://api.openlit.local");
+		await expect(
+			restoreAgentsMaterializeCron("https://api.openlit.local")
+		).resolves.toBe(true);
 
 		expect(mockUpdateCrontab).toHaveBeenCalledWith({
 			cronId: "openlit-agents-materialize",
@@ -52,7 +54,9 @@ describe("restoreAgentsMaterializeCron", () => {
 		});
 		const errorSpy = jest.spyOn(console, "error").mockImplementation();
 
-		await restoreAgentsMaterializeCron("https://api.openlit.local");
+		await expect(
+			restoreAgentsMaterializeCron("https://api.openlit.local")
+		).resolves.toBe(false);
 
 		expect(mockUpdateCrontab).toHaveBeenCalledWith(
 			expect.objectContaining({ cronSchedule: "*/5 * * * *" })
