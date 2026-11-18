@@ -102,12 +102,12 @@ describe("requireCodingAgentAuth", () => {
 		});
 	});
 
-	it("promotes the organisation creator to owner/admin", async () => {
+	it("resolves a demoted organisation creator from their membership role", async () => {
 		mockFindOrganisation.mockResolvedValue({ createdByUserId: "user-1" } as any);
 
 		await expect(requireCodingAgentAuth()).resolves.toMatchObject({
-			role: "admin",
-			rawRole: "owner",
+			role: "viewer",
+			rawRole: "member",
 		});
 	});
 });

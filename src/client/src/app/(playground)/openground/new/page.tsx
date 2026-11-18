@@ -4,11 +4,11 @@ import { useEffect } from "react";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useRootStore } from "@/store";
-import { PlayIcon, RotateCcwIcon, Loader2Icon } from "lucide-react";
+import { CheckCircle2Icon, PlayIcon, RotateCcwIcon, Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
-import OpengroundHeader, { OpengroundActions } from "@/components/(playground)/openground/header";
+import OpengroundHeader from "@/components/(playground)/openground/header";
 import PromptSourceToggle from "@/components/(playground)/openground/prompt-source-toggle";
 import DynamicProviderGrid from "@/components/(playground)/openground/dynamic-provider-grid";
 import ProviderSettingsPanel from "@/components/(playground)/openground/provider-settings-panel";
@@ -152,40 +152,37 @@ export default function OpengroundNew() {
 			} />
 
 			{/* Main Content */}
-			<div className="flex flex-col w-full h-full space-y-6 p-4 overflow-auto">
-				{/* Action Buttons */}
-				<Card className="p-4 border-stone-200 dark:border-stone-800">
-					{/* Loading State */}
-					{evaluatedResponse.isLoading ? (
-						<Card className="p-12 border-stone-200 dark:border-stone-800">
-							<div className="flex flex-col items-center justify-center gap-4">
-								<Loader2Icon className="h-12 w-12 animate-spin text-blue-500" />
-								<div className="text-center">
-									<p className="text-lg font-medium text-stone-900 dark:text-stone-100">
+			<div className="flex h-full w-full flex-col gap-4 overflow-auto p-4">
+				{/* Status */}
+				<Card className="border border-stone-200 dark:border-stone-800">
+					<CardContent className="p-4">
+						{evaluatedResponse.isLoading ? (
+							<div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+								<Loader2Icon className="h-8 w-8 animate-spin text-primary" />
+								<div>
+									<p className="text-sm font-medium text-stone-900 dark:text-stone-100">
 										{getMessage().OPENGROUND_EVALUATING_PROVIDERS}
 									</p>
-									<p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
+									<p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
 										{getMessage().OPENGROUND_MAY_TAKE_FEW_SECONDS}
 									</p>
 								</div>
 							</div>
-						</Card>
-					) : (
-						<div className="flex w-full items-center justify-between">
+						) : (
 							<div className="text-sm text-stone-600 dark:text-stone-400">
 								{selectedProvidersNew.length === 0 ? (
 									getMessage().OPENGROUND_SELECT_PROVIDERS_BEGIN
 								) : evaluatedResponse.data ? (
-									<span className="text-green-600 dark:text-green-400 font-medium">
-										✓ {getMessage().OPENGROUND_EVALUATION_COMPLETE}
+									<span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+										<CheckCircle2Icon className="h-4 w-4" />
+										{getMessage().OPENGROUND_EVALUATION_COMPLETE}
 									</span>
 								) : (
-									`${getMessage().OPENGROUND_READY_TO_EVALUATE} ${selectedProvidersNew.length} provider${selectedProvidersNew.length > 1 ? "s" : ""
-									}`
+									getMessage().OPENGROUND_READY_TO_EVALUATE_PROVIDERS(selectedProvidersNew.length)
 								)}
 							</div>
-						</div>
-					)}
+						)}
+					</CardContent>
 				</Card>
 
 				{/* Step 1: Prompt Configuration */}
@@ -199,27 +196,25 @@ export default function OpengroundNew() {
 
 				{/* Results Section */}
 				{providerResults && (
-					<div className="space-y-6">
+					<div className="flex flex-col gap-4">
 						{/* Metrics Overview */}
 						<MetricsOverview data={providerResults} />
 
 						{/* Performance & Cost Analysis */}
-						<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+						<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 							<PerformanceWaterfall data={providerResults} />
 							<CostBreakdown data={providerResults} />
 						</div>
 
 						{/* Detailed Results */}
-						<Card className="border-stone-200 dark:border-stone-800">
-							<CardHeader>
-								<CardTitle className="text-lg">{getMessage().OPENGROUND_PROVIDER_RESPONSES}</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								{providerResults.map((result, index) => (
-									<ProviderResultCard key={index} result={result} index={index} />
-								))}
-							</CardContent>
-						</Card>
+						<section className="flex flex-col gap-3">
+							<h2 className="text-sm font-medium text-stone-700 dark:text-stone-300">
+								{getMessage().OPENGROUND_PROVIDER_RESPONSES}
+							</h2>
+							{providerResults.map((result, index) => (
+								<ProviderResultCard key={index} result={result} index={index} />
+							))}
+						</section>
 					</div>
 				)}
 			</div>

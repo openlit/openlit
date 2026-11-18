@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
 	Select,
 	SelectContent,
@@ -24,6 +25,8 @@ import { Link2, Plus, Trash2, ExternalLink, ArrowLeft, Sparkles, Layers } from "
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import FeaturePageHeader from "@/components/(playground)/feature-page-header";
+import IntermediateState from "@/components/(playground)/intermediate-state";
+import ConfirmationModal from "@/components/common/confirmation-modal";
 import getMessage from "@/constants/messages";
 
 interface RuleWithPriority {
@@ -43,7 +46,10 @@ interface EvaluationTypeConfig {
 	thresholdScore?: number;
 }
 
+const EVALUATORS_HREF = "/evaluations?tab=evaluators";
+
 export default function EvaluationTypeDetailPage() {
+	const m = getMessage();
 	const posthog = usePostHog();
 	const params = useParams();
 	const router = useRouter();
@@ -52,7 +58,14 @@ export default function EvaluationTypeDetailPage() {
 
 	const [config, setConfig] = useState<EvaluationTypeConfig | null>(null);
 	const [notFound, setNotFound] = useState(false);
-	const { fireRequest: getType, data: typeResponse, error: typeError, isFetched: typeFetched } =
+	/** Type id whose GET has completed; guards against stale responses. */
+	const [loadedTypeId, setLoadedTypeId] = useState<string | null>(null);
+	const {
+		fireRequest: getType,
+		data: typeResponse,
+		error: typeError,
+		isLoading: typeLoading,
+	} =
 		useFetchWrapper<{
 			data?: EvaluationTypeConfig;
 		}>();
@@ -66,6 +79,8 @@ export default function EvaluationTypeDetailPage() {
 	const rulesLinkedFromRulePage = (evalEntities || [])
 		.filter((e) => e.entity_id === typeId)
 		.map((e) => e.rule_id);
+	// Only reserve a side column when there is something to show in it.
+	const hasLinkedRules = rulesLinkedFromRulePage.length > 0;
 
 	useEffect(() => {
 		setNotFound(false);
@@ -75,6 +90,8 @@ export default function EvaluationTypeDetailPage() {
 			requestType: "GET",
 			url: `/api/evaluation/types/${encodeURIComponent(typeId)}`,
 			responseDataKey: "data",
+			successCb: () => setLoadedTypeId(typeId),
+			failureCb: () => setLoadedTypeId(typeId),
 		});
 		getRules({ requestType: "GET", url: "/api/rule-engine/rules" });
 		getEvalEntities({
@@ -85,7 +102,10 @@ export default function EvaluationTypeDetailPage() {
 
 	useEffect(() => {
 		const res = typeResponse as { data?: EvaluationTypeConfig } | undefined;
-		const data = res?.data ?? (typeResponse as EvaluationTypeConfig | undefined);
+		const response = res?.data ?? (typeResponse as EvaluationTypeConfig | undefined);
+		// Ignore a response left over from the previously viewed type: saving
+		// it would PATCH this type with another type's settings.
+		const data = response?.id === typeId ? response : undefined;
 		if (data?.id) {
 			setNotFound(false);
 			setConfig({
@@ -115,10 +135,10 @@ export default function EvaluationTypeDetailPage() {
 			return;
 		}
 
-		if (typeFetched && (typeError || !data?.id)) {
+		if (loadedTypeId === typeId && (typeError || !data?.id)) {
 			setNotFound(true);
 		}
-	}, [typeResponse, et, typeFetched, typeError]);
+	}, [typeResponse, et, loadedTypeId, typeError, typeId]);
 
 	const handleToggle = (enabled: boolean) => {
 		setConfig((prev) => (prev ? { ...prev, enabled } : null));
@@ -181,7 +201,7 @@ export default function EvaluationTypeDetailPage() {
 			body: JSON.stringify(payload),
 			responseDataKey: "data",
 			successCb: () => {
-				toast.success("Evaluation type updated");
+				toast.success(m.EVALUATION_TYPE_UPDATED);
 				getType({
 					requestType: "GET",
 					url: `/api/evaluation/types/${typeId}`,
@@ -192,21 +212,20 @@ export default function EvaluationTypeDetailPage() {
 					url: "/api/rule-engine/entities?entity_type=evaluation",
 				});
 			},
-			failureCb: (err?: string) => toast.error(err || "Failed to save"),
+			failureCb: (err?: string) => toast.error(err || m.EVALUATION_TYPE_SAVE_FAILED),
 		});
 	};
 
 	const handleDelete = () => {
-		if (!confirm(`Delete custom evaluation type "${displayLabel}"? This cannot be undone.`)) return;
 		deleteType({
 			requestType: "DELETE",
 			url: `/api/evaluation/types/${typeId}`,
 			responseDataKey: "data",
 			successCb: () => {
-				toast.success("Custom evaluation type deleted");
-				router.push("/evaluations?tab=evaluators");
+				toast.success(m.EVALUATION_TYPE_DELETED);
+				router.push(EVALUATORS_HREF);
 			},
-			failureCb: (err?: string) => toast.error(err || "Failed to delete"),
+			failureCb: (err?: string) => toast.error(err || m.EVALUATION_TYPE_DELETE_FAILED),
 		});
 	};
 
@@ -214,13 +233,14 @@ export default function EvaluationTypeDetailPage() {
 	const isCustom = !et && config?.isCustom;
 	const displayLabel = et?.label || config?.label || typeId;
 	const displayDescription = et?.description || config?.description || "";
+	const canEdit =
+		config?.id === typeId && !notFound && loadedTypeId === typeId && !typeLoading;
 
-	const evaluatorsHref = "/evaluations?tab=evaluators";
-	const backLabel = getMessage().EVALUATION_BACK_TO_TYPES;
+	const backLabel = m.EVALUATION_BACK_TO_TYPES;
 
 	const header = (
 		<FeaturePageHeader
-			eyebrow={getMessage().FEATURE_EVALS}
+			eyebrow={m.FEATURE_EVALS}
 			title={displayLabel}
 			icon={<Layers className="h-4 w-4" />}
 			tone="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/70 dark:bg-orange-950/40 dark:text-orange-300"
@@ -229,19 +249,48 @@ export default function EvaluationTypeDetailPage() {
 					asChild
 					variant="outline"
 					size="sm"
-					className="h-7 w-7 shrink-0 p-0"
+					className="h-8 w-8 shrink-0 p-0"
 				>
-					<Link href={evaluatorsHref} title={backLabel} aria-label={backLabel}>
+					<Link href={EVALUATORS_HREF} title={backLabel} aria-label={backLabel}>
 						<ArrowLeft className="h-3.5 w-3.5" />
 					</Link>
 				</Button>
 			}
 			actions={
-				isCustom ? (
-					<Badge variant="outline" className="h-8 gap-1 border-primary/30 text-primary">
-						<Sparkles className="size-3" />
-						Custom
-					</Badge>
+				canEdit ? (
+					<>
+						{isCustom ? (
+							<Badge variant="outline" className="h-8 gap-1 border-primary/30 text-primary">
+								<Sparkles className="size-3" />
+								{m.EVALUATION_TYPE_CUSTOM_BADGE}
+							</Badge>
+						) : null}
+						{isCustom ? (
+							<ConfirmationModal
+								title={m.EVALUATION_TYPE_DELETE_CUSTOM}
+								subtitle={m.EVALUATION_TYPE_DELETE_CONFIRM(displayLabel)}
+								handleYes={handleDelete}
+							>
+								<Button
+									variant="outline"
+									size="sm"
+									disabled={isDeleting}
+									className={`h-8 gap-1.5 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 ${isDeleting ? "animate-pulse" : ""}`}
+								>
+									<Trash2 className="size-3.5" />
+									{isDeleting ? m.EVALUATION_TYPE_DELETING : m.EVALUATION_TYPE_DELETE_CUSTOM}
+								</Button>
+							</ConfirmationModal>
+						) : null}
+						<Button
+							onClick={handleSave}
+							disabled={isSaving}
+							size="sm"
+							className={`h-8 ${isSaving ? "animate-pulse" : ""}`}
+						>
+							{isSaving ? m.EVALUATION_SAVING : m.EVALUATION_SAVE_CHANGES}
+						</Button>
+					</>
 				) : null
 			}
 		/>
@@ -253,14 +302,14 @@ export default function EvaluationTypeDetailPage() {
 				{header}
 				<div className="flex flex-1 w-full flex-col items-center justify-center gap-3 p-4 text-center">
 					<p className="text-base font-medium text-stone-800 dark:text-stone-200">
-						{getMessage().EVALUATION_TYPE_NOT_FOUND}
+						{m.EVALUATION_TYPE_NOT_FOUND}
 					</p>
 					<p className="max-w-md text-sm text-stone-500 dark:text-stone-400">
-						{getMessage().EVALUATION_TYPE_NOT_FOUND_DESCRIPTION}
+						{m.EVALUATION_TYPE_NOT_FOUND_DESCRIPTION}
 					</p>
 					<Button asChild variant="outline" size="sm" className="h-8">
-						<Link href="/evaluations?tab=evaluators">
-							{getMessage().EVALUATION_BACK_TO_TYPES}
+						<Link href={EVALUATORS_HREF}>
+							{m.EVALUATION_BACK_TO_TYPES}
 						</Link>
 					</Button>
 				</div>
@@ -272,9 +321,7 @@ export default function EvaluationTypeDetailPage() {
 		return (
 			<div className="flex h-full w-full flex-col overflow-hidden">
 				{header}
-				<div className="flex flex-1 w-full items-center justify-center p-4">
-					<p className="text-stone-500">Loading...</p>
-				</div>
+				<IntermediateState type="loading" classNames="flex-1" />
 			</div>
 		);
 	}
@@ -283,28 +330,39 @@ export default function EvaluationTypeDetailPage() {
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			{header}
 
-			<div className="grid flex-1 grid-cols-3 gap-4 overflow-auto p-4">
-				<div className="grid col-span-2 gap-4">
-					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-						<CardHeader className="pb-4">
-							<CardTitle className="text-base">Purpose</CardTitle>
-							<p className="text-sm text-stone-500 dark:text-stone-400 font-normal">
+			<div
+				className={`grid flex-1 grid-cols-1 content-start gap-4 overflow-auto p-4 ${
+					hasLinkedRules ? "lg:grid-cols-3" : ""
+				}`}
+			>
+				<div
+					className={`flex flex-col gap-4 ${hasLinkedRules ? "lg:col-span-2" : ""}`}
+				>
+					<Card className="border border-stone-200 dark:border-stone-800">
+						<CardHeader className="p-4">
+							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
+								{m.EVALUATION_TYPE_PURPOSE_TITLE}
+							</CardTitle>
+							<p className="text-sm font-normal text-stone-500 dark:text-stone-400">
 								{displayDescription}
 							</p>
 						</CardHeader>
 					</Card>
 
 					{(config?.defaultPrompt || config?.prompt !== undefined) && (
-						<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-							<CardHeader className="pb-2">
-								<CardTitle className="text-base">Prompt / Context</CardTitle>
-								<p className="text-xs text-stone-500 dark:text-stone-400 font-normal">
-									Appended to rule-engine context when evaluating. Override the default to customize.
+						<Card className="border border-stone-200 dark:border-stone-800">
+							<CardHeader className="p-4 pb-2">
+								<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
+									{m.EVALUATION_TYPE_PROMPT_CONTEXT_TITLE}
+								</CardTitle>
+								<p className="text-xs font-normal text-stone-500 dark:text-stone-400">
+									{m.EVALUATION_TYPE_PROMPT_CONTEXT_HELP}
 								</p>
 							</CardHeader>
-							<CardContent>
-								<textarea
-									className="w-full min-h-[120px] text-xs bg-stone-50 dark:bg-stone-900/50 text-stone-900 dark:text-stone-100 p-3 rounded-lg border border-stone-200 dark:border-stone-700 font-mono resize-y placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
+							<CardContent className="p-4 pt-0">
+								<Textarea
+									aria-label={m.EVALUATION_TYPE_PROMPT_CONTEXT_TITLE}
+									className="min-h-[120px] resize-y font-mono text-xs"
 									value={
 										config?.prompt ?? config?.defaultPrompt ?? ""
 									}
@@ -313,34 +371,32 @@ export default function EvaluationTypeDetailPage() {
 											prev ? { ...prev, prompt: e.target.value } : null
 										)
 									}
-									placeholder="Custom prompt for this evaluation type..."
+									placeholder={m.EVALUATION_TYPE_PROMPT_CONTEXT_PLACEHOLDER}
 								/>
 							</CardContent>
 						</Card>
 					)}
 
-					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-						<CardHeader className="pb-2">
-							<CardTitle className="text-base">
-								{getMessage().EVALUATION_TYPE_THRESHOLD_LABEL}
+					<Card className="border border-stone-200 dark:border-stone-800">
+						<CardHeader className="p-4 pb-2">
+							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
+								{m.EVALUATION_TYPE_THRESHOLD_LABEL}
 							</CardTitle>
-							<p className="text-xs text-stone-500 dark:text-stone-400 font-normal">
-								{getMessage().EVALUATION_TYPE_THRESHOLD_DESCRIPTION}
+							<p className="text-xs font-normal text-stone-500 dark:text-stone-400">
+								{m.EVALUATION_TYPE_THRESHOLD_DESCRIPTION}
 							</p>
 						</CardHeader>
-						<CardContent>
+						<CardContent className="p-4 pt-0">
 							<div className="max-w-[160px]">
 								<Label className="sr-only">
-									{getMessage().EVALUATION_TYPE_THRESHOLD_LABEL}
+									{m.EVALUATION_TYPE_THRESHOLD_LABEL}
 								</Label>
 								<Input
 									type="number"
 									min={0}
 									max={1}
 									step={0.05}
-									placeholder={
-										getMessage().EVALUATION_TYPE_THRESHOLD_PLACEHOLDER
-									}
+									placeholder={m.EVALUATION_TYPE_THRESHOLD_PLACEHOLDER}
 									value={config?.thresholdScore ?? ""}
 									onChange={(e) => {
 										const raw = e.target.value;
@@ -375,35 +431,38 @@ export default function EvaluationTypeDetailPage() {
 						</CardContent>
 					</Card>
 
-					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-						<CardHeader className="pb-3">
+					<Card className="border border-stone-200 dark:border-stone-800">
+						<CardHeader
+							className={`p-4 ${config?.enabled ? "pb-3 border-b border-stone-100 dark:border-stone-800" : ""}`}
+						>
 							<div className="flex items-start justify-between gap-4">
 								<div className="flex-1">
-									<CardTitle className="text-base flex items-center gap-2">
+									<CardTitle className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
 										<Switch
 											checked={config?.enabled ?? false}
 											onCheckedChange={handleToggle}
+											aria-label={m.EVALUATION_TYPE_ENABLED}
 										/>
-										Enabled
+										{m.EVALUATION_TYPE_ENABLED}
 									</CardTitle>
-									<p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-										When enabled, this type runs in auto and manual evaluations.
+									<p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+										{m.EVALUATION_TYPE_ENABLED_HELP}
 									</p>
 								</div>
 								<Badge
 									variant={config?.enabled ? "default" : "secondary"}
 									className="shrink-0"
 								>
-									{config?.enabled ? "Enabled" : "Disabled"}
+									{config?.enabled ? m.EVALUATION_TYPE_ENABLED : m.EVALUATION_TYPE_DISABLED}
 								</Badge>
 							</div>
 						</CardHeader>
 						{config?.enabled && (
-							<CardContent className="space-y-4">
+							<CardContent className="flex flex-col gap-4 p-4">
 								<div className="flex items-center justify-between">
-									<span className="text-sm font-medium flex items-center gap-2">
+									<span className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
 										<Link2 className="size-4 text-stone-400" />
-										Rules (priority order)
+										{m.EVALUATION_TYPE_RULES_TITLE}
 									</span>
 									<Button
 										variant="ghost"
@@ -412,19 +471,19 @@ export default function EvaluationTypeDetailPage() {
 										onClick={handleAddRule}
 									>
 										<Plus className="size-3.5" />
-										Add rule
+										{m.EVALUATION_TYPE_ADD_RULE}
 									</Button>
 								</div>
 								{config.rules.length === 0 ? (
 									<p className="text-xs text-stone-500 dark:text-stone-400">
-										No rules. Add rules to provide context for evaluation.
+										{m.EVALUATION_TYPE_NO_RULES}
 									</p>
 								) : (
-									<div className="space-y-2">
+									<div className="flex flex-col gap-2">
 										{config.rules.map((rule, idx) => (
 											<div
 												key={idx}
-												className="flex items-center gap-2 p-2 rounded-lg bg-stone-50 dark:bg-stone-900/50"
+												className="flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 p-2 dark:border-stone-800 dark:bg-stone-900/50"
 											>
 												<Select
 													value={rule.ruleId || "none"}
@@ -436,10 +495,10 @@ export default function EvaluationTypeDetailPage() {
 													}
 												>
 													<SelectTrigger className="h-8 flex-1 min-w-0">
-														<SelectValue placeholder="Select rule" />
+														<SelectValue placeholder={m.EVALUATION_TYPE_SELECT_RULE} />
 													</SelectTrigger>
 													<SelectContent>
-														<SelectItem value="none">Select rule</SelectItem>
+														<SelectItem value="none">{m.EVALUATION_TYPE_SELECT_RULE}</SelectItem>
 														{(rules || []).map((r) => (
 															<SelectItem key={r.id} value={r.id}>
 																{r.name}
@@ -459,7 +518,7 @@ export default function EvaluationTypeDetailPage() {
 													<SelectContent>
 														{[0, 1, 2, 3, 4, 5].map((p) => (
 															<SelectItem key={p} value={String(p)}>
-																P{p}
+																{m.EVALUATION_TYPE_PRIORITY_OPTION(p)}
 															</SelectItem>
 														))}
 													</SelectContent>
@@ -467,8 +526,10 @@ export default function EvaluationTypeDetailPage() {
 												<Button
 													variant="ghost"
 													size="icon"
-													className="h-8 w-8 shrink-0 text-stone-400 hover:text-red-500"
+													className="h-8 w-8 shrink-0 text-stone-400 hover:text-red-500 dark:hover:text-red-400"
 													onClick={() => handleRemoveRule(idx)}
+													title={m.EVALUATION_TYPE_REMOVE_RULE}
+													aria-label={m.EVALUATION_TYPE_REMOVE_RULE}
 												>
 													<Trash2 className="size-4" />
 												</Button>
@@ -480,30 +541,18 @@ export default function EvaluationTypeDetailPage() {
 						)}
 					</Card>
 				</div>
-				<div className="flex flex-col gap-4">
-					<Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto bg-primary dark:bg-primary text-white dark:text-white hover:bg-primary/90 dark:hover:bg-primary/90">
-						{isSaving ? "Saving..." : "Save Changes"}
-					</Button>
-					{isCustom && (
-						<Button
-							variant="outline"
-							onClick={handleDelete}
-							disabled={isDeleting}
-							className="w-full sm:w-auto text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-700 dark:hover:text-red-300"
-						>
-							<Trash2 className="size-4 mr-1.5" />
-							{isDeleting ? "Deleting..." : "Delete Custom Type"}
-						</Button>
-					)}
-					{rulesLinkedFromRulePage.length > 0 && (
-						<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-							<CardHeader className="pb-2">
-								<CardTitle className="text-base">Linked from rules</CardTitle>
-								<p className="text-xs text-stone-500 dark:text-stone-400 font-normal">
-									Rules that link to this type from the rule engine detail page
+				{hasLinkedRules && (
+					<div className="flex flex-col gap-4">
+						<Card className="border border-stone-200 dark:border-stone-800">
+							<CardHeader className="p-4 pb-2">
+								<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
+									{m.EVALUATION_TYPE_LINKED_RULES_TITLE}
+								</CardTitle>
+								<p className="text-xs font-normal text-stone-500 dark:text-stone-400">
+									{m.EVALUATION_TYPE_LINKED_RULES_DESCRIPTION}
 								</p>
 							</CardHeader>
-							<CardContent>
+							<CardContent className="p-4 pt-0">
 								<div className="flex flex-wrap gap-2">
 									{rulesLinkedFromRulePage.map((rid) => {
 										const r = (rules || []).find((x) => x.id === rid);
@@ -521,12 +570,9 @@ export default function EvaluationTypeDetailPage() {
 								</div>
 							</CardContent>
 						</Card>
-					)}
-				</div>
+					</div>
+				)}
 			</div>
-
-
-
 		</div>
 	);
 }

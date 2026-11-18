@@ -43,6 +43,24 @@ describe('runEvaluation — early return for missing params', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
+  it('runs the OpenAI-compatible provider without an API key', async () => {
+    const chat = jest.fn().mockReturnValue(mockModelInstance);
+    (createOpenAI as jest.Mock).mockReturnValue({ chat });
+
+    const result = await runEvaluation({
+      provider: 'openai-compatible',
+      model: 'llama3',
+      apiKey: undefined as unknown as string,
+      baseUrl: 'http://llm.internal/v1',
+    });
+
+    expect(result.success).toBe(true);
+    expect(createOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: 'http://llm.internal/v1', apiKey: '' })
+    );
+    expect(chat).toHaveBeenCalledWith('llama3');
+  });
+
   it('returns failure when provider is missing', async () => {
     const result = await runEvaluation({ ...BASE_PARAMS, provider: '' });
     expect(result.success).toBe(false);
@@ -227,6 +245,36 @@ describe('runEvaluation — generateText and response parsing', () => {
     expect(result.success).toBe(false);
   });
 
+  it('accepts a fenced response with trailing prose', async () => {
+    const payload = {
+      success: true,
+      result: [{ score: 0.1, evaluation: 'Hallucination', classification: 'none', explanation: 'ok', verdict: 'no' }],
+    };
+    (generateText as jest.Mock).mockResolvedValue({
+      text: '```json\n' + JSON.stringify(payload) + '\n```\n**Rationale:** looks fine.',
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+    const result = await runEvaluation(BASE_PARAMS);
+    expect(result.success).toBe(true);
+    expect(result.result).toEqual(payload.result);
+  });
+
+  it('does not report a truncated response as a successful evaluation', async () => {
+    const full = JSON.stringify({
+      success: true,
+      result: [
+        { score: 0.1, evaluation: 'Hallucination', classification: 'none', explanation: 'ok', verdict: 'no' },
+        { score: 0.2, evaluation: 'Bias', classification: 'none', explanation: 'ok', verdict: 'no' },
+      ],
+    });
+    (generateText as jest.Mock).mockResolvedValue({
+      text: full.slice(0, full.indexOf('Bias') + 10),
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+    const result = await runEvaluation(BASE_PARAMS);
+    expect(result.success).toBe(false);
+  });
+
   it('catches invalid JSON and returns failure with DEFAULT_RESULT', async () => {
     (generateText as jest.Mock).mockResolvedValue({ text: 'not-json', usage: {} });
     const result = await runEvaluation(BASE_PARAMS);
@@ -259,6 +307,15 @@ describe('runEvaluation — generateText and response parsing', () => {
     await runEvaluation(BASE_PARAMS);
     const [callArgs] = (generateText as jest.Mock).mock.calls[0];
     expect(callArgs.temperature).toBe(0);
+  });
+
+  it('omits temperature for Claude models that reject sampling params', async () => {
+    (createAnthropic as jest.Mock).mockReturnValue(
+      jest.fn().mockReturnValue({ modelId: 'claude-haiku-5-5' })
+    );
+    await runEvaluation({ ...BASE_PARAMS, provider: 'anthropic', model: 'claude-haiku-5-5' });
+    const [callArgs] = (generateText as jest.Mock).mock.calls[0];
+    expect(callArgs).not.toHaveProperty('temperature');
   });
 
   it('system prompt uses placeholder evaluation names, not TypeA/TypeB or hardcoded types', async () => {

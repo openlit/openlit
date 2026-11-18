@@ -87,31 +87,40 @@ export default function DynamicProviderGrid() {
 
 	return (
 		<>
-			<Card className="border-stone-200 dark:border-stone-800">
-				<CardHeader>
-					<CardTitle className="text-lg">{getMessage().OPENGROUND_SELECT_PROVIDERS}</CardTitle>
+			<Card className="border border-stone-200 dark:border-stone-800">
+				<CardHeader className="p-4 pb-2">
+					<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
+						{getMessage().OPENGROUND_SELECT_PROVIDERS}
+					</CardTitle>
 				</CardHeader>
-				<CardContent>
-					<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+				<CardContent className="p-4 pt-0">
+					<div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
 						{availableProviders.map((provider) => {
 							const hasConfig = providerConfigs[provider.providerId];
 							const providerCount = getProviderCount(provider.providerId);
 
 							return (
-								<Card
+								<div
 									key={provider.providerId}
-									className={`relative cursor-pointer transition-all hover:shadow-md ${providerCount > 0
-										? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-950/20"
+									role="button"
+									tabIndex={0}
+									className={`relative cursor-pointer rounded-md border bg-white p-4 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 dark:bg-stone-950 ${providerCount > 0
+										? "border-primary bg-primary/5 dark:border-primary dark:bg-primary/10"
 										: hasConfig
-											? "border-green-200 dark:border-green-800 hover:border-green-500"
-											: "border-stone-200 dark:border-stone-700 hover:border-blue-400"
+											? "border-stone-200 hover:border-primary/60 dark:border-stone-800 dark:hover:border-primary/60"
+											: "border-stone-200 hover:border-stone-400 dark:border-stone-800 dark:hover:border-stone-600"
 										}`}
 									onClick={() => handleProviderClick(provider.providerId)}
+									onKeyDown={(e) => {
+										if (e.target !== e.currentTarget) return;
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											handleProviderClick(provider.providerId);
+										}
+									}}
 								>
 									{providerCount > 0 && (
-										<Badge
-											className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center z-10 bg-blue-600 hover:bg-blue-700"
-										>
+										<Badge className="absolute -right-2 -top-2 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs text-white hover:bg-primary">
 											{providerCount}
 										</Badge>
 									)}
@@ -119,60 +128,60 @@ export default function DynamicProviderGrid() {
 										<Button
 											variant="ghost"
 											size="sm"
-											className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-stone-200 dark:hover:bg-stone-700 z-10"
+											className="absolute right-2 top-2 z-10 h-6 w-6 p-0 text-stone-500 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-800"
 											onClick={(e) => handleEditConfig(provider.providerId, e)}
+											title={getMessage().OPENGROUND_EDIT_PROVIDER_CONFIG}
+											aria-label={getMessage().OPENGROUND_EDIT_PROVIDER_CONFIG}
 										>
 											<SettingsIcon className="h-3 w-3" />
 										</Button>
 									)}
-									<CardContent className="p-4 text-center">
-										<div className="flex flex-col items-center gap-2">
-											<div
-												className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl font-bold ${providerCount > 0
-													? "bg-blue-500 text-white"
-													: "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400"
-													}`}
-											>
-												{provider.displayName.charAt(0)}
-											</div>
-											<div className="space-y-1">
-												<p className="font-medium text-sm text-stone-900 dark:text-stone-100">
-													{provider.displayName}
-												</p>
-												<p className="text-xs text-stone-500 dark:text-stone-400">
-													{provider.supportedModels.length} models
-												</p>
-											</div>
-											{hasConfig ? (
-												<Badge
-													variant="outline"
-													className="text-xs bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-300 border-green-200 dark:border-green-800"
-												>
-													<CheckCircle2Icon className="h-3 w-3 mr-1" />
-													{getMessage().CONFIGURED}
-												</Badge>
-											) : (
-												<Badge
-													variant="outline"
-													className="text-xs bg-yellow-50 text-yellow-700 dark:bg-yellow-950/20 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800"
-												>
-													<SettingsIcon className="h-3 w-3 mr-1" />
-													{getMessage().CONFIGURE}
-												</Badge>
-											)}
+									<div className="flex flex-col items-center gap-2">
+										<div
+											className={`flex h-10 w-10 items-center justify-center rounded-md text-base font-semibold ${providerCount > 0
+												? "bg-primary text-white"
+												: "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300"
+												}`}
+										>
+											{provider.displayName.charAt(0)}
 										</div>
-									</CardContent>
-								</Card>
+										<div className="space-y-0.5">
+											<p className="text-sm font-medium text-stone-900 dark:text-stone-100">
+												{provider.displayName}
+											</p>
+											<p className="text-xs text-stone-500 dark:text-stone-400">
+												{getMessage().OPENGROUND_MODEL_COUNT(provider.supportedModels.length)}
+											</p>
+										</div>
+										{hasConfig ? (
+											<Badge
+												variant="outline"
+												className="border-emerald-200 bg-emerald-50 text-xs text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300"
+											>
+												<CheckCircle2Icon className="mr-1 h-3 w-3" />
+												{getMessage().CONFIGURED}
+											</Badge>
+										) : (
+											<Badge
+												variant="outline"
+												className="border-amber-200 bg-amber-50 text-xs text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300"
+											>
+												<SettingsIcon className="mr-1 h-3 w-3" />
+												{getMessage().CONFIGURE}
+											</Badge>
+										)}
+									</div>
+								</div>
 							);
 						})}
 					</div>
 
 					{selectedProvidersNew.length > 0 && (
-						<div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-							<p className="text-sm text-blue-900 dark:text-blue-100 font-medium">
-								{selectedProvidersNew.length} {getMessage().PROVIDERS} {getMessage().SELECTED}
+						<div className="mt-4 rounded-md border border-stone-200 bg-stone-50 px-4 py-3 dark:border-stone-800 dark:bg-stone-900">
+							<p className="text-sm font-medium text-stone-900 dark:text-stone-100">
+								{getMessage().OPENGROUND_PROVIDERS_SELECTED(selectedProvidersNew.length)}
 							</p>
-							<p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+							<p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
 								{getMessage().OPENGROUND_CLICK_PROVIDER_CARD_TO_CHANGE_MODEL_OR_SETTINGS}
 							</p>
 						</div>

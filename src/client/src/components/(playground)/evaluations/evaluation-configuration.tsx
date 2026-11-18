@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { EVALUATION_ENGINES } from "@/constants/evaluation-engines";
 import { CLIENT_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
 import { EvaluationConfig } from "@/types/evaluation";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { usePostHog } from "posthog-js/react";
@@ -120,7 +121,8 @@ export default function EvaluationConfiguration() {
 			: EVALUATION_ENGINES.find((e) => e.id === "vercel")?.id || "vercel";
 
 	const handleSave = () => {
-		if (!provider || !model || !vaultId) {
+		const keyRequired = provider !== OPENAI_COMPATIBLE_PROVIDER_ID;
+		if (!provider || !model || (keyRequired && !vaultId)) {
 			toast.error(m.EVALUATION_CONFIG_INVALID, {
 				id: EVALUATION_TOAST_ID,
 			});
@@ -198,10 +200,10 @@ export default function EvaluationConfiguration() {
 
 	return (
 		<div className="flex flex-col w-full gap-4">
-			<Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
-				<CardContent className="pt-6">
+			<Card className="border border-stone-200 bg-stone-50 dark:border-stone-800 dark:bg-stone-900/50">
+				<CardContent className="p-4">
 					<div className="flex gap-3">
-						<Info className="size-5 text-blue-600 dark:text-blue-500 shrink-0 mt-0.5" />
+						<Info className="size-4 text-stone-500 dark:text-stone-400 shrink-0 mt-0.5" />
 						<div className="text-sm text-stone-600 dark:text-stone-400">
 							<p className="font-medium text-stone-700 dark:text-stone-300 mb-1">
 								{m.EVALUATION_MANUAL_AND_AUTO}
@@ -214,17 +216,17 @@ export default function EvaluationConfiguration() {
 
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 				<div className="lg:col-span-2 grid gap-4">
-					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-						<CardHeader className="pb-4">
-							<CardTitle className="text-base flex items-center gap-2">
+					<Card className="border border-stone-200 dark:border-stone-800">
+						<CardHeader className="p-4 pb-2">
+							<CardTitle className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
 								<Settings2 className="size-4" />
 								{m.EVALUATION_CONFIG_SECTION}
 							</CardTitle>
-							<p className="text-sm text-stone-500 dark:text-stone-400 font-normal">
+							<p className="text-xs font-normal text-stone-500 dark:text-stone-400">
 								{m.EVALUATION_ENGINE_DESCRIPTION}
 							</p>
 						</CardHeader>
-						<CardContent className="space-y-4">
+						<CardContent className="flex flex-col gap-4 p-4 pt-0">
 							<div className="grid gap-3">
 								<div className="flex items-center justify-between">
 									<Label>{m.EVALUATION_PROVIDER_LABEL}</Label>
@@ -292,7 +294,9 @@ export default function EvaluationConfiguration() {
 															variant="outline"
 															className="text-xs h-4 px-1"
 														>
-															${modelOption.inputPricePerMToken}/M
+															{m.EVALUATION_MODEL_PRICE_PER_M_TOKENS(
+																modelOption.inputPricePerMToken
+															)}
 														</Badge>
 													</div>
 												</div>
@@ -324,6 +328,12 @@ export default function EvaluationConfiguration() {
 										))}
 									</SelectContent>
 								</Select>
+								{provider === OPENAI_COMPATIBLE_PROVIDER_ID && (
+									<p className="text-xs text-stone-500 dark:text-stone-400">
+										{m.PROVIDER_API_KEY_OPTIONAL_HINT}{" "}
+										{m.OPENAI_COMPATIBLE_ENDPOINT_HINT(selectedProviderMeta?.baseUrl)}
+									</p>
+								)}
 								<EvaluationVaultCreate
 									successCallback={() =>
 										getVaultKeys({
@@ -350,18 +360,18 @@ export default function EvaluationConfiguration() {
 				</div>
 
 				<div className="grid gap-4 content-start">
-					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-						<CardHeader className="pb-4">
-							<CardTitle className="text-base flex items-center gap-2">
+					<Card className="border border-stone-200 dark:border-stone-800">
+						<CardHeader className="p-4 pb-2">
+							<CardTitle className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
 								<Zap className="size-4" />
 								{m.EVALUATION_AUTO_TITLE}
 							</CardTitle>
-							<p className="text-sm text-stone-500 dark:text-stone-400 font-normal">
+							<p className="text-xs font-normal text-stone-500 dark:text-stone-400">
 								{m.EVALUATION_AUTO_DESCRIPTION}
 							</p>
 						</CardHeader>
-						<CardContent className="space-y-4">
-							<div className="flex items-center justify-between rounded-lg border border-stone-200 dark:border-stone-700 p-4">
+						<CardContent className="flex flex-col gap-4 p-4 pt-0">
+							<div className="flex items-center justify-between gap-3 rounded-md border border-stone-200 dark:border-stone-800 p-3">
 								<div className="space-y-0.5">
 									<Label>{m.EVALUATION_ENABLE_AUTO}</Label>
 									<p className="text-xs text-stone-500 dark:text-stone-400">
@@ -407,7 +417,8 @@ export default function EvaluationConfiguration() {
 					<Button
 						onClick={handleSave}
 						disabled={isSaving}
-						className="w-full sm:w-auto bg-primary dark:bg-primary text-white dark:text-white hover:bg-primary/90 dark:hover:bg-primary/90"
+						size="sm"
+						className={`h-8 w-full ${isSaving ? "animate-pulse" : ""}`}
 					>
 						{isSaving
 							? m.EVALUATION_SAVING
@@ -416,24 +427,26 @@ export default function EvaluationConfiguration() {
 								: m.EVALUATION_CREATE_CONFIG}
 					</Button>
 
-					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-						<CardHeader className="pb-4">
-							<CardTitle className="text-base flex items-center gap-2">
+					<Card className="border border-stone-200 dark:border-stone-800">
+						<CardHeader className="p-4 pb-2">
+							<CardTitle className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
 								<Play className="size-4" />
 								{m.EVALUATION_MANUAL_TITLE}
 							</CardTitle>
-							<p className="text-sm text-stone-500 dark:text-stone-400 font-normal">
+							<p className="text-xs font-normal text-stone-500 dark:text-stone-400">
 								{m.EVALUATION_MANUAL_DESCRIPTION}
 							</p>
 						</CardHeader>
-						<CardContent className="space-y-4">
-							<ol className="list-decimal list-inside space-y-2 text-sm text-stone-600 dark:text-stone-400 mb-3">
+						<CardContent className="flex flex-col gap-4 p-4 pt-0">
+							<ol className="list-decimal list-inside space-y-2 text-sm text-stone-600 dark:text-stone-400">
 								<li>{m.EVALUATION_MANUAL_STEP_1}</li>
 								<li>{m.EVALUATION_MANUAL_STEP_2}</li>
 								<li>{m.EVALUATION_MANUAL_STEP_3}</li>
 							</ol>
 							<Link href="/telemetry">
-								<Button variant="default">{m.EVALUATION_GO_TO_TRACES}</Button>
+								<Button variant="outline" size="sm" className="h-8">
+									{m.EVALUATION_GO_TO_TRACES}
+								</Button>
 							</Link>
 						</CardContent>
 					</Card>

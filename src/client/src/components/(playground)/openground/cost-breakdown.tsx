@@ -24,58 +24,54 @@ export default function CostBreakdown({ data }: CostBreakdownProps) {
 		p.cost < min.cost ? p : min
 		, successfulData[0] || { cost: 0 });
 
+	const m = getMessage();
+	const totalTokens = successfulData.reduce((sum, p) => sum + p.totalTokens, 0);
+
 	return (
-		<Card>
-			<CardHeader>
-				<div className="flex items-center justify-between">
-					<div>
-						<CardTitle className="text-lg flex items-center gap-2">
-							<DollarSignIcon className="h-5 w-5" />
-							{getMessage().OPENGROUND_COST_BREAKDOWN}
-						</CardTitle>
-						<CardDescription>
-							{getMessage().OPENGROUND_COST_BREAKDOWN_DESCRIPTION}
-						</CardDescription>
-					</div>
-				</div>
+		<Card className="border border-stone-200 dark:border-stone-800">
+			<CardHeader className="p-4 pb-2">
+				<CardTitle className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
+					<DollarSignIcon className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+					{m.OPENGROUND_COST_BREAKDOWN}
+				</CardTitle>
+				<CardDescription className="text-xs">
+					{m.OPENGROUND_COST_BREAKDOWN_DESCRIPTION}
+				</CardDescription>
 			</CardHeader>
-			<CardContent className="space-y-3">
-				{/* Provider Cost Cards */}
-				<div className="space-y-2">
+			<CardContent className="p-4 pt-2">
+				{/* Per-provider rows */}
+				<div className="divide-y divide-stone-200 dark:divide-stone-800">
 					{successfulData.map((result, index) => {
 						const isCheapest = result.cost === cheapest.cost;
 						return (
-							<div
-								key={index}
-								className={`border p-4 ${isCheapest
-									? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20"
-									: "border-stone-200 dark:border-stone-700"
-									}`}
-							>
+							<div key={index} className="py-3 first:pt-0">
 								<div className="flex items-start justify-between gap-4">
-									{/* Provider Info */}
-									<div className="flex-1 min-w-0">
-										<div className="flex items-center gap-2 mb-2">
-											<h4 className="font-semibold text-sm text-stone-900 dark:text-stone-100 truncate">
+									<div className="min-w-0 flex-1">
+										<div className="flex items-center gap-2">
+											<p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">
 												{result.provider}
-											</h4>
+											</p>
 											{isCheapest && (
 												<Badge
 													variant="outline"
-													className="text-xs bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300 border-green-200 dark:border-green-800"
+													className="shrink-0 border-emerald-200 bg-emerald-50 text-xs text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300"
 												>
-													{getMessage().CHEAPEST}
+													{m.CHEAPEST}
 												</Badge>
 											)}
 										</div>
-										<p className="text-xs text-stone-500 dark:text-stone-400 truncate">
+										<p className="truncate text-xs text-stone-500 dark:text-stone-400">
 											{result.model}
 										</p>
 									</div>
-
-									{/* Cost */}
 									<div className="text-right">
-										<p className="text-2xl font-bold text-stone-900 dark:text-stone-100 font-mono">
+										<p
+											className={`font-mono text-sm font-semibold ${
+												isCheapest
+													? "text-emerald-600 dark:text-emerald-400"
+													: "text-stone-900 dark:text-stone-100"
+											}`}
+										>
 											${result.cost.toFixed(6)}
 										</p>
 										<p className="text-xs text-stone-500 dark:text-stone-400">
@@ -83,30 +79,22 @@ export default function CostBreakdown({ data }: CostBreakdownProps) {
 										</p>
 									</div>
 								</div>
-
-								{/* Token Details */}
-								<div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-stone-200 dark:border-stone-700">
+								<div className="mt-2 grid grid-cols-3 gap-3 text-xs">
 									<div>
-										<p className="text-xs text-stone-500 dark:text-stone-400 mb-0.5">
-											{getMessage().PROMPT}
-										</p>
-										<p className="text-sm font-semibold text-stone-900 dark:text-stone-100 font-mono">
+										<p className="text-stone-500 dark:text-stone-400">{m.PROMPT}</p>
+										<p className="font-mono text-stone-700 dark:text-stone-300">
 											{result.promptTokens.toLocaleString()}
 										</p>
 									</div>
 									<div>
-										<p className="text-xs text-stone-500 dark:text-stone-400 mb-0.5">
-											{getMessage().COMPLETION}
-										</p>
-										<p className="text-sm font-semibold text-stone-900 dark:text-stone-100 font-mono">
+										<p className="text-stone-500 dark:text-stone-400">{m.COMPLETION}</p>
+										<p className="font-mono text-stone-700 dark:text-stone-300">
 											{result.completionTokens.toLocaleString()}
 										</p>
 									</div>
 									<div>
-										<p className="text-xs text-stone-500 dark:text-stone-400 mb-0.5">
-											{getMessage().TOTAL}
-										</p>
-										<p className="text-sm font-semibold text-stone-900 dark:text-stone-100 font-mono">
+										<p className="text-stone-500 dark:text-stone-400">{m.TOTAL}</p>
+										<p className="font-mono text-stone-700 dark:text-stone-300">
 											{result.totalTokens.toLocaleString()}
 										</p>
 									</div>
@@ -116,48 +104,40 @@ export default function CostBreakdown({ data }: CostBreakdownProps) {
 					})}
 				</div>
 
-				{/* Total Cost Card */}
-				<div className="border-t p-4 border-b">
-					<div className="flex items-center justify-between">
-						<span className="text-sm font-semibold text-stone-700 dark:text-stone-300">
-							{getMessage().TOTAL} {getMessage().COST}
-						</span>
-						<span className="text-2xl font-bold text-stone-900 dark:text-stone-100 font-mono">
-							${totalCost.toFixed(6)}
-						</span>
-					</div>
+				{/* Totals */}
+				<div className="mt-1 flex items-center justify-between border-t border-stone-200 pt-3 dark:border-stone-800">
+					<span className="text-sm font-medium text-stone-700 dark:text-stone-300">
+						{m.TOTAL} {m.COST}
+					</span>
+					<span className="font-mono text-lg font-semibold text-primary">
+						${totalCost.toFixed(6)}
+					</span>
 				</div>
 
-				{/* Summary Stats */}
-				<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-					<div className="flex flex-col p-3">
-						<p className="text-xs text-stone-500 dark:text-stone-400 mb-1">
-							{getMessage().AVERAGE} {getMessage().COST}
+				{/* Summary stats */}
+				<div className="mt-3 grid grid-cols-1 gap-3 border-t border-stone-200 pt-3 sm:grid-cols-3 dark:border-stone-800">
+					<div className="flex flex-col">
+						<p className="text-xs text-stone-500 dark:text-stone-400">
+							{m.AVERAGE} {m.COST}
 						</p>
-						<p className="text-lg font-bold text-stone-900 dark:text-stone-100 font-mono">
+						<p className="font-mono text-sm font-semibold text-stone-900 dark:text-stone-100">
 							${(totalCost / successfulData.length || 0).toFixed(6)}
 						</p>
 					</div>
-					<div className="flex flex-col p-3">
-						<p className="text-xs text-stone-500 dark:text-stone-400 mb-1">
-							{getMessage().TOTAL} {getMessage().TOKENS}
+					<div className="flex flex-col">
+						<p className="text-xs text-stone-500 dark:text-stone-400">
+							{m.TOTAL} {m.TOKENS}
 						</p>
-						<p className="text-lg font-bold text-stone-900 dark:text-stone-100 font-mono">
-							{successfulData
-								.reduce((sum, p) => sum + p.totalTokens, 0)
-								.toLocaleString()}
+						<p className="font-mono text-sm font-semibold text-stone-900 dark:text-stone-100">
+							{totalTokens.toLocaleString()}
 						</p>
 					</div>
-					<div className="flex flex-col p-3">
-						<p className="text-xs text-stone-500 dark:text-stone-400 mb-1">
-							{getMessage().AVERAGE} {getMessage().COST} / 1K {getMessage().TOKENS}
+					<div className="flex flex-col">
+						<p className="text-xs text-stone-500 dark:text-stone-400">
+							{m.AVERAGE} {m.COST} / 1K {m.TOKENS}
 						</p>
-						<p className="text-lg font-bold text-stone-900 dark:text-stone-100 font-mono">
-							${(
-								totalCost /
-								successfulData.reduce((sum, p) => sum + p.totalTokens, 0) *
-								1000 || 0
-							).toFixed(4)}
+						<p className="font-mono text-sm font-semibold text-stone-900 dark:text-stone-100">
+							${(totalCost / totalTokens * 1000 || 0).toFixed(4)}
 						</p>
 					</div>
 				</div>

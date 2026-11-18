@@ -1,3 +1,4 @@
+import { getModelCostCalculator } from "@/lib/platform/pricing/model-cost";
 import { generateText } from "ai";
 import { SERVER_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
@@ -5,7 +6,9 @@ import { resolveRequestAuth } from "@/helpers/server/auth";
 import { getDBConfigByUser } from "@/lib/db-config";
 import { getChatConfigWithApiKey } from "@/lib/platform/chat/config";
 import { saveOtterRun } from "@/lib/platform/chat/otter-runs";
-import { getModelInstance } from "@/lib/platform/chat/stream";
+import { createModel } from "@/lib/platform/providers/create-model";
+import { samplingFor } from "@/lib/platform/providers/sampling";
+import { parseModelJson } from "@/lib/platform/chat/json-recovery";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
@@ -33,17 +36,14 @@ async function resolveDatabaseConfigId(authDatabaseConfigId?: string) {
 	return (dbConfig as { id?: string } | null | undefined)?.id || "";
 }
 
-function stripCodeFence(text: string) {
-	return text
-		.trim()
-		.replace(/^```(?:json)?\s*/i, "")
-		.replace(/\s*```$/i, "")
-		.trim();
-}
 
 function parseSuggestions(text: string): PromptImprovementSuggestion[] {
 	try {
-		const parsed = JSON.parse(stripCodeFence(text));
+		// Truncated output keeps whatever suggestions were complete.
+		const parsed = parseModelJson(
+			text,
+			(value: any) => Array.isArray(value) || Array.isArray(value?.suggestions)
+		)?.value as any;
 		const suggestions = Array.isArray(parsed) ? parsed : parsed?.suggestions;
 		if (!Array.isArray(suggestions)) return [];
 		return suggestions
@@ -58,10 +58,6 @@ function parseSuggestions(text: string): PromptImprovementSuggestion[] {
 	} catch {
 		return [];
 	}
-}
-
-function estimateCost(promptTokens: number, completionTokens: number) {
-	return (promptTokens * 0.003 + completionTokens * 0.015) / 1000;
 }
 
 export async function POST(request: Request) {
@@ -107,11 +103,16 @@ export async function POST(request: Request) {
 	}
 
 	try {
-		const model = getModelInstance(config.provider, config.apiKey, config.model);
+		const model = createModel(config.provider, config.apiKey, config.model, config.baseUrl);
+		const costOf = await getModelCostCalculator(
+			config.provider,
+			config.model,
+			databaseConfigId
+		);
 		let usageStats = { promptTokens: 0, completionTokens: 0, cost: 0 };
 		const result = await generateText({
 			model,
-			temperature: 0,
+			...samplingFor(model, { temperature: 0 }),
 			system:
 				"You are Otter, an expert prompt improvement reviewer. Return JSON only. Do not include markdown.",
 			prompt: `Review the prompt and propose precise edits.
@@ -147,7 +148,7 @@ ${prompt}`,
 		usageStats = {
 			promptTokens,
 			completionTokens,
-			cost: estimateCost(promptTokens, completionTokens),
+			cost: costOf({ promptTokens, completionTokens }),
 		};
 
 		const suggestions = parseSuggestions(result.text).filter((suggestion) =>

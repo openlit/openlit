@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import SecretForm from "@/components/(playground)/vault/form";
 import getMessage from "@/constants/messages";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
 import { consoleLog } from "@/utils/log";
 
 interface ProviderConfigDialogProps {
@@ -57,6 +58,7 @@ export default function ProviderConfigDialog({
 	const [selectedModelId, setSelectedModelId] = useState<string>("");
 
 	const provider = availableProviders.find((p) => p.providerId === providerId);
+	const keyRequired = providerId !== OPENAI_COMPATIBLE_PROVIDER_ID;
 
 	useEffect(() => {
 		if (open) {
@@ -100,7 +102,7 @@ export default function ProviderConfigDialog({
 	};
 
 	const handleSave = () => {
-		if (!selectedVaultId) {
+		if (!selectedVaultId && keyRequired) {
 			toast.error(getMessage().OPENGROUND_SELECT_API_KEY_ERROR);
 			return;
 		}
@@ -144,7 +146,7 @@ export default function ProviderConfigDialog({
 			<DialogContent className="sm:max-w-[500px]">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
-						<div className="w-10 h-10 rounded-lg bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-lg font-bold text-stone-600 dark:text-stone-400">
+						<div className="flex h-8 w-8 items-center justify-center rounded-md bg-stone-100 text-sm font-semibold text-stone-600 dark:bg-stone-800 dark:text-stone-300">
 							{provider.displayName.charAt(0)}
 						</div>
 						{isUpdating ? getMessage().OPENGROUND_UPDATE : getMessage().CONFIGURE} {provider.displayName}
@@ -205,7 +207,9 @@ export default function ProviderConfigDialog({
 							</SelectContent>
 						</Select>
 						<p className="text-xs text-stone-500 dark:text-stone-400">
-							{provider.displayName} {getMessage().OPENGROUND_API_KEY_STORED_IN_VAULT}
+							{keyRequired
+								? `${provider.displayName} ${getMessage().OPENGROUND_API_KEY_STORED_IN_VAULT}`
+								: `${getMessage().PROVIDER_API_KEY_OPTIONAL_HINT} ${getMessage().OPENAI_COMPATIBLE_ENDPOINT_HINT(provider.baseUrl)}`}
 						</p>
 					</div>
 
@@ -223,13 +227,13 @@ export default function ProviderConfigDialog({
 											<span>{model.displayName}</span>
 											<div className="flex gap-2 text-xs">
 												<Badge variant="secondary" className="text-xs">
-													{model.contextWindow.toLocaleString()} tokens
+													{getMessage().OPENGROUND_CONTEXT_TOKENS(model.contextWindow.toLocaleString())}
 												</Badge>
 												<Badge variant="outline" className="text-xs">
-													${model.inputPricePerMToken}/M in
+													{getMessage().OPENGROUND_PRICE_PER_M_INPUT(model.inputPricePerMToken)}
 												</Badge>
 												<Badge variant="outline" className="text-xs">
-													${model.outputPricePerMToken}/M out
+													{getMessage().OPENGROUND_PRICE_PER_M_OUTPUT(model.outputPricePerMToken)}
 												</Badge>
 											</div>
 										</div>
@@ -243,12 +247,12 @@ export default function ProviderConfigDialog({
 					</div>
 
 					{/* Info Box */}
-					<div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+					<div className="rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900">
 						<div className="flex gap-2">
-							<CheckCircle2Icon className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5" />
-							<div className="text-sm text-blue-900 dark:text-blue-100">
+							<CheckCircle2Icon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+							<div className="text-sm text-stone-700 dark:text-stone-300">
 								<p className="font-medium">{getMessage().CONFIGURATION_STORED_SECURELY}</p>
-								<p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+								<p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
 									{getMessage().OPENGROUND_API_KEY_REFERENCE_SAVED_INFO}
 								</p>
 							</div>
@@ -260,7 +264,7 @@ export default function ProviderConfigDialog({
 					<Button variant="outline" onClick={() => onOpenChange(false)}>
 						{getMessage().CANCEL}
 					</Button>
-					<Button onClick={handleSave} disabled={loading || loadingConfig || !selectedVaultId}>
+					<Button onClick={handleSave} disabled={loading || loadingConfig || (keyRequired && !selectedVaultId)}>
 						{loading ? (isUpdating ? getMessage().UPDATING : getMessage().SAVING) : (isUpdating ? getMessage().OPENGROUND_UPDATE_CONFIGURATION : getMessage().OPENGROUND_SAVE_CONFIGURATION)}
 					</Button>
 				</DialogFooter>

@@ -46,7 +46,9 @@ import { CronType, CronRunStatus, CronLogData } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
 import { ProviderRegistry } from "@/lib/platform/providers/provider-registry";
-import { getChatModelCostPerM } from "@/lib/platform/pricing/chat-cost";
+import { OPENAI_COMPATIBLE_PROVIDER_ID } from "@/constants/chat-providers";
+import prisma from "@/lib/prisma";
+import { getModelCostCalculator } from "@/lib/platform/pricing/model-cost";
 
 export type EvaluationTraceLookupOptions = {
 	traceId?: string;
@@ -57,6 +59,36 @@ export type EvaluationTraceLookupOptions = {
  * Cost from Manage Models (`openlit_provider_models`) — same source as
  * Pricing / Openground. Returns 0 if the model is not configured.
  */
+/**
+ * The endpoint to send this evaluation config's key to. The config and its
+ * key were read before this URL, and a base URL change clears key references
+ * before it stores the new URL. So if the reference is gone now, this URL may
+ * be newer than the key, and the key is not sent.
+ */
+async function resolveEvaluationEndpoint(
+	evaluationConfig: EvaluationConfigWithSecret,
+	databaseConfigId: string
+): Promise<{ baseUrl?: string; err?: string }> {
+	const baseUrl = await ProviderRegistry.getBaseUrl(
+		evaluationConfig.provider,
+		databaseConfigId
+	);
+	if (
+		evaluationConfig.provider !== OPENAI_COMPATIBLE_PROVIDER_ID ||
+		!evaluationConfig.vaultId
+	) {
+		return { baseUrl };
+	}
+	const current = await prisma.evaluationConfigs.findUnique({
+		where: { id: evaluationConfig.id },
+		select: { vaultId: true },
+	});
+	if (current?.vaultId !== evaluationConfig.vaultId) {
+		return { err: getMessage().MODEL_ENDPOINT_KEY_CLEARED };
+	}
+	return { baseUrl };
+}
+
 async function estimateEvaluationCost(
 	provider: string,
 	model: string,
@@ -64,36 +96,10 @@ async function estimateEvaluationCost(
 	completionTokens: number,
 	databaseConfigId: string
 ): Promise<number> {
-	if (!provider || !model || !databaseConfigId) return 0;
+	if (!databaseConfigId) return 0;
 	if (promptTokens === 0 && completionTokens === 0) return 0;
-
-	try {
-		const modelMeta = await ProviderRegistry.getModel(
-			provider,
-			model,
-			databaseConfigId
-		);
-		if (!modelMeta) {
-			consoleLog(
-				`Evaluation cost: model '${model}' not found under provider '${provider}' in Manage Models`
-			);
-			return 0;
-		}
-
-		return getChatModelCostPerM(
-			{
-				inputPricePerMToken: modelMeta.inputPricePerMToken,
-				outputPricePerMToken: modelMeta.outputPricePerMToken,
-				cacheReadPricePerMToken: modelMeta.cacheReadPricePerMToken,
-				cacheCreationPricePerMToken: modelMeta.cacheCreationPricePerMToken,
-			},
-			{ promptTokens, completionTokens },
-			{ promptTokensIncludeCache: true }
-		);
-	} catch (e) {
-		consoleLog("Evaluation cost lookup failed:", e);
-		return 0;
-	}
+	const costOf = await getModelCostCalculator(provider, model, databaseConfigId);
+	return costOf({ promptTokens, completionTokens });
 }
 
 /** Span ids already handled by auto-eval (evaluated or sampling-skipped). */
@@ -767,11 +773,15 @@ async function getEvaluationConfigForTrace(
 	const finalContextString =
 		allContextParts.length > 0 ? allContextParts.join("\n\n") : "";
 
+	const endpoint = await resolveEvaluationEndpoint(evaluationConfig, dbConfig);
+	if (endpoint.err) return { success: false, error: endpoint.err };
+
 	try {
 		const data = await runEvaluation({
 			provider: evaluationConfig.provider,
 			model: evaluationConfig.model,
 			apiKey: evaluationConfig.secret.value,
+			baseUrl: endpoint.baseUrl,
 			prompt: prompt ?? "",
 			contexts: finalContextString,
 			response: response ?? "",
@@ -1169,11 +1179,15 @@ export async function runOfflineEvaluation(
 	const finalContextString =
 		allContextParts.length > 0 ? allContextParts.join("\n\n") : "";
 
+	const endpoint = await resolveEvaluationEndpoint(evaluationConfig, databaseConfigId);
+	if (endpoint.err) return { success: false, error: endpoint.err };
+
 	try {
 		const data = await runEvaluation({
 			provider: evaluationConfig.provider,
 			model: evaluationConfig.model,
 			apiKey: evaluationConfig.secret.value,
+			baseUrl: endpoint.baseUrl,
 			prompt,
 			contexts: finalContextString,
 			response,

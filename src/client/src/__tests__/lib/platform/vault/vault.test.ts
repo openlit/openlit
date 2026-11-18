@@ -67,10 +67,13 @@ jest.mock('@/lib/prisma', () => ({
     telemetrySource: {
       findFirst: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn(),
+    },
   },
 }));
 
-import { getSecretByName, checkNameValidity, deleteSecret, getSecrets, getSecretById, upsertSecret, getSecretsFromDatabaseId } from '@/lib/platform/vault/index';
+import { getSecretByName, checkNameValidity, deleteSecret, getSecrets, getSecretById, upsertSecret, getSecretsFromDatabaseId, isOwnSecret } from '@/lib/platform/vault/index';
 import { dataCollector } from '@/lib/platform/common';
 import { getCurrentUser } from '@/lib/session';
 import { getAPIKeyInfo } from '@/lib/platform/api-keys';
@@ -602,5 +605,43 @@ describe('getSecretsFromDatabaseId', () => {
 
     const [{ query }] = (dataCollector as jest.Mock).mock.calls[0];
     expect(query).toContain("v.created_by = 'owner@example.com'");
+  });
+});
+
+describe('isOwnSecret', () => {
+  const prisma = () => require('@/lib/prisma').default;
+
+  it('matches the secret against the session user', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ id: 'v1' }] });
+    await expect(isOwnSecret('v1', 'db-1')).resolves.toBe(true);
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain("v.id = 'v1'");
+    expect(query).toContain("v.created_by = 'user@example.com'");
+    expect((dataCollector as jest.Mock).mock.calls[0][2]).toBe('db-1');
+  });
+
+  it('matches against the API key creator when there is no session', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue(null);
+    prisma().user.findUnique.mockResolvedValue({ email: 'owner@example.com' });
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [{ id: 'v1' }] });
+    await expect(isOwnSecret('v1', 'db-1', 'key-owner')).resolves.toBe(true);
+    expect(prisma().user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'key-owner' } })
+    );
+    const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(query).toContain("v.created_by = 'owner@example.com'");
+  });
+
+  it('returns false for a secret someone else created', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue({ data: [] });
+    await expect(isOwnSecret('v1', 'db-1')).resolves.toBe(false);
+  });
+
+  it('owns nothing without a session or a known key creator', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue(null);
+    await expect(isOwnSecret('v1', 'db-1')).resolves.toBe(false);
+    prisma().user.findUnique.mockResolvedValue(null);
+    await expect(isOwnSecret('v1', 'db-1', 'gone')).resolves.toBe(false);
+    expect(dataCollector).not.toHaveBeenCalled();
   });
 });
