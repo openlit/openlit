@@ -85,7 +85,7 @@ Prompts, responses, tool arguments, and tool results aren't exported by default.
 OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true
 ```
 
-This sets `gen_ai.input.messages` and `gen_ai.output.messages` on turn and LLM spans, including the tool calls a model requests and the tool results it receives, and `gen_ai.tool.call.arguments` and `gen_ai.tool.call.result` on tool spans. Auxiliary LLM spans include the output only.
+This sets `gen_ai.input.messages` and `gen_ai.output.messages` on turn and LLM spans, including the tool calls a model requests and the tool results it receives, and `gen_ai.tool.call.arguments` and `gen_ai.tool.call.result` on tool spans. On LLM spans for providers that take the system prompt outside the messages, such as Anthropic, it also sets `gen_ai.system_instructions`; for other providers the system prompt is the first input message. Auxiliary LLM spans include the output only.
 
 <Warning>
 Captured content can include system prompts, file contents, and command output. Tool arguments and results are exported as Hermes reports them, without redaction. Turn this on only when your OpenLIT deployment is approved to store that data.

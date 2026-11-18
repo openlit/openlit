@@ -177,6 +177,16 @@ def _input_messages(request: Any) -> list[dict[str, Any]]:
     return formatted
 
 
+def _system_instructions(request: Any) -> list[dict[str, Any]]:
+    """OTel GenAI system instruction parts from a request that sends them outside the messages.
+
+    Anthropic takes ``system`` (a string or text blocks) and the Responses API takes
+    ``instructions``. Chat Completions keeps the system prompt in the messages instead.
+    """
+    body = (request or {}).get("body") or {}
+    return _content_parts(body.get("system") or body.get("instructions"))
+
+
 @dataclass
 class Turn:
     """An open turn, and the context its LLM and tool spans parent to."""
@@ -383,9 +393,13 @@ class Observer:
     def _set_llm_content(self, span: Span, turn_id: str | None, kwargs: dict[str, Any]) -> None:
         turn = self.turns.get(turn_id or "")
         pending = turn.requests.pop(kwargs.get("api_request_id") or "", None) if turn else None
-        messages = _input_messages(pending or kwargs.get("request"))
+        request = pending or kwargs.get("request")
+        messages = _input_messages(request)
         if messages:
             span.set_attribute(SC.GEN_AI_INPUT_MESSAGES, _to_json(messages))
+        system = _system_instructions(request)
+        if system:
+            span.set_attribute(SC.GEN_AI_SYSTEM_INSTRUCTIONS, _to_json(system))
         assistant = (kwargs.get("response") or {}).get("assistant_message") or {}
         content, tool_calls = assistant.get("content"), assistant.get("tool_calls")
         if content or tool_calls:

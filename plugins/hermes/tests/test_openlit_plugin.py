@@ -41,11 +41,15 @@ USAGE = {
     "prompt_tokens": 125,
     "total_tokens": 175,
 }
-REQUEST = {"method": "POST", "body": {"messages": [{"role": "user", "content": "secret prompt"}]}}
+REQUEST = {"method": "POST", "body": {
+    "system": "secret system prompt",
+    "messages": [{"role": "user", "content": "secret prompt"}],
+}}
 RESPONSE = {"assistant_message": {"role": "assistant", "content": "secret answer"}}
 CONTENT_ATTRIBUTES = (
     SC.GEN_AI_INPUT_MESSAGES,
     SC.GEN_AI_OUTPUT_MESSAGES,
+    SC.GEN_AI_SYSTEM_INSTRUCTIONS,
     SC.GEN_AI_TOOL_CALL_ARGUMENTS,
     SC.GEN_AI_TOOL_CALL_RESULT,
 )
@@ -469,7 +473,10 @@ def test_input_messages_keep_tool_calls_and_tool_results():
 def test_anthropic_content_blocks_become_message_parts():
     # The request shape Hermes sends to Anthropic: content blocks, tool results as user blocks.
     observer, exporter = make_observer(capture_content=True)
-    request = {"method": "POST", "body": {"messages": [
+    request = {"method": "POST", "body": {"system": [
+        {"type": "text", "text": "You are Hermes.", "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": "Be brief."},
+    ], "messages": [
         {"role": "user", "content": [
             {"type": "text", "text": "read it", "cache_control": {"type": "ephemeral"}},
             {"type": "image", "source": {"type": "base64", "data": "aGVsbG8="}},
@@ -485,7 +492,12 @@ def test_anthropic_content_blocks_become_message_parts():
     ]}}
     observer.llm_call(**llm_payload(request=request))
 
-    messages = json.loads(by_name(exporter)["chat gpt-5"].attributes[SC.GEN_AI_INPUT_MESSAGES])
+    attributes = by_name(exporter)["chat gpt-5"].attributes
+    assert json.loads(attributes[SC.GEN_AI_SYSTEM_INSTRUCTIONS]) == [
+        {"type": "text", "content": "You are Hermes."},
+        {"type": "text", "content": "Be brief."},
+    ]
+    messages = json.loads(attributes[SC.GEN_AI_INPUT_MESSAGES])
     assert messages == [
         {"role": "user", "parts": [{"type": "text", "content": "read it"}, {"type": "image"}]},
         {"role": "assistant", "parts": [
@@ -497,6 +509,32 @@ def test_anthropic_content_blocks_become_message_parts():
             {"type": "tool_call_response", "id": "toolu_1", "response": "file body"},
         ]},
     ]
+
+
+def test_responses_instructions_are_system_instructions():
+    observer, exporter = make_observer(capture_content=True)
+    request = {"method": "POST", "body": {"instructions": "You are Hermes.", "input": [
+        {"role": "user", "content": "hi"},
+    ]}}
+    observer.llm_call(**llm_payload(request=request))
+
+    attributes = by_name(exporter)["chat gpt-5"].attributes
+    assert json.loads(attributes[SC.GEN_AI_SYSTEM_INSTRUCTIONS]) == [
+        {"type": "text", "content": "You are Hermes."}
+    ]
+
+
+def test_system_prompt_in_messages_adds_no_system_instructions():
+    observer, exporter = make_observer(capture_content=True)
+    request = {"method": "POST", "body": {"messages": [
+        {"role": "system", "content": "You are Hermes."},
+        {"role": "user", "content": "hi"},
+    ]}}
+    observer.llm_call(**llm_payload(request=request))
+
+    attributes = by_name(exporter)["chat gpt-5"].attributes
+    assert SC.GEN_AI_SYSTEM_INSTRUCTIONS not in attributes
+    assert json.loads(attributes[SC.GEN_AI_INPUT_MESSAGES])[0]["role"] == "system"
 
 
 def test_subagent_turn_joins_the_parent_trace():
