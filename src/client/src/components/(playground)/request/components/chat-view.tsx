@@ -22,7 +22,9 @@ import {
 	getSpanCostFormatted,
 } from "@/helpers/client/trace";
 import {
+	extractSystemInstructionsText,
 	extractTextMessages,
+	looksLikeJson,
 	normalizeRole,
 	tryPrettyJson,
 } from "@/helpers/client/span-messages";
@@ -182,6 +184,27 @@ function extractItemsFromSpan(
 	if (!skipMessages) {
 		// ── Input messages ──
 		const inputMsgs = extractTextMessages(attrs["gen_ai.input.messages"], "user");
+
+		// ── System instructions sent outside the messages (Anthropic `system`) ──
+		const systemRaw = attrs["gen_ai.system_instructions"];
+		if (
+			typeof systemRaw === "string" &&
+			!inputMsgs.some((msg) => normalizeRole(msg.role) === "system")
+		) {
+			const { text, isStructured } = extractSystemInstructionsText(systemRaw);
+			// Unparseable JSON is a value truncated at the attribute size cap; skip it.
+			if (text.trim() && (isStructured || !looksLikeJson(text))) {
+				items.push({
+					type: "message",
+					role: "system",
+					content: text,
+					parentId,
+					span,
+					timestampMs: ts,
+				});
+			}
+		}
+
 		if (inputMsgs.length > 0) {
 			for (const msg of inputMsgs) {
 				items.push({

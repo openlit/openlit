@@ -79,6 +79,26 @@ export type ObservabilitySignalConfig = {
 	getDetailHref: (row: any, from: string) => string;
 };
 
+/**
+ * A trace row: its root span plus the trace's span and error counts. Agent
+ * spans (Hermes, agent frameworks) carry no usage of their own, so a row whose
+ * root reports no tokens shows the trace's total instead.
+ */
+function normalizeTraceSummary(row: any) {
+	const trace = normalizeTrace(row);
+	const traceTokens = Number(row.TraceTokens);
+	return {
+		...trace,
+		...(!(Number(trace.totalTokens) > 0) && traceTokens > 0
+			? { totalTokens: traceTokens }
+			: {}),
+		spanCount:
+			row.SpanCount == null || row.SpanCount === "" ? null : Number(row.SpanCount),
+		errorCount:
+			row.ErrorCount == null || row.ErrorCount === "" ? null : Number(row.ErrorCount),
+	};
+}
+
 export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 	{
 		key: "traces",
@@ -99,13 +119,7 @@ export const OBSERVABILITY_SIGNALS: ObservabilitySignalConfig[] = [
 		groupedUrl: "/api/telemetry/request/grouped",
 		includeOnlySorting: ["Timestamp"],
 		customAttributeTypes: ["SpanAttributes", "ResourceAttributes", "Field"],
-		normalize: (row) => ({
-			...normalizeTrace(row),
-			spanCount:
-				row.SpanCount == null || row.SpanCount === "" ? null : Number(row.SpanCount),
-			errorCount:
-				row.ErrorCount == null || row.ErrorCount === "" ? null : Number(row.ErrorCount),
-		}),
+		normalize: normalizeTraceSummary,
 		getRowId: (row) => row.spanId,
 		getDetailHref: (row, from) =>
 			`/telemetry/traces/${row.spanId}?from=${encodeURIComponent(from)}`,

@@ -336,6 +336,14 @@ describe('getTraceSummaries', () => {
     expect(listQuery).not.toContain('argMin(Links');
     expect(listQuery).toContain('AS SpanCount');
     expect(listQuery).toContain('AS ErrorCount');
+    // Token totals cover every span, falling back to input plus output tokens.
+    expect(listQuery).toContain(
+      "SUM(if(toInt64OrZero(t.SpanAttributes['gen_ai.usage.total_tokens']) > 0, " +
+        "toInt64OrZero(t.SpanAttributes['gen_ai.usage.total_tokens']), " +
+        "toInt64OrZero(t.SpanAttributes['gen_ai.usage.input_tokens']) + " +
+        "toInt64OrZero(t.SpanAttributes['gen_ai.usage.output_tokens'])))"
+    );
+    expect(listQuery).toContain('AS TraceTokens');
     expect(listQuery).toContain('ORDER BY indexOf(page_ids, t.TraceId)');
   });
 

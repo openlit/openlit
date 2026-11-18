@@ -328,7 +328,8 @@ export async function getTraceSummaries(params: MetricParams) {
 		if(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) > 0, 'STATUS_CODE_ERROR', argMin(t.StatusCode, ${rootOrder})) AS StatusCode,
 		argMaxIf(t.StatusMessage, t.Timestamp, notEmpty(t.StatusMessage)) AS StatusMessage,
 		CAST(count() AS INTEGER) AS SpanCount,
-		CAST(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) AS INTEGER) AS ErrorCount
+		CAST(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) AS INTEGER) AS ErrorCount,
+		${traceTokensSql()} AS TraceTokens
 	FROM ${table} AS t
 	WHERE ${timeWhere} AND t.TraceId IN (SELECT arrayJoin(page_ids))
 	GROUP BY t.TraceId
@@ -340,6 +341,19 @@ export async function getTraceSummaries(params: MetricParams) {
 		records: data,
 		total: (dataTotal as any[])?.[0]?.total || 0,
 	};
+}
+
+/**
+ * Tokens across a trace's spans, for traces whose root span reports none
+ * (agent frameworks put usage on the LLM child spans, not on the agent span).
+ * A span without a total counts its input plus output tokens.
+ */
+function traceTokensSql() {
+	const attr = (key: "totalTokens" | "promptTokens" | "completionTokens") =>
+		`toInt64OrZero(t.SpanAttributes['${getTraceMappingKeyFullPath(key)}'])`;
+	return `CAST(SUM(if(${attr("totalTokens")} > 0, ${attr("totalTokens")}, ${attr(
+		"promptTokens"
+	)} + ${attr("completionTokens")})) AS INTEGER)`;
 }
 
 export async function getTraceSummarySeries(params: MetricParams) {
