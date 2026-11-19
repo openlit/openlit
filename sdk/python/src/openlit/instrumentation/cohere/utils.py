@@ -306,7 +306,7 @@ def process_chunk(scope, chunk):
     if chunked.get("type") == "message-end":
         delta = chunked.get("delta", {})
         scope._finish_reason = delta.get("finish_reason", "")
-        usage = delta.get("usage", {})
+        usage = delta.get("usage") or {}
         billed = usage.get("billed_units", {})
         # Handle token usage including reasoning tokens and cached tokens
         scope._input_tokens = billed.get("input_tokens", 0)
@@ -657,7 +657,7 @@ def process_chat_response(
         scope._llmresponse = ""
     scope._response_id = response_dict.get("id")
     scope._response_model = request_model
-    usage = response_dict.get("usage", {})
+    usage = response_dict.get("usage") or {}
     billed = usage.get("billed_units", {})
     # Handle token usage including reasoning tokens and cached tokens
     scope._input_tokens = billed.get("input_tokens", 0)
