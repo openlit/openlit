@@ -336,6 +336,25 @@ describe('getTraceSummaries', () => {
     expect(listQuery).not.toContain('argMin(Links');
     expect(listQuery).toContain('AS SpanCount');
     expect(listQuery).toContain('AS ErrorCount');
+    // Token totals read every mapped attribute, fall back to input plus output
+    // tokens, and count wrapper spans only when no model-call span has usage.
+    const total =
+      "coalesce(nullIf(toInt64OrZero(t.SpanAttributes['gen_ai.usage.total_tokens']), 0), " +
+      "nullIf(toInt64OrZero(t.SpanAttributes['gen_ai.client.token.usage']), 0), " +
+      "nullIf(toInt64OrZero(t.SpanAttributes['total_tokens']), 0), 0)";
+    const input =
+      "coalesce(nullIf(toInt64OrZero(t.SpanAttributes['gen_ai.usage.input_tokens']), 0), " +
+      "nullIf(toInt64OrZero(t.SpanAttributes['gen_ai.client.token.usage.input']), 0), " +
+      "nullIf(toInt64OrZero(t.SpanAttributes['input_tokens']), 0), " +
+      "nullIf(toInt64OrZero(t.SpanAttributes['prompt_tokens']), 0), 0)";
+    const spanTokens = `if(${total} > 0, ${total}, ${input} + `;
+    expect(listQuery).toContain(`SUMIf(${spanTokens}`);
+    expect(listQuery).toContain(
+      "t.SpanAttributes['gen_ai.operation.name'] NOT IN ('invoke_agent', 'invoke_workflow', " +
+        "'create_agent', 'execute_task', 'execute_tool', 'agent', 'task', 'execution'))"
+    );
+    expect(listQuery).toContain(`SUM(${spanTokens}`);
+    expect(listQuery).toContain('AS TraceTokens');
     expect(listQuery).toContain('ORDER BY indexOf(page_ids, t.TraceId)');
   });
 

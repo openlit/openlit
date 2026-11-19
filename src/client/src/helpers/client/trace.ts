@@ -1,4 +1,8 @@
-import { SUPPORTED_EVALUATION_OPERATIONS, TraceMapping } from "@/constants/traces";
+import {
+	SUPPORTED_EVALUATION_OPERATIONS,
+	TraceMapping,
+	USAGE_WRAPPER_OPERATIONS,
+} from "@/constants/traces";
 import {
 	TraceMappingPathType,
 	TraceMappingKeyType,
@@ -345,6 +349,70 @@ export function getSpanCostFormatted(
 ): string | null {
 	if (span.Cost == null || span.Cost <= 0) return null;
 	return `$${Number(span.Cost).toFixed(precision)}`;
+}
+
+export interface HierarchyUsageTotals {
+	tokens: number;
+	cost: number;
+}
+
+/** First positive value among a token key's mapped attributes, else 0. */
+function getSpanTokenValue(
+	span: TraceHeirarchySpan,
+	key: "totalTokens" | "promptTokens" | "completionTokens"
+): number {
+	for (const path of getTraceMappingKeyFullPaths(key) as string[]) {
+		const value = getNumberOrNull(get(span.SpanAttributes ?? {}, path));
+		if (value !== null && value > 0) return value;
+	}
+	return 0;
+}
+
+function sumUsage(spans: TraceHeirarchySpan[]): HierarchyUsageTotals {
+	return spans.reduce(
+		(acc, span) => {
+			const total = getSpanTokenValue(span, "totalTokens");
+			acc.tokens +=
+				total > 0
+					? total
+					: getSpanTokenValue(span, "promptTokens") +
+						getSpanTokenValue(span, "completionTokens");
+			acc.cost += span.Cost != null && span.Cost > 0 ? span.Cost : 0;
+			return acc;
+		},
+		{ tokens: 0, cost: 0 }
+	);
+}
+
+/**
+ * Tokens and cost over a span and all its descendants, matching the trace
+ * list's TraceTokens: a span's tokens are its total, else prompt plus
+ * completion, and wrapper spans (agents, workflows, tasks, tools), which can
+ * repeat their children's usage, count only when no other span reports any.
+ */
+export function getHierarchyUsageTotals(
+	span: TraceHeirarchySpan
+): HierarchyUsageTotals {
+	const spans: TraceHeirarchySpan[] = [];
+	const collect = (node: TraceHeirarchySpan) => {
+		spans.push(node);
+		(node.children || []).forEach(collect);
+	};
+	collect(span);
+	const all = sumUsage(spans);
+	const calls = sumUsage(
+		spans.filter((node) => {
+			const operation = getTraceMappingValue(
+				{ SpanAttributes: node.SpanAttributes },
+				"type"
+			);
+			return !USAGE_WRAPPER_OPERATIONS.includes(String(operation ?? ""));
+		})
+	);
+	return {
+		tokens: calls.tokens > 0 ? calls.tokens : all.tokens,
+		cost: calls.cost > 0 ? calls.cost : all.cost,
+	};
 }
 
 /**

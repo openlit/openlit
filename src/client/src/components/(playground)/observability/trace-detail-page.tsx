@@ -9,6 +9,7 @@ import {
 	getExtraTabsContentTypes,
 	normalizeTrace,
 	isSyntheticSpanId,
+	HierarchyUsageTotals,
 } from "@/helpers/client/trace";
 import { getTimeLimitObject } from "@/store/filter";
 import { FilterConfig, FilterType, TIME_RANGES } from "@/types/store/filter";
@@ -413,6 +414,17 @@ export function TraceDetailView({
 	// Trace of the row the arrows moved to. URL updates land after this render,
 	// so without it the first fetch would pair the new span with the old trace.
 	const [listTrace, setListTrace] = useState<{ spanId: string; traceId?: string } | null>(null);
+	// Usage summed over the hierarchy the explorer loaded, keyed by its root
+	// span. Agent root spans (e.g. a Hermes turn) carry no usage of their own,
+	// so the header shows these totals when that root is selected.
+	const [hierarchyUsage, setHierarchyUsage] = useState<
+		(HierarchyUsageTotals & { rootSpanId: string }) | null
+	>(null);
+	const handleUsageTotals = useCallback(
+		(rootSpanId: string, totals: HierarchyUsageTotals) =>
+			setHierarchyUsage({ rootSpanId, ...totals }),
+		[]
+	);
 	// Per-session code-impact rollups (lines added / removed,
 	// commits, edit accept/reject, PRs, acceptance %) fetched by
 	// session_id from the trace's coding-agent attributes. Used to
@@ -928,9 +940,23 @@ export function TraceDetailView({
 			? sessionDigest.model
 			: "";
 
-	const tokensValue = codingTokensValue ?? trace?.totalTokens;
-	const costValue =
-		codingCostValue ?? (trace?.cost && trace.cost !== "-" ? `$${trace.cost}` : undefined);
+	// A root span reporting no usage of its own shows its trace's totals.
+	const rootUsage =
+		hierarchyUsage && trace?.spanId === hierarchyUsage.rootSpanId
+			? hierarchyUsage
+			: null;
+	const rootTokensValue =
+		!(Number(trace?.totalTokens) > 0) && rootUsage && rootUsage.tokens > 0
+			? rootUsage.tokens.toLocaleString()
+			: undefined;
+	const ownCostValue =
+		trace?.cost && trace.cost !== "-" ? `$${trace.cost}` : undefined;
+	const rootCostValue =
+		!ownCostValue && rootUsage && rootUsage.cost > 0
+			? `$${rootUsage.cost.toFixed(6)}`
+			: undefined;
+	const tokensValue = codingTokensValue ?? rootTokensValue ?? trace?.totalTokens;
+	const costValue = codingCostValue ?? ownCostValue ?? rootCostValue;
 	const displayCostValue =
 		costValue ||
 		(isCodingAgentTrace ? m.GOVERNANCE_COST_NOT_REPORTED : undefined);
@@ -1091,6 +1117,7 @@ export function TraceDetailView({
 										selectedSpanId={selectedSpanId}
 										traceId={knownTraceId || trace?.id}
 										onSelectSpan={selectSpanInCurrentTrace}
+										onUsageTotals={handleUsageTotals}
 										fill
 									/>
 								</div>

@@ -131,6 +131,46 @@ export function extractTextMessages(
 	return result;
 }
 
+interface SystemInstructionPart {
+	type?: string;
+	content?: string;
+	text?: string;
+}
+
+/**
+ * The OTel `gen_ai.system_instructions` attribute is a JSON-stringified
+ * array of `{ type, content }` parts (see Python SDK
+ * `build_system_instructions_from_messages` and the equivalent TS helper).
+ * Surface human-readable text by default, with a toggle to inspect the raw
+ * JSON.
+ */
+export function extractSystemInstructionsText(prompt: string): {
+	text: string;
+	isStructured: boolean;
+} {
+	if (!prompt) return { text: "", isStructured: false };
+	const trimmed = prompt.trim();
+	if (!(trimmed.startsWith("[") || trimmed.startsWith("{"))) {
+		return { text: prompt, isStructured: false };
+	}
+	try {
+		const parsed = JSON.parse(trimmed);
+		const parts: SystemInstructionPart[] = Array.isArray(parsed) ? parsed : [parsed];
+		const text = parts
+			.map((part) => {
+				if (!part) return "";
+				if (typeof part === "string") return part;
+				return part.content ?? part.text ?? "";
+			})
+			.filter((s) => typeof s === "string" && s.length > 0)
+			.join("\n\n");
+		if (!text) return { text: prompt, isStructured: false };
+		return { text, isStructured: true };
+	} catch {
+		return { text: prompt, isStructured: false };
+	}
+}
+
 export function normalizeRole(role: string): "user" | "assistant" | "system" | "tool" {
 	if (role === "assistant") return "assistant";
 	if (role === "system") return "system";

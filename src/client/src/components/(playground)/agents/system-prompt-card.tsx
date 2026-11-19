@@ -3,56 +3,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import getMessage from "@/constants/messages";
+import { extractSystemInstructionsText } from "@/helpers/client/span-messages";
 
 interface SystemPromptCardProps {
 	prompt: string;
-}
-
-interface PromptPart {
-	type?: string;
-	content?: string;
-	text?: string;
-}
-
-/**
- * The OTel `gen_ai.system_instructions` attribute is a JSON-stringified
- * array of `{ type, content }` parts (see Python SDK
- * `build_system_instructions_from_messages` and the equivalent TS helper).
- * Surface human-readable text by default, with a toggle to inspect the raw
- * JSON.
- */
-function extractPromptText(prompt: string): {
-	text: string;
-	isStructured: boolean;
-} {
-	if (!prompt) return { text: "", isStructured: false };
-	const trimmed = prompt.trim();
-	if (!(trimmed.startsWith("[") || trimmed.startsWith("{"))) {
-		return { text: prompt, isStructured: false };
-	}
-	try {
-		const parsed = JSON.parse(trimmed);
-		const parts: PromptPart[] = Array.isArray(parsed) ? parsed : [parsed];
-		const text = parts
-			.map((part) => {
-				if (!part) return "";
-				if (typeof part === "string") return part;
-				return part.content ?? part.text ?? "";
-			})
-			.filter((s) => typeof s === "string" && s.length > 0)
-			.join("\n\n");
-		if (!text) return { text: prompt, isStructured: false };
-		return { text, isStructured: true };
-	} catch {
-		return { text: prompt, isStructured: false };
-	}
 }
 
 export default function SystemPromptCard({ prompt }: SystemPromptCardProps) {
 	const [copied, setCopied] = useState(false);
 	const [showRaw, setShowRaw] = useState(false);
 	const { text, isStructured } = useMemo(
-		() => extractPromptText(prompt),
+		() => extractSystemInstructionsText(prompt),
 		[prompt]
 	);
 	// Guard the "Copied!" reset timer so unmount or rapid re-clicks don't

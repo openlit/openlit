@@ -124,6 +124,7 @@
                 "pages": [
                   "latest/openlit/observability/agents/overview",
                   "latest/openlit/observability/agents/setup",
+                  "latest/openlit/observability/agents/hermes",
                   "latest/openlit/observability/agents/analytics",
                   "latest/openlit/observability/agents/monitoring",
                   "latest/openlit/observability/agents/definition",

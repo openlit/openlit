@@ -15,6 +15,7 @@
 #     plugins/cursor/                     -- mirrored from repo-root
 #     plugins/codex/                      -- mirrored from repo-root
 #     plugins/opencode/                   -- mirrored from repo-root
+#     plugins/hermes/                     -- mirrored from repo-root
 #
 # Run after editing any file under either source tree. CI verifies the
 # embedded copy is in sync (see .github/workflows/ci-cli.yml).

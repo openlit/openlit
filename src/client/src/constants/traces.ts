@@ -754,6 +754,23 @@ export const SPAN_KIND: Record<SPAN_KIND_TYPE, SPAN_KIND_TYPE> = {
 
 export const SUPPORTED_EVALUATION_OPERATIONS = ["chat"];
 
+/**
+ * `gen_ai.operation.name` values of spans that wrap model calls (agents,
+ * workflows, tasks, tools). Framework instrumentations (LangGraph, CrewAI)
+ * repeat their child model calls' usage on these, so trace-wide token and
+ * cost totals leave them out whenever another span reports usage.
+ */
+export const USAGE_WRAPPER_OPERATIONS = [
+	"invoke_agent",
+	"invoke_workflow",
+	"create_agent",
+	"execute_task",
+	"execute_tool",
+	"agent",
+	"task",
+	"execution",
+];
+
 export const SPAN_SEARCH_MAX_LENGTH = 256;
 export const SPAN_SEARCH_MAX_DAYS = 7;
 /** Words beyond this are ignored, so a pasted paragraph stays a bounded scan. */

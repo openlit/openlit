@@ -29,6 +29,31 @@ describe("observability signal registry", () => {
 		expect(traces.groupedUrl).toBe(getSignalConfig("spans").groupedUrl);
 	});
 
+	it("shows a trace's total tokens when its root span reports none", () => {
+		const { normalize } = getSignalConfig("traces");
+		const root = { SpanId: "root-1", SpanAttributes: {}, SpanCount: "4", TraceTokens: "14350" };
+
+		expect(normalize!(root)).toMatchObject({ totalTokens: 14350, spanCount: 4 });
+	});
+
+	it("keeps the root span's own tokens over the trace total", () => {
+		const { normalize } = getSignalConfig("traces");
+		const root = {
+			SpanId: "root-1",
+			SpanAttributes: { "gen_ai.usage.total_tokens": "300" },
+			TraceTokens: "600",
+		};
+
+		expect(normalize!(root).totalTokens).toBe(300);
+	});
+
+	it("leaves tokens empty when no span in the trace reports any", () => {
+		const { normalize } = getSignalConfig("traces");
+		const root = { SpanId: "root-1", SpanAttributes: {}, TraceTokens: "0" };
+
+		expect(normalize!(root).totalTokens).not.toBe(0);
+	});
+
 	it("keeps the existing span list as a separate signal", () => {
 		const spans = getSignalConfig("spans");
 

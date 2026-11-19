@@ -7,6 +7,7 @@ import {
 	buildHierarchy,
 } from "@/helpers/server/trace";
 import { SYNTHETIC_SPAN_ID_PREFIX } from "@/helpers/client/trace";
+import { USAGE_WRAPPER_OPERATIONS } from "@/constants/traces";
 import { CODING_AGENT_ATTR } from "@/lib/platform/coding-agents/table-details";
 import {
 	dateTruncGroupingLogic,
@@ -328,7 +329,8 @@ export async function getTraceSummaries(params: MetricParams) {
 		if(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) > 0, 'STATUS_CODE_ERROR', argMin(t.StatusCode, ${rootOrder})) AS StatusCode,
 		argMaxIf(t.StatusMessage, t.Timestamp, notEmpty(t.StatusMessage)) AS StatusMessage,
 		CAST(count() AS INTEGER) AS SpanCount,
-		CAST(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) AS INTEGER) AS ErrorCount
+		CAST(countIf(t.StatusCode IN ${TRACE_ERROR_STATUS}) AS INTEGER) AS ErrorCount,
+		${traceTokensSql()} AS TraceTokens
 	FROM ${table} AS t
 	WHERE ${timeWhere} AND t.TraceId IN (SELECT arrayJoin(page_ids))
 	GROUP BY t.TraceId
@@ -340,6 +342,29 @@ export async function getTraceSummaries(params: MetricParams) {
 		records: data,
 		total: (dataTotal as any[])?.[0]?.total || 0,
 	};
+}
+
+/**
+ * Tokens across a trace's spans, for traces whose root span reports none
+ * (agent frameworks put usage on the LLM child spans, not on the agent span).
+ * Matches `getHierarchyUsageTotals`: each token value is the first positive
+ * one among its mapped attributes, a span without a total counts input plus
+ * output, and wrapper spans count only when no other span reports usage.
+ */
+function traceTokensSql() {
+	const attr = (key: "totalTokens" | "promptTokens" | "completionTokens") => {
+		const values = (getTraceMappingKeyFullPaths(key) as string[]).map(
+			(path) => `nullIf(toInt64OrZero(t.SpanAttributes['${path}']), 0)`
+		);
+		return `coalesce(${values.join(", ")}, 0)`;
+	};
+	const spanTokens = `if(${attr("totalTokens")} > 0, ${attr("totalTokens")}, ${attr(
+		"promptTokens"
+	)} + ${attr("completionTokens")})`;
+	const operation = `t.SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
+	const wrappers = USAGE_WRAPPER_OPERATIONS.map((op) => `'${op}'`).join(", ");
+	const callTokens = `SUMIf(${spanTokens}, ${operation} NOT IN (${wrappers}))`;
+	return `CAST(if(${callTokens} > 0, ${callTokens}, SUM(${spanTokens})) AS INTEGER)`;
 }
 
 export async function getTraceSummarySeries(params: MetricParams) {

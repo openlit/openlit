@@ -9,6 +9,7 @@ import {
   findSpanInHierarchyLodash,
   getSpanDurationDisplay,
   getSpanCostFormatted,
+  getHierarchyUsageTotals,
   getSpanTooltipText,
   ensureTraceRowShape,
   isSyntheticSpanId,
@@ -413,6 +414,55 @@ describe('isSyntheticSpanId', () => {
     expect(isSyntheticSpanId('')).toBe(false);
     expect(isSyntheticSpanId(null)).toBe(false);
     expect(isSyntheticSpanId(undefined)).toBe(false);
+  });
+});
+
+describe('getHierarchyUsageTotals', () => {
+  const span = (SpanAttributes: Record<string, string | number>, Cost?: number, children: any[] = []) =>
+    ({ SpanId: 's', SpanName: 'span', Duration: 0, SpanAttributes, Cost, children } as any);
+
+  it('sums tokens and cost over the span and its descendants', () => {
+    const tree = span({}, undefined, [
+      span({ 'gen_ai.usage.total_tokens': 100 }, 0.002),
+      span({}, undefined, [span({ 'gen_ai.usage.total_tokens': '50' }, 0.001)]),
+    ]);
+
+    expect(getHierarchyUsageTotals(tree)).toEqual({ tokens: 150, cost: 0.003 });
+  });
+
+  it('falls back to input plus output tokens when a span has no total', () => {
+    const tree = span({ 'gen_ai.usage.input_tokens': 30, 'gen_ai.usage.output_tokens': 12 });
+
+    expect(getHierarchyUsageTotals(tree)).toEqual({ tokens: 42, cost: 0 });
+  });
+
+  it('reads alternative token attributes', () => {
+    const tree = span({}, undefined, [
+      span({ 'gen_ai.client.token.usage': 70 }),
+      span({ 'gen_ai.usage.total_tokens': 0, prompt_tokens: 5, completion_tokens: 3 }),
+    ]);
+
+    expect(getHierarchyUsageTotals(tree).tokens).toBe(78);
+  });
+
+  it('leaves out wrapper spans that repeat their model calls usage', () => {
+    const graph = span(
+      { 'gen_ai.operation.name': 'invoke_workflow', 'gen_ai.usage.total_tokens': 100 },
+      0.002,
+      [span({ 'gen_ai.operation.name': 'chat', 'gen_ai.usage.total_tokens': 100 }, 0.002)]
+    );
+
+    expect(getHierarchyUsageTotals(span({}, undefined, [graph]))).toEqual({ tokens: 100, cost: 0.002 });
+  });
+
+  it('counts wrapper spans when no model call reports usage', () => {
+    const agent = span({ 'gen_ai.operation.name': 'invoke_agent', 'gen_ai.usage.total_tokens': 40 }, 0.001);
+
+    expect(getHierarchyUsageTotals(span({}, undefined, [agent]))).toEqual({ tokens: 40, cost: 0.001 });
+  });
+
+  it('returns zeros for a span without usage', () => {
+    expect(getHierarchyUsageTotals(span({}, -1))).toEqual({ tokens: 0, cost: 0 });
   });
 });
 
