@@ -124,11 +124,27 @@ description: "Install the openlit CLI, wire each vendor's hooks, then configure 
     Re-running the install is idempotent and replaces only `openlit.ts`; other files in your global OpenCode plugin directory are preserved.
 
     </Tab>
+    <Tab title="Hermes Agent">
+
+    [Hermes Agent](https://hermes-agent.nousresearch.com/docs/) installs the OpenLIT plugin with its own plugin manager, so you don't need the `openlit` CLI:
+
+    ```bash
+    hermes plugins install openlit/openlit/plugins/hermes --enable
+    hermes config set OTEL_EXPORTER_OTLP_ENDPOINT "http://localhost:4318"
+    hermes config set OPENLIT_API_KEY "$OPENLIT_API_KEY"
+    hermes gateway stop
+    ```
+
+    Hermes asks before installing the plugin's Python dependency, the `openlit` SDK; add `--yes-deps` for headless installs. `hermes config set` writes `~/.hermes/.env`, which the background Hermes gateway reads, and replaces an existing value instead of adding a second one. `hermes gateway stop` makes your next Hermes chat start a fresh gateway with the plugin and settings loaded. If you run the gateway as a service (`hermes gateway install`), run `hermes gateway restart` instead; without a service, `restart` runs the gateway in the foreground of your terminal.
+
+    Hermes turns appear on the Agents page's **Applications** tab and on the Traces page as `hermes-agent`, not on the Coding Agents tab: each turn is an `invoke_agent hermes` trace with its LLM and tool calls, not a coding-agent session. Content capture is off by default. See [Hermes Agent](/latest/openlit/observability/agents/hermes) for what's captured and every setting.
+
+    </Tab>
     </Tabs>
   </Step>
 
   <Step title="Verify">
-    Run any short coding-agent session, then refresh the [Agents page](/latest/openlit/observability/agents/overview) in your OpenLIT UI. You should see a new row labelled with the vendor and a "Coding" badge. Click in for the dedicated Overview / Sessions / Users tabs.
+    Run any short coding-agent session, then refresh the [Agents page](/latest/openlit/observability/agents/overview) in your OpenLIT UI. You should see a new row labelled with the vendor and a "Coding" badge. Click in for the dedicated Overview / Sessions / Users tabs. Hermes Agent shows up on the Applications tab instead.
   </Step>
 </Steps>
 
@@ -189,6 +205,8 @@ brew uninstall openlit                # Homebrew
 rm ~/.openlit/bin/openlit             # curl|sh installer
 rm $(go env GOPATH)/bin/openlit       # go install
 ```
+
+Hermes Agent isn't installed by the CLI, so remove it with Hermes: `hermes plugins disable openlit` to pause, or `hermes plugins remove openlit` to uninstall, then `hermes gateway stop` (or `hermes gateway restart` for a gateway service).
 
 If you only want to pause a vendor temporarily rather than uninstall it, re-run `openlit coding install --vendor=<v>` later - it's idempotent and will re-wire the same manifest.
 

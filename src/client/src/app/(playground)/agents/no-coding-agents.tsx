@@ -35,6 +35,10 @@ import {
 	hasCodingAgentVendorIcon,
 } from "@/components/svg/coding-agents";
 import {
+	AGENTS_CODING_VENDOR_HERMES_GUIDE,
+	AGENTS_CODING_VENDOR_HERMES_LABEL,
+	AGENTS_CODING_VENDOR_HERMES_RESTART,
+	AGENTS_CODING_VENDOR_HERMES_WHERE,
 	AGENTS_CODING_VENDOR_OPENCODE_LABEL,
 	AGENTS_CODING_VENDOR_OPENCODE_RESTART,
 	AGENTS_CODING_SETUP_GUIDE,
@@ -49,7 +53,7 @@ import { ApiKey } from "@/types/api-key";
 
 type OsIconComponent = ComponentType<{ className?: string }>;
 
-type VendorId = "claude-code" | "cursor" | "codex" | "opencode";
+type VendorId = "claude-code" | "cursor" | "codex" | "opencode" | "hermes";
 type OsId = "macos" | "linux" | "windows";
 
 interface VendorMeta {
@@ -61,6 +65,11 @@ interface VendorMeta {
 	// `openlit coding install …` here would break the Windows
 	// PowerShell path which has to use the `&` call operator.
 	cliFlag: string;
+	// Vendors whose own CLI installs the integration skip the openlit
+	// bootstrap and build their snippet here instead.
+	snippet?: (setup: { otlpEndpoint: string; apiKey: string; joiner: string }) => string;
+	// Docs page for vendors set up outside the openlit CLI.
+	guide?: { href: string; label: string };
 	// User-facing post-install steps shown under the snippet. The
 	// install command writes hook files (and registers plugins where
 	// the vendor's CLI is available), but the *agent process itself*
@@ -125,6 +134,28 @@ const VENDORS: VendorMeta[] = [
 		cliFlag: "opencode",
 		postInstall: {
 			restart: AGENTS_CODING_VENDOR_OPENCODE_RESTART,
+		},
+	},
+	{
+		id: "hermes",
+		label: AGENTS_CODING_VENDOR_HERMES_LABEL,
+		cliFlag: "hermes",
+		// Hermes installs plugins and their Python dependencies itself, and
+		// `hermes config set` writes ~/.hermes/.env, which the background
+		// gateway reads (it doesn't see shell variables).
+		snippet: ({ otlpEndpoint, apiKey, joiner }) =>
+			[
+				"hermes plugins install openlit/openlit/plugins/hermes --enable",
+				`hermes config set OTEL_EXPORTER_OTLP_ENDPOINT "${otlpEndpoint}"`,
+				`hermes config set OPENLIT_API_KEY "${apiKey}"`,
+			].join(joiner),
+		guide: {
+			href: "https://docs.openlit.io/latest/openlit/observability/agents/hermes",
+			label: AGENTS_CODING_VENDOR_HERMES_GUIDE,
+		},
+		postInstall: {
+			restart: AGENTS_CODING_VENDOR_HERMES_RESTART,
+			extraSteps: [AGENTS_CODING_VENDOR_HERMES_WHERE],
 		},
 	},
 ];
@@ -330,6 +361,9 @@ export default function NoCodingAgents({ compact = false }: NoCodingAgentsProps)
 	const snippet = useMemo(() => {
 		const apiKeyValue = firstKey || API_KEY_PLACEHOLDER;
 		const { install, activate, joiner } = bootstrapForOs(activeOs);
+		if (vendor.snippet) {
+			return vendor.snippet({ otlpEndpoint, apiKey: apiKeyValue, joiner });
+		}
 		return [
 			install,
 			activate,
@@ -498,12 +532,15 @@ export default function NoCodingAgents({ compact = false }: NoCodingAgentsProps)
 							Full reference (env vars, content-capture modes,
 							marketplace install):{" "}
 							<a
-								href="https://docs.openlit.io/latest/openlit/coding-agents/setup-and-configure"
+								href={
+									vendor.guide?.href ||
+									"https://docs.openlit.io/latest/openlit/coding-agents/setup-and-configure"
+								}
 								target="_blank"
 								rel="noreferrer"
 								className="text-primary hover:underline"
 							>
-								{AGENTS_CODING_SETUP_GUIDE}
+								{vendor.guide?.label || AGENTS_CODING_SETUP_GUIDE}
 							</a>
 							.
 						</p>

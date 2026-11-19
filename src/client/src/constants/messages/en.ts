@@ -1123,7 +1123,11 @@ export const AGENTS_ADD_CONTROLLER = "Add Controller";
 export const AGENTS_ADD_CODING_AGENT = "Add Coding Agent";
 export const AGENTS_CODING_VENDOR_OPENCODE_LABEL = "OpenCode";
 export const AGENTS_CODING_VENDOR_OPENCODE_RESTART = "Restart OpenCode.";
-export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the install snippet. The OpenLit CLI hooks into the agent and ships every session, tool call, and LLM turn to this stack — no SDK or code changes required.";
+export const AGENTS_CODING_VENDOR_HERMES_LABEL = "Hermes Agent";
+export const AGENTS_CODING_VENDOR_HERMES_RESTART = "Run `hermes gateway stop`. Your next Hermes chat starts the gateway again with the plugin and settings. If you run the gateway as a service (`hermes gateway install`), run `hermes gateway restart` instead.";
+export const AGENTS_CODING_VENDOR_HERMES_WHERE = "Hermes turns appear on the Applications tab and the Traces page as `hermes-agent`, not in Coding Agents sessions.";
+export const AGENTS_CODING_VENDOR_HERMES_GUIDE = "Hermes Agent guide";
+export const AGENTS_NO_CODING_AGENTS_DESCRIPTION = "Pick a tool to see the install snippet. The OpenLit CLI or plugin hooks into the agent and ships every session, tool call, and LLM turn to this stack — no SDK or code changes required.";
 
 // Trace-detail content-capture banner. Surfaces a one-liner the user
 // can run when prompts / responses are missing from a coding-agent

@@ -7,6 +7,10 @@ The OpenLIT plugin for [Hermes Agent](https://hermes-agent.nousresearch.com/docs
 
 The plugin only observes. It exports in the background, never changes what Hermes does, and a telemetry failure never reaches the agent.
 
+<Tip>
+In OpenLIT, open the Agents page, choose **Add Coding Agent** (or the Coding Agents tab), and pick **Hermes Agent**. The snippet there is pre-filled with your OTLP endpoint and API key.
+</Tip>
+
 ## Setup
 
 <Steps>
@@ -20,26 +24,27 @@ The plugin only observes. It exports in the background, never changes what Herme
     To install by hand, copy `plugins/hermes` to `~/.hermes/plugins/openlit` and run `hermes plugins enable openlit`.
   </Step>
   <Step title="Point it at OpenLIT">
-    Add your endpoint to `~/.hermes/.env`:
+    Save your endpoint, and your API key if OpenLIT requires one, to Hermes's `~/.hermes/.env`:
 
     ```bash
-    OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
-    # Needed when your OpenLIT requires an API key
-    OPENLIT_API_KEY=<openlit-api-key>
+    hermes config set OTEL_EXPORTER_OTLP_ENDPOINT "http://127.0.0.1:4318"
+    hermes config set OPENLIT_API_KEY "<openlit-api-key>"
     ```
 
-    Use `~/.hermes/.env` rather than a shell export. Chats run inside a background Hermes gateway, which doesn't see variables set in your shell.
+    Use `~/.hermes/.env` rather than a shell export. Chats run inside a background Hermes gateway, which doesn't see variables set in your shell. Any variable in the table below can be set the same way.
 
     <Note>
     Without an endpoint the plugin stays disabled and logs a warning.
     </Note>
   </Step>
   <Step title="Restart and check">
-    Restart Hermes so the gateway loads the plugin and the new settings:
+    Stop the Hermes gateway so it reloads the plugin and the new settings:
 
     ```bash
-    hermes gateway restart
+    hermes gateway stop
     ```
+
+    Your next Hermes chat starts the gateway again. If you run the gateway as a service (`hermes gateway install`), run `hermes gateway restart` instead. Without a service, `restart` runs the gateway in the foreground of your terminal.
 
     Send a message to Hermes, then open the [Agents page](/latest/openlit/observability/agents/overview). `hermes-agent` appears on the Applications tab, and its turns are on the Traces page.
   </Step>
@@ -97,7 +102,7 @@ To limit how much is stored, set `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` to a m
 
 <AccordionGroup>
   <Accordion title="No traces appear">
-    Run `hermes plugins list` and check that `openlit` is enabled. Then look for `OpenLIT plugin disabled` in `~/.hermes/logs/agent.log`, which means no endpoint was found. Run `hermes gateway restart` after any change to `~/.hermes/.env`.
+    Run `hermes plugins list` and check that `openlit` is enabled. Then look for `OpenLIT plugin disabled` in `~/.hermes/logs/agent.log`, which means no endpoint was found. Run `hermes gateway stop` (or `hermes gateway restart` for a gateway service) after any change to `~/.hermes/.env`, because a running gateway keeps the old settings and plugin code.
   </Accordion>
   <Accordion title="Some spans are missing">
     Look for `OpenLIT hook` warnings in `~/.hermes/logs/agent.log`. A hook that fails drops its span and logs the error there, and Hermes carries on.
