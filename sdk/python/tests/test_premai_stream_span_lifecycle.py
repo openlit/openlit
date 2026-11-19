@@ -19,6 +19,7 @@ the iterator from the original repro. `IterOnlyContainer` is the 0.3 container.
 
 import gc
 import time
+from unittest.mock import Mock
 
 import pytest
 from opentelemetry import trace as trace_api
@@ -129,6 +130,7 @@ class IterOnlyContainer:
                     yield chunk
             finally:
                 box["closed"] = True
+                box["close_count"] = box.get("close_count", 0) + 1
 
         return generator()
 
@@ -435,6 +437,58 @@ def test_attrs_chunks_contribute_content_and_response_id():
     assert _finish_reasons(span) == ["stop"]
     assert "partial answer" in str(span.attributes)
     assert span.attributes.get(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS) > 0
+
+
+@pytest.mark.parametrize("invalid_result", [False, True])
+@pytest.mark.parametrize("exit_mode", ["exhaust", "close", "source_error"])
+def test_chunk_conversion_failure_preserves_stream_delivery(
+    monkeypatch, invalid_result, exit_mode
+):
+    """Telemetry errors must not replace source chunks or source exceptions."""
+
+    class BrokenChunk:
+        """An SDK chunk whose telemetry conversion fails."""
+
+        def to_dict(self):
+            if invalid_result:
+                return []
+            raise ValueError("telemetry conversion failed")
+
+    tracer, exporter = _tracer_with_exporter()
+    chunks = [BrokenChunk(), *CHUNKS]
+    box = {"closed": False}
+    source = IterOnlyContainer(
+        chunks, box, raise_after=1 if exit_mode == "source_error" else None
+    )
+    stream = _factory(tracer)(lambda *a, **k: source, None, (), REQUEST_KWARGS)
+    end = Mock(wraps=stream._span.end)
+    monkeypatch.setattr(stream._span, "end", end)
+
+    assert next(stream) is chunks[0]
+    assert not box["closed"]
+    assert not exporter.get_finished_spans()
+    if exit_mode == "exhaust":
+        received = list(stream)
+        assert len(received) == len(chunks) - 1
+        assert all(actual is expected for actual, expected in zip(received, chunks[1:]))
+    elif exit_mode == "source_error":
+        with pytest.raises(RuntimeError, match="^stream failed$"):
+            next(stream)
+    stream.close()
+    stream.close()
+
+    assert box["closed"]
+    assert box["close_count"] == 1
+    end.assert_called_once_with()
+    span = _one_finished_span(exporter)
+    assert span.status.status_code == StatusCode.ERROR
+    expected_error = "TypeError" if invalid_result else "ValueError"
+    if exit_mode == "source_error":
+        expected_error = "RuntimeError"
+    assert span.attributes[SemanticConvention.ERROR_TYPE] == expected_error
+    if exit_mode == "exhaust":
+        assert "partial answer" in str(span.attributes)
+        assert _finish_reasons(span) == ["stop"]
 
 
 def test_real_0_3_container_exposes_iter_only():

@@ -154,7 +154,7 @@ def chat(
             """End the span once.
 
             ``ended_cleanly`` is True only for StopIteration. An empty finish
-            reason is otherwise a cancel. A failure raised by the stream is
+            reason is otherwise a cancel. A stream or chunk conversion failure is
             recorded after attributes are set, so partial text stays on the
             span and the status is ERROR rather than the OK that
             ``process_streaming_chat_response`` writes when nothing failed.
