@@ -153,16 +153,47 @@ func consume(ctx context.Context, js jetstream.JetStream, cfg config.Config, han
 	}
 }
 
+// ruleRefreshLogger logs rule refresh outcomes only when they change. Rules
+// reload every few seconds (every 5s while none are active), so logging each
+// load floods the output with identical lines.
+type ruleRefreshLogger struct {
+	logf    func(format string, args ...any)
+	count   int
+	lastErr string
+}
+
+func newRuleRefreshLogger(logf func(format string, args ...any)) *ruleRefreshLogger {
+	return &ruleRefreshLogger{logf: logf, count: -1}
+}
+
+func (l *ruleRefreshLogger) loaded(n int) {
+	l.lastErr = ""
+	if n == l.count {
+		return
+	}
+	l.count = n
+	l.logf("engine: %d active rules", n)
+}
+
+func (l *ruleRefreshLogger) failed(err error) {
+	if err.Error() == l.lastErr {
+		return
+	}
+	l.lastErr = err.Error()
+	l.logf("engine: fetch rules: %v", err)
+}
+
 func refreshRules(ctx context.Context, client *api.Client, eng *engine.Engine, every time.Duration) {
+	logger := newRuleRefreshLogger(log.Printf)
 	load := func() {
 		reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 		rs, err := client.FetchRules(reqCtx)
 		if err != nil {
-			log.Printf("engine: fetch rules: %v", err)
+			logger.failed(err)
 			return
 		}
-		log.Printf("engine: %d active rules", eng.SetRules(rs))
+		logger.loaded(eng.SetRules(rs))
 	}
 	load()
 	t := time.NewTicker(every)

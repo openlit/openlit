@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -61,5 +63,36 @@ func TestSignalsHandlerRejectsCronHeader(t *testing.T) {
 	}
 	if secretEqual("", "") || secretEqual("true", "") {
 		t.Fatal("empty secrets must never match")
+	}
+}
+
+func TestRuleRefreshLoggerOnlyLogsChanges(t *testing.T) {
+	var lines []string
+	l := newRuleRefreshLogger(func(format string, args ...any) {
+		lines = append(lines, fmt.Sprintf(format, args...))
+	})
+
+	l.loaded(0)
+	l.loaded(0)
+	l.loaded(0)
+	l.loaded(2)
+	l.loaded(2)
+	l.failed(errors.New("connection refused"))
+	l.failed(errors.New("connection refused"))
+	l.failed(errors.New("timeout"))
+	l.loaded(2)
+	l.failed(errors.New("timeout"))
+	l.loaded(0)
+
+	want := []string{
+		"engine: 0 active rules",
+		"engine: 2 active rules",
+		"engine: fetch rules: connection refused",
+		"engine: fetch rules: timeout",
+		"engine: fetch rules: timeout",
+		"engine: 0 active rules",
+	}
+	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("logged lines:\n%s\nwant:\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
 	}
 }
