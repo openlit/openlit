@@ -3,6 +3,7 @@
 Module for monitoring Qdrant operations.
 """
 
+import inspect
 import time
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
@@ -37,6 +38,17 @@ def general_wrap(
         # CRITICAL: Suppression check
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
+
+        # Bind positional args to their parameter names so that
+        # downstream telemetry sees them in kwargs regardless of
+        # how the caller invoked the method.
+        try:
+            sig = inspect.signature(wrapped)
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            kwargs = bound.arguments
+        except (TypeError, ValueError):
+            pass
 
         # Extract operation from endpoint
         db_operation = DB_OPERATION_MAP.get(gen_ai_endpoint, "unknown")
