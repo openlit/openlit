@@ -11,6 +11,7 @@ from openlit.__helpers import handle_exception
 from .utils import (
     get_span_name,
     process_letta_response,
+    TracedLettaAsyncStream,
     OPERATION_TYPE_MAP,
 )
 
@@ -54,7 +55,7 @@ def create_async_letta_wrapper(
             streaming = operation_type == "chat"  # Assume chat operations might stream
 
             if streaming:
-                # Execute the operation first to check if it's actually streaming
+                # Execute the operation once to check if it's actually streaming
                 if asyncio.iscoroutinefunction(wrapped):
                     response = await wrapped(*args, **kwargs)
                 else:
@@ -62,11 +63,25 @@ def create_async_letta_wrapper(
 
                 # Check if response is actually a stream
                 if hasattr(response, "__aiter__") and hasattr(response, "__anext__"):
-                    # For async streaming: create span without context manager (like LiteLLM)
+                    # For async streaming: the span ends with the stream
+                    # lifecycle (single execution, like the sync wrapper)
                     span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-                    # Note: For async streams, we'd need an async version of TracedLettaStream
-                    # For now, we'll treat them as non-streaming
-                    streaming = False
+                    return TracedLettaAsyncStream(
+                        wrapped_stream=response,
+                        span=span,
+                        span_name=span_name,
+                        kwargs=kwargs,
+                        operation_type=operation_type,
+                        instance=instance,
+                        start_time=start_time,
+                        environment=environment,
+                        application_name=application_name,
+                        version=version,
+                        endpoint=gen_ai_endpoint,
+                        capture_content=capture_message_content,
+                        pricing_info=pricing_info,
+                        tracer=tracer,
+                    )
 
             # Non-streaming or non-chat operations
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
