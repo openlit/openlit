@@ -11,10 +11,12 @@ import json
 import logging
 from collections import OrderedDict
 from contextvars import ContextVar
+from functools import lru_cache
 from urllib.parse import urlparse
 from typing import Any, Dict, List, Optional, Tuple, Union
 import math
 import requests
+import llm_prices
 from opentelemetry.sdk.resources import (
     SERVICE_NAME,
     TELEMETRY_SDK_NAME,
@@ -396,6 +398,48 @@ def general_tokens(text):
     return math.ceil(len(text) / 2)
 
 
+# Model makers whose own list prices may be used by ``_fallback_chat_pricing``.
+# Hosts of open-weight models (Groq, Together AI, Fireworks AI) are left out so
+# a self-hosted model served by Ollama or vLLM under the same id is never billed
+# at a third party's rate.
+_FALLBACK_PRICING_PROVIDERS = frozenset(
+    {"anthropic", "openai", "google", "deepseek", "mistral", "xai", "cohere"}
+)
+
+
+@lru_cache(maxsize=512)
+def _fallback_chat_pricing(model):
+    """
+    Price a chat model that the OpenLIT pricing file does not list.
+
+    Uses the bundled ``llm-prices`` table, which needs no network access and
+    resolves dated snapshots, ``-latest`` ids, provider prefixes and Bedrock /
+    Vertex ids. Returns an entry shaped like a ``pricing.json`` ``chat`` row
+    (USD per 1K tokens, cache read and 5-minute cache write included when the
+    provider lists them), or ``None`` when the model is unknown.
+    """
+
+    try:
+        price = llm_prices.lookup(model)
+    except Exception:
+        return None
+    if price is None or price.provider not in _FALLBACK_PRICING_PROVIDERS:
+        return None
+    if price.input is None or price.output is None:
+        return None
+
+    model_pricing = {
+        "promptPrice": price.input / 1000,
+        "completionPrice": price.output / 1000,
+    }
+    if price.cache_read is not None:
+        model_pricing["cacheReadPrice"] = price.cache_read / 1000
+    cache_write = price.cache_write.get("5m")
+    if cache_write is not None:
+        model_pricing["cacheCreationPrice"] = cache_write / 1000
+    return model_pricing
+
+
 def get_chat_model_cost(
     model,
     pricing_info,
@@ -428,13 +472,21 @@ def get_chat_model_cost(
     subtracted) when a dedicated cache price exists. This keeps the result
     identical to the legacy behaviour for every model that has no cache pricing
     configured, regardless of the token-accounting convention.
+
+    Offline fallback:
+        A model missing from ``pricing_info`` (or every model, when the pricing
+        file could not be fetched and ``pricing_info`` is empty) is priced from
+        the bundled ``llm-prices`` table, see ``_fallback_chat_pricing``.
+        Entries in ``pricing_info`` always take precedence.
     """
 
     try:
-        chat_pricing = pricing_info["chat"]
+        chat_pricing = (pricing_info or {}).get("chat") or {}
         model_pricing = chat_pricing.get(model)
         if model_pricing is None and "/" in model:
             model_pricing = chat_pricing.get(model.split("/", 1)[1])
+        if model_pricing is None:
+            model_pricing = _fallback_chat_pricing(model)
         if model_pricing is None:
             return 0
 
