@@ -652,7 +652,11 @@ def process_chat_response(
     message = response_dict.get("message", {})
     content_list = message.get("content", [])
     if content_list and isinstance(content_list, list) and len(content_list) > 0:
-        scope._llmresponse = content_list[0].get("text", "")
+        scope._llmresponse = "".join(
+            content.get("text", "")
+            for content in content_list
+            if content.get("type") == "text"
+        )
     else:
         scope._llmresponse = ""
     scope._response_id = response_dict.get("id")
