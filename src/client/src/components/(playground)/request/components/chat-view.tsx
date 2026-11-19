@@ -181,30 +181,33 @@ function extractItemsFromSpan(
 	//   - "thought"  → thinking-only turn (no user-visible message)
 	const codingTurnKind = attrs["coding_agent.llm.turn.kind"] as string | undefined;
 
+	const inputMsgs = extractTextMessages(attrs["gen_ai.input.messages"], "user");
+
+	// ── System instructions sent outside the messages (Anthropic `system`) ──
+	// Read even when this span's messages are skipped for its descendants':
+	// those need not carry the system prompt. A repeat is removed by the
+	// role + content dedupe.
+	const systemRaw = attrs["gen_ai.system_instructions"];
+	if (
+		typeof systemRaw === "string" &&
+		!inputMsgs.some((msg) => normalizeRole(msg.role) === "system")
+	) {
+		const { text, isStructured } = extractSystemInstructionsText(systemRaw);
+		// Unparseable JSON is a value truncated at the attribute size cap; skip it.
+		if (text.trim() && (isStructured || !looksLikeJson(text))) {
+			items.push({
+				type: "message",
+				role: "system",
+				content: text,
+				parentId,
+				span,
+				timestampMs: ts,
+			});
+		}
+	}
+
 	if (!skipMessages) {
 		// ── Input messages ──
-		const inputMsgs = extractTextMessages(attrs["gen_ai.input.messages"], "user");
-
-		// ── System instructions sent outside the messages (Anthropic `system`) ──
-		const systemRaw = attrs["gen_ai.system_instructions"];
-		if (
-			typeof systemRaw === "string" &&
-			!inputMsgs.some((msg) => normalizeRole(msg.role) === "system")
-		) {
-			const { text, isStructured } = extractSystemInstructionsText(systemRaw);
-			// Unparseable JSON is a value truncated at the attribute size cap; skip it.
-			if (text.trim() && (isStructured || !looksLikeJson(text))) {
-				items.push({
-					type: "message",
-					role: "system",
-					content: text,
-					parentId,
-					span,
-					timestampMs: ts,
-				});
-			}
-		}
-
 		if (inputMsgs.length > 0) {
 			for (const msg of inputMsgs) {
 				items.push({

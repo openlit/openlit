@@ -17,3 +17,4 @@ provides_hooks:
   - subagent_start
   - subagent_stop
   - on_session_end
+  - on_session_finalize

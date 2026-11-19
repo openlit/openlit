@@ -20,6 +20,8 @@ on:
       - 'cli/**'
       - 'plugins/**'
       - 'sdk/go/**'
+      # The Hermes plugin job tests against ./sdk/python.
+      - 'sdk/python/**'
       - '.github/workflows/ci-cli.yml'
   pull_request:
     branches: ["main"]
@@ -27,6 +29,8 @@ on:
       - 'cli/**'
       - 'plugins/**'
       - 'sdk/go/**'
+      # The Hermes plugin job tests against ./sdk/python.
+      - 'sdk/python/**'
       - '.github/workflows/ci-cli.yml'
 
 permissions:

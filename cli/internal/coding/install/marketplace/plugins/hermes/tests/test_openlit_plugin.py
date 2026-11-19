@@ -8,6 +8,7 @@ released SDK, so also run these against the plugin.yaml floor, not only the repo
 
 import importlib.util
 import json
+import re
 import sys
 import threading
 import time
@@ -111,8 +112,7 @@ def run_turn(observer):
     observer.turn_start(
         session_id="s1", turn_id="t1", model="gpt-5", platform="cli", user_message="secret prompt"
     )
-    if observer.capture_content:
-        observer.llm_request(turn_id="t1", api_request_id="r1", request=REQUEST)
+    observer.llm_request(turn_id="t1", api_request_id="r1", request=REQUEST)
     observer.llm_call(**llm_payload())
     observer.tool_call(**tool_payload())
     if observer.capture_content:
@@ -186,7 +186,9 @@ def test_content_is_not_captured_by_default():
     for span in exporter.get_finished_spans():
         assert not set(CONTENT_ATTRIBUTES) & set(span.attributes)
         assert "secret" not in json.dumps(dict(span.attributes), default=str)
-    assert "pre_api_request" not in observer.hooks()
+    # Registered without content too, to see model calls start; the request isn't kept.
+    assert "pre_api_request" in observer.hooks()
+    assert observer.turns == {}
     assert "post_llm_call" not in observer.hooks()
 
 
@@ -383,6 +385,38 @@ def test_an_auto_recovery_attempt_after_the_last_retry_keeps_the_turn_open():
     assert list(observer.turns) == ["t1"]
 
 
+def test_a_fallback_still_running_when_the_timer_fires_keeps_the_turn_open():
+    # Hermes reports the fallback only when it ends, which can be minutes later.
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call())
+    observer.llm_request(turn_id="t1", api_request_id="r2", request=REQUEST)
+
+    run_scheduled(observer)
+
+    assert "invoke_agent hermes" not in by_name(exporter)
+    observer.llm_call(**llm_payload(api_request_id="r2", ended_at=1200.0))
+    observer.turn_end(turn_id="t1", turn_exit_reason="done")
+    spans = exporter.get_finished_spans()
+    assert {span.context.trace_id for span in spans} == {spans[0].context.trace_id}
+    assert by_name(exporter)["invoke_agent hermes"].status.status_code == StatusCode.UNSET
+
+
+def test_a_failed_fallback_rearms_the_timer():
+    observer, exporter = make_observer()
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_call(**failed_api_call())
+    observer.llm_request(turn_id="t1", api_request_id="r2", request=REQUEST)
+    run_scheduled(observer)
+    observer.scheduled.clear()
+
+    observer.llm_call(**failed_api_call(api_request_id="r2", ended_at=1200.0))
+    run_scheduled(observer)
+
+    assert by_name(exporter)["invoke_agent hermes"].attributes["hermes.turn.exit_reason"] == "abandoned"
+    assert observer.turns == {}
+
+
 def test_the_real_timer_closes_the_turn():
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
@@ -556,6 +590,20 @@ def test_responses_instructions_are_system_instructions():
     attributes = by_name(exporter)["chat gpt-5"].attributes
     assert json.loads(attributes[SC.GEN_AI_SYSTEM_INSTRUCTIONS]) == [
         {"type": "text", "content": "You are Hermes."}
+    ]
+
+
+def test_string_responses_input_is_a_user_message():
+    observer, exporter = make_observer(capture_content=True)
+    observer.turn_start(session_id="s1", turn_id="t1")
+    observer.llm_request(
+        turn_id="t1", api_request_id="r1", request={"body": {"input": "what is in hello.txt?"}}
+    )
+    observer.llm_call(**llm_payload())
+
+    messages = json.loads(by_name(exporter)["chat gpt-5"].attributes[SC.GEN_AI_INPUT_MESSAGES])
+    assert messages == [
+        {"role": "user", "parts": [{"type": "text", "content": "what is in hello.txt?"}]}
     ]
 
 
@@ -762,7 +810,7 @@ def test_register_uses_otlp_env_with_batching(setup_calls, clean_env):
     assert setup_calls[0]["disable_batch"] is False
     assert "post_tool_call" in ctx.hooks
     assert "pre_tool_call" not in ctx.hooks
-    assert "pre_api_request" not in ctx.hooks
+    assert "post_llm_call" not in ctx.hooks
 
 
 def test_register_closes_open_turns_at_exit(setup_calls, exit_handlers, clean_env):
@@ -806,3 +854,11 @@ def test_register_stays_disabled_when_tracing_setup_fails(clean_env):
     plugin.register(ctx)
 
     assert ctx.hooks == {}
+
+
+def test_manifest_lists_every_registered_hook():
+    manifest = (Path(plugin.__file__).parent / "plugin.yaml").read_text()
+    listed = set(re.findall(r"^  - (\w+)$", manifest.split("provides_hooks:", 1)[1], re.MULTILINE))
+    observer, _ = make_observer(capture_content=True)
+
+    assert set(observer.hooks()) == listed

@@ -7,6 +7,7 @@ import {
 	buildHierarchy,
 } from "@/helpers/server/trace";
 import { SYNTHETIC_SPAN_ID_PREFIX } from "@/helpers/client/trace";
+import { USAGE_WRAPPER_OPERATIONS } from "@/constants/traces";
 import { CODING_AGENT_ATTR } from "@/lib/platform/coding-agents/table-details";
 import {
 	dateTruncGroupingLogic,
@@ -346,14 +347,24 @@ export async function getTraceSummaries(params: MetricParams) {
 /**
  * Tokens across a trace's spans, for traces whose root span reports none
  * (agent frameworks put usage on the LLM child spans, not on the agent span).
- * A span without a total counts its input plus output tokens.
+ * Matches `getHierarchyUsageTotals`: each token value is the first positive
+ * one among its mapped attributes, a span without a total counts input plus
+ * output, and wrapper spans count only when no other span reports usage.
  */
 function traceTokensSql() {
-	const attr = (key: "totalTokens" | "promptTokens" | "completionTokens") =>
-		`toInt64OrZero(t.SpanAttributes['${getTraceMappingKeyFullPath(key)}'])`;
-	return `CAST(SUM(if(${attr("totalTokens")} > 0, ${attr("totalTokens")}, ${attr(
+	const attr = (key: "totalTokens" | "promptTokens" | "completionTokens") => {
+		const values = (getTraceMappingKeyFullPaths(key) as string[]).map(
+			(path) => `nullIf(toInt64OrZero(t.SpanAttributes['${path}']), 0)`
+		);
+		return `coalesce(${values.join(", ")}, 0)`;
+	};
+	const spanTokens = `if(${attr("totalTokens")} > 0, ${attr("totalTokens")}, ${attr(
 		"promptTokens"
-	)} + ${attr("completionTokens")})) AS INTEGER)`;
+	)} + ${attr("completionTokens")})`;
+	const operation = `t.SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
+	const wrappers = USAGE_WRAPPER_OPERATIONS.map((op) => `'${op}'`).join(", ");
+	const callTokens = `SUMIf(${spanTokens}, ${operation} NOT IN (${wrappers}))`;
+	return `CAST(if(${callTokens} > 0, ${callTokens}, SUM(${spanTokens})) AS INTEGER)`;
 }
 
 export async function getTraceSummarySeries(params: MetricParams) {

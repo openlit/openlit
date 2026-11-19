@@ -16,7 +16,8 @@ next turn in its session starts, when the session is finalized, when the process
 after a model call's last attempt failed with nothing since: ``ABANDON_AFTER_S`` after an error
 Hermes won't retry, ``ABANDON_AFTER_RETRIES_S`` after the final retry, since Hermes may still
 wait up to 120 s and try again (``agent.auto_recovery_cycles``). Any later model call, such as a
-fallback, keeps the turn open. It is marked failed if its last model call failed.
+fallback, keeps the turn open, including one still running when the timer fires. It is marked
+failed if its last model call failed.
 """
 
 from __future__ import annotations
@@ -176,6 +177,9 @@ def _input_messages(request: Any) -> list[dict[str, Any]]:
     """OTel GenAI messages from Hermes's sanitized provider request."""
     body = (request or {}).get("body") or {}
     messages = body.get("messages") or body.get("input") or []
+    if isinstance(messages, str):
+        # The Responses API also takes the prompt as a bare string.
+        messages = [{"role": "user", "content": messages}]
     formatted = []
     for message in messages:
         if not isinstance(message, dict):
@@ -207,6 +211,8 @@ class Turn:
     context: Context
     session_id: str = ""
     requests: dict[str, Any] = field(default_factory=dict)
+    # Model calls started but not yet reported: a turn waiting on one isn't idle.
+    in_flight: set[str] = field(default_factory=set)
     # When the turn last did something, and the error of its last model call, if that failed:
     # what a turn Hermes never ends is closed with.
     last_activity_ns: int = field(default_factory=time.time_ns)
@@ -225,6 +231,8 @@ class Observer:
         self.subagent_parents: dict[str, Context] = {}
         self.abandon_after_s = ABANDON_AFTER_S
         self.abandon_after_retries_s = ABANDON_AFTER_RETRIES_S
+        # Makes the idle check and close atomic against a model call starting in the turn.
+        self.turn_lock = threading.Lock()
 
     def schedule(self, delay_s: float, callback: Callable[..., None], **kwargs: Any) -> None:
         timer = threading.Timer(delay_s, fail_open(callback), kwargs=kwargs)
@@ -240,6 +248,7 @@ class Observer:
             "pre_llm_call": self.turn_start,
             "on_session_end": self.turn_end,
             "on_session_finalize": self.session_finalize,
+            "pre_api_request": self.llm_request,
             "post_api_request": self.llm_call,
             "api_request_error": self.llm_call,
             "post_auxiliary_call": self.llm_call,
@@ -249,7 +258,6 @@ class Observer:
         }
         # Only needed for content, and Hermes builds this payload only when a hook consumes it.
         if self.capture_content:
-            hooks["pre_api_request"] = self.llm_request
             hooks["post_llm_call"] = self.turn_output
         return hooks
 
@@ -331,9 +339,15 @@ class Observer:
         self.provider.force_flush(FLUSH_TIMEOUT_MS)
 
     def llm_request(self, **kwargs: Any) -> None:
-        turn = self.turns.get(kwargs.get("turn_id") or "")
-        if turn:
-            turn.requests[kwargs.get("api_request_id") or ""] = kwargs.get("request")
+        """A model call starting: the turn isn't idle until it reports back."""
+        request_id = kwargs.get("api_request_id") or ""
+        with self.turn_lock:
+            turn = self.turns.get(kwargs.get("turn_id") or "")
+            if not turn:
+                return
+            turn.in_flight.add(request_id)
+        if self.capture_content:
+            turn.requests[request_id] = kwargs.get("request")
 
     def llm_call(self, **kwargs: Any) -> None:
         """One provider attempt: post_api_request, api_request_error or post_auxiliary_call."""
@@ -390,6 +404,7 @@ class Observer:
         span.end(end_time=end_ns)
         turn = self.turns.get(turn_id or "")
         if turn and not kwargs.get("aux_task"):
+            turn.in_flight.discard(kwargs.get("api_request_id") or "")
             turn.last_activity_ns = end_ns
             turn.error_type = (error_type or "error") if error else None
             delay_s = self._abandon_delay(kwargs) if error else None
@@ -406,9 +421,17 @@ class Observer:
         return None
 
     def close_if_idle(self, **kwargs: Any) -> None:
-        """Close a turn that has done nothing since its model call finally failed."""
-        turn = self.turns.get(kwargs.get("turn_id") or "")
-        if turn and turn.error_type and turn.last_activity_ns == kwargs.get("since_ns"):
+        """Close a turn that has done nothing since its model call finally failed. A call that
+        started since then is still running, and reports back (and re-arms this) when it ends."""
+        with self.turn_lock:
+            turn = self.turns.get(kwargs.get("turn_id") or "")
+            if (
+                not turn
+                or not turn.error_type
+                or turn.in_flight
+                or turn.last_activity_ns != kwargs.get("since_ns")
+            ):
+                return
             self._close_turns(lambda candidate: candidate is turn)
 
     def _set_llm_content(self, span: Span, turn_id: str | None, kwargs: dict[str, Any]) -> None:

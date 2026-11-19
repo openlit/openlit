@@ -73,6 +73,23 @@ describe("ChatView", () => {
 		expect(markdownTexts()).toEqual(["Be brief.", "hi"]);
 	});
 
+	it("keeps a parent's system instructions when its messages are skipped for a child's", () => {
+		const input = JSON.stringify([{ role: "user", parts: [{ type: "text", content: "hi" }] }]);
+		render(
+			<ChatView
+				record={{
+					...span("generateText", {
+						"gen_ai.system_instructions": JSON.stringify([{ type: "text", content: "Be kind." }]),
+						"gen_ai.input.messages": input,
+					}),
+					children: [span("chat", { "gen_ai.input.messages": input })],
+				}}
+			/>
+		);
+
+		expect(markdownTexts()).toEqual(["Be kind.", "hi"]);
+	});
+
 	it("skips system instructions truncated mid-JSON", () => {
 		render(
 			<ChatView
