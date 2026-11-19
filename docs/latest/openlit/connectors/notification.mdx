@@ -1,7 +1,7 @@
 ---
 title: 'Notification connectors'
 sidebarTitle: 'Notification'
-description: 'Send OpenLIT alerts to Slack, email, webhooks, Discord, PagerDuty, Opsgenie, and Datadog'
+description: 'Send OpenLIT alerts to Slack, Microsoft Teams, email, webhooks, Discord, PagerDuty, Opsgenie, and Datadog'
 icon: 'paper-plane'
 tag: 'Enterprise'
 ---
@@ -35,10 +35,6 @@ Outbound requests must use `http` or `https` and can't target localhost, private
 
 ## Connector types
 
-<Note>
-Microsoft Teams isn't available as a destination yet.
-</Note>
-
 ### Slack
 
 Posts an alert card to a channel through a Slack [incoming webhook](https://api.slack.com/messaging/webhooks).
@@ -49,6 +45,36 @@ Posts an alert card to a channel through a Slack [incoming webhook](https://api.
 | Channel | No | Overrides the webhook's default channel, such as `#alerts`. Each alert can override it again. |
 
 The card shows the title, the message, the severity, the trigger, and, if enabled on the alert, the matched fields.
+
+### Microsoft Teams
+
+Posts an [Adaptive Card](https://adaptivecards.io/) to a Teams channel or chat through a Teams Workflows webhook.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Workflow webhook URL | Yes | The HTTP POST URL of a Teams workflow. |
+
+To get the URL:
+
+<Steps>
+  <Step title="Create the workflow">
+    In Teams, open **Workflows** and create a workflow from the **Post to a channel when a webhook request is received** template.
+  </Step>
+  <Step title="Choose where alerts go">
+    Pick the team and channel, or the chat, that should receive alerts.
+  </Step>
+  <Step title="Copy the URL">
+    Copy the webhook URL the workflow shows and paste it into **Workflow webhook URL**.
+  </Step>
+</Steps>
+
+The URL must use `https` and a Microsoft workflow host: `*.logic.azure.com`, `*.logic.azure.us`, `*.api.powerplatform.com`, or `*.api.powerplatform.us`. Legacy Office 365 connector URLs (`*.webhook.office.com`) still work until Microsoft retires them. Any other URL fails with "Use a Microsoft Teams workflow webhook URL from Power Automate or Teams Workflows." and nothing is sent.
+
+<Note>
+The webhook URL includes a signature that lets anyone post to the channel. Treat it as a secret.
+</Note>
+
+The card shows the title (red for critical and high alerts, amber for medium), the message, the matched fields if enabled on the alert, the severity, the trigger, and the alert name. When the alert has a link, the card adds a **View in OpenLIT** button.
 
 ### Email
 
