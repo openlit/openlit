@@ -64,7 +64,27 @@ Environment Variables (take precedence over CLI arguments):
         cli_type = config.get("cli_type", str)
 
         if cli_type == bool:
-            parser.add_argument(cli_arg, action="store_true", help=cli_help)
+            # default=None (instead of store_true's implicit False) so that an
+            # unset flag is distinguishable from an explicit False.
+            if config.get("has_negation"):
+                # Mutually exclusive group: specifying both the positive and
+                # negative form is rejected instead of silently keeping the
+                # last one.
+                group = parser.add_mutually_exclusive_group()
+                group.add_argument(
+                    cli_arg, action="store_true", default=None, help=cli_help
+                )
+                group.add_argument(
+                    f"--no_{param_name}",
+                    dest=param_name,
+                    action="store_false",
+                    default=None,
+                    help=f"Disable: {cli_help}",
+                )
+            else:
+                parser.add_argument(
+                    cli_arg, action="store_true", default=None, help=cli_help
+                )
         else:
             parser.add_argument(cli_arg, help=cli_help)
 
@@ -102,10 +122,6 @@ def set_environment_from_cli_args(args) -> None:
             if cli_value is not None:
                 # Handle boolean values
                 if isinstance(cli_value, bool):
-                    # Skip setting env var if boolean is False and default is True
-                    # (this means the flag wasn't provided, just the store_true default)
-                    if cli_value is False and config.get("default") is True:
-                        continue
                     os.environ[env_var] = "true" if cli_value else "false"
                 else:
                     os.environ[env_var] = str(cli_value)
