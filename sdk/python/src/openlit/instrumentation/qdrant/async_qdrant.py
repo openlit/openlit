@@ -40,15 +40,16 @@ def async_general_wrap(
             return await wrapped(*args, **kwargs)
 
         # Bind positional args to their parameter names so that
-        # downstream telemetry sees them in kwargs regardless of
-        # how the caller invoked the method.
+        # downstream telemetry sees them regardless of how the
+        # caller invoked the method.  Keep the original args/kwargs
+        # intact for the actual wrapped() call to avoid duplicates.
         try:
             sig = inspect.signature(wrapped)
             bound = sig.bind(*args, **kwargs)
             bound.apply_defaults()
-            kwargs = bound.arguments
+            telemetry_kwargs = bound.arguments
         except (TypeError, ValueError):
-            pass
+            telemetry_kwargs = dict(kwargs)
 
         # Extract operation from endpoint
         db_operation = DB_OPERATION_MAP.get(gen_ai_endpoint, "unknown")
@@ -57,7 +58,7 @@ def async_general_wrap(
         server_address, server_port = set_server_address_and_port(instance)
 
         # Span naming: use operation + collection
-        collection_name = kwargs.get("collection_name", "unknown")
+        collection_name = telemetry_kwargs.get("collection_name", "unknown")
         span_name = f"{db_operation} {collection_name}"
 
         # CRITICAL: Use tracer.start_as_current_span() for proper context
@@ -83,7 +84,7 @@ def async_general_wrap(
                     instance=instance,
                     args=args,
                     endpoint=gen_ai_endpoint,
-                    **kwargs,
+                    **telemetry_kwargs,
                 )
 
             except Exception as e:
