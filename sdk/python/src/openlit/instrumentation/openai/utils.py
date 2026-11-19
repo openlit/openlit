@@ -845,8 +845,15 @@ def process_response_chunk(scope, chunk):
                     )
                     break
 
-    elif chunked.get("type") == "response.completed":
-        response_data = chunked.get("response", {})
+    # A stream ends on response.completed, response.incomplete (e.g. when
+    # max_output_tokens is reached) or response.failed; each carries the
+    # final response with its status and usage.
+    elif chunked.get("type") in (
+        "response.completed",
+        "response.incomplete",
+        "response.failed",
+    ):
+        response_data = chunked.get("response") or {}
         scope._response_id = response_data.get("id") or scope._response_id
         scope._response_model = response_data.get("model") or scope._response_model
         scope._finish_reason = response_data.get("status")
