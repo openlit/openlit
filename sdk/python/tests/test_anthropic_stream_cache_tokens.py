@@ -141,7 +141,65 @@ def test_no_cache_anywhere_stays_zero():
             },
         },
     )
-    process_chunk(scope, MESSAGE_DELTA_WITHOUT_CACHE)
-
     assert scope._cache_creation_input_tokens == 0
     assert scope._cache_read_input_tokens == 0
+
+
+def test_message_delta_updates_input_tokens_when_present():
+    """Anthropic server tools send updated cumulative input_tokens on message_delta."""
+    scope = _Scope()
+    process_chunk(
+        scope,
+        {
+            "type": "message_start",
+            "message": {
+                "id": "msg_03",
+                "model": "claude-3-5-sonnet-latest",
+                "role": "assistant",
+                "usage": {"input_tokens": 50},
+            },
+        },
+    )
+    assert scope._input_tokens == 50
+
+    process_chunk(
+        scope,
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn"},
+            "usage": {"input_tokens": 120, "output_tokens": 30},
+        },
+    )
+
+    assert scope._input_tokens == 120
+    assert scope._output_tokens == 30
+
+
+def test_message_delta_without_input_tokens_retains_message_start_value():
+    """When message_delta only provides output_tokens, keep message_start input_tokens."""
+    scope = _Scope()
+    process_chunk(
+        scope,
+        {
+            "type": "message_start",
+            "message": {
+                "id": "msg_04",
+                "model": "claude-3-5-sonnet-latest",
+                "role": "assistant",
+                "usage": {"input_tokens": 50},
+            },
+        },
+    )
+    assert scope._input_tokens == 50
+
+    process_chunk(
+        scope,
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn"},
+            "usage": {"output_tokens": 30},
+        },
+    )
+
+    assert scope._input_tokens == 50
+    assert scope._output_tokens == 30
