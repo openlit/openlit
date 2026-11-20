@@ -25,6 +25,23 @@ from openlit.semcov import SemanticConvention
 logger = logging.getLogger(__name__)
 
 
+def _finish_reason_name(value):
+    """Return the plain name of a finish-reason value.
+
+    google-genai returns ``FinishReason`` enum members from
+    ``response_as_dict`` / ``model_dump``.  ``str()`` on such a member
+    gives ``"FinishReason.MAX_TOKENS"``; we need ``"MAX_TOKENS"`` so the
+    OTel finish-reason map matches.
+    """
+    if value is None:
+        return ""
+    # Enum instances expose .name ("MAX_TOKENS")
+    name = getattr(value, "name", None)
+    if name is not None:
+        return str(name)
+    return str(value)
+
+
 def format_content(messages):
     """
     Process a list of messages to extract content.
@@ -559,7 +576,7 @@ def process_chunk(scope, chunk):
         scope._llmresponse += str(chunk.text)
     candidates = chunked.get("candidates") or []
     if candidates:
-        scope._finish_reason = str(candidates[0].get("finish_reason", ""))
+        scope._finish_reason = _finish_reason_name(candidates[0].get("finish_reason"))
 
     try:
         c0 = (chunked.get("candidates") or [{}])[0]
@@ -947,7 +964,7 @@ def process_chat_response(
     self._kwargs = kwargs
     candidates = response_dict.get("candidates") or []
     self._finish_reason = (
-        str(candidates[0].get("finish_reason", "")) if candidates else ""
+        _finish_reason_name(candidates[0].get("finish_reason")) if candidates else ""
     )
 
     try:
