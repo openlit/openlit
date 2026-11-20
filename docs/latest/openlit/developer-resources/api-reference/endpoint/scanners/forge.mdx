@@ -1,0 +1,10 @@
+---
+title: 'Run Forge'
+openapi: 'POST /api/scanners/{id}/forge'
+---
+
+Generate a pre-coding `SKILL.md` with Trustabl Forge. Omit `policies` to use the policies from the latest succeeded Analyzer scan of the repository. Forge does not clone the repository.
+
+The response includes the finished **run** without its content. Read the skill with [Get forge run](/latest/openlit/developer-resources/api-reference/endpoint/scanners/forge-run).
+
+See [Forge skill](/latest/openlit/connectors/scanner#forge-skill) for how policies are chosen.

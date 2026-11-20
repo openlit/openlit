@@ -10,6 +10,9 @@ import {
 	UnsupportedScannerCapabilityError,
 	type ScannerAdapter,
 	type ScannerCapabilities,
+	type ScannerForgeAdapterInput,
+	type ScannerForgeCheck,
+	type ScannerForgeRun,
 	type ScannerJob,
 	type ScannerRuntimeInfo,
 	type ScannerScanInput,
@@ -37,5 +40,13 @@ export abstract class BaseScannerAdapter implements ScannerAdapter {
 
 	async scan(_input?: ScannerScanInput): Promise<ScannerJob> {
 		this.unsupported("scan");
+	}
+
+	async forge(_input: ScannerForgeAdapterInput): Promise<ScannerForgeRun> {
+		this.unsupported("forge");
+	}
+
+	async checkForge(_content: string, _rulesRef?: string): Promise<ScannerForgeCheck> {
+		this.unsupported("forge");
 	}
 }

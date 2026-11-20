@@ -14,6 +14,9 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 const nextConfig = {
+	// The e2e suite runs its own dev server, so it needs a build directory that
+	// does not collide with a developer's running `next dev`.
+	distDir: process.env.OPENLIT_NEXT_DIST_DIR || ".next",
 	output: "standalone",
 	poweredByHeader: false,
 	transpilePackages: [

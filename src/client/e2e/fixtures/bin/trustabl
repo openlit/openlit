@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+/**
+ * Hermetic stand-in for the Trustabl CLI used by the e2e suite. Help and
+ * version text are recorded from Trustabl 0.1.8. `forge check` reports a
+ * stale skill while `$E2E_STATE_DIR/forge-stale` exists, and
+ * `E2E_FORGE_DELAY_MS` slows `forge --policy` down for screenshots.
+ */
+const { existsSync, readFileSync } = require("fs");
+const { join } = require("path");
+
+const CLI = join(__dirname, "..", "cli");
+const fixture = (name) => readFileSync(join(CLI, name), "utf8");
+
+function respond(args) {
+	const [command, sub] = args;
+	if (command === "version") return { stdout: fixture("version.txt") };
+	if ((command === "scan" && args.includes("--help")) || (command === "help" && sub === "scan")) {
+		return { stdout: fixture("scan-help.txt") };
+	}
+	if (command === "scan") return { stdout: fixture("scan-report.json") };
+	if (command === "forge" && args.includes("--help")) return { stdout: fixture("forge-help.txt") };
+	if (command === "forge" && sub === "check") {
+		const state = process.env.E2E_STATE_DIR;
+		return state && existsSync(join(state, "forge-stale"))
+			? { stdout: "outdated: generated from 9eca09d, current rules are 3f9c1e2\n", code: 1 }
+			: { stdout: "up to date (rules: 9eca09d, schema 41)\n" };
+	}
+	if (command === "forge" && args.includes("--policy")) return { stdout: fixture("forge-skill.md") };
+	if (command === "forge") return { stderr: fixture("forge-no-policy.txt"), code: 1 };
+	return { stderr: `trustabl: unknown command ${JSON.stringify(args.join(" "))}\n`, code: 2 };
+}
+
+const args = process.argv.slice(2);
+const { stdout = "", stderr = "", code = 0 } = respond(args);
+// Optional pause so screenshots can catch the running state.
+const delay = args[0] === "forge" && args.includes("--policy") ? Number(process.env.E2E_FORGE_DELAY_MS) || 0 : 0;
+setTimeout(() => {
+	process.exitCode = code;
+	process.stderr.write(stderr);
+	process.stdout.write(stdout);
+}, delay);

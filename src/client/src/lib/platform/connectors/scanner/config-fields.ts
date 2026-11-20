@@ -1,6 +1,6 @@
 import getMessage from "@/constants/messages";
 import type { FieldDef } from "../datasource/types";
-import type { ScannerCliSchema } from "./cli-schema";
+import type { ScannerCliSchema, ScannerForgeSchema } from "./cli-schema";
 
 function rulesSourceOptions(messages: ReturnType<typeof getMessage>): FieldDef["options"] {
 	return [
@@ -207,4 +207,36 @@ export function trustablConfigFields(schema?: ScannerCliSchema): FieldDef[] {
 
 export function trustablRunParamFields(schema?: ScannerCliSchema): FieldDef[] {
 	return trustablConfigFields(schema).filter((field) => field.group !== "credentials");
+}
+
+function forgeRulesRefField(messages: ReturnType<typeof getMessage>): FieldDef {
+	return {
+		key: "rulesRef",
+		label: messages.SCANNER_FIELD_RULES_REF,
+		kind: "text",
+		group: "settings",
+		placeholder: "main",
+		description: messages.SCANNER_FORGE_FIELD_RULES_REF_HELP,
+	};
+}
+
+/**
+ * Forge dialog fields from `trustabl forge --help`. Policies, output, and
+ * diagnostics are owned by OpenLIT, so only rules and new CLI flags remain.
+ */
+export function trustablForgeParamFields(schema?: ScannerForgeSchema): FieldDef[] {
+	const messages = getMessage();
+	if (!schema?.flags.length) return [forgeRulesRefField(messages)];
+	return schema.flags.map((flag) =>
+		flag.key === "rulesRef"
+			? forgeRulesRefField(messages)
+			: {
+					key: flag.key,
+					label: humanizeFromMessages(flag.flag, messages),
+					kind: flag.kind === "boolean" ? "switch" : "text",
+					group: "settings",
+					defaultValue: flag.kind === "boolean" ? Boolean(flag.defaultValue) : undefined,
+					description: flag.help || messages.SCANNER_CLI_FLAG_HELP,
+				}
+	);
 }

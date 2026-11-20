@@ -23,7 +23,8 @@ export function scannerJobRepoKey(job: Pick<ScannerJob, "target">): string {
 
 export function groupScannerJobsByRepo(
 	jobs: ScannerJob[],
-	defaultTarget?: string
+	defaultTarget?: string,
+	extraTargets: string[] = []
 ): ScannerRepoGroup[] {
 	const groups = new Map<string, ScannerRepoGroup>();
 
@@ -49,6 +50,10 @@ export function groupScannerJobsByRepo(
 
 	if (defaultTarget?.trim()) {
 		ensure(defaultTarget);
+	}
+
+	for (const target of extraTargets) {
+		if (target.trim()) ensure(target);
 	}
 
 	return Array.from(groups.values());

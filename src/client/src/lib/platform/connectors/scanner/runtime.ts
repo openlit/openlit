@@ -1,8 +1,15 @@
-import { access, readdir } from "node:fs/promises";
-import { homedir } from "node:os";
+import { access, mkdtemp, readdir, rm } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { SCANNER_RUNTIME_VERSION_FAILED } from "@/constants/messages/en";
-import { scannerCliSchemaFromHelp, type ScannerCliSchema } from "./cli-schema";
+import {
+	forgeCliSchemaFromHelp,
+	parseForgeAcceptedPolicies,
+	scannerCliSchemaFromHelp,
+	type ScannerCliSchema,
+	type ScannerForgeSchema,
+} from "./cli-schema";
+import { FALLBACK_FORGE_POLICIES } from "./forge-policies";
 import { getScannerProcessRunner } from "./process";
 import { compareScannerVersions, normalizeScannerVersion } from "./release";
 import type { ScannerRuntimeInfo } from "./types";
@@ -13,6 +20,7 @@ export const TRUSTABL_PINNED_VERSION = TRUSTABL_FALLBACK_VERSION;
 const VERSION_TIMEOUT_MS = 20_000;
 const HELP_TIMEOUT_MS = 15_000;
 const schemaCache = new Map<string, ScannerCliSchema>();
+const forgeSchemaCache = new Map<string, ScannerForgeSchema>();
 
 function cacheRoot(): string {
 	return (
@@ -78,6 +86,7 @@ export async function resolveTrustablBinary(
 
 export function __resetScannerCliSchemaCacheForTests(): void {
 	schemaCache.clear();
+	forgeSchemaCache.clear();
 }
 
 async function describeScanSchema(bin: string, version?: string | null): Promise<ScannerCliSchema | undefined> {
@@ -105,6 +114,58 @@ async function describeScanSchema(bin: string, version?: string | null): Promise
 		}
 		if (!schema.flags.length) return undefined;
 		schemaCache.set(cacheKey, schema);
+		return schema;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Forge lists the policy ids it accepts when it runs without `--policy` in a
+ * directory with no SDK manifests. Run it in an empty temp directory so it
+ * never inspects the OpenLIT server's working directory.
+ */
+async function describeForgePolicies(bin: string): Promise<string[]> {
+	const cwd = await mkdtemp(join(tmpdir(), "openlit-forge-"));
+	try {
+		const result = await getScannerProcessRunner().run({
+			bin,
+			argv: ["forge"],
+			env: process.env,
+			timeoutMs: HELP_TIMEOUT_MS,
+			cwd,
+		});
+		return parseForgeAcceptedPolicies(`${result.stdout || ""}\n${result.stderr || ""}`);
+	} catch {
+		return [];
+	} finally {
+		await rm(cwd, { recursive: true, force: true });
+	}
+}
+
+async function describeForgeSchema(
+	bin: string,
+	version?: string | null
+): Promise<ScannerForgeSchema | undefined> {
+	const cacheKey = `forge::${bin}::${version || "unknown"}`;
+	const cached = forgeSchemaCache.get(cacheKey);
+	if (cached) return cached;
+	try {
+		const result = await getScannerProcessRunner().run({
+			bin,
+			argv: ["forge", "--help"],
+			env: process.env,
+			timeoutMs: HELP_TIMEOUT_MS,
+		});
+		const help = `${result.stdout || ""}\n${result.stderr || ""}`;
+		if (result.exitCode !== 0 || !/--policy\b/.test(help)) return undefined;
+		const policies = await describeForgePolicies(bin);
+		const schema = forgeCliSchemaFromHelp(
+			help,
+			policies.length ? policies : FALLBACK_FORGE_POLICIES,
+			version || undefined
+		);
+		forgeSchemaCache.set(cacheKey, schema);
 		return schema;
 	} catch {
 		return undefined;
@@ -147,10 +208,10 @@ export async function probeTrustablRuntime(latestTag?: string): Promise<ScannerR
 	}
 	const installedVersion = normalizeScannerVersion(reported);
 	const latest = normalizeScannerVersion(latestVersion);
-	const schema = await describeScanSchema(
-		resolved.bin,
-		resolved.binaryVersion || (installedVersion ? `v${installedVersion}` : reported)
-	);
+	const schemaVersion =
+		resolved.binaryVersion || (installedVersion ? `v${installedVersion}` : reported);
+	const schema = await describeScanSchema(resolved.bin, schemaVersion);
+	const forge = await describeForgeSchema(resolved.bin, schemaVersion);
 	return {
 		installed: true,
 		version: reported,
@@ -159,6 +220,7 @@ export async function probeTrustablRuntime(latestTag?: string): Promise<ScannerR
 		latestVersion,
 		upgradeAvailable: Boolean(latest) && compareScannerVersions(installedVersion, latest) < 0,
 		schema,
+		forge,
 	};
 }
 

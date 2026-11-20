@@ -1,0 +1,9 @@
+#!/bin/sh
+# The app installs cron jobs on startup. Keep the e2e server away from the
+# developer's real crontab by storing it in the e2e state directory.
+FILE="${E2E_STATE_DIR:?}/crontab"
+case "$1" in
+	-l) [ -f "$FILE" ] && cat "$FILE" || exit 1 ;;
+	-) cat > "$FILE" ;;
+	*) exit 1 ;;
+esac

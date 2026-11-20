@@ -1,0 +1,3 @@
+trustabl forge: no SDKs detected in "." and no --policy specified
+  run 'trustabl forge --policy <category>' to specify one explicitly
+  accepted categories: [claude_sdk openai_sdk openshell google_adk mcp langchain crewai pydantic_ai vercel_ai autogen claude_skill]

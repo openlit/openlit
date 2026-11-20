@@ -2924,10 +2924,10 @@ export const SCANNER_CLI_MENU = "CLI";
 export const SCANNER_PAGE_OF = (current: number, total: number) => `${current} of ${total}`;
 export const SCANNER_PAGE_PREVIOUS = "Previous page";
 export const SCANNER_PAGE_NEXT = "Next page";
-export const SCANNER_RUN = "Run scan";
-export const SCANNER_RUN_DEFAULTS = "Run with defaults";
-export const SCANNER_RUN_PARAMS = "Run with new parameters";
-export const SCANNER_RUN_PARAMS_TITLE = "Run scan with parameters";
+export const SCANNER_RUN = "Run Analyzer";
+export const SCANNER_RUN_DEFAULTS = "Run Analyzer with defaults";
+export const SCANNER_RUN_PARAMS = "Run Analyzer with new parameters";
+export const SCANNER_RUN_PARAMS_TITLE = "Run Analyzer with parameters";
 export const SCANNER_RUN_PARAMS_DESCRIPTION =
 	"Override the connector defaults for this job only. Saved connector settings stay unchanged.";
 export const SCANNER_RUN_PARAMS_TARGET_SECTION = "Target";
@@ -2935,7 +2935,7 @@ export const SCANNER_RUN_PARAMS_SCAN_SECTION = "Scan flags";
 export const SCANNER_RUN_PARAMS_RULES_SECTION = "Rules";
 export const SCANNER_RUN_PARAMS_TOKEN_NOTE =
 	"The GitHub token stays on the connector. Edit the connector to change credentials.";
-export const SCANNER_RUN_MENU = "More scan options";
+export const SCANNER_RUN_MENU = "More Analyzer and Forge options";
 export const SCANNER_JOB_ID = "Job";
 export const SCANNER_FINDING_OVERVIEW = "Overview";
 export const SCANNER_FINDING_DETAIL = "Details";
@@ -3075,7 +3075,7 @@ export const SCANNER_AUTH_HELP_TRUSTABL =
 	"Default token for private repositories on every scan. Stored on the connector, not in ClickHouse.";
 export const SCANNER_DEFAULTS_SECTION = "Default scan parameters";
 export const SCANNER_DEFAULTS_SECTION_DESCRIPTION =
-	"Used when you run with defaults. Override them for one job from Run with new parameters.";
+	"Used when you run the Analyzer with defaults. Override them for one job from Run Analyzer with new parameters.";
 export const SCANNER_CREDENTIALS_SECTION = "Default credentials";
 export const SCANNER_CREDENTIALS_HELP =
 	"Used for every scan of this connector. Leave blank to keep the stored GitHub token.";
@@ -3093,6 +3093,108 @@ export const SCANNER_SESSION_SUMMARY = (mediumPlus: number, total: number) =>
 export const SCANNER_FINDINGS_LOAD_FAILED = "Failed to load scanner findings.";
 export const SCANNER_LAST_REF = "Last scanned ref";
 export const SCANNER_LAST_DURATION = "Last job duration";
+export const SCANNER_FORGE_POLICY_INVALID =
+	"Policies must be up to 32 policy ids such as claude_sdk or mcp.";
+export const SCANNER_FORGE_FILE_NAME_INVALID =
+	"Output file name must be a Markdown file name such as SKILL.md, without folders.";
+export const SCANNER_FORGE_POLICY_UNKNOWN = (policy: string) =>
+	`The installed Trustabl CLI does not accept the "${policy}" policy.`;
+export const SCANNER_FORGE_EMPTY_OUTPUT = "Trustabl Forge finished without generating a skill.";
+export const SCANNER_FORGE_OUTPUT_TOO_LARGE =
+	"The generated skill is larger than 512 KB, so OpenLIT did not store it.";
+export const SCANNER_FORGE_UNSUPPORTED =
+	"The installed Trustabl CLI has no forge command. Upgrade the CLI from the Scanner page.";
+export const SCANNER_FORGE_FAILED = "Trustabl Forge failed before generating a skill.";
+export const SCANNER_FORGE_POLICIES_REQUIRED =
+	"Select at least one policy. Run the Analyzer first to prefill policies for this repository.";
+export const SCANNER_FORGE_RUNNING =
+	"Trustabl Forge is already running for this connector. Wait for it to finish.";
+export const SCANNER_FORGE_RUN_ID_INVALID = "Forge run id is invalid.";
+export const SCANNER_FORGE_RUN_NOT_FOUND = "Forge run not found.";
+export const SCANNER_FORGE_RUN_NO_CONTENT = "This forge run has no generated skill to check.";
+export const SCANNER_FORGE_CHECK_FAILED = "Failed to check the skill against the current rules.";
+export const SCANNER_MENU_ANALYZER = "Analyzer · find issues";
+export const SCANNER_MENU_FORGE = "Forge · prevent issues";
+export const SCANNER_TAB_ANALYZER = "Analyzer findings";
+export const SCANNER_TAB_FORGE = "Forge skill";
+export const SCANNER_FORGE_RUN = "Run Forge";
+export const SCANNER_FORGE_RUN_PARAMS = "Run Forge with new parameters";
+export const SCANNER_FORGE_RUN_HINT = (policies: string) =>
+	`Generate a pre-coding SKILL.md for ${policies}`;
+export const SCANNER_FORGE_RUN_HINT_EMPTY = "Choose policies, then generate a pre-coding SKILL.md";
+export const SCANNER_FORGE_DONE = "Pre-coding skill generated";
+export const SCANNER_FORGE_CANCELLED =
+	"Stopped waiting for Forge. If the run finishes, it appears in the forge run history.";
+export const SCANNER_FORGE_STATUS_RUNNING = "Running";
+export const SCANNER_FORGE_STATUS_CURRENT = "Current";
+export const SCANNER_FORGE_STATUS_STALE = "Stale";
+export const SCANNER_FORGE_STATUS_FAILED = "Failed";
+export const SCANNER_FORGE_PARAMS_TITLE = "Run Forge with parameters";
+export const SCANNER_FORGE_PARAMS_DESCRIPTION =
+	"Generate a pre-coding SKILL.md from the Trustabl rules for the selected policies. Coding agents read it before writing agent code.";
+export const SCANNER_FORGE_FIELD_TARGET_HELP =
+	"GitHub repository the skill is for. Used for the skill history. Defaults to the repository selected on this page.";
+export const SCANNER_FORGE_FIELD_FILE_NAME = "Output file name";
+export const SCANNER_FORGE_FIELD_FILE_NAME_HELP =
+	"Name shown in the Skill panel and used when you download the skill.";
+export const SCANNER_FORGE_FIELD_RULES_REF_HELP =
+	"Pin the rules branch or tag. Leave blank for the latest cached pack.";
+export const SCANNER_FORGE_POLICIES_SECTION = "Policies (--policy)";
+export const SCANNER_FORGE_POLICIES_HELP =
+	"Policy categories to include. Add or remove any before running.";
+export const SCANNER_FORGE_PREFILL_NOTE = (scannedAt: string, policies: string) =>
+	`Prefilled from the latest Analyzer scan (${scannedAt}): ${policies}. Forge builds the skill from these policies, so the repository is not cloned.`;
+export const SCANNER_FORGE_NO_PREFILL_NOTE =
+	"No Analyzer scan for this repository yet. Select the policies to include, or run the Analyzer first to prefill them.";
+export const SCANNER_FORGE_NO_CLONE_NOTE =
+	"Forge does not clone the repository. It renders SKILL.md from the Trustabl rules for the selected policies.";
+export const SCANNER_FORGE_EMPTY_TITLE = "No skill forged for this repository yet";
+export const SCANNER_FORGE_EMPTY_BODY =
+	"Trustabl Forge turns the detection rules for this repository's SDKs into a pre-coding SKILL.md, so coding agents avoid the issues the Analyzer would flag.";
+export const SCANNER_FORGE_EMPTY_USES = (policies: string) =>
+	`Uses SDKs from the latest Analyzer scan: ${policies}`;
+export const SCANNER_FORGE_EMPTY_NO_SCAN =
+	"No Analyzer scan for this repository yet. Choose policies when you run Forge.";
+export const SCANNER_FORGE_RUNNING_TITLE = "Forging pre-coding skill…";
+export const SCANNER_FORGE_RUNNING_BODY =
+	"Generating SKILL.md from the selected policies. This usually takes a few seconds.";
+export const SCANNER_FORGE_POLICIES = "Policies";
+export const SCANNER_FORGE_POLICY_SOURCE = "Policy source";
+export const SCANNER_FORGE_POLICY_SOURCE_ANALYZER = (scannedAt: string) =>
+	`Analyzer scan · ${scannedAt}`;
+export const SCANNER_FORGE_POLICY_SOURCE_MANUAL = "Selected manually";
+export const SCANNER_FORGE_RULES = "Rules";
+export const SCANNER_FORGE_RULES_LATEST = "Latest cached";
+export const SCANNER_FORGE_RULES_PINNED = (ref: string) => `Pinned to ${ref}`;
+export const SCANNER_FORGE_COMMAND = "Command";
+export const SCANNER_FORGE_GENERATED_BY = (version: string) => `generated by Trustabl Forge ${version}`;
+export const SCANNER_FORGE_COPY = "Copy";
+export const SCANNER_FORGE_COPIED_LABEL = "Copied";
+export const SCANNER_FORGE_COPIED = "SKILL.md copied to clipboard";
+export const SCANNER_FORGE_COPY_FAILED =
+	"Could not copy to the clipboard. Use Download or Raw SKILL.md instead.";
+export const SCANNER_FORGE_DOWNLOAD = "Download";
+export const SCANNER_FORGE_REGENERATE = "Regenerate";
+export const SCANNER_FORGE_RUN_LABEL = "Forge run";
+export const SCANNER_FORGE_STAT_CRITICAL_HIGH = "Critical / High";
+export const SCANNER_FORGE_STAT_MEDIUM_LOW = "Medium / Low";
+export const SCANNER_FORGE_STAT_RULES_VERSION = "Rules version";
+export const SCANNER_FORGE_PAIR = (left: number, right: number) => `${left} / ${right}`;
+export const SCANNER_FORGE_RULES_VERSION_VALUE = (sha: string, schema?: string) =>
+	schema ? `${sha} · schema ${schema}` : sha;
+export const SCANNER_FORGE_RULES_VERSION_STALE = (sha: string) => `${sha} (stale)`;
+export const SCANNER_FORGE_OUTLINE = "Outline";
+export const SCANNER_FORGE_OUTLINE_FOOTER = (generated: string, sha: string, schema: string) =>
+	`Generated ${generated} · rules ${sha} · schema ${schema}. The provenance stamp lets forge check detect drift.`;
+export const SCANNER_FORGE_PREVIEW = "Preview";
+export const SCANNER_FORGE_RAW = "Raw SKILL.md";
+export const SCANNER_FORGE_SIZE = (lines: number, kilobytes: string) =>
+	`${lines} lines · ${kilobytes} KB`;
+export const SCANNER_FORGE_STALE_TITLE =
+	"This skill is stale. The rules changed after it was generated.";
+export const SCANNER_FORGE_CHECK_LINE = (message: string) => `trustabl forge check · ${message}`;
+export const SCANNER_FORGE_FAILED_TITLE = "Forge run failed";
+export const SCANNER_FORGE_LOAD_FAILED = "Failed to load the forge skill.";
 export const MEMORY_CONNECTOR_CLAUDE_DESCRIPTION =
 	"Browse and edit memories in Anthropic Claude memory stores.";
 export const MEMORY_CONNECTOR_MEM0_DESCRIPTION =
