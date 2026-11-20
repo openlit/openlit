@@ -133,6 +133,9 @@ export default class SemanticConvention {
   static OPENAI_RESPONSE_SERVICE_TIER = 'openai.response.service_tier';
   static OPENAI_RESPONSE_SYSTEM_FINGERPRINT = 'openai.response.system_fingerprint';
   static OPENAI_API_TYPE = 'openai.api.type';
+  static ANTHROPIC_USAGE_WEB_SEARCH_REQUESTS = 'anthropic.usage.server_tool_use.web_search_requests';
+  static ANTHROPIC_USAGE_WEB_FETCH_REQUESTS = 'anthropic.usage.server_tool_use.web_fetch_requests';
+  static ANTHROPIC_RESPONSE_FALLBACK_MODEL = 'anthropic.response.fallback_model';
   static TYPESAFE_API_TYPE = 'typesafe.api.type';
   static TYPESAFE_QUESTION_COUNT = 'typesafe.question.count';
   static TYPESAFE_QUESTION_IDS = 'typesafe.question.ids';
@@ -670,6 +673,8 @@ export default class SemanticConvention {
   static GEN_AI_EVALUATION_SCORE_LABEL = 'gen_ai.evaluation.score.label';
   static GEN_AI_EVALUATION_EXPLANATION = 'gen_ai.evaluation.explanation';
   static OPENLIT_SCORE_IDEMPOTENCY_KEY = 'openlit.score.idempotency_key';
+  static OPENLIT_REQUEST_PURPOSE = 'openlit.request.purpose';
+  static OPENLIT_ROUTE = 'openlit.route';
 
   // ----- GPU (matches Python semcov) -----
   static GPU_INDEX = 'gpu.index';

@@ -6,6 +6,7 @@
 //	openlit coding install   --vendor=all|<single>
 //	openlit coding uninstall --vendor=all|<single> [--purge]
 //	openlit coding launch    <claude|cursor|codex|opencode>
+//	openlit coding exec      --vendor=claude-code -- <command> [args...]
 //
 // All children share the resolved config from internal/config and the
 // OTLP exporter from internal/otlp. The hook subcommand is the hot path
@@ -14,6 +15,7 @@
 package coding
 
 import (
+	"github.com/openlit/openlit/cli/internal/coding/agentexec"
 	"github.com/openlit/openlit/cli/internal/coding/hook"
 	"github.com/openlit/openlit/cli/internal/coding/install"
 	"github.com/openlit/openlit/cli/internal/coding/launch"
@@ -47,6 +49,7 @@ failure so a broken pipeline never blocks a developer's prompt.`,
 	cmd.AddCommand(install.NewCmd())
 	cmd.AddCommand(uninstall.NewCmd())
 	cmd.AddCommand(launch.NewCmd())
+	cmd.AddCommand(agentexec.NewCmd())
 
 	return cmd
 }

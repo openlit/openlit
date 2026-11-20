@@ -151,11 +151,16 @@ export default class VllmWrapper extends BaseWrapper {
   ): any {
     const genAIEndpoint = 'vllm.chat';
     return (_originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
+      // Not async: an OpenAI client that is not vLLM must get the client's own
+      // APIPromise back, because its `stream()` and `withResponse()` helpers need it.
+      return function (this: any, ...args: any[]) {
         if (!VllmWrapper.isVllmClient(this)) {
           return openaiHandler.apply(this, args);
         }
+        return tracedVllmCall.apply(this, args);
+      };
 
+      async function tracedVllmCall(this: any, ...args: any[]) {
         if (isFrameworkLlmActive()) {
           return rawCreate.apply(this, args);
         }
@@ -215,7 +220,7 @@ export default class VllmWrapper extends BaseWrapper {
             span.end();
             throw e;
           });
-      };
+      }
     };
   }
 

@@ -126,7 +126,7 @@ if is_framework_llm_active():
 
 In `sdk/typescript/src/helpers.ts`, add:
 ```typescript
-const _frameworkLlmActive = new AsyncLocalStorage<boolean>();
+const _frameworkLlmActive = createContextStore<boolean>();
 
 export function isFrameworkLlmActive(): boolean {
   return _frameworkLlmActive.getStore() === true;
@@ -158,7 +158,7 @@ if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
 Prevents LangChain callback from creating duplicate `invoke_workflow` spans when LangGraph is controlling the execution.
 
 ```typescript
-const _langGraphActive = new AsyncLocalStorage<boolean>();
+const _langGraphActive = createContextStore<boolean>();
 
 export function isLangGraphActive(): boolean {
   return _langGraphActive.getStore() === true;
@@ -175,7 +175,7 @@ LangChain's callback handler checks `isLangGraphActive()` and skips its `invoke_
 Prevents duplicate `create_agent` spans when LangGraph `compile()` and LangChain `create_agent()` both fire.
 
 ```typescript
-const _createAgentActive = new AsyncLocalStorage<boolean>();
+const _createAgentActive = createContextStore<boolean>();
 
 export function isCreateAgentActive(): boolean {
   return _createAgentActive.getStore() === true;

@@ -1088,6 +1088,15 @@ class SemanticConvention:
     GEN_AI_EVALUATION_SCORE_LABEL = "gen_ai.evaluation.score.label"
     GEN_AI_EVALUATION_EXPLANATION = "gen_ai.evaluation.explanation"
     OPENLIT_SCORE_IDEMPOTENCY_KEY = "openlit.score.idempotency_key"
+    OPENLIT_REQUEST_PURPOSE = "openlit.request.purpose"
+    OPENLIT_ROUTE = "openlit.route"
+    ANTHROPIC_USAGE_WEB_SEARCH_REQUESTS = (
+        "anthropic.usage.server_tool_use.web_search_requests"
+    )
+    ANTHROPIC_USAGE_WEB_FETCH_REQUESTS = (
+        "anthropic.usage.server_tool_use.web_fetch_requests"
+    )
+    ANTHROPIC_RESPONSE_FALLBACK_MODEL = "anthropic.response.fallback_model"
 
     # === FRAMEWORK OPERATIONS (Generic attributes for all RAG/AI frameworks) ===
 

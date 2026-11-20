@@ -182,6 +182,28 @@ export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_OTEL_ENDPOINT_AUTH"
 
 ---
 
+#### Edge runtimes, bundled code and short-lived processes
+
+`openlit` works on Cloudflare Workers, Vercel and Netlify Edge, Deno Deploy, Lambda and in bundled code. Runtimes pick the right build automatically.
+
+```ts
+import openlit from "openlit";
+
+export default openlit.withWorker({
+  async fetch(request, env, ctx) {
+    /* ... */
+  },
+}); // traces each request and sends spans in ctx.waitUntil
+
+export const handler = openlit.withLambda(async (event) => {
+  /* ... */
+});
+
+await openlit.flush(); // before a CLI script or cron job exits
+```
+
+See [Edge, serverless and bundled code](https://docs.openlit.io/latest/sdk/edge-and-serverless).
+
 ### Step 3: Visualize and Optimize!
 Now that your LLM observability data is being collected and sent to configured OpenTelemetry destination, the next step is to visualize and analyze this data. This will help you understand your LLM application's performance and behavior and identify where it can be improved.
 
@@ -208,6 +230,10 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `traceContent`          | Enables tracing of content for deeper insights.                                      | `true`                                                             | No       |
 | `disabledInstrumentations` | List of instrumentations to disable.                                                    | `undefined`                                                             | No       |
 | `instrumentations`        | Object of instrumentation modules for manual patching                                          | `undefined`                                                            | No       |
+| `guards`                  | Guards to run on model calls. In bundled code, they apply only to `instrumentations` modules and `openlit.instrument()` clients. | `undefined`                                                            | No       |
+| `tokenCounter`            | Function that replaces built-in token counting. Mainly for edge builds, which estimate tokens. | `undefined`                                                            | No       |
+| `fetchAdapters`           | Direct HTTP APIs to trace by wrapping `fetch`, such as `["typesafe"]`.                         | `undefined`                                                            | No       |
+| `trustIncomingTraceparent` | Continue a `traceparent` sent to `withWorker`. Only for Workers behind something that sets or strips the header. | `false`                                                            | No       |
 | `pricingJson`           | URL or file path of the pricing JSON file.                                           | `https://github.com/openlit/openlit/blob/main/assets/pricing.json` | No       |
 | `collectGpuStats`       | Flag to enable or disable GPU metrics collection (NVIDIA via `nvidia-smi`, AMD via `rocm-smi`). | `false`                                                            | No       |
 

@@ -1,4 +1,5 @@
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
+import { diag } from '@opentelemetry/api';
 import { InstrumentationType, OpenlitInstrumentations } from '../types';
 
 import { TracerProvider } from '@opentelemetry/api';
@@ -147,7 +148,7 @@ export default class Instrumentations {
     } else {
       const filteredInstrumentations = this.getFilteredInstrumentations(
         disabledInstrumentors,
-        instrumentations
+        this.knownInstrumentations(instrumentations)
       );
       filteredInstrumentations.forEach(([k, instrumentation]) => {
         if (this.availableInstrumentations[k].setTracerProvider) {
@@ -162,6 +163,18 @@ export default class Instrumentations {
         tracerProvider,
       });
     }
+  }
+
+  private static knownInstrumentations(instrumentations: OpenlitInstrumentations): OpenlitInstrumentations {
+    const known: OpenlitInstrumentations = {};
+    for (const [key, value] of Object.entries(instrumentations)) {
+      if (key in this.availableInstrumentations) {
+        known[key as InstrumentationType] = value;
+      } else {
+        diag.warn(`OpenLIT: unknown instrumentation "${key}" ignored`);
+      }
+    }
+    return known;
   }
 
   static getFilteredInstrumentations(

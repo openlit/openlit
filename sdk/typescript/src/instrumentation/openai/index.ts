@@ -36,6 +36,20 @@ export default class OpenlitOpenAIInstrumentation extends InstrumentationBase {
     this._patch(openai);
   }
 
+  /** Patch a single client, for code where the module itself cannot be reached. */
+  public patchClient(client: any): void {
+    for (const [resource, method, wrapper] of [
+      [client?.chat?.completions, 'create', OpenAIWrapper._patchChatCompletionCreate],
+      [client?.embeddings, 'create', OpenAIWrapper._patchEmbedding],
+      [client?.images, 'generate', OpenAIWrapper._patchImageGenerate],
+      [client?.responses, 'create', OpenAIWrapper._patchResponsesCreate],
+    ] as [any, string, (tracer: any) => any][]) {
+      const target = resource?.[method];
+      if (typeof target !== 'function' || isWrapped(target)) continue;
+      this._wrap(resource, method, wrapper.call(OpenAIWrapper, this.tracer));
+    }
+  }
+
   protected _patch(moduleExports: any) {
     try {
       if (isWrapped(moduleExports.OpenAI.Chat.Completions.prototype.create)) {

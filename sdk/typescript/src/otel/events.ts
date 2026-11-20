@@ -16,6 +16,14 @@ export default class Events {
   static loggerProvider: LoggerProvider;
   static logger: ReturnType<typeof logs.getLogger>;
 
+  static async forceFlush(): Promise<void> {
+    await this.loggerProvider?.forceFlush();
+  }
+
+  static async shutdown(): Promise<void> {
+    await this.loggerProvider?.shutdown();
+  }
+
   static setup(options: SetupEventsOptions) {
     try {
       if (!EVENTS_SET) {

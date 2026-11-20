@@ -252,7 +252,9 @@ All metrics go through `BaseWrapper.recordMetrics()`.
 
 ## 7. Wrapper Code Structure Template
 
-Every provider wrapper MUST follow this structure (see OpenAI wrapper as reference):
+Every provider wrapper MUST follow this structure (see OpenAI wrapper as reference).
+
+If `create()` returns a Stainless `APIPromise` (OpenAI, Anthropic, Groq and similar SDKs), the wrapper MUST NOT be an `async function` or end in `.then()`: both turn the result into a plain Promise, which breaks `.withResponse()`, `.asResponse()` and the SDK's own `.stream()` helpers. Run the wrapper in sync and pass the result to `observeApiPromise` from `base-wrapper.ts`, as `_patchChatCompletionCreate` does. The template below applies to methods that return plain Promises.
 
 ```typescript
 class ProviderWrapper {
@@ -343,14 +345,14 @@ response = openlit.inject_additional_attributes(
 - `applyCustomSpanAttributes(span)` is called inside `BaseWrapper.setBaseSpanAttributes()` — applies to every instrumented span automatically
 - `getMergedCustomAttributes()` is called inside `emitInferenceEvent()` — applies to every event automatically
 - Global attrs applied first, then context attrs (context overrides global on conflict)
-- Uses Node.js `AsyncLocalStorage` (equivalent of Python's `ContextVar`)
+- Uses `createContextStore()` from `src/platform` (equivalent of Python's `ContextVar`): Node's `AsyncLocalStorage`, or the runtime's own on the edge
 - Both functions are exported from the main `openlit` module and as named exports
 
 ---
 
 ## 9. Pricing
 
-- Pricing JSON is fetched ONCE during `init()` and cached in `OpenlitConfig.pricingInfo`
+- On Node, pricing JSON is fetched ONCE during `init()` and cached in `OpenlitConfig.pricingInfo`. On the edge, `init()` uses a bundled snapshot, and a custom URL is fetched by `ensurePricing()` from inside a request
 - Wrappers access it via `OpenlitConfig.pricingInfo || {}`
 - NEVER call `fetchPricingInfo` from within a wrapper
 
@@ -372,6 +374,10 @@ response = openlit.inject_additional_attributes(
 | `pricingJson` | `pricing_json` | `undefined` | |
 | `maxContentLength` | `max_content_length` | `null` | |
 | `customSpanAttributes` | `custom_span_attributes` | `null` | |
+| `guards` | `guards` | `undefined` | |
+| `tokenCounter` | none | `undefined` | JS only: edge builds have no tiktoken |
+| `fetchAdapters` | none | `undefined` | JS only |
+| `trustIncomingTraceparent` | none | `false` | JS only: read by `withWorker` |
 
 | JS API | Python API | Description |
 |--------|-----------|-------------|

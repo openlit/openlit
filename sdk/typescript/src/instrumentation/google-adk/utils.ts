@@ -5,7 +5,7 @@ import {
   SpanStatusCode,
 } from '@opentelemetry/api';
 import { ATTR_SERVICE_NAME, ATTR_TELEMETRY_SDK_NAME } from '@opentelemetry/semantic-conventions';
-import { AsyncLocalStorage } from 'async_hooks';
+import { createContextStore } from '../../platform';
 import SemanticConvention from '../../semantic-convention';
 import OpenlitConfig from '../../config';
 import { SDK_NAME, SDK_VERSION } from '../../constant';
@@ -15,7 +15,7 @@ import { applyCustomSpanAttributes, getServerAddressForProvider } from '../../he
  * Prevents Runner.run_async from creating a second invoke_agent span
  * when called internally by Runner.run (mirrors Python _ADK_WORKFLOW_ACTIVE).
  */
-export const adkWorkflowActive = new AsyncLocalStorage<boolean>();
+export const adkWorkflowActive = createContextStore<boolean>();
 
 export function isAdkWorkflowActive(): boolean {
   return adkWorkflowActive.getStore() === true;

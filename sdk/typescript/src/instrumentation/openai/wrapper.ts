@@ -6,7 +6,7 @@ import OpenLitHelper, {
   getCurrentAgentVersion,
 } from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
+import BaseWrapper, { BaseSpanAttributes, observeApiPromise } from '../base-wrapper';
 
 function spanCreationAttrs(
   operationName: string,
@@ -76,7 +76,7 @@ class OpenAIWrapper extends BaseWrapper {
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.chat.completions';
     return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
+      return function (this: any, ...args: any[]) {
         if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'gpt-4o';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
@@ -85,40 +85,63 @@ class OpenAIWrapper extends BaseWrapper {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
         }, effectiveCtx);
-        return context
-          .with(trace.setSpan(effectiveCtx, span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((response: any) => {
-            const { stream = false } = args[0];
 
-            if (stream) {
-              return OpenLitHelper.createStreamProxy(
+        const onResult = (response: any) => {
+          const { stream = false } = args[0];
+
+          if (stream) {
+            return OpenLitHelper.createStreamProxy(
+              response,
+              OpenAIWrapper._chatCompletionGenerator({
+                args,
+                genAIEndpoint,
                 response,
-                OpenAIWrapper._chatCompletionGenerator({
-                  args,
-                  genAIEndpoint,
-                  response,
-                  span,
-                })
-              );
-            }
+                span,
+              })
+            );
+          }
 
-            return OpenAIWrapper._chatCompletion({ args, genAIEndpoint, response, span });
-          })
-          .catch((e: any) => {
-            OpenLitHelper.handleException(span, e);
-            BaseWrapper.recordMetrics(span, {
+          return OpenAIWrapper._chatCompletion({ args, genAIEndpoint, response, span });
+        };
+
+        const onError = (e: any) => {
+          OpenLitHelper.handleException(span, e);
+          BaseWrapper.recordMetrics(span, {
+            genAIEndpoint,
+            model: requestModel,
+            aiSystem: OpenAIWrapper.aiSystem,
+            serverAddress: OpenAIWrapper.serverAddress,
+            serverPort: OpenAIWrapper.serverPort,
+            errorType: e?.constructor?.name || '_OTHER',
+          });
+          span.end();
+        };
+
+        let pending: any;
+        try {
+          pending = context.with(trace.setSpan(effectiveCtx, span), () =>
+            originalMethod.apply(this, args)
+          );
+        } catch (e: any) {
+          onError(e);
+          return Promise.reject(e);
+        }
+
+        return observeApiPromise(pending, {
+          onResult,
+          onError,
+          onRawResponse: () => {
+            // The caller took the raw HTTP response, so the body is theirs.
+            OpenAIWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
               model: requestModel,
               aiSystem: OpenAIWrapper.aiSystem,
               serverAddress: OpenAIWrapper.serverAddress,
               serverPort: OpenAIWrapper.serverPort,
-              errorType: e?.constructor?.name || '_OTHER',
             });
             span.end();
-            throw e;
-          });
+          },
+        });
       };
     };
   }
@@ -969,7 +992,7 @@ class OpenAIWrapper extends BaseWrapper {
   static _patchResponsesCreate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.responses';
     return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
+      return function (this: any, ...args: any[]) {
         if (isFrameworkLlmActive()) return originalMethod.apply(this, args);
         const requestModel = args[0]?.model || 'gpt-4o';
         const spanName = `${SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} ${requestModel}`;
@@ -978,40 +1001,63 @@ class OpenAIWrapper extends BaseWrapper {
           kind: SpanKind.CLIENT,
           attributes: spanCreationAttrs(SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, requestModel),
         }, effectiveCtx);
-        return context
-          .with(trace.setSpan(effectiveCtx, span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((response: any) => {
-            const { stream = false } = args[0];
 
-            if (stream) {
-              return OpenLitHelper.createStreamProxy(
+        const onResult = (response: any) => {
+          const { stream = false } = args[0];
+
+          if (stream) {
+            return OpenLitHelper.createStreamProxy(
+              response,
+              OpenAIWrapper._responsesGenerator({
+                args,
+                genAIEndpoint,
                 response,
-                OpenAIWrapper._responsesGenerator({
-                  args,
-                  genAIEndpoint,
-                  response,
-                  span,
-                })
-              );
-            }
+                span,
+              })
+            );
+          }
 
-            return OpenAIWrapper._responsesComplete({ args, genAIEndpoint, response, span });
-          })
-          .catch((e: any) => {
-            OpenLitHelper.handleException(span, e);
-            BaseWrapper.recordMetrics(span, {
+          return OpenAIWrapper._responsesComplete({ args, genAIEndpoint, response, span });
+        };
+
+        const onError = (e: any) => {
+          OpenLitHelper.handleException(span, e);
+          BaseWrapper.recordMetrics(span, {
+            genAIEndpoint,
+            model: requestModel,
+            aiSystem: OpenAIWrapper.aiSystem,
+            serverAddress: OpenAIWrapper.serverAddress,
+            serverPort: OpenAIWrapper.serverPort,
+            errorType: e?.constructor?.name || '_OTHER',
+          });
+          span.end();
+        };
+
+        let pending: any;
+        try {
+          pending = context.with(trace.setSpan(effectiveCtx, span), () =>
+            originalMethod.apply(this, args)
+          );
+        } catch (e: any) {
+          onError(e);
+          return Promise.reject(e);
+        }
+
+        return observeApiPromise(pending, {
+          onResult,
+          onError,
+          onRawResponse: () => {
+            // The caller took the raw HTTP response, so the body is theirs.
+            OpenAIWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
               model: requestModel,
               aiSystem: OpenAIWrapper.aiSystem,
               serverAddress: OpenAIWrapper.serverAddress,
               serverPort: OpenAIWrapper.serverPort,
-              errorType: e?.constructor?.name || '_OTHER',
             });
             span.end();
-            throw e;
-          });
+          },
+        });
       };
     };
   }

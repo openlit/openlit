@@ -67,12 +67,12 @@ For headless / fleet rollouts, prefer environment variables or flags - they take
 | `OPENLIT_DEBUG_PAYLOAD_DIR` | Tee raw hook payloads to JSONL for debugging | - |
 
 <Warning>
-The `OPENLIT_API_KEY` value is never promoted into a launched agent's child-process environment, and the config file is written `0600`. The CLI never reads your shell rc files (`~/.zshrc`, `~/.bashrc`) - if you set `OPENLIT_*` vars in a shell rc, source them before launching the agent.
+The `OPENLIT_API_KEY` value is never promoted into a child-process environment by `openlit coding launch`, and the config file is written `0600`. The CLI never reads your shell rc files (`~/.zshrc`, `~/.bashrc`) - if you set `OPENLIT_*` vars in a shell rc, source them before launching the agent.
 </Warning>
 
 ## Content capture modes
 
-`OPENLIT_CODING_CONTENT_CAPTURE` controls how much of each coding-agent interaction is captured. Tier-1 secret redaction runs on every export regardless of mode.
+`OPENLIT_CODING_CONTENT_CAPTURE` controls how much of each coding-agent interaction is captured. Tier-1 secret redaction runs on every hook export regardless of mode. [`openlit coding exec`](/latest/cli/commands#openlit-coding-exec) doesn't use this setting: its agent exports directly, with content off unless you pass `--capture-content`, and without CLI redaction.
 
 | Mode | What's captured |
 |---|---|

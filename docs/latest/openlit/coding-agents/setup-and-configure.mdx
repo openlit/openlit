@@ -33,7 +33,7 @@ description: "Install the openlit CLI, wire each vendor's hooks, then configure 
   </Step>
 
   <Step title="Wire each vendor">
-    `openlit coding install` writes the right hook config for the agent you pass and is fully idempotent. You can also point at the [plugin marketplace](https://github.com/openlit/openlit/tree/main/plugins) and let the agent pull the manifest itself, or invoke the agent through `openlit coding launch` which auto-installs and execs.
+    `openlit coding install` writes the right hook config for the agent you pass and is fully idempotent. You can also point at the [plugin marketplace](https://github.com/openlit/openlit/tree/main/plugins) and let the agent pull the manifest itself, or invoke the agent through `openlit coding launch` which auto-installs and execs. For CI and restricted modes where hooks can't run, use [`openlit coding exec`](/latest/cli/commands#openlit-coding-exec).
 
     <Tabs>
     <Tab title="Claude Code">
