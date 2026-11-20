@@ -37,6 +37,26 @@ jest.mock("@/lib/platform/connectors/datasource/http/secret", () => ({
 	resolveSourceSecret: jest.fn(async () => ({ raw: "", credentials: {} })),
 }));
 
+jest.mock("@/lib/platform/connectors/scanner/trustabl/enrich", () => ({
+	runTrustablEnrich: jest.fn(async () => ({ status: "succeeded" })),
+}));
+
+import { runTrustablEnrich } from "@/lib/platform/connectors/scanner/trustabl/enrich";
+
+describe("Trustabl adapter enrich", () => {
+	it("runs the enrich pipeline with the resolved Trustabl binary", async () => {
+		const adapter = new TrustablAdapter({
+			type: "trustabl",
+			id: "scanner:1",
+			name: "Trustabl",
+			settings: { target: "https://github.com/acme/checkout-agent" },
+		});
+		const request = { runId: "enrich:1" } as never;
+		await expect(adapter.enrich(request)).resolves.toEqual({ status: "succeeded" });
+		expect(runTrustablEnrich).toHaveBeenCalledWith(request, { bin: "/opt/trustabl", schema: undefined });
+	});
+});
+
 describe("Trustabl adapter", () => {
 	afterEach(() => {
 		__resetScannerProcessRunnerForTests();

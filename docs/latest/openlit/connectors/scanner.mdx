@@ -72,7 +72,7 @@ Once a connector is configured, **Scanner** (`/scanner`) provides:
 | **CLI runtime** | Install or upgrade the Trustabl CLI on the OpenLIT server |
 | **Run scan** | Run with connector defaults, or override flags for one job |
 | **Jobs** | Recent scans with status, score, duration, and error |
-| **Findings** | Severity, rule, path, and suggested fix for the selected job |
+| **Findings** | Severity, rule, path, and suggested fix for the selected job, with **Copy** and **Enrich** |
 
 ## Scan parameters
 
@@ -87,6 +87,39 @@ Connector defaults apply when you run with defaults. Override them for one job f
 | **Secret / vuln / license scan** | Extra Trustabl scans on repository files and dependencies |
 | **Rules source** | Follow environment, or pin Production (signed), Staging (signed), or Git (unsigned) |
 | **GitHub token** | Stored on the connector. Never sent in the scan request body. |
+
+## Enrich a finding
+
+Open a finding from the **Findings** list to see its suggested fix.
+
+- **Copy** copies the suggested fix to the clipboard.
+- **Enrich** asks the Trustabl LLM to write a fix for this finding, re-checks the rule, and shows the diff for review.
+
+Enrich needs a code location on the finding and a provider key in [Vault](/latest/openlit/developer-resources/vault/manage-secrets):
+
+| Provider | Vault key |
+| --- | --- |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| OpenAI | `OPENAI_API_KEY` |
+| Google | `GOOGLE_API_KEY` |
+
+<Steps>
+  <Step title="Choose the provider and model">
+    Pick a provider that has a key in Vault. Leave the model on **Trustabl default**, or pick a model to pass as `TRUSTABL_LLM_MODEL`.
+  </Step>
+  <Step title="Choose the attempts">
+    Set one or two attempts. With **Re-check rule after enrich** on, OpenLIT runs the rule again after each attempt and retries while the finding is still detected.
+  </Step>
+  <Step title="Review the diff">
+    A run downloads the repository at the scanned commit, runs `trustabl enrich --apply --diff`, re-checks the rule, and shows the diff with the LLM's explanation. **Copy diff**, **Retry**, or **Discard** the result.
+  </Step>
+</Steps>
+
+<Warning>
+Enrich sends the finding and the code around the flagged lines to the selected LLM provider.
+</Warning>
+
+Nothing is committed or pushed. The diff stays in OpenLIT until you discard it. One run per connector can be active at a time, and a run stops after 10 minutes. **Cancel** stops a running run.
 
 ## Coding agents and Otter
 
@@ -104,6 +137,12 @@ Authenticate with an OpenLIT API key and send organisation, project, and environ
 | `POST` | `/api/scanners/{id}/scan` | Run a scan. Optional JSON body overrides connector defaults. Returns `{ connector, job }` with findings. |
 | `GET` | `/api/scanners` | List connectors in this environment, including recent jobs and findings. |
 | `GET` | `/api/scanners/findings?repoUrl=` | Latest succeeded scan for a GitHub repository URL. |
+| `GET` | `/api/scanners/{id}/enrich/providers` | Enrich providers and whether Vault holds each key. |
+| `POST` | `/api/scanners/{id}/enrich` | Start Enrich on one finding (`jobId`, `alertNumber`, `provider`). Returns `{ run }` while it runs. |
+| `GET` | `/api/scanners/{id}/enrich?jobId=&alertNumber=` | Latest Enrich run for a finding. |
+| `GET` | `/api/scanners/{id}/enrich/{runId}` | One Enrich run with steps, log, and diff. |
+| `POST` | `/api/scanners/{id}/enrich/{runId}/cancel` | Cancel a running Enrich run. |
+| `DELETE` | `/api/scanners/{id}/enrich/{runId}` | Discard a finished Enrich run. |
 
 `POST /api/scanners/{id}/scan` can take several minutes (up to 300 seconds). A second scan is rejected while one is already running on the same connector.
 
@@ -112,6 +151,8 @@ Authenticate with an OpenLIT API key and send organisation, project, and environ
 - Scan targets are GitHub HTTPS URLs only. Local paths, SSH URLs with credentials, and whitespace are rejected.
 - Tokens are encrypted on the connector (`enc:v1:…`), redacted from jobs and API responses, and never logged.
 - The Trustabl CLI download is checksum-verified before install.
+- Enrich reads the provider key from Vault for each run and passes it only to the Trustabl process. Keys are not stored on the run, and run logs are redacted.
+- The temporary copy of the repository used by Enrich is deleted when the run ends, fails, or is cancelled.
 
 ## Related
 

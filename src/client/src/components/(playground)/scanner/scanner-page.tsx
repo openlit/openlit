@@ -593,6 +593,7 @@ export default function ScannerPage() {
 				finding={finding}
 				alertNumber={alertNumber}
 				job={selectedJob}
+				connectorId={selected?.id}
 				onClose={() => {
 					setFinding(null);
 					setAlertNumber(undefined);

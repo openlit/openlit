@@ -2899,6 +2899,122 @@ export const SCANNER_JOB_RUNNING =
 	"A scan is already running for this connector. Wait for it to finish.";
 export const SCANNER_SCAN_FAILED = "The scanner failed before producing a report.";
 export const SCANNER_INVALID_JSON = "Request body is not valid JSON.";
+export const SCANNER_ENRICH_FAILED = "Enrich failed before producing a result.";
+export const SCANNER_ENRICH_RUN_ID_INVALID = "Enrich run id is invalid.";
+export const SCANNER_ENRICH_RUN_NOT_FOUND = "Enrich run not found.";
+export const SCANNER_ENRICH_RUNNING =
+	"An Enrich run is already in progress for this connector. Wait for it to finish or cancel it.";
+export const SCANNER_ENRICH_FINDING_INVALID = "Finding number is invalid.";
+export const SCANNER_ENRICH_FINDING_NOT_FOUND = "Finding not found in this scan.";
+export const SCANNER_ENRICH_NO_LOCATION =
+	"Enrich needs a finding with a file and line. This finding has no code location.";
+export const SCANNER_ENRICH_PROVIDER_INVALID = "LLM provider must be anthropic, openai, or google.";
+export const SCANNER_ENRICH_MODEL_INVALID =
+	"Model must use letters, numbers, dots, colons, slashes, hyphens, or underscores.";
+export const SCANNER_ENRICH_ATTEMPTS_INVALID = "Attempts must be 1 or 2.";
+export const SCANNER_ENRICH_KEY_MISSING = (envKey: string) =>
+	`No ${envKey} in Vault. Add the key in Vault, then run Enrich again.`;
+export const SCANNER_ENRICH_CLONE_FAILED = (status: number) =>
+	`GitHub returned HTTP ${status} while downloading the repository.`;
+export const SCANNER_ENRICH_REPO_TOO_LARGE =
+	"The repository archive is larger than 200 MB, so Enrich cannot download it.";
+export const SCANNER_ENRICH_PATH_OUTSIDE =
+	"The flagged file resolves outside the repository, so Enrich will not edit it.";
+export const SCANNER_ENRICH_NOT_DETECTED = (ref: string) =>
+	`The finding is no longer detected at ${ref}. Run the Analyzer again to refresh the findings.`;
+export const SCANNER_ENRICH_NOT_APPLIED =
+	"Trustabl LLM did not produce a change that could be applied to the flagged lines.";
+export const SCANNER_ENRICH_APPLIED_BY_OPENLIT = (location: string) =>
+	`Trustabl CLI declined --apply for ${location}; OpenLIT applied the model's change to the review copy and re-checked it.`;
+export const SCANNER_ENRICH_STILL_DETECTED =(ruleId: string, attempts: number) =>
+	`${ruleId} is still detected after ${attempts === 1 ? "1 attempt" : `${attempts} attempts`}.`;
+export const SCANNER_ENRICH_PROVIDER_FAILED = "The LLM provider rejected the request.";
+export const SCANNER_ENRICH_INTERRUPTED =
+	"The Enrich run was interrupted, for example by a server restart. Nothing was pushed.";
+export const SCANNER_ENRICH_CANCELLED = "Enrich was cancelled. Nothing was pushed.";
+export const SCANNER_ENRICH_TIMED_OUT = "Enrich took longer than 10 minutes and was stopped.";
+export const SCANNER_ENRICH_MODEL_DEFAULT = "Trustabl default";
+export const SCANNER_ENRICH_STEP_NOTHING_PUSHED = "nothing is pushed";
+export const SCANNER_ENRICH_STEP_RECHECK_DETAIL = (detectors: string) =>
+	`trustabl scan --detectors ${detectors} on the patched tree`;
+export const SCANNER_ENRICH_STEP_RESOLVED = "resolved";
+export const SCANNER_ENRICH_STEP_STILL_DETECTED = (location: string) => `still detected at ${location}`;
+export const SCANNER_ENRICH = "Enrich";
+export const SCANNER_ENRICH_IN_PROGRESS = "Enriching…";
+export const SCANNER_ENRICH_COPY = "Copy";
+export const SCANNER_ENRICH_COPIED = "Copied";
+export const SCANNER_ENRICH_FIX_COPIED = "Suggested fix copied to clipboard";
+export const SCANNER_ENRICH_DIFF_COPIED = "Diff copied to clipboard";
+export const SCANNER_ENRICH_COPY_FAILED = "Could not copy to the clipboard.";
+export const SCANNER_ENRICH_LOAD_FAILED = "Failed to load the Enrich run.";
+export const SCANNER_ENRICH_DIALOG_TITLE = "Enrich with Trustabl LLM";
+export const SCANNER_ENRICH_DIALOG_DESCRIPTION = (repo: string) =>
+	`OpenLIT downloads ${repo} on the server, runs trustabl enrich on this finding only, re-checks the rule, and shows you the diff. Nothing is pushed.`;
+export const SCANNER_ENRICH_SECTION_PROVIDER = "LLM provider";
+export const SCANNER_ENRICH_PROVIDER = "Provider";
+export const SCANNER_ENRICH_MODEL = "Model";
+export const SCANNER_ENRICH_MODEL_HINT = "Sent as TRUSTABL_LLM_MODEL for this run.";
+export const SCANNER_ENRICH_MODEL_DEFAULT_HINT = "Trustabl picks the provider's default model.";
+export const SCANNER_ENRICH_KEY_FROM_VAULT = (envKey: string) => `${envKey} from Vault`;
+export const SCANNER_ENRICH_KEY_NOT_IN_VAULT = (envKey: string) => `No ${envKey} in Vault`;
+export const SCANNER_ENRICH_ADD_KEY = "Add key in Vault";
+export const SCANNER_ENRICH_PROVIDERS_LOADING = "Checking Vault for provider keys…";
+export const SCANNER_ENRICH_PROVIDERS_FAILED = "Could not check Vault for provider keys.";
+export const SCANNER_ENRICH_SECTION_RUN = "Run";
+export const SCANNER_ENRICH_SCOPE = "Scope";
+export const SCANNER_ENRICH_SCOPE_VALUE = (alertNumber: number) => `Finding #${alertNumber} only`;
+export const SCANNER_ENRICH_SCOPE_OTHERS = (ruleId: string, alertNumbers: string) =>
+	`Other ${ruleId} findings in this scan (${alertNumbers}) are left unchanged.`;
+export const SCANNER_ENRICH_SCOPE_ONLY = (ruleId: string) => `This is the only ${ruleId} finding in this scan.`;
+export const SCANNER_ENRICH_ATTEMPTS = "Attempts";
+export const SCANNER_ENRICH_ATTEMPTS_OPTION = (attempts: number) =>
+	attempts === 1 ? "1 attempt" : `Up to ${attempts} attempts`;
+export const SCANNER_ENRICH_ATTEMPTS_HINT = (ruleId: string) =>
+	`Runs enrich again if the re-check still detects ${ruleId}.`;
+export const SCANNER_ENRICH_RECHECK = "Re-check rule after enrich";
+export const SCANNER_ENRICH_RECHECK_HINT = (alertNumber: number) =>
+	`Re-runs the Analyzer on the patched copy to confirm finding #${alertNumber} is resolved.`;
+export const SCANNER_ENRICH_SECTION_GIT = "Git";
+export const SCANNER_ENRICH_BASE_BRANCH = "Base branch";
+export const SCANNER_ENRICH_BASE_BRANCH_HINT =
+	"Branch, tag, or commit to download. Leave empty for the default branch.";
+export const SCANNER_ENRICH_SECTION_COMMAND = "Command";
+export const SCANNER_ENRICH_COMMAND_PREVIEW = (alertNumber: number) =>
+	`$ trustabl enrich --input finding-${alertNumber}.json --repo repo --apply --diff`;
+export const SCANNER_ENRICH_EGRESS_NOTE =
+	"Only the finding and the code around the flagged lines are sent to the provider, and only those lines are edited.";
+export const SCANNER_ENRICH_RUNNING_TITLE = (model: string) => `Enriching with Trustabl LLM · ${model}`;
+export const SCANNER_ENRICH_ATTEMPT = (attempt: number, attempts: number) =>
+	`attempt ${Math.max(attempt, 1)} of ${attempts}`;
+export const SCANNER_ENRICH_STEP_CLONE = "Clone repository";
+export const SCANNER_ENRICH_STEP_ENRICH = (alertNumber: number) => `Enrich finding #${alertNumber}`;
+export const SCANNER_ENRICH_STEP_RECHECK = (ruleId: string) => `Re-check ${ruleId}`;
+export const SCANNER_ENRICH_STEP_DIFF = "Diff ready for review";
+export const SCANNER_ENRICH_STEP_SKIPPED = "skipped";
+export const SCANNER_ENRICH_LOG_EMPTY = "No output yet.";
+export const SCANNER_ENRICH_REVIEW_TITLE = "Enrich ready for review";
+export const SCANNER_ENRICH_REVIEW_META = (model: string, duration: string) =>
+	`Trustabl LLM · ${model} · ${duration}`;
+export const SCANNER_ENRICH_RESOLVED_BADGE = (ruleId: string, newFindings: number) =>
+	`${ruleId} resolved · ${newFindings === 1 ? "1 new finding" : `${newFindings} new findings`}`;
+export const SCANNER_ENRICH_NOT_RECHECKED = "Not re-checked";
+export const SCANNER_ENRICH_EXPLANATION = "Explanation:";
+export const SCANNER_ENRICH_DISCARD = "Discard";
+export const SCANNER_ENRICH_RETRY = "Retry";
+export const SCANNER_ENRICH_COPY_DIFF = "Copy diff";
+export const SCANNER_ENRICH_VIEW_LOG = "View log";
+export const SCANNER_ENRICH_HIDE_LOG = "Hide log";
+export const SCANNER_ENRICH_VIEW_PARTIAL_DIFF = "View partial diff";
+export const SCANNER_ENRICH_HIDE_PARTIAL_DIFF = "Hide partial diff";
+export const SCANNER_ENRICH_FAILED_STILL_DETECTED = (ruleId: string, attempts: number) =>
+	`Enrich not applied: ${ruleId} is still detected after ${attempts === 1 ? "1 attempt" : `${attempts} attempts`}`;
+export const SCANNER_ENRICH_FAILED_PROVIDER = "Enrich failed: the LLM provider rejected the request";
+export const SCANNER_ENRICH_FAILED_NOT_APPLIED = "Enrich not applied: no usable change";
+export const SCANNER_ENRICH_FAILED_NOT_FOUND = "Enrich stopped: the finding is no longer detected";
+export const SCANNER_ENRICH_FAILED_CLONE = "Enrich failed: the repository could not be downloaded";
+export const SCANNER_ENRICH_FAILED_INTERRUPTED = "Enrich interrupted";
+export const SCANNER_ENRICH_FAILED_ERROR = "Enrich failed";
+export const SCANNER_ENRICH_CANCELLED_TITLE = "Enrich cancelled";
 export const SCANNER_LOAD_FAILED = "Failed to load scanner data.";
 export const SCANNER_INSTALL_FAILED = "Failed to prepare the scanner runtime.";
 export const SCANNER_PAGE_DESCRIPTION =

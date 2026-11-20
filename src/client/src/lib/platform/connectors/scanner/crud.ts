@@ -110,6 +110,7 @@ function publicConnectorMetadata(raw: string): string {
 		return {};
 	})();
 	delete parsed.jobs;
+	delete parsed.enrichRuns;
 	return JSON.stringify(parsed);
 }
 

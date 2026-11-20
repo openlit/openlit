@@ -15,6 +15,7 @@ export interface ScannerCapabilities {
 	install: boolean;
 	scan: boolean;
 	listFindings: boolean;
+	enrich: boolean;
 }
 
 export type ScannerJobStatus =
@@ -132,6 +133,96 @@ export type ScannerRepoFindingsResult =
 	| ScannerRepoFindingsMatch
 	| ScannerRepoFindingsMiss;
 
+export type ScannerEnrichProvider = "anthropic" | "openai" | "google";
+
+export type ScannerEnrichStatus = "running" | "succeeded" | "failed" | "cancelled";
+
+export type ScannerEnrichFailure =
+	| "provider"
+	| "not-applied"
+	| "still-detected"
+	| "not-found"
+	| "clone"
+	| "interrupted"
+	| "error";
+
+export type ScannerEnrichStepKey = "clone" | "enrich" | "recheck" | "diff";
+
+export type ScannerEnrichStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
+
+export interface ScannerEnrichStep {
+	key: ScannerEnrichStepKey;
+	status: ScannerEnrichStepStatus;
+	detail?: string;
+	durationMs?: number;
+}
+
+/** Per-run Enrich options chosen in the dialog (no secrets). */
+export interface ScannerEnrichParams {
+	provider: ScannerEnrichProvider;
+	/** Sent as `TRUSTABL_LLM_MODEL`; omitted to use the Trustabl default. */
+	model?: string;
+	attempts: number;
+	recheck: boolean;
+	baseRef?: string;
+}
+
+export interface ScannerEnrichInput extends ScannerEnrichParams {
+	jobId: string;
+	alertNumber: number;
+}
+
+/** One Enrich run, persisted in connector metadata. Never holds keys or tokens. */
+export interface ScannerEnrichRun {
+	id: string;
+	status: ScannerEnrichStatus;
+	failure?: ScannerEnrichFailure;
+	jobId: string;
+	alertNumber: number;
+	findingKey: string;
+	ruleId: string;
+	path?: string;
+	line?: number;
+	endLine?: number;
+	target: string;
+	baseRef?: string;
+	commitSha?: string;
+	provider: ScannerEnrichProvider;
+	model?: string;
+	attempts: number;
+	attempt: number;
+	recheck: boolean;
+	steps: ScannerEnrichStep[];
+	explanation?: string;
+	fixSummary?: string;
+	diff?: string;
+	partialDiff?: string;
+	additions?: number;
+	deletions?: number;
+	resolved?: boolean;
+	newFindings?: number;
+	log?: string[];
+	error?: string;
+	startedAt: string;
+	finishedAt?: string;
+	durationMs?: number;
+}
+
+/** What the crud layer hands an adapter for one Enrich run. */
+export interface ScannerEnrichRequest {
+	runId: string;
+	finding: ScannerFinding;
+	alertNumber: number;
+	target: string;
+	params: ScannerEnrichParams;
+	providerKey: string;
+	githubToken?: string;
+	/** Rules flags of the scan that reported the finding, reused for the re-check. */
+	rules?: Pick<ScannerScanParams, "rulesRepo" | "rulesRef" | "rulesSource" | "requireSigned">;
+	signal: AbortSignal;
+	onProgress(run: Partial<ScannerEnrichRun>): Promise<void>;
+}
+
 export interface ScannerRuntimeInfo {
 	installed: boolean;
 	version?: string;
@@ -172,6 +263,8 @@ export interface ScannerAdapter extends ConnectorRuntime {
 	healthCheck(): Promise<ConnectorHealthResult>;
 	ensureRuntime(input?: { upgrade?: boolean }): Promise<ScannerRuntimeInfo>;
 	scan(input?: ScannerScanInput): Promise<ScannerJob>;
+	/** Runs Enrich on one finding; resolves with the final run fields. */
+	enrich(request: ScannerEnrichRequest): Promise<Partial<ScannerEnrichRun>>;
 }
 
 export interface ScannerAdapterFactory {

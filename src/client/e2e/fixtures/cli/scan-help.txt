@@ -1,0 +1,80 @@
+Scan a repository for agent reliability and safety weaknesses.
+
+<target> is either a local path (a directory or a single file) or a GitHub URL
+(https://github.com/owner/repo, optionally .../tree/<ref>). A remote target is
+cloned into a temporary directory for the scan and removed afterward.
+
+The scan discovers the tools, agents, subagents, and MCP servers in the repo,
+loads the rule packs for the SDKs it actually finds, and reports the findings.
+Detection rules are resolved from the trustabl-rules repository and cached
+locally; pass --no-rules-update to run fully offline from that cache, or
+--rules-ref to pin a branch or tag.
+
+The report is written to stdout in the chosen --format (human, json, or sarif).
+Use --output/-o to write it to a file instead, or --json-out / --sarif-out to
+persist those formats alongside the stdout report. All progress, diagnostics, and
+warnings go to stderr, so stdout stays byte-stable for machine consumers.
+
+Exit codes:
+  0  no findings of medium severity or higher
+  1  one or more findings >= medium (or >= low with --strict; info/META
+     signals never raise the exit code)
+  2  scanner / I/O error, or no usable rules
+
+Usage:
+  trustabl scan <target> [flags]
+
+Examples:
+  # Human-readable scan of the current directory
+  trustabl scan .
+
+  # Scan a GitHub repo at a specific branch or tag
+  trustabl scan https://github.com/owner/repo/tree/main
+
+  # JSON to stdout, or to a file
+  trustabl scan . --format json
+  trustabl scan . --format json -o report.json
+
+  # SARIF for a GitHub code-scanning upload
+  trustabl scan . --format sarif -o trustabl.sarif
+
+  # Print the human panel but also save machine artifacts
+  trustabl scan . --json-out report.json --sarif-out trustabl.sarif
+
+  # Strict CI gate: any finding (low and above) fails the run
+  trustabl scan . --strict
+
+  # Limit to specific detector categories
+  trustabl scan . --detectors claude_sdk,mcp
+
+  # Offline: use the cached rules without fetching
+  trustabl scan . --no-rules-update
+
+Flags:
+      --attest                 after the scan, sign the JSON report into a cosign attestation (requires cosign on PATH; keyless by default — see 'trustabl attest')
+      --attest-bundle string   output path for the --attest signed bundle (default "trustabl-attestation.bundle.json")
+      --attest-key string      cosign private-key reference for --attest; omit for keyless signing
+      --attest-no-tlog         with --attest, do not upload the signature to the public Rekor transparency log
+      --bom-out string         also write a CycloneDX BOM of the repo's declared dependencies to this file
+      --channel string         deprecated alias for --rules-source <channel> (a signed release channel)
+      --detectors string       comma-separated detector categories to run (default: all): claude_sdk, openai_sdk, openshell, google_adk, mcp, langchain, crewai, pydantic_ai, vercel_ai, autogen, claude_skill
+      --format string          output format: human|json|sarif (default "human")
+  -h, --help                   help for scan
+      --json-out string        also write the JSON ScanResult to this file (independent of --format)
+      --license-scan           flag dependencies with copyleft licenses (GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.1, SSPL-1.0) as findings (opt-in)
+      --no-color               disable colored output
+      --no-progress            disable real-time progress output
+      --no-rules-update        do not fetch rules; use the local cache only
+  -o, --output string          write the report to a file instead of stdout (use with --format sarif to feed code-scanning upload)
+      --require-signed         refuse to scan unless rules resolve from a signed channel (also via TRUSTABL_REQUIRE_SIGNED=1); a hard CI gate against silently scanning with unsigned git rules
+      --rules-ref string       rules branch or tag to use (default: the repo's default branch)
+      --rules-repo string      rules repository URL (default: official trustabl-rules; or TRUSTABL_RULES_REPO)
+      --rules-source string    rules source: 'git' for the unsigned git path, or a signed channel name (e.g. production, staging). Default: git. A signed channel is signature-verified; a pre-release channel is watermarked in the report. --rules-repo/--rules-ref imply git.
+      --sarif-out string       also write the SARIF report to this file (independent of --format)
+      --secret-scan            scan all text files for hardcoded secret literals and credential reads (opt-in)
+      --strict                 exit 1 on any finding of low severity or higher (info/META signals never fail)
+      --vuln-scan              match dependencies against a pinned OSV snapshot and report known CVEs (off by default; fetches the OSV database on first use, then caches it)
+
+Global Flags:
+      --debug     debug diagnostics on stderr: everything --verbose shows plus per-phase timing and per-entity/per-finding detail (implies --verbose)
+  -v, --verbose   verbose diagnostics on stderr: rule provenance, discovery counts, phase summaries

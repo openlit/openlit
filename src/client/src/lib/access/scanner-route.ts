@@ -5,7 +5,7 @@
  * Library callers (Otter chat tools) use requireScannerAccess because they
  * do not go through HTTP wrappers.
  */
-export type ScannerAction = "read" | "create" | "scan" | "install";
+export type ScannerAction = "read" | "create" | "scan" | "install" | "enrich";
 
 export function withScannerAccess<THandler>(
 	_action: ScannerAction,

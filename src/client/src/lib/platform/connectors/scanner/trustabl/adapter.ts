@@ -15,9 +15,12 @@ import {
 	scannerCloneTarget,
 	scannerRefFromTarget,
 } from "../target";
+import { runTrustablEnrich } from "./enrich";
 import type {
 	ScannerAdapterFactory,
 	ScannerCapabilities,
+	ScannerEnrichRequest,
+	ScannerEnrichRun,
 	ScannerJob,
 	ScannerRuntimeInfo,
 	ScannerScanInput,
@@ -34,6 +37,7 @@ const TRUSTABL_CAPABILITIES: ScannerCapabilities = {
 	install: true,
 	scan: true,
 	listFindings: true,
+	enrich: true,
 };
 
 const SCAN_TIMEOUT_MS = 8 * 60 * 1000;
@@ -174,6 +178,13 @@ export class TrustablAdapter extends BaseScannerAdapter {
 			report: parsed.report,
 			cliVersion,
 		};
+	}
+
+	async enrich(request: ScannerEnrichRequest): Promise<Partial<ScannerEnrichRun>> {
+		const runtime = await probeTrustablRuntime();
+		const resolved = runtime.installed ? await resolveTrustablBinary() : null;
+		if (!resolved) throw new Error(SCANNER_RUNTIME_NOT_INSTALLED);
+		return runTrustablEnrich(request, { bin: resolved.bin, schema: runtime.schema });
 	}
 }
 

@@ -1,0 +1,336 @@
+{
+  "scan_id": "scan_908e237a5f28857a",
+  "repo": "/private/tmp/claude-501/-Users-erickdelacruz-Projects-ericksondelacruz-openlit/f8013491-6021-41a4-8d0a-2f8b37bf4e05/scratchpad/enrich-probe/repo",
+  "languages": [
+    "python"
+  ],
+  "sdks": [
+    "claude_agent_sdk"
+  ],
+  "has_shell_invocations": false,
+  "manifest": {
+    "repo_root": "/private/tmp/claude-501/-Users-erickdelacruz-Projects-ericksondelacruz-openlit/f8013491-6021-41a4-8d0a-2f8b37bf4e05/scratchpad/enrich-probe/repo",
+    "is_remote": false,
+    "python_files": [
+      "agent/agent.py"
+    ],
+    "yaml_files": [],
+    "has_claude_sdk_dependency": false,
+    "has_openshell_artifact": false,
+    "components": [
+      {
+        "kind": "claude_agent_definition",
+        "path": "agent/agent.py",
+        "language": "python"
+      }
+    ]
+  },
+  "tools": null,
+  "agents": [
+    {
+      "sdk": "claude_agent_sdk",
+      "class": "AgentDefinition",
+      "language": "python",
+      "file_path": "agent/agent.py",
+      "start_line": 4,
+      "end_line": 9,
+      "name": "data-analyst",
+      "kwargs": {
+        "children": {
+          "description": {
+            "value": {
+              "kind": "literal_string",
+              "text": "\"Analyses data and renders charts.\""
+            }
+          },
+          "model": {
+            "value": {
+              "kind": "literal_string",
+              "text": "\"haiku\""
+            }
+          },
+          "prompt": {
+            "value": {
+              "kind": "literal_string",
+              "text": "\"You analyse data.\""
+            }
+          },
+          "tools": {
+            "value": {
+              "kind": "list",
+              "text": "[\"Glob\", \"Read\", \"Bash\", \"Write\"]",
+              "list": [
+                {
+                  "kind": "literal_string",
+                  "text": "\"Glob\""
+                },
+                {
+                  "kind": "literal_string",
+                  "text": "\"Read\""
+                },
+                {
+                  "kind": "literal_string",
+                  "text": "\"Bash\""
+                },
+                {
+                  "kind": "literal_string",
+                  "text": "\"Write\""
+                }
+              ]
+            }
+          }
+        }
+      },
+      "tool_refs": [
+        {
+          "name": "\"Glob\"",
+          "external": true
+        },
+        {
+          "name": "\"Read\"",
+          "external": true
+        },
+        {
+          "name": "\"Bash\"",
+          "external": true
+        },
+        {
+          "name": "\"Write\"",
+          "external": true
+        }
+      ],
+      "hosted_tool_refs": null,
+      "mcp_server_refs": null,
+      "handoff_refs": null,
+      "input_guards": null,
+      "output_guards": null,
+      "opaque": false
+    }
+  ],
+  "hosted_tools": null,
+  "mcp_servers": null,
+  "subagents": null,
+  "skills": null,
+  "dependencies": null,
+  "slash_commands": null,
+  "plugin_manifests": null,
+  "claude_settings": null,
+  "findings": [
+    {
+      "rule_id": "META-005",
+      "category": "",
+      "scope": "",
+      "severity": "info",
+      "tool_name": "",
+      "file_path": "",
+      "start_line": 0,
+      "end_line": 0,
+      "title": "Rules skipped — newer Trustabl engine required",
+      "explanation": "105 rule(s) in the loaded pack reference a scope, applies_to value, or predicate that this Trustabl build does not understand, so they were skipped and did not run. The absence of findings from these rules does NOT mean this code is clean — this scan is incomplete for them. Skipped rule IDs: ADK-022, ADK-023, ADK-024, ADK-025, ADK-026, ADK-113, ADK-202, AG2-021, AG2-022, AG2-023, AG2-024, AG2-025, AG2-202, AGCFG-004, AGCFG-005, AGCFG-006, AGCFG-007, AGCFG-008, AGCFG-009, AGCFG-010, AGCFG-011, AGCFG-012, AGCFG-013, AGCFG-014, AGCFG-015, AGCFG-016, CI-001, CI-002, CI-003, CI-004, CI-005, CREW-015, CREW-016, CREW-017, CREW-018, CREW-202, CSDK-024, CSDK-025, CSDK-026, CSDK-027, CSDK-028, CSDK-115, CSDK-202, CSDK-206, CSDK-208, CSKILL-050, CSKILL-080, CSKILL-081, CSKILL-082, LC-026, LC-027, LC-028, LC-029, LC-030, LC-112, LC-114, LC-115, LC-116, LC-202, MCP-031, MCP-032, MCP-033, MCP-034, MCP-035, MCP-202, MCPCFG-002, MCPCFG-003, MCPCFG-004, MCPCFG-005, OAI-032, OAI-033, OAI-034, OAI-035, OAI-036, OAI-037, OAI-038, OAI-039, OAI-118, OAI-119, OAI-120, OAI-203, OBS-001, OBS-002, OBS-003, OBS-005, OBS-006, OBS-007, OBS-008, OBS-009, OBS-010, OBS-011, OBS-012, PYD-015, PYD-016, PYD-017, PYD-018, PYD-104, PYD-107, PYD-108, PYD-202, RAW-001, RAW-002, VAI-021, VAI-101, VAI-201.",
+      "suggested_fix": "Upgrade Trustabl to a build whose supported rule-schema version is at least the rules pack's, then re-scan to evaluate these rules.",
+      "confidence": 1
+    },
+    {
+      "rule_id": "CSDK-101",
+      "category": "claude_sdk",
+      "scope": "agent",
+      "severity": "high",
+      "tool_name": "data-analyst",
+      "file_path": "agent/agent.py",
+      "start_line": 4,
+      "end_line": 9,
+      "title": "Claude subagent is granted the Bash tool",
+      "explanation": "This AgentDefinition grants the built-in Bash tool, giving the subagent arbitrary shell-command execution. Subagents are dispatched autonomously by a lead agent in response to model-generated task descriptions, so a prompt-injected or mis-scoped task can reach the shell with no human in the loop. This is acute when the surrounding ClaudeAgentOptions sets permission_mode=\"bypassPermissions\", which removes the SDK's interactive approval gate entirely.\n",
+      "suggested_fix": "Remove \"Bash\" from this subagent's tools list unless shell execution is essential to its job. If it is essential, gate it with a PreToolUse hook that allowlists the specific commands the subagent may run, and do not pair it with permission_mode=\"bypassPermissions\" at the ClaudeAgentOptions level.\n",
+      "confidence": 0.8
+    },
+    {
+      "rule_id": "CSDK-104",
+      "category": "claude_sdk",
+      "scope": "agent",
+      "severity": "high",
+      "tool_name": "data-analyst",
+      "file_path": "agent/agent.py",
+      "start_line": 4,
+      "end_line": 9,
+      "title": "Claude subagent is granted filesystem-write built-ins",
+      "explanation": "This AgentDefinition grants a filesystem-write built-in (Write, Edit, MultiEdit, or NotebookEdit), letting the subagent modify files on disk. Subagents are dispatched autonomously; a prompt-injected or mis-scoped task can drive the subagent to rewrite source, configuration, or even the .claude/settings.json that governs the agent's own permissions. Write access is comparable blast radius to shell execution (CSDK-101) and is not gated by any guardrail mechanism on AgentDefinition itself.\n",
+      "suggested_fix": "Remove the write built-ins from this subagent's tools list unless file mutation is essential to its job. If it is essential, scope the writable area with add_dirs / cwd, gate writes with a PreToolUse hook, and never pair broad write access with permission_mode=\"bypassPermissions\".\n",
+      "confidence": 0.8
+    },
+    {
+      "rule_id": "CSDK-203",
+      "category": "claude_sdk",
+      "scope": "repo",
+      "severity": "low",
+      "tool_name": "",
+      "file_path": "",
+      "start_line": 0,
+      "end_line": 0,
+      "title": "Repo ships Claude Agent SDK code without an agent-guidance doc (AGENTS.md/CLAUDE.md)",
+      "explanation": "A repository that builds on the Claude Agent SDK but ships no agent-guidance doc — CLAUDE.md (the Claude Code convention) or AGENTS.md (the cross-vendor one) — leaves any coding agent that opens the repo with no project-specific guidance. The conventions, build commands, test runners, lint scripts, and \"do not touch\" boundaries a human maintainer would describe in onboarding are absent, so the agent has to infer them from the source on every session and frequently guesses wrong — bypassing the project's lint, picking the wrong test command, or violating commit conventions that were never written down anywhere it could read. The cost compounds: each new contributor (human or agent) reinvents the same wrong assumptions.\n",
+      "suggested_fix": "Add a CLAUDE.md (or an AGENTS.md) at the repository root documenting how to build, test, and lint the project, the coding conventions the agent must respect, the directories or files it must not modify, and any project-specific safety guardrails (e.g. \"never run migrations\", \"never push to main\"). Treat it as the project's agent-facing README and keep it under version control so reviewers see drift.\n",
+      "confidence": 0.9
+    },
+    {
+      "rule_id": "CSDK-204",
+      "category": "claude_sdk",
+      "scope": "repo",
+      "severity": "low",
+      "tool_name": "",
+      "file_path": "",
+      "start_line": 0,
+      "end_line": 0,
+      "title": "Claude Agent SDK session sets no explicit max_turns limit",
+      "explanation": "No ClaudeAgentOptions(...) in this project sets max_turns, so the agent loop runs to whatever ceiling the runtime applies by default rather than to a bound sized for this task. A model that loops or oscillates — retrying a failing tool, re-reading the same file, ping-ponging between two steps — keeps consuming turns, tokens, and tool side effects until that implicit ceiling is reached, and an implicit ceiling can shift between SDK versions without any change on your side. An explicit cap also turns a stuck run into a clean, observable stop instead of a slow burn.\n",
+      "suggested_fix": "Pass max_turns= to ClaudeAgentOptions(...), sized to the work the session actually does — a handful of turns for a single-file edit, more for a multi-step investigation. Treat hitting the cap as a signal to surface and handle rather than to raise it: if a task legitimately needs many turns, split it into bounded sub-sessions instead of removing the bound.\n",
+      "confidence": 0.6
+    }
+  ],
+  "surfaces": [
+    {
+      "kind": "agent",
+      "name": "data-analyst",
+      "file_path": "agent/agent.py",
+      "score": 0.6266666666666667,
+      "finding_count": 2,
+      "weighted_severity": 1.1199999999999999
+    },
+    {
+      "kind": "repo",
+      "name": "",
+      "file_path": "",
+      "score": 0.925,
+      "finding_count": 2,
+      "weighted_severity": 0.225
+    }
+  ],
+  "overall_score": 0.735921773791729,
+  "projected_scores": {
+    "fix_critical": 0.735921773791729,
+    "fix_high": 0.9587078651685393,
+    "fix_medium": 0.9587078651685393,
+    "fix_low": 1,
+    "fix_all": 1
+  },
+  "rules_source": "https://github.com/trustabl/trustabl-rules",
+  "rules_version": "b55cbae4eb9f36ab3db73783061b9ad5d083e7b5ef80d0df9ef202432b874c7f",
+  "rules_from_cache": false,
+  "rules_schema_version": 41,
+  "rules_schema_newer": true,
+  "rules_skipped": [
+    "ADK-022",
+    "ADK-023",
+    "ADK-024",
+    "ADK-025",
+    "ADK-026",
+    "ADK-113",
+    "ADK-202",
+    "AG2-021",
+    "AG2-022",
+    "AG2-023",
+    "AG2-024",
+    "AG2-025",
+    "AG2-202",
+    "AGCFG-004",
+    "AGCFG-005",
+    "AGCFG-006",
+    "AGCFG-007",
+    "AGCFG-008",
+    "AGCFG-009",
+    "AGCFG-010",
+    "AGCFG-011",
+    "AGCFG-012",
+    "AGCFG-013",
+    "AGCFG-014",
+    "AGCFG-015",
+    "AGCFG-016",
+    "CI-001",
+    "CI-002",
+    "CI-003",
+    "CI-004",
+    "CI-005",
+    "CREW-015",
+    "CREW-016",
+    "CREW-017",
+    "CREW-018",
+    "CREW-202",
+    "CSDK-024",
+    "CSDK-025",
+    "CSDK-026",
+    "CSDK-027",
+    "CSDK-028",
+    "CSDK-115",
+    "CSDK-202",
+    "CSDK-206",
+    "CSDK-208",
+    "CSKILL-050",
+    "CSKILL-080",
+    "CSKILL-081",
+    "CSKILL-082",
+    "LC-026",
+    "LC-027",
+    "LC-028",
+    "LC-029",
+    "LC-030",
+    "LC-112",
+    "LC-114",
+    "LC-115",
+    "LC-116",
+    "LC-202",
+    "MCP-031",
+    "MCP-032",
+    "MCP-033",
+    "MCP-034",
+    "MCP-035",
+    "MCP-202",
+    "MCPCFG-002",
+    "MCPCFG-003",
+    "MCPCFG-004",
+    "MCPCFG-005",
+    "OAI-032",
+    "OAI-033",
+    "OAI-034",
+    "OAI-035",
+    "OAI-036",
+    "OAI-037",
+    "OAI-038",
+    "OAI-039",
+    "OAI-118",
+    "OAI-119",
+    "OAI-120",
+    "OAI-203",
+    "OBS-001",
+    "OBS-002",
+    "OBS-003",
+    "OBS-005",
+    "OBS-006",
+    "OBS-007",
+    "OBS-008",
+    "OBS-009",
+    "OBS-010",
+    "OBS-011",
+    "OBS-012",
+    "PYD-015",
+    "PYD-016",
+    "PYD-017",
+    "PYD-018",
+    "PYD-104",
+    "PYD-107",
+    "PYD-108",
+    "PYD-202",
+    "RAW-001",
+    "RAW-002",
+    "VAI-021",
+    "VAI-101",
+    "VAI-201"
+  ],
+  "rules_origin": {
+    "signed": true,
+    "channel": "production"
+  },
+  "coverage": {
+    "files_parsed": 1,
+    "files_skipped": 0
+  }
+}

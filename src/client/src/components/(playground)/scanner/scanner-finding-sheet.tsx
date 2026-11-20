@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, X } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, Check, Copy, Sparkles, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import getMessage from "@/constants/messages";
 import { formatBrowserDateTime } from "@/utils/date";
 import type { ScannerFinding, ScannerJob } from "@/lib/platform/connectors/scanner/types";
+import ScannerEnrichDialog from "./scanner-enrich-dialog";
+import ScannerEnrichPanel from "./scanner-enrich-panel";
+import { useScannerEnrich } from "./use-scanner-enrich";
+
+const COPIED_FEEDBACK_MS = 2000;
 
 const DETAIL_SHEET_CONTENT_CLASS =
 	"right-2 top-2 bottom-2 flex h-auto w-auto max-w-none flex-col gap-0 border-0 bg-transparent p-0 shadow-none focus-visible:outline-none sm:max-w-none";
@@ -70,15 +76,44 @@ export default function ScannerFindingSheet({
 	finding,
 	alertNumber,
 	job,
+	connectorId,
 	onClose,
 }: {
 	open: boolean;
 	finding: ScannerFinding | null;
 	alertNumber?: number;
 	job?: ScannerJob | null;
+	connectorId?: string;
 	onClose: () => void;
 }) {
 	const messages = getMessage();
+	const enrich = useScannerEnrich({
+		connectorId: finding ? connectorId : undefined,
+		jobId: job?.id,
+		alertNumber,
+	});
+	const [enrichOpen, setEnrichOpen] = useState(false);
+	const [copied, setCopied] = useState(false);
+	const copiedTimer = useRef<ReturnType<typeof setTimeout>>();
+
+	useEffect(() => () => clearTimeout(copiedTimer.current), []);
+
+	const copyFix = async () => {
+		if (!finding?.fix) return;
+		try {
+			await navigator.clipboard.writeText(finding.fix);
+			setCopied(true);
+			toast.success(messages.SCANNER_ENRICH_FIX_COPIED);
+			clearTimeout(copiedTimer.current);
+			copiedTimer.current = setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
+		} catch {
+			toast.error(messages.SCANNER_ENRICH_COPY_FAILED);
+		}
+	};
+
+	const canEnrich = Boolean(connectorId && job?.id && alertNumber);
+	const hasLocation = Boolean(finding?.path && finding?.line);
+	const enriching = enrich.run?.status === "running";
 	const location = finding
 		? [finding.path, finding.line ? `${finding.line}${finding.endLine && finding.endLine !== finding.line ? `-${finding.endLine}` : ""}` : ""]
 				.filter(Boolean)
@@ -145,6 +180,17 @@ export default function ScannerFindingSheet({
 										</p>
 									) : null}
 
+									{enrich.run ? (
+										<ScannerEnrichPanel
+											run={enrich.run}
+											finding={finding}
+											busy={enrich.busy}
+											onCancel={() => void enrich.cancel()}
+											onDiscard={() => void enrich.discard()}
+											onRetry={() => void enrich.retry()}
+										/>
+									) : null}
+
 									<section className="mt-5">
 										<h3 className="text-xs font-semibold text-stone-950 dark:text-stone-50">
 											{messages.SCANNER_FINDING_DETAIL}
@@ -168,14 +214,44 @@ export default function ScannerFindingSheet({
 										) : null}
 									</section>
 
-									{finding.fix ? (
+									{finding.fix || canEnrich ? (
 										<section className="mt-5">
-											<h3 className="text-xs font-semibold text-stone-950 dark:text-stone-50">
-												{messages.SCANNER_FINDING_FIX}
-											</h3>
-											<pre className="mt-2 max-w-full whitespace-pre-wrap break-words rounded-md border border-stone-200 bg-stone-50 p-3 font-sans text-xs leading-5 text-stone-800 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-200">
-												{finding.fix}
-											</pre>
+											<div className="flex flex-wrap items-center justify-between gap-2">
+												<h3 className="text-xs font-semibold text-stone-950 dark:text-stone-50">
+													{messages.SCANNER_FINDING_FIX}
+												</h3>
+												<div className="flex items-center gap-2">
+													{finding.fix ? (
+														<Button
+															variant="outline"
+															size="sm"
+															className="h-7 gap-1.5 text-xs"
+															onClick={() => void copyFix()}
+														>
+															{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+															{copied ? messages.SCANNER_ENRICH_COPIED : messages.SCANNER_ENRICH_COPY}
+														</Button>
+													) : null}
+													{canEnrich ? (
+														<span title={hasLocation ? undefined : messages.SCANNER_ENRICH_NO_LOCATION}>
+															<Button
+																size="sm"
+																className="h-7 gap-1.5 text-xs"
+																disabled={!hasLocation || enriching || enrich.busy}
+																onClick={() => setEnrichOpen(true)}
+															>
+																<Sparkles className="h-3.5 w-3.5" />
+																{enriching ? messages.SCANNER_ENRICH_IN_PROGRESS : messages.SCANNER_ENRICH}
+															</Button>
+														</span>
+													) : null}
+												</div>
+											</div>
+											{finding.fix ? (
+												<pre className="mt-2 max-w-full whitespace-pre-wrap break-words rounded-md border border-stone-200 bg-stone-50 p-3 font-sans text-xs leading-5 text-stone-800 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-200">
+													{finding.fix}
+												</pre>
+											) : null}
 										</section>
 									) : null}
 								</div>
@@ -201,6 +277,20 @@ export default function ScannerFindingSheet({
 						</div>
 					</div>
 				</ResizableFindingSheet>
+				{enrichOpen && connectorId && alertNumber ? (
+					<ScannerEnrichDialog
+						open={enrichOpen}
+						connectorId={connectorId}
+						finding={finding}
+						alertNumber={alertNumber}
+						job={job}
+						onClose={() => setEnrichOpen(false)}
+						onEnrich={(params) => {
+							setEnrichOpen(false);
+							void enrich.start(params);
+						}}
+					/>
+				) : null}
 			</SheetContent>
 		</Sheet>
 	);

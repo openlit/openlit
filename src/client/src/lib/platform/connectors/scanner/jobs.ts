@@ -1,20 +1,11 @@
 import prisma from "@/lib/prisma";
 import type { ScannerJob } from "./types";
 import { summarizeJob } from "./report";
+import { parseJsonObject, updateScannerMetadata } from "./metadata";
+
+export { parseJsonObject };
 
 const MAX_JOBS = 20;
-
-export function parseJsonObject(raw: string): Record<string, unknown> {
-	try {
-		const parsed = JSON.parse(raw || "{}");
-		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-			return parsed as Record<string, unknown>;
-		}
-	} catch {
-		/* keep empty */
-	}
-	return {};
-}
 
 export function jobsFromMetadata(raw: string): ScannerJob[] {
 	const metadata = parseJsonObject(raw);
@@ -29,22 +20,11 @@ export async function recordScannerJobs(
 	instanceId: string,
 	jobs: ScannerJob[]
 ): Promise<void> {
-	const existing = await prisma.connectorInstance.findFirst({
-		where: { id: instanceId },
-		select: { metadata: true },
-	});
-	if (!existing) return;
-	const metadata = parseJsonObject(existing.metadata || "{}");
-	await prisma.connectorInstance.update({
-		where: { id: instanceId },
-		data: {
-			metadata: JSON.stringify({
-				...metadata,
-				category: "scanner",
-				jobs: jobs.map(summarizeJob).slice(0, MAX_JOBS),
-			}),
-		},
-	});
+	await updateScannerMetadata(instanceId, (metadata) => ({
+		...metadata,
+		category: "scanner",
+		jobs: jobs.map(summarizeJob).slice(0, MAX_JOBS),
+	}));
 }
 
 export async function prependScannerJob(

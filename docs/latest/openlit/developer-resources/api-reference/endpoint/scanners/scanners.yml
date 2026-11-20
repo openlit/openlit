@@ -207,8 +207,296 @@ paths:
           description: repoUrl is missing.
         '401':
           description: Unauthorized.
+  /api/scanners/{id}/enrich/providers:
+    get:
+      summary: List Enrich LLM providers
+      description: Return the providers Trustabl Enrich supports and whether Vault holds a key for each. Key values are never returned.
+      operationId: listScannerEnrichProviders
+      parameters:
+        - $ref: '#/components/parameters/ConnectorId'
+        - $ref: '#/components/parameters/OrganisationId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Environment'
+      responses:
+        '200':
+          description: Providers with Vault key presence and suggested models.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          enum: [anthropic, openai, google]
+                        label:
+                          type: string
+                        envKey:
+                          type: string
+                          example: ANTHROPIC_API_KEY
+                        hasKey:
+                          type: boolean
+                        models:
+                          type: array
+                          items:
+                            type: string
+        '401':
+          description: Unauthorized.
+  /api/scanners/{id}/enrich:
+    get:
+      summary: Get the latest Enrich run for a finding
+      description: Return the most recent Enrich run for one finding of a scan job, or a null run.
+      operationId: getLatestScannerEnrichRun
+      parameters:
+        - $ref: '#/components/parameters/ConnectorId'
+        - name: jobId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: alertNumber
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: '#/components/parameters/OrganisationId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Environment'
+      responses:
+        '200':
+          $ref: '#/components/responses/EnrichRun'
+        '400':
+          description: Invalid job id or finding number.
+        '401':
+          description: Unauthorized.
+    post:
+      summary: Enrich a finding
+      description: Download the repository on the server, run `trustabl enrich` on one finding with the provider key from Vault, re-check the rule, and store the diff for review. Returns a running run immediately. Nothing is pushed.
+      operationId: startScannerEnrich
+      parameters:
+        - $ref: '#/components/parameters/ConnectorId'
+        - $ref: '#/components/parameters/OrganisationId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Environment'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jobId, alertNumber, provider]
+              properties:
+                jobId:
+                  type: string
+                  example: job:7bf4b416-308c-47cc-873a-dc4c20d2b4e9
+                alertNumber:
+                  type: integer
+                  minimum: 1
+                  example: 4
+                provider:
+                  type: string
+                  enum: [anthropic, openai, google]
+                model:
+                  type: string
+                  example: claude-sonnet-4-5
+                attempts:
+                  type: integer
+                  minimum: 1
+                  maximum: 2
+                  default: 1
+                recheck:
+                  type: boolean
+                  default: true
+                baseRef:
+                  type: string
+                  example: main
+      responses:
+        '200':
+          $ref: '#/components/responses/EnrichRun'
+        '400':
+          description: Invalid JSON or parameters, no key in Vault, no code location, or a run already in progress.
+        '401':
+          description: Unauthorized.
+  /api/scanners/{id}/enrich/{runId}:
+    get:
+      summary: Get an Enrich run
+      description: Return one Enrich run with its steps, log, and diff. Poll it while the status is running.
+      operationId: getScannerEnrichRun
+      parameters:
+        - $ref: '#/components/parameters/ConnectorId'
+        - $ref: '#/components/parameters/RunId'
+        - $ref: '#/components/parameters/OrganisationId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Environment'
+      responses:
+        '200':
+          $ref: '#/components/responses/EnrichRun'
+        '400':
+          description: Invalid run id, or the run was not found.
+        '401':
+          description: Unauthorized.
+    delete:
+      summary: Discard an Enrich run
+      description: Remove a finished run. Cancel a running run first.
+      operationId: discardScannerEnrichRun
+      parameters:
+        - $ref: '#/components/parameters/ConnectorId'
+        - $ref: '#/components/parameters/RunId'
+        - $ref: '#/components/parameters/OrganisationId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Environment'
+      responses:
+        '200':
+          description: The run was removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '400':
+          description: Invalid run id, run not found, or still running.
+        '401':
+          description: Unauthorized.
+  /api/scanners/{id}/enrich/{runId}/cancel:
+    post:
+      summary: Cancel an Enrich run
+      description: Stop a running run. The CLI process is killed and the working copy is removed.
+      operationId: cancelScannerEnrichRun
+      parameters:
+        - $ref: '#/components/parameters/ConnectorId'
+        - $ref: '#/components/parameters/RunId'
+        - $ref: '#/components/parameters/OrganisationId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Environment'
+      responses:
+        '200':
+          $ref: '#/components/responses/EnrichRun'
+        '400':
+          description: Invalid run id, or the run was not found.
+        '401':
+          description: Unauthorized.
 components:
+  parameters:
+    ConnectorId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Scanner connector ID (`scanner:<uuid>`).
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Enrich run ID (`enrich:<uuid>`).
+    OrganisationId:
+      name: x-openlit-organisation-id
+      in: header
+      required: false
+      schema:
+        type: string
+    ProjectId:
+      name: x-openlit-project-id
+      in: header
+      required: true
+      schema:
+        type: string
+    Environment:
+      name: x-openlit-environment
+      in: header
+      required: true
+      schema:
+        type: string
+        example: production
+  responses:
+    EnrichRun:
+      description: The Enrich run.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              run:
+                $ref: '#/components/schemas/ScannerEnrichRun'
   schemas:
+    ScannerEnrichRun:
+      type: object
+      properties:
+        id:
+          type: string
+          example: enrich:5b0c1e9e-7d1f-4a43-9a51-0d8f0c1b2e3a
+        status:
+          type: string
+          enum: [running, succeeded, failed, cancelled]
+        failure:
+          type: string
+          enum: [provider, not-applied, still-detected, not-found, clone, interrupted, error]
+        jobId:
+          type: string
+        alertNumber:
+          type: integer
+        ruleId:
+          type: string
+        path:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+        attempts:
+          type: integer
+        attempt:
+          type: integer
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                enum: [clone, enrich, recheck, diff]
+              status:
+                type: string
+                enum: [pending, running, done, failed, skipped]
+              detail:
+                type: string
+              durationMs:
+                type: integer
+        explanation:
+          type: string
+        diff:
+          type: string
+        partialDiff:
+          type: string
+        additions:
+          type: integer
+        deletions:
+          type: integer
+        resolved:
+          type: boolean
+        newFindings:
+          type: integer
+        log:
+          type: array
+          items:
+            type: string
+        error:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
     ScannerJob:
       type: object
       properties:
