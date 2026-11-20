@@ -251,6 +251,7 @@ def common_chat_logic(
         scope._tbt,
         scope._ttft,
         version,
+        cost=cost,
     )
 
     # Span Attributes for Request parameters
@@ -301,7 +302,6 @@ def common_chat_logic(
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens
     )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # OTel cached token attributes (set even when 0)
     if hasattr(scope, "_cache_read_input_tokens"):
