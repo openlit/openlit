@@ -455,7 +455,11 @@ export async function queryProjectMemories(
 async function resolveGraph(
 	adapter: MemoryAdapter,
 	records: MemoryRecord[],
-	ctx: { filter: { userId?: string }; offset: number; query?: string }
+	ctx: {
+		filter: { userId?: string; sessionId?: string };
+		offset: number;
+		query?: string;
+	}
 ): Promise<{ graph: MemoryGraphModel; fromAdapter: boolean }> {
 	if (typeof adapter.graph !== "function") {
 		return { graph: buildMemoryGraph(records), fromAdapter: false };
@@ -465,7 +469,10 @@ async function resolveGraph(
 	}
 	try {
 		return {
-			graph: await adapter.graph({ userId: ctx.filter.userId }),
+			graph: await adapter.graph({
+				userId: ctx.filter.userId,
+				sessionId: ctx.filter.sessionId,
+			}),
 			fromAdapter: true,
 		};
 	} catch {

@@ -37,8 +37,12 @@ export async function memoryRequest<T>(
 		method?: string;
 		headers?: Record<string, string>;
 		body?: unknown;
+		/** Pre-encoded body (multipart / form). Sent as-is; set `Content-Type` in `headers`. */
+		rawBody?: string;
 		authHeaders: (secret: ResolvedSecret) => Record<string, string>;
 		timeoutMs?: number;
+		/** Retry transient failures. Default true; pass false for non-idempotent writes. */
+		retry?: boolean;
 	}
 ): Promise<T> {
 	const secret = await resolveSourceSecret(
@@ -57,12 +61,14 @@ export async function memoryRequest<T>(
 			...opts.authHeaders(secret),
 			...opts.headers,
 		},
-		body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+		body:
+			opts.rawBody ??
+			(opts.body === undefined ? undefined : JSON.stringify(opts.body)),
 		timeoutMs: opts.timeoutMs ?? 15_000,
 		allowHttp: network.allowHttp,
 		allowPrivateNetwork: network.allowPrivateNetwork,
 		redactValues: redactableSecretValues(secret),
 		concurrencyKey: descriptor.id,
-		retry: true,
+		retry: opts.retry ?? true,
 	});
 }

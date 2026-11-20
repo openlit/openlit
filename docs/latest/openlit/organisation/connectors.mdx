@@ -85,6 +85,8 @@ Memory connectors store and search long-term agent memory. They use the same cat
 | --- | --- | --- |
 | **Mem0** | Hosted or self-hosted Mem0 memories (`add`, `search`, `get`, `list`, `update`, `delete`) | API key (`Authorization: Token …`) |
 | **Zep** | Zep Cloud or self-hosted session memory and graph search | API key (`Authorization: Api-Key …`) |
+| **Cognee** | Cognee Cloud or self-hosted dataset documents and knowledge graph (`add`, `search`, `get`, `list`, `update`, `delete`, graph) | Optional API key (`X-Api-Key`) |
+| **Supermemory** | Supermemory Cloud or self-hosted namespace memories (`add`, `search`, `get`, `list`, `delete`) | API key (`Authorization: Bearer …`) |
 
 To add a memory connector: open **Connectors**, choose **Mem0** or **Zep** from the catalog, set the endpoint (or keep the hosted default), paste the API key, and test the connection. Credentials are stored in Vault and never returned to the browser.
 

@@ -10,6 +10,8 @@ export const VISIBLE_CONNECTOR_TYPES = [
 	"memcode",
 	"zep",
 	"langgraph",
+	"cognee",
+	"supermemory",
 	"trustabl",
 ] as const;
 
