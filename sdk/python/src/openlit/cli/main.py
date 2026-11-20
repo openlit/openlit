@@ -117,8 +117,12 @@ def set_environment_from_cli_args(args) -> None:
             continue
 
         # Only set if environment variable is not already set (env vars take precedence).
-        # Treat an empty value as unset so explicit --no_ flags are not silently ignored.
-        if env_var not in os.environ or os.environ[env_var] == "":
+        # For boolean params with a negation variant, treat an empty value as
+        # unset so explicit --no_ flags are not silently ignored.
+        env_present = env_var in os.environ
+        if not env_present or (
+            os.environ[env_var] == "" and config.get("has_negation")
+        ):
             cli_value = getattr(args, param_name, None)
             if cli_value is not None:
                 # Handle boolean values
