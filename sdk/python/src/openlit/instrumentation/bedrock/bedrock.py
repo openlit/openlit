@@ -167,6 +167,7 @@ def converse_stream(
             self._response_model = ""
             self._finish_reason = ""
             self._tools = None
+            self._tool_calls_by_index = {}
             self._input_tokens = 0
             self._output_tokens = 0
             self._cache_read_input_tokens = 0
