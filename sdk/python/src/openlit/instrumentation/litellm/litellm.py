@@ -17,7 +17,10 @@ from openlit.__helpers import (
     reset_framework_llm_active,
 )
 from openlit.instrumentation.litellm.utils import (
+    CHAT_POSITIONAL_PARAMS,
+    EMBEDDING_POSITIONAL_PARAMS,
     get_litellm_server_address,
+    merge_positional_args,
     process_chunk,
     process_streaming_chat_response,
     process_chat_response,
@@ -206,9 +209,14 @@ def completion(
 
         litellm_token = set_litellm_span_active()
         try:
-            streaming = kwargs.get("stream", False)
-            server_address, server_port = get_litellm_server_address(instance, kwargs)
-            request_model = kwargs.get("model", "openai/gpt-4o")
+            request_kwargs = merge_positional_args(
+                args, kwargs, CHAT_POSITIONAL_PARAMS
+            )
+            streaming = request_kwargs.get("stream", False)
+            server_address, server_port = get_litellm_server_address(
+                instance, request_kwargs
+            )
+            request_model = request_kwargs.get("model", "openai/gpt-4o")
 
             span_name = (
                 f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -233,7 +241,7 @@ def completion(
                     awaited_wrapped,
                     span,
                     span_name,
-                    kwargs,
+                    request_kwargs,
                     server_address,
                     server_port,
                     event_provider=event_provider,
@@ -265,7 +273,7 @@ def completion(
                             disable_metrics=disable_metrics,
                             version=version,
                             event_provider=event_provider,
-                            **kwargs,
+                            **request_kwargs,
                         )
 
                     except Exception as e:
@@ -322,8 +330,13 @@ def embedding(
 
         litellm_token = set_litellm_span_active()
         try:
-            server_address, server_port = get_litellm_server_address(instance, kwargs)
-            request_model = kwargs.get("model", "text-embedding-ada-002")
+            request_kwargs = merge_positional_args(
+                args, kwargs, EMBEDDING_POSITIONAL_PARAMS
+            )
+            server_address, server_port = get_litellm_server_address(
+                instance, request_kwargs
+            )
+            request_model = request_kwargs.get("model", "text-embedding-ada-002")
 
             span_name = (
                 f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
@@ -353,7 +366,7 @@ def embedding(
                         disable_metrics=disable_metrics,
                         version=version,
                         event_provider=event_provider,
-                        **kwargs,
+                        **request_kwargs,
                     )
 
                 except Exception as e:
