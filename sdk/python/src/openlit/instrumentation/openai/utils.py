@@ -1998,13 +1998,15 @@ def common_image_logic(
     Common logic for processing image operations.
     """
 
-    # Calculate cost
-    cost = get_image_model_cost(
+    # Calculate cost (per-image price * number of images returned)
+    per_image_cost = get_image_model_cost(
         request_model,
         pricing_info,
         scope._kwargs.get("size", "1024x1024"),
         scope._kwargs.get("quality", "standard"),
     )
+    image_count = len(scope._response_dict.get("data", []) or [])
+    cost = per_image_cost * max(image_count, 1)
 
     # Common Span Attributes
     common_span_attributes(
