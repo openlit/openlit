@@ -64,7 +64,27 @@ Environment Variables (take precedence over CLI arguments):
         cli_type = config.get("cli_type", str)
 
         if cli_type == bool:
-            parser.add_argument(cli_arg, action="store_true", help=cli_help)
+            if config.get("has_negation"):
+                # Register both --flag and --no_flag so users can explicitly
+                # enable or disable the behaviour.  Using a mutually-exclusive
+                # group means argparse will reject contradictory combos like
+                # ``--capture_message_content --no_capture_message_content``.
+                neg_arg = f"--no_{param_name}"
+                neg_help = (
+                    f"Disable {config.get('cli_help', '').lower()} "
+                    f"(equivalent to {config.get('env_var', '')}=false)"
+                )
+                group = parser.add_mutually_exclusive_group()
+                group.add_argument(
+                    cli_arg, action="store_true", default=None, help=cli_help,
+                    dest=param_name,
+                )
+                group.add_argument(
+                    neg_arg, action="store_false", default=None, help=neg_help,
+                    dest=param_name,
+                )
+            else:
+                parser.add_argument(cli_arg, action="store_true", help=cli_help)
         else:
             parser.add_argument(cli_arg, help=cli_help)
 
@@ -96,15 +116,28 @@ def set_environment_from_cli_args(args) -> None:
         if not env_var:
             continue
 
-        # Only set if environment variable is not already set (env vars take precedence)
-        if env_var not in os.environ:
+        # Only set if environment variable is not already set (env vars take precedence).
+        # For boolean params with a negation variant, treat an empty value as
+        # unset so explicit --no_ flags are not silently ignored.
+        env_present = env_var in os.environ
+        if not env_present or (
+            os.environ[env_var] == "" and config.get("has_negation")
+        ):
             cli_value = getattr(args, param_name, None)
             if cli_value is not None:
                 # Handle boolean values
                 if isinstance(cli_value, bool):
-                    # Skip setting env var if boolean is False and default is True
-                    # (this means the flag wasn't provided, just the store_true default)
-                    if cli_value is False and config.get("default") is True:
+                    # For regular store_true flags (no negation variant),
+                    # skip when the value is False and the config default is
+                    # True -- that means the flag simply was not provided.
+                    # For has_negation params the argparse default is None, so
+                    # reaching here with False means the user explicitly passed
+                    # the --no_<flag> form and we must honour it.
+                    if (
+                        cli_value is False
+                        and config.get("default") is True
+                        and not config.get("has_negation")
+                    ):
                         continue
                     os.environ[env_var] = "true" if cli_value else "false"
                 else:
