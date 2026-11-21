@@ -231,6 +231,13 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
 
             METER_SET = True
 
+        elif meter is None:
+            # A previous init() already configured the MeterProvider, so only
+            # the meter itself needs to be reacquired.  Leaving meter None
+            # would make the instrument creation below fail and silently
+            # disable all metrics for every subsequent init().
+            meter = metrics.get_meter(__name__, version="0.1.0")
+
         # Define and create the metrics
         metrics_dict = {
             # OTel Semconv
