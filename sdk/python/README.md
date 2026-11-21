@@ -64,7 +64,12 @@ The SDK follows and maintains the [OpenTelemetry GenAI Semantic Conventions](htt
 | [✅ DigitalOcean (pydo)](https://docs.openlit.io/latest/sdk/integrations/digitalocean)                                                  |                                                                          |                                                |               |
 | [✅ DigitalOcean Gradient](https://docs.openlit.io/latest/sdk/integrations/digitalocean-gradient)                                       |                                                                          |                                                |               |
 
+For Qdrant, positional and keyword calls to operations such as `upsert` and
+`query_points` record the same collection name and request attributes for both
+synchronous and asynchronous clients.
+
 ## Supported Destinations
+
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/sdk/destinations/otelcol)
 - [✅ Prometheus + Tempo](https://docs.openlit.io/latest/sdk/destinations/prometheus-tempo)
 - [✅ Prometheus + Jaeger](https://docs.openlit.io/latest/sdk/destinations/prometheus-jaeger)

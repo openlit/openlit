@@ -9,6 +9,7 @@ from opentelemetry import context as context_api
 from openlit.__helpers import handle_exception
 from openlit.instrumentation.qdrant.utils import (
     DB_OPERATION_MAP,
+    get_qdrant_request_params,
     process_qdrant_response,
     set_server_address_and_port,
 )
@@ -45,7 +46,8 @@ def general_wrap(
         server_address, server_port = set_server_address_and_port(instance)
 
         # Span naming: use operation + collection
-        collection_name = kwargs.get("collection_name", "unknown")
+        request_params = get_qdrant_request_params(wrapped, args, kwargs)
+        collection_name = request_params.get("collection_name", "unknown")
         span_name = f"{db_operation} {collection_name}"
 
         # CRITICAL: Use tracer.start_as_current_span() for proper context
@@ -71,7 +73,7 @@ def general_wrap(
                     instance=instance,
                     args=args,
                     endpoint=gen_ai_endpoint,
-                    **kwargs,
+                    **request_params,
                 )
 
             except Exception as e:
