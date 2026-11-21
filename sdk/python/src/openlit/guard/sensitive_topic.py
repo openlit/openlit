@@ -89,7 +89,9 @@ class SensitiveTopic(Guard):
         self._patterns: Dict[str, List[re.Pattern]] = {}
         for cat, pats in _DEFAULT_CATEGORIES.items():
             if categories is None or cat in categories:
-                self._patterns[cat] = pats
+                # Copy so custom_categories below cannot mutate the shared
+                # module-level pattern lists across SensitiveTopic instances.
+                self._patterns[cat] = list(pats)
 
         if custom_categories:
             for cat, raw_pats in custom_categories.items():
