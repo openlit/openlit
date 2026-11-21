@@ -87,11 +87,9 @@ def _span_from_ids(trace_id: str, span_id: str) -> Optional[NonRecordingSpan]:
 def _resolve_target_span(span=None, trace_id: Optional[str] = None, span_id: Optional[str] = None):
     if span is not None:
         return span
-    current_span = trace.get_current_span()
-    if current_span and current_span.is_recording():
-        return current_span
     if trace_id and span_id:
         return _span_from_ids(trace_id, span_id)
+    current_span = trace.get_current_span()
     if current_span:
         return current_span
     return None
