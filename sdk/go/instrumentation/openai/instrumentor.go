@@ -429,6 +429,9 @@ func setResponseAttributes(span trace.Span, resp *ChatCompletionResponse, reques
 		if resp.Usage.CompletionTokensDetails != nil {
 			if resp.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
 				semconv.SetIntAttribute(span, semconv.GenAIUsageCompletionTokensDetailsReasoning, resp.Usage.CompletionTokensDetails.ReasoningTokens)
+				semconv.SetIntAttribute(span, semconv.GenAIUsageReasoningOutputTokens, resp.Usage.CompletionTokensDetails.ReasoningTokens)
+				semconv.SetIntAttribute(span, semconv.GenAIUsageReasoningTokens, resp.Usage.CompletionTokensDetails.ReasoningTokens)
+				semconv.SetIntAttribute(span, semconv.GenAIUsageCompletionTokensDetailsReasoningTokens, resp.Usage.CompletionTokensDetails.ReasoningTokens)
 			}
 			if resp.Usage.CompletionTokensDetails.AudioTokens > 0 {
 				semconv.SetIntAttribute(span, semconv.GenAIUsageCompletionTokensDetailsAudio, resp.Usage.CompletionTokensDetails.AudioTokens)
@@ -438,6 +441,7 @@ func setResponseAttributes(span trace.Span, resp *ChatCompletionResponse, reques
 		if resp.Usage.PromptTokensDetails != nil {
 			if resp.Usage.PromptTokensDetails.CachedTokens > 0 {
 				semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheRead, resp.Usage.PromptTokensDetails.CachedTokens)
+				semconv.SetIntAttribute(span, semconv.GenAIUsageCacheReadInputTokensKey, resp.Usage.PromptTokensDetails.CachedTokens)
 			}
 		}
 	}

@@ -132,6 +132,13 @@ const (
 	GenAIUsageReasoningTokens = "gen_ai.usage.reasoning_tokens"
 )
 
+const (
+	GenAIUsageCacheReadInputTokensKey                = "gen_ai.usage.cache_read.input_tokens"
+	GenAIUsageCacheCreationInputTokensKey            = "gen_ai.usage.cache_creation.input_tokens"
+	GenAIUsageReasoningOutputTokens                  = "gen_ai.usage.reasoning.output_tokens"
+	GenAIUsageCompletionTokensDetailsReasoningTokens = "gen_ai.usage.completion_tokens_details.reasoning_tokens"
+)
+
 // Message Attributes
 const (
 	// GenAIPrompt is the legacy prompt attribute

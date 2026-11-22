@@ -221,9 +221,11 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 		semconv.SetIntAttribute(span, semconv.GenAIUsageTotalTokens, inputTokens+outputTokens)
 		if cacheCreationInputTokens > 0 {
 			semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheWrite, cacheCreationInputTokens)
+			semconv.SetIntAttribute(span, semconv.GenAIUsageCacheCreationInputTokensKey, cacheCreationInputTokens)
 		}
 		if cacheReadInputTokens > 0 {
 			semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheRead, cacheReadInputTokens)
+			semconv.SetIntAttribute(span, semconv.GenAIUsageCacheReadInputTokensKey, cacheReadInputTokens)
 		}
 
 		cost := helpers.CalculateGlobalCost(messageModel, inputTokens, outputTokens)
