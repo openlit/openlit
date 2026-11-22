@@ -92,6 +92,11 @@ def chat_completions(
         def __iter__(self):
             return self
 
+        @property
+        def __class__(self):
+            """Preserve isinstance(response, openai.Stream) checks (#1704)."""
+            return type(self.__wrapped__)
+
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
@@ -337,6 +342,11 @@ def responses(
 
         def __iter__(self):
             return self
+
+        @property
+        def __class__(self):
+            """Preserve isinstance(response, openai.Stream) checks (#1704)."""
+            return type(self.__wrapped__)
 
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
