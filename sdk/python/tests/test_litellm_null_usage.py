@@ -197,3 +197,31 @@ async def test_async_embedding_with_null_usage_keeps_ok_span():
     assert span.status.status_code == StatusCode.OK
     assert not [event for event in span.events if event.name == "exception"]
     assert span.attributes[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 0
+
+
+def test_sync_chat_and_embedding_with_missing_usage_key_keep_ok_spans():
+    """A response with no "usage" key at all behaves like an explicit null."""
+
+    tracer, exporter = _tracer_and_exporter()
+    chat_wrapper = _wrapper(completion, tracer)
+    chat_response = _chat_response()
+    del chat_response["usage"]
+    embed_wrapper = _wrapper(embedding, tracer)
+    embed_response = _embedding_response()
+    del embed_response["usage"]
+
+    chat_result = chat_wrapper(
+        _returning(chat_response), SimpleNamespace(), [], _CHAT_KWARGS
+    )
+    embed_result = embed_wrapper(
+        _returning(embed_response), SimpleNamespace(), [], _EMBED_KWARGS
+    )
+
+    assert chat_result is chat_response
+    assert embed_result is embed_response
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 2
+    for span in spans:
+        assert span.status.status_code == StatusCode.OK
+        assert not [event for event in span.events if event.name == "exception"]
+        assert span.attributes[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] == 0
