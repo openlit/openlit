@@ -2,6 +2,7 @@
 OpenLIT OpenAI Agents Instrumentation
 """
 
+import dataclasses
 import json
 import threading
 from typing import Collection
@@ -22,6 +23,25 @@ from openlit.semcov import SemanticConvention
 from openlit.instrumentation.openai_agents.processor import OpenLITTracingProcessor
 
 _instruments = ("openai-agents >= 0.0.3",)
+
+
+def _sdk_default_trace_include_sensitive_data():
+    """Return the Agents SDK's global default for RunConfig.trace_include_sensitive_data
+    (OPENAI_AGENTS_TRACE_INCLUDE_SENSITIVE_DATA). A per-run RunConfig override is not
+    known when an Agent is constructed, so only the global default can be honoured here."""
+    try:
+        from agents import RunConfig
+
+        for field in dataclasses.fields(RunConfig):
+            if field.name == "trace_include_sensitive_data":
+                if field.default_factory is not dataclasses.MISSING:
+                    return bool(field.default_factory())
+                if field.default is not dataclasses.MISSING:
+                    return bool(field.default)
+                return False
+        return True
+    except Exception:
+        return False
 
 
 class _AgentCreationRegistry:
@@ -80,7 +100,11 @@ def _wrap_agent_init(
                     )
 
                 instructions = getattr(instance, "instructions", None)
-                if instructions and capture_message_content:
+                if (
+                    instructions
+                    and capture_message_content
+                    and _sdk_default_trace_include_sensitive_data()
+                ):
                     formatted = format_system_instructions(instructions)
                     if formatted:
                         span.set_attribute(
