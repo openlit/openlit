@@ -188,6 +188,65 @@ describe('Vertex AI Cross-Language Trace Comparison', () => {
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_PORT, 443);
     });
 
+    it('sets reasoning tokens from thoughtsTokenCount (matches Python thoughts_token_count)', async () => {
+      const mockArgs = [{ contents: 'Ping', generationConfig: {} }];
+      const mockResponse = {
+        response: {
+          candidates: [{ content: { parts: [{ text: 'Pong' }] }, finishReason: 'STOP' }],
+          usageMetadata: {
+            promptTokenCount: 10,
+            candidatesTokenCount: 5,
+            totalTokenCount: 21,
+            thoughtsTokenCount: 6,
+          },
+        },
+      };
+
+      await VertexAIWrapper._processResponse({
+        args: mockArgs,
+        genAIEndpoint: 'vertexai.generative_models.generate_content',
+        response: mockResponse,
+        span: mockSpan,
+        requestModel: 'gemini-2.0-flash',
+        serverAddress: 'europe-west1-aiplatform.googleapis.com',
+      });
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 5);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, 6);
+    });
+
+    it('carries thoughtsTokenCount through the streaming accumulator', async () => {
+      async function* chunks() {
+        yield { candidates: [{ content: { parts: [{ text: 'Po' }] } }] };
+        yield {
+          candidates: [{ content: { parts: [{ text: 'ng' }] }, finishReason: 'STOP' }],
+          usageMetadata: {
+            promptTokenCount: 10,
+            candidatesTokenCount: 5,
+            totalTokenCount: 21,
+            thoughtsTokenCount: 6,
+          },
+        };
+      }
+
+      const stream = VertexAIWrapper._streamGenerator({
+        args: [{ contents: 'Ping', generationConfig: {} }],
+        genAIEndpoint: 'vertexai.generative_models.generate_content',
+        stream: chunks(),
+        span: mockSpan,
+        requestModel: 'gemini-2.0-flash',
+        serverAddress: 'europe-west1-aiplatform.googleapis.com',
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _chunk of stream) {
+        // consume
+      }
+
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 5);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, 6);
+    });
+
     it('sets finish reason as array (matches Python list)', async () => {
       const mockArgs = [{ contents: 'Hello', generationConfig: {} }];
       const mockResponse = {
