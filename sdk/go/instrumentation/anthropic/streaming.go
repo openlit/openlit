@@ -33,15 +33,15 @@ func (c *InstrumentedClient) createMessageStream(ctx context.Context, req Messag
 
 	reqBody, err := json.Marshal(req)
 	if err != nil {
-		span.End()
 		helpers.RecordError(span, err)
+		span.End()
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/messages", bytes.NewReader(reqBody))
 	if err != nil {
-		span.End()
 		helpers.RecordError(span, err)
+		span.End()
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
@@ -52,17 +52,17 @@ func (c *InstrumentedClient) createMessageStream(ctx context.Context, req Messag
 
 	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		span.End()
 		helpers.RecordError(span, err)
+		span.End()
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(httpResp.Body)
 		httpResp.Body.Close()
-		span.End()
 		err := fmt.Errorf("API error: %s - %s", httpResp.Status, string(body))
 		helpers.RecordError(span, err)
+		span.End()
 		return nil, err
 	}
 
