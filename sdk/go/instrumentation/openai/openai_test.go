@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	openlit "github.com/openlit/openlit/sdk/go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 // initSDK initialises OpenLIT with all exporters disabled and registers cleanup.
@@ -506,6 +511,113 @@ func TestChatCompletion_Streaming_Error(t *testing.T) {
 	if !strings.Contains(err.Error(), "401") {
 		t.Errorf("expected 401 in streaming error, got: %v", err)
 	}
+}
+
+func setupSpanRecorder(t *testing.T) *tracetest.SpanRecorder {
+	t.Helper()
+	sr := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
+	otel.SetTracerProvider(tp)
+	t.Cleanup(func() {
+		_ = tp.Shutdown(context.Background())
+		otel.SetTracerProvider(sdktrace.NewTracerProvider())
+	})
+	return sr
+}
+
+func assertStreamFailureSpan(t *testing.T, sr *tracetest.SpanRecorder) {
+	t.Helper()
+	ended := sr.Ended()
+	if len(ended) != 1 {
+		t.Fatalf("want 1 ended span, got %d", len(ended))
+	}
+	span := ended[0]
+	if span.Status().Code != codes.Error {
+		t.Errorf("want span status Error, got %v", span.Status().Code)
+	}
+	hasException := false
+	for _, ev := range span.Events() {
+		if ev.Name == "exception" {
+			hasException = true
+		}
+	}
+	if !hasException {
+		t.Errorf("want an exception event on the span, got %d events", len(span.Events()))
+	}
+}
+
+func TestChatCompletion_Streaming_Error_SpanStatus(t *testing.T) {
+	t.Run("non-200 response", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, `{"error":{"message":"Invalid API key"}}`)
+		}))
+		defer srv.Close()
+
+		initSDK(t)
+		sr := setupSpanRecorder(t)
+		client := NewClient("bad-key", WithBaseURL(srv.URL))
+
+		_, err := client.CreateChatCompletionStream(context.Background(), ChatCompletionRequest{
+			Model:    "gpt-4o-mini",
+			Messages: []ChatMessage{{Role: "user", Content: "Hi"}},
+		})
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		assertStreamFailureSpan(t, sr)
+	})
+
+	t.Run("transport error", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+		url := srv.URL
+		srv.Close()
+
+		initSDK(t)
+		sr := setupSpanRecorder(t)
+		client := NewClient("key", WithBaseURL(url))
+
+		_, err := client.CreateChatCompletionStream(context.Background(), ChatCompletionRequest{
+			Model:    "gpt-4o-mini",
+			Messages: []ChatMessage{{Role: "user", Content: "Hi"}},
+		})
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		assertStreamFailureSpan(t, sr)
+	})
+
+	t.Run("marshal error", func(t *testing.T) {
+		initSDK(t)
+		sr := setupSpanRecorder(t)
+		client := NewClient("key", WithBaseURL("http://127.0.0.1:1"))
+
+		_, err := client.CreateChatCompletionStream(context.Background(), ChatCompletionRequest{
+			Model:       "gpt-4o-mini",
+			Temperature: math.NaN(),
+			Messages:    []ChatMessage{{Role: "user", Content: "Hi"}},
+		})
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		assertStreamFailureSpan(t, sr)
+	})
+
+	t.Run("invalid base URL", func(t *testing.T) {
+		initSDK(t)
+		sr := setupSpanRecorder(t)
+		client := NewClient("key", WithBaseURL("http://bad\x7f"))
+
+		_, err := client.CreateChatCompletionStream(context.Background(), ChatCompletionRequest{
+			Model:       "gpt-4o-mini",
+			Temperature: 0,
+			Messages:    []ChatMessage{{Role: "user", Content: "Hi"}},
+		})
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		assertStreamFailureSpan(t, sr)
+	})
 }
 
 // ---------------------------------------------------------------------------
