@@ -201,9 +201,11 @@ func setResponseAttributes(span trace.Span, resp *MessageResponse, requestModel 
 		semconv.SetIntAttribute(span, semconv.GenAIUsageTotalTokens, resp.Usage.InputTokens+resp.Usage.OutputTokens)
 		if resp.Usage.CacheCreationInputTokens > 0 {
 			semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheWrite, resp.Usage.CacheCreationInputTokens)
+			semconv.SetIntAttribute(span, semconv.GenAIUsageCacheCreationInputTokensKey, resp.Usage.CacheCreationInputTokens)
 		}
 		if resp.Usage.CacheReadInputTokens > 0 {
 			semconv.SetIntAttribute(span, semconv.GenAIUsagePromptTokensDetailsCacheRead, resp.Usage.CacheReadInputTokens)
+			semconv.SetIntAttribute(span, semconv.GenAIUsageCacheReadInputTokensKey, resp.Usage.CacheReadInputTokens)
 		}
 	}
 

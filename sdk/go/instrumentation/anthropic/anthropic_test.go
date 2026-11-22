@@ -621,6 +621,57 @@ func TestCreateMessage_Streaming_CacheTokenAttributes(t *testing.T) {
 	if got := attrInt(span, semconv.GenAIUsagePromptTokensDetailsCacheRead); got != 5678 {
 		t.Errorf("cache_read: want 5678, got %d", got)
 	}
+	if got := attrInt(span, "gen_ai.usage.cache_creation.input_tokens"); got != 1234 {
+		t.Errorf("cache_creation.input_tokens: want 1234, got %d", got)
+	}
+	if got := attrInt(span, "gen_ai.usage.cache_read.input_tokens"); got != 5678 {
+		t.Errorf("cache_read.input_tokens: want 5678, got %d", got)
+	}
+}
+
+func TestCreateMessage_CacheTokenAttributes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := MessageResponse{
+			ID:         "msg-cache",
+			Type:       "message",
+			Role:       "assistant",
+			Content:    []ContentBlock{{Type: "text", Text: "ok"}},
+			Model:      "claude-3-5-sonnet-20241022",
+			StopReason: "end_turn",
+			Usage:      &Usage{InputTokens: 10, OutputTokens: 2, CacheCreationInputTokens: 1234, CacheReadInputTokens: 5678},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+	}))
+	defer srv.Close()
+
+	sr := setupSpanRecorder(t)
+	client := NewClient("sk-ant-test", WithBaseURL(srv.URL))
+
+	if _, err := client.CreateMessage(context.Background(), MessageRequest{
+		Model:     "claude-3-5-sonnet-20241022",
+		MaxTokens: 10,
+		Messages:  []Message{{Role: "user", Content: "Hi"}},
+	}); err != nil {
+		t.Fatalf("CreateMessage: %v", err)
+	}
+
+	span := waitForEndedSpan(t, sr)
+	checks := map[string]int64{
+		"gen_ai.usage.cache_creation.input_tokens":      1234,
+		"gen_ai.usage.cache_read.input_tokens":          5678,
+		semconv.GenAIUsagePromptTokensDetailsCacheWrite: 1234,
+		semconv.GenAIUsagePromptTokensDetailsCacheRead:  5678,
+	}
+	for key, want := range checks {
+		if !hasAttr(span, key) {
+			t.Errorf("%s: attribute missing", key)
+			continue
+		}
+		if got := attrInt(span, key); got != want {
+			t.Errorf("%s: want %d, got %d", key, want, got)
+		}
+	}
 }
 
 func TestCreateMessage_Streaming_CacheOnlySpan(t *testing.T) {

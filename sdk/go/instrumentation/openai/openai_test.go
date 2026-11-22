@@ -11,6 +11,10 @@ import (
 	"testing"
 
 	openlit "github.com/openlit/openlit/sdk/go"
+	"github.com/openlit/openlit/sdk/go/semconv"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 // initSDK initialises OpenLIT with all exporters disabled and registers cleanup.
@@ -660,5 +664,71 @@ func TestImageGeneration(t *testing.T) {
 	}
 	if resp.Data[0].RevisedPrompt != "A serene lake at dawn" {
 		t.Errorf("unexpected revised prompt: %s", resp.Data[0].RevisedPrompt)
+	}
+}
+
+func TestChatCompletion_CacheAndReasoningTokenAttributes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := ChatCompletionResponse{
+			ID:     "chatcmpl-usage",
+			Object: "chat.completion",
+			Model:  "o3-mini",
+			Choices: []ChatCompletionChoice{
+				{Message: ChatMessage{Role: "assistant", Content: "ok"}, FinishReason: "stop"},
+			},
+			Usage: &Usage{
+				PromptTokens:            100,
+				CompletionTokens:        50,
+				TotalTokens:             150,
+				PromptTokensDetails:     &PromptTokensDetails{CachedTokens: 64},
+				CompletionTokensDetails: &CompletionTokensDetails{ReasoningTokens: 30},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+	}))
+	defer srv.Close()
+
+	sr := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
+	otel.SetTracerProvider(tp)
+	t.Cleanup(func() {
+		_ = tp.Shutdown(context.Background())
+		otel.SetTracerProvider(sdktrace.NewTracerProvider())
+	})
+
+	client := NewClient("sk-test", WithBaseURL(srv.URL))
+	if _, err := client.CreateChatCompletion(context.Background(), ChatCompletionRequest{
+		Model:    "o3-mini",
+		Messages: []ChatMessage{{Role: "user", Content: "Hello"}},
+	}); err != nil {
+		t.Fatalf("CreateChatCompletion: %v", err)
+	}
+
+	ended := sr.Ended()
+	if len(ended) != 1 {
+		t.Fatalf("want 1 ended span, got %d", len(ended))
+	}
+	got := map[string]int64{}
+	for _, a := range ended[0].Attributes() {
+		got[string(a.Key)] = a.Value.AsInt64()
+	}
+	want := map[string]int64{
+		"gen_ai.usage.cache_read.input_tokens":                    64,
+		"gen_ai.usage.reasoning.output_tokens":                    30,
+		"gen_ai.usage.reasoning_tokens":                           30,
+		"gen_ai.usage.completion_tokens_details.reasoning_tokens": 30,
+		semconv.GenAIUsagePromptTokensDetailsCacheRead:            64,
+		semconv.GenAIUsageCompletionTokensDetailsReasoning:        30,
+	}
+	for key, w := range want {
+		v, ok := got[key]
+		if !ok {
+			t.Errorf("%s: attribute missing", key)
+			continue
+		}
+		if v != w {
+			t.Errorf("%s: want %d, got %d", key, w, v)
+		}
 	}
 }
