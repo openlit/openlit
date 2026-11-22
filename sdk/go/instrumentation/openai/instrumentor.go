@@ -46,6 +46,7 @@ func (c *InstrumentedClient) createChatCompletion(ctx context.Context, req ChatC
 			if errType == "" {
 				errType = fmt.Sprintf("%T", retErr)
 			}
+			span.SetAttributes(attribute.String(semconv.ErrorType, errType))
 			operationDurationHistogram.Record(ctx, time.Since(startTime).Seconds(), metric.WithAttributes(
 				attribute.String(semconv.GenAISystem, semconv.GenAISystemOpenAI),
 				attribute.String(semconv.GenAIOperationName, semconv.GenAIOperationTypeChat),
@@ -141,6 +142,7 @@ func (c *InstrumentedClient) createEmbedding(ctx context.Context, req EmbeddingR
 			if errType == "" {
 				errType = fmt.Sprintf("%T", retErr)
 			}
+			span.SetAttributes(attribute.String(semconv.ErrorType, errType))
 			operationDurationHistogram.Record(ctx, time.Since(startTime).Seconds(), metric.WithAttributes(
 				attribute.String(semconv.GenAISystem, semconv.GenAISystemOpenAI),
 				attribute.String(semconv.GenAIOperationName, semconv.GenAIOperationTypeEmbedding),
@@ -236,6 +238,7 @@ func (c *InstrumentedClient) createImage(ctx context.Context, req ImageRequest) 
 			if errType == "" {
 				errType = fmt.Sprintf("%T", retErr)
 			}
+			span.SetAttributes(attribute.String(semconv.ErrorType, errType))
 			operationDurationHistogram.Record(ctx, time.Since(startTime).Seconds(), metric.WithAttributes(
 				attribute.String(semconv.GenAISystem, semconv.GenAISystemOpenAI),
 				attribute.String(semconv.GenAIOperationName, semconv.GenAIOperationTypeImage),

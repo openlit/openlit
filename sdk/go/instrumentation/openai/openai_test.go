@@ -9,8 +9,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	openlit "github.com/openlit/openlit/sdk/go"
+	"github.com/openlit/openlit/sdk/go/semconv"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 // initSDK initialises OpenLIT with all exporters disabled and registers cleanup.
@@ -660,5 +666,112 @@ func TestImageGeneration(t *testing.T) {
 	}
 	if resp.Data[0].RevisedPrompt != "A serene lake at dawn" {
 		t.Errorf("unexpected revised prompt: %s", resp.Data[0].RevisedPrompt)
+	}
+}
+
+func setupSpanRecorder(t *testing.T) *tracetest.SpanRecorder {
+	t.Helper()
+	sr := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
+	otel.SetTracerProvider(tp)
+	t.Cleanup(func() {
+		_ = tp.Shutdown(context.Background())
+		otel.SetTracerProvider(sdktrace.NewTracerProvider())
+	})
+	return sr
+}
+
+func waitForEndedSpan(t *testing.T, sr *tracetest.SpanRecorder) sdktrace.ReadOnlySpan {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if ended := sr.Ended(); len(ended) >= 1 {
+			return ended[0]
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("want 1 ended span, got %d", len(sr.Ended()))
+	return nil
+}
+
+func attrString(span sdktrace.ReadOnlySpan, key string) string {
+	for _, a := range span.Attributes() {
+		if string(a.Key) == key {
+			return a.Value.AsString()
+		}
+	}
+	return ""
+}
+
+func TestSpanErrorType_NonStreamingFailure(t *testing.T) {
+	cases := []struct {
+		name   string
+		status int
+		want   string
+	}{
+		{"rate limit", http.StatusTooManyRequests, "429"},
+		{"server error", http.StatusInternalServerError, "500"},
+		{"transport error", 0, ""},
+	}
+	calls := []struct {
+		name string
+		call func(c *InstrumentedClient) error
+	}{
+		{"chat", func(c *InstrumentedClient) error {
+			_, err := c.CreateChatCompletion(context.Background(), ChatCompletionRequest{Model: "gpt-4o", Messages: []ChatMessage{{Role: "user", Content: "Hello"}}})
+			return err
+		}},
+		{"embedding", func(c *InstrumentedClient) error {
+			_, err := c.CreateEmbedding(context.Background(), EmbeddingRequest{Model: "text-embedding-3-small", Input: "Hello"})
+			return err
+		}},
+		{"image", func(c *InstrumentedClient) error {
+			_, err := c.CreateImage(context.Background(), ImageRequest{Model: "dall-e-3", Prompt: "a cat"})
+			return err
+		}},
+	}
+	for _, ep := range calls {
+		for _, tc := range cases {
+			t.Run(ep.name+"/"+tc.name, func(t *testing.T) {
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(tc.status)
+					fmt.Fprint(w, `{"error":{"message":"failed"}}`)
+				}))
+				if tc.status == 0 {
+					srv.Close()
+				} else {
+					defer srv.Close()
+				}
+
+				sr := setupSpanRecorder(t)
+				client := NewClient("sk-test", WithBaseURL(srv.URL))
+				err := ep.call(client)
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+
+				span := waitForEndedSpan(t, sr)
+				if span.Status().Code != codes.Error {
+					t.Errorf("status: want Error, got %v", span.Status().Code)
+				}
+				exceptions := 0
+				for _, ev := range span.Events() {
+					if ev.Name == "exception" {
+						exceptions++
+					}
+				}
+				if exceptions != 1 {
+					t.Errorf("exception events: want 1, got %d", exceptions)
+				}
+				got := attrString(span, semconv.ErrorType)
+				if tc.want == "" {
+					if !strings.HasPrefix(got, "*") {
+						t.Errorf("error.type: want Go type name, got %q", got)
+					}
+				} else if got != tc.want {
+					t.Errorf("error.type: want %q, got %q", tc.want, got)
+				}
+			})
+		}
 	}
 }
