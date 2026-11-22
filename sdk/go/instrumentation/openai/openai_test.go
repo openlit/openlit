@@ -9,8 +9,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	openlit "github.com/openlit/openlit/sdk/go"
+	"github.com/openlit/openlit/sdk/go/semconv"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 // initSDK initialises OpenLIT with all exporters disabled and registers cleanup.
@@ -660,5 +665,129 @@ func TestImageGeneration(t *testing.T) {
 	}
 	if resp.Data[0].RevisedPrompt != "A serene lake at dawn" {
 		t.Errorf("unexpected revised prompt: %s", resp.Data[0].RevisedPrompt)
+	}
+}
+
+func setupSpanRecorder(t *testing.T) *tracetest.SpanRecorder {
+	t.Helper()
+	sr := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
+	otel.SetTracerProvider(tp)
+	t.Cleanup(func() {
+		_ = tp.Shutdown(context.Background())
+		otel.SetTracerProvider(sdktrace.NewTracerProvider())
+	})
+	return sr
+}
+
+func waitForEndedSpan(t *testing.T, sr *tracetest.SpanRecorder) sdktrace.ReadOnlySpan {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if ended := sr.Ended(); len(ended) >= 1 {
+			return ended[0]
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("want 1 ended span, got %d", len(sr.Ended()))
+	return nil
+}
+
+func spanAttrValue(span sdktrace.ReadOnlySpan, key string) (interface{}, bool) {
+	for _, a := range span.Attributes() {
+		if string(a.Key) == key {
+			return a.Value.AsInterface(), true
+		}
+	}
+	return nil, false
+}
+
+func runStreamingSpan(t *testing.T, chunks []string) sdktrace.ReadOnlySpan {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.WriteHeader(http.StatusOK)
+		for _, c := range chunks {
+			fmt.Fprintf(w, "data: %s\n\n", c)
+			w.(http.Flusher).Flush()
+		}
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		w.(http.Flusher).Flush()
+	}))
+	defer srv.Close()
+
+	sr := setupSpanRecorder(t)
+	client := NewClient("sk-test", WithBaseURL(srv.URL))
+
+	stream, err := client.CreateChatCompletionStream(context.Background(), ChatCompletionRequest{
+		Model:    "gpt-4o-mini",
+		Messages: []ChatMessage{{Role: "user", Content: "Hi"}},
+	})
+	if err != nil {
+		t.Fatalf("CreateChatCompletionStream: %v", err)
+	}
+	defer stream.Close() //nolint:errcheck
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("stream.Recv: %v", err)
+		}
+	}
+	return waitForEndedSpan(t, sr)
+}
+
+func TestChatCompletion_Streaming_FinishReasonBeforeUsageChunk(t *testing.T) {
+	span := runStreamingSpan(t, []string{
+		`{"id":"cmpl-f1","object":"chat.completion.chunk","model":"gpt-4o-mini","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},"finish_reason":null}],"usage":null}`,
+		`{"id":"cmpl-f1","object":"chat.completion.chunk","model":"gpt-4o-mini","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":null}`,
+		`{"id":"cmpl-f1","object":"chat.completion.chunk","model":"gpt-4o-mini","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}}`,
+	})
+
+	got, ok := spanAttrValue(span, semconv.GenAIResponseFinishReasons)
+	if !ok {
+		t.Fatalf("missing %s attribute", semconv.GenAIResponseFinishReasons)
+	}
+	if fmt.Sprint(got) != "[stop]" {
+		t.Errorf("want finish reasons [stop], got %v", got)
+	}
+	for key, want := range map[string]int64{
+		semconv.GenAIUsageInputTokens:  5,
+		semconv.GenAIUsageOutputTokens: 2,
+		semconv.GenAIUsageTotalTokens:  7,
+	} {
+		v, ok := spanAttrValue(span, key)
+		if !ok {
+			t.Errorf("missing %s attribute", key)
+			continue
+		}
+		if v != want {
+			t.Errorf("%s: want %d, got %v", key, want, v)
+		}
+	}
+}
+
+func TestChatCompletion_Streaming_FinishReasonsMultipleChoices(t *testing.T) {
+	span := runStreamingSpan(t, []string{
+		`{"id":"cmpl-f2","object":"chat.completion.chunk","model":"gpt-4o-mini","choices":[{"index":0,"delta":{"role":"assistant","content":"A"},"finish_reason":null},{"index":1,"delta":{"role":"assistant","content":"B"},"finish_reason":null},{"index":2,"delta":{"role":"assistant","content":"C"},"finish_reason":null},{"index":3,"delta":{"role":"assistant","content":"D"},"finish_reason":null}]}`,
+		`{"id":"cmpl-f2","object":"chat.completion.chunk","model":"gpt-4o-mini","choices":[{"index":3,"delta":{},"finish_reason":"content_filter"}]}`,
+		`{"id":"cmpl-f2","object":"chat.completion.chunk","model":"gpt-4o-mini","choices":[{"index":1,"delta":{},"finish_reason":"length"}]}`,
+		`{"id":"cmpl-f2","object":"chat.completion.chunk","model":"gpt-4o-mini","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		`{"id":"cmpl-f2","object":"chat.completion.chunk","model":"gpt-4o-mini","choices":[{"index":2,"delta":{},"finish_reason":"tool_calls"}]}`,
+		`{"id":"cmpl-f2","object":"chat.completion.chunk","model":"gpt-4o-mini","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":8,"total_tokens":13}}`,
+	})
+
+	got, ok := spanAttrValue(span, semconv.GenAIResponseFinishReasons)
+	if !ok {
+		t.Fatalf("missing %s attribute", semconv.GenAIResponseFinishReasons)
+	}
+	if fmt.Sprint(got) != "[stop length tool_calls content_filter]" {
+		t.Errorf("want finish reasons [stop length tool_calls content_filter], got %v", got)
+	}
+	if v, ok := spanAttrValue(span, semconv.GenAIUsageTotalTokens); !ok || v != int64(13) {
+		t.Errorf("want total tokens 13, got %v (present=%v)", v, ok)
 	}
 }

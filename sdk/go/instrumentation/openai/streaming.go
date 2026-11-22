@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -113,6 +114,7 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 	firstTokenTime := time.Duration(0)
 	var tokenTimestamps []time.Time
 	var lastChunk *ChatCompletionChunk
+	finishReasonByIndex := map[int]string{}
 	accumulatedContent := ""
 	var tbtSeconds float64
 
@@ -147,6 +149,12 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 			}
 			tokenTimestamps = append(tokenTimestamps, now)
 			accumulatedContent += chunk.Choices[0].Delta.Content
+		}
+
+		for _, choice := range chunk.Choices {
+			if choice.FinishReason != "" {
+				finishReasonByIndex[choice.Index] = choice.FinishReason
+			}
 		}
 
 		lastChunk = &chunk
@@ -201,16 +209,17 @@ func (c *InstrumentedClient) readStream(ctx context.Context, span trace.Span, bo
 			operationDurationHistogram.Record(ctx, duration.Seconds(), metric.WithAttributes(attrs...))
 		}
 
-		if len(lastChunk.Choices) > 0 {
-			finishReasons := make([]string, 0, len(lastChunk.Choices))
-			for _, choice := range lastChunk.Choices {
-				if choice.FinishReason != "" {
-					finishReasons = append(finishReasons, choice.FinishReason)
-				}
+		if len(finishReasonByIndex) > 0 {
+			indexes := make([]int, 0, len(finishReasonByIndex))
+			for idx := range finishReasonByIndex {
+				indexes = append(indexes, idx)
 			}
-			if len(finishReasons) > 0 {
-				semconv.SetStringSliceAttribute(span, semconv.GenAIResponseFinishReasons, finishReasons)
+			sort.Ints(indexes)
+			finishReasons := make([]string, 0, len(indexes))
+			for _, idx := range indexes {
+				finishReasons = append(finishReasons, finishReasonByIndex[idx])
 			}
+			semconv.SetStringSliceAttribute(span, semconv.GenAIResponseFinishReasons, finishReasons)
 		}
 	}
 
