@@ -39,6 +39,7 @@ xmltodict
 
 # Utilities
 bs4
+llm-prices>=1.3.0
 torch
 aiohttp
 pyyaml
