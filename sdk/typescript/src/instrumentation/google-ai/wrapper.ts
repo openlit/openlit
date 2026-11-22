@@ -183,7 +183,7 @@ class GoogleAIWrapper extends BaseWrapper {
           promptTokenCount: 0,
           candidatesTokenCount: 0,
           totalTokenCount: 0,
-        },
+        } as Record<string, any>,
         functionCall: null as any,
       };
 
@@ -231,6 +231,8 @@ class GoogleAIWrapper extends BaseWrapper {
 
         if (chunk.usageMetadata) {
           result.usageMetadata = {
+            ...result.usageMetadata,
+            ...chunk.usageMetadata,
             promptTokenCount: chunk.usageMetadata.promptTokenCount || result.usageMetadata.promptTokenCount,
             candidatesTokenCount: chunk.usageMetadata.candidatesTokenCount || result.usageMetadata.candidatesTokenCount,
             totalTokenCount: chunk.usageMetadata.totalTokenCount || result.usageMetadata.totalTokenCount,
