@@ -72,7 +72,7 @@ class Schema(Guard):
     ----------
     action : str
         ``"deny"`` (default) or ``"warn"``.
-    json : bool
+    json_mode : bool
         If ``True``, just verify the output is parseable JSON.
     schema : dict, optional
         A JSON-schema-like dict to validate against.
@@ -105,6 +105,9 @@ class Schema(Guard):
                 classification="invalid_json",
                 explanation=f"Output is not valid JSON: {exc}",
             )
+
+        if self._json_mode:
+            return GuardResult(guard_name=self.name)
 
         if self._schema:
             err = _validate_json_schema(parsed, self._schema)
