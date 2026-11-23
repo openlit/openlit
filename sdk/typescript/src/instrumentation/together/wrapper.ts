@@ -200,6 +200,13 @@ class TogetherWrapper extends BaseWrapper {
         if (chunk.choices[0]?.finish_reason) {
           result.choices[0].finish_reason = chunk.choices[0].finish_reason;
         }
+
+        // Together emits the provider's real usage on the final chunk.
+        if (chunk.usage) {
+          result.usage.prompt_tokens = chunk.usage.prompt_tokens || 0;
+          result.usage.completion_tokens = chunk.usage.completion_tokens || 0;
+          result.usage.total_tokens = chunk.usage.total_tokens || 0;
+        }
         if (chunk.choices[0]?.delta?.content) {
           result.choices[0].message.content += chunk.choices[0].delta.content;
         }
