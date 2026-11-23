@@ -190,6 +190,13 @@ class HuggingFaceWrapper extends BaseWrapper {
         if (chunk.choices?.[0]?.finish_reason) {
           result.choices[0].finish_reason = chunk.choices[0].finish_reason;
         }
+
+        // The final chunk carries the provider's real usage when available.
+        if (chunk.usage) {
+          result.usage.prompt_tokens = chunk.usage.prompt_tokens || 0;
+          result.usage.completion_tokens = chunk.usage.completion_tokens || 0;
+          result.usage.total_tokens = chunk.usage.total_tokens || 0;
+        }
         if (chunk.choices?.[0]?.delta?.content) {
           result.choices[0].message.content += chunk.choices[0].delta.content;
         }
@@ -231,17 +238,21 @@ class HuggingFaceWrapper extends BaseWrapper {
         } as any;
       }
 
-      let promptTokens = 0;
-      for (const message of messages || []) {
-        promptTokens += OpenLitHelper.generalTokens(message.content as string) ?? 0;
-      }
-      const completionTokens = OpenLitHelper.generalTokens(result.choices[0].message.content ?? '');
-      if (completionTokens) {
-        result.usage = {
-          prompt_tokens: promptTokens,
-          completion_tokens: completionTokens,
-          total_tokens: promptTokens + completionTokens,
-        };
+      if (!result.usage.prompt_tokens && !result.usage.completion_tokens) {
+        let promptTokens = 0;
+        for (const message of messages || []) {
+          promptTokens += OpenLitHelper.generalTokens(message.content as string) ?? 0;
+        }
+        const completionTokens = OpenLitHelper.generalTokens(
+          result.choices[0].message.content ?? ''
+        );
+        if (completionTokens) {
+          result.usage = {
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: promptTokens + completionTokens,
+          };
+        }
       }
 
       args[0].tools = tools;
