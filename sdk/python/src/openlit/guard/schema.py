@@ -34,19 +34,20 @@ def _validate_json_schema(
             "null": type(None),
         }
 
-        def matches(name: Any) -> bool:
-            expected = type_map.get(name) if isinstance(name, str) else None
-            if expected is None:
-                return True
+        # Unknown or non-string names are ignored. When none are known, the type
+        # is not checked, as for a single unknown type.
+        known = [name for name in types if isinstance(name, str) and name in type_map]
+
+        def matches(name: str) -> bool:
             # In Python, bool is a subclass of int, but JSON Schema treats booleans
             # as a separate primitive type from numbers.
             if name in ("integer", "number") and isinstance(data, bool):
                 return False
-            return isinstance(data, expected)
+            return isinstance(data, type_map[name])
 
-        if not any(matches(name) for name in types):
+        if known and not any(matches(name) for name in known):
             return (
-                f"Expected {' or '.join(map(str, types))} at {path or 'root'}, "
+                f"Expected {' or '.join(known)} at {path or 'root'}, "
                 f"got {type(data).__name__}"
             )
 

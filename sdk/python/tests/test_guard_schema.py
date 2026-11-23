@@ -93,3 +93,18 @@ def test_pipeline_denies_type_list_mismatch_instead_of_failing_open():
     )
 
     assert result.action == GuardAction.DENY
+
+
+@pytest.mark.parametrize(
+    "schema_type, value, action",
+    [
+        (["strng", "null"], "42", GuardAction.DENY),
+        (["strng", "null"], "null", GuardAction.ALLOW),
+        (["strng"], "42", GuardAction.ALLOW),
+    ],
+)
+def test_type_list_ignores_unknown_names(schema_type, value, action):
+    """Unknown names never match; with no known name left the type is not checked."""
+    result = Schema(schema={"type": schema_type}).evaluate(value)
+
+    assert result.action == action
