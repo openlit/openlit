@@ -471,7 +471,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Update Homebrew tap
-        uses: dawidd6/action-homebrew-bump-formula@a0e064e08103c01870c6d1b05168d1b726aab119 # v8
+        uses: dawidd6/action-homebrew-bump-formula@346ef10bbd55df1c9c70fbaa6b016d26876eefb1 # v11
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           tap: openlit/homebrew-openlit
