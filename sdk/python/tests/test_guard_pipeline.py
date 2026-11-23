@@ -222,4 +222,3 @@ class TestModerationRedaction:
         assert result.transformed_text is not None
         assert "[REDACTED:toxicity]" in result.transformed_text
         assert "kill yourself" not in result.transformed_text.lower()
-
