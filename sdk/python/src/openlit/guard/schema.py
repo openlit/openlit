@@ -16,8 +16,13 @@ from openlit.guard._base import Guard, GuardPhase, GuardResult
 def _validate_json_schema(
     data: Any, schema: Dict[str, Any], path: str = ""
 ) -> Optional[str]:
-    """Minimal recursive JSON schema validator (type, required, properties)."""
+    """Minimal recursive JSON schema validator (type, required, properties).
+
+    ``type`` may be a single name or a list of names, such as
+    ``["string", "null"]`` for a nullable field.
+    """
     schema_type = schema.get("type")
+    types = schema_type if isinstance(schema_type, list) else [schema_type]
     if schema_type:
         type_map = {
             "object": dict,
@@ -28,18 +33,25 @@ def _validate_json_schema(
             "boolean": bool,
             "null": type(None),
         }
-        expected = type_map.get(schema_type)
-        # In Python, bool is a subclass of int, but JSON Schema treats booleans
-        # as a separate primitive type from numbers.
-        is_boolean_for_numeric = (
-            schema_type in ("integer", "number") and isinstance(data, bool)
-        )
-        if expected and (is_boolean_for_numeric or not isinstance(data, expected)):
+
+        # Unknown or non-string names are ignored. When none are known, the type
+        # is not checked, as for a single unknown type.
+        known = [name for name in types if isinstance(name, str) and name in type_map]
+
+        def matches(name: str) -> bool:
+            # In Python, bool is a subclass of int, but JSON Schema treats booleans
+            # as a separate primitive type from numbers.
+            if name in ("integer", "number") and isinstance(data, bool):
+                return False
+            return isinstance(data, type_map[name])
+
+        if known and not any(matches(name) for name in known):
             return (
-                f"Expected {schema_type} at {path or 'root'}, got {type(data).__name__}"
+                f"Expected {' or '.join(known)} at {path or 'root'}, "
+                f"got {type(data).__name__}"
             )
 
-    if schema_type == "object" and isinstance(data, dict):
+    if "object" in types and isinstance(data, dict):
         for field_name in schema.get("required", []):
             if field_name not in data:
                 return f"Missing required field '{field_name}' at {path or 'root'}"
@@ -53,7 +65,7 @@ def _validate_json_schema(
                 if err:
                     return err
 
-    if schema_type == "array" and isinstance(data, list):
+    if "array" in types and isinstance(data, list):
         items_schema = schema.get("items")
         if items_schema:
             for i, item in enumerate(data):
