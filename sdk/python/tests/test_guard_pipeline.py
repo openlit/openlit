@@ -180,3 +180,45 @@ class TestPipelineResults:
         pipeline = Pipeline(guards=[PII(action="deny")])
         result = pipeline.evaluate("user@example.com", phase="preflight")
         assert result.results[0].latency_ms >= 0
+
+
+class TestModerationRedaction:
+    """Redact must replace every flagged span, not just profanity."""
+
+    def test_toxicity_is_redacted(self):
+        """Toxicity-only text is redacted and the toxic phrase is removed."""
+        result = Moderation(action="redact").evaluate("kill yourself")
+
+        assert result.action == GuardAction.REDACT
+        assert result.classification == "toxicity"
+        assert result.score == 0.95
+        assert result.transformed_text is not None
+        assert "[REDACTED:toxicity]" in result.transformed_text
+        assert "kill yourself" not in result.transformed_text.lower()
+
+    def test_profanity_redaction_still_works(self):
+        """Profanity-only redaction keeps its existing placeholder."""
+        result = Moderation(action="redact").evaluate("what the damn hell")
+
+        assert result.action == GuardAction.REDACT
+        assert result.transformed_text is not None
+        assert "[REDACTED:profanity]" in result.transformed_text
+        assert "damn" not in result.transformed_text.lower()
+
+    def test_clean_text_unchanged(self):
+        """Clean text is allowed with no transformation."""
+        result = Moderation(action="redact").evaluate("Hello world")
+
+        assert result.action == GuardAction.ALLOW
+        assert result.transformed_text is None
+        assert result.classification == ""
+
+    def test_pipeline_forwards_redacted_toxicity(self):
+        """The pipeline no longer forwards toxic text to later guards."""
+        pipeline = Pipeline(guards=[Moderation(action="redact")])
+        result = pipeline.evaluate("kill yourself", phase="preflight")
+
+        assert result.action == GuardAction.REDACT
+        assert result.transformed_text is not None
+        assert "[REDACTED:toxicity]" in result.transformed_text
+        assert "kill yourself" not in result.transformed_text.lower()

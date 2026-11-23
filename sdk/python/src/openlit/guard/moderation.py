@@ -41,6 +41,14 @@ _TOXICITY_PATTERNS: List[re.Pattern] = [
     re.compile(r"\b(?:i(?:'ll| will)\s+(?:kill|hurt|destroy)\s+you)\b", re.IGNORECASE),
 ]
 
+# Single alternation of the toxicity patterns, used only for redaction.  The
+# per-pattern list above is kept intact so classification/score detection
+# retains its existing semantics.
+_TOXICITY_RE = re.compile(
+    "|".join(f"(?:{pattern.pattern})" for pattern in _TOXICITY_PATTERNS),
+    re.IGNORECASE,
+)
+
 
 def _build_profanity_pattern(words: List[str]) -> re.Pattern:
     escaped = [re.escape(w) for w in words]
@@ -90,7 +98,8 @@ class Moderation(Guard):
 
         transformed: Optional[str] = None
         if self._action.value == "redact":
-            transformed = self._profanity_re.sub("[REDACTED:profanity]", text)
+            redacted = self._profanity_re.sub("[REDACTED:profanity]", text)
+            transformed = _TOXICITY_RE.sub("[REDACTED:toxicity]", redacted)
 
         return GuardResult(
             action=self._action,
