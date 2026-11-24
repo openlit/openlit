@@ -37,6 +37,8 @@ var shouldRedactTier1 = []struct {
 	{"jwt", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0.signature123"},
 	{"bearer_header", "Authorization: Bearer abc123def456ghi789jkl"},
 	{"private_key", "-----BEGIN RSA PRIVATE KEY-----\nMIIEvQIBADANBgkq\n-----END RSA PRIVATE KEY-----"},
+	{"private_key_pkcs8", "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkq\n-----END PRIVATE KEY-----"},
+	{"private_key_pgp", "-----BEGIN PGP PRIVATE KEY BLOCK-----\n\nlQOYBFBxyzB\n-----END PGP PRIVATE KEY BLOCK-----"},
 	{"azure_sas_sig", "?sv=2021-08-06&sig=AbCdEf%2BGhIj0123456789xyzPQR%3D"},
 	{"azure_storage_conn", "DefaultEndpointsProtocol=https;AccountName=foo;AccountKey=AbCdEfGh1234567890abcdefghijklmn=="},
 	{"hf_token", "hf_AbCdEfGhIjKlMnOpQrStUvWx12"},

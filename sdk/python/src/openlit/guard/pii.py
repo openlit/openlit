@@ -42,12 +42,15 @@ _p("azure-key", r"[0-9a-f]{32}")  # very generic; kept short to reduce FPs
 _p("heroku-api-key", r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 # ---- PII ----
-_p("email", r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}")
+_p("email", r"[a-zA-Z0-9_.+-]+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}")
 _p("phone-us", r"(?<!\d)(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}(?!\d)")
 _p("ssn", r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
 _p(
     "credit-card",
-    r"(?<!\d)(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}(?!\d)",
+    r"(?<!\d)(?:"
+    r"(?:4\d{3}|5[1-5]\d{2}|6(?:011|5\d{2}))[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}"
+    r"|3[47]\d{2}[-\s]?\d{6}[-\s]?\d{5}"  # American Express: 15 digits, 4-6-5
+    r")(?!\d)",
 )
 _p(
     "ipv4",
@@ -57,7 +60,17 @@ _p(
 # ---- Secrets / credentials ----
 _p("bearer-token", r"Bearer\s+[A-Za-z0-9_\-.~+/]+=*", re.IGNORECASE)
 _p("basic-auth", r"Basic\s+[A-Za-z0-9+/]+=*", re.IGNORECASE)
-_p("private-key", r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----")
+# The whole block or, if it is cut off, the armor headers and base64 lines after
+# BEGIN.  Lines may carry a diff or quote prefix.
+_p(
+    "private-key",
+    r"-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----"
+    r"(?:(?:(?!-----(?:BEGIN|END) )[\s\S])*"
+    r"-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----"
+    r"|(?:(?:\s|\\[rn])+(?:[-+>|#][ \t]*)?"
+    r"(?:(?:Proc-Type|DEK-Info|Version|Comment): [^\r\n\\]*"
+    r"|[A-Za-z0-9+/=]{20,}))*)",
+)
 _p("connection-string", r"(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis|amqp)://\S+")
 _p("env-secret", r"(?i)(?:password|secret|token|api_key|apikey)\s*[=:]\s*\S+")
 

@@ -29,15 +29,18 @@ const PATTERNS: PatternEntry[] = [
   { label: 'azure-key', regex: /[0-9a-f]{32}/ },
   { label: 'heroku-api-key', regex: /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/ },
   // ---- PII ----
-  { label: 'email', regex: /[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/ },
+  { label: 'email', regex: /[a-zA-Z0-9_.+-]+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}/ },
   { label: 'phone-us', regex: /(?<!\d)(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}(?!\d)/ },
   { label: 'ssn', regex: /(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)/ },
-  { label: 'credit-card', regex: /(?<!\d)(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}(?!\d)/ },
+  // The second part is American Express: 15 digits, 4-6-5
+  { label: 'credit-card', regex: /(?<!\d)(?:(?:4\d{3}|5[1-5]\d{2}|6(?:011|5\d{2}))[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}|3[47]\d{2}[-\s]?\d{6}[-\s]?\d{5})(?!\d)/ },
   { label: 'ipv4', regex: /(?<!\d)(?:25[0-5]|2[0-4]\d|[01]?\d\d?)(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)){3}(?!\d)/ },
   // ---- Secrets / credentials ----
   { label: 'bearer-token', regex: /Bearer\s+[A-Za-z0-9_\-.~+/]+=*/i },
   { label: 'basic-auth', regex: /Basic\s+[A-Za-z0-9+/]+=*/i },
-  { label: 'private-key', regex: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/ },
+  // The whole block or, if it is cut off, the armor headers and base64 lines after
+  // BEGIN. Lines may carry a diff or quote prefix.
+  { label: 'private-key', regex: /-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----(?:(?:(?!-----(?:BEGIN|END) )[\s\S])*-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----|(?:(?:\s|\\[rn])+(?:[-+>|#][ \t]*)?(?:(?:Proc-Type|DEK-Info|Version|Comment): [^\r\n\\]*|[A-Za-z0-9+/=]{20,}))*)/ },
   { label: 'connection-string', regex: /(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis|amqp):\/\/\S+/ },
   { label: 'env-secret', regex: /(?:password|secret|token|api_key|apikey)\s*[=:]\s*\S+/i },
 ];
