@@ -44,6 +44,7 @@ func (c *InstrumentedClient) createChatCompletion(ctx context.Context, req ChatC
 			if errType == "" {
 				errType = fmt.Sprintf("%T", retErr)
 			}
+			span.SetAttributes(attribute.String(semconv.ErrorType, errType))
 			operationDurationHistogram.Record(ctx, time.Since(startTime).Seconds(),
 				metric.WithAttributes(
 					attribute.String(semconv.GenAISystem, semconv.GenAISystemVLLM),

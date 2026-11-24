@@ -14,6 +14,7 @@ import (
 	openlit "github.com/openlit/openlit/sdk/go"
 	"github.com/openlit/openlit/sdk/go/semconv"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
@@ -655,5 +656,68 @@ func TestCreateMessage_Streaming_CacheOnlySpan(t *testing.T) {
 	}
 	if got := attrInt(span, semconv.GenAIUsageTotalTokens); got != 0 {
 		t.Errorf("total_tokens: want 0, got %d", got)
+	}
+}
+
+func attrString(span sdktrace.ReadOnlySpan, key string) string {
+	for _, a := range span.Attributes() {
+		if string(a.Key) == key {
+			return a.Value.AsString()
+		}
+	}
+	return ""
+}
+
+func TestSpanErrorType_NonStreamingFailure(t *testing.T) {
+	cases := []struct {
+		name   string
+		status int
+		want   string
+	}{
+		{"rate limit", http.StatusTooManyRequests, "429"},
+		{"server error", http.StatusInternalServerError, "500"},
+		{"transport error", 0, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				fmt.Fprint(w, `{"error":{"message":"failed"}}`)
+			}))
+			if tc.status == 0 {
+				srv.Close()
+			} else {
+				defer srv.Close()
+			}
+
+			sr := setupSpanRecorder(t)
+			client := NewClient("sk-ant-test", WithBaseURL(srv.URL))
+			_, err := client.CreateMessage(context.Background(), MessageRequest{Model: "claude-3-5-sonnet-20241022", MaxTokens: 100, Messages: []Message{{Role: "user", Content: "Hello"}}})
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+
+			span := waitForEndedSpan(t, sr)
+			if span.Status().Code != codes.Error {
+				t.Errorf("status: want Error, got %v", span.Status().Code)
+			}
+			exceptions := 0
+			for _, ev := range span.Events() {
+				if ev.Name == "exception" {
+					exceptions++
+				}
+			}
+			if exceptions != 1 {
+				t.Errorf("exception events: want 1, got %d", exceptions)
+			}
+			got := attrString(span, semconv.ErrorType)
+			if tc.want == "" {
+				if want := fmt.Sprintf("%T", err); got != want {
+					t.Errorf("error.type: want %q, got %q", want, got)
+				}
+			} else if got != tc.want {
+				t.Errorf("error.type: want %q, got %q", tc.want, got)
+			}
+		})
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/openlit/openlit/sdk/go/helpers"
 	"github.com/openlit/openlit/sdk/go/semconv"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
@@ -723,5 +724,63 @@ func TestChatCompletion_StreamingOutputMessages(t *testing.T) {
 	}
 	if attrFloat(span, semconv.GenAIServerTimeToFirstToken) <= 0 {
 		t.Error("expected TTFT > 0 on streaming span")
+	}
+}
+
+func TestSpanErrorType_NonStreamingFailure(t *testing.T) {
+	cases := []struct {
+		name   string
+		status int
+		want   string
+	}{
+		{"rate limit", http.StatusTooManyRequests, "429"},
+		{"server error", http.StatusInternalServerError, "500"},
+		{"transport error", 0, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				fmt.Fprint(w, `{"error":{"message":"failed"}}`)
+			}))
+			if tc.status == 0 {
+				srv.Close()
+			} else {
+				defer srv.Close()
+			}
+
+			sr := setupSpanRecorder(t)
+			client := NewClient(srv.URL)
+			_, err := client.CreateChatCompletion(context.Background(), ChatCompletionRequest{Model: "facebook/opt-125m", Messages: []ChatMessage{{Role: "user", Content: "Hello"}}})
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+
+			ended := sr.Ended()
+			if len(ended) != 1 {
+				t.Fatalf("want 1 ended span, got %d", len(ended))
+			}
+			span := ended[0]
+			if span.Status().Code != codes.Error {
+				t.Errorf("status: want Error, got %v", span.Status().Code)
+			}
+			exceptions := 0
+			for _, ev := range span.Events() {
+				if ev.Name == "exception" {
+					exceptions++
+				}
+			}
+			if exceptions != 1 {
+				t.Errorf("exception events: want 1, got %d", exceptions)
+			}
+			got := attrString(span, semconv.ErrorType)
+			if tc.want == "" {
+				if want := fmt.Sprintf("%T", err); got != want {
+					t.Errorf("error.type: want %q, got %q", want, got)
+				}
+			} else if got != tc.want {
+				t.Errorf("error.type: want %q, got %q", tc.want, got)
+			}
+		})
 	}
 }
