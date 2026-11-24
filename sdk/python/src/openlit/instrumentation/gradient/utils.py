@@ -307,6 +307,14 @@ def emit_inference_event(
                 attributes[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] = value
             elif key == "output_tokens":
                 attributes[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] = value
+            elif key == "cache_read_input_tokens":
+                attributes[SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS] = (
+                    value
+                )
+            elif key == "cache_creation_input_tokens":
+                attributes[
+                    SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS
+                ] = value
             elif key == "error_type":
                 attributes[SemanticConvention.ERROR_TYPE] = value
             elif key == "system_instructions":
@@ -322,6 +330,18 @@ def emit_inference_event(
             event_provider.emit(event)
     except Exception as exc:
         logger.warning("Failed to emit inference event: %s", exc, exc_info=True)
+
+
+def apply_cache_usage(scope, usage):
+    """Read prompt-cache counts from a chat-completions `usage` payload."""
+    scope._cache_read_input_tokens = (
+        usage.get("cache_read_input_tokens")
+        or (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
+        or scope._cache_read_input_tokens
+    )
+    scope._cache_creation_input_tokens = (
+        usage.get("cache_created_input_tokens") or scope._cache_creation_input_tokens
+    )
 
 
 def _normalize_stop(stop):
@@ -395,6 +415,7 @@ def process_chunk(scope, chunk):
     if usage:
         scope._input_tokens = usage.get("prompt_tokens") or scope._input_tokens
         scope._output_tokens = usage.get("completion_tokens") or scope._output_tokens
+        apply_cache_usage(scope, usage)
 
 
 def process_response_chunk(scope, chunk):
@@ -462,7 +483,13 @@ def common_chat_logic(
         scope._output_tokens = general_tokens(scope._llmresponse or "")
 
     cost = get_chat_model_cost(
-        request_model, pricing_info, scope._input_tokens, scope._output_tokens
+        request_model,
+        pricing_info,
+        scope._input_tokens,
+        scope._output_tokens,
+        cache_read_tokens=getattr(scope, "_cache_read_input_tokens", 0) or 0,
+        cache_creation_tokens=getattr(scope, "_cache_creation_input_tokens", 0) or 0,
+        prompt_tokens_include_cache=True,
     )
 
     common_span_attributes(
@@ -576,6 +603,14 @@ def common_chat_logic(
         scope._input_tokens + scope._output_tokens,
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+        getattr(scope, "_cache_read_input_tokens", 0) or 0,
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+        getattr(scope, "_cache_creation_input_tokens", 0) or 0,
+    )
     if getattr(scope, "_reasoning_tokens", 0):
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, scope._reasoning_tokens
@@ -654,6 +689,12 @@ def common_chat_logic(
             "top_p": body.get("top_p"),
             "input_tokens": scope._input_tokens,
             "output_tokens": scope._output_tokens,
+            "cache_read_input_tokens": getattr(scope, "_cache_read_input_tokens", 0)
+            or None,
+            "cache_creation_input_tokens": getattr(
+                scope, "_cache_creation_input_tokens", 0
+            )
+            or None,
             **version_extras,
         }
         if capture_message_content and system_instr:
@@ -711,6 +752,8 @@ def _new_scope(body, span, start_time, server_address, server_port, response_dic
     scope._input_tokens = 0
     scope._output_tokens = 0
     scope._reasoning_tokens = 0
+    scope._cache_read_input_tokens = 0
+    scope._cache_creation_input_tokens = 0
     if response_dict is not None:
         scope._response_id = response_dict.get("id", "") or ""
         scope._response_model = response_dict.get("model", "") or ""
@@ -757,6 +800,7 @@ def process_chat_response(
     usage = response_dict.get("usage") or {}
     scope._input_tokens = usage.get("prompt_tokens", 0) or 0
     scope._output_tokens = usage.get("completion_tokens", 0) or 0
+    apply_cache_usage(scope, usage)
 
     common_chat_logic(
         scope,
