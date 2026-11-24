@@ -82,6 +82,7 @@ Export
   - Windows NVIDIA: `nvml.dll` (shipped with the driver)
   - Windows AMD/Intel: DXGI + Performance Counters (PDH); thermals/power may be limited vs Linux sysfs
 - For eBPF tracing: Linux kernel 5.8+ with `CAP_BPF` + `CAP_PERFMON` (or root); Docker also needs `--ulimit memlock=-1:-1`
+  - With `--pid=host` / `hostPID: true`, if GPU workloads run as a different user than the collector (e.g. collector as root, Ollama as uid 1000), also add `CAP_SYS_PTRACE`: CUDA library discovery reads `/proc/<pid>/maps` and `/proc/<pid>/root`, which the kernel only allows for another user's process with that capability. Root inside a container does not have it by default
 
 ### Docker
 
@@ -249,7 +250,7 @@ Follows the [OTel semantic conventions for process metrics](https://opentelemetr
 
 ### eBPF CUDA Tracing (on by default on Linux)
 
-On by default on Linux. Discovers `libcudart.so*` (CUDA runtime API) and `libcuda.so*` (CUDA driver API) from install paths and `/proc/*/maps` (use `--pid=host` / `hostPID: true` so containerized/fleet workloads are visible — no CUDA toolkit mount required). Driver-API probes cover frameworks that never load `libcudart` (llama.cpp, Ollama). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). Docker/K8s: also raise memlock (`--ulimit memlock=-1:-1`). Set `OTEL_GPU_EBPF_ENABLED=false` to disable. AMD/Intel process metrics do not use eBPF.
+On by default on Linux. Discovers `libcudart.so*` (CUDA runtime API) and `libcuda.so*` (CUDA driver API) from install paths and `/proc/*/maps` (use `--pid=host` / `hostPID: true` so containerized/fleet workloads are visible — no CUDA toolkit mount required). Driver-API probes cover frameworks that never load `libcudart` (llama.cpp, Ollama). Soft-fails without `CAP_BPF` + `CAP_PERFMON` (or root). If workloads run as a different user than the collector, also add `CAP_SYS_PTRACE` (Kubernetes: `securityContext.capabilities.add: ["SYS_PTRACE"]`); without it their `/proc/<pid>/maps` is unreadable, so libraries loaded only inside those workloads are never found and the collector keeps rescanning `/proc` without logging an error. Docker/K8s: also raise memlock (`--ulimit memlock=-1:-1`). Set `OTEL_GPU_EBPF_ENABLED=false` to disable. AMD/Intel process metrics do not use eBPF.
 
 | Metric | Type | Unit | Description | Attributes |
 |---|---|---|---|---|
