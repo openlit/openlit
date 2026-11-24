@@ -712,8 +712,8 @@ func TestSpanErrorType_NonStreamingFailure(t *testing.T) {
 			}
 			got := attrString(span, semconv.ErrorType)
 			if tc.want == "" {
-				if !strings.HasPrefix(got, "*") {
-					t.Errorf("error.type: want Go type name, got %q", got)
+				if want := fmt.Sprintf("%T", err); got != want {
+					t.Errorf("error.type: want %q, got %q", want, got)
 				}
 			} else if got != tc.want {
 				t.Errorf("error.type: want %q, got %q", tc.want, got)
