@@ -224,7 +224,7 @@ rm /usr/local/bin/opentelemetry-gpu-collector
     - The process needs `CAP_BPF` and `CAP_PERFMON`, or run as root
     - For Docker: `--cap-add CAP_BPF --cap-add CAP_PERFMON`, `--pid=host`, and `--ulimit memlock=-1:-1` (BPF maps need locked memory; no CUDA mount needed)
     - For Kubernetes: `hostPID: true` plus BPF capabilities (or `SYS_ADMIN`); raise memlock if map create returns EPERM
-    - If GPU workloads run as a different user than the collector (e.g. Ollama as uid 1000), add `SYS_PTRACE`. Reading another user's `/proc/<pid>/maps` and `/proc/<pid>/root` needs it, and `SYS_ADMIN`, `BPF`, and `PERFMON` do not grant it. Symptom: after the startup message `no CUDA runtime or driver library found yet`, no `attached CUDA probes after /proc rescan` line appears while a CUDA workload is running
+    - If GPU workloads run as a different user than the collector (e.g. Ollama as uid 1000), add `SYS_PTRACE`. Reading another user's `/proc/<pid>/maps` and `/proc/<pid>/root` needs it, and `SYS_ADMIN`, `BPF`, and `PERFMON` do not grant it. Symptom: no `attached CUDA probes after /proc rescan` line appears while a CUDA workload is running (the `no CUDA runtime or driver library found yet` startup message is not logged when a driver library is found on disk, so its absence does not rule this out)
     - If no CUDA process is running yet, the collector rescans `/proc` every 30s
     - Verify a workload has loaded CUDA: `grep -E 'libcudart|libcuda.so' /proc/*/maps 2>/dev/null | head`
   </Accordion>
