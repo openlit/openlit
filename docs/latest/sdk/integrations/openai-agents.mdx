@@ -35,6 +35,10 @@ The integration is compatible with
   <IntegrationMethods />
 </Steps>
 
+## Sensitive data
+
+On the Python SDK, the `create_agent` span records the agent's instructions only when `capture_message_content` is enabled and the Agents SDK's own sensitive-data default is on. Setting `OPENAI_AGENTS_TRACE_INCLUDE_SENSITIVE_DATA=false` omits the instructions from `create_agent` spans. A `RunConfig(trace_include_sensitive_data=...)` passed to an individual run is not seen at agent creation, so it does not change this.
+
 ---
 
 <CardGroup cols={3}>
