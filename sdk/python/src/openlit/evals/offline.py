@@ -354,13 +354,13 @@ def fetch_eval_types(
             )
             for t in data.get("eval_types", [])
         ]
-    except requests.exceptions.ConnectionError as exc:
-        raise ConnectionError(
-            f"Cannot connect to OpenLIT server at {url}: {exc}"
-        ) from exc
     except requests.exceptions.Timeout as exc:
         raise TimeoutError(
             f"Request to OpenLIT server timed out after {_HTTP_TIMEOUT}s"
+        ) from exc
+    except requests.exceptions.ConnectionError as exc:
+        raise ConnectionError(
+            f"Cannot connect to OpenLIT server at {url}: {exc}"
         ) from exc
     except requests.RequestException as exc:
         raise RuntimeError(f"Failed to fetch eval types: {exc}") from exc

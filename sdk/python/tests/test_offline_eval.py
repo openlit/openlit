@@ -561,3 +561,22 @@ def test_fetch_eval_types_connection_error():
                 openlit_api_key="key",
                 openlit_url="http://localhost:3000",
             )
+
+
+@pytest.mark.parametrize(
+    "request_exception",
+    [requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout],
+)
+def test_get_eval_types_raises_timeout_error(request_exception):
+    """Connection and read timeouts have the same public exception type."""
+    from openlit import get_eval_types
+
+    error = request_exception("timed out")
+    with patch("openlit.evals.offline.requests.get", side_effect=error):
+        with pytest.raises(TimeoutError, match="timed out") as raised:
+            get_eval_types(
+                openlit_api_key="key",
+                openlit_url="http://localhost:3000",
+            )
+
+    assert raised.value.__cause__ is error
