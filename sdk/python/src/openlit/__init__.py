@@ -5,6 +5,7 @@ This module sets up the openLIT configuration and instrumentation for various
 large language models (LLMs).
 """
 
+from copy import copy
 from typing import Any, Dict
 import logging
 import os
@@ -911,8 +912,10 @@ class using_attributes(ContextDecorator):
         return super().__call__(func)
 
     def _recreate_cm(self):
-        # Each decorated call needs its own context token, including overlapping tasks.
-        return type(self)(self._attributes)
+        # Keep subclass state without assuming its constructor signature.
+        context = copy(self)
+        context._token = None
+        return context
 
     def __enter__(self):
         self._token = set_custom_attributes(self._attributes)
