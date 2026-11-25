@@ -5,6 +5,7 @@ export const VISIBLE_CONNECTOR_TYPES = [
 	"loki",
 	"prometheus",
 	"jaeger",
+	"signoz",
 	"claude",
 	"mem0",
 	"memcode",
