@@ -96,6 +96,19 @@ def async_chat_completions(
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
+        def __del__(self):
+            """Export the span when a caller drops the stream without closing it.
+
+            A bare ``async for chunk in stream:`` that breaks reaches none of the
+            paths that finalize the span, so the span would never be exported.
+            """
+            if self.__dict__.get("_span") is None:
+                return
+            try:
+                self._finalize_streaming_span()
+            except Exception:  # pragma: no cover - a GC callback must not raise
+                pass
+
         async def close(self):
             """Close the wrapped stream and finalize the span if it has not ended yet."""
             try:
@@ -339,6 +352,19 @@ def async_responses(
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
+
+        def __del__(self):
+            """Export the span when a caller drops the stream without closing it.
+
+            A bare ``async for chunk in stream:`` that breaks reaches none of the
+            paths that finalize the span, so the span would never be exported.
+            """
+            if self.__dict__.get("_span") is None:
+                return
+            try:
+                self._finalize_streaming_span()
+            except Exception:  # pragma: no cover - a GC callback must not raise
+                pass
 
         async def close(self):
             """Close the wrapped stream and finalize the span if it has not ended yet."""
