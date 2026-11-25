@@ -468,6 +468,15 @@ OpenLIT enables stricter API protections by default, including security response
   ```
 </ResponseField>
 
+<ResponseField name="OPENLIT_TRACE_IMPROVEMENT_TIMEOUT_MS">
+  How long, in milliseconds, the trace improvement view waits for an AI analysis run to finish before it reports a timeout. Defaults to `120000` (2 minutes). Raise it when a local or slower model needs more time to analyse large traces. This limits the whole run, while `OPENLIT_MODEL_ENDPOINT_TIMEOUT_MS` limits how long a single model call can go without receiving data.
+
+  **Example**:
+  ```yaml
+  export OPENLIT_TRACE_IMPROVEMENT_TIMEOUT_MS=1800000
+  ```
+</ResponseField>
+
 <ResponseField name="OPENLIT_ALLOWED_CORS_ORIGINS">
   Comma-separated list of browser origins that are allowed to call API-key authenticated Vault secret retrieval from another domain.
 

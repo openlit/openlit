@@ -555,7 +555,8 @@ ${bearerAuthHeaders(apiKey)}`,
         "createdAt": "2026-09-02T12:00:00.000Z"
       }
     ]
-  }
+  },
+  "timeoutMs": 120000
 }`,
 		curlExample: (apiKey) => `curl -X GET "http://localhost:3000/api/chat/improvement/some-span-id?scope=trace&traceId=some-trace-id" \\
 ${bearerAuthHeaders(apiKey)}`,

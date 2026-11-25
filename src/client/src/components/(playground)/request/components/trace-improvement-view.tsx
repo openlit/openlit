@@ -38,6 +38,7 @@ import { TRACE_ANALYSIS_DIMENSION_REGISTRY } from "@/lib/platform/chat/trace-ana
 import { useRequest } from "../request-context";
 import getMessage from "@/constants/messages";
 import { CLIENT_EVENTS } from "@/constants/events";
+import { DEFAULT_TRACE_IMPROVEMENT_TIMEOUT_MS } from "@/lib/platform/chat/improvement-timeout";
 
 type TraceAnalysisRunResponse = {
 	id: string;
@@ -482,6 +483,9 @@ export default function TraceImprovementView({
 	const [isFetched, setIsFetched] = useState(false);
 	const [steps, setSteps] = useState<ImprovementStep[]>([]);
 	const requestKeyRef = useRef(`${scope}:${spanId}`);
+	// The server sends its configured limit with the saved runs; until then the
+	// default applies.
+	const runTimeoutMsRef = useRef(DEFAULT_TRACE_IMPROVEMENT_TIMEOUT_MS);
 
 	const getRequestKey = (targetSpanId = spanId, targetScope = scope) =>
 		`${targetScope}:${targetSpanId}`;
@@ -516,6 +520,9 @@ export default function TraceImprovementView({
 			}
 			const result = await res.json();
 			if (requestKeyRef.current !== requestKey) return;
+			if (Number.isFinite(result?.timeoutMs) && result.timeoutMs > 0) {
+				runTimeoutMsRef.current = result.timeoutMs;
+			}
 			setAnalysis(result);
 			posthog?.capture(CLIENT_EVENTS.AI_ANALYSIS_VIEWED, {
 				spanId: targetSpanId,
@@ -591,7 +598,7 @@ export default function TraceImprovementView({
 		setSteps([]);
 
 		const abortController = new AbortController();
-		const timeoutId = setTimeout(() => abortController.abort(), 120_000);
+		const timeoutId = setTimeout(() => abortController.abort(), runTimeoutMsRef.current);
 
 		try {
 			const params = new URLSearchParams();
