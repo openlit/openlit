@@ -56,10 +56,27 @@ These are the data-source connectors available in open-source OpenLIT. OpenPlait
 | **Grafana Loki** | `@openplait/adapter-loki` | logs | LogQL logs; correlate by trace id / service |
 | **Prometheus** | `@openplait/adapter-prometheus` | metrics | PromQL HTTP API (also works with Prometheus-compatible endpoints such as Mimir when you point at their query URL) |
 | **Jaeger** | `@openplait/adapter-jaeger` | traces | Jaeger Query HTTP API; sampled in-process aggregates |
+| **Generic OTLP HTTP** | `datasource/otlp-http` (in-repo) | traces | Any backend exposing OTLP JSON over HTTP (collectors, gateways, bespoke OTel pipelines) |
 
 <Tip>
 Prometheus-compatible APIs (for example Grafana Mimir's PromQL endpoint) use the **Prometheus** connector — there is no separate Mimir connector type in open-source OpenLIT.
 </Tip>
+
+### Generic OTLP HTTP
+
+The universal fallback for backends that expose OTLP JSON over HTTP without a first-class OpenLIT connector.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Endpoint URL | Yes | Base URL of the OTLP HTTP endpoint. |
+| Auth | No | None, Basic, Bearer, or an API key sent as a configurable header (default `X-API-Key`). |
+| Signal toggles | No | Traces on by default; logs/metrics are not yet supported. |
+| Traces query path | No | Defaults to `/v1/traces`. Reads use `GET <path>?start&end&limit&offset` and `GET <path>/{traceId}`, both OTLP JSON. |
+| Health check path | No | Defaults to `/`. A `405` response counts as reachable. |
+
+<Note>
+OTLP is a push protocol with no standardized query API. The connector assumes the conventional GET contract above and makes the paths configurable so collectors and gateways with different layouts still work.
+</Note>
 
 ## Capability matrix
 
@@ -70,6 +87,7 @@ Prometheus-compatible APIs (for example Grafana Mimir's PromQL endpoint) use the
 | Loki | logs | — | — | No | No | trace id, service |
 | Prometheus | metrics | — | — | Yes | No | — |
 | Jaeger | traces | Yes | Yes | No* | No | trace / span / service |
+| Generic OTLP HTTP | traces | Yes | Yes | No | No | trace / span / service |
 
 \* Aggregate graphs are reconstructed in-process from a bounded sample of full traces when the backend cannot aggregate server-side.
 
