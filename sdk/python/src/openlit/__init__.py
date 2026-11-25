@@ -9,6 +9,7 @@ from typing import Any, Dict
 import logging
 import os
 from importlib.util import find_spec
+from inspect import iscoroutinefunction
 from functools import wraps
 from contextlib import ContextDecorator, contextmanager
 import requests
@@ -927,7 +928,7 @@ def inject_additional_attributes(fn, attributes: Dict[str, Any]):
 
 def trace(wrapped):
     """
-    Generates a telemetry wrapper for messages to collect metrics.
+    Trace a synchronous function or the awaited execution of a coroutine.
     """
     if not callable(wrapped):
         raise TypeError(
@@ -943,18 +944,14 @@ def trace(wrapped):
         )
         raise
 
-    @wraps(wrapped)
-    def wrapper(*args, **kwargs):
+    @contextmanager
+    def traced_operation(args, kwargs):
         with tracer.start_as_current_span(
             name=wrapped.__name__,
             kind=SpanKind.CLIENT,
         ) as span:
-            response = None
             try:
-                response = wrapped(*args, **kwargs)
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, response or ""
-                )
+                yield span
                 span.set_status(Status(StatusCode.OK))
             except Exception as e:
                 span.record_exception(e)
@@ -978,6 +975,24 @@ def trace(wrapped):
                     exc_info=True,
                 )
 
+    if iscoroutinefunction(wrapped):
+
+        @wraps(wrapped)
+        async def async_wrapper(*args, **kwargs):
+            with traced_operation(args, kwargs) as span:
+                response = await wrapped(*args, **kwargs)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, response or ""
+                )
+                return response
+
+        return async_wrapper
+
+    @wraps(wrapped)
+    def wrapper(*args, **kwargs):
+        with traced_operation(args, kwargs) as span:
+            response = wrapped(*args, **kwargs)
+            span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, response or "")
             return response
 
     return wrapper
