@@ -746,6 +746,8 @@ def eval_batch(
 def get_eval_types(openlit_api_key=None, openlit_url=None):
     """
     Fetch available evaluation types from the OpenLIT server.
+
+    Raises TimeoutError when connecting or reading the response times out.
     """
     from openlit.evals.offline import fetch_eval_types
 
