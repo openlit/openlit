@@ -815,7 +815,7 @@ func commandFromToolInput(toolName string, raw json.RawMessage, capture string) 
 	}
 	cmd := ""
 	switch strings.ToLower(toolName) {
-	case "shell", "local_shell", "local-shell":
+	case "bash", "shell", "local_shell", "local-shell":
 		cmd = pickStr("command", "cmd", "shell")
 		if cmd == "" {
 			// some shells ship an array — fall back to joining
@@ -845,10 +845,7 @@ func commandFromToolInput(toolName string, raw json.RawMessage, capture string) 
 	if capture == semconv.CodingAgentContentCaptureFull {
 		return cmd
 	}
-	if i := strings.IndexAny(cmd, " \t"); i > 0 {
-		return cmd[:i]
-	}
-	return cmd
+	return detect.CommandHead(cmd)
 }
 
 // isApplyPatchTool reports whether the tool name is Codex's edit tool.
@@ -898,8 +895,8 @@ func emitApplyPatchEditDecisions(in normalize.Input, p codexPayload, cwd string)
 }
 
 // applyPatchBody extracts the patch text from Codex's apply_patch
-// tool_input. Tries `input`, `patch`, and `diff` field names — Codex
-// has shipped each in different rollout versions.
+// tool_input. Codex hooks send it as `command`; `input`, `patch` and
+// `diff` are kept for older shapes.
 func applyPatchBody(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
@@ -908,7 +905,7 @@ func applyPatchBody(raw json.RawMessage) string {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return ""
 	}
-	for _, k := range []string{"input", "patch", "diff"} {
+	for _, k := range []string{"command", "input", "patch", "diff"} {
 		v, ok := m[k]
 		if !ok || len(v) == 0 {
 			continue
@@ -977,7 +974,7 @@ func emitGitArtifactsCodex(in normalize.Input, p codexPayload, cwd string) {
 
 func isShellTool(name string) bool {
 	switch strings.ToLower(name) {
-	case "shell", "local_shell", "local-shell":
+	case "bash", "shell", "local_shell", "local-shell":
 		return true
 	}
 	return false
