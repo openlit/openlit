@@ -613,7 +613,14 @@ def wrap_add_node(
                                 extract_llm_info_from_result,
                             )
 
-                            extract_llm_info_from_result(span, state, result)
+                            extract_llm_info_from_result(
+                                span,
+                                state,
+                                result,
+                                set_input_messages=capture_message_content,
+                                set_output_messages=capture_message_content,
+                                set_tool_call_arguments=capture_message_content,
+                            )
 
                             from opentelemetry.trace import Status, StatusCode
 
@@ -679,7 +686,14 @@ def wrap_add_node(
                                 extract_llm_info_from_result,
                             )
 
-                            extract_llm_info_from_result(span, state, result)
+                            extract_llm_info_from_result(
+                                span,
+                                state,
+                                result,
+                                set_input_messages=capture_message_content,
+                                set_output_messages=capture_message_content,
+                                set_tool_call_arguments=capture_message_content,
+                            )
 
                             from opentelemetry.trace import Status, StatusCode
 
