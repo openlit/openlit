@@ -4,6 +4,7 @@ from typing import Collection
 import importlib.metadata
 from opentelemetry import trace, _logs
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from opentelemetry.instrumentation.utils import unwrap
 from wrapt import wrap_function_wrapper
 
 from openlit._config import OpenlitConfig
@@ -66,4 +67,6 @@ class BedrockInstrumentor(BaseInstrumentor):
         )
 
     def _uninstrument(self, **kwargs):
-        pass
+        # _instrument stacks two wrappers on create_client; remove both.
+        unwrap("botocore.client.ClientCreator", "create_client")
+        unwrap("botocore.client.ClientCreator", "create_client")
