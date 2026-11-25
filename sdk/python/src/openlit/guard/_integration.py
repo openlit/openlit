@@ -297,36 +297,109 @@ GUARDED_METHODS: List[Tuple[str, str, Extractor, Extractor]] = [
 # ---------------------------------------------------------------------------
 
 
+def _iter_text_paths(kwargs: Dict[str, Any]):
+    """Yield a path for every independent text field in ``kwargs``.
+
+    A path is a tuple of dict keys and list indexes locating a string the
+    guards should inspect. Recognised containers are checked in the same order
+    as the provider extractors and the first one present wins. A multi-turn
+    ``messages`` list therefore yields one path per turn instead of a single
+    concatenated blob that can only be written back to the last message.
+    """
+    for key in ("messages", "input", "message", "prompt", "text"):
+        value = kwargs.get(key)
+        if not value:
+            continue
+        if isinstance(value, str):
+            yield (key,)
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                if isinstance(item, str):
+                    yield (key, index)
+                elif isinstance(item, dict):
+                    content = item.get("content")
+                    if isinstance(content, str):
+                        yield (key, index, "content")
+                    elif isinstance(content, list):
+                        for block_index, block in enumerate(content):
+                            if isinstance(block, dict) and isinstance(
+                                block.get("text"), str
+                            ):
+                                yield (key, index, "content", block_index, "text")
+        return
+
+
+def _read_text_at_path(kwargs: Dict[str, Any], path: Tuple) -> Optional[str]:
+    """Read the string located at ``path`` in ``kwargs``."""
+    value: Any = kwargs
+    for step in path:
+        if isinstance(value, dict):
+            value = value.get(step)
+        elif isinstance(value, list) and isinstance(step, int) and 0 <= step < len(value):
+            value = value[step]
+        else:
+            return None
+    return value if isinstance(value, str) else None
+
+
+def _write_text_at_path(
+    kwargs: Dict[str, Any], path: Tuple, text: str
+) -> Dict[str, Any]:
+    """Return a copy of ``kwargs`` with the string at ``path`` replaced."""
+    result: Dict[str, Any] = {**kwargs}
+    container: Any = result
+    for step in path[:-1]:
+        child = container[step]
+        if isinstance(child, dict):
+            container[step] = {**child}
+        elif isinstance(child, list):
+            container[step] = list(child)
+        else:
+            return result
+        container = container[step]
+    container[path[-1]] = text
+    return result
+
+
 def _apply_preflight(
     pipeline: Pipeline,
     kwargs: Dict[str, Any],
     extract_input: Extractor,
 ) -> Tuple[Dict[str, Any], Optional[PipelineResult]]:
-    """Run preflight guards. Returns (possibly-modified kwargs, result_or_None)."""
-    input_text = extract_input(kwargs)
-    if not input_text:
-        return kwargs, None
+    """Run preflight guards on every text field. Returns (kwargs, result_or_None)."""
+    slots = []
+    for path in _iter_text_paths(kwargs):
+        text = _read_text_at_path(kwargs, path)
+        if text:
+            slots.append((path, text))
 
-    result = pipeline.evaluate(input_text, phase="preflight")
+    if not slots:
+        # Unstructured input: fall back to the provider extractor so that deny
+        # and redact still see the whole text when no writable field is known.
+        input_text = extract_input(kwargs)
+        if not input_text:
+            return kwargs, None
+        result = pipeline.evaluate(input_text, phase="preflight")
+        if result.action == GuardAction.DENY:
+            raise GuardDeniedError(result)
+        return kwargs, result
 
-    if result.action == GuardAction.DENY:
-        raise GuardDeniedError(result)
+    updated_kwargs = kwargs
+    last_result: Optional[PipelineResult] = None
+    for path, text in slots:
+        result = pipeline.evaluate(text, phase="preflight")
 
-    if result.action == GuardAction.REDACT and result.transformed_text is not None:
-        for key in ("messages", "input", "prompt", "text"):
-            if key in kwargs:
-                original = kwargs[key]
-                if isinstance(original, str):
-                    kwargs = {**kwargs, key: result.transformed_text}
-                elif isinstance(original, list) and original:
-                    new_messages = list(original)
-                    last = new_messages[-1]
-                    if isinstance(last, dict) and "content" in last:
-                        new_messages[-1] = {**last, "content": result.transformed_text}
-                        kwargs = {**kwargs, key: new_messages}
-                break
+        if result.action == GuardAction.DENY:
+            raise GuardDeniedError(result)
 
-    return kwargs, result
+        if result.action == GuardAction.REDACT and result.transformed_text is not None:
+            updated_kwargs = _write_text_at_path(
+                updated_kwargs, path, result.transformed_text
+            )
+
+        last_result = result
+
+    return updated_kwargs, last_result
 
 
 def _apply_postflight(
