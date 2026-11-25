@@ -16,6 +16,7 @@ from openlit.__helpers import (
 from openlit.instrumentation.gradient.gradient import _resolve_endpoint
 from openlit.instrumentation.gradient.utils import (
     _new_scope,
+    apply_cache_usage,
     common_chat_logic,
     process_chat_response,
     process_chunk,
@@ -65,6 +66,8 @@ def _make_traced_async_stream(chunk_processor, final_processor):
             self._input_tokens = 0
             self._output_tokens = 0
             self._reasoning_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._start_time = time.time()
             self._end_time = None
             self._finalized = False
@@ -287,6 +290,7 @@ def _build_async_wrapper(
                         usage = response_dict.get("usage") or {}
                         scope._input_tokens = usage.get("prompt_tokens", 0) or 0
                         scope._output_tokens = usage.get("completion_tokens", 0) or 0
+                        apply_cache_usage(scope, usage)
                         common_chat_logic(
                             scope,
                             pricing_info,
