@@ -94,6 +94,10 @@ def build_input_messages(contents, system_instruction=None):
     if not contents:
         return []
 
+    # google-genai also takes a single string or Content in place of a list
+    if not isinstance(contents, (list, tuple)):
+        contents = [contents]
+
     otel_messages = []
 
     # Add system instruction first if present
@@ -112,7 +116,15 @@ def build_input_messages(contents, system_instruction=None):
                 {"role": "system", "parts": [{"type": "text", "content": system_text}]}
             )
 
+    # google-genai sends consecutive strings as the parts of one user message
+    text_parts = []
     for content in contents:
+        if isinstance(content, str):
+            text_parts.append({"type": "text", "content": content})
+            continue
+        if text_parts:
+            otel_messages.append({"role": "user", "parts": text_parts})
+            text_parts = []
         try:
             # Extract role - Google uses "user" and "model"
             role = getattr(content, "role", "user")
@@ -173,6 +185,9 @@ def build_input_messages(contents, system_instruction=None):
         except Exception as e:
             logger.warning("Failed to process input message: %s", e, exc_info=True)
             continue
+
+    if text_parts:
+        otel_messages.append({"role": "user", "parts": text_parts})
 
     return otel_messages
 
