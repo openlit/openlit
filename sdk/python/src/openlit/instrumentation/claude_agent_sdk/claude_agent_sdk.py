@@ -10,6 +10,7 @@ cannot be injected.
 """
 
 import time
+from copy import copy
 
 from opentelemetry import context as context_api
 from opentelemetry import trace as trace_api
@@ -324,7 +325,7 @@ def _inject_hooks(options, tracker, subagent_tracker=None):
 
 
 def _get_or_create_options(kwargs):
-    """Return the ClaudeAgentOptions from *kwargs*, creating one if absent."""
+    """Return query-local options so tracing hooks cannot leak to later calls."""
     try:
         from claude_agent_sdk.types import ClaudeAgentOptions
     except ImportError:
@@ -333,7 +334,14 @@ def _get_or_create_options(kwargs):
     options = kwargs.get("options")
     if options is None:
         options = ClaudeAgentOptions()
-        kwargs["options"] = options
+    else:
+        options = copy(options)
+        if options.hooks is not None:
+            options.hooks = {
+                event: list(matchers) for event, matchers in options.hooks.items()
+            }
+    kwargs = dict(kwargs)
+    kwargs["options"] = options
     return options, kwargs
 
 
