@@ -3,7 +3,7 @@ LangGraph sync wrapper for instrumentation
 """
 
 import time
-from opentelemetry.trace import SpanKind, Link
+from opentelemetry.trace import SpanKind, Link, set_span_in_context
 from opentelemetry import context as context_api
 from openlit.__helpers import (
     handle_exception,
@@ -234,9 +234,14 @@ def _handle_stream(
         if creation_ctx:
             links.append(Link(creation_ctx))
 
-        with tracer.start_as_current_span(
-            span_name, kind=SpanKind.INTERNAL, links=links
-        ) as span:
+        # The workflow span is created WITHOUT becoming the current span: a
+        # suspended stream must not leak it into the caller's context, or
+        # every other session the app runs while holding the stream joins
+        # this trace. The span is made current only around each pull from
+        # the graph's iterator, never between chunks (#1761).
+        span = tracer.start_span(span_name, kind=SpanKind.INTERNAL, links=links)
+        span_ended = False
+        try:
             graph_name = _get_graph_name(instance)
             span.set_attribute(SemanticConvention.GEN_AI_WORKFLOW_NAME, graph_name)
 
@@ -283,91 +288,133 @@ def _handle_stream(
                             )
                             span.set_attribute(f"gen_ai.prompt.{i}.role", role)
 
+            # The graph runs while the CONSUMER pulls chunks, outside the
+            # suppression window a plain wrapped() call would have. Make the
+            # workflow span current and hold the suppression key and the
+            # wrapper flag only around each pull, so nested wrappers and the
+            # LangChain handler stay quiet for the whole stream, exactly as
+            # for invoke() (#1766). The span and the flags are dropped again
+            # before yielding, so consumer code between chunks is neither
+            # parented into this trace nor suppressed (#1761).
+            span_token = context_api.attach(set_span_in_context(span))
+            suppress_token = context_api.attach(
+                context_api.set_value(_LANGGRAPH_SUPPRESS_KEY, True)
+            )
+            lg_token = set_langgraph_wrapper_active()
             try:
                 stream_gen = wrapped(*args, **kwargs)
+            finally:
+                reset_langgraph_wrapper_active(lg_token)
+                context_api.detach(suppress_token)
+                context_api.detach(span_token)
 
-                for chunk in stream_gen:
-                    execution_state["chunk_count"] += 1
-
-                    if isinstance(chunk, dict):
-                        for key in chunk:
-                            # Track node executions
-                            if key not in ("__start__", "__end__", "__interrupt__"):
-                                if key not in execution_state["executed_nodes"]:
-                                    execution_state["executed_nodes"].append(key)
-
-                            # Track messages in chunk
-                            chunk_value = chunk[key]
-                            if (
-                                isinstance(chunk_value, dict)
-                                and "messages" in chunk_value
-                            ):
-                                msg_list = chunk_value["messages"]
-                                if isinstance(msg_list, list):
-                                    execution_state["message_count"] += len(msg_list)
-                                    for msg in msg_list:
-                                        content = get_message_content(msg)
-                                        if content:
-                                            execution_state["final_response"] = (
-                                                execution_state["final_response"] or ""
-                                            ) + content
-
-                    # Handle tuple format for some stream modes:
-                    # - (node_name_str, value_dict) for stream_mode="updates" etc.
-                    # - (message_object, metadata_dict) for stream_mode="messages"
-                    elif isinstance(chunk, tuple) and len(chunk) >= 2:
-                        if isinstance(chunk[0], str):
-                            # Format: (node_name, value) — node_name is a plain string
-                            node_name, value = chunk[0], chunk[1]
-                            if node_name not in (
-                                "__start__",
-                                "__end__",
-                                "__interrupt__",
-                            ):
-                                if node_name not in execution_state["executed_nodes"]:
-                                    execution_state["executed_nodes"].append(node_name)
-                            if isinstance(value, dict) and "messages" in value:
-                                msg_list = value["messages"]
-                                if isinstance(msg_list, list):
-                                    execution_state["message_count"] += len(msg_list)
-                                    for msg in msg_list:
-                                        content = get_message_content(msg)
-                                        if content:
-                                            execution_state["final_response"] = (
-                                                execution_state["final_response"] or ""
-                                            ) + content
-                        else:
-                            # Format: (message_object, metadata_dict) for stream_mode="messages"
-                            # chunk[0] is a LangChain message (AIMessage, HumanMessage, etc.)
-                            # chunk[1] is a metadata dict containing "langgraph_node"
-                            message_obj, metadata = chunk[0], chunk[1]
-                            if isinstance(metadata, dict):
-                                node_name = metadata.get("langgraph_node", "")
-                                if (
-                                    node_name
-                                    and isinstance(node_name, str)
-                                    and node_name
-                                    not in ("__start__", "__end__", "__interrupt__")
-                                    and node_name
-                                    not in execution_state["executed_nodes"]
-                                ):
-                                    execution_state["executed_nodes"].append(node_name)
-                            execution_state["message_count"] += 1
-                            content = get_message_content(message_obj)
-                            if content:
-                                execution_state["final_response"] = (
-                                    execution_state["final_response"] or ""
-                                ) + content
-
-                    yield chunk
-
-                _finalize_stream_span(
-                    span, execution_state, capture_message_content, start_time
+            while True:
+                span_token = context_api.attach(set_span_in_context(span))
+                suppress_token = context_api.attach(
+                    context_api.set_value(_LANGGRAPH_SUPPRESS_KEY, True)
                 )
+                lg_token = set_langgraph_wrapper_active()
+                try:
+                    chunk = next(stream_gen)
+                except StopIteration:
+                    break
+                finally:
+                    reset_langgraph_wrapper_active(lg_token)
+                    context_api.detach(suppress_token)
+                    context_api.detach(span_token)
 
-            except Exception as e:
-                handle_exception(span, e)
-                raise
+                execution_state["chunk_count"] += 1
+
+                if isinstance(chunk, dict):
+                    for key in chunk:
+                        # Track node executions
+                        if key not in ("__start__", "__end__", "__interrupt__"):
+                            if key not in execution_state["executed_nodes"]:
+                                execution_state["executed_nodes"].append(key)
+
+                        # Track messages in chunk
+                        chunk_value = chunk[key]
+                        if (
+                            isinstance(chunk_value, dict)
+                            and "messages" in chunk_value
+                        ):
+                            msg_list = chunk_value["messages"]
+                            if isinstance(msg_list, list):
+                                execution_state["message_count"] += len(msg_list)
+                                for msg in msg_list:
+                                    content = get_message_content(msg)
+                                    if content:
+                                        execution_state["final_response"] = (
+                                            execution_state["final_response"] or ""
+                                        ) + content
+
+                # Handle tuple format for some stream modes:
+                # - (node_name_str, value_dict) for stream_mode="updates" etc.
+                # - (message_object, metadata_dict) for stream_mode="messages"
+                elif isinstance(chunk, tuple) and len(chunk) >= 2:
+                    if isinstance(chunk[0], str):
+                        # Format: (node_name, value) — node_name is a plain string
+                        node_name, value = chunk[0], chunk[1]
+                        if node_name not in (
+                            "__start__",
+                            "__end__",
+                            "__interrupt__",
+                        ):
+                            if node_name not in execution_state["executed_nodes"]:
+                                execution_state["executed_nodes"].append(node_name)
+                        if isinstance(value, dict) and "messages" in value:
+                            msg_list = value["messages"]
+                            if isinstance(msg_list, list):
+                                execution_state["message_count"] += len(msg_list)
+                                for msg in msg_list:
+                                    content = get_message_content(msg)
+                                    if content:
+                                        execution_state["final_response"] = (
+                                            execution_state["final_response"] or ""
+                                        ) + content
+                    else:
+                        # Format: (message_object, metadata_dict) for stream_mode="messages"
+                        # chunk[0] is a LangChain message (AIMessage, HumanMessage, etc.)
+                        # chunk[1] is a metadata dict containing "langgraph_node"
+                        message_obj, metadata = chunk[0], chunk[1]
+                        if isinstance(metadata, dict):
+                            node_name = metadata.get("langgraph_node", "")
+                            if (
+                                node_name
+                                and isinstance(node_name, str)
+                                and node_name
+                                not in ("__start__", "__end__", "__interrupt__")
+                                and node_name
+                                not in execution_state["executed_nodes"]
+                            ):
+                                execution_state["executed_nodes"].append(node_name)
+                        execution_state["message_count"] += 1
+                        content = get_message_content(message_obj)
+                        if content:
+                            execution_state["final_response"] = (
+                                execution_state["final_response"] or ""
+                            ) + content
+
+                yield chunk
+
+            _finalize_stream_span(
+                span, execution_state, capture_message_content, start_time
+            )
+            span.end()
+            span_ended = True
+
+        except Exception as e:
+            handle_exception(span, e)
+            span.end()
+            span_ended = True
+            raise
+
+        finally:
+            # Abandoned stream (consumer closed it or let it be collected):
+            # end the span wherever finalization runs. Ending never touches
+            # the caller's context, so no cross-context detach can fail.
+            if not span_ended:
+                span.end()
 
     return stream_wrapper()
 
