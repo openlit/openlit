@@ -19,7 +19,14 @@ const get = () =>
 	});
 
 describe('GET /api/chat/improvement/[spanId] run timeout', () => {
+	const inherited = process.env.OPENLIT_TRACE_IMPROVEMENT_TIMEOUT_MS;
+
+	afterAll(() => {
+		if (inherited !== undefined) process.env.OPENLIT_TRACE_IMPROVEMENT_TIMEOUT_MS = inherited;
+	});
+
 	beforeEach(() => {
+		delete process.env.OPENLIT_TRACE_IMPROVEMENT_TIMEOUT_MS;
 		(resolveRequestAuth as jest.Mock).mockResolvedValue([
 			null,
 			{ databaseConfigId: 'db-1', via: 'apiKey' },

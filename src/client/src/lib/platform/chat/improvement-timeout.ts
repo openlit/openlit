@@ -7,9 +7,13 @@
  */
 export const DEFAULT_TRACE_IMPROVEMENT_TIMEOUT_MS = 120_000;
 
+/** setTimeout's largest delay. A larger one overflows and fires at once. */
+export const MAX_TRACE_IMPROVEMENT_TIMEOUT_MS = 2_147_483_647;
+
 export function traceImprovementTimeoutMs() {
 	const configured = Number(process.env.OPENLIT_TRACE_IMPROVEMENT_TIMEOUT_MS);
-	return Number.isFinite(configured) && configured > 0
-		? configured
-		: DEFAULT_TRACE_IMPROVEMENT_TIMEOUT_MS;
+	if (!Number.isFinite(configured) || configured <= 0) {
+		return DEFAULT_TRACE_IMPROVEMENT_TIMEOUT_MS;
+	}
+	return Math.min(configured, MAX_TRACE_IMPROVEMENT_TIMEOUT_MS);
 }
