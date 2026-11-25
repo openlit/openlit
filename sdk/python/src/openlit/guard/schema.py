@@ -29,6 +29,8 @@ def _validate_json_schema(
             "null": type(None),
         }
         expected = type_map.get(schema_type)
+        if schema_type == "integer" and isinstance(data, float) and data.is_integer():
+            expected = (int, float)
         # In Python, bool is a subclass of int, but JSON Schema treats booleans
         # as a separate primitive type from numbers.
         is_boolean_for_numeric = (
@@ -76,6 +78,7 @@ class Schema(Guard):
         If ``True``, just verify the output is parseable JSON.
     schema : dict, optional
         A JSON-schema-like dict to validate against.
+        Integer schemas accept numbers with no fractional part, including ``1.0``.
     """
 
     name = "schema"
