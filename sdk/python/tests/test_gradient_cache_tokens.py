@@ -249,6 +249,132 @@ def test_a_later_usage_without_cache_keys_keeps_the_cache_counts_already_read():
     assert getattr(scope, "_cache_creation_input_tokens", None) == 50
 
 
+def test_a_later_usage_with_explicit_zero_cache_counts_overrides_the_earlier_ones():
+    scope = _Scope()
+    process_chunk(scope, _chunk(usage=USAGE_FLAT))
+    process_chunk(scope, _chunk(usage=USAGE_NO_CACHE))
+
+    assert getattr(scope, "_cache_read_input_tokens", None) == 0
+    assert getattr(scope, "_cache_creation_input_tokens", None) == 0
+
+
+def test_a_later_explicit_zero_cached_tokens_detail_overrides_the_earlier_count():
+    scope = _Scope()
+    process_chunk(scope, _chunk(usage=USAGE_FLAT))
+    process_chunk(
+        scope,
+        _chunk(
+            usage={
+                "prompt_tokens": 1000,
+                "completion_tokens": 100,
+                "prompt_tokens_details": {"cached_tokens": 0},
+            }
+        ),
+    )
+
+    assert getattr(scope, "_cache_read_input_tokens", None) == 0
+    assert getattr(scope, "_cache_creation_input_tokens", None) == 50
+
+
+def test_a_later_usage_with_null_cache_counts_keeps_the_earlier_ones():
+    scope = _Scope()
+    process_chunk(scope, _chunk(usage=USAGE_FLAT))
+    process_chunk(
+        scope,
+        _chunk(
+            usage={
+                "prompt_tokens": 1000,
+                "completion_tokens": 100,
+                "cache_read_input_tokens": None,
+                "cache_created_input_tokens": None,
+                "prompt_tokens_details": {"cached_tokens": None},
+            }
+        ),
+    )
+
+    assert getattr(scope, "_cache_read_input_tokens", None) == 900
+    assert getattr(scope, "_cache_creation_input_tokens", None) == 50
+
+
+def test_a_nonzero_cached_tokens_detail_wins_over_a_zero_flat_count():
+    scope = _Scope()
+    process_chunk(
+        scope,
+        _chunk(
+            usage={
+                "prompt_tokens": 1000,
+                "completion_tokens": 100,
+                "cache_read_input_tokens": 0,
+                "prompt_tokens_details": {"cached_tokens": 5},
+            }
+        ),
+    )
+
+    assert getattr(scope, "_cache_read_input_tokens", None) == 5
+
+
+def test_the_flat_count_wins_over_a_different_cached_tokens_detail():
+    scope = _Scope()
+    process_chunk(
+        scope,
+        _chunk(
+            usage={
+                "prompt_tokens": 1000,
+                "completion_tokens": 100,
+                "cache_read_input_tokens": 900,
+                "prompt_tokens_details": {"cached_tokens": 5},
+            }
+        ),
+    )
+
+    assert getattr(scope, "_cache_read_input_tokens", None) == 900
+
+
+def test_streamed_span_and_cost_reflect_a_later_explicit_zero(
+    tracer, exporter, cost_calls
+):
+    sink = _EventSink()
+    _stream(
+        tracer,
+        [
+            _chunk(usage=USAGE_FLAT),
+            _chunk(usage=USAGE_NO_CACHE, finish_reason="stop"),
+        ],
+        sink,
+    )
+    attrs = _only_span(exporter).attributes
+
+    assert attrs.get(CACHE_READ_ATTR) == 0
+    assert attrs.get(CACHE_CREATION_ATTR) == 0
+    assert attrs[SemanticConvention.GEN_AI_USAGE_COST] == pytest.approx(
+        COST_WITHOUT_CACHE
+    )
+    assert cost_calls[0][1]["cache_read_tokens"] == 0
+    assert cost_calls[0][1]["cache_creation_tokens"] == 0
+    assert CACHE_READ_ATTR not in sink.events[0].attributes
+    assert CACHE_CREATION_ATTR not in sink.events[0].attributes
+
+
+def test_streamed_span_keeps_the_cache_counts_when_a_later_usage_omits_them(
+    tracer, exporter
+):
+    _stream(
+        tracer,
+        [
+            _chunk(usage=USAGE_FLAT),
+            _chunk(
+                usage={"prompt_tokens": 1000, "completion_tokens": 100},
+                finish_reason="stop",
+            ),
+        ],
+    )
+    attrs = _only_span(exporter).attributes
+
+    assert attrs.get(CACHE_READ_ATTR) == 900
+    assert attrs.get(CACHE_CREATION_ATTR) == 50
+    assert attrs[SemanticConvention.GEN_AI_USAGE_COST] == pytest.approx(COST_WITH_CACHE)
+
+
 def test_streamed_span_records_cache_attributes_and_cache_aware_cost(
     tracer, exporter, cost_calls
 ):

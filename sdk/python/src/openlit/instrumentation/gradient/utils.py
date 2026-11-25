@@ -334,14 +334,19 @@ def emit_inference_event(
 
 def apply_cache_usage(scope, usage):
     """Read prompt-cache counts from a chat-completions `usage` payload."""
-    scope._cache_read_input_tokens = (
-        usage.get("cache_read_input_tokens")
-        or (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
-        or scope._cache_read_input_tokens
-    )
-    scope._cache_creation_input_tokens = (
-        usage.get("cache_created_input_tokens") or scope._cache_creation_input_tokens
-    )
+    reported = [
+        count
+        for count in (
+            usage.get("cache_read_input_tokens"),
+            (usage.get("prompt_tokens_details") or {}).get("cached_tokens"),
+        )
+        if count is not None
+    ]
+    if reported:
+        scope._cache_read_input_tokens = next((count for count in reported if count), 0)
+    created = usage.get("cache_created_input_tokens")
+    if created is not None:
+        scope._cache_creation_input_tokens = created
 
 
 def _normalize_stop(stop):
