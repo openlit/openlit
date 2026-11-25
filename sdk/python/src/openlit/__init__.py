@@ -9,6 +9,7 @@ from typing import Any, Dict
 import logging
 import os
 from importlib.util import find_spec
+from inspect import iscoroutinefunction
 from functools import wraps
 from contextlib import ContextDecorator, contextmanager
 import requests
@@ -897,6 +898,21 @@ class using_attributes(ContextDecorator):
     def __init__(self, attributes: Dict[str, Any]):
         self._attributes = attributes
         self._token = None
+
+    def __call__(self, func):
+        if iscoroutinefunction(func):
+
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                with self._recreate_cm():
+                    return await func(*args, **kwargs)
+
+            return async_wrapper
+        return super().__call__(func)
+
+    def _recreate_cm(self):
+        # Each decorated call needs its own context token, including overlapping tasks.
+        return type(self)(self._attributes)
 
     def __enter__(self):
         self._token = set_custom_attributes(self._attributes)
