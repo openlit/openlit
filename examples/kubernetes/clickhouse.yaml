@@ -471,7 +471,7 @@ spec:
     spec:
       containers:
         - name: clickhouse
-          image: clickhouse/clickhouse-server:24.4.1
+          image: clickhouse/clickhouse-server:26.8.36
           env:
             - name: CLICKHOUSE_PASSWORD
               value: "OPENLIT"

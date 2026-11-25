@@ -32,7 +32,7 @@ A complete local Kubernetes setup with all OpenLIT components and sample LLM app
 
 | Component | Kind | Notes |
 |---|---|---|
-| ClickHouse | StatefulSet | `clickhouse/clickhouse-server:24.4.1` |
+| ClickHouse | StatefulSet | `clickhouse/clickhouse-server:26.8.36` |
 | OpenLIT Dashboard | Deployment | Built locally as `openlit:local` — includes the first-party OTLP receiver |
 | OpenLIT Controller | DaemonSet | Built locally as `openlit-controller:local` — 1 per node |
 | gemini-app | naked Pod | Gemini client (tests naked Pod discovery) |
