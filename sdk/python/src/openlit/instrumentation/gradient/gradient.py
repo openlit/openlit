@@ -317,6 +317,9 @@ def _build_wrapper(
                             choice0 = choices[0]
                             message = choice0.get("message") or {}
                             scope._llmresponse = message.get("content") or ""
+                            reasoning = message.get("reasoning_content")
+                            if isinstance(reasoning, str):
+                                scope._reasoning_text = reasoning
                             scope._finish_reason = choice0.get("finish_reason") or ""
                             if message.get("tool_calls"):
                                 scope._tools = message["tool_calls"]

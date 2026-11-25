@@ -13,12 +13,18 @@ These tests drive the real `process_chunk`, `process_chat_response` and
 `process_streaming_chat_response` with chat-completions shaped chunks.
 """
 
+import asyncio
 import json
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from openlit._config import OpenlitConfig
+from openlit.instrumentation.gradient.async_gradient import (
+    async_agent_chat_completions,
+)
+from openlit.instrumentation.gradient.gradient import agent_chat_completions
 from openlit.instrumentation.gradient.utils import (
     _new_scope,
     build_output_messages,
@@ -221,3 +227,138 @@ def test_a_non_streamed_span_carries_the_reasoning_part():
         {"type": "reasoning", "content": "step one"},
         {"type": "text", "content": "The answer"},
     ]
+
+
+_NON_STRING_REASONING = [
+    pytest.param({"text": "x"}, id="dict"),
+    pytest.param(["x"], id="list"),
+    pytest.param(5, id="int"),
+    pytest.param(True, id="bool"),
+]
+
+
+@pytest.mark.parametrize("bad", _NON_STRING_REASONING)
+def test_a_non_string_streamed_reasoning_content_is_ignored(bad):
+    scope = _Scope()
+    process_chunk(scope, _chunk(reasoning_content="step "))
+    process_chunk(scope, _chunk(reasoning_content=bad, content="a"))
+    process_chunk(scope, _chunk(reasoning_content="one", content="b"))
+
+    assert scope._reasoning_text == "step one"
+    assert scope._llmresponse == "ab"
+
+
+def _chat_response(reasoning):
+    return {
+        "id": "chatcmpl-1",
+        "model": "deepseek-r1",
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "The answer",
+                    "reasoning_content": reasoning,
+                },
+            }
+        ],
+        "usage": {"prompt_tokens": 3, "completion_tokens": 5},
+    }
+
+
+@pytest.mark.parametrize("bad", _NON_STRING_REASONING)
+def test_a_non_string_non_streamed_reasoning_content_is_ignored(bad):
+    span = MagicMock()
+
+    process_chat_response(
+        _chat_response(bad),
+        {"model": "deepseek-r1", "messages": []},
+        {},
+        "h",
+        443,
+        "test",
+        "test",
+        None,
+        0.0,
+        span,
+        True,
+        True,
+        "0",
+    )
+
+    assert _output_messages(span)[0]["parts"] == [
+        {"type": "text", "content": "The answer"},
+    ]
+
+
+def _agent_wrapper(factory):
+    tracer = MagicMock()
+    span = tracer.start_as_current_span.return_value.__enter__.return_value
+    wrapper = factory(
+        "0",
+        "test",
+        "test",
+        tracer,
+        {},
+        True,
+        None,
+        True,
+    )
+    return wrapper, span
+
+
+def _expected_agent_parts(reasoning):
+    parts = [{"type": "text", "content": "The answer"}]
+    if reasoning:
+        parts.insert(0, {"type": "reasoning", "content": reasoning})
+    return parts
+
+
+@pytest.mark.parametrize(
+    "reasoning",
+    ["step one", None, 5, {"text": "x"}],
+    ids=["string", "missing", "int", "dict"],
+)
+def test_the_sync_agent_span_carries_the_reasoning_part(reasoning):
+    wrapper, span = _agent_wrapper(agent_chat_completions)
+    response = _chat_response(reasoning)
+
+    result = wrapper(
+        lambda *args, **kwargs: response,
+        SimpleNamespace(),
+        (),
+        {"model": "deepseek-r1", "messages": []},
+    )
+
+    assert result is response
+    assert _output_messages(span)[0]["parts"] == _expected_agent_parts(
+        reasoning if isinstance(reasoning, str) else None
+    )
+
+
+@pytest.mark.parametrize(
+    "reasoning",
+    ["step one", None, 5, {"text": "x"}],
+    ids=["string", "missing", "int", "dict"],
+)
+def test_the_async_agent_span_carries_the_reasoning_part(reasoning):
+    wrapper, span = _agent_wrapper(async_agent_chat_completions)
+    response = _chat_response(reasoning)
+
+    async def wrapped(*args, **kwargs):
+        return response
+
+    result = asyncio.run(
+        wrapper(
+            wrapped,
+            SimpleNamespace(),
+            (),
+            {"model": "deepseek-r1", "messages": []},
+        )
+    )
+
+    assert result is response
+    assert _output_messages(span)[0]["parts"] == _expected_agent_parts(
+        reasoning if isinstance(reasoning, str) else None
+    )
