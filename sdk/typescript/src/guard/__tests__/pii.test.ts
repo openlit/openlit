@@ -207,11 +207,27 @@ describe('PII Guard', () => {
       expect(result.transformedText).toBe('[REDACTED:private-key]');
     });
 
+    it.each(['AbCd==', 'AbCdEf', 'A'])('redacts a key that is cut off after the short line %j', (last) => {
+      const cut = body.slice(0, body.lastIndexOf('\n'));
+      for (const separator of ['\n', '\\n', '\r\n']) {
+        const key = `-----BEGIN PRIVATE KEY-----\n${cut}\n${last}`.replace(/\n/g, separator);
+        expect(guard.evaluate(key).transformedText).toBe('[REDACTED:private-key]');
+        expect(guard.evaluate(`{"key": "${key}"}`).transformedText).toBe('{"key": "[REDACTED:private-key]"}');
+      }
+    });
+
+    it('keeps a sentence after a key that is cut off', () => {
+      const cut = body.slice(0, body.lastIndexOf('\n'));
+      const result = guard.evaluate(`-----BEGIN PRIVATE KEY-----\n${cut}\nplease help`);
+      expect(result.transformedText).toBe('[REDACTED:private-key]\nplease help');
+    });
+
     it.each(['-', '+', '> '])('redacts a key with %j before every line', (prefix) => {
       const lines = ['-----BEGIN RSA PRIVATE KEY-----', ...body.split('\n'), '-----END RSA PRIVATE KEY-----'];
       const add = (part: string[]) => part.map((line) => prefix + line).join('\n');
       expect(guard.evaluate(add(lines)).transformedText).toBe(`${prefix}[REDACTED:private-key]`);
       expect(guard.evaluate(add(lines.slice(0, -2))).transformedText).toBe(`${prefix}[REDACTED:private-key]`);
+      expect(guard.evaluate(add([...lines.slice(0, -2), 'AbCd=='])).transformedText).toBe(`${prefix}[REDACTED:private-key]`);
     });
 
     it('redacts a key with PEM headers that is cut off', () => {

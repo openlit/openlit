@@ -54,6 +54,9 @@ func TestStringTier1RedactsKnownSecrets(t *testing.T) {
 			if !strings.Contains(out, Replacement) {
 				t.Errorf("expected replacement marker; got %q", out)
 			}
+			if strings.HasPrefix(tc.name, "private_key") && out != Replacement {
+				t.Errorf("expected the whole key to be replaced; got %q", out)
+			}
 		})
 	}
 }

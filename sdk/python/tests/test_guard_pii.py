@@ -184,11 +184,29 @@ class TestPIIRedaction:
         assert result.transformed_text == "[REDACTED:private-key]"
 
     def test_private_key_without_footer_redacted(self):
-        """A key that is cut off is redacted up to the last full line."""
+        """A key that is cut off is redacted."""
         guard = PII(action="redact")
         body = KEY_BODY.rsplit("\n", 1)[0]
         result = guard.evaluate(f"-----BEGIN PRIVATE KEY-----\n{body}")
         assert result.transformed_text == "[REDACTED:private-key]"
+
+    @pytest.mark.parametrize("separator", ["\n", "\\n", "\r\n"])
+    @pytest.mark.parametrize("last", ["AbCd==", "AbCdEf", "A"])
+    def test_private_key_without_footer_and_short_last_line(self, last, separator):
+        """The last line of a key that is cut off can be short."""
+        guard = PII(action="redact")
+        body = KEY_BODY.rsplit("\n", 1)[0]
+        key = f"-----BEGIN PRIVATE KEY-----\n{body}\n{last}".replace("\n", separator)
+        assert guard.evaluate(key).transformed_text == "[REDACTED:private-key]"
+        quoted = guard.evaluate(f'{{"key": "{key}"}}')
+        assert quoted.transformed_text == '{"key": "[REDACTED:private-key]"}'
+
+    def test_private_key_without_footer_keeps_text_after_it(self):
+        """A sentence after a key that is cut off is kept."""
+        guard = PII(action="redact")
+        body = KEY_BODY.rsplit("\n", 1)[0]
+        result = guard.evaluate(f"-----BEGIN PRIVATE KEY-----\n{body}\nplease help")
+        assert result.transformed_text == "[REDACTED:private-key]\nplease help"
 
     @pytest.mark.parametrize("prefix", ["-", "+", "> "])
     def test_private_key_in_a_diff_or_quote_redacted(self, prefix):
@@ -202,6 +220,9 @@ class TestPIIRedaction:
         result = guard.evaluate("\n".join(prefix + line for line in lines))
         assert result.transformed_text == prefix + "[REDACTED:private-key]"
         result = guard.evaluate("\n".join(prefix + line for line in lines[:-2]))
+        assert result.transformed_text == prefix + "[REDACTED:private-key]"
+        cut = [*lines[:-2], "AbCd=="]
+        result = guard.evaluate("\n".join(prefix + line for line in cut))
         assert result.transformed_text == prefix + "[REDACTED:private-key]"
 
     def test_private_key_with_headers_and_without_footer_redacted(self):

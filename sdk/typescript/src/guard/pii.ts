@@ -39,8 +39,8 @@ const PATTERNS: PatternEntry[] = [
   { label: 'bearer-token', regex: /Bearer\s+[A-Za-z0-9_\-.~+/]+=*/i },
   { label: 'basic-auth', regex: /Basic\s+[A-Za-z0-9+/]+=*/i },
   // The whole block or, if it is cut off, the armor headers and base64 lines after
-  // BEGIN. Lines may carry a diff or quote prefix.
-  { label: 'private-key', regex: /-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----(?:(?:(?!-----(?:BEGIN|END) )[\s\S])*-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----|(?:(?:\s|\\[rn])+(?:[-+>|#][ \t]*)?(?:(?:Proc-Type|DEK-Info|Version|Comment): [^\r\n\\]*|[A-Za-z0-9+/=]{20,}))*)/ },
+  // BEGIN; the last one can be short. Lines may carry a diff or quote prefix.
+  { label: 'private-key', regex: /-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----(?:(?:(?!-----(?:BEGIN|END) )[\s\S])*-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----|(?:(?:\s|\\[rn])+(?:[-+>|#][ \t]*)?(?:(?:Proc-Type|DEK-Info|Version|Comment): [^\r\n\\]*|[A-Za-z0-9+/=]{20,}))*(?:(?<=[A-Za-z0-9+/=]{20})(?:\r?\n|(?:\\r)?\\n)(?:[-+>|#][ \t]*)?[A-Za-z0-9+/]{1,19}={0,2}(?=[ \t]*(?:[\r\n\\"'`]|$)))?)/ },
   { label: 'connection-string', regex: /(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis|amqp):\/\/\S+/ },
   { label: 'env-secret', regex: /(?:password|secret|token|api_key|apikey)\s*[=:]\s*\S+/i },
 ];

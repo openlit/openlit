@@ -61,7 +61,7 @@ _p(
 _p("bearer-token", r"Bearer\s+[A-Za-z0-9_\-.~+/]+=*", re.IGNORECASE)
 _p("basic-auth", r"Basic\s+[A-Za-z0-9+/]+=*", re.IGNORECASE)
 # The whole block or, if it is cut off, the armor headers and base64 lines after
-# BEGIN.  Lines may carry a diff or quote prefix.
+# BEGIN; the last one can be short.  Lines may carry a diff or quote prefix.
 _p(
     "private-key",
     r"-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----"
@@ -69,7 +69,9 @@ _p(
     r"-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----"
     r"|(?:(?:\s|\\[rn])+(?:[-+>|#][ \t]*)?"
     r"(?:(?:Proc-Type|DEK-Info|Version|Comment): [^\r\n\\]*"
-    r"|[A-Za-z0-9+/=]{20,}))*)",
+    r"|[A-Za-z0-9+/=]{20,}))*"
+    r"(?:(?<=[A-Za-z0-9+/=]{20})(?:\r?\n|(?:\\r)?\\n)(?:[-+>|#][ \t]*)?"
+    r"[A-Za-z0-9+/]{1,19}={0,2}(?=[ \t]*(?:[\r\n\\\"'`]|\Z)))?)",
 )
 _p("connection-string", r"(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis|amqp)://\S+")
 _p("env-secret", r"(?i)(?:password|secret|token|api_key|apikey)\s*[=:]\s*\S+")
