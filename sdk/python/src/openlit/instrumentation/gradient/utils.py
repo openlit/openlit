@@ -355,6 +355,9 @@ def process_chunk(scope, chunk):
         content = delta.get("content")
         if content:
             scope._llmresponse += content
+        reasoning = delta.get("reasoning_content")
+        if reasoning and isinstance(reasoning, str):
+            scope._reasoning_text = getattr(scope, "_reasoning_text", "") + reasoning
         finish = choice0.get("finish_reason")
         if finish:
             scope._finish_reason = finish
@@ -750,6 +753,8 @@ def process_chat_response(
         message = choice0.get("message") or {}
         content = message.get("content") or ""
         scope._llmresponse = content if isinstance(content, str) else str(content)
+        reasoning = message.get("reasoning_content")
+        scope._reasoning_text = reasoning if isinstance(reasoning, str) else ""
         scope._finish_reason = choice0.get("finish_reason") or ""
         if message.get("tool_calls"):
             scope._tools = message["tool_calls"]
