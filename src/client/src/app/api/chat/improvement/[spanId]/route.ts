@@ -5,6 +5,7 @@ import {
 	getTraceImprovement,
 	streamTraceImprovementAnalysis,
 } from "@/lib/platform/chat/improvement";
+import { traceImprovementTimeoutMs } from "@/lib/platform/chat/improvement-timeout";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
 
@@ -98,7 +99,7 @@ export async function GET(request: Request, context: any) {
 		},
 	});
 
-	return Response.json({ data: data || null });
+	return Response.json({ data: data || null, timeoutMs: traceImprovementTimeoutMs() });
 }
 
 export async function POST(request: Request, context: any) {
