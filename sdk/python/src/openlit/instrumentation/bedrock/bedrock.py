@@ -52,9 +52,29 @@ def converse(
                 f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
             )
 
-            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            with tracer.start_as_current_span(
+                span_name, kind=SpanKind.CLIENT, record_exception=False
+            ) as span:
                 start_time = time.time()
-                response = original_method(*method_args, **method_kwargs)
+                try:
+                    response = original_method(*method_args, **method_kwargs)
+                except Exception as e:
+                    handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        try:
+                            record_completion_metrics(
+                                metrics,
+                                SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                                SemanticConvention.GEN_AI_SYSTEM_AWS_BEDROCK,
+                                server_address, server_port, request_model,
+                                "unknown", environment, application_name,
+                                start_time, time.time(),
+                                0, 0, 0, None, None,
+                                error_type=type(e).__name__ or "_OTHER",
+                            )
+                        except Exception:
+                            pass
+                    raise
                 llm_config = method_kwargs.get("inferenceConfig", {})
 
                 try:
@@ -346,10 +366,26 @@ def converse_stream(
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
             ctx = trace_api.set_span_in_context(span)
             token = context_api.attach(ctx)
+            start_time = time.time()
             try:
                 stream_response = original_method(*method_args, **method_kwargs)
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    try:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_AWS_BEDROCK,
+                            server_address, server_port, request_model,
+                            "unknown", environment, application_name,
+                            start_time, time.time(),
+                            0, 0, 0, None, None,
+                            error_type=type(e).__name__ or "_OTHER",
+                            is_stream=True,
+                        )
+                    except Exception:
+                        pass
                 context_api.detach(token)
                 span.end()
                 raise
