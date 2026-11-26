@@ -295,22 +295,8 @@ openlit.log_score("category", "accurate")
 
 ## Manual tracing
 
-Use `@openlit.trace` on synchronous functions or `async def` functions. For a
-coroutine, its span stays active through the awaited execution, so nested LLM
-and tool spans retain their parent and the trace records the final result or error.
-
-```python
-import openlit
-
-openlit.init()
-
-@openlit.trace
-async def reserve_room(calendar, minutes):
-    return await calendar.reserve(minutes)
-
-# In an async application:
-# confirmation = await reserve_room(calendar, 45)
-```
+See [Manual tracing](https://docs.openlit.io/latest/sdk/features/tracing#manual-tracing)
+for synchronous and asynchronous examples and content-capture settings.
 
 ## 🛣️ Roadmap
 
