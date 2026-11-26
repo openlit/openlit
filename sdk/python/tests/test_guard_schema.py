@@ -33,7 +33,9 @@ def test_boolean_schema_accepts_boolean():
     assert result.action == GuardAction.ALLOW
 
 
-@pytest.mark.parametrize("value", ["1.0", "-2.0", "0.0", "-0.0", "1e1"])
+@pytest.mark.parametrize(
+    "value", ["1.0", "-2.0", "0.0", "-0.0", "1e1", "1e309", "-2e309", "0e-9999"]
+)
 def test_integer_schema_accepts_integral_numeric_representations(value):
     """A JSON Schema integer depends on the value, not its numeric spelling."""
     result = Schema(schema={"type": "integer"}).evaluate(value)
@@ -41,7 +43,14 @@ def test_integer_schema_accepts_integral_numeric_representations(value):
     assert result.action == GuardAction.ALLOW
 
 
-@pytest.mark.parametrize("value", ["1.5", "-2.25", '"1.0"', "true", "false", "null"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "1.5", "-2.25", '"1.0"', "true", "false", "null",
+        "1e-9999", "-1e-9999", "1.0000000000000000000000000001",
+        "9999999999999999.1",
+    ],
+)
 def test_integer_schema_rejects_non_integer_values(value):
     """Fractional numbers and other JSON primitive types remain invalid."""
     result = Schema(schema={"type": "integer"}).evaluate(value)
@@ -62,6 +71,31 @@ def test_integer_schema_rejects_non_integer_values(value):
 )
 def test_integer_representations_work_in_postflight_pipeline(schema, output):
     """Structured agent outputs should pass the same checks at nested paths."""
-    result = Pipeline(guards=[Schema(schema=schema)]).evaluate(output, phase="postflight")
+    result = Pipeline(guards=[Schema(schema=schema)], fail_open=False).evaluate(
+        output, phase="postflight"
+    )
 
     assert result.action == GuardAction.ALLOW
+
+
+@pytest.mark.parametrize("value", ["1e-9999", "1.0000000000000000000000000001"])
+@pytest.mark.parametrize("container", ["array", "object"])
+def test_exact_fractional_values_are_denied_in_postflight_pipeline(value, container):
+    """Parsing must preserve fractional values at every supported nested path."""
+    if container == "array":
+        schema = {"type": "array", "items": {"type": "integer"}}
+        output = f"[{value}]"
+    else:
+        schema = {"type": "object", "properties": {"attempts": {"type": "integer"}}}
+        output = f'{{"attempts": {value}}}'
+    result = Pipeline(guards=[Schema(schema=schema)], fail_open=False).evaluate(
+        output, phase="postflight"
+    )
+    assert result.action == GuardAction.DENY
+    assert result.results[0].classification == "schema_mismatch"
+
+
+@pytest.mark.parametrize("value", ["1e-9999", "1.0000000000000000000000000001", "1e309"])
+def test_number_schema_accepts_exact_decimal_values(value):
+    """Decimal parsing must keep ordinary number schemas compatible."""
+    assert Schema(schema={"type": "number"}).evaluate(value).action == GuardAction.ALLOW
