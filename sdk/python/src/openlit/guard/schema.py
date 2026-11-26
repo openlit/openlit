@@ -8,6 +8,7 @@ Phases: postflight only.
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from openlit.guard._base import Guard, GuardPhase, GuardResult
@@ -23,12 +24,19 @@ def _validate_json_schema(
             "object": dict,
             "array": list,
             "string": str,
-            "number": (int, float),
+            "number": (int, float, Decimal),
             "integer": int,
             "boolean": bool,
             "null": type(None),
         }
         expected = type_map.get(schema_type)
+        if schema_type == "integer" and isinstance(data, (float, Decimal)):
+            if isinstance(data, Decimal):
+                integral = data.is_finite() and data == data.to_integral_value()
+            else:
+                integral = data.is_integer()
+            if integral:
+                expected = (int, float, Decimal)
         # In Python, bool is a subclass of int, but JSON Schema treats booleans
         # as a separate primitive type from numbers.
         is_boolean_for_numeric = (
@@ -76,6 +84,7 @@ class Schema(Guard):
         If ``True``, just verify the output is parseable JSON.
     schema : dict, optional
         A JSON-schema-like dict to validate against.
+        Integer schemas accept numbers with no fractional part, including ``1.0``.
     """
 
     name = "schema"
@@ -96,7 +105,7 @@ class Schema(Guard):
         stripped = text.strip()
 
         try:
-            parsed = json.loads(stripped)
+            parsed = json.loads(stripped, parse_float=Decimal)
         except (json.JSONDecodeError, ValueError) as exc:
             return GuardResult(
                 action=self._action,
