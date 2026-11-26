@@ -52,7 +52,9 @@ def converse(
                 f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
             )
 
-            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            with tracer.start_as_current_span(
+                span_name, kind=SpanKind.CLIENT, record_exception=False
+            ) as span:
                 start_time = time.time()
                 try:
                     response = original_method(*method_args, **method_kwargs)

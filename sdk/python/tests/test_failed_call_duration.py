@@ -14,6 +14,7 @@ import pytest
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.sdk.trace.sampling import ALWAYS_ON
 
 
 class _Recorder:  # pylint: disable=too-few-public-methods
@@ -34,17 +35,24 @@ class _Metrics(dict):
 
 def _setup():
     exporter = InMemorySpanExporter()
-    tp = TracerProvider()
+    tp = TracerProvider(sampler=ALWAYS_ON)
     tp.add_span_processor(SimpleSpanProcessor(exporter))
     tracer = tp.get_tracer("test")
     metrics = _Metrics()
     return tracer, exporter, metrics
 
 
+def _assert_single_error(exporter, metrics):
+    span, = exporter.get_finished_spans()
+    assert [event.name for event in span.events].count("exception") == 1
+    (_, attributes), = metrics["genai_client_operation_duration"].points
+    assert attributes["error.type"] == "RuntimeError"
+
+
 # --- 1. bedrock converse failure ---
 def test_bedrock_converse_failure_records_duration():
     """A failed Bedrock converse call still records duration."""
-    tracer, _, metrics = _setup()
+    tracer, exporter, metrics = _setup()
     from openlit.instrumentation.bedrock.bedrock import converse
     w = converse("t", "env", "app", tracer, {}, False, metrics, False)
     inst = MagicMock()
@@ -57,7 +65,7 @@ def test_bedrock_converse_failure_records_duration():
     result = w(wrapped, inst, [], {"service_name": "bedrock-runtime"})
     with pytest.raises(RuntimeError, match="ThrottlingException"):
         result.converse(modelId="claude-3", messages=[])
-    assert len(metrics["genai_client_operation_duration"].points) >= 1
+    _assert_single_error(exporter, metrics)
 
 
 # --- 2. bedrock converse_stream failure ---
@@ -82,7 +90,7 @@ def test_bedrock_converse_stream_failure_records_duration():
 # --- 3. google generate failure ---
 def test_google_generate_failure_records_duration():
     """A failed Google generate call still records duration."""
-    tracer, _, metrics = _setup()
+    tracer, exporter, metrics = _setup()
     from openlit.instrumentation.google_ai_studio.google_ai_studio import generate
     w = generate("t", "env", "app", tracer, {}, False, metrics, False)
     inst = MagicMock()
@@ -91,7 +99,7 @@ def test_google_generate_failure_records_duration():
         raise RuntimeError("ClientError: 400")
     with pytest.raises(RuntimeError, match="ClientError"):
         w(boom, inst, [], {"model": "gemini-2.0-flash"})
-    assert len(metrics["genai_client_operation_duration"].points) >= 1
+    _assert_single_error(exporter, metrics)
 
 
 # --- 4. google generate_stream failure ---
