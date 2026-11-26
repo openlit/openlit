@@ -12,6 +12,7 @@ from openlit.guard._integration import (
     GUARDED_METHODS,
     _extract_openai_input,
     _extract_anthropic_input,
+    _extract_anthropic_output,
     _extract_generic_input,
     _extract_generic_output,
     _apply_preflight,
@@ -204,6 +205,25 @@ class TestPostflightIntegration:
 
         result = _apply_postflight(pipeline, FakeResponse(), _extract_openai_output)
         assert result is not None
+
+    def test_postflight_redacts_each_anthropic_content_block(self):
+        """Each Anthropic content block is redacted independently, in place."""
+        pipeline = Pipeline(guards=[PII(action="redact")], fail_open=True)
+
+        NS = types.SimpleNamespace
+        response = NS(
+            content=[
+                NS(text="First: alice@example.com"),
+                NS(text="Second: bob@example.com"),
+            ]
+        )
+
+        _apply_postflight(pipeline, response, _extract_anthropic_output)
+
+        assert [block.text for block in response.content] == [
+            "First: [REDACTED:email]",
+            "Second: [REDACTED:email]",
+        ]
 
 
 class TestAsyncMethodDetection:
