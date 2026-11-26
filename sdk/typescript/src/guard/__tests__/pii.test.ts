@@ -150,7 +150,7 @@ describe('PII Guard', () => {
     expect(result.transformedText).toBe('contact [REDACTED:email] or call [REDACTED:phone-us]');
   });
 
-  it.each(['user@example.co.uk', 'user@mail.example.com', 'user@cs.dept.example.edu'])(
+  it.each(['user@example.co.uk', 'user@mail.example.com', 'user@cs.dept.example.edu', 'first.last+tag@sub.example.co.uk'])(
     'redacts the whole domain of %s',
     (email) => {
       const result = guard.evaluate(`Email: ${email}, thanks`);
@@ -161,6 +161,16 @@ describe('PII Guard', () => {
   it('keeps the period that ends a sentence after an email', () => {
     const result = guard.evaluate('Write to user@example.co.uk. Thanks');
     expect(result.transformedText).toBe('Write to [REDACTED:email]. Thanks');
+  });
+
+  it('redacts only the address inside angle brackets', () => {
+    const result = guard.evaluate('From: Bob <user@example.com>');
+    expect(result.transformedText).toBe('From: Bob <[REDACTED:email]>');
+  });
+
+  it('does not redact 15 digits without an Amex prefix', () => {
+    const result = guard.evaluate('Order 300000000000004 shipped');
+    expect(result.action).toBe(GuardAction.ALLOW);
   });
 
   it.each(['378282246310005', '3782 822463 10005', '3714-496353-98431'])(

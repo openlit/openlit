@@ -129,6 +129,7 @@ class TestPIIRedaction:
             "user@example.co.uk",
             "user@mail.example.com",
             "user@cs.dept.example.edu",
+            "first.last+tag@sub.example.co.uk",
         ],
     )
     def test_email_with_subdomain_redacted_completely(self, email):
@@ -142,6 +143,18 @@ class TestPIIRedaction:
         guard = PII(action="redact")
         result = guard.evaluate("Write to user@example.co.uk. Thanks")
         assert result.transformed_text == "Write to [REDACTED:email]. Thanks"
+
+    def test_email_in_angle_brackets_keeps_brackets(self):
+        """Only the address inside <...> is redacted."""
+        guard = PII(action="redact")
+        result = guard.evaluate("From: Bob <user@example.com>")
+        assert result.transformed_text == "From: Bob <[REDACTED:email]>"
+
+    def test_fifteen_digits_without_amex_prefix_not_redacted(self):
+        """A 15-digit number that does not start with 34/37 is not a card."""
+        guard = PII(action="redact")
+        result = guard.evaluate("Order 300000000000004 shipped")
+        assert result.action == GuardAction.ALLOW
 
     @pytest.mark.parametrize(
         "number", ["378282246310005", "3782 822463 10005", "3714-496353-98431"]
