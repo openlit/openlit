@@ -60,7 +60,7 @@ var tier1Patterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(authorization\s*:\s*bearer\s+)[A-Za-z0-9_\-\.=]+`),
 
 	// PEM-style private keys: collapse the entire block.
-	regexp.MustCompile(`(?s)-----BEGIN [A-Z ]+PRIVATE KEY-----.*?-----END [A-Z ]+PRIVATE KEY-----`),
+	regexp.MustCompile(`(?s)-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----.*?-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----`),
 
 	// Azure storage / SAS keys. ?sv=… signature tail is sensitive
 	// even when the SAS itself looks like a URL-encoded blob.

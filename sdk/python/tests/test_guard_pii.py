@@ -1,7 +1,11 @@
 """Tests for the PII guard."""
 
+import pytest
+
 from openlit.guard.pii import PII
 from openlit.guard._base import GuardAction
+
+KEY_BODY = "MIIEowIBAAKCAQEAxg7a2n3V5h8mQ0\n9fKq+/Zt4b1c6d7e8f9g0h1i2j3k4l\nAbCd=="
 
 
 class TestPIIDetection:
@@ -118,6 +122,149 @@ class TestPIIRedaction:
         assert "[REDACTED:ssn]" in result.transformed_text
         assert "a@b.com" not in result.transformed_text
         assert "111-22-3333" not in result.transformed_text
+
+    @pytest.mark.parametrize(
+        "email",
+        [
+            "user@example.co.uk",
+            "user@mail.example.com",
+            "user@cs.dept.example.edu",
+            "first.last+tag@sub.example.co.uk",
+        ],
+    )
+    def test_email_with_subdomain_redacted_completely(self, email):
+        """No part of a domain with more than two labels is left behind."""
+        guard = PII(action="redact")
+        result = guard.evaluate(f"Email: {email}, thanks")
+        assert result.transformed_text == "Email: [REDACTED:email], thanks"
+
+    def test_email_at_end_of_sentence_keeps_period(self):
+        """The period that ends a sentence is not part of the address."""
+        guard = PII(action="redact")
+        result = guard.evaluate("Write to user@example.co.uk. Thanks")
+        assert result.transformed_text == "Write to [REDACTED:email]. Thanks"
+
+    def test_email_in_angle_brackets_keeps_brackets(self):
+        """Only the address inside <...> is redacted."""
+        guard = PII(action="redact")
+        result = guard.evaluate("From: Bob <user@example.com>")
+        assert result.transformed_text == "From: Bob <[REDACTED:email]>"
+
+    def test_fifteen_digits_without_amex_prefix_not_redacted(self):
+        """A 15-digit number that does not start with 34/37 is not a card."""
+        guard = PII(action="redact")
+        result = guard.evaluate("Order 300000000000004 shipped")
+        assert result.action == GuardAction.ALLOW
+
+    @pytest.mark.parametrize(
+        "number", ["378282246310005", "3782 822463 10005", "3714-496353-98431"]
+    )
+    def test_amex_redacted(self, number):
+        """American Express numbers have 15 digits, grouped 4-6-5."""
+        guard = PII(action="redact")
+        result = guard.evaluate(f"Card: {number}.")
+        assert result.transformed_text == "Card: [REDACTED:credit-card]."
+
+    @pytest.mark.parametrize("separator", ["\n", "\\n", "\r\n"])
+    @pytest.mark.parametrize("kind", ["", "RSA ", "EC ", "OPENSSH ", "ENCRYPTED "])
+    def test_private_key_block_redacted_completely(self, kind, separator):
+        """The key itself is redacted, not just the header."""
+        guard = PII(action="redact")
+        key = (
+            f"-----BEGIN {kind}PRIVATE KEY-----\n{KEY_BODY}\n"
+            f"-----END {kind}PRIVATE KEY-----"
+        ).replace("\n", separator)
+        result = guard.evaluate(f"before {key} after")
+        assert result.transformed_text == "before [REDACTED:private-key] after"
+
+    def test_private_key_with_headers_redacted_completely(self):
+        """Headers of an encrypted PEM block contain dashes."""
+        guard = PII(action="redact")
+        result = guard.evaluate(
+            "-----BEGIN RSA PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\n"
+            f"DEK-Info: AES-128-CBC,0A1B2C\n\n{KEY_BODY}\n"
+            "-----END RSA PRIVATE KEY-----"
+        )
+        assert result.transformed_text == "[REDACTED:private-key]"
+
+    def test_pgp_private_key_block_redacted_completely(self):
+        """PGP blocks end with 'KEY BLOCK'."""
+        guard = PII(action="redact")
+        result = guard.evaluate(
+            f"-----BEGIN PGP PRIVATE KEY BLOCK-----\n\n{KEY_BODY}\n"
+            "-----END PGP PRIVATE KEY BLOCK-----"
+        )
+        assert result.transformed_text == "[REDACTED:private-key]"
+
+    def test_private_key_without_footer_redacted(self):
+        """A key that is cut off is redacted."""
+        guard = PII(action="redact")
+        body = KEY_BODY.rsplit("\n", 1)[0]
+        result = guard.evaluate(f"-----BEGIN PRIVATE KEY-----\n{body}")
+        assert result.transformed_text == "[REDACTED:private-key]"
+
+    @pytest.mark.parametrize("separator", ["\n", "\\n", "\r\n"])
+    @pytest.mark.parametrize("last", ["AbCd==", "AbCdEf", "A"])
+    def test_private_key_without_footer_and_short_last_line(self, last, separator):
+        """The last line of a key that is cut off can be short."""
+        guard = PII(action="redact")
+        body = KEY_BODY.rsplit("\n", 1)[0]
+        key = f"-----BEGIN PRIVATE KEY-----\n{body}\n{last}".replace("\n", separator)
+        assert guard.evaluate(key).transformed_text == "[REDACTED:private-key]"
+        quoted = guard.evaluate(f'{{"key": "{key}"}}')
+        assert quoted.transformed_text == '{"key": "[REDACTED:private-key]"}'
+
+    def test_private_key_without_footer_keeps_text_after_it(self):
+        """A sentence after a key that is cut off is kept."""
+        guard = PII(action="redact")
+        body = KEY_BODY.rsplit("\n", 1)[0]
+        result = guard.evaluate(f"-----BEGIN PRIVATE KEY-----\n{body}\nplease help")
+        assert result.transformed_text == "[REDACTED:private-key]\nplease help"
+
+    @pytest.mark.parametrize("prefix", ["-", "+", "> "])
+    def test_private_key_in_a_diff_or_quote_redacted(self, prefix):
+        """A prefix on every line does not hide the key."""
+        guard = PII(action="redact")
+        lines = [
+            "-----BEGIN RSA PRIVATE KEY-----",
+            *KEY_BODY.split("\n"),
+            "-----END RSA PRIVATE KEY-----",
+        ]
+        result = guard.evaluate("\n".join(prefix + line for line in lines))
+        assert result.transformed_text == prefix + "[REDACTED:private-key]"
+        result = guard.evaluate("\n".join(prefix + line for line in lines[:-2]))
+        assert result.transformed_text == prefix + "[REDACTED:private-key]"
+        cut = [*lines[:-2], "AbCd=="]
+        result = guard.evaluate("\n".join(prefix + line for line in cut))
+        assert result.transformed_text == prefix + "[REDACTED:private-key]"
+
+    def test_private_key_with_headers_and_without_footer_redacted(self):
+        """The headers of a cut off key do not stop the match."""
+        guard = PII(action="redact")
+        body = KEY_BODY.rsplit("\n", 1)[0]
+        result = guard.evaluate(
+            "-----BEGIN RSA PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\n"
+            f"DEK-Info: AES-128-CBC,0A1B2C\n\n{body}"
+        )
+        assert result.transformed_text == "[REDACTED:private-key]"
+
+    def test_two_private_keys_keep_text_between(self):
+        """Text between two blocks is kept."""
+        guard = PII(action="redact")
+        key = f"-----BEGIN PRIVATE KEY-----\n{KEY_BODY}\n-----END PRIVATE KEY-----"
+        result = guard.evaluate(f"{key} and {key}")
+        assert (
+            result.transformed_text
+            == "[REDACTED:private-key] and [REDACTED:private-key]"
+        )
+
+    def test_private_key_header_in_prose_keeps_text(self):
+        """A header that is only mentioned does not remove the text after it."""
+        guard = PII(action="redact")
+        result = guard.evaluate("It starts with -----BEGIN PRIVATE KEY----- in PEM.")
+        assert (
+            result.transformed_text == "It starts with [REDACTED:private-key] in PEM."
+        )
 
     def test_overlapping_spans_redacted_cleanly(self):
         """Overlapping matches (env-secret covering an API key) redact as one span."""

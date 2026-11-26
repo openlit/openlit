@@ -149,4 +149,115 @@ describe('PII Guard', () => {
     const result = guard.evaluate('contact bob@example.com or call 415-555-0100');
     expect(result.transformedText).toBe('contact [REDACTED:email] or call [REDACTED:phone-us]');
   });
+
+  it.each(['user@example.co.uk', 'user@mail.example.com', 'user@cs.dept.example.edu', 'first.last+tag@sub.example.co.uk'])(
+    'redacts the whole domain of %s',
+    (email) => {
+      const result = guard.evaluate(`Email: ${email}, thanks`);
+      expect(result.transformedText).toBe('Email: [REDACTED:email], thanks');
+    },
+  );
+
+  it('keeps the period that ends a sentence after an email', () => {
+    const result = guard.evaluate('Write to user@example.co.uk. Thanks');
+    expect(result.transformedText).toBe('Write to [REDACTED:email]. Thanks');
+  });
+
+  it('redacts only the address inside angle brackets', () => {
+    const result = guard.evaluate('From: Bob <user@example.com>');
+    expect(result.transformedText).toBe('From: Bob <[REDACTED:email]>');
+  });
+
+  it('does not redact 15 digits without an Amex prefix', () => {
+    const result = guard.evaluate('Order 300000000000004 shipped');
+    expect(result.action).toBe(GuardAction.ALLOW);
+  });
+
+  it.each(['378282246310005', '3782 822463 10005', '3714-496353-98431'])(
+    'redacts the American Express number %s',
+    (number) => {
+      const result = guard.evaluate(`Card: ${number}.`);
+      expect(result.transformedText).toBe('Card: [REDACTED:credit-card].');
+    },
+  );
+
+  describe('private keys', () => {
+    const body = 'MIIEowIBAAKCAQEAxg7a2n3V5h8mQ0\n9fKq+/Zt4b1c6d7e8f9g0h1i2j3k4l\nAbCd==';
+
+    for (const kind of ['', 'RSA ', 'EC ', 'OPENSSH ', 'ENCRYPTED ']) {
+      for (const separator of ['\n', '\\n', '\r\n']) {
+        it(`redacts a whole ${kind}key with ${JSON.stringify(separator)} line breaks`, () => {
+          const key = `-----BEGIN ${kind}PRIVATE KEY-----\n${body}\n-----END ${kind}PRIVATE KEY-----`
+            .split('\n')
+            .join(separator);
+          const result = guard.evaluate(`before ${key} after`);
+          expect(result.transformedText).toBe('before [REDACTED:private-key] after');
+        });
+      }
+    }
+
+    it('redacts a key with PEM headers', () => {
+      const result = guard.evaluate(
+        '-----BEGIN RSA PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\n' +
+          `DEK-Info: AES-128-CBC,0A1B2C\n\n${body}\n-----END RSA PRIVATE KEY-----`,
+      );
+      expect(result.transformedText).toBe('[REDACTED:private-key]');
+    });
+
+    it('redacts a PGP key block', () => {
+      const result = guard.evaluate(
+        `-----BEGIN PGP PRIVATE KEY BLOCK-----\n\n${body}\n-----END PGP PRIVATE KEY BLOCK-----`,
+      );
+      expect(result.transformedText).toBe('[REDACTED:private-key]');
+    });
+
+    it('redacts a key that is cut off', () => {
+      const cut = body.slice(0, body.lastIndexOf('\n'));
+      const result = guard.evaluate(`-----BEGIN PRIVATE KEY-----\n${cut}`);
+      expect(result.transformedText).toBe('[REDACTED:private-key]');
+    });
+
+    it.each(['AbCd==', 'AbCdEf', 'A'])('redacts a key that is cut off after the short line %j', (last) => {
+      const cut = body.slice(0, body.lastIndexOf('\n'));
+      for (const separator of ['\n', '\\n', '\r\n']) {
+        const key = `-----BEGIN PRIVATE KEY-----\n${cut}\n${last}`.replace(/\n/g, separator);
+        expect(guard.evaluate(key).transformedText).toBe('[REDACTED:private-key]');
+        expect(guard.evaluate(`{"key": "${key}"}`).transformedText).toBe('{"key": "[REDACTED:private-key]"}');
+      }
+    });
+
+    it('keeps a sentence after a key that is cut off', () => {
+      const cut = body.slice(0, body.lastIndexOf('\n'));
+      const result = guard.evaluate(`-----BEGIN PRIVATE KEY-----\n${cut}\nplease help`);
+      expect(result.transformedText).toBe('[REDACTED:private-key]\nplease help');
+    });
+
+    it.each(['-', '+', '> '])('redacts a key with %j before every line', (prefix) => {
+      const lines = ['-----BEGIN RSA PRIVATE KEY-----', ...body.split('\n'), '-----END RSA PRIVATE KEY-----'];
+      const add = (part: string[]) => part.map((line) => prefix + line).join('\n');
+      expect(guard.evaluate(add(lines)).transformedText).toBe(`${prefix}[REDACTED:private-key]`);
+      expect(guard.evaluate(add(lines.slice(0, -2))).transformedText).toBe(`${prefix}[REDACTED:private-key]`);
+      expect(guard.evaluate(add([...lines.slice(0, -2), 'AbCd=='])).transformedText).toBe(`${prefix}[REDACTED:private-key]`);
+    });
+
+    it('redacts a key with PEM headers that is cut off', () => {
+      const cut = body.slice(0, body.lastIndexOf('\n'));
+      const result = guard.evaluate(
+        '-----BEGIN RSA PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\n' +
+          `DEK-Info: AES-128-CBC,0A1B2C\n\n${cut}`,
+      );
+      expect(result.transformedText).toBe('[REDACTED:private-key]');
+    });
+
+    it('keeps the text between two keys', () => {
+      const key = `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
+      const result = guard.evaluate(`${key} and ${key}`);
+      expect(result.transformedText).toBe('[REDACTED:private-key] and [REDACTED:private-key]');
+    });
+
+    it('keeps the text after a header that is only mentioned', () => {
+      const result = guard.evaluate('It starts with -----BEGIN PRIVATE KEY----- in PEM.');
+      expect(result.transformedText).toBe('It starts with [REDACTED:private-key] in PEM.');
+    });
+  });
 });
