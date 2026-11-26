@@ -445,7 +445,7 @@ def process_chunk(scope, chunk):
 
     # Handle token usage including reasoning tokens and cached tokens
     if chunked.get("usage"):
-        usage = chunked.get("usage", {})
+        usage = chunked.get("usage") or {}
         scope._input_tokens = usage.get("prompt_tokens", 0)
         scope._output_tokens = usage.get("completion_tokens", 0)
         scope._cache_read_input_tokens = (usage.get("prompt_tokens_details") or {}).get(
@@ -831,7 +831,7 @@ def process_chat_response(
         scope._reasoning_content = reasoning_content
 
     # Handle token usage including reasoning tokens and cached tokens
-    usage = response_dict.get("usage", {})
+    usage = response_dict.get("usage") or {}
     scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._output_tokens = usage.get("completion_tokens", 0)
     scope._cache_read_input_tokens = (usage.get("prompt_tokens_details") or {}).get(
@@ -1019,7 +1019,7 @@ def process_embedding_response(
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
-    scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
+    scope._input_tokens = (response_dict.get("usage") or {}).get("prompt_tokens", 0)
     scope._response_model = response_dict.get("model")
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
