@@ -198,6 +198,8 @@ def test_streaming_chat_with_null_usage_chunk_keeps_ok_span_and_metadata():
     """A streaming update with ``usage: null`` is ignored, not instrumented."""
 
     class NullUsageStream:
+        """Minimal context-manager stream yielding scripted chunks."""
+
         def __init__(self, chunks):
             self._it = iter(chunks)
 
