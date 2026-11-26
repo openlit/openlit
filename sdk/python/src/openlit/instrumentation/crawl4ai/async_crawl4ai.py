@@ -131,8 +131,10 @@ def async_general_wrap(
                     # Execute the original async function
                     response = await wrapped(*args, **kwargs)
 
-                    # Handle async generators (streaming responses)
-                    if hasattr(response, "__aiter__"):
+                    # Handle async generators (streaming responses). arun()
+                    # returns a CrawlResultContainer, which defines __aiter__
+                    # but holds finished results, so test for __anext__.
+                    if hasattr(response, "__anext__"):
                         # The tracked generator ends the span once the stream is
                         # exhausted, closed, or discarded.
                         tracked = await _handle_async_generator(

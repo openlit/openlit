@@ -272,6 +272,39 @@ def test_non_streaming_response_still_ends_its_span():
         assert not dropped.records
 
 
+class _ResultContainer:
+    """Mirrors crawl4ai's CrawlResultContainer, which arun() returns."""
+
+    def __init__(self, results):
+        self._results = results
+
+    async def __aiter__(self):
+        for result in self._results:
+            yield result
+
+    def __getattr__(self, attr):
+        return getattr(self._results[0], attr)
+
+
+def test_arun_result_container_is_returned_unchanged():
+    """``await crawler.arun(url)`` must still hand back the container."""
+    with _telemetry() as (tracer, exporter, dropped):
+        container = _ResultContainer([_page(0)])
+
+        async def call(*_args, **_kwargs):
+            return container
+
+        result = asyncio.run(_invoke(tracer, call))
+
+        assert result is container
+        assert result.success is True
+        spans = exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert spans[0].status.status_code is StatusCode.OK
+        assert _durations(exporter)
+        assert not dropped.records
+
+
 def test_failing_call_still_ends_its_span():
     """An exception must end the span rather than leave it open."""
     with _telemetry() as (tracer, exporter, dropped):
