@@ -6,9 +6,11 @@ large language models (LLMs).
 """
 
 from typing import Any, Dict
+from asyncio import CancelledError
 import logging
 import os
 from importlib.util import find_spec
+from inspect import iscoroutinefunction, unwrap
 from functools import wraps
 from contextlib import ContextDecorator, contextmanager
 import requests
@@ -32,6 +34,7 @@ from openlit.__helpers import (
     reset_custom_attributes,
     record_agent_invocation,
     record_agent_tool_error,
+    truncate_content,
 )
 from openlit._config import OpenlitConfig  # noqa: F401 — re-exported for public API
 from openlit._instrumentors import (
@@ -927,7 +930,7 @@ def inject_additional_attributes(fn, attributes: Dict[str, Any]):
 
 def trace(wrapped):
     """
-    Generates a telemetry wrapper for messages to collect metrics.
+    Trace a synchronous function or the awaited execution of a coroutine.
     """
     if not callable(wrapped):
         raise TypeError(
@@ -943,41 +946,62 @@ def trace(wrapped):
         )
         raise
 
-    @wraps(wrapped)
-    def wrapper(*args, **kwargs):
+    @contextmanager
+    def traced_operation(args, kwargs):
         with tracer.start_as_current_span(
             name=wrapped.__name__,
             kind=SpanKind.CLIENT,
         ) as span:
-            response = None
             try:
-                response = wrapped(*args, **kwargs)
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, response or ""
-                )
+                yield span
                 span.set_status(Status(StatusCode.OK))
-            except Exception as e:
+            except (Exception, CancelledError) as e:
                 span.record_exception(e)
                 span.set_status(status=Status(StatusCode.ERROR), description=str(e))
                 logging.error("Error in %s: %s", wrapped.__name__, e, exc_info=True)
                 raise
 
-            try:
-                span.set_attribute("function.args", str(args))
-                span.set_attribute("function.kwargs", str(kwargs))
-                span.set_attribute(
-                    SERVICE_NAME,
-                    OpenlitConfig.application_name,
-                )
-                span.set_attribute(DEPLOYMENT_ENVIRONMENT, OpenlitConfig.environment)
-            except Exception as meta_exception:
-                logging.error(
-                    "Failed to set metadata for %s: %s",
-                    wrapped.__name__,
-                    meta_exception,
-                    exc_info=True,
-                )
+            finally:
+                try:
+                    if getattr(OpenlitConfig, "capture_message_content", True):
+                        span.set_attribute("function.args", truncate_content(args))
+                        span.set_attribute("function.kwargs", truncate_content(kwargs))
+                    span.set_attribute(
+                        SERVICE_NAME,
+                        OpenlitConfig.application_name,
+                    )
+                    span.set_attribute(DEPLOYMENT_ENVIRONMENT, OpenlitConfig.environment)
+                except Exception as meta_exception:
+                    logging.error(
+                        "Failed to set metadata for %s: %s",
+                        wrapped.__name__,
+                        meta_exception,
+                        exc_info=True,
+                    )
 
+    if iscoroutinefunction(unwrap(wrapped)):
+
+        @wraps(wrapped)
+        async def async_wrapper(*args, **kwargs):
+            with traced_operation(args, kwargs) as span:
+                response = await wrapped(*args, **kwargs)
+                if getattr(OpenlitConfig, "capture_message_content", True):
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                        truncate_content(response),
+                    )
+                return response
+
+        return async_wrapper
+
+    @wraps(wrapped)
+    def wrapper(*args, **kwargs):
+        with traced_operation(args, kwargs) as span:
+            response = wrapped(*args, **kwargs)
+            if getattr(OpenlitConfig, "capture_message_content", True):
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, truncate_content(response)
+                )
             return response
 
     return wrapper

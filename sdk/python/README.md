@@ -293,6 +293,11 @@ openlit.log_score("quality", 0.85, metadata={"reviewer": "human"})
 openlit.log_score("category", "accurate")
 ```
 
+## Manual tracing
+
+See [Manual tracing](https://docs.openlit.io/latest/sdk/features/tracing#manual-tracing)
+for synchronous and asynchronous examples and content-capture settings.
+
 ## 🛣️ Roadmap
 
 We are dedicated to continuously improving OpenLIT SDKs. Here's a look at what's been accomplished and what's on the horizon:

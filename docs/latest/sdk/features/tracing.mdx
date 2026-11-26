@@ -103,6 +103,35 @@ openlit.init(disabled_instrumentors=["anthropic", "langchain"])
 
 Using `openlit.trace`, you get access to manually create traces, allowing you to record every process within a single function.
 
+The decorator supports synchronous functions and `async def` functions, including
+coroutines wrapped with `functools.wraps`. For a coroutine, the span starts when
+it is awaited and remains active through completion or cancellation. Nested LLM
+and tool spans retain that parent; exceptions are recorded and re-raised.
+
+With your OpenLIT collector configured, run this example directly:
+
+```python
+import asyncio
+
+import openlit
+
+openlit.init()
+
+
+@openlit.trace
+async def reserve_room(minutes):
+    await asyncio.sleep(0)
+    return {"status": "booked", "minutes": minutes}
+
+
+print(asyncio.run(reserve_room(45)))
+```
+
+Manual traces honor `capture_message_content` and `max_content_length`. Disabling
+content capture omits function arguments and results while retaining operation
+metadata. Captured arguments and results use the SDK's string conversion and
+truncation, preserving values such as `False`, `0`, and structured results.
+
 ```python python
 @openlit.trace
 def generate_one_liner():
