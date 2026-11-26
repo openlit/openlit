@@ -664,7 +664,7 @@ def process_chat_response(
     scope._response_id = response_dict.get("id")
     scope._response_model = response_dict.get("model") or request_model
     # Handle token usage including reasoning tokens and cached tokens
-    usage = response_dict.get("usage", {})
+    usage = response_dict.get("usage") or {}
     scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._output_tokens = usage.get("completion_tokens", 0)
     scope._cache_read_input_tokens = (usage.get("prompt_tokens_details") or {}).get(
@@ -903,7 +903,7 @@ def process_chat_rag_response(
     scope._input_tokens = input_tokens
     scope._output_tokens = output_tokens
     # Handle token usage including reasoning tokens and cached tokens
-    usage = response_dict.get("usage", {})
+    usage = response_dict.get("usage") or {}
     scope._cache_read_input_tokens = (usage.get("prompt_tokens_details") or {}).get(
         "cached_tokens", 0
     ) or 0
