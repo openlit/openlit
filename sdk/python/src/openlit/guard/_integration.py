@@ -329,6 +329,37 @@ def _apply_preflight(
     return kwargs, result
 
 
+def _redact_anthropic_content_blocks(
+    pipeline: Pipeline,
+    content: List[Any],
+    combined_text: str,
+) -> None:
+    """Redact each Anthropic text block independently, in place.
+
+    The extractor joins every text block into one string, so the pipeline's
+    transformed text describes the whole response. Writing that combined
+    string into a single block would duplicate the other blocks and leave their
+    secrets untouched. Re-evaluate each block's own text and write each redacted
+    result back to the block it came from. A single block keeps the original
+    combined result verbatim, avoiding a redundant pipeline run.
+    """
+    if len(content) == 1:
+        block = content[0]
+        if hasattr(block, "text"):
+            block.text = combined_text
+        return
+
+    for block in content:
+        if not getattr(block, "text", None):
+            continue
+        block_result = pipeline.evaluate(block.text, phase="postflight")
+        if (
+            block_result.action == GuardAction.REDACT
+            and block_result.transformed_text is not None
+        ):
+            block.text = block_result.transformed_text
+
+
 def _apply_postflight(
     pipeline: Pipeline,
     response: Any,
@@ -355,10 +386,9 @@ def _apply_postflight(
             else:
                 content = getattr(response, "content", None)
                 if isinstance(content, list) and content:
-                    for block in content:
-                        if hasattr(block, "text"):
-                            block.text = result.transformed_text
-                            break
+                    _redact_anthropic_content_blocks(
+                        pipeline, content, result.transformed_text
+                    )
                 elif hasattr(response, "text"):
                     response.text = result.transformed_text
         except Exception:
