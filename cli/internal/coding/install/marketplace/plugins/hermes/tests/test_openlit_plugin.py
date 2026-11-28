@@ -607,6 +607,63 @@ def test_string_responses_input_is_a_user_message():
     ]
 
 
+def test_responses_input_items_keep_tool_calls_outputs_and_reasoning():
+    # Hermes codex_responses sends top-level items without a role for tool calls, outputs and reasoning.
+    observer, exporter = make_observer(capture_content=True)
+    request = {"method": "POST", "body": {"input": [
+        {"role": "user", "content": [{"type": "input_text", "text": "read notes.txt"}]},
+        {"type": "reasoning", "summary": [{"type": "summary_text", "text": "check the file"}]},
+        {"type": "function_call", "call_id": "call_1", "name": "read_file",
+         "arguments": '{"path": "notes.txt"}'},
+        {"type": "function_call_output", "call_id": "call_1",
+         "output": [{"type": "text", "text": "file body"}]},
+    ]}}
+    observer.llm_call(**llm_payload(request=request))
+
+    messages = json.loads(by_name(exporter)["chat gpt-5"].attributes[SC.GEN_AI_INPUT_MESSAGES])
+    assert messages == [
+        {"role": "user", "parts": [{"type": "text", "content": "read notes.txt"}]},
+        {"role": "assistant", "parts": [{"type": "reasoning", "content": "check the file"}]},
+        {"role": "assistant", "parts": [{
+            "type": "tool_call", "id": "call_1", "name": "read_file",
+            "arguments": {"path": "notes.txt"},
+        }]},
+        {"role": "tool", "parts": [{
+            "type": "tool_call_response", "id": "call_1", "response": "file body",
+        }]},
+    ]
+
+
+def test_multimodal_user_message_on_turn_start_omits_image_data():
+    observer, exporter = make_observer(capture_content=True)
+    user_blocks = [
+        {"type": "text", "text": "inspect this"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,aGVsbG8="}},
+    ]
+    observer.turn_start(session_id="s1", turn_id="t1", model="gpt-5", user_message=user_blocks)
+    observer.turn_end(turn_id="t1")
+
+    raw = by_name(exporter)["invoke_agent hermes"].attributes[SC.GEN_AI_INPUT_MESSAGES]
+    assert "aGVsbG8=" not in raw
+    assert json.loads(raw) == [{
+        "role": "user",
+        "parts": [{"type": "text", "content": "inspect this"}, {"type": "image_url"}],
+    }]
+
+
+def test_tool_call_respects_max_content_length(monkeypatch):
+    from openlit._config import OpenlitConfig
+
+    monkeypatch.setattr(OpenlitConfig, "max_content_length", 10, raising=False)
+    observer, exporter = make_observer(capture_content=True)
+    observer.tool_call(**tool_payload(args={"command": "0123456789abcdef"}, result="0123456789abcdef"))
+
+    span = by_name(exporter)["execute_tool terminal"]
+    assert span.attributes[SC.GEN_AI_TOOL_CALL_ARGUMENTS].endswith("...")
+    assert len(span.attributes[SC.GEN_AI_TOOL_CALL_ARGUMENTS]) == 13
+    assert span.attributes[SC.GEN_AI_TOOL_CALL_RESULT] == "0123456789..."
+
+
 def test_system_prompt_in_messages_adds_no_system_instructions():
     observer, exporter = make_observer(capture_content=True)
     request = {"method": "POST", "body": {"messages": [
