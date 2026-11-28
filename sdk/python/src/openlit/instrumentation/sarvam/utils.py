@@ -621,7 +621,7 @@ def process_chat_response(
         scope._output_tokens = usage.get("completion_tokens", 0)
 
     # Handle token usage including reasoning tokens and cached tokens
-    usage = response_dict.get("usage", {})
+    usage = response_dict.get("usage") or {}
     prompt_tokens_details = usage.get("prompt_tokens_details", {})
     scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
     scope._cache_creation_input_tokens = (

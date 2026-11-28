@@ -710,8 +710,8 @@ def process_chat_response(
     )
     scope._response_id = response_dict.get("id")
     scope._response_model = response_dict.get("model")
-    scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
-    scope._output_tokens = response_dict.get("usage", {}).get("completion_tokens", 0)
+    scope._input_tokens = (response_dict.get("usage") or {}).get("prompt_tokens", 0)
+    scope._output_tokens = (response_dict.get("usage") or {}).get("completion_tokens", 0)
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
@@ -731,7 +731,7 @@ def process_chat_response(
         scope._tools = None
 
     # Handle token usage including reasoning tokens and cached tokens
-    usage = response_dict.get("usage", {})
+    usage = response_dict.get("usage") or {}
     input_tokens_details = usage.get("input_tokens_details") or usage.get(
         "prompt_tokens_details", {}
     )
@@ -866,7 +866,7 @@ def process_embedding_response(
     scope._end_time = time.time()
     scope._span = span
     scope._response_model = response_dict.get("model")
-    scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
+    scope._input_tokens = (response_dict.get("usage") or {}).get("prompt_tokens", 0)
     scope._ttft = scope._end_time - scope._start_time
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
