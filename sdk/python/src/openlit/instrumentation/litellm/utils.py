@@ -802,7 +802,7 @@ def process_chat_response(
         (choice.get("message", {}).get("content") or "")
         for choice in response_dict.get("choices", [])
     )
-    usage = response_dict.get("usage", {})
+    usage = response_dict.get("usage") or {}
     # Handle token usage including reasoning tokens and cached tokens
     scope._input_tokens = usage.get("prompt_tokens", 0)
     scope._output_tokens = usage.get("completion_tokens", 0)
@@ -875,7 +875,7 @@ def process_embedding_response(
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
-    scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
+    scope._input_tokens = (response_dict.get("usage") or {}).get("prompt_tokens", 0)
     scope._response_model = response_dict.get("model") or ""
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
