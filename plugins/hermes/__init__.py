@@ -173,6 +173,37 @@ def _message(role: str, content: Any, tool_calls: Any = None) -> dict[str, Any]:
     return {"role": role, "parts": parts} if parts else format_input_message(role, "")
 
 
+def _responses_input_item(item: dict[str, Any]) -> dict[str, Any] | None:
+    """OTel GenAI message for a role-less Responses API input item, or None for chat messages."""
+    kind = item.get("type")
+    if kind in ("function_call", "custom_tool_call"):
+        arguments = item.get("arguments") if kind == "function_call" else item.get("input")
+        call = {
+            "id": item.get("call_id") or item.get("id") or "",
+            "name": item.get("name") or "",
+            "arguments": arguments,
+        }
+        return {"role": "assistant", "parts": _tool_call_parts([call])}
+    if kind in ("function_call_output", "custom_tool_call_output"):
+        return {
+            "role": "tool",
+            "parts": [{
+                "type": "tool_call_response",
+                "id": item.get("call_id") or item.get("id") or "",
+                "response": truncate_content(_block_text(item.get("output"))),
+            }],
+        }
+    if kind == "reasoning":
+        return {
+            "role": "assistant",
+            "parts": [{
+                "type": "reasoning",
+                "content": truncate_content(_block_text(item.get("summary"))),
+            }],
+        }
+    return None
+
+
 def _input_messages(request: Any) -> list[dict[str, Any]]:
     """OTel GenAI messages from Hermes's sanitized provider request."""
     body = (request or {}).get("body") or {}
@@ -183,6 +214,10 @@ def _input_messages(request: Any) -> list[dict[str, Any]]:
     formatted = []
     for message in messages:
         if not isinstance(message, dict):
+            continue
+        responses_item = None if "role" in message else _responses_input_item(message)
+        if responses_item is not None:
+            formatted.append(responses_item)
             continue
         item = _message(
             message.get("role") or "user", message.get("content"), message.get("tool_calls")
@@ -282,7 +317,7 @@ class Observer:
             }),
         )
         if self.capture_content:
-            message = format_input_message("user", kwargs.get("user_message") or "")
+            message = _message("user", kwargs.get("user_message") or "")
             span.set_attribute(SC.GEN_AI_INPUT_MESSAGES, _to_json([message]))
         context = trace.set_span_in_context(span, Context())
         self.turns[kwargs.get("turn_id") or ""] = Turn(span, context, session_id or "")
@@ -470,8 +505,14 @@ class Observer:
             }),
         )
         if self.capture_content:
-            span.set_attribute(SC.GEN_AI_TOOL_CALL_ARGUMENTS, _to_json(kwargs.get("args")))
-            span.set_attribute(SC.GEN_AI_TOOL_CALL_RESULT, str(kwargs.get("result")))
+            span.set_attribute(
+                SC.GEN_AI_TOOL_CALL_ARGUMENTS, truncate_content(_to_json(kwargs.get("args")))
+            )
+            result = kwargs.get("result")
+            span.set_attribute(
+                SC.GEN_AI_TOOL_CALL_RESULT,
+                truncate_content("" if result is None else str(result)),
+            )
         if status == "error":
             _set_error(span, kwargs.get("error_type"))
         span.end(end_time=end_ns)
